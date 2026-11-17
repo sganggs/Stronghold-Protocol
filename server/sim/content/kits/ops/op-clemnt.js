@@ -12,7 +12,7 @@ import { absoluteRangeKeys, canTargetEnemy } from '../../../targeting.js';
 import { bodyInKeys, hitRect } from '../../../body.js';
 import { dirVec } from '../../../dir.js';
 import { COLS } from '../../../constants.js';
-import { hasHp } from '../../../damage.js';
+import { hasHp } from '../../../attack.js';
 
 const S1 = 'skchr_clemnt_1', S2 = 'skchr_clemnt_2', S3 = 'skchr_clemnt_3';
 const GROUND = Object.freeze({ canHitFly: false, groundOnly: true });
@@ -129,6 +129,8 @@ export default {
     const bombard = (battle, unit, e, m, skill) => {
       const [r, c] = tile(e), key = r * COLS + c;
       if ((m.tiles.get(key) ?? -1) > battle.time) return false;
+      // the tile stays locked for the S3 blackboard's projectile_life_time (3.5 s since CN 2.7.91, 5 s before; the
+      // fallback only serves a record without the key)
       m.tiles.set(key, battle.time + num(b3.projectile_life_time, 5));
       const keys = new Set([[r, c], [r + 1, c], [r - 1, c], [r, c + 1], [r, c - 1]].map(([rr, cc]) => rr * COLS + cc));
       const atk = unit.s.atk;

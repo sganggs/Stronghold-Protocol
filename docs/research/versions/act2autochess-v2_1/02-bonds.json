@@ -1,0 +1,189 @@
+{
+  "_note": "M2: historical official descriptions replace incompatible second-season research specs. Runtime reads the blackboards, not this explanatory overlay. See history/0.3.2.md §35.22.7.",
+  "bonds": [
+    {
+      "bondId": "yanShip",
+      "spec": {
+        "source": "Pinned activity_table for act2autochess-v2_1",
+        "effect": "【炎】干员攻击力+{0:0%}（受层数影响）\n<在场6名不同【炎】干员>战斗开始时收集【炎】干员部分属性召唤“炎佑”（其攻击力和生命值为【炎】干员攻击力和生命值总和的30%）；“炎佑”同时攻击3个目标，攻击附带20%攻击力的灼燃损伤，周围敌人受到20%的元素脆弱，周期性使用“祛恶之焰”\n<在场9名不同【炎】干员>改为召唤2只“炎佑”；“炎佑”攻击力提升至1.5倍，受到的伤害-90%",
+        "activation": 3
+      }
+    },
+    {
+      "bondId": "sargonShip",
+      "spec": {
+        "source": "Pinned activity_table for act2autochess-v2_1",
+        "effect": "【萨尔贡】干员开启技能时，所有【萨尔贡】干员攻击速度+12（至多+300），持续{0:0}秒（受层数影响）\n<在场6名不同【萨尔贡】干员>开启技能还会使所有【萨尔贡】干员攻击力+12%（至多+300%）\n选择策略【娜仁图亚】时，<在场6名不同【萨尔贡】干员>的效果会有所改变",
+        "activation": 3
+      }
+    },
+    {
+      "bondId": "victoriaShip",
+      "spec": {
+        "source": "Pinned activity_table for act2autochess-v2_1",
+        "effect": "携带装备的【维多利亚】干员伤害提升至{0:0%}（受层数影响）\n<每叠加25层>获得一件带有随机特殊效果的维式重锤\n<在场6名不同【维多利亚】干员>【维多利亚】干员每携带1件装备攻击力+50%，携带进阶装备改为+80%",
+        "activation": 3
+      }
+    },
+    {
+      "bondId": "kjeragShip",
+      "spec": {
+        "source": "Pinned activity_table for act2autochess-v2_1",
+        "effect": "【谢拉格】干员伤害提升至125%，对寒冷和冻结敌人额外提升至{0:0%}（受层数影响）\n<在场6名不同【谢拉格】干员>战场上每25秒吹过一阵寒风使敌人寒冷{1:0}秒（受层数影响）",
+        "activation": 3
+      }
+    },
+    {
+      "bondId": "lateranoShip",
+      "spec": {
+        "source": "Pinned activity_table for act2autochess-v2_1",
+        "effect": "【拉特兰】干员开启技能时获得的弹药量+{0:0%}（受层数影响）\n<在场6名不同【拉特兰】干员>任意【拉特兰】干员每消耗1发弹药，全体【拉特兰】干员攻击力+4%，至多+200%",
+        "activation": 3
+      }
+    },
+    {
+      "bondId": "egirShip",
+      "spec": {
+        "source": "Pinned activity_table for act2autochess-v2_1",
+        "effect": "【阿戈尔】干员生命值+{0:0%}（受层数影响）\n战斗开始时【阿戈尔】干员依次吞噬身前一格干员造成5000点物理伤害并获得其基础攻击力和阻挡数，并叠加等于被吞噬者等阶的盟约层数（【阿戈尔】之间优先更靠下和靠左的干员发起吞噬）\n<在场5名不同【阿戈尔】干员>前3名【阿戈尔】干员首次被击倒时立刻复活",
+        "activation": 3
+      }
+    },
+    {
+      "bondId": "siracusaShip",
+      "spec": {
+        "source": "Pinned activity_table for act2autochess-v2_1",
+        "effect": "【叙拉古】干员部署后攻击速度+{0:0}，持续{1:0}秒（受层数影响）\n<在场6名不同【叙拉古】干员>【叙拉古】干员部署后还会进入等时长的隐匿状态，【叙拉古】干员在隐匿状态和脱离隐匿10秒内对敌人攻击时有3%概率造成{2:0}（受层数影响）点真实伤害并恐惧目标3秒",
+        "activation": 3
+      }
+    },
+    {
+      "bondId": "kazimierzShip",
+      "spec": {
+        "source": "Pinned activity_table for act2autochess-v2_1",
+        "effect": "每次有干员部署时【卡西米尔】干员攻击力+20%（至多+{0:0%}）（受层数影响）\n<在场6名不同【卡西米尔】干员>【卡西米尔】干员阻挡敌人时每2秒对周围敌人造成120%攻击力真实伤害和0.1秒晕眩，未阻挡敌人时攻击附带30%攻击力的真实伤害",
+        "activation": 3
+      }
+    },
+    {
+      "bondId": "preciShip",
+      "spec": {
+        "source": "Pinned activity_table for act2autochess-v2_1",
+        "effect": "【精准】干员攻击力+{0:0%}（受层数影响）\n<在场3名不同【精准】干员>生效范围变为所有【精准】干员和远程干员，且攻击无视30%防御力和法术抗性",
+        "activation": 2
+      }
+    },
+    {
+      "bondId": "swiftShip",
+      "spec": {
+        "source": "Pinned activity_table for act2autochess-v2_1",
+        "effect": "【迅捷】干员技能结束时有{0:0%}概率（受层数影响）立刻回复12点技力\n<达到40层>所有干员技能结束时有等概率额外回复15点技力",
+        "activation": 2
+      }
+    },
+    {
+      "bondId": "skillfulShip",
+      "spec": {
+        "source": "Pinned activity_table for act2autochess-v2_1",
+        "effect": "【灵巧】干员及周围4格的干员攻击速度+{0:0}（受层数影响）\n <达到40层>生效范围变为【灵巧】干员周围8格",
+        "activation": 2
+      }
+    },
+    {
+      "bondId": "arcaneShip",
+      "spec": {
+        "source": "Pinned activity_table for act2autochess-v2_1",
+        "effect": "【奥术】干员造成法术伤害时使目标受到的法术伤害提升{0:0%}（受层数影响），持续3秒\n<在场3名不同【奥术】干员>【奥术】干员对生命值低于50%的敌人施加的伤害提升比例为{1:0%}（受层数影响）",
+        "activation": 2
+      }
+    },
+    {
+      "bondId": "steadShip",
+      "spec": {
+        "source": "Pinned activity_table for act2autochess-v2_1",
+        "effect": "所有干员生命值+{0:0%}（受层数影响）\n<在场3名不同【坚守】干员>场上非【坚守】干员受到伤害时，所受伤害的40%由【坚守】干员平均承担；【坚守】干员受到伤害时，伤害来源受到{1:0}点法术伤害（受层数影响，每0.2秒至多触发1次）和持续5秒的40%的脆弱效果",
+        "activation": 2
+      }
+    },
+    {
+      "bondId": "deputShip",
+      "spec": {
+        "source": "Pinned activity_table for act2autochess-v2_1",
+        "effect": "所有干员防御力+{0:0%}（受层数影响），再部署时间-30%\n休整期结束时，使当前所有已激活的盟约层数+2\n<在场3名不同【助力】干员>改为层数+4",
+        "activation": 2
+      }
+    },
+    {
+      "bondId": "visiShip",
+      "spec": {
+        "source": "Pinned activity_table for act2autochess-v2_1",
+        "effect": "<每叠加10层>获得一次2资金\n<首次到达80层>所有【远见】干员购买价格永久-1资金\n<首次到达150层>所有干员购买价格永久-1资金\n整备区的【远见】干员也可用于激活盟约",
+        "activation": 2
+      }
+    },
+    {
+      "bondId": "miraShip",
+      "spec": {
+        "source": "Pinned activity_table for act2autochess-v2_1",
+        "effect": "刷新调度中心时，有{0:0%}（受层数影响）概率使下次刷新不消耗资金\n<每叠加50层>获得10资金\n整备区的【奇迹】干员也可用于激活盟约",
+        "activation": 2
+      }
+    },
+    {
+      "bondId": "investShip",
+      "spec": {
+        "source": "Pinned activity_table for act2autochess-v2_1",
+        "effect": "干员的“获得时”类特质每次触发2次\n<达到70层>“获得时”类特质每次触发3次\n整备区的【投资人】干员也可用于激活盟约",
+        "activation": 3
+      }
+    },
+    {
+      "bondId": "raidShip",
+      "spec": {
+        "source": "Pinned activity_table for act2autochess-v2_1",
+        "effect": "【突袭】干员10秒内未进行攻击或技能就绪时，若范围内没有敌人，则保留技力立即再部署至一名地面敌人周围，期间攻击力和生命值+{0:0%}（受层数影响）\n <达到50层>所有干员攻击速度+50",
+        "activation": 2
+      }
+    },
+    {
+      "bondId": "indomShip",
+      "spec": {
+        "source": "Pinned activity_table for act2autochess-v2_1",
+        "effect": "地面干员被击倒时，有{0:0%}（受层数影响）概率立刻重新部署\n<在场3名不同【不屈】干员>地面干员被击倒时使场上所有干员技力+5",
+        "activation": 2
+      }
+    },
+    {
+      "bondId": "maniShip",
+      "spec": {
+        "source": "Pinned activity_table for act2autochess-v2_1",
+        "effect": "激活时可以使场上核心盟约的激活人数+1，【调和】干员享受已激活的核心盟约的效果",
+        "activation": 1
+      }
+    },
+    {
+      "bondId": "emptyShip",
+      "spec": {
+        "source": "Pinned activity_table for act2autochess-v2_1",
+        "effect": "所有干员受到的物理和法术伤害-20%；【协防干员】伤害提升至120%，精锐【协防干员】造成伤害提升至140%",
+        "activation": 2
+      }
+    },
+    {
+      "bondId": "soloShip",
+      "spec": {
+        "source": "Pinned activity_table for act2autochess-v2_1",
+        "effect": "<在场1名【独行】干员>【独行】干员攻击力和生命值+60%，初始技力+15（在场2名及以上【独行】干员时失效）",
+        "activation": 1
+      }
+    },
+    {
+      "bondId": "suntShip",
+      "spec": {
+        "source": "Pinned activity_table for act2autochess-v2_1",
+        "effect": "<在场2名精锐状态的干员>精锐状态的干员攻击力+30%\n<在场5名精锐状态的干员>精锐状态的干员技力消耗-30%\n（所有干员的精锐状态均可激活本盟约）",
+        "activation": 2
+      }
+    }
+  ]
+}

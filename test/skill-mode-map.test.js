@@ -230,3 +230,88 @@ test('buildPlan without charModes still puts the `_s` bank of attack.7 on skill 
   assert.equal(u.attacks['0'], undefined);
   assert.equal(u.attacks['1'], undefined);
 });
+
+test('宴: her S2 mode keeps the plain swing but plays its own `p_imp_darksword_n` impact (a `_n` mode file that is not the normal one)', () => {
+  const banks = new Map([
+    ['ON_ABILITY_ON.attack', [P('p_atk_sword_n')]],
+    ['ON_ABILITY_HIT.attack', [P('p_imp_sword_n')]],
+    ['ON_ABILITY_START.attack.2', [P('p_atk_sword_n')]],
+    ['ON_ABILITY_HIT.attack.2', [P('p_imp_darksword_n')]],
+  ]);
+  const listed = modes('Default', 'S1', 'S2');
+  const skills = [row(0, 1, 'skchr_utage_1'), row(1, 2, 'skchr_utage_2')];
+  const links = new Map(skills.map((s) => [s.skillId, s.mode]));
+  const got = assignSkillModeSfx(banks, skills, listed, links);
+  assert.deepEqual(got.attacks, {}, 'the S2 swing is the normal sword file, not a mode sound');
+  assert.deepEqual(got.hits, { 1: [P('p_imp_darksword_n')] }, 'S2’s impact is the darksword file');
+});
+
+test('银灰: an `_n` mode bank the normal attack never plays is a mode sound; with no normal swing to compare, the S3 swing stays out', () => {
+  const listed = modes('Default', 'S2', 'S3');
+  const skills = [row(0, null, 'skchr_sv_1'), row(1, 1, 'skchr_sv_2'), row(2, 2, 'skchr_sv_3')];
+  const links = new Map([['skchr_sv_2', 1], ['skchr_sv_3', 2]]);
+  // his normal attack is the Default mode's Combat (impact only; no swing bank)
+  const banks = new Map([
+    ['ON_ABILITY_HIT.combat', [P('p_imp_spear_n')]],
+    ['ON_ABILITY_START.attack.2', [P('p_atk_silver_n')]],
+    ['ON_ABILITY_HIT.attack.2', [P('p_imp_sword_n')]],
+    ['ON_ABILITY_HIT.attack.1', [P('p_imp_sword_n')]],
+  ]);
+  const got = assignSkillModeSfx(banks, skills, listed, links);
+  assert.deepEqual(got.attacks, {}, 'no plain swing bank to compare with: the S3 swing stays out');
+  assert.deepEqual(got.hits, { 1: [P('p_imp_sword_n')], 2: [P('p_imp_sword_n')] }, 'his S2 / S3 impacts are sword, not the spear Combat');
+});
+
+// PR #848 review: the widened plain-bank rule only fills a skill nothing else fills (the triage's scan of the official
+// banks found 36 slot changes on 25 operators with the PR as written; these four rules took back the 7 wrong ones).
+test('假日威龙陈: a plain START cast bank never displaces the lettered ON swing of the same mode (letter first)', () => {
+  const banks = new Map([
+    ['ON_ABILITY_START.attack', [P('p_atk_watergun_n_cast')]],
+    ['ON_ABILITY_ON.attack', [P('p_atk_watergun_n')]],
+    ['ON_ABILITY_START.attack.1', [P('p_atk_watergun_d_cast')]],
+    ['ON_ABILITY_ON.attack.1', [P('p_atk_watergun_d')]],
+    ['ON_ABILITY_START.attack.4', [P('p_atk_watergun_s_cast')]],
+    ['ON_ABILITY_ON.attack.4.1', [P('p_atk_watergun_s')]],
+  ]);
+  const skills = [row(0, 1, 'skchr_chen2_1'), row(2, 4, 'skchr_chen2_3')];
+  const got = assignSkillModeSfx(banks, skills, modes('Default', 'S1', 'S2', 'S2+', 'S3'), new Map(skills.map((s) => [s.skillId, s.mode])));
+  assert.deepEqual(got.attacks, { 0: [P('p_atk_watergun_d')], 2: [P('p_atk_watergun_s')] });
+});
+
+test('仇白: a mode 0 sub-ability (`combat.0.1`) counts as the normal attack, so her S2 mode replaying it adds nothing', () => {
+  const banks = new Map([
+    ['ON_ABILITY_START.attack.0', [P('p_atk_swordfar_n')]],
+    ['ON_ABILITY_START.combat.0.1', [P('p_atk_swordclosestab_n')]],
+    ['ON_ABILITY_START.attack.1', [P('p_atk_swordfar_n')]],
+    ['ON_ABILITY_START.combat.1.1', [P('p_atk_swordclosestab_n')]],
+    ['ON_ABILITY_START.attack.2', [P('p_atk_swordfar_h')]],
+  ]);
+  const skills = [row(0, null, 'skchr_qiubai_1'), row(1, 1, 'skchr_qiubai_2'), row(2, 2, 'skchr_qiubai_3')];
+  const got = assignSkillModeSfx(banks, skills, modes('Default', 'S2', 'S3'), new Map(skills.map((s) => [s.skillId, s.mode])));
+  assert.deepEqual(got.attacks, { 2: [P('p_atk_swordfar_h')] }, 'S2 stays quiet; S3 keeps its lettered swing');
+});
+
+test('乌尔比安: a plain bank of a phase mode (S3_Respawn_A) is not a fill for S3, whose own mode plays the normal file', () => {
+  const banks = new Map([
+    ['ON_ABILITY_START.attack.0', [P('p_atk_wtrbatnchr_n')]],
+    ['ON_ABILITY_HIT.attack.0', [P('p_imp_wtrbatnchr_n')]],
+    ['ON_ABILITY_START.attack.2', [P('p_atk_wtrbatnchr_n')]],
+    ['ON_ABILITY_HIT.attack.2', [P('p_imp_wtrbatnchr_n')]],
+    ['ON_ABILITY_START.attack.3', [P('p_atk_wtrbatnchr')]],
+    ['ON_ABILITY_HIT.attack.3', [P('p_imp_wtrbatnchr')]],
+  ]);
+  const skills = [row(0, null, 'skchr_ulpia_1'), row(1, 1, 'skchr_ulpia_2'), row(2, 2, 'skchr_ulpia_3')];
+  const got = assignSkillModeSfx(banks, skills, modes('Default', 'S2', 'S3', 'S3_Respawn_A', 'S3_Restore'), new Map(skills.map((s) => [s.skillId, s.mode])));
+  assert.deepEqual(got.attacks, {});
+  assert.deepEqual(got.hits, {});
+});
+
+test('a mixed bank (a plain first file, a lettered later one) stays skipped, as ASSETS.md says', () => {
+  const banks = new Map([
+    ['ON_ABILITY_HIT.attack', [P('p_imp_sword_n')]],
+    ['ON_ABILITY_HIT.attack.1', [P('p_imp_darksword_n'), P('p_imp_darksword_h')]],
+  ]);
+  const skills = [row(0, 1, 'skchr_x_1')];
+  const got = assignSkillModeSfx(banks, skills, modes('Default', 'S1'), new Map([['skchr_x_1', 1]]));
+  assert.deepEqual(got.hits, {});
+});

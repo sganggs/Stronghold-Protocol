@@ -32,11 +32,15 @@
 import { PROTOCOL_VERSION, ERR_TEXT } from '../../shared/constants.js';
 import { validateC2S } from '../../shared/protocol.js';
 import { N_ } from '../../shared/i18n.js';
+import { STATE_DELTA_VERSION, StateReceiver } from '../../shared/stateDelta.js';
+import { PeerTransport } from './p2p.js';
 
 export const REQUEST_TIMEOUT_MS = 8000;
 export const HELLO_TIMEOUT_MS = 8000;
 export const PING_INTERVAL_MS = 4000;
 export const DEAD_AFTER_MS = 15000;
+/** Minimum gap between two `state.resync` requests: a gap in one channel is answered by the full frame of the next one. */
+export const RESYNC_GAP_MS = 1000;
 export const BACKOFF = Object.freeze({ base: 500, factor: 2, max: 10000, jitter: 0.2 });
 
 /** Client-side error codes (in addition to shared ERR codes). */
@@ -70,7 +74,9 @@ export function errorText(code, msg) {
 export class NetError extends Error {
   /** @param {string} code @param {string} [msg] server text @param {string} [detail] server developer detail */
   constructor(code, msg, detail) {
-    const versionMismatch = typeof detail === 'string' && /version/i.test(detail);
+    // only hello's protocol check (server/net.js: BAD_MSG "version mismatch: server N"): a refusal whose detail merely
+    // names an official version (VERSION_UNSUPPORTED, "not a mode of this version", a plugin's versions) keeps its text
+    const versionMismatch = code === 'BAD_MSG' && typeof detail === 'string' && /^version mismatch\b/i.test(detail);
     super(versionMismatch ? CLIENT_ERR_TEXT.VERSION : errorText(code, msg));
     this.name = 'NetError';
     this.code = String(code || 'INTERNAL');
@@ -118,6 +124,7 @@ export class Net {
    * @param {() => number} [opts.now]
    * @param {() => number} [opts.random]
    * @param {{setTimeout: Function, clearTimeout: Function, setInterval: Function, clearInterval: Function}} [opts.timers]
+   * @param {object} [opts.p2p] optional WebRTC transport dependencies; enabled:false opts out
    */
   constructor(opts = {}) {
     this.url = opts.url || null;
@@ -163,6 +170,13 @@ export class Net {
     this._lastRx = 0;
     this._unansweredSince = null; // time of the oldest ping sent since the last inbound frame
     this._clockSamples = [];   // [{ offset, rtt }]
+    // State-delta decoding (shared/stateDelta.js): only ever fed frames a server chose to send this client after its
+    // hello named STATE_DELTA_VERSION. A missed frame blocks that channel, and one resync request per RESYNC_GAP_MS
+    // asks for a full one — the server answers it like a repeated hello (and throttles it the same way).
+    this._receiver = new StateReceiver();
+    this._stateRoom = null;
+    this._resyncAt = 0;        // epoch ms of the last resync request we sent
+    this.peers = new PeerTransport(this, opts.p2p);
   }
 
   // ---- events ----------------------------------------------------------------------------------
@@ -352,6 +366,11 @@ export class Net {
     this._clearTimer('_helloTimer', 'clearTimeout');
     this._helloRid = null;
     this._helloSentName = null;
+    // A new socket is a new negotiation (server/net.js onHelloMsg re-baselines per connection): the sequences the old
+    // one used mean nothing here, so a stale baseline must never make the first full frame of the new one look old.
+    this._receiver?.reset();
+    this._stateRoom = null;
+    this._resyncAt = 0;
   }
 
   _clearTimer(field, fn) {
@@ -366,7 +385,9 @@ export class Net {
   _sendHello() {
     if (!this.name) return;
     const rid = this._nextRid();
-    const msg = { t: 'hello', rid, name: this.name, version: PROTOCOL_VERSION };
+    // `delta` says this build decodes `m.state` frames (shared/stateDelta.js). A server that does not speak it ignores
+    // the field, and the client then keeps receiving the plain m.public / m.private frames it always got.
+    const msg = { t: 'hello', rid, name: this.name, version: PROTOCOL_VERSION, delta: STATE_DELTA_VERSION };
     let token = null;
     try { token = this.getToken(); } catch { token = null; }
     if (typeof token === 'string' && token.length > 0 && token.length <= 64) {
@@ -527,6 +548,19 @@ export class Net {
 
   // ---- incoming --------------------------------------------------------------------------------
 
+  /**
+   * Ask the server for one full state frame (the answer to a gap in the delta stream). Rate-limited: one request per
+   * RESYNC_GAP_MS covers every channel, because the server re-sends the whole room state at once. Silent while offline —
+   * the next welcome resyncs anyway.
+   */
+  requestResync() {
+    const now = this.now();
+    if (now - this._resyncAt < RESYNC_GAP_MS) return;
+    this._resyncAt = now;
+    try { this.request('state.resync').catch(() => { /* the next full frame fixes it, or the room resyncs */ }); }
+    catch { /* offline: the reconnect resyncs the room from scratch */ }
+  }
+
   _onMessage(data) {
     this._lastRx = this.now();
     this._unansweredSince = null;
@@ -538,6 +572,24 @@ export class Net {
       return;
     }
     if (!msg || typeof msg !== 'object' || Array.isArray(msg) || typeof msg.t !== 'string') return;
+    // State-delta transport (shared/stateDelta.js): a negotiated server may compress the two big views into `m.state`
+    // frames. They are decoded here and continue as the ordinary m.public / m.private messages every listener already
+    // handles, so nothing above this line notices the difference. A frame that cannot be applied (a gap, a lost or
+    // reordered delta, an older full frame) is dropped and one rate-limited `state.resync` asks for a full one.
+    if (msg.t === 'room.closed' || (msg.t === 'room.state' && msg.code !== this._stateRoom)) {
+      this._stateRoom = msg.t === 'room.state' ? msg.code : null;
+      this._receiver.reset();
+      this._resyncAt = 0;
+    }
+    if (msg.t === 'm.state') {
+      const { message, resync } = this._receiver.receive(msg);
+      if (resync) this.requestResync();
+      if (message == null) return;
+      msg = message;
+    }
+    // Peer delivery (public/js/p2p.js): every snapshot — WebSocket or decoded from m.state — passes the same
+    // server-issued delivery order, so a delayed frame from either transport cannot overwrite newer state.
+    if (msg.t === 'm.public' && !this.peers.directSnapshot(msg)) return;
     const { t } = msg;
     const rid = msg.rid;
     const isHelloError = t === 'error' && rid != null && rid === this._helloRid;
@@ -576,6 +628,18 @@ export class Net {
   }
 
   // ---- heartbeat & clock -----------------------------------------------------------------------
+
+  /** A verified public snapshot; peer traffic never answers a WebSocket heartbeat or request. */
+  acceptPeerSnapshot(msg) {
+    const continuingHandshake = this.status === 'handshaking' && this.ws
+      && this.peers.sessionWs === this.ws && this.peers.sessionPlayerId === this.playerId;
+    if ((this.status !== 'online' && !continuingHandshake) || msg?.t !== 'm.public') return;
+    if (Number.isFinite(msg.serverNow) && !this.clockSynced) {
+      this._addClockSample(msg.serverNow + (this.ping ?? 0) / 2 - this.now(), Infinity);
+    }
+    this._emit('m.public', msg);
+    this._emit('*', msg);
+  }
 
   _startHeartbeat() {
     this._clearTimer('_pingTimer', 'clearInterval');

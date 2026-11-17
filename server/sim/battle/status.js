@@ -5,7 +5,7 @@
 
 import { COLD_FREEZE_DURATION, LEVITATE_HALF_WEIGHT, RESIST_DEFAULT } from '../constants.js';
 import { makeBuff, STATUS, RESIST_STATUSES } from '../buffs.js';
-import { palsyBuff } from '../damage.js';
+import { palsyBuff } from '../attack.js';
 import { evadesGround } from '../targeting.js';
 import { stampFear } from '../fear.js';
 
@@ -63,10 +63,13 @@ export class BattleStatus {
 
   removeBuff(unit, keyOrBuff) {
     if (!unit) return 0;
+    // [ASSUMED] API contract (DESIGN §35.5): snapshot reverse-order matches; buffs added by callbacks wait.
+    // onRemove can synchronously remove another buff, so locate each survivor in the current list.
+    const matches = unit.buffs.filter((b) => b === keyOrBuff || b.key === keyOrBuff).reverse();
     let n = 0;
-    for (let i = unit.buffs.length - 1; i >= 0; i--) {
-      const b = unit.buffs[i];
-      if (b === keyOrBuff || b.key === keyOrBuff) { this._removeBuffAt(unit, i, true); n++; }
+    for (const b of matches) {
+      const i = unit.buffs.indexOf(b);
+      if (i >= 0) { this._removeBuffAt(unit, i, true); n++; }
     }
     return n;
   }
@@ -85,47 +88,62 @@ export class BattleStatus {
 
   _tickBuffs(dt) {
     const units = this.units;
-    for (let i = 0, n = units.length; i < n; i++) { // units created by onTick handlers start ticking next tick
-      const u = units[i];
-      if (!u.alive || u.removed) continue;
-      if (u.buffs.length) {
-        const arr = u.buffs.slice();
-        for (const b of arr) {
-          if (!u.alive) break;
-          if (u.buffs.indexOf(b) < 0) continue;
-          if (b.onTick) {
-            if (b.interval > 0) {
-              b._acc += dt;
-              let n = 0;
-              while (b._acc >= b.interval - 1e-9 && n++ < 8) { // loop-cap: at most 8 interval ticks
-                b._acc -= b.interval;
-                this._safe(() => b.onTick({ battle: this, unit: u, buff: b, dt: b.interval }), 'buff.onTick', u);
-              }
-            } else this._safe(() => b.onTick({ battle: this, unit: u, buff: b, dt }), 'buff.onTick', u);
-          }
-          if (b.timeLeft !== Infinity) {
-            b.timeLeft -= dt;
-            if (b.timeLeft <= 1e-9) {
-              const i = u.buffs.indexOf(b);
-              if (i >= 0) {
-                this._removeBuffAt(u, i, false);
-                if (b.onExpire) this._safe(() => b.onExpire({ battle: this, unit: u, buff: b }), 'buff.onExpire', u);
+    // Snapshot of a unit's buffs (a handler may add / remove them): a buffer per nesting level, refilled per unit and
+    // emptied afterwards — `u.buffs.slice()` was an array per buffed unit per tick (a hundred a tick in a crowded wave).
+    const bufs = this._buffScratch ?? (this._buffScratch = []);
+    const depth = this._buffDepth ?? 0;
+    const arr = bufs[depth] ?? (bufs[depth] = []);
+    this._buffDepth = depth + 1;
+    try {
+      for (let i = 0, n = units.length; i < n; i++) { // units created by onTick handlers start ticking next tick
+        const u = units[i];
+        if (!u.alive || u.removed) continue;
+        if (u.buffs.length) {
+          const src = u.buffs;
+          let m = 0;
+          for (let j = 0; j < src.length; j++) arr[m++] = src[j];
+          arr.length = m;
+          for (let k = 0; k < arr.length; k++) {
+            const b = arr[k];
+            if (!u.alive) break;
+            if (u.buffs.indexOf(b) < 0) continue;
+            if (b.onTick) {
+              if (b.interval > 0) {
+                b._acc += dt;
+                let n = 0;
+                while (b._acc >= b.interval - 1e-9 && n++ < 8) { // loop-cap: at most 8 interval ticks
+                  b._acc -= b.interval;
+                  this._safe(() => b.onTick({ battle: this, unit: u, buff: b, dt: b.interval }), 'buff.onTick', u);
+                }
+              } else this._safe(() => b.onTick({ battle: this, unit: u, buff: b, dt }), 'buff.onTick', u);
+            }
+            if (b.timeLeft !== Infinity) {
+              b.timeLeft -= dt;
+              if (b.timeLeft <= 1e-9) {
+                const i = u.buffs.indexOf(b);
+                if (i >= 0) {
+                  this._removeBuffAt(u, i, false);
+                  if (b.onExpire) this._safe(() => b.onExpire({ battle: this, unit: u, buff: b }), 'buff.onExpire', u);
+                }
               }
             }
           }
         }
-      }
-      // natural HP regeneration
-      if (u.alive && u.deployed && !u.bossPool) {
-        const regen = u.s.hpRegen;
-        if (regen > 0 && u.hp < u.s.maxHp) {
-          u._regenAcc = (u._regenAcc ?? 0) + regen * dt;
-          if (u._regenAcc >= 1 || u.hp + u._regenAcc >= u.s.maxHp) {
-            this.heal(u, u, u._regenAcc, { self: true, silent: true, regen: true });
-            u._regenAcc = 0;
+        // natural HP regeneration
+        if (u.alive && u.deployed && !u.bossPool) {
+          const regen = u.s.hpRegen;
+          if (regen > 0 && u.hp < u.s.maxHp) {
+            u._regenAcc = (u._regenAcc ?? 0) + regen * dt;
+            if (u._regenAcc >= 1 || u.hp + u._regenAcc >= u.s.maxHp) {
+              this.heal(u, u, u._regenAcc, { self: true, silent: true, regen: true });
+              u._regenAcc = 0;
+            }
           }
         }
       }
+    } finally {
+      this._buffDepth = depth;
+      arr.length = 0; // a removed buff must not stay reachable through the scratch buffer
     }
   }
 

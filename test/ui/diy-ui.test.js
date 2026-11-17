@@ -208,15 +208,32 @@ describe('自选编队 tab (screens/diy.js)', () => {
         const view = () => expand(DiyPickerView({ m: null, slot: { slotId }, picks, kitted: KIT,
           onDone: (p) => done.push(p), onClose() {}, filter, query, draft,
           onFilter: (f) => { filter = f; }, onQuery: (q) => { query = q; }, onDraft: (d) => { draft = d; } }));
-        const click = (key, value) => {
-          const node = [...walk(view())].find((v) => v.props?.[key] === value && typeof v.props.onClick === 'function');
-          assert.ok(node, `${key}=${value} is clickable`);
+        const click = (key, value, cls = null) => {
+          const node = [...walk(view())].find((v) => v.props?.[key] === value && typeof v.props.onClick === 'function' && (!cls || hasClass(v, cls)));
+          assert.ok(node, `${key}=${value}${cls ? ` (.${cls})` : ''} is clickable`);
           node.props.onClick();
         };
+        // the pane's cards (.lo-skill / .lo-mod, the roster's own) and a row's quick choice (.lo-q) carry the same
+        // data-skill / data-module, so the pane's are named by their class
+        const rowQuick = (charId, key, value) => {
+          const row = [...walk(view())].find((v) => hasClass(v, 'diy-opt') && v.props['data-char'] === charId);
+          assert.ok(row, `the row of ${charId}`);
+          const hit = [...walk(row)].find((v) => v.props?.[key] === value && typeof v.props.onClick === 'function');
+          assert.ok(hit, `${charId}: the row's quick choice ${key}=${value}`);
+          hit.props.onClick();
+        };
         click('data-char', SIEGE);
-        click('data-skill', 0);
-        click('data-module', 'none');
+        click('data-skill', 0, 'lo-skill');
+        click('data-module', 'none', 'lo-mod');
         const edited = { charId: SIEGE, skillIndex: 0, uniEquipId: null };
+        assert.deepEqual(draft, edited);
+        // a row's own quick choice writes the draft through the same path 确认 saves (the roster's quick choices, PR #301)
+        rowQuick(SIEGE, 'data-skill', 1);
+        assert.deepEqual(draft, { charId: SIEGE, skillIndex: 1, uniEquipId: null });
+        rowQuick(SIEGE, 'data-module', 'uniequip_003_siege');
+        assert.deepEqual(draft, { charId: SIEGE, skillIndex: 1, uniEquipId: 'uniequip_003_siege' });
+        click('data-skill', 0, 'lo-skill');
+        click('data-module', 'none', 'lo-mod');
         assert.deepEqual(draft, edited);
         click('data-char', SIEGE);
         assert.deepEqual(draft, edited, 'reselecting keeps both the skill and explicit no-module choice');
@@ -274,12 +291,42 @@ describe('自选编队 tab (screens/diy.js)', () => {
     tree = view();
     [...walk(tree)].find((v) => v.props?.['data-testid'] === 'diy-confirm').props.onClick();
     assert.deepEqual(done, [{ charId: SIEGE, skillIndex: 0, uniEquipId: null }]);
-    // a prototype: its locked skill only; 确认 sends just the operator (the server completes the locked selection)
+    // a prototype: its skill and module are the locked selection of its 补位 rows — the pane offers that one card each
+    // (read-only: the shared cards have no disabled, the picker's own handler is a no-op) and the row's cells are static
     [...walk(tree)].find((v) => hasClass(v, 'diy-opt') && v.props['data-char'] === SHARP).props.onClick();
     tree = view();
-    assert.deepEqual([...walk(tree)].filter((v) => v.props?.role === 'radio' && v.props['data-skill'] != null).map((v) => [v.props['data-skill'], v.props.disabled]), [[2, true]]);
+    const protoRow = [...walk(tree)].find((v) => hasClass(v, 'diy-opt') && v.props['data-char'] === SHARP);
+    assert.equal([...walk(protoRow)].filter((v) => v.props['data-skill'] != null || v.props['data-module'] != null).length, 0, 'the prototype row has no quick choice to tap');
+    const locked = [...walk(tree)].filter((v) => v.props?.role === 'radio');
+    assert.deepEqual(locked.map((v) => v.props['data-skill'] ?? v.props['data-module']), [2, 'uniequip_002_acguad'], 'only the locked skill and module');
+    locked[0].props.onClick();
+    tree = view();
+    assert.deepEqual(draft, { charId: SHARP }, 'tapping the locked skill changes nothing');
     [...walk(tree)].find((v) => v.props?.['data-testid'] === 'diy-confirm').props.onClick();
     assert.deepEqual(done.at(-1), { charId: SHARP });
+  });
+
+  test('the picker: the roster\'s 职业 chips filter the list by profession', () => {
+    let prof = null;
+    const view = () => expand(DiyPickerView({ m: null, slot: { slotId: T6A, tier: 6, shopLevel: 6 }, picks: {}, kitted: KIT, onDone() {}, onClose() {},
+      filter: 'all', prof, query: '', draft: null, onFilter() {}, onProf: (p) => { prof = p; }, onQuery() {}, onDraft() {} }));
+    const rows = (tree) => [...walk(tree)].filter((v) => hasClass(v, 'diy-opt')).map((v) => v.props['data-char']);
+    const chips = (tree) => [...walk(tree)].filter((v) => hasClass(v, 'lo-chip--prof'));
+    const all = rows(view());
+    assert.ok(all.length > 2, 'the tier-6 slot lists several operators');
+    assert.equal(chips(view()).length, 8, 'one chip per profession, the roster\'s own row');
+    assert.deepEqual(chips(view()).filter((v) => v.props['aria-pressed'] === 'true'), [], 'nothing pressed while the filter is off');
+    // pressing a chip asks for that profession; the row is the shared ProfFilter, so pressing it again clears it
+    chips(view())[0].props.onClick();
+    assert.equal(prof, 'PIONEER');
+    const pioneers = rows(view());
+    assert.ok(pioneers.length && pioneers.length < all.length, `${pioneers.length} of ${all.length} are 先锋`);
+    for (const id of pioneers) assert.equal(DATA.backups.units[id].profession, 'PIONEER', `${id} is a 先锋`);
+    const on = chips(view()).find((v) => v.props['aria-pressed'] === 'true');
+    assert.ok(on && on.props.title === '先锋' && hasClass(on, 'is-on'), 'the pressed chip is the one that filters');
+    on.props.onClick();
+    assert.equal(prof, null, 'a second press clears the filter');
+    assert.deepEqual(rows(view()).length, all.length);
   });
 });
 

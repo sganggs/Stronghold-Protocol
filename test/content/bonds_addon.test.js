@@ -384,6 +384,29 @@ test('坚守: all operators HP ×(1.25+0.012·L); tier 2 redirect 40% to members
   checkInvariants(h.b);
 });
 
+test('坚守 [ASSUMED post-barrier policy]: only remaining damage is shared; full absorption creates no receiver hit', () => {
+  for (const shield of [75, 200]) {
+    const defs = { chess: { d_1: op('d_1', ['steadShip']), d_2: op('d_2', ['steadShip']), d_n: op('d_n', []) }, enemies: DUMMY };
+    const h = makeBattle({ defs, autoFinish: false,
+      units: [{ chessId: 'd_1', row: 10, col: 3 }, { chessId: 'd_2', row: 10, col: 5 }, { chessId: 'd_n', row: 12, col: 3 }],
+      bonds: { steadShip: bond(2, 0, 3) }, enemies: [{ key: 'enemy_addon_dummy', pos: [9, 9] }] });
+    h.step();
+    const b = h.b, dn = h.unit('d_n'), receivers = [h.unit('d_1'), h.unit('d_2')], seen = [];
+    b.addBuff(dn, { key: 'test:barrier', shield });
+    b.on('damageApplied', c => { if (receivers.includes(c.target)) seen.push(c); });
+    const before = dn.hp, memberHp = receivers.map(u => u.hp);
+    const remaining = Math.max(0, 100 - shield);
+    close(b.dealDamage({ source: h.enemy('enemy_addon_dummy'), target: dn, amount: 100, type: 'true' }), remaining * 0.6);
+    close(before - dn.hp, remaining * 0.6);
+    for (let i = 0; i < receivers.length; i++) close(memberHp[i] - receivers[i].hp, remaining * 0.2);
+    close(dn.findBuff('test:barrier')?.shield ?? 0, Math.max(0, shield - 100));
+    assert.equal(seen.length, remaining > 0 ? 2 : 0);
+    for (const c of seen) { assert.equal(c.source, null); assert.equal(c.dmg.type, 'true'); }
+    assert.deepEqual(b.errors, []);
+    checkInvariants(b);
+  }
+});
+
 test('坚守 thorns: 无来源 (no attacker bonus, hooks see no source) but credited to the member — its stats and the shared-pool tally', async () => {
   // DESIGN §20.10: v2.5 dealt them with no source at all, so no player's boss damage counted them (19 % of a co-op pool)
   const { SharedBossPool } = await import('../../server/match/finalAssault.js');

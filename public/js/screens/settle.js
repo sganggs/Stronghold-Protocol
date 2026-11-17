@@ -17,17 +17,19 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, DifficultyIcon, Spinner } from '../ui/components.js';
-import { useGameData, Img, Sprite, PlayerAvatar, BondGlyph, BandIcon } from '../ui/gameComponents.js';
+import { OperatorImage, useGameData, Img, Sprite, PromotionIcon, PlayerAvatar, BondGlyph, BandIcon } from '../ui/gameComponents.js';
 import { normalizeResult, diyRecordFor, cardStandIn, standInForText } from '../ui/gameLogic.js';
 import { data } from '../data.js';
-import { chessPortraitUrl, chessAvatarUrl, itemIconUrl, enemyIconUrl, titleIconUrl } from '../ui/assetUrls.js';
+import { itemIconUrl, enemyIconUrl, titleIconUrl } from '../ui/assetUrls.js';
 import { store, useStore, emptyMatch } from '../store.js';
 import { audio } from '../audio.js';
 import { sentText } from '../ui/lang.js';
 import { reducedMotion } from '../ui/device.js';
-import { recordId, selfRowOf, loadStats, isModdedRecord } from '../ui/stats.js';
-import { UnofficialMark, isModdedRoom } from '../ui/pluginTag.js';
+import { recordId, selfRowOf, loadStats, isModdedRecord, recordsOfSeason } from '../ui/stats.js';
+import { UnofficialMark, VersionTag, isModdedRoom } from '../ui/pluginTag.js';
+import { shownVersion, seasonOf } from '../versions.js';
 import { TestMark } from '../ui/testConsole.js';
+import { ladderName } from '../ui/hud.js';
 import { ResultView, resultBonds } from './result.js';
 import { DIFFICULTY_NAMES, DIFFICULTY_COLORS } from '../../../shared/constants.js';
 import { t } from '../../../shared/i18n.js';
@@ -42,6 +44,34 @@ const at = (x, y) => `left:${x / 100}rem;top:${y / 100}rem`;
 /** The radar intro, and the page change after 下一步. */
 export const INTRO_MS = 1500;
 const LEAVE_MS = 380;
+
+/** [ASSUMED] Fit translated text into #698's fixed title boxes without enlarging short labels (DESIGN §35.1). */
+export function titleScale(width, height, textWidth, textHeight) {
+  return Math.min(1, width / (textWidth || 1), height / (textHeight || 1));
+}
+
+function SettleTitle({ as: Tag = 'h1', class: cls, children }) {
+  const ref = useRef(null);
+  useLayoutEffect(() => {
+    const box = ref.current;
+    const text = box?.firstElementChild;
+    if (!text) return undefined;
+    const fit = () => box.style.setProperty('--title-scale', String(titleScale(box.clientWidth, box.clientHeight, text.offsetWidth, text.offsetHeight)));
+    fit();
+    // Observe the untransformed text too: late fonts and the text-size preference change its natural size.
+    const ro = new ResizeObserver(fit);
+    ro.observe(box);
+    ro.observe(text);
+    return () => ro.disconnect();
+  }, [children]);
+  return html`<${Tag} ref=${ref} class=${cx('settle__title', cls)}><span>${children}</span></${Tag}>`;
+}
+
+/** Official settle sprites (research 07-assets.json); CSS is used only for an absent/failed image. */
+export function SettleButtonArt({ ghost = false }) {
+  return html`<${Sprite} k=${ghost ? 'settle/btn_bg_02' : 'settle/btn_next_bg'} class="settle__btnbg"
+    fallback=${html`<span aria-hidden="true" class=${cx('settle__btnbg', ghost ? 'settle__btnbg--ghost' : 'settle__btnbg--primary')}></span>`} />`;
+}
 
 // ---- the level settlement ---------------------------------------------------------------------------------------------
 
@@ -85,10 +115,13 @@ export function dailyPointsFor(roundsPassed, table) {
  * a day whose matches reached the daily goal earned the bonus once ([ASSUMED] the bonus is 卫戍认证 too, so it counts
  * toward the level; the day is the local one). `counted` false (gameplay plugins): this match earns
  * nothing. Returns the totals before and after this match, its gain and bonus, my trophies so far, today's daily goal.
+ * `season` (DESIGN §35.23): only the records of that activity count (null: every record).
  * @param {any[]} records
- * @param {{ id?: string|null, gain?: number, rounds?: number, trophies?: number, at?: number, counted?: boolean, rewards?: any }} cur
+ * @param {{ id?: string|null, gain?: number, rounds?: number, trophies?: number, at?: number, counted?: boolean, rewards?: any, season?: string|null }} cur
  */
-export function levelProgress(records, { id = null, gain = 0, rounds = 0, trophies = 0, at: now = Date.now(), counted = true, rewards = null } = {}) {
+export function levelProgress(records, { id = null, gain = 0, rounds = 0, trophies = 0, at: now = Date.now(), counted = true, rewards = null, season = null } = {}) {
+  // one season's records (DESIGN §35.23: 第一期 and 第二期 each have their own 卫戍认证 table — ui/stats.js recordsOfSeason)
+  records = recordsOfSeason(records, season);
   const daily = rewards?.daily && rewards.daily.need > 0 ? rewards.daily : null;
   const table = rewards?.baseByRoundsPassed;
   const reset = Number.isFinite(daily?.resetHour) ? daily.resetHour : 4;
@@ -117,13 +150,9 @@ export function levelProgress(records, { id = null, gain = 0, rounds = 0, trophi
 
 // ---- small facts --------------------------------------------------------------------------------------------------------
 
-// The operator's elite phase and level on the board, by tier, plain / elite (research 01-core-data charPriceByTier):
-// tiers I and II field E1 operators (55 / 60) and elite E2 ones (50 / 55); III–VI E2 at 1, elite at 60.
-const OP_LEVEL = { 1: [[1, 55], [2, 50]], 2: [[1, 60], [2, 55]] };
-/** @returns {{ phase: number, level: number }} */
-export function opLevel(tier, golden) {
-  const [phase, level] = (OP_LEVEL[tier] || [[2, 1], [2, 60]])[golden ? 1 : 0];
-  return { phase, level };
+/** Read the resolved chess / backup form, including the active version or plugin's status (#811). */
+export function opLevel(rec) {
+  return { phase: rec?.status?.phase, level: rec?.status?.level ?? '—' };
 }
 
 /** The ace of a lineup — the team card's art: the highest tier, elite first, the earliest on the board. */
@@ -206,20 +235,25 @@ function Logo() {
   </div>`;
 }
 
-/** The official elite emblem (E1 / E2). */
-function EliteMark({ phase }) {
-  if (!(phase > 0)) return null;
-  return html`<${Sprite} k=${`elite/elite_${phase}`} class="selite" fallback=${html`<small class="selite">E${phase}</small>`} />`;
+/**
+ * The result's mode name: 规程's own mode name where it is not its difficulty's (规程等级 n / 极速模拟, as the in-match tag:
+ * the official settlement of a solo 规程等级20 match says 「规程等级20」, BV12ZWP6pE7m 11:40), else the difficulty's.
+ * @param {{ difficulty?: string|null, modeId?: string|null }} r
+ */
+export function modePillName(r) {
+  const d = r?.difficulty;
+  if (!d) return '';
+  return ladderName({ modeId: r.modeId || undefined, difficulty: d }) || (DIFFICULTY_NAMES[d] ? t(DIFFICULTY_NAMES[d]) : d);
 }
 
-/** The mode pill: the official difficulty plate (its emblem, no text) under the difficulty's name. */
+/** The mode pill: the official difficulty plate (its emblem, no text) under the mode's name (modePillName). */
 function ModePill({ r }) {
   const d = r.difficulty;
   if (!d) return null;
   const key = String(d).toLowerCase();
   return html`<span class=${cx('smode', `smode--${key}`)} style=${`--d-color:${DIFFICULTY_COLORS[d] || 'var(--text-lo)'}`}>
     <${Sprite} k=${`settle/mode_${key}`} class="smode__bg" fallback=${html`<span class="smode__bg smode__bg--css"><${DifficultyIcon} difficulty=${d} /></span>`} />
-    <b class="smode__name">${DIFFICULTY_NAMES[d] ? t(DIFFICULTY_NAMES[d]) : d}</b>
+    <b class="smode__name">${modePillName(r)}</b>
   </span>`;
 }
 
@@ -306,19 +340,17 @@ function Rays({ lose }) {
 
 /** One unit of a lineup as the cards draw it (自选 pick / 补位 stand-in resolved as on the report's thumbnails). */
 function unitView(u, gd) {
-  const m = gd.m;
   const chess = u.kind === 'token' ? null : gd.chess(u.id);
   const dr = u.diy && chess ? diyRecordFor(chess, u.diy, { chess: data.get('chess'), backups: data.get('backups') }) : null;
   const si = !dr && chess ? cardStandIn(chess, { unit: u, backups: gd.backups }) : null;
   const rec = dr || si || chess;
   const tier = Math.max(0, Math.min(6, Number(u.tier) || Number(rec?.tier) || 0));
   return {
+    rec,
     si,
     tier,
     golden: !!(u.golden ?? rec?.isGolden),
     name: rec?.name || '',
-    art: rec ? chessPortraitUrl(m, rec) : null,
-    avatar: rec ? chessAvatarUrl(m, rec) : null,
     title: si ? t('{name}（{note}）', { name: si.name, note: standInForText(chess.name) }) : (rec?.name || ''),
     items: (Array.isArray(u.items) ? u.items : []).map((id) => data.lookup('items', id)).filter(Boolean),
   };
@@ -327,20 +359,19 @@ function unitView(u, gd) {
 const NoInfo = () => html`<small class="sop__noinfo">NO INFO</small>`;
 
 /** One lineup slot as a tall card; `u` null = an empty slot (the official NO INFO card). */
-export function OpCard({ u, gd, i }) {
+export function OpCard({ u, gd, i, ownerId }) {
   if (!u) {
     return html`<div class="sop is-empty" style=${`--i:${i}`}>
       <${Sprite} k="settle/operator_bg" class="sop__empty" fallback=${html`<span class="sop__art"><${NoInfo} /></span>`} />
     </div>`;
   }
   const v = unitView(u, gd);
-  const lv = opLevel(v.tier, v.golden);
-  const src = v.art || v.avatar;
+  const lv = opLevel(v.rec);
   return html`<div class=${cx('sop', v.tier && `sop--t${v.tier}`, v.golden && 'is-golden')} style=${`--i:${i}`} title=${v.title}>
-    <span class="sop__art"><${Img} src=${src} class=${v.art ? 'is-portrait' : 'is-avatar'} fallback=${html`<span class="sop__glyph">${[...(v.name || '?')][0]}</span>`} /></span>
+    <span class="sop__art"><${OperatorImage} m=${gd.m} chess=${v.rec} ownerId=${ownerId} skin=${u.skin} portrait avatarFallback portraitClass="is-portrait" avatarClass="is-avatar" fallback=${html`<span class="sop__glyph">${[...(v.name || '?')][0]}</span>`} /></span>
     <${Sprite} k="settle/operator_frame" class="sop__frame" />
     ${v.tier ? html`<b class="sop__tier">${ROMAN[v.tier]}</b>` : null}
-    <span class="sop__lv"><${Sprite} k="settle/operator_lv_bg" class="sop__lvbg" /><${EliteMark} phase=${lv.phase} /><b class="num">${lv.level}</b></span>
+    <span class="sop__lv"><${Sprite} k="settle/operator_lv_bg" class="sop__lvbg" /><${PromotionIcon} m=${gd.m} phase=${lv.phase} class="selite" /><b class="num">${lv.level}</b></span>
     ${v.si ? html`<span class="sop__si" data-standin=${v.si.charId}>${t('替补')}</span>` : null}
     <span class="sop__slots">${[0, 1].map((k) => {
       const it = v.items[k];
@@ -414,7 +445,7 @@ function SettleTestMark({ res }) {
   return html`<span class="settle__test" data-testid="settle-test"><${TestMark} /> ${t('测试对局')}${Number.isInteger(res.testActions) ? html` · ${t('测试指令 {n} 次', { n: res.testActions })}` : null}</span>`;
 }
 
-function SelfPage({ r, res, raw, self, gd, prog, content, onNext }) {
+function SelfPage({ r, res, raw, self, gd, prog, content, onNext, version = null }) {
   const cleared = rowCleared(raw, self, r.victory);
   const [leaving, setLeaving] = useState(false);
   const nextRef = useRef(null);
@@ -444,8 +475,8 @@ function SelfPage({ r, res, raw, self, gd, prog, content, onNext }) {
       <div class="sself__fx" aria-hidden="true"></div>
       <${Logo} />
       <div class="sself__band">${self.bandId ? html`<${BandIcon} bandId=${self.bandId} size="lg" />` : html`<${PlayerAvatar} player=${self} self=${true} />`}<i aria-hidden="true"></i></div>
-      <div class="sself__mode"><${ModePill} r=${r} /><${UnofficialMark} room=${content ? { content } : null} class="sself__modmark" /><${SettleTestMark} res=${res} /></div>
-      <h1 class="sself__title">${cleared ? t('模拟完成') : t('模拟中断')}</h1>
+      <div class="sself__mode"><${ModePill} r=${r} /><${UnofficialMark} room=${content ? { content } : null} class="sself__modmark" /><${VersionTag} version=${version} class="sself__vertag" /><${SettleTestMark} res=${res} /></div>
+      <${SettleTitle} class="sself__title">${cleared ? t('模拟完成') : t('模拟中断')}</${SettleTitle}>
       <div class="sself__rounds"><span>${t('通过回合')}</span><b class="num">${rounds}</b></div>
       ${medals.length ? html`<div class="sself__medals">${medals.map((m, i) => html`<${Medal} key=${m.kind} m=${m} i=${i} />`)}</div>` : null}
       <div class="splate">
@@ -457,15 +488,15 @@ function SelfPage({ r, res, raw, self, gd, prog, content, onNext }) {
         </div>
       </div>
       <div class="sops">
-        <div class="sops__row sops__row--1">${slots.slice(0, 5).map((u, i) => html`<${OpCard} key=${i} u=${u} gd=${gd} i=${i} />`)}</div>
-        <div class="sops__row sops__row--2">${slots.slice(5).map((u, i) => html`<${OpCard} key=${i} u=${u} gd=${gd} i=${i + 5} />`)}</div>
+        <div class="sops__row sops__row--1">${slots.slice(0, 5).map((u, i) => html`<${OpCard} key=${i} u=${u} gd=${gd} ownerId=${self.playerId} i=${i} />`)}</div>
+        <div class="sops__row sops__row--2">${slots.slice(5).map((u, i) => html`<${OpCard} key=${i} u=${u} gd=${gd} ownerId=${self.playerId} i=${i + 5} />`)}</div>
       </div>
       <${BondBar} bonds=${self.bonds} gd=${gd} />
       <div class="settle__barbg" aria-hidden="true"><${Sprite} k="settle/bottom_bg" /></div>
       ${Array.isArray(milestones) && milestones.length ? html`<${LevelStrip} prog=${prog} milestones=${milestones} />` : null}
       <button type="button" ref=${nextRef} class="settle__next" onClick=${next}>
-        <${Sprite} k="settle/btn_next_bg" class="settle__btnbg" />
-        <${Sprite} k="settle/next_icon" class="settle__nexticon" fallback=${html`<span class="settle__nexticon"><${Icon} name="chevronRight" /></span>`} /><span>${t('下一步')}</span>
+        <${SettleButtonArt} />
+        <${Sprite} k="settle/next_icon" class="settle__nexticon" fallback=${html`<span class="settle__nexticon"><${Icon} name="chevronRight" /></span>`} /><span class="settle__nextlabel">${t('下一步')}</span>
       </button>
     </div>
   </section>`;
@@ -500,7 +531,7 @@ function TeamCard({ p, i, gd, self, victory, raw }) {
   return html`<article class=${cx('tcard', self && 'is-self', p.alive === false && 'is-dead', p.left && 'is-left', cleared ? 'is-clear' : 'is-fail')} style=${`--i:${i}`}>
     <header class="tcard__head" aria-hidden="true"><i class="tcard__pin"></i><span class="tcard__code"><i></i><i></i><i></i>STRONGHOLD PROTOCOL</span><span class="tcard__seat num">${pad2(p.seat + 1)}</span></header>
     <div class="tcard__art">
-      <${Img} src=${v?.art || v?.avatar} class=${cx('tcard__img', v?.art ? 'is-portrait' : 'is-avatar')} fallback=${html`<span class="tcard__glyph">${[...(p.name || '?')][0]}</span>`} />
+      <${OperatorImage} m=${gd.m} chess=${v?.rec} ownerId=${p.playerId} skin=${ace?.skin} portrait avatarFallback portraitClass="tcard__img is-portrait" avatarClass="tcard__img is-avatar" fallback=${html`<span class="tcard__glyph">${[...(p.name || '?')][0]}</span>`} />
       ${p.left ? html`<span class="tcard__cut">${t('连接中断')}</span>` : null}
       ${title ? html`<div class="tcard__title" title=${title.text}>
         <${Img} src=${title.icon} class="tcard__ticon" fallback=${html`<${Icon} name="crown" class="tcard__ticon" />`} /><b>${title.name}</b></div>` : null}
@@ -520,7 +551,7 @@ function TeamCard({ p, i, gd, self, victory, raw }) {
   </article>`;
 }
 
-function TeamPage({ r, res, gd, myId, at: when, content, backLabel, onBack, onDetail }) {
+function TeamPage({ r, res, gd, myId, at: when, content, backLabel, onBack, onDetail, version = null }) {
   const rounds = useCountUp(r.roundsPassed, { ms: 900, delay: 450 });
   const backRef = useRef(null);
   const rawOf = (pid) => (Array.isArray(res?.players) ? res.players.find((x) => x && x.playerId === pid) : null) || null;
@@ -541,8 +572,8 @@ function TeamPage({ r, res, gd, myId, at: when, content, backLabel, onBack, onDe
       </div>
       <div class="settle__barbg steam__barbg" aria-hidden="true"><${Sprite} k="settle/bottom_bg" /></div>
       <div class="steam__outcome">
-        <span class="steam__tags"><${ModePill} r=${r} /><${UnofficialMark} room=${content ? { content } : null} /><${SettleTestMark} res=${res} /></span>
-        <b class="steam__title">${r.victory ? t('模拟完成') : t('模拟中断')}</b>
+        <span class="steam__tags"><${ModePill} r=${r} /><${UnofficialMark} room=${content ? { content } : null} /><${VersionTag} version=${version} /><${SettleTestMark} res=${res} /></span>
+        <${SettleTitle} as="b" class="steam__title">${r.victory ? t('模拟完成') : t('模拟中断')}</${SettleTitle}>
       </div>
       <div class="steam__rounds"><span>${t('同盟通过回合')}</span><b class="num">${rounds}</b></div>
       <div class="steam__when">
@@ -550,9 +581,9 @@ function TeamPage({ r, res, gd, myId, at: when, content, backLabel, onBack, onDe
         <span class="steam__row"><${Sprite} k="settle/date_time_bg" class="steam__rowbg" /><${Sprite} k="settle/date_icon" class="steam__ico" />${fmtDate(when)}</span>
       </div>
       <button type="button" class="sbtn sbtn--ghost steam__detail" onClick=${onDetail}>
-        <${Sprite} k="settle/btn_bg_02" class="settle__btnbg" /><${Icon} name="chart" /><span>${t('数据详情')}</span></button>
+        <${SettleButtonArt} ghost=${true} /><${Icon} name="chart" /><span>${t('数据详情')}</span></button>
       <button type="button" ref=${backRef} class="sbtn sbtn--primary settle__back" onClick=${onBack}>
-        <${Sprite} k="settle/btn_next_bg" class="settle__btnbg" />
+        <${SettleButtonArt} />
         <${Sprite} k="settle/btn_back_icon_01" class="sbtn__mark" fallback=${html`<${Icon} name="chevronLeft" />`} /><span>${backLabel}</span></button>
       <div class="ui-slot steam__slot" data-ui-slot="result.tab" aria-label=${t('界面插件')} dangerouslySetInnerHTML=${{ __html: '' }}></div>
     </div>
@@ -566,7 +597,7 @@ function TeamPage({ r, res, gd, myId, at: when, content, backLabel, onBack, onDe
  * `content`: the room's content (room.state.content) — gameplay plugins mark the match unofficial (DESIGN §32.6).
  * @param {{ res: any, pub?: any, myId?: string|null, content?: any, backLabel: string, onBack: () => void }} props
  */
-export function SettleFlow({ res, pub = null, myId = null, content = null, backLabel, onBack }) {
+export function SettleFlow({ res, pub = null, myId = null, content = null, backLabel, onBack, version = null }) {
   const gd = useGameData();
   const r = normalizeResult(res, pub);
   const self = r.players.find((p) => p.playerId === myId) || null;
@@ -584,17 +615,17 @@ export function SettleFlow({ res, pub = null, myId = null, content = null, backL
   const isTest = res?.test === true;
   const prog = useMemo(() => (self ? { ...levelProgress(ctx.records, {
     id: ctx.id, gain: self.reward, rounds: self.roundsPassed, trophies: self.trophies, at: ctx.at,
-    counted: !isTest && !isModdedRoom(content ? { content } : null), rewards: gd.config?.rewards,
+    counted: !isTest && !isModdedRoom(content ? { content } : null), rewards: gd.config?.rewards, season: seasonOf(version),
   }), test: isTest } : null), [gd.config]);
   const rootRef = useRef(null);
   useStageFit(rootRef);
   const lose = self ? !rowCleared(rawSelf, self, r.victory) : !r.victory;
   return html`<div ref=${rootRef} class=${cx('screen', 'result', 'settle', `settle--${page}`)} data-testid="settle">
     ${page === 'intro' ? html`<${SettleIntro} players=${r.players} myId=${myId} lose=${lose} onDone=${() => setPage('self')} />` : null}
-    ${page === 'self' ? html`<${SelfPage} r=${r} res=${res} raw=${rawSelf} self=${self} gd=${gd} prog=${prog} content=${content} onNext=${() => setPage('team')} />` : null}
-    ${page === 'team' ? html`<${TeamPage} r=${r} res=${res} gd=${gd} myId=${myId} at=${ctx.at} content=${content} backLabel=${backLabel} onBack=${onBack} onDetail=${() => setDetail(true)} />` : null}
+    ${page === 'self' ? html`<${SelfPage} r=${r} res=${res} raw=${rawSelf} self=${self} gd=${gd} prog=${prog} content=${content} version=${version} onNext=${() => setPage('team')} />` : null}
+    ${page === 'team' ? html`<${TeamPage} r=${r} res=${res} gd=${gd} myId=${myId} at=${ctx.at} content=${content} version=${version} backLabel=${backLabel} onBack=${onBack} onDetail=${() => setDetail(true)} />` : null}
     ${detail ? html`<div class="settle__detail" data-testid="settle-detail">
-      <${ResultView} res=${res} pub=${pub} myId=${myId} quiet=${true} slot=${false} content=${content} backLabel=${t('返回')} onBack=${() => setDetail(false)} /></div>` : null}
+      <${ResultView} res=${res} pub=${pub} myId=${myId} quiet=${true} slot=${false} content=${content} version=${version} backLabel=${t('返回')} onBack=${() => setDetail(false)} /></div>` : null}
   </div>`;
 }
 
@@ -609,7 +640,9 @@ export function ResultScreen() {
   const myId = useStore((s) => s.me.playerId);
   const hasRoom = useStore((s) => !!s.room);
   const content = useStore((s) => s.room?.content ?? null);
+  // the official version the match played (DESIGN §35.23): the room's, or the last room's once it is gone
+  const version = useStore(shownVersion);
   const back = () => store.set({ match: emptyMatch() });
   if (!res) return html`<div class="screen result settle" data-testid="settle-wait"><${Spinner} size="lg" /></div>`;
-  return html`<${SettleFlow} res=${res} pub=${pub} myId=${myId} content=${content} backLabel=${hasRoom ? t('返回同盟') : t('返回大厅')} onBack=${back} />`;
+  return html`<${SettleFlow} res=${res} pub=${pub} myId=${myId} content=${content} version=${version} backLabel=${hasRoom ? t('返回同盟') : t('返回大厅')} onBack=${back} />`;
 }

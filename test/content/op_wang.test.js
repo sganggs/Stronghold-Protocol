@@ -439,3 +439,25 @@ test('the hand: deploying her in prep brings 7 棋子 (TRP-X "可同时部署的
     assert.deepEqual(view.placeableTokens(slot, { skillIndex: 1, moduleId: elite ? mod : null }), [{ tokenId: STONE, count: n }], `T${tier} ${elite ? 'elite' : 'normal'} ${mod ?? 'none'}`);
   }
 });
+
+test('the 棋子 is a 装置 (PRTS 实体类型): 活性源石 does not act on it — 战场#04 (11, 6) — while an operator on its neighbour 活性源石 tile takes the effect (community report 2026-11-14 「望的棋子会被烫死」, §37.205)', () => {
+  const op = { uid: 1, diy: { slot: SLOT[6], charId: WANG, skillIndex: 0, uniEquipId: null }, elite: true, row: 12, col: 2 };
+  const h = makeBattle({
+    stageId: 'act1autochess_m04', defs: { enemies: ENEMIES }, timeLimit: 120, autoFinish: false, seed: 5,
+    flags: { dpPerSec: 0, dpMax: 999 },
+    units: [op, { uid: 2, kind: 'token', tokenId: STONE, ownerUid: 1, row: 11, col: 6 }, { uid: 3, chessId: 'chess_char_1_01_a', row: 10, col: 6 }],
+  });
+  h.b.players[0].dp = 100;
+  h.step();
+  assert.ok(h.unit(1).deployed, '望 on the field');
+  const stone = h.b.allyUnits.find((a) => a.kind === 'token' && a.defId === STONE && a.homeR === 11 && a.homeC === 6);
+  assert.equal(stone.mem.terrainImmune, true);
+  h.run(3);
+  assert.ok(h.unit(3).findBuff('terrain:infection'), 'an operator on 活性源石 takes it (the control)');
+  assert.ok(!stone.findBuff('terrain:infection'), 'not the 棋子');
+  h.run(17);
+  assert.ok(stone.alive && stone.deployed, 'the 棋子 still stands after 20 s');
+  assert.ok(!stone.findBuff('terrain:infection'));
+  assert.equal(stone.hp, stone.s.maxHp, 'no HP lost (70 true damage a second had burned 1000 HP down in ~15 s)');
+  done(h);
+});

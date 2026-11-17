@@ -1,6 +1,6 @@
 // JSON-only subset of SIM.md §7.3. Functions and unknown members are rejected, never evaluated.
 import { object, problem, jsonProblems } from './dataUtils.js';
-export const MOD_KEYS = 'atkFlat atkPct atkFinal defFlat defPct hpFlat hpPct resFlat aspd batPct blockCnt rangeExtend defIgnoreFlat defIgnorePct resIgnoreFlat resIgnorePct dodgePhys dodgeArts spRecoveryFlat maxTargets taunt hpRegen hpRegenRatio spCostFlat moveFlat massFlat blockRadiusScale atkMul defMul hpMul resMul moveMul dmgDealtMul dmgTakenMul physTakenMul artsTakenMul trueTakenMul elemTakenMul elementalTakenMul healingDealtMul healingTakenMul spRecoveryMul redeployMul atkScaleMul physDealtMul artsDealtMul'.split(' ');
+export const MOD_KEYS = 'atkFlat atkPct atkFinal defFlat defPct hpFlat hpPct resFlat aspd batPct blockCnt rangeExtend defIgnoreFlat defIgnorePct resIgnoreFlat resIgnorePct dodgePhys dodgeArts spRecoveryFlat maxTargets taunt hpRegen hpRegenRatio spCostFlat moveFlat massFlat blockRadiusScale atkMul defMul hpMul resMul moveMul dmgDealtMul dmgTakenMul physTakenMul artsTakenMul trueTakenMul elemTakenMul elementalTakenMul healingDealtMul healingTakenMul spRecoveryMul costMul redeployMul atkScaleMul physDealtMul artsDealtMul'.split(' ');
 export const FLAG_KEYS = 'stun freeze sleep silence disarm stealth invulnerable unblockable levitate fear cold reveal bind noHeal untargetable blockFly noMove noSp burstLock hidden noBlock tremble hitCount hitCountArts attract float noDisplace isolated camou liftoff selfBound healFree stealthOff groundbind'.split(' ');
 const enums = s => ({ enum: s.split(' ') });
 const number = { type: 'number', minimum: 0, maximum: 1e9 }, signed = { type: 'number', minimum: -1e9, maximum: 1e9 };
@@ -11,7 +11,9 @@ const shape = (properties, required = []) => ({ type: 'object', properties, requ
 export const GRID_SCHEMA = { type: 'array', maxItems: 1024, items: { type: 'array', minItems: 2, maxItems: 2, items: { type: 'integer', minimum: -64, maximum: 64 } } };
 export const MODS_SCHEMA = shape(Object.fromEntries(MOD_KEYS.map(k => [k, signed])));
 const flags = shape(Object.fromEntries(FLAG_KEYS.map(k => [k, bool])));
-const rule = enums('DEFAULT SKILL_RANGE ACTIVE_RANGE TAKE_DAMAGE SP_FULL ALWAYS CUSTOM_RANGE SEARCH MLYSS_WTRMAN GDGLOW_SKILL_2 NEVER MANUAL');
+/** The skill trigger rules the engine implements (server/sim/skills.js); tools/bb-audit.mjs lists a version's others. */
+export const TRIGGER_RULES = Object.freeze('DEFAULT SKILL_RANGE ACTIVE_RANGE TAKE_DAMAGE SP_FULL ALWAYS CUSTOM_RANGE SEARCH MLYSS_WTRMAN GDGLOW_SKILL_2 AUTO_STOP NEVER MANUAL'.split(' '));
+const rule = { enum: [...TRIGGER_RULES] };
 export const SKILL_SPEC_SCHEMA = shape({
   kind: enums('duration ammo instant charges passive toggle'), activateOnDeploy: bool,
   duration: number, ammo: count, spCost: number, initSp: number, charges: count, spType: enums('time attack hurt none'),

@@ -1,10 +1,10 @@
 // server/plugins/contentSets.js — the content sets of this server (DESIGN §32.6, P1c; the design study's §6.2–§6.4): a
 // set of content plugins (gameplay: data patches, new records, modes), closed over their requirements and in load order,
-// merged with the vanilla data into one immutable content set named by its own content hash `cs`
+// merged with the selected official version's data into one immutable content set named by its own content hash `cs`
 // (shared/plugins/identity.js) — what a room with gameplay plugins plays, what every member's page downloads and checks
 // and what the room's match host runs (server/match/host/).
 //
-//   resolve(ids, { settings, replacing })  the set of these content plugins (built by C1, kept by cs16 — the same
+//   resolve(ids, { settings, replacing, version })  the set of these content plugins (built by C1, kept by cs16 — the same
 //                                          plugins in the same state with the same settings, as the builder reads them
 //                                          (normalizeSettings: undeclared keys dropped), are not built again): refused
 //                                          with PLUGIN_BUSY — before anything is built — when it would be one set more
@@ -25,6 +25,7 @@
 // difficulty }), `warnings` in room.state's `{ code, params }` shape, `dataBytes` (what the members download beyond the
 // vanilla files).
 
+import { DEFAULT_VERSION } from '../../shared/versions.js';
 import { ERR, DIFFICULTIES } from '../../shared/constants.js';
 import { contentHashOf, csUrlPart, isContentHash } from '../../shared/plugins/identity.js';
 import { normalizeSettings } from '../../shared/plugins/patch.js';
@@ -69,10 +70,10 @@ export function pluginModes(modes, vanillaData) {
 /**
  * The content sets of one server.
  * @param {{ registry: { plugin: (id: string) => any, onScan?: (fn: () => void) => (() => void) }, vanillaData: Readonly<Record<string, any>>, log?: object,
- *   maxSets?: () => number, build?: typeof buildContentSet, filesOf?: typeof contentSetFiles, maxKept?: number }} opts
+ *   versions?: ReturnType<typeof import('../versions.js').createVersionSets> | null, maxSets?: () => number, build?: typeof buildContentSet, filesOf?: typeof contentSetFiles, maxKept?: number }} opts
  *   maxSets: the limit now (the server owner's policy may change it); build / filesOf: the C1 builder (tests inject one)
  */
-export function createContentSets({ registry, vanillaData, log = noopLog, maxSets = () => DEFAULT_MAX_SETS,
+export function createContentSets({ registry, vanillaData, versions = null, log = noopLog, maxSets = () => DEFAULT_MAX_SETS,
   build = buildContentSet, filesOf = contentSetFiles, maxKept = MAX_KEPT }) {
   /** @type {Map<string, ContentSet>} by cs16, most recently used last */
   const sets = new Map();
@@ -119,7 +120,7 @@ export function createContentSets({ registry, vanillaData, log = noopLog, maxSet
    * settings; null when a plugin has no content snapshot (the builder decides then).
    * @param {string[]} ids @param {Record<string, Record<string, unknown>>} norm (normalized)
    */
-  const memoKey = (ids, norm) => {
+  const memoKey = (ids, norm, version) => {
     const parts = [];
     for (const id of ids) {
       const p = registry.plugin(id);
@@ -128,7 +129,7 @@ export function createContentSets({ registry, vanillaData, log = noopLog, maxSet
       if (manifest) delete manifest.notices; // Catalogue data cannot invalidate a room's gameplay memo.
       parts.push([id, p.content.hash, p.script?.execution ?? null, p.status, manifest, norm[id] ?? null]);
     }
-    try { return JSON.stringify(parts); } catch { return null; }
+    try { return JSON.stringify([version, parts]); } catch { return null; }
   };
   /** Remember a kept set by what it was built from; the oldest entries of sets no room holds go first. */
   const remember = (mk, key) => {
@@ -155,7 +156,7 @@ export function createContentSets({ registry, vanillaData, log = noopLog, maxSet
   };
 
   /** A built C1 set → a ContentSet (see the header); null when its manifest does not hash to its cs. */
-  function adopt(built) {
+  function adopt(built, version) {
     const index = built.index || {};
     const served = filesOf(built);
     const data = {};
@@ -170,13 +171,13 @@ export function createContentSets({ registry, vanillaData, log = noopLog, maxSet
       if (typeof f?.sha256 === 'string') i18n[lang] = f.sha256;
       if (typeof f?.url === 'string' && f.url.startsWith('/cs/')) dataBytes += Number(f.bytes) || 0;
     }
-    const hashInput = { app: index.app, sim: index.sim, data, plugins: index.plugins || [], settings: index.settings || {}, ...(Object.keys(i18n).length ? { i18n } : {}), ...(index.rules && typeof index.rules === 'object' && !Array.isArray(index.rules) ? { rules: index.rules } : {}) };
+    const hashInput = { ...(index.vanilla === false && index.version ? { version: index.version } : {}), app: index.app, sim: index.sim, data, plugins: index.plugins || [], settings: index.settings || {}, ...(Object.keys(i18n).length ? { i18n } : {}), ...(index.rules && typeof index.rules === 'object' && !Array.isArray(index.rules) ? { rules: index.rules } : {}) };
     // what a browser and a match host recompute from the manifest must be the builder's cs (else no page could check it)
     if (contentHashOf(hashInput) !== built.cs) return null;
     return {
       cs: built.cs, plugins: built.plugins || [], data: built.data,
       hashInput,
-      modes: pluginModes(built.modes, vanillaData),
+      modes: pluginModes(built.modes, built.baseData || versions?.data(version) || vanillaData),
       kitted: Array.isArray(built.kitted) ? built.kitted : null,
       warnings: (Array.isArray(built.warnings) ? built.warnings : []).map((w) => (w && w.code === 'PLUGIN_PATCH_OVERRIDE'
         ? { code: 'override', params: { path: `data:${w.path}`, plugins: Array.isArray(w.plugins) ? w.plugins : [] } }
@@ -196,14 +197,15 @@ export function createContentSets({ registry, vanillaData, log = noopLog, maxSet
    * The content set of the content plugins `ids` (closed and in load order — server/plugins/roomSets.js), built or
    * remembered (see the header).
    * @param {string[]} ids
-   * @param {{ settings?: Record<string, Record<string, unknown>>, replacing?: string | null }} [opts]
+   * @param {{ settings?: Record<string, Record<string, unknown>>, replacing?: string | null, version?: string }} [opts]
    * @returns {{ ok: true, set: ContentSet } | { error: string, detail: string }}
    */
-  function resolve(ids, { settings = {}, replacing = null } = {}) {
+  function resolve(ids, { settings = {}, replacing = null, version = DEFAULT_VERSION } = {}) {
     // the same plugins, in the same state, with the same (normalized) settings: the set built before (a build takes a few
     // hundred ms of this process — every rooms: fixed room, every 「重新应用」 and every cosmetic switch beside them asks again)
+    if (versions && !versions.available(version)) return { error: ERR.VERSION_UNSUPPORTED, detail: `official version ${version} is unavailable` };
     const norm = normalized(ids, settings);
-    const mk = memoKey(ids, norm);
+    const mk = memoKey(ids, norm, version);
     const remembered = mk && memo.has(mk) ? sets.get(memo.get(mk)) || null : null;
     // the limit: one set more than the rooms hold now (a set already held, or the one the asking room gives up, is free)
     const limit = Math.max(0, Number(maxSets()) || 0);
@@ -219,7 +221,7 @@ export function createContentSets({ registry, vanillaData, log = noopLog, maxSet
       let built;
       try {
         builds++;
-        built = build({ registry, ids: ids.map((id) => (norm[id] ? { id, settings: norm[id] } : id)) });
+        built = build({ registry, version, ids: ids.map((id) => (norm[id] ? { id, settings: norm[id] } : id)) });
       } catch (e) {
         log.error?.('[plugins] content set failed to build', e);
         return { error: ERR.INTERNAL, detail: 'the content set failed to build' };
@@ -235,7 +237,7 @@ export function createContentSets({ registry, vanillaData, log = noopLog, maxSet
       }
       const k = csUrlPart(built.cs);
       set = sets.get(k) || null;
-      if (!set || set.cs !== built.cs) set = adopt(built);
+      if (!set || set.cs !== built.cs) set = adopt(built, version);
       if (!set) {
         log.error?.(`[plugins] content set ${built.cs.slice(0, 8)}: its manifest does not hash to its cs`);
         return { error: ERR.INTERNAL, detail: 'the content set\'s manifest does not hash to its cs' };

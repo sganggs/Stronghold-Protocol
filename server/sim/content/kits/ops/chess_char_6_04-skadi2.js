@@ -1,19 +1,24 @@
 // server/sim/content/kits/ops/chess_char_6_04-skadi2.js — 浊心斯卡蒂 (char_1012_skadi2) kit, tier 6.
 // Conventions of the tier-6 kits: ../shared/tier6.js; kit contract and rules: ../README.md.
 
+import { reserveTransfer } from '../../../attack.js';
+import { installInjuryAura } from '../shared/injury.js';
 import { aggregateMods } from '../../../buffs.js';
-import { applyRedirectCut, redirectShare } from '../../../damage.js';
 import { COLS } from '../../../constants.js';
 import { bardRegen } from '../../../professions.js';
 import { startCountdown } from '../../tokens.js';
 import {
   num, bv, tbb, tdesc, moduleBb, parseN, live, enemiesIn, isTok, onDefaultSkill, selectedSkill, aura,
 } from '../shared/tier6.js';
+import { abyssalOf } from '../shared/tier5.js';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
-/** 深海猎人 (character_table groupId "abyssal" — checked against the official table; data/chess.json has no group id). */
-const ABYSSAL = new Set(['char_143_ghost', 'char_263_skadi', 'char_474_glady', 'char_4145_ulpia', 'char_1023_ghost2']);
+/**
+ * 深海猎人 (character_table groupId "abyssal" — checked against the official table; data/chess.json has no group id): the
+ * list of the loaded data (../shared/tier5.js abyssalOf), by charId only.
+ */
+export const isAbyssal = (u) => abyssalOf().has(u?.def?.charId);
 
 /**
  * 鼓舞 (ba.inspire "获得额外附加的基础属性加成（同类属性取最高）"): +`val` ATK after the target's own multipliers (flat
@@ -36,7 +41,7 @@ function inspire(battle, target, val, src, stat = 'atk') {
 // 浊心斯卡蒂 chess_char_6_04 (吟游者) — S3 "潮涌，潮枯"; 远古血亲 (海嗣); 捕食习性; module 蜕化的残迹
 
 function skadi2(bb, chess, def) {
-  const t0 = tbb(def, 0), t1 = tbb(def, 1), mod = moduleBb(chess), tb = def?.traitBb || {};
+  const t1 = tbb(def, 1), mod = moduleBb(chess), tb = def?.traitBb || {};
   const isDef = onDefaultSkill(chess), sid = selectedSkill(chess, def);
   const tokId = def?.talents?.[0]?.tokenKey || (chess?.tokens || [])[0] || 'token_10017_skadi2_dedant';
   const auraRatio = num(tb['attack@atk_to_hp_recovery_ratio'], 0.1);
@@ -114,36 +119,36 @@ function skadi2(bb, chess, def) {
       },
     },
     install(battle, unit) {
-      // S1: "攻击范围内我方所有单位受到伤害的50%直接转移给浊心斯卡蒂承担（同类效果取最高）" — the ally takes (1 − share),
-      // she takes the transferred part as true damage from the same attacker
+      // PRTS S1: -2000, after barriers; the transferred share is HP loss, not a second damage instance.
       if (sid === 'skchr_skadi2_1') {
         const share = clamp(num(bb.damage_resistance), 0, 1);
-        const TAG = `skadi2:transfer:${unit.id}`;
-        battle.on('hit', (ctx) => {
-          const t = ctx.target, d = ctx.dmg;
-          if (!(share > 0) || !t || t === unit || t.side !== 'ally' || t.kind === 'device' || !live(unit) || !unit.skill?.active) return;
-          if (d.type === 'element' || d.type === 'elemental' || d.skadiShare || d.tags?.includes('transfer') || !inCover(battle, unit, t)) return;
-          d.skadiShare = { share, tag: TAG }; // 同类效果取最高: one transfer per damage instance
-          applyRedirectCut(d, share); // her share of the pre-redirect hit; the victim keeps the rest
-        }, { owner: unit, priority: -20 });
-        battle.on('damaged', (ctx) => {
-          const x = ctx.dmg?.skadiShare;
-          if (!x || x.tag !== TAG || !(ctx.amount > 0) || !live(unit)) return;
-          // Keep the earlier 坚守 redirect's marker. Rebuilding damage without it lets the same two effects bounce
-          // the hit forever; each existing sharing effect still gets its first application along this path.
-          battle.dealDamage(ctx.source, unit, { amount: redirectShare(ctx.amount, x.share, ctx.dmg.redirectCuts), type: 'true', canDodge: false,
-            tags: ['transfer', ...(ctx.dmg.tags?.includes('bond:stead:share') ? ['bond:stead:share'] : [])] });
-        }, { owner: unit });
+        unit.mem.skadiTransferShare = share;
+        battle.on('hpDamage', (ctx) => {
+          const t = ctx.target;
+          if (!(share > 0) || !(ctx.amount > 0) || !t || t === unit || t.side !== 'ally' || t.kind === 'device'
+            || ctx.dmg.tags?.includes('transfer') || !live(unit) || !unit.skill?.active || !inCover(battle, unit, t)) return;
+          // 同类效果取最高: choose the strongest covering S1; equal values use stable unit order.
+          if (battle.allyUnits.some((u) => u !== unit && u !== t && live(u) && u.skill?.active
+            && (u.mem.skadiTransferShare > share || (u.mem.skadiTransferShare === share && u.id < unit.id))
+            && inCover(battle, u, t))) return;
+          if (ctx.skadiTransferred) return;
+          ctx.skadiTransferred = true;
+          reserveTransfer(ctx, share, 'transfer', (amount, tags) => {
+            battle.dealHPLose({ source: ctx.source, credit: ctx.credit, target: unit, amount,
+              type: 'true', origin: ctx.dmg, tags });
+          });
+        }, { owner: unit, priority: -2000 });
       }
-      // module 新生代: "自身技能期间，攻击范围内的友军获得30点物理与法术伤害减免" (flat reduction per hit)
+      // PRTS 伤害减免: per-type strongest flat reduction, at the aura buff's acquisition position.
       const flat = -num(mod.damage_resistance);
       if (flat > 0) {
-        battle.on('hit', (ctx) => {
-          const t = ctx.target, d = ctx.dmg;
-          if (!t || t.side !== 'ally' || t.kind === 'device' || !live(unit) || !unit.skill?.active || !inCover(battle, unit, t)) return;
-          if (d.type === 'phys') d.defIgnoreFlat -= flat; // +flat effective DEF ⇒ −flat damage (above the 5 % floor)
-          else if (d.type === 'arts') d.amount = Math.max(0, d.amount - flat / Math.max(0.05, 1 - (t.s.res ?? 0) / 100));
-        }, { owner: unit, priority: -10 });
+        installInjuryAura(battle, unit, {
+          key: `skadi2:reduction:${unit.id}`,
+          covers: target => target.side === 'ally' && target.kind !== 'device' && live(target)
+            && live(unit) && unit.skill?.active && inCover(battle, unit, target),
+          // one name for every 浊心斯卡蒂's aura: two of them covering a unit keep only the stronger (PRTS 伤害减免)
+          effect: { damageReduction: { phys: flat, arts: flat }, reductionGroup: 'skadi2:reduction' },
+        });
       }
     },
     talents: [
@@ -178,7 +183,7 @@ function skadi2(bb, chess, def) {
         aura(battle, unit, 0.5, () => {
           const toks = seaborns(battle, unit);
           const ops = covered(battle, unit, toks).filter((a) => a !== unit && a.kind === 'op');
-          const val = ops.some((a) => ABYSSAL.has(a.def?.charId)) ? a2 : ops.length ? a1 : 0;
+          const val = ops.some(isAbyssal) ? a2 : ops.length ? a1 : 0;
           const own = battle.alliesInGrid(unit).filter((a) => a !== unit && a.kind === 'op').length;
           const total = val + (own >= mCnt ? mAtk : 0);
           const dPct = ops.length ? d1 : 0;

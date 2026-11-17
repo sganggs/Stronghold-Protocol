@@ -15,9 +15,10 @@ const { hudBands } = await import('../../public/js/ui/fieldHost.js');
 
 describe('the stored offsets and the sliders', () => {
   test('sanitizeFit: whole pixels within ±100, anything else 0', () => {
-    assert.deepEqual(F.sanitizeFit(null), { l: 0, r: 0, t: 0, b: 0 });
-    assert.deepEqual(F.sanitizeFit({ l: 12.4, r: -300, t: 160, b: 'x' }), { l: 12, r: -100, t: 100, b: 0 });
-    assert.deepEqual(F.sanitizeFit({ l: Infinity, extra: 5 }), { l: 0, r: 0, t: 0, b: 0 });
+    // (ui: 界面大小 in percent, 100 by default — test/ui/ui-size.test.js)
+    assert.deepEqual(F.sanitizeFit(null), { l: 0, r: 0, t: 0, b: 0, ui: 100 });
+    assert.deepEqual(F.sanitizeFit({ l: 12.4, r: -300, t: 160, b: 'x' }), { l: 12, r: -100, t: 100, b: 0, ui: 100 });
+    assert.deepEqual(F.sanitizeFit({ l: Infinity, extra: 5 }), { l: 0, r: 0, t: 0, b: 0, ui: 100 });
   });
   test('sliderOf / pxOf: 50 = unchanged, 2 px a step, 0 and 100 at the ends', () => {
     assert.equal(F.sliderOf(0), 50);
@@ -64,9 +65,9 @@ test('the stylesheet: the inset box and its layout root only under [data-fit]', 
   const sec = css.slice(css.indexOf('/* ---- 5. 异形屏适配'));
   assert.ok(sec.length > 0 && sec.length < css.length);
   const root = sec.match(/html\[data-fit\] \{([^}]*)\}/)?.[1] || '';
-  assert.match(root, /font-size: clamp\(40px, min\(calc\(\(100vw - var\(--fit-l, 0px\) - var\(--fit-r, 0px\)\) \/ 19\.2\), calc\(\(100vh - var\(--fit-t, 0px\) - var\(--fit-b, 0px\)\) \/ 10\.8\)\), 240px\);/);
-  assert.match(root, /font-size: clamp\(40px, min\(calc\(\(100vw - var\(--fit-l, 0px\) - var\(--fit-r, 0px\)\) \/ 19\.2\), calc\(\(100svh - var\(--fit-t, 0px\) - var\(--fit-b, 0px\)\) \/ 10\.8\)\), 240px\);/,
-    'theme.css\'s layout root, with the insets taken off (svh after the vh fallback)');
+  assert.match(root, /font-size: calc\(clamp\(40px, min\(calc\(\(100vw - var\(--fit-l, 0px\) - var\(--fit-r, 0px\)\) \/ 19\.2\), calc\(\(100vh - var\(--fit-t, 0px\) - var\(--fit-b, 0px\)\) \/ 10\.8\)\), 240px\) \* var\(--sp-ui, 1\)\);/);
+  assert.match(root, /font-size: calc\(clamp\(40px, min\(calc\(\(100vw - var\(--fit-l, 0px\) - var\(--fit-r, 0px\)\) \/ 19\.2\), calc\(\(100svh - var\(--fit-t, 0px\) - var\(--fit-b, 0px\)\) \/ 10\.8\)\), 240px\) \* var\(--sp-ui, 1\)\);/,
+    'theme.css\'s layout root, with the insets taken off (svh after the vh fallback), times 界面大小');
   assert.match(sec, /html\[data-fit\] :is\(\.app-root, \.st, \.lo, \.guide\) \{\n {2}left: var\(--fit-l, 0px\); right: var\(--fit-r, 0px\); top: var\(--fit-t, 0px\); bottom: var\(--fit-b, 0px\);/);
   assert.doesNotMatch(sec, /!important/);
   assert.doesNotMatch(sec, /--t\s*:/, 'the text size setting is left alone');

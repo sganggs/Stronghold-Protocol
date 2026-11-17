@@ -412,12 +412,13 @@ describe('statistics and the room\'s facts with gameplay plugins', () => {
     assert.deepEqual([all.count, all.modded, all.rounds.max], [2, 0, 14]);
   });
 
-  test('stats v2: a v1 envelope migrates (its records played the original game)', () => {
-    assert.equal(STATS_VERSION, 2);
+  test('stats v2+: a v1 envelope migrates (its records played the original game; v3 added `version`, DESIGN §35.23)', () => {
+    assert.equal(STATS_VERSION, 3);
     const v1 = { v: 1, records: [{ id: 'r1', v: 1, t: 5, end: 'settled', players: [{ playerId: 'p1', stats: {} }], selfId: 'p1' }] };
     const { stats, changed } = migrateStats(v1);
     assert.equal(changed, true);
-    assert.equal(stats.v, 2);
+    assert.equal(stats.v, 3);
+    assert.equal('version' in stats.records[0], false, 'no version: 第二期下半');
     assert.equal(stats.records[0].content, null);
     assert.equal(stats.records[0].id, 'r1');
   });

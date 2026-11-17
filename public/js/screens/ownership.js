@@ -11,8 +11,7 @@
 
 import { useMemo, useState } from '../../vendor/hooks.module.js';
 import { html, TierChip, Icon } from '../ui/components.js';
-import { Img } from '../ui/gameComponents.js';
-import { chessAvatarUrl } from '../ui/assetUrls.js';
+import { OperatorImage } from '../ui/gameComponents.js';
 import { data } from '../data.js';
 import { PROF_NAME } from '../ui/loadoutModel.js';
 import { ownershipRoster, rosterByTier, isOwned, standInSummary } from '../ui/ownershipModel.js';
@@ -21,9 +20,9 @@ import { t, tParts } from '../../../shared/i18n.js';
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI'];
 
-/** The roster of the tab (data.list('chess'), memoised on the data being ready). */
+/** The roster of the tab, refreshed when the data, language or room's content changes. */
 export function useOwnershipRoster(ready) {
-  return useMemo(() => ownershipRoster(data.list('chess')), [ready, data.locale()]);
+  return useMemo(() => ownershipRoster(data.list('chess')), [ready, data.locale(), data.contentId()]);
 }
 
 /** One chess: the operator → its stand-in, and the 持有 switch (the whole card is the switch). */
@@ -36,7 +35,7 @@ export function OwnCard({ m, chess, backups, owned, onToggle }) {
       class=${cx('own-card', `own-card--t${chess.tier}`, !owned && 'is-off')} onClick=${() => onToggle(chess.chessId, !owned)}
       title=${owned ? t('点击标记为未持有：由 {standIn} 上场', { standIn: si?.name || t('替补干员') }) : t('点击恢复为持有')}>
     <span class="own-card__op">
-      <span class="own-card__ava"><${Img} src=${chessAvatarUrl(m, chess)} fallback=${html`<b>${[...(chess.name || '?')][0]}</b>`} /></span>
+      <span class="own-card__ava"><${OperatorImage} m=${m} chess=${chess} fallback=${html`<b>${[...(chess.name || '?')][0]}</b>`} /></span>
       <span class="own-card__txt">
         <b class="own-card__name">${chess.name}</b>
         <small>${t(PROF_NAME[chess.profession] || '')}${chess.subProfessionName ? ` · ${chess.subProfessionName}` : ''}</small>
@@ -44,7 +43,7 @@ export function OwnCard({ m, chess, backups, owned, onToggle }) {
     </span>
     <span class="own-card__arrow" aria-hidden="true"><${Icon} name="chevronRight" /></span>
     <span class="own-card__sub" data-standin=${si?.charId || ''}>
-      <span class="own-card__ava own-card__ava--sub">${si ? html`<${Img} src=${chessAvatarUrl(m, si.record)} fallback=${html`<b>${[...(si.name || '?')][0]}</b>`} />` : null}</span>
+      <span class="own-card__ava own-card__ava--sub">${si ? html`<${OperatorImage} m=${m} chess=${si.record} fallback=${html`<b>${[...(si.name || '?')][0]}</b>`} />` : null}</span>
       <span class="own-card__txt">
         <b class="own-card__name">${si ? si.name : '—'}</b>
         <small>${si ? `${t(PROF_NAME[si.profession] || '')}${slot ? ` · ${slot} ${skill.name || ''}` : ''}` : t('无替补数据')}</small>

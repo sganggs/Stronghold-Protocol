@@ -106,3 +106,7 @@
   .guide__titles { display: none; }
   .guide__page { width: min(calc(96vw - .3rem), calc((100vh - 1.5rem) * 16 / 9)); }
 }
+
+/* official versions (DESIGN §35.23): the line under the header with another version on screen */
+.guide__vernote { display: flex; align-items: center; gap: .08rem; margin: 0; padding: .04rem .1rem; color: var(--text-lo); font-size: calc(.14 * var(--t)); overflow-wrap: anywhere; }
+.guide__vernote .icon { flex: none; width: 1.1em; height: 1.1em; color: #9fd3ff; }

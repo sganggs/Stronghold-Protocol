@@ -9,11 +9,13 @@
 // or the lettered tiles without it → test/e2e/out/module-icons.png.
 // Every page must finish with zero console errors / page errors / failed requests. Screenshots: test/e2e/out/loadout-*.png
 
+import { seedReleaseRead } from '../helpers/releaseNotes.js';
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { DEFAULT_VERSION } from '../../shared/versions.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const OUT = path.join(ROOT, 'test/e2e/out');
@@ -21,6 +23,8 @@ const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Conte
 const ENABLED = process.env.SP_E2E === '1' && existsSync(CHROME);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const INSIDE = 'chess_char_1_01_a';
+/** 隐现's operator: the stored loadout is by operator (sp.pref.loadout v2, DESIGN §35.23), what is sent by chess id. */
+const INSIDE_CHAR = 'char_498_inside';
 /** Whether this machine has the extracted module type icons (local-client art is optional, DESIGN §13). */
 function localModuleIcons() {
   try { return !!JSON.parse(readFileSync(path.join(ROOT, 'data/local-assets.json'), 'utf8'))?.groups?.module; } catch { return false; }
@@ -34,7 +38,8 @@ describe('干员调配 overlay (real server, headless Chrome)', { skip: !ENABLED
   before(async () => {
     const { startServer } = await import('../../server/index.js');
     const puppeteer = (await import('puppeteer-core')).default;
-    srv = await startServer({ port: 0, host: '127.0.0.1', quiet: true });
+    // written on 盟约 (第二期下半): a stock server's lobby starts on 规程 since 2026-11-09
+    srv = await startServer({ port: 0, host: '127.0.0.1', quiet: true, versions: { default: DEFAULT_VERSION } });
     base = `http://127.0.0.1:${srv.port}`;
     browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--no-sandbox'] });
     mkdirSync(OUT, { recursive: true });
@@ -54,6 +59,7 @@ describe('干员调配 overlay (real server, headless Chrome)', { skip: !ENABLED
       localStorage.setItem('sp.name', '调配测试');
       sessionStorage.setItem('sp.entered', '1');
     });
+    await seedReleaseRead(page);
     await page.goto(`${base}/`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => globalThis.__SP__?.store.get().connection.status === 'online' && !!document.querySelector('.lobby-screen'), { timeout: 30000 });
     return { ctx, page, problems };
@@ -90,6 +96,23 @@ describe('干员调配 overlay (real server, headless Chrome)', { skip: !ENABLED
     await page.waitForSelector(sel, { visible: true, timeout: 10000 });
     await page.click(sel);
   };
+  /**
+   * A point inside the `i`-th roster row where the row element itself is what `elementFromPoint` hits — the row's own
+   * area, no control: the gaps between its columns, the module column's spare slots (a normal chess has no modules) or
+   * the padding. `RosterRow`'s own onClick picks the operator there (before this only the portrait / name column was
+   * live). Null when the row is off screen or entirely covered by its controls.
+   */
+  const ownAreaPoint = (page, i) => page.evaluate((n) => {
+    const row = document.querySelectorAll('.lo-card')[n];
+    if (!row) return null;
+    const r = row.getBoundingClientRect();
+    for (let y = Math.round(r.top) + 1; y < r.bottom - 1; y += 2) {
+      for (let x = Math.round(r.left) + 1; x < r.right - 1; x += 2) {
+        if (document.elementFromPoint(x, y) === row) return { id: row.dataset.chess, name: row.querySelector('.lo-card__name').textContent, x, y };
+      }
+    }
+    return null;
+  }, i);
 
   test('desktop: choose S1 + 不装备 for 隐现, persisted, synced into the solo match, briefing entry, auto-close', async () => {
     const { ctx, page, problems } = await open();
@@ -98,6 +121,14 @@ describe('干员调配 overlay (real server, headless Chrome)', { skip: !ENABLED
     assert.equal(await page.$$eval('.lo-card', (els) => els.length), 112, 'every visible chess');
     await assertBgLayer(page);
     await page.screenshot({ path: path.join(OUT, 'loadout-desktop.png') });
+    // a click on the row's own area picks that operator too, and the detail follows
+    const other = await page.evaluate(() => [...document.querySelectorAll('.lo-card')].findIndex((c) => !c.classList.contains('is-sel')));
+    const blank = await ownAreaPoint(page, other);
+    assert.ok(blank, 'the first row that is not selected has an area of its own to click');
+    await page.mouse.click(blank.x, blank.y);
+    await page.waitForFunction((id) => document.querySelector('.lo-card.is-sel')?.dataset.chess === id, {}, blank.id);
+    assert.equal(await page.$eval('.lo-card.is-sel .lo-card__name', (el) => el.textContent), blank.name, 'the row is the picked one');
+    assert.equal(await page.$eval('.lo-dhead__name', (el) => el.textContent), blank.name, 'the detail shows the picked operator');
     // search → one card
     await page.type('.lo-search input', '隐现');
     await page.waitForFunction(() => document.querySelectorAll('.lo-card').length === 1, { timeout: 5000 });
@@ -109,7 +140,7 @@ describe('干员调配 overlay (real server, headless Chrome)', { skip: !ENABLED
     await page.click('.lo-seg button:nth-child(2)');
     await page.waitForFunction(() => document.querySelector('.lo-skill.is-on[data-skill="0"]') && document.querySelector('.lo-mod.is-on[data-module="none"]'));
     const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('sp.pref.loadout')));
-    assert.deepEqual(stored.entries, { [INSIDE]: { skill: 0, module: 'none' } });
+    assert.deepEqual([stored.v, stored.byChar], [2, { [INSIDE_CHAR]: { skill: 0, module: 'none' } }], 'stored by operator');
     await page.waitForFunction(() => /已同步/.test(document.querySelector('.lo-sync')?.textContent || ''), { timeout: 5000 });
     await page.screenshot({ path: path.join(OUT, 'loadout-detail.png') });
     // close (Esc), create a solo room, start
@@ -141,7 +172,7 @@ describe('干员调配 overlay (real server, headless Chrome)', { skip: !ENABLED
       await page.waitForSelector('.lo-mod.is-on');
       const module = () => page.$eval('.lo-mod.is-on', (el) => el.dataset.module);
       const original = await module();
-      const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('sp.pref.loadout') || '{}').entries || {});
+      const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('sp.pref.loadout') || '{}').byChar || {});
       const openImport = async () => {
         await clickSel(page, '[data-testid="loadout-import"]');
         await page.waitForSelector('.modal textarea');
@@ -185,7 +216,7 @@ describe('干员调配 overlay (real server, headless Chrome)', { skip: !ENABLED
       assert.equal(await focused(), 'loadout-io-apply', 'the enabled import becomes the last stop');
       await page.keyboard.press('Enter');
       await page.waitForSelector('.modal', { hidden: true });
-      assert.deepEqual(await saved(), { [INSIDE]: { skill: 0 } }, 'keyboard confirmation still imports');
+      assert.deepEqual(await saved(), { [INSIDE_CHAR]: { skill: 0 } }, 'keyboard confirmation still imports (a v1 payload, by 第二期下半\'s chess ids)');
       assert.equal(await focused(), 'loadout-import');
       // Optional art / fonts / audio can be absent; this keyboard regression needs no asset pack.
       assert.deepEqual(problems.filter((p) => p.startsWith('pageerror:')), []);
@@ -203,7 +234,7 @@ describe('干员调配 overlay (real server, headless Chrome)', { skip: !ENABLED
     await page.waitForSelector('.lo-detail .lo-skill[data-skill="0"]', { visible: true });
     await page.click('.lo-detail .lo-skill[data-skill="0"]');
     const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('sp.pref.loadout')));
-    assert.deepEqual(stored.entries, { [INSIDE]: { skill: 0 } });
+    assert.deepEqual(stored.byChar, { [INSIDE_CHAR]: { skill: 0 } });
 
     // 导出: a centred dialog — its own full-viewport overlay, rendered NEXT TO the .lo screen rather than inside it
     await clickSel(page, '[data-testid="loadout-export"]');
@@ -220,14 +251,14 @@ describe('干员调配 overlay (real server, headless Chrome)', { skip: !ENABLED
     assert.ok(Math.abs(box.y + box.h / 2 - box.vh / 2) < 2, `centred vertically (${JSON.stringify(box)})`);
     const payload = JSON.parse(await page.$eval('[data-testid="loadout-io-text"]', (t) => t.value));
     assert.equal(payload.kind, 'stronghold.loadout');
-    assert.equal(payload.v, 1);
-    assert.deepEqual(payload.entries, stored.entries, 'what is exported is what is stored');
+    assert.equal(payload.v, 2, 'v2: by operator (DESIGN §35.23)');
+    assert.deepEqual(payload.byChar, stored.byChar, 'what is exported is what is stored');
     await page.screenshot({ path: path.join(OUT, 'loadout-export.png') });
     await page.evaluate(() => [...document.querySelectorAll('.modal__actions .btn')].find((b) => b.textContent.trim() === '关闭').click());
     await page.waitForFunction(() => !document.querySelector('.modal'), { timeout: 3000 });
 
     // wipe it, then 导入 the payload back
-    await page.evaluate(() => localStorage.setItem('sp.pref.loadout', JSON.stringify({ v: 1, entries: {} })));
+    await page.evaluate(() => localStorage.setItem('sp.pref.loadout', JSON.stringify({ v: 2, byChar: {}, ops: {} })));
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => globalThis.__SP__?.store.get().connection.status === 'online' && !!document.querySelector('.lobby-screen'), { timeout: 30000 });
     await clickSel(page, '.lobby-screen [data-testid="loadout-open"]');
@@ -238,7 +269,7 @@ describe('干员调配 overlay (real server, headless Chrome)', { skip: !ENABLED
     await page.click('[data-testid="loadout-io-apply"]');
     await page.waitForFunction(() => !document.querySelector('.modal'), { timeout: 5000 });
     await sleep(300);
-    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('sp.pref.loadout')).entries), stored.entries, 'round trip');
+    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('sp.pref.loadout')).byChar), stored.byChar, 'round trip');
 
     // a payload of another tool is refused and leaves the loadout alone
     await clickSel(page, '[data-testid="loadout-import"]');
@@ -246,14 +277,14 @@ describe('干员调配 overlay (real server, headless Chrome)', { skip: !ENABLED
     await page.$eval('[data-testid="loadout-io-text"]', (t) => { t.value = '{"kind":"other.tool","entries":{"a":{"skill":1}}}'; t.dispatchEvent(new Event('input', { bubbles: true })); });
     await page.click('[data-testid="loadout-io-apply"]');
     await page.waitForFunction(() => /导入失败/.test(document.body.textContent || ''), { timeout: 5000 });
-    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('sp.pref.loadout')).entries), stored.entries, 'a refused import changes nothing');
+    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('sp.pref.loadout')).byChar), stored.byChar, 'a refused import changes nothing');
 
     // a payload this build cannot use at all (every chess unknown) must leave the loadout alone too (review fix)
     await page.$eval('[data-testid="loadout-io-text"]', (t) => { t.value = '{"v":1,"entries":{"chess_not_here":{"skill":0}}}'; t.dispatchEvent(new Event('input', { bubbles: true })); });
     await page.click('[data-testid="loadout-io-apply"]');
     await page.waitForFunction(() => /没有可用的调配/.test(document.body.textContent || ''), { timeout: 5000 });
     assert.ok(await page.$('.modal'), 'the dialog stays open for the player to fix the payload');
-    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('sp.pref.loadout')).entries), stored.entries, 'an import that keeps nothing changes nothing');
+    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('sp.pref.loadout')).byChar), stored.byChar, 'an import that keeps nothing changes nothing');
     assert.deepEqual(problems, []);
     await ctx.close();
   });
@@ -342,7 +373,7 @@ describe('干员调配 overlay (real server, headless Chrome)', { skip: !ENABLED
     const s = await st(page);
     assert.ok(!s.loadout || !s.loadout[INSIDE], 'the running match kept its locked loadout');
     const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('sp.pref.loadout')));
-    assert.deepEqual(stored.entries[INSIDE], { skill: 0 }, 'kept for the next match');
+    assert.deepEqual(stored.byChar[INSIDE_CHAR], { skill: 0 }, 'kept for the next match');
     assert.deepEqual(problems, []);
     assert.deepEqual(mate.problems, []);
     await mate.ctx.close();
@@ -564,7 +595,8 @@ describe('干员调配 overlay (real server, headless Chrome)', { skip: !ENABLED
     await page.waitForSelector('.lo .lo-card', { visible: true, timeout: 15000 });
     await pickChess(page, '刺玫');
     // a row's select: 潜能 1
-    await page.select('.lo-card[data-chess="chess_char_1_06_a"] select[data-cult="potential"]', '1');
+    await page.click('.lo-card[data-chess="chess_char_1_06_a"] [data-cult="potential"] [role="combobox"]');
+    await page.click('.lo-card[data-chess="chess_char_1_06_a"] [data-cult="potential"] [role="option"][data-value="1"]');
     await page.waitForFunction((id) => JSON.parse(localStorage.getItem('sp.pref.loadout') || '{}').ops?.[id]?.potential === 1, {}, v.charId);
     await page.click('.lo-sec--stats .lo-seg button[data-variant="normal"]');
     await page.waitForFunction((x) => [...document.querySelectorAll('.lo-sec--stats .dstat')].some((e) => e.querySelector('.dstat__k').textContent === '部署费用' && e.querySelector('.dstat__v').textContent === x), {}, '17');
@@ -573,7 +605,7 @@ describe('干员调配 overlay (real server, headless Chrome)', { skip: !ENABLED
     await page.click('.lo-sec--cult [data-cultivate="0"]');
     await page.waitForFunction(() => document.querySelector('.lo-sec--cult [data-cultivate="0"]').getAttribute('aria-checked') === 'true');
     assert.equal((await shownStats(page))['攻击'], fmt(413));
-    assert.equal(await page.$eval('.lo-card[data-chess="chess_char_1_06_a"] select[data-cult="cultivate"]', (el) => el.value), '0', 'the row follows');
+    assert.equal(await page.$eval('.lo-card[data-chess="chess_char_1_06_a"] [data-cult="cultivate"] [role="combobox"]', (el) => el.dataset.value), '0', 'the row follows');
     assert.ok(await page.$eval('.lo-card[data-chess="chess_char_1_06_a"]', (el) => el.classList.contains('is-changed')), 'a changed operator');
     await page.waitForFunction(() => /已同步/.test(document.querySelector('.lo-sync')?.textContent || ''), { timeout: 8000 });
     // 恢复默认 resets them with the skill / module

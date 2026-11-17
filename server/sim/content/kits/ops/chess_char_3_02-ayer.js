@@ -4,6 +4,7 @@
 import {
   num, defOf, talentBb, traitBb, altSkills, instantKindOf, alive, gridKeys, fx, copyGrid, NINE, aura,
 } from '../shared/tier3.js';
+import { installLordArtsAddition } from '../shared/lord.js';
 
 export default {
   // ---- 3_02 断崖 · 领主 — S2 浮游刃启动: arts, wider range, each attack hits every enemy blocked by allies around her
@@ -20,11 +21,10 @@ export default {
         kind: 'duration',
         attack: { dmgType: 'arts', atkScale: num(bb['attack@atk_scale'], 1) },
         onAttack({ battle, unit }) {
-          // "周围8格友方单位阻挡的所有敌人": the 8 tiles around her (her own tile is not one of them — the talent
-          // says "自身与周围8格" when it means both)
+          // PRTS corrects the skill text to "自身与周围8格": include her own blocked enemies too.
           const seen = new Set();
           for (const a of battle.allyUnits) {
-            if (a === unit || !alive(a) || a.kind === 'device' || !a.blocking.length) continue;
+            if (!alive(a) || a.kind === 'device' || !a.blocking.length) continue;
             if (Math.abs(a.tileR - unit.tileR) > 1 || Math.abs(a.tileC - unit.tileC) > 1) continue;
             for (const e of a.blocking) {
               if (!e.alive || seen.has(e)) continue;
@@ -56,12 +56,15 @@ export default {
       } }],
     };
     if (skillGrid) kit.skill.targeting = { rangeGrid: skillGrid };
-    // 精锐 module LOR-X: "攻击附带10%攻击力的法术伤害"
-    if (moduleArts > 0) {
-      kit.trait = { afterHit: (battle, unit, target) => {
-        if (target && target.alive) battle.dealDamage(unit, target, { amount: unit.s.atk * moduleArts, type: 'arts', tags: ['module'] });
-      } };
-    }
+    // ayer_e_002_tr excludes HitBlockee (our ayerBlade), then reads the current skill's atk_scale.
+    if (moduleArts > 0) kit.install = (battle, unit) => {
+      installLordArtsAddition(battle, unit, c => {
+        if (c.dmg.tags.includes('ayerBlade')) return 0;
+        // A pending S1 ends when its projectile is launched; the projectile retains the skill attack flag.
+        const skillAttack = c.dmg.isAttack && c.dmg.isSkill;
+        return moduleArts * (unit.skill && (unit.skill.active || skillAttack) ? num(unit.skill.bb.atk_scale, 1) : 1);
+      });
+    };
     return kit;
   },
 };

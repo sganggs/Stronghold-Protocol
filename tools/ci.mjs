@@ -7,11 +7,13 @@
 //   node tools/ci.mjs --list             print the steps and the ci.yml step each one mirrors
 //   npm run ci                           the same as the first line
 //
-// Steps, in the order of ci.yml (job `test`, then job `tooling`):
+// Steps, in the order of ci.yml (job `test`, then job `node24`, then job `tooling`):
 //   setup      node tools/setup.mjs --check --no-local
 //   test       npm test: node --test over TEST_FILES (package.json "test")
 //   smoke      the server on a free port on 127.0.0.1: GET /healthz, / (must contain <html) and /vendor/pixi.min.js,
 //              then node tools/doctor.mjs (its exit code is ignored, like `|| true` in ci.yml), then the server stops
+//   guards     the CI guards (npm run test:guards): the shard table and the wiring of ci.yml itself; this is what the
+//              node 24 lane runs instead of the whole suite
 //   lint       eslint .                                   (npm run lint; warnings do not fail it)
 //   imports    node tools/check-imports.mjs               (npm run check:imports)
 //   typecheck  tsc --noEmit --checkJs -p jsconfig.json    (npm run typecheck)
@@ -19,6 +21,7 @@
 //
 // Not mirrored: actions/checkout and actions/setup-node (GitHub runner setup) and `npm ci` (the install — run it
 // yourself; replacing node_modules is not a check). The OS × Node matrix is whatever this machine has.
+// The independent `golden` job is run locally with `npm run golden`, separately from these seven steps.
 // Every child is `process.execPath` with a script path (eslint and tsc from node_modules/<pkg>/package.json `bin`),
 // never npm or a shell, so the run does not depend on PATH or on the shell npm uses for scripts.
 // test/ci.test.js keeps this list and ci.yml in step: a ci.yml step this file does not know fails it.
@@ -34,6 +37,15 @@ export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 /** The env of ci.yml's job `test` (test/ci.test.js compares it with the workflow). */
 export const CI_TEST_ENV = { SP_E2E: '0', SP_REAL_E2E: '0', RENDER_E2E: '0', NO_COLOR: '1' };
 
+/**
+ * What ci.yml's job `test` adds on top of CI_TEST_ENV: the shard of the matrix this job runs. tools/test-run.mjs turns
+ * SHARD into that shard's test files (unset means the whole suite, which is what this machine runs — tools/ci.mjs sets
+ * no shard and clears inherited SHARD/JUNIT, so `npm run ci` still runs everything). The matrix is node 22 only: one CI job per shard, eight together.
+ */
+export const CI_SHARD_ENV = {
+  SHARD: '${{ matrix.shard }}',
+};
+
 /** The paths the smoke step requests (the curl URLs of ci.yml's smoke step; test/ci.test.js compares them). */
 export const SMOKE_PATHS = ['/healthz', '/', '/vendor/pixi.min.js'];
 
@@ -46,11 +58,12 @@ export const SMOKE_PATHS = ['/healthz', '/', '/vendor/pixi.min.js'];
  */
 export const TEST_FILES = ['test/**/*.test.js', 'test/e2e/coop.e2e.mjs', 'plugins/_template/**/*.test.js'];
 
-/** ci.yml steps that only make sense on a GitHub runner, by `uses:` action or by step name. */
+/** Runner setup / install steps, and the full Golden check run separately (scoped to its job and command). */
 export const SKIPPED_CI_STEPS = [
   { uses: 'actions/checkout', why: 'GitHub runner: the checkout is this folder' },
   { uses: 'actions/setup-node', why: 'GitHub runner: the Node.js of this machine is used' },
   { name: 'Install (npm ci → postinstall copies public/vendor)', why: 'run `npm ci` yourself; it is not a check' },
+  { job: 'golden', name: 'Full Golden regression check', run: 'npm run golden', why: 'run `npm run golden` separately for the full corpus' },
 ];
 
 /**
@@ -61,11 +74,14 @@ export const SKIPPED_CI_STEPS = [
  */
 export const STEPS = [
   { id: 'setup', ci: { job: 'test', name: 'Setup check (no downloads)' }, describe: 'node tools/setup.mjs --check --no-local' },
-  // (the globs quoted: no shell expands them — Node's test runner does, the same on every OS)
-  { id: 'test', ci: { job: 'test', name: 'Unit & integration tests' }, npm: 'test',
-    describe: `node --test ${TEST_FILES.map((g) => `"${g}"`).join(' ')}` },
+  // tools/test-run.mjs: the whole suite here (SHARD unset); one shard of it on CI, where the matrix sets SHARD
+  { id: 'test', ci: { job: 'test', name: 'Unit & integration tests' }, npm: 'test', describe: 'node tools/test-run.mjs' },
   { id: 'smoke', ci: { job: 'test', name: 'Server smoke test (boot, /healthz, index.html, doctor)' },
     describe: `server on a free port: GET ${SMOKE_PATHS.join(', ')}; node tools/doctor.mjs` },
+  // The node 24 lane runs the CI guards and nothing heavy: the full suite on 24 is exactly the 20-minute job the shards
+  // replaced, and the guards are what would notice a 24-only break in the tooling they run on (node:test, glob, fs).
+  { id: 'guards', ci: { job: 'node24', name: 'CI guard tests (sharding and workflow wiring)' }, npm: 'test:guards',
+    describe: 'node --test test/ci.test.js test/ci-shards.test.js test/test-run.test.js' },
   { id: 'lint', ci: { job: 'tooling', name: 'Lint (warnings allowed)' }, npm: 'lint', describe: 'eslint .' },
   { id: 'imports', ci: { job: 'tooling', name: 'Import boundaries' }, npm: 'check:imports', describe: 'node tools/check-imports.mjs' },
   { id: 'typecheck', ci: { job: 'tooling', name: 'Typecheck' }, npm: 'typecheck', describe: 'tsc --noEmit --checkJs -p jsconfig.json' },
@@ -79,6 +95,56 @@ const unquote = (s) => {
   const v = s.trim();
   return /^(['"]).*\1$/.test(v) ? v.slice(1, -1) : v;
 };
+
+/**
+ * The `strategy.matrix` of each job: the lists a job is expanded over (`os`, `node`, `shard`, …). A line reader like
+ * parseWorkflow: a flow list (`shard: [0, 1, 2, 3]`) and a block list (`- 0` lines under the key) are both read;
+ * `include`/`exclude` are left out, they expand a matrix rather than form one.
+ *
+ * test/ci.test.js reads the shard list from here: a matrix that lists three of the four shards would silently run three
+ * quarters of the suite, so the list itself is checked against tools/ci-shards.mjs.
+ * @param {string} text
+ * @returns {Record<string, Record<string, string[]>>}
+ */
+export function parseMatrix(text) {
+  const lines = text.replace(/\r\n?/g, '\n').split('\n');
+  const indentOf = (l) => l.length - l.trimStart().length;
+  const blank = (l) => l.trim() === '' || l.trim().startsWith('#');
+  const list = (v) => v.replace(/^\[/, '').replace(/\]$/, '').split(',').map((x) => unquote(x)).filter((x) => x !== '');
+  /** @type {Record<string, Record<string, string[]>>} */
+  const out = {};
+  let job = '';
+  /** @type {Record<string, string[]> | null} */
+  let matrix = null;
+  let key = ''; // the key whose block list `- ` lines extend
+  let inStrategy = false;
+  for (const l of lines) {
+    if (blank(l)) continue;
+    const ind = indentOf(l);
+    const t = l.trim();
+    if (ind === 2 && t.endsWith(':')) { job = unquote(t.slice(0, -1)); matrix = null; key = ''; inStrategy = false; continue; }
+    if (ind === 4) {
+      inStrategy = t === 'strategy:';
+      if (!inStrategy) { matrix = null; key = ''; }
+      continue;
+    }
+    if (!inStrategy) continue;
+    if (ind === 6 && t.startsWith('matrix:')) { matrix = {}; out[job] = matrix; key = ''; continue; }
+    if (ind === 6) { matrix = null; key = ''; continue; } // fail-fast: — the strategy's other keys
+    if (ind === 8 && matrix) {
+      const m = /^([\w-]+):\s*(.*)$/.exec(t);
+      if (!m) continue;
+      const [, name, value] = m;
+      key = value === '' && name !== 'include' && name !== 'exclude' ? name : '';
+      if (key) matrix[key] = [];
+      else if (value.startsWith('[')) matrix[name] = list(value);
+      else if (name !== 'include' && name !== 'exclude') matrix[name] = [unquote(value)];
+      continue;
+    }
+    if (ind === 10 && matrix && key && t.startsWith('-')) matrix[key].push(unquote(t.slice(1)));
+  }
+  return out;
+}
 
 /**
  * A line-based reader for the shape of .github/workflows/ci.yml (block mappings, `- ` step lists, `run: |` blocks).
@@ -162,9 +228,10 @@ export function parseWorkflow(text) {
   return { jobs };
 }
 
-/** Is a ci.yml step one of SKIPPED_CI_STEPS? @param {{ name?: string, uses?: string }} s */
+/** Is a ci.yml step one of SKIPPED_CI_STEPS? @param {{ job?: string, name?: string, uses?: string, run?: string }} s */
 export function isSkippedCiStep(s) {
-  return SKIPPED_CI_STEPS.some((k) => (k.uses ? (s.uses || '').split('@')[0] === k.uses : s.name === k.name));
+  return SKIPPED_CI_STEPS.some((k) => (!k.job || s.job === k.job) && (!k.run || s.run === k.run)
+    && (k.uses ? (s.uses || '').split('@')[0] === k.uses : s.name === k.name));
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -202,6 +269,8 @@ export function selectSteps(only) {
 /** A child's env: `base` plus ci.yml's job env for the keys `base` does not set. */
 export function stepEnv(step, base = process.env) {
   const env = { ...base };
+  // Local CI always runs the full suite, irrespective of an earlier shard/report command in this shell.
+  if (step.id === 'test') { delete env.SHARD; delete env.JUNIT; }
   if (step.ci.job === 'test') for (const [k, v] of Object.entries(CI_TEST_ENV)) if (env[k] === undefined) env[k] = v;
   return env;
 }
@@ -331,14 +400,15 @@ async function smoke(env) {
 }
 
 /** @param {Step} step @param {Record<string, string | undefined>} env */
-function runStep(step, env) {
+export function runStep(step, env, runNode = node) {
   switch (step.id) {
-    case 'setup': return node(['tools/setup.mjs', '--check', '--no-local'], env);
-    case 'test': return node(['--test', ...TEST_FILES], env);
+    case 'setup': return runNode(['tools/setup.mjs', '--check', '--no-local'], env);
+    case 'test': return runNode(['tools/test-run.mjs'], env);
+    case 'guards': return runNode(['--test', 'test/ci.test.js', 'test/ci-shards.test.js', 'test/test-run.test.js'], env);
     case 'smoke': return smoke(env);
-    case 'lint': return node([binPath('eslint', 'eslint'), '.'], env);
-    case 'imports': return node(['tools/check-imports.mjs'], env);
-    case 'typecheck': return node([binPath('typescript', 'tsc'), '--noEmit', '--checkJs', '-p', 'jsconfig.json'], env);
+    case 'lint': return runNode([binPath('eslint', 'eslint'), '.'], env);
+    case 'imports': return runNode(['tools/check-imports.mjs'], env);
+    case 'typecheck': return runNode([binPath('typescript', 'tsc'), '--noEmit', '--checkJs', '-p', 'jsconfig.json'], env);
     default: throw new Error(`no runner for step ${step.id}`);
   }
 }

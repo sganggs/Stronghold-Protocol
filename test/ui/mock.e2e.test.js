@@ -19,6 +19,7 @@ import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { aimedDrag, groundAnchor, anchorPoint, cameraSettled } from '../e2e/client.mjs';
+import { textProblems } from '../e2e/text-fit.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const OUT = path.join(ROOT, 'test/e2e/out');
@@ -57,9 +58,40 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
     await srv?.close();
   });
 
-  async function open(query, { w = 1920, h = 1080, render = RENDER } = {}) {
+  test('data that settles before the hook subscribes leaves the loading screen', async () => {
+    const { page, problems } = await open('phase=PREP');
+    try {
+      const states = await page.evaluate(async () => {
+        const { h, render } = await import('/vendor/preact.module.js');
+        const { data, useData } = await import('/js/data.js');
+        const host = document.createElement('div');
+        document.body.append(host);
+        const seen = [];
+        function Probe() {
+          const ready = useData('hookrace');
+          seen.push(ready);
+          return h('output', null, ready ? 'ready' : 'loading');
+        }
+        try {
+          render(h(Probe), host);
+          // Same task: the first render sees idle, but the file settles before useEffect can subscribe.
+          data.setContent({ id: 'hook-race', values: { hookrace: {} } });
+          await new Promise((resolve) => setTimeout(resolve, 250));
+          return { first: seen[0], last: host.textContent, status: data.status('hookrace') };
+        } finally {
+          render(null, host);
+          host.remove();
+          data.setContent(null);
+        }
+      });
+      assert.deepEqual(states, { first: false, last: 'ready', status: 'ready' });
+      assert.deepEqual(problems, []);
+    } finally { await page.close(); }
+  });
+
+  async function open(query, { w = 1920, h = 1080, render = RENDER, touch = false } = {}) {
     const page = await browser.newPage();
-    await page.setViewport({ width: w, height: h });
+    await page.setViewport(touch ? { width: w, height: h, hasTouch: true, isMobile: true, deviceScaleFactor: 1 } : { width: w, height: h });
     const problems = [];
     page.on('console', (m) => { if (m.type() === 'error') problems.push(`console: ${m.text()}`); });
     page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
@@ -295,14 +327,14 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
     } finally { await page.close(); }
   });
 
-  // Q / X act on the HOVERED operator (PR #629, DESIGN §32.14.22): no click needed, a selection alone does nothing
-  test('prep: Q retreats and X sells only the hovered operator', async () => {
+  // Q / X prefer the underframe's selection, otherwise use hover (DESIGN §35.31).
+  test('prep: Q/X use selection before hover', async () => {
     const { page, problems } = await open('phase=PREP', { render: 'fallback' });
     const initial = await mockState(page);
     await page.mouse.move(5, 5);
     await page.keyboard.press('KeyQ');
     await page.keyboard.press('KeyX');
-    assert.deepEqual(await mockState(page), initial, 'nothing hovered means no action');
+    assert.deepEqual(await mockState(page), initial, 'no selection or hover means no action');
     const unit = initial.board.find((piece) => piece.kind === 'chess' && !piece.golden);
     // as test/ui/hover-hotkeys.e2e.test.js: the piece's current screen rect, then wait for the live hit test to see it
     const hover = async (uid) => {
@@ -327,19 +359,27 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
     assert.deepEqual(await mockState(page), initial, 'typing must not retreat or sell');
     await page.evaluate(() => document.getElementById('shortcut-test-input').remove());
     await hover(unit.uid);
+    await page.click(`.ff-piece[data-uid="${unit.uid}"]`);
+    await page.waitForSelector('.uframe__btn--retreat');
+    await page.mouse.move(5, 5);
     await page.keyboard.press('KeyQ');
     await page.waitForFunction((uid) => globalThis.__MOCK__.S().priv.hand.some((piece) => piece?.uid === uid), {}, unit.uid);
     const retreated = await mockState(page);
     assert.ok(!retreated.board.some((piece) => piece.uid === unit.uid));
     assert.equal(retreated.funds, initial.funds, 'retreat does not sell');
     await hover(unit.uid);
+    await page.click(`.ff-piece[data-uid="${unit.uid}"]`);
+    await page.waitForSelector('.uframe__btn--sell');
+    await page.mouse.move(5, 5);
     await page.keyboard.press('KeyQ');
     assert.deepEqual(await mockState(page), retreated, 'Q on the bench does nothing');
     await page.keyboard.press('KeyX');
     await page.waitForFunction((uid) => !globalThis.__MOCK__.S().priv.hand.some((piece) => piece?.uid === uid), {}, unit.uid);
-    assert.ok((await mockState(page)).funds > retreated.funds, 'X sells the hovered operator');
+    assert.ok((await mockState(page)).funds > retreated.funds, 'X sells the selected operator over blank space');
     const item = (await mockState(page)).hand.find((piece) => piece?.kind === 'item');
     await hover(item.uid);
+    await page.click(`.ff-piece[data-uid="${item.uid}"]`);
+    await page.waitForSelector('.uframe__btn--destroy');
     await page.keyboard.press('KeyX');
     assert.ok((await mockState(page)).hand.some((piece) => piece?.uid === item.uid), 'X must not destroy an item');
     assert.equal(await page.$('.modal'), null, 'no destroy confirmation');
@@ -484,10 +524,16 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
 
     ({ page, problems } = await open('phase=BAND_DRAFT'));
     const bands = await page.$$('.dband');
+    const bandId = await bands[5].evaluate((el) => el.dataset.band);
     await bands[5].click();
     await page.click('.draft-detail__btns .btn--primary');
     await sleep(300);
-    assert.ok(await page.$('.dband.is-mine'), 'band picked');
+    // (PR #828: after the own pick the wall gives way to 已选定策略 with the picked strategy)
+    await page.waitForSelector('.draft-done', { timeout: 3000 });
+    const done = await page.$eval('.draft-done', (el) => ({ title: el.querySelector('.draft-done__title')?.textContent, name: el.querySelector('.draft-done__name')?.textContent }));
+    assert.equal(done.title, '已选定策略', 'band picked');
+    const pickedName = await page.evaluate(async (id) => (await import('/js/data.js')).data.lookup('bands', id)?.name, bandId);
+    assert.equal(done.name, pickedName, 'the picked strategy');
     assert.deepEqual(problems, []);
     await page.close();
 
@@ -917,6 +963,107 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
       await page.close();
     });
   }
+
+  // §35.51: under the 机变 overlay (.gm.has-sp) every button of the corner (交流, ⚙, 📖 玩法说明, ⛶ 全屏) stays on top — the
+  // element at its centre is the button — in wide windows, where the corner's one row reached under the veil, and on a
+  // coarse phone, where the overlay starts past the corner's wrapped width
+  for (const [w, h, touch] of [[1280, 720, false], [1440, 900, false], [1920, 1080, false], [667, 375, true]]) {
+    test(`the 机变 overlay leaves every corner button clickable (${w}×${h}${touch ? ', touch' : ''})`, async () => {
+      const { page, problems } = await open('phase=SP_DRAFT&variant=supply', { w, h, touch, render: 'fallback' });
+      await page.waitForSelector('.gm.has-sp .spov', { visible: true });
+      const hits = await page.$$eval('.gm__corner button', (btns) => btns.filter((b) => b.getClientRects().length && getComputedStyle(b).visibility !== 'hidden')
+        .map((b) => { const r = b.getBoundingClientRect(); const at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          return { btn: b.getAttribute('aria-label') || b.className, top: !!at && b.contains(at), over: at && !b.contains(at) ? String(at.className?.baseVal ?? at.className) : null }; }));
+      assert.ok(hits.length >= 3, `corner buttons ${JSON.stringify(hits)}`);
+      assert.deepEqual(hits.filter((x) => !x.top), [], 'every corner button on top');
+      assert.deepEqual(problems, []);
+      await page.close();
+    });
+  }
+
+  // §35.51 review: on short phones a strategy's name takes two lines — Japanese never starts one with a small kana, ー or a
+  // closing mark (「ワルフ|ァリン」), a Korean name stays whole on one line or ends in an ellipsis (「에르망|가르드」 broke
+  // between syllables) — and the header's status no longer runs over 2/2; the team and the solo draft, 中 – 特大
+  test('选择策略 on 640×360 / 667×375 phones in Japanese and Korean at 中 – 特大: the names break by the rules, the header\'s status clear of 2/2', { timeout: 300000 }, async () => {
+    const bad = [];
+    for (const variant of ['', '&variant=solo']) for (const lang of ['ja', 'ko']) for (const textSize of ['md', 'lg', 'xl']) for (const [w, h] of [[640, 360], [667, 375]]) {
+      const page = await browser.newPage();
+      await page.setViewport({ width: w, height: h, hasTouch: true, isMobile: true, deviceScaleFactor: 1 });
+      await page.evaluateOnNewDocument((l, ts) => {
+        localStorage.setItem('sp.pref.lang', JSON.stringify(l));
+        localStorage.setItem('sp.pref.settings', JSON.stringify({ textSize: ts }));
+      }, lang, textSize);
+      await page.goto(`${base}/dev/game-mock.html?shot=1&render=fallback&phase=BAND_DRAFT${variant}`, { waitUntil: 'networkidle0' });
+      await page.waitForFunction(() => !!document.querySelector('.screen.draft'), { timeout: 15000 });
+      // the harness renders without the app's language setup: load the pack, then re-render
+      await page.evaluate(async () => { const m = await import('/js/ui/lang.js'); await m.initLang(); globalThis.__MOCK__.mutate(() => {}); });
+      await sleep(900);
+      await page.evaluate(() => document.fonts.ready);
+      assert.deepEqual(await page.evaluate(() => [document.documentElement.lang, document.documentElement.dataset.text]), [lang, textSize]);
+      const found = (await page.evaluate(textProblems, '.draft'))
+        .filter((p) => /dband__name/.test(p) && /line starts with|inside a word/.test(p) || /^over: .*(b\.num|span\.num)/.test(p));
+      for (const p of found) bad.push(`${variant ? 'solo' : 'team'} ${lang} ${textSize} ${w}×${h}: ${p}`);
+      await page.close();
+    }
+    assert.deepEqual(bad, []);
+  });
+
+  // §35.56: the pre-game headers at wide windows and on phones, the 机变 overlay's head on phones. One page per case, the
+  // text-fit checker's overlap findings plus the header's own boxes
+  async function mockScreen(query, root, lang, textSize, [w, h]) {
+    const page = await browser.newPage();
+    const touch = h <= 520;
+    await page.setViewport(touch ? { width: w, height: h, hasTouch: true, isMobile: true, deviceScaleFactor: 1 } : { width: w, height: h, deviceScaleFactor: 1 });
+    await page.evaluateOnNewDocument((l, ts) => {
+      localStorage.setItem('sp.pref.lang', JSON.stringify(l));
+      localStorage.setItem('sp.pref.settings', JSON.stringify({ textSize: ts }));
+    }, lang, textSize);
+    await page.goto(`${base}/dev/game-mock.html?shot=1&render=fallback&${query}`, { waitUntil: 'networkidle0' });
+    await page.waitForFunction((r) => !!document.querySelector(r), { timeout: 15000 }, root);
+    await page.evaluate(async () => { const m = await import('/js/ui/lang.js'); await m.initLang(); globalThis.__MOCK__.mutate(() => {}); });
+    await sleep(1300);
+    await page.evaluate(() => document.fonts.ready);
+    return page;
+  }
+
+  test('选择策略 in wide windows: at 大 / 特大 nothing over 2/2 or the step\'s name and 「How to Play」 inside its button; at 中 the name shown (§35.56)', { timeout: 300000 }, async () => {
+    const bad = [];
+    for (const variant of ['', '&variant=solo']) for (const textSize of ['lg', 'xl']) for (const win of [[1600, 900], [1920, 1080]]) {
+      const page = await mockScreen(`phase=BAND_DRAFT${variant}`, '.screen.draft', 'en', textSize, win);
+      const found = (await page.evaluate(textProblems, '.draft')).filter((p) => /^over: .*(stephead|b\.num|span\.num)|^x past button\.btn: span\.btn__label/.test(p));
+      for (const p of found) bad.push(`${variant ? 'solo' : 'team'} ${textSize} ${win.join('×')}: ${p}`);
+      await page.close();
+    }
+    for (const win of [[1280, 720], [1920, 1080]]) {
+      const page = await mockScreen('phase=BAND_DRAFT', '.screen.draft', 'en', 'md', win);
+      if (!(await page.$eval('.stephead__name', (el) => el.checkVisibility()))) bad.push(`md ${win.join('×')}: the step's name hidden`);
+      await page.close();
+    }
+    assert.deepEqual(bad, []);
+  });
+
+  test('确认本局信息 and the 机变 overlay on phones: the header\'s name, the reroll note and the timing line clear; Korean card texts by words (§35.56)', { timeout: 300000 }, async () => {
+    const bad = [];
+    for (const lang of ['en', 'ko']) for (const textSize of ['lg', 'xl']) for (const win of [[640, 360], [667, 375]]) {
+      const page = await mockScreen('phase=INFO_CHECK', '.brief', lang, textSize, win);
+      const found = (await page.evaluate(textProblems, '.brief')).filter((p) => /^over: /.test(p));
+      const heads = await page.evaluate(() => {
+        const R = (s) => document.querySelector(s)?.getBoundingClientRect();
+        const t = R('.stephead__title'), g = R('.stephead__guide'), c = R('.countdown');
+        const ov = (a, b) => a && b && Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1;
+        return [ov(t, g) && 'title × 玩法说明', ov(t, c) && 'title × COUNTDOWN'].filter(Boolean);
+      });
+      for (const p of [...found, ...heads]) bad.push(`brief ${lang} ${textSize} ${win.join('×')}: ${p}`);
+      await page.close();
+    }
+    for (const variant of ['supply', 'tactic']) for (const [lang, textSize] of [['en', 'md'], ['en', 'xl'], ['ko', 'md'], ['ko', 'xl']]) for (const win of [[640, 360], [844, 390]]) {
+      const page = await mockScreen(`phase=SP_DRAFT&variant=${variant}`, '.spov', lang, textSize, win);
+      const found = (await page.evaluate(textProblems, '.spov')).filter((p) => /^over: .*spov__turntxt/.test(p) || (lang === 'ko' && /inside a word/.test(p)));
+      for (const p of found) bad.push(`${variant} ${lang} ${textSize} ${win.join('×')}: ${p}`);
+      await page.close();
+    }
+    assert.deepEqual(bad, []);
+  });
 
   test('session replacement: recovery action stays clickable above the AI away overlay', async () => {
     const { page, problems } = await open('phase=PREP', { render: 'fallback' });

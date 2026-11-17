@@ -12,6 +12,7 @@
 //               'data.js')
 //     data      { <name>: sha256 of data/<name>.json } — every data file the match or the simulation reads; not the
 //               presentation files (assets, local-assets, local-fx, emotes) and not data/i18n/
+//     version   non-default official version of a gameplay composition (omitted for act2 and unmodded sets)
 //     plugins   [{ id, version, files: { <path>: sha256 } } …] in load order, their gameplay files only ([] = vanilla)
 //     settings  { <id>: { <key>: value } } — the plugins' normalised settings ({} = vanilla)
 //     i18n      omitted for vanilla and for a cosmetic-only selection, so the P0 hash stays bit-identical. A content
@@ -82,7 +83,7 @@ export function simHashOf(files) {
  * @typedef {{ app: string, sim: string, data: Record<string, string>, plugins?: ContentPlugin[],
  *   settings?: Record<string, Record<string, unknown>>,
  *   i18n?: Record<string, string | { sha256?: string }>,
- *   rules?: Record<string, string> }} ContentParts
+ *   rules?: Record<string, string>, version?: string }} ContentParts
  */
 
 /** A served-file hash: the hex string itself, or the sha256 field of an index entry. */
@@ -98,7 +99,7 @@ function hashRef(v) {
  * Vanilla `computeVanillaContent` passes neither, so P0 stays unchanged.
  * @param {ContentParts} parts
  */
-export function contentHashInput({ app, sim, data, plugins = [], settings = {}, i18n, rules } = /** @type {ContentParts} */ ({})) {
+export function contentHashInput({ app, sim, data, plugins = [], settings = {}, i18n, rules, version } = /** @type {ContentParts} */ ({})) {
   const input = { v: CONTENT_HASH_VERSION, app: String(app), sim: String(sim), data: { ...data }, plugins: [...plugins], settings: { ...settings } };
   if (i18n && typeof i18n === 'object' && !Array.isArray(i18n)) {
     const langs = {};
@@ -109,6 +110,7 @@ export function contentHashInput({ app, sim, data, plugins = [], settings = {}, 
     if (Object.keys(langs).length) input.i18n = langs;
   }
   if (rules && typeof rules === 'object' && !Array.isArray(rules) && Object.keys(rules).length) input.rules = { ...rules };
+  if (version) input.version = version;
   return input;
 }
 

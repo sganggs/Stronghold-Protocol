@@ -1,0 +1,24 @@
+{
+  "abTail": ["Arknights_Data", "StreamingAssets", "AB", "Windows"],
+  "gameFolders": ["Arknights", "Arknights Game"],
+  "windowsDrives": ["C", "D", "E", "F", "G", "H"],
+  "windowsBases": [
+    ["Program Files", "Hypergryph Launcher", "games"],
+    ["Program Files (x86)", "Hypergryph Launcher", "games"],
+    ["Hypergryph Launcher", "games"],
+    ["Games", "Hypergryph Launcher", "games"],
+    ["Program Files", "Hypergryph"],
+    []
+  ],
+  "playcoverTail": ["Library", "Containers", "com.hypergryph.arknights", "Data", "Documents", "Bundles"],
+  "playcoverBundleRels": [
+    ["Bundles"],
+    ["Documents", "Bundles"],
+    ["Data", "Documents", "Bundles"]
+  ],
+  "crossoverBottles": ["Library", "Application Support", "CrossOver", "Bottles"],
+  "crossoverProgramFiles": ["Program Files", "Program Files (x86)"],
+  "crossoverGameTail": ["Hypergryph Launcher", "games"],
+  "defaultCrossoverBottle": "Arknights",
+  "winePrefixes": [".wine", "Games/arknights"]
+}

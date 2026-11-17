@@ -37,7 +37,7 @@ export function preflightScripts(registry, scripts, hashInput) {
       // A report written before a later hang is not success: status/error/signal must agree.
       try { report = JSON.parse(probe.output?.[3]); } catch { report = failure('script setup failed'); }
       if (probe.error || probe.signal) report = failure(probe.error?.code === 'ETIMEDOUT'
-        ? `script setup exceeded ${SCRIPT_PROBE_TIMEOUT_MS} ms; child terminated (${probe.signal})`
+        ? `script setup exceeded ${SCRIPT_PROBE_TIMEOUT_MS} ms; child terminated (${probe.signal}); a slow or busy server can raise SP_SCRIPT_PROBE_MS`
         : 'script setup process failed: '+(probe.error?.message || probe.signal));
       else if (probe.status !== 0 && !report?.code) report = failure('script setup failed');
       if (!report?.code && (!Array.isArray(report?.registrations) || report.registrations.some(r =>

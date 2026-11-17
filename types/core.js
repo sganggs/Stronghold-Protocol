@@ -35,16 +35,14 @@
  */
 
 /**
- * One damage instance, after `makeDamageInfo` (server/sim/damage.js).
- * DESIGN §5.4 lists `type` as `'phys'|'arts'|'true'|'element'`.
- * SIM §4 and the normaliser also use `'elemental'` (HP damage from an element burst)
- * and keep `'element'` for gauge fill, which removes no HP.
+ * One damage instance, after `makeDamageInfo` (server/sim/attack/helpers.js).
+ * DESIGN §5.4 and SIM §4 distinguish `'elemental'` HP damage from `'element'` gauge fill, which removes no HP.
  *
  * @typedef {Object} DamageInfo
  * @property {number} amount pre-mitigation
  * @property {'phys'|'arts'|'true'|'elemental'|'element'} type
  * @property {'burn'|'necrosis'|'neural'|'apoptosis'|string|null} [element]
- * @property {number} [atkScale]
+ * @property {number} [atkScale] legacy metadata; amount already contains attack scaling
  * @property {number} [defIgnoreFlat]
  * @property {number} [defIgnorePct]
  * @property {number} [resIgnoreFlat]
@@ -54,14 +52,19 @@
  * @property {boolean} [isSkill]
  * @property {boolean} [isSplash]
  * @property {boolean} [isAttack]
+ * @property {'NONE'|'NORMAL'|'SPLASH'|'BUFF'|'ADDITION'} [attackType] independent of source and attack behavior
+ * @property {'NONE'|'MELEE'|'RANGED'|'ALL'} [applyWay] this damage instance's delivery route
  * @property {boolean} [isProjectile]
  * @property {string[]} [tags]
  * @property {boolean} [cancel] set by a `hit` hook to drop the instance
+ * @property {('dodge'|'block'|'miss')[]} [ignoreCancelReasons] attempts still occur, but these reasons cannot cancel
+ * @property {boolean} [missed] an actual miss occurred, including when its cancellation was rejected
  * @property {boolean} [noSp]
  * @property {boolean} [ignoreSleep]
  * @property {boolean} [ignoreSelect] reaches an airborne ally; the hit selected nobody
  * @property {boolean} [sourceless] 无来源: source stats add nothing
  * @property {number} [attackId] shared by every instance of one normal attack; 0 otherwise
+ * @property {DamageInfo|null} [origin] immediate parent descriptor for carried damage; independent of source/credit
  * @property {Unit|null} [traitAlly]
  */
 

@@ -26,6 +26,8 @@
 
 import { APP_VERSION } from '../../shared/constants.js';
 import { TRAFFIC_CATEGORIES, trafficCategory } from '../../shared/assetPaths.js';
+import { DEFAULT_VERSION } from '../../shared/versions.js';
+import { roomVersion, shownVersion } from './versions.js';
 
 export const LOG_MAX = 40;
 export const STACK_LINES = 6;
@@ -261,26 +263,30 @@ const PLUGINS_SHOWN = 32;
  * cosmetic (its `cs` still the vanilla one) `vanilla cs=<64 hex> cosmetic vs=<64 hex> plugins=<id>@<version>(<first 8
  * digits of its hash>),…`; `MODDED cs=<64 hex> plugins=…` (a room with gameplay plugins — its own content set, DESIGN
  * §32.6; ` vs=<64 hex>` too when it has art plugins as well, ` mode=<id>` for a plugin mode); `unknown` before the
- * first welcome. ` personal=<id>,…` follows for the player's own cosmetic plugins.
+ * first welcome. ` personal=<id>,…` follows for the player's own cosmetic plugins. Another official version (DESIGN §35.23)
+ * adds ` version=<id>` after the cs: the room's (its content set is the version's), or in the lobby the version the page
+ * shows (versions.js shownVersion; the cs is then still welcome's default one).
  * @param {any} state the store state
  * @param {{ id: string }[]} [personal] the personal cosmetic plugins this page applies (content.js personalApplied)
  */
 export function contentLine(state, personal = []) {
   const room = state?.room?.content;
+  const shown = state?.room ? roomVersion(state.room) : shownVersion(state);
+  const ver = shown && shown !== DEFAULT_VERSION ? ` version=${String(shown).slice(0, 40)}` : '';
   const mine = Array.isArray(personal) && personal.length
     ? ` personal=${personal.slice(0, PLUGINS_SHOWN).map((p) => String(p?.id ?? '?').slice(0, 32)).join(',')}${personal.length > PLUGINS_SHOWN ? ` +${personal.length - PLUGINS_SHOWN}` : ''}` : '';
   if (room && isCs(room.cs)) {
     const plugins = Array.isArray(room.plugins) ? room.plugins : [];
-    if (room.vanilla === true && !plugins.length) return `vanilla cs=${room.cs}${mine}`;
+    if (room.vanilla === true && !plugins.length) return `vanilla cs=${room.cs}${ver}${mine}`;
     const list = plugins.slice(0, PLUGINS_SHOWN).map((p) => `${String(p?.id ?? '?').slice(0, 32)}@${String(p?.version ?? '?').slice(0, 32)}`
       + (typeof p?.hash === 'string' && /^[0-9a-f]{8,}$/.test(p.hash) ? `(${p.hash.slice(0, 8)})` : ''));
     const more = plugins.length > PLUGINS_SHOWN ? ` +${plugins.length - PLUGINS_SHOWN}` : '';
     const named = list.length ? ` plugins=${list.join(',')}${more}` : '';
-    if (room.vanilla === true) return `vanilla cs=${room.cs}${isCs(room.vs) ? ` cosmetic vs=${room.vs}` : ''}${named}${mine}`;
+    if (room.vanilla === true) return `vanilla cs=${room.cs}${ver}${isCs(room.vs) ? ` cosmetic vs=${room.vs}` : ''}${named}${mine}`;
     const mode = typeof room.modeId === 'string' && room.modeId.length <= 64 ? ` mode=${room.modeId}` : '';
     return `MODDED cs=${room.cs}${isCs(room.vs) ? ` vs=${room.vs}` : ''}${mode}${named}${mine}`;
   }
-  return isCs(state?.content?.vanilla) ? `vanilla cs=${state.content.vanilla}${mine}` : 'unknown';
+  return isCs(state?.content?.vanilla) ? `vanilla cs=${state.content.vanilla}${ver}${mine}` : 'unknown';
 }
 
 /**
@@ -319,7 +325,7 @@ export function buildDiagnostics(input) {
       b.done ? 'done' : b.loading ? 'loading' : 'running', b.paused ? 'paused' : null, Number.isFinite(b.speed) ? `${b.speed}x` : null)}`);
   }
   if (settings) {
-    lines.push(`settings: ${join(`quality ${settings.quality}`, settings.damageNumbers ? 'damage numbers' : null, settings.officialDamageNumbers ? 'official damage numbers' : null, settings.ammoEnergyCount ? 'ammo and energy counts' : null, settings.combatMetrics ? 'combat metrics' : null, settings.officialFx && settings.officialFx !== 'auto' ? `official fx ${settings.officialFx}` : null, settings.muted ? 'muted' : null, settings.prepDeployFold === false ? 'deploy fold off' : null)}`);
+    lines.push(`settings: ${join(`quality ${settings.quality}`, settings.damageNumbers ? 'damage numbers' : null, settings.officialDamageNumbers ? 'official damage numbers' : null, settings.ammoEnergyCount ? 'ammo and energy counts' : null, settings.bondTimers ? 'bond timers' : null, settings.combatMetrics ? 'combat metrics' : null, settings.officialFx && settings.officialFx !== 'auto' ? `official fx ${settings.officialFx}` : null, settings.muted ? 'muted' : null, settings.prepDeployFold === false ? 'deploy fold off' : null)}`);
   }
   const tl = trafficLine(trafficTotals);
   if (tl) lines.push(`traffic: ${tl}`);

@@ -30,13 +30,14 @@ export const GLYPH = Object.freeze({
   g: { mat: 'smog', h: null },
   d: { mat: 'deepsea', h: null },
   i: { mat: 'infection', h: null },
+  w: { mat: 'duelGrass', h: null },
 });
 
 /** tileKey (when a stage uses glyphs outside the legend) → glyph. */
 export const TILEKEY_GLYPH = Object.freeze({
   tile_forbidden: '#', tile_road: 'r', tile_floor: 'f', tile_wall: 'h', tile_fence_bound: 'b', tile_fence: 'b',
   tile_achand: 'a', tile_start: 'S', tile_end: 'E', tile_telin: 'I', tile_telout: 'O', tile_mire: 'm',
-  tile_smog: 'g', tile_deepsea: 'd', tile_infection: 'i', tile_grass: 'r', tile_hole: '#',
+  tile_smog: 'g', tile_deepsea: 'd', tile_infection: 'i', tile_grass: 'r', tile_hole: '#', tile_duel_grassland: 'w',
 });
 
 export const COLORS = Object.freeze({
@@ -118,6 +119,9 @@ export const DMG_STYLE = Object.freeze({
   elem: { font: 'sp-dmg-elem', fill: ['#fff4e0', '#ff7b3a'], stroke: '#3a1000' },
   // Official red integer and yellow MISS (PRTS 作战机制 「伤害红字（暴击）」, MISS #ff9000). Default numbers never use these.
   crit: { font: 'sp-dmg-crit', fill: ['#ffd0d0', '#ff2a2a'], stroke: '#4a0000' },
+  cost: { font: 'sp-dmg-cost', fill: ['#ffffff', '#ffffff'], stroke: '#333333' },
+  costLoss: { font: 'sp-dmg-cost-loss', fill: ['#ff4545', '#ff4545'], stroke: '#401010' },
+  sp: { font: 'sp-dmg-sp', fill: ['#6fd3e2', '#6fd3e2'], stroke: '#173238' },
   miss: { font: 'sp-dmg-miss', fill: ['#ffe0a8', '#ff9000'], stroke: '#4a2400' },
 });
 

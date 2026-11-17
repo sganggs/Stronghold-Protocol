@@ -1,0 +1,138 @@
+{
+  "_note": "First-season research override; remaining fallback fields and ban counts are [ASSUMED], see history/0.3.2.md §35.22.7.",
+  "_criticAddendum": {
+    "enemyStatMultipliers": {
+      "source": "11-18 hotfix aceffect_enemy_4/5 blackboards: .8/.8 and .7/.75, DEF unchanged. [ASSUMED] no additional per-round stacks without first-season evidence; co-op HARD neutral.",
+      "single": {
+        "FUNNY": {
+          "atkBase": 0.7,
+          "hpBase": 0.75,
+          "k": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "hidden": 0
+        },
+        "NORMAL": {
+          "atkBase": 0.7,
+          "hpBase": 0.75,
+          "k": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "hidden": 0
+        },
+        "HARD": {
+          "atkBase": 0.7,
+          "hpBase": 0.75,
+          "k": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "hidden": 0
+        }
+      },
+      "multi": {
+        "FUNNY": {
+          "atkBase": 0.8,
+          "hpBase": 0.8,
+          "k": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "hidden": 0
+        },
+        "NORMAL": {
+          "atkBase": 0.8,
+          "hpBase": 0.8,
+          "k": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "hidden": 0
+        },
+        "HARD": {
+          "atkBase": 1,
+          "hpBase": 1,
+          "k": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "hidden": 0
+        }
+      }
+    }
+  }
+}

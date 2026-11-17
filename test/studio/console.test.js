@@ -355,7 +355,7 @@ test('mode, skill and device labels and a locked module name follow the data ove
 });
 
 test('one-second stepping and fast playback advance the real official effect clock without frame-cap loss', () => {
-  const fx = Object.assign(Object.create(OfficialFx.prototype), { time: 0, frameNo: 0, effects: [] });
+  const fx = Object.assign(Object.create(OfficialFx.prototype), { time: 0, frameNo: 0, effects: [], unitBack: new Map() });
   advanceEffectClock(fx, 0); assert.equal(fx.time, 0);
   advanceEffectClock(fx, 1); assert.equal(fx.time, 1);
   advanceEffectClock(fx, 1.6); assert.equal(fx.time, 2.6);

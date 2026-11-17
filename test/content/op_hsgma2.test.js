@@ -35,11 +35,11 @@ const FORMS_ALL = [[5, false, null], [6, false, null], ...[5, 6].flatMap((t) => 
 const label = ([tier, elite, mod]) => `T${tier} ${elite ? 'elite' : 'normal'} ${mod ?? 'none'}`;
 
 /** A battle with 斩业星熊 as uid 1 at (row, col) facing RIGHT, plus `others`. */
-function field({ tier = 5, elite = false, mod = null, skill = 2, row = 10, col = 5, others = [], seed = 5 } = {}) {
+function field({ tier = 5, elite = false, mod = null, skill = 2, row = 10, col = 5, others = [], items = [], seed = 5 } = {}) {
   const h = makeBattle({
     defs: { enemies: ENEMIES }, timeLimit: 900, autoFinish: false, seed,
     flags: { dpPerSec: 0, dpMax: 999 }, hooks: ['damaged', 'heal', 'skillStart', 'skillEnd', 'statusApplied', 'fatal', 'death'], captureNoisy: true,
-    units: [{ uid: 1, diy: { slot: SLOT[tier], charId: HSG, skillIndex: skill, uniEquipId: mod }, elite, row, col }, ...others],
+    units: [{ uid: 1, diy: { slot: SLOT[tier], charId: HSG, skillIndex: skill, uniEquipId: mod }, elite, row, col, items }, ...others],
   });
   h.step();
   return { h, u: h.unit(1) };
@@ -394,20 +394,21 @@ test('T2 鬼之架势 坚忍: RES up to +50 and ATK up to +35 % by the HP lost, 
   }
 });
 
-test('AST-X 无迹 trait (stages 1 and 3, skill or not): every damage instance of her attacks adds 10 % ATK arts (no dodge) on that enemy; every enemy attack she takes returns 10 % ATK arts; none without the module', () => {
+test('AST-X 无迹 trait (stages 1 and 3, during skill): every damage instance of her attacks adds precomputed 10 % ATK arts ADDITION (ordinary dodge) on that enemy; every enemy attack she takes returns 10 % ATK arts; none without the module', () => {
   for (const f of FORMS_ALL) {
     const [tier, elite, mod] = f;
     const x = elite && mod === ASTX;
     if (x) assert.deepEqual(modOf(tier, ASTX).traitOverride.bb, { atk_scale: 0.1 }, label(f));
     const { h, u } = field({ tier, elite, mod, skill: 2 });
     noSp(h, u);
+    assert.ok(u.skill.activate('test', { free: true }));
     const e = h.spawn('enemy_dummy', { pos: [10, 6] });
     h.run(3.5);
     const atk = mine(h, u).filter((c) => c.dmg.isAttack);
     const extra = mine(h, u).filter((c) => c.dmg.tags?.includes('hsgma2:astx'));
     assert.ok(atk.length >= 2, `${label(f)}: attacks`);
     assert.equal(extra.length, x ? atk.length : 0, `${label(f)}: one extra per attack hit`);
-    if (x) for (const c of extra) { assert.deepEqual([c.type, c.dmg.canDodge, c.dmg.isAttack], ['arts', false, false]); approx(c.amount, 0.1 * u.s.atk, `${label(f)}: 10 % ATK`); }
+    if (x) for (const c of extra) { assert.deepEqual([c.type, c.dmg.canDodge, c.dmg.isAttack], ['arts', true, false]); approx(c.amount, 0.1 * u.s.atk, `${label(f)}: 10 % ATK`); }
     const n = h.hooksOf('damaged').length;
     h.b.dealDamage(e, u, { amount: 10, type: 'phys', isAttack: true });
     const back = mine(h, u, n).filter((c) => c.target === e && c.dmg.tags?.includes('hsgma2:astx'));
@@ -415,4 +416,79 @@ test('AST-X 无迹 trait (stages 1 and 3, skill or not): every damage instance o
     if (x) approx(back[0].amount, 0.1 * u.s.atk, `${label(f)}: 10 % ATK back`);
     done(h);
   }
+});
+
+for (const dodge of [false, true]) test(`AST-X output uses precomputed ADDITION/NONE and ordinary dodge (${dodge})`, () => {
+  const { h, u } = field({ tier: 6, elite: true, mod: ASTX, skill: 2 });
+  const b = h.b, e = h.spawn('enemy_dummy', { pos: [10, 7] });
+  u.atkCd = 999;
+  assert.ok(u.skill.activate('test', { free: true }));
+  if (dodge) b.addBuff(e, { key: 'dodge', mods: { dodgeArts: 1 } });
+  let calculations = 0;
+  b.on('damageCalculate', c => { if (c.source === u) { calculations++; c.dmg.amount *= 2; } });
+  const output = [], applied = [];
+  b.on('damageOutput', c => { if (c.source === u) output.push(c); });
+  b.on('damageApplied', c => { if (c.source === u) applied.push(c); });
+  b.dealDamage({ source: u, target: e, amount: 100, type: 'phys', isAttack: true });
+  assert.equal(calculations, 1, 'child omits source calculation');
+  const child = output.find(c => c.dmg.tags.includes('hsgma2:astx'));
+  assert.ok(child);
+  assert.equal(child.source, u);
+  assert.equal(child.credit, u);
+  assert.equal(child.dmg.attackType, 'ADDITION');
+  assert.equal(child.dmg.applyWay, 'NONE');
+  assert.equal(child.dmg.calculation, 'precomputed');
+  assert.equal(child.dmg.origin, output.find(c => c.dmg.isAttack).dmg);
+  approx(child.amount, u.s.atk * 0.1, 'native ATK scale, no second source-calculation factor');
+  assert.equal(applied.filter(c => c.dmg.tags.includes('hsgma2:astx')).length, dodge ? 0 : 1);
+  done(h);
+});
+
+test('AST-X incoming reflection is precomputed NORMAL/NONE without a recursive output rider', () => {
+  const { h, u } = field({ tier: 6, elite: true, mod: ASTX, skill: 2 });
+  const b = h.b, e = h.spawn('enemy_dummy', { pos: [10, 7] });
+  u.atkCd = 999;
+  assert.ok(u.skill.activate('test', { free: true }));
+  let calculations = 0;
+  b.on('damageCalculate', c => { if (c.source === u) calculations++; });
+  const out = [];
+  b.on('damageOutput', c => { if (c.source === u) out.push(c); });
+  b.dealDamage({ source: e, target: u, amount: 100, type: 'phys', isAttack: true });
+  assert.equal(calculations, 0);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].dmg.attackType, 'NORMAL');
+  assert.equal(out[0].dmg.applyWay, 'NONE');
+  assert.equal(out[0].dmg.calculation, 'precomputed');
+  assert.ok(out[0].dmg.tags.includes('counter'));
+  done(h);
+});
+
+for (const attackType of ['SPLASH', 'BUFF', 'ADDITION', 'NONE']) test(`AST-X output excludes ${attackType} even with attack behavior`, () => {
+  const { h, u } = field({ tier: 6, elite: true, mod: ASTX, skill: 2 });
+  const b = h.b, e = h.spawn('enemy_dummy', { pos: [10, 7] });
+  assert.ok(u.skill.activate('test', { free: true }));
+  const out = [];
+  b.on('damageOutput', c => { if (c.dmg.tags.includes('hsgma2:astx')) out.push(c); });
+  b.dealDamage({ source: u, target: e, amount: 100, type: 'true', attackType, isAttack: true });
+  assert.equal(out.length, 0);
+  done(h);
+});
+
+test('AST-X ADDITION does not retrigger Pegasus, while the original attack still does', () => {
+  const { h, u } = field({ tier: 6, elite: true, mod: ASTX, skill: 2,
+    items: ['chess_item_5_09_e_a', 'chess_item_6_01_e_a'] });
+  const b = h.b, e = h.spawn('enemy_dummy', { pos: [10, 7] });
+  u.atkCd = 999;
+  assert.ok(u.skill.activate('test', { free: true }));
+  const rows = [];
+  b.on('damageApplied', c => { if (c.target === e) rows.push(c); });
+  b.dealDamage({ source: u, target: e, amount: 100, type: 'phys', isAttack: true });
+  const modules = rows.filter(c => c.dmg.tags.includes('hsgma2:astx'));
+  const riders = rows.filter(c => c.dmg.tags.includes('item:pegasus'));
+  assert.equal(modules.length, 1);
+  assert.equal(riders.length, 1, 'only the NORMAL attack can generate Pegasus');
+  assert.equal(riders[0].source, null);
+  assert.equal(riders[0].credit, u);
+  assert.equal(riders[0].dmg.origin.isAttack, true);
+  done(h);
 });

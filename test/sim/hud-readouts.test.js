@@ -95,11 +95,73 @@ for (const placed of [false, true]) {
     assert.equal(count(), undefined, 'a pack in that form shows no pips');
     h.run(26);
     assert.deepEqual(count(), [w.id, 1, 3], 'back after the 狼影 interval with one 狼影');
+
     h.b.retreat(h.unit('chess_char_3_19_a'), { reason: 'expired', permanent: true });
     assert.equal(h.b.snapshot().wolves, undefined, 'the pack leaves with its owner');
     assert.deepEqual(h.b.errors, []);
   });
 }
+const MOWANG = 'chess_char_4_25_a';     // 魔王: T1 过往尘埃 keeps three 「微尘」 circling her
+const OTHER = 'chess_char_1_01_a';      // a plain second operator for the motes to touch
+
+test('魔王 T1 过往尘埃: b.snap `motes` carries the orbiting count — 3, one less when a mote touches an operator, 3 again 6 s later', () => {
+  const h = makeBattle({
+    defs: DUMMY, timeLimit: 300, seed: 5, autoFinish: false,
+    units: [{ chessId: MOWANG, row: 10, col: 3 }, { chessId: OTHER, row: 10, col: 4, uid: 2 }],
+  });
+  const her = h.unit(1), other = h.unit(2);
+  h.step();                                    // 开场：单位进场后快照才带上她们
+  const row = (id) => (h.b.snapshot().motes || []).find((e) => e[0] === id);
+  assert.deepEqual(row(her.id), [her.id, 3, 0], '三枚都出来了');
+  assert.equal(row(other.id), undefined, '别的干员没有这条表');
+  // 她的微尘每 0.25 s 扫一次：旁边的友方吃到 cetsyr:mote buff 的那一刻就少一枚
+  assert.ok(h.runUntil(() => !!other.findBuff(`cetsyr:mote:${her.id}`), 10), '微尘碰到了旁边的干员');
+  assert.deepEqual(row(her.id), [her.id, 2, 0], '撞掉一枚');
+  // 同一名友方 6 秒内只会被撞一次（buff 期间 skip），所以第二枚要等这一轮过后才可能掉 —— 这里只验「重生」那一段
+  h.run(1);
+  assert.deepEqual(row(her.id), [her.id, 2, 0], '这轮里不再掉第二枚');
+  // 6 秒后重生：旁边那名友方还在，所以重生出来的那一枚可能又被它撞掉 —— 这里只要求 3 枚确实回来过
+  h.run(6.5);
+  assert.equal((h.b.snapshot().motes || []).find((e) => e[0] === her.id)?.[2], 0, '半径标记始终是普通半径');
+  h.runUntil(() => (row(her.id) || [])[1] === 3, 8);
+  assert.deepEqual(row(her.id), [her.id, 3, 0], '重生回三枚');
+  assert.equal(Array.isArray(h.b.snapshot().motes), true);
+  checkInvariants(h.b);
+});
+
+test('魔王 S2 / S3: S2 补到六枚并给宽半径标记，S3 期间不再消耗（一直是三枚）', () => {
+  for (const { skillIndex, want } of [{ skillIndex: 1, want: [6, 1] }, { skillIndex: 2, want: [3, 0] }]) {
+    const h = makeBattle({
+      defs: DUMMY, timeLimit: 300, seed: 5, autoFinish: false,
+      units: [{ chessId: MOWANG, row: 10, col: 3, skillIndex }, { chessId: OTHER, row: 10, col: 4, uid: 2 }],
+    });
+    const her = h.unit(1), other = h.unit(2);
+    h.step();
+    const row = () => (h.b.snapshot().motes || []).find((e) => e[0] === her.id);
+    assert.deepEqual(row(), [her.id, 3, 0], `技能未开：三枚（S${skillIndex + 1}）`);
+    her.skill.gainSp(999);
+    assert.ok(h.runUntil(() => her.skill.active, 45), `S${skillIndex + 1} 开起来`);
+    assert.deepEqual(row(), [her.id, ...want], `S${skillIndex + 1} 的枚数与半径标记`);
+    // 开技能后跑一会儿：S2 撞敌人（旁边的友方不再被撞）、S3 撞了也不消失
+    h.run(4);
+    assert.deepEqual(row(), [her.id, ...want], `S${skillIndex + 1} 期间不掉枚数`);
+    // S3：「微尘」不再消失 —— 友方照样吃到 buff，但圈上仍是三枚（上面的断言已经覆盖），这里确认 buff 确实挂上了
+    if (skillIndex === 2) assert.ok(other.findBuff(`cetsyr:mote:${her.id}`), 'S3 期间友方照样吃到 buff');
+    checkInvariants(h.b);
+  }
+});
+
+test('b.snap `motes` 只报活着的、已在场的她：撤退后整条表消失', () => {
+  const h = makeBattle({
+    defs: DUMMY, timeLimit: 300, seed: 5, autoFinish: false,
+    units: [{ chessId: MOWANG, row: 10, col: 3 }],
+  });
+  const her = h.unit(1);
+  h.step();
+  assert.equal((h.b.snapshot().motes || []).length, 1);
+  h.b.retreat(her, { reason: 'test' });
+  assert.equal(h.b.snapshot().motes, undefined, '不在场了就不报');
+});
 
 /** 深靛 with the talent's random 柔光缚目 bind removed (prob 0): the store runs on its own here. */
 function mysticField({ id = MYSTIC, enemies = [] } = {}) {

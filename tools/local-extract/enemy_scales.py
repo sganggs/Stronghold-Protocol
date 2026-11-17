@@ -21,7 +21,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from extract import CANDIDATES, ROOT  # noqa: E402
+from extract import ROOT, locate_client  # noqa: E402
 
 STANDARD = 0.27
 
@@ -77,12 +77,12 @@ def renderer_scale(root_go, by_id):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
-    ap.add_argument('--game', help='AB root of the local client (default: the known install locations)')
+    ap.add_argument('--game', help='install directory or AB root (default: the known install locations)')
     ap.add_argument('--json', action='store_true', help='print {prefab: product} instead of the table')
     args = ap.parse_args()
-    ab_root = Path(args.game) if args.game else next((p for p in CANDIDATES if p.exists()), None)
+    ab_root = locate_client(args.game)
     if not ab_root or not (ab_root / 'battle').exists():
-        sys.exit('enemy_scales: no local client found (pass --game <AB root>)')
+        sys.exit('enemy_scales: no local client found (pass --game <install directory or AB root>)')
     import aklz4  # noqa: F401  (registers the LZ4AK decoder)
     import UnityPy
     enemies = json.loads((ROOT / 'data' / 'enemies.json').read_text('utf8'))

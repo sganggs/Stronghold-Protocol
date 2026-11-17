@@ -137,10 +137,13 @@
 // The helpers live in public/js/render/app/*.js and are re-exported below, so existing imports keep
 // working. createFieldView stays here: it is one closure over the view's own state.
 
+import { pieceItemProgress } from '../itemProgress.js';
+import { attackRateEvents } from './attackRate.js';
 import { GEO, ANIM } from '../../../shared/constants.js';
 import { fxForm } from '../../../shared/protocol.js';
 import { Camera, presetCamera, lerpCamera, easeInOutCubic, pickTile, normRect } from './projection.js';
 import { SnapshotBuffer, frameTime } from './interp.js';
+import { BattlePresentation } from './battlePresentation.js';
 import { TileField } from './tiles.js';
 import { UnitView, ItemView, DeviceView, FORMS, syncView } from './units.js';
 import { FxSystem, ensureDamageFonts, projSpeed } from './fx.js';
@@ -148,6 +151,7 @@ import { OfficialFx } from './vfx/system.js';
 import { FxWiring } from './vfx/wiring.js';
 import { PluginFxPlayer } from './vfx/pluginPlayer.js';
 import { resolveOfficialFx } from './vfx/tier.js';
+import { boardToUnity } from './vfx/math.js';
 import { createDragController, pieceTile, dragStandTile } from './drag.js';
 import { backdropTextures, shadowTexture, refreshTierChips, refreshDownLabels, silhouetteTexture } from './textures.js';
 import { TILE_H, TIER_COLORS, COLORS } from './style.js';
@@ -162,6 +166,7 @@ import { pickOnTile, pickBattle, hitTiles } from './pick.js';
 import { promotionsOf } from './promote.js';
 import { ensurePixi } from './app/pixi.js';
 import { advanceEffectClock } from './app/playback.js';
+import { createWindUpLookahead } from './app/windup.js';
 import { pieceDirOf, pickUnitOf } from './app/pick.js';
 import { CAMERA_MS, BOARD3D_STABLE_MS, BOARD3D_RETRY_MS, PEN_CAMERA_MS, RANGE_GROUPS, LEADER_HIT_STYLE, DRAG_HOLD_TILES, CHAIN_KINDS, DROP_PENDING_MS, DEPLOY_REPLAY_MS } from './app/tune.js';
 import { boardPreference, switchableBox, bandFor, fieldRows, boardArea, viewKind, restView, flightView } from './app/view.js';
@@ -183,7 +188,7 @@ export { releaseGl } from './app/host.js';
  * @param {HTMLElement} host
  * @param {{ data?: any, assets?: any, audio?: any, settings?: { damageNumbers?: boolean, officialDamageNumbers?: boolean, ammoEnergyCount?: boolean, otherSkins?: boolean, quality?: string }, signal?: AbortSignal,
  *           padding?: object|((kind:string, size:{width:number,height:number}) => object),
- *           hud?: {top:number,bottom:number}|((kind:'prep'|'bossPrep', size:{width:number,height:number}, o:{shop:boolean}) => {top:number,bottom:number}|null) }} [opts]
+ *           hud?: {top:number,bottom:number}|((kind:'prep'|'bossPrep', size:{width:number,height:number}, o:{shop:boolean|'partial'}) => {top:number,bottom:number}|null) }} [opts]
  *   settings.otherSkins (docs/SKINS.md, default on): draw the appearance another player chose. The player the view
  *   belongs to says who is "other" — `view.setMe(store.get().me.playerId)`, ui/fieldHost.js mounts it before the first
  *   board arrives.
@@ -330,6 +335,7 @@ export async function createFieldView(host, options = {}) {
   const gone = new Set();
   const woundUp = new WeakSet(); // atk event tuples whose attack wind-up already started
   const interp = new SnapshotBuffer({ delay: 0.1, rate: 2 });
+  const presentation = new BattlePresentation();
   const sample = new Map();
   const meleePending = new Map(); // target id → { src, t }
   const consumedIds = new Set();  // battle ids used up by their own effect (fx `consumed`): no death particles
@@ -435,6 +441,32 @@ export async function createFieldView(host, options = {}) {
     ofx.setTier(board3d ? resolveOfficialFx(settings.officialFx, ofx.available) : 'off');
   }
   ofx.init().then((ok) => { if (!destroyed && ok) { syncOfficialFx(); wiring.ready(); } }, () => {});
+  // 规程 MAP09 隐匿地块 (§37.230): the client's own tile effect mapeff_079_dikuai_01 (FX_GENERIC tile.duelGrass) loops on
+  // every concealment tile, in prep and in battle, while the 3D board and the official effects are on; the 2D board and
+  // 官方特效 off keep the tinted tile (tiles.js 'w', board3d duelGrass material). A clear (battle start / end) drops the
+  // loops: they are spawned again on the next frame.
+  const GRASS_FX = 'mapeff_079_dikuai_01';
+  let grassFx = [];
+  let grassKey = '';
+  const grassAlive = (h) => !!h && !h.cancelled && (ofx.pending.includes(h) || (!!h.effect && ofx.effects.includes(h.effect)));
+  function syncGrassFx() {
+    const cells = board3d?.board?.terrain?.duelGrass || [];
+    const on = !!board3d && ofx.active && cells.length > 0 && ofx.lib.has(GRASS_FX);
+    const key = on ? `${board3d.stageKey}|${ofx.tier}` : '';
+    // the official loop replaces our tinted frame (board3d duelGrass mesh, #939's [ASSUMED] look): one or the other
+    const overlay = board3d?.meshes?.duelGrass;
+    if (overlay) overlay.visible = !on;
+    if (key === grassKey && (!on || grassFx.every(grassAlive))) return;
+    for (const h of grassFx) h?.kill?.();
+    grassFx = [];
+    grassKey = key;
+    if (!on) return;
+    for (const [r, c] of cells) {
+      const z = heightAt(r, c) || 0;
+      const h = ofx.spawn(GRASS_FX, { pos: boardToUnity(c, r, z), groundZ: -z }, { loop: true, important: true });
+      if (h) grassFx.push(h);
+    }
+  }
   // battle devices (crates / turrets as sim units): the official crate mesh in the 3D scene, else a Pixi box
   ctx.createBox = (spec) => switchableBox({ board: () => board3d, pixi: () => tiles.createBox(), spec });
   const impostors = new ImpostorAtlas(app.renderer);
@@ -620,7 +652,7 @@ export async function createFieldView(host, options = {}) {
     const vk = viewKind(kind, o); // (a 'prep' camera on the boss rows = the Final Assault prep)
     return presetCamera(k, { width: sz.width, height: sz.height, padding: o.padding || defaultPadding(k, sz) }, {
       rect, side: o.side, half: !!o.half, shop: o.shop, fit: !!o.fit, config: stageRec?.config || null,
-      hud: hudBands(vk, sz, { shop: o.shop !== false }),
+      hud: hudBands(vk, sz, { shop: o.shop ?? true }),
     });
   }
 
@@ -778,7 +810,11 @@ export async function createFieldView(host, options = {}) {
     }
     if (kind === 'token') {
       const rec = data.token(piece.id);
-      return { kind: 'token', side: 'ally', defId: piece.id, spine: rec?.assets?.spine || piece.id, avatar: rec?.assets?.avatar || piece.id, tier: piece.tier || 1, golden: false, dir };
+      return { kind: 'token', side: 'ally', defId: piece.id, spine: rec?.assets?.spine || piece.id, avatar: rec?.assets?.avatar || piece.id,
+        tier: piece.tier || 1, golden: false, dir,
+        // 召唤物皮肤 (docs/SKINS.md): the outfit of the operator that owns this summon, published on the piece by the
+        // server (prep board, hand, 临时整备区); assets.js reads tokens[<token id>].skins[skin] from the composed manifest
+        skin: piece.skin || null };
     }
     const chess = data.chess(piece.id);
     // 0.2.0 补位: a piece of a chess the player does not own (m.private.standIns) is its stand-in's model, in the hand,
@@ -932,6 +968,7 @@ export async function createFieldView(host, options = {}) {
       v.dimmed = false;
       if (info.kind === 'item' && v.setIcon) v.setIcon(info.icon); // an icon the manifest named late (onAssets)
       if (v.setCount) v.setCount(e.piece.kind === 'token' ? e.piece.count : 0);
+      if (v.setItemProgress) v.setItemProgress(pieceItemProgress(e.piece));
       if (v.setItems) v.setItems(Array.isArray(e.piece.items) ? e.piece.items.map((it) => { const r = data.item(it?.id); return assets.itemIcon ? assets.itemIcon(r ? { trapId: r.trapId, iconId: r.iconId } : it?.id) : null; }) : []);
       v._showFacing = e.area === 'board';
       // the stored facing (a piece held by the direction step shows the wheel's preview instead)
@@ -1021,7 +1058,7 @@ export async function createFieldView(host, options = {}) {
       const sig = `${info.defId}|${info.golden ? 1 : 0}|${info.spine || ''}|${info.skin || ''}|${info.x},${info.y}|${info.dir || ''}|${(info.items || []).join(',')}`;
       let v = views.get(info.id);
       if (v && v._sig !== sig) { dropView(info.id); v = null; }
-      if (v) continue;
+      if (v) { v.info.itemProgress = info.itemProgress; v.setItemProgress?.(info.itemProgress); continue; }
       v = new UnitView(ctx, { ...info, maxHp: 1 }, { prep: true });
       v._sig = sig;
       v.setWorld(info.x, info.y, heightAt(info.y, info.x));
@@ -1326,9 +1363,9 @@ export async function createFieldView(host, options = {}) {
       }
     }
     // the drop target (p.target, highlighted) is the tile under the pointer
-    if (p.target && p.target.area !== 'temp') {
-      const r = p.target.area === 'board' ? p.target.row : GEO.HAND_ROW;
-      const c = p.target.area === 'board' ? p.target.col : p.target.idx;
+    if (p.target && (p.target.area !== 'temp' || p.legal)) {
+      const r = p.target.area === 'board' ? p.target.row : p.target.area === 'temp' ? GEO.TEMP_ROW : GEO.HAND_ROW;
+      const c = p.target.area === 'board' ? p.target.col : p.target.area === 'temp' ? GEO.TEMP_C0 + p.target.idx : p.target.idx;
       drawHighlight([[r, c]], p.legal ? 'target' : 'illegal', 'dragTarget');
     } else clearHl('dragTarget');
   }
@@ -1337,9 +1374,10 @@ export async function createFieldView(host, options = {}) {
     if (!dragState) return;
     const v = dragState.view;
     const t = p.target;
-    if (t && (t.area === 'board' || t.area === 'hand')) {
-      const row = t.area === 'board' ? t.row : GEO.HAND_ROW, col = t.area === 'board' ? t.col : t.idx;
-      const w = boardWorld(row, col, t.area === 'hand');
+    if (t && (t.area === 'board' || t.area === 'hand' || t.area === 'temp')) {
+      const row = t.area === 'board' ? t.row : t.area === 'temp' ? GEO.TEMP_ROW : GEO.HAND_ROW;
+      const col = t.area === 'board' ? t.col : t.area === 'temp' ? GEO.TEMP_C0 + t.idx : t.idx;
+      const w = boardWorld(row, col, t.area !== 'board');
       v._tween = { fx: v.x, fy: v.y, fz: v.z, tx: w.x, ty: w.y, tz: w.z, t: 0 };
       pending.set(dragState.key, { t: performance.now(), view: v, board: t.area === 'board' ? { row, col } : null });
     } else {
@@ -1501,6 +1539,7 @@ export async function createFieldView(host, options = {}) {
   function enterBattle(meta) {
     if (destroyed || !meta || typeof meta !== 'object') return false;
     holdScene(true); // before the prep views go: the cache is never "quiet" across the switch
+    presentation.reset();
     drag.reset();
     endDragVisual(false);
     cancelReplay();  // the round start's replay is a prep-board thing: none of it reaches a battle (or a scouted board)
@@ -1555,6 +1594,10 @@ export async function createFieldView(host, options = {}) {
     let skin = info.sourceSkin === undefined ? info.skin : info.sourceSkin;
     if (info.kind === 'op' && playerSkins.has(info.ownerId)) {
       skin = playerSkins.get(info.ownerId)[info.diy?.charId || info.spine] || null;
+    } else if (info.kind === 'token' && info.ownerCharId && playerSkins.has(info.ownerId)) {
+      // 召唤物皮肤 (docs/SKINS.md): a summon wears the outfit of the operator that owns it, so the owner's current choice
+      // is read the same live way; no choice (the owner wears the default) draws the summon's own model.
+      skin = playerSkins.get(info.ownerId)[info.ownerCharId] || null;
     }
     if (!skin) return null;
     if (info.ownerId == null || !myId || info.ownerId === myId) return skin;
@@ -1665,33 +1708,13 @@ export async function createFieldView(host, options = {}) {
     }
     // the official effects of units joining the battle load ahead of their first attack (render/vfx/wiring.js more)
     if (fresh) wiring.more(fresh);
-    return interp.pushEvents(list, performance.now() / 1000, t);
+    return interp.pushEvents(attackRateEvents(list), performance.now() / 1000, t);
   }
 
   // attack wind-ups: an 'atk' still queued in the buffer starts its Spine clip early enough for the strike frame to
-  // land when the event is rendered (the look-ahead is the interpolation delay, ~0.2 game s)
-  function windUpAttacks(renderT) {
-    upcomingT = renderT;
-    upSkill.clear();
-    interp.forEachUpcoming(renderT, renderT + 1.5, onUpcoming);
-  }
-  let upcomingT = 0;
-  // the look-ahead's skill state: a ['skill', id, on] queued before an 'atk' of that unit (an instant skill sends 1, its
-  // attack and 0 in one tick) — the official cast effects of the wind-up are the skill's own then
-  const upSkill = new Map();
-  function onUpcoming(e, t) {
-    if (e[0] === 'skill') { upSkill.set(e[1], !!e[2]); return; }
-    if (e[0] !== 'atk' || woundUp.has(e) || CHAIN_KINDS.has(e[3])) return;
-    const v = views.get(e[1]);
-    if (!v || !v.windUp) return;
-    if (v.windUp(t - upcomingT, e[3])) {
-      woundUp.add(e);
-      // the official cast effects that start with the cast play with the clip (render/vfx/wiring.js castStart)
-      const a = v.actor;
-      const skillOn = upSkill.has(e[1]) ? upSkill.get(e[1]) : undefined;
-      wiring.castStart(v, views.get(e[2]), e[3], a ? { skip: a.windSkip || 0, left: a.windCastLeft || 0, skillOn } : { skillOn });
-    }
-  }
+  // land when the event is rendered (app/windup.js; the official cast effects play with the clip — vfx/wiring.js castStart)
+  const lookahead = createWindUpLookahead({ views, woundUp, castStart: (v, tv, kind, o) => wiring.castStart(v, tv, kind, o) });
+  function windUpAttacks(renderT) { lookahead.run(interp, renderT); }
 
   const EVS = [];
   /** State events handed out more than 1.5 game s late (a stall, a hidden tab, a field entered late) → how late. */
@@ -1707,11 +1730,14 @@ export async function createFieldView(host, options = {}) {
 
   function handleEvent(e, now) {
     switch (e[0]) {
+      case 'resource': fx.resourceNumber(views.get(e[1]), e); break;
       case 'spawn': {
         const info = applyInfo(e[1]);
         if (!info) break;
         gone.delete(info.id);
+        const reused = views.get(info.id);   // a 重生 / a second life keeps the view: re-seed its pacing (#729)
         const v = battleView(info.id);
+        if (v && reused) v.respawn?.(info);
         if (v && info.side === 'enemy' && renderT0Battle != null && now - renderT0Battle > 0.2) fx.ring(info.x, info.y, 0, 0.1, 0.7, 0xff5a4a, 0.4);
         // an enemy's or a summon's deploy talents (render/vfx/talentfx.js: auras, birth effects — once per life)
         if (v) wiring.spawned(v);
@@ -1758,7 +1784,9 @@ export async function createFieldView(host, options = {}) {
       }
       // the skill slot an enemy ability casts (PR #275): the view swaps to that slot's clip (a multi-skill boss's Skill_01..04)
       // (and its official skill effects: render/vfx/skillfx.js cast — index v2 has the enemies' skills)
-      case 'cast': { const v = views.get(e[1]); if (v) { v.setSkillSlot?.(e[2] | 0); wiring.enemyCast(v, e[2] | 0, Number(e[3]) || 0); } break; }
+      // an attack-class skill cast in the attack's turn ['cast', id, slot, dur, clip] plays its clip in place of the attack
+      // (UnitView.onCast; DESIGN §35.57)
+      case 'cast': { const v = views.get(e[1]); if (v) { v.setSkillSlot?.(e[2] | 0); v.onCast?.(e[2] | 0, now, e.length > 4 ? Number(e[4]) || 0 : null); wiring.enemyCast(v, e[2] | 0, Number(e[3]) || 0); } break; }
       case 'die': {
         const v = views.get(e[1]);
         const used = consumedIds.delete(e[1]);
@@ -1777,6 +1805,12 @@ export async function createFieldView(host, options = {}) {
           v.dying = 0.25; v.dieDur = 0.25;
         }
         fx.leak();
+        break;
+      }
+      case 'rate': {
+        // the sim's own attack interval changed (a skill, an attack-speed buff): pace the clip over it from the next swing
+        const v = views.get(e[1]);
+        if (v && typeof v.setAtkInterval === 'function') v.setAtkInterval(Number(e[2]));
         break;
       }
       case 'status': { const v = views.get(e[1]); if (v) { v.onStatus?.(e[2], !!e[3]); wiring.status(v, e[2], !!e[3]); } break; }
@@ -1889,7 +1923,7 @@ export async function createFieldView(host, options = {}) {
       if (!v) v = battleView(id) || createUnknown(id, s);
       if (!v) continue;
       if (!v._seen) { v._seen = true; v.fadeIn = 0; }
-      syncView(v, s, renderT);
+      syncView(v, presentation.sample(s), renderT);
     }
     // knocked-out operators waiting to redeploy (b.snap `down`, user playtest #4 item 9): their view stays on the
     // field knocked down under a redeploy ring (UnitView.setDown) — made on the spot for one already down when this
@@ -2017,25 +2051,31 @@ export async function createFieldView(host, options = {}) {
       }
       tiles.project(cam);
       updateBackdrop(clock);
+      syncGrassFx();
       if (mode === 'battle') {
         const renderT = interp.update(now / 1000);
         if (Number.isFinite(renderT)) {
           processEvents(renderT);
+          const justEnded = presentation.update(renderT, interp.newestT, dt);
           syncBattle(renderT);
-          windUpAttacks(renderT);
+          if (!presentation.ended) windUpAttacks(renderT);
           // the official effects run on the battle clock (render time of the snapshots: 1× / 2×, still while paused); the
           // skill effects' per-frame part reads the views' fresh sample (render/vfx/skillfx.js sync)
-          const gdt = ofxPrevT == null ? 0 : Math.min(opts.playbackTime ? Infinity : 0.25, Math.max(0, renderT - ofxPrevT));
+          const gdt = presentation.ended ? dt : ofxPrevT == null ? 0 : Math.min(opts.playbackTime ? Infinity : 0.25, Math.max(0, renderT - ofxPrevT));
           ofxPrevT = renderT;
+          if (justEnded) { wiring.clear(); ofx.finish(); pluginFx.finish(); }
           pluginFx.update(gdt);
-          pluginFx.sync(views.values());
-          wiring.sync(views.values());
+          if (!presentation.ended) { pluginFx.sync(views.values()); wiring.sync(views.values()); }
+          // [ASSUMED] Bound long-lived one-shots to two presentation seconds after completion.
+          if (presentation.ended && presentation.tail >= 2) { ofx.clear(); pluginFx.clear(); fx.clear(); }
           if (ofx.active) {
-            wiring.tick();
+            if (!presentation.ended) wiring.tick();
             if (opts.playbackTime) advanceEffectClock(ofx, gdt); else ofx.update(gdt);
           }
         }
       } else if (mode === 'prep') {
+        // the concealment tiles' loops are the only official effects in prep: run them on the frame clock
+        if (ofx.active && grassFx.length) ofx.update(Math.min(0.25, dt));
         for (const [key, pd] of pending) {
           if (now - pd.t > DROP_PENDING_MS) {
             pending.delete(key);
@@ -2147,6 +2187,7 @@ export async function createFieldView(host, options = {}) {
     /** Enemy preview pen: a list in m.private.nextEnemies shape, or null to empty it (setPrep does this itself). */
     setPen(list) { if (destroyed) return false; setPenList(Array.isArray(list) ? list : null); return true; },
     enterBattle,
+    finishBattle() { if (!destroyed && mode === 'battle') presentation.finish(); },
     pushSnapshot,
     pushEvents,
     /**

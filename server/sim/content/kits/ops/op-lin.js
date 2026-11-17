@@ -53,7 +53,7 @@ import { num, talentBb, moduleBb, traitBb, skillRec, up, giveSp, batMod } from '
 import { COLS } from '../../../constants.js';
 import { absoluteRangeKeys } from '../../../targeting.js';
 import { bodyInRange } from '../../../body.js';
-import { isHpLoss } from '../../../damage.js';
+import { isHpLoss } from '../../../attack.js';
 
 const S1 = 'skchr_lin_1';
 const S2 = 'skchr_lin_2';

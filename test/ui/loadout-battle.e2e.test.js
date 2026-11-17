@@ -81,6 +81,8 @@ describe('user playtest #2 item 1 — loadout chosen in the UI fights in the loc
       await c.click('.dband', null, { nth: 1 });
       await c.click('.draft-detail__btns .btn--primary', '确认选择');
       await c.waitFor((s) => s.phase === 'PREP' && !s.ready && s.hand > 0, 'prep with the starter kit', 60000);
+      // the held 已选定策略 and 协议启动！ (screens/game.js DRAFT_HOLD_MS + BOOT_MIN_MS, inside BATTLE_CHECK) stay over the board first
+      await c.page.waitForFunction(() => !document.querySelector('.screen.draft, [data-testid="protocol-boot"]'), { timeout: 15000 });
       await sleep(1800); // camera flight + pieces
       assert.deepEqual(await untimed(c), { deadline: false, shown: 0 }, 'item 11: solo prep is untimed');
 

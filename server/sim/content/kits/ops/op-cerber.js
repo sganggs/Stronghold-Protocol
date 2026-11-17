@@ -39,7 +39,7 @@
 import { num, talentBb, traitBb, skillRec, statBuff, toggleBuff, batMod, giveSp, up } from '../shared/tier1.js';
 import { sortEnemyTargets } from '../../../targeting.js';
 import { offsetTile } from '../../../dir.js';
-import { hasHp } from '../../../damage.js';
+import { hasHp } from '../../../attack.js';
 
 const S1 = 'skchr_cerber_1';
 const S2 = 'skchr_cerber_2';

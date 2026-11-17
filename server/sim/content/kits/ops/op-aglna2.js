@@ -60,7 +60,7 @@
 import { num, talentBb, skillRec, batMod, up, installAura, toggleBuff } from '../shared/tier1.js';
 import { absoluteRangeKeys, canTargetEnemy, sortEnemyTargets } from '../../../targeting.js';
 import { bodyInRange } from '../../../body.js';
-import { hasHp } from '../../../damage.js';
+import { hasHp } from '../../../attack.js';
 import { RESIST_STATUSES } from '../../../buffs.js';
 import { TICK } from '../../../constants.js';
 import { hypot } from '../../../detmath.js';

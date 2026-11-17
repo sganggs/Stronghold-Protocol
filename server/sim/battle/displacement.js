@@ -47,10 +47,9 @@ export class BattleDisplacement {
    * knockback[relative]: 琳琅诗怀雅 S3, 山 S3, 莫斯提马 S3) or directional (`dir` = the pusher's direction {x, y}; template
    * knockback[dir], Knockback {_useSourceDirection: true, _decreaseForceLevelWhenNotInDirection: 2}: 推击手, 野鬃 S2
    * "往攻击方向"); a directional push on a target more than 45° off `dir` or nearer than 0.25 tile becomes radial with
-   * 受力等级 −2 ("特殊修正"). `keepDir` (野鬃 S2 only, round 40) still applies that −2 when the target is behind the
-   * pusher — the dot with `dir` is negative, the enemy about to leave her tile toward the objective — but does not
-   * flip the direction: the push stays along `dir`. A target in the forward hemisphere past 45°, or nearer than 0.25
-   * tile, stays the official radial correction. `fixed` waives both corrections (圣聆初雪 S1 "朝部署方向": KnockBackWithCharacterDirection,
+   * 受力等级 −2 ("特殊修正"), including behind the pusher. The maintainer's 2026-10-19 official recordings (#782,
+   * DESIGN §35.10) supersede round 40's Wild Mane-only `keepDir` exception; no other kit used it.
+   * `fixed` waives both corrections (圣聆初雪 S1 "朝部署方向": KnockBackWithCharacterDirection,
    * PRTS 备注 "不会因角度过大或距离过近而变化方向与力度"); `fixedAngle` only the angle one (PRTS 见行者 S2 备注 "不会因为角度过大
    * 而改变推动的方向或削减力度" — the < 0.25 tile rule still applies). `inward` = a radial push towards `from` (薄绿 S2's "拖拽", PRTS 备注 "实际为
    * 反方向（指向薄绿方向）的推开"), never nearer than PULL_STOP_RADIUS to its centre [ASSUMED: "至面前"]. `effect` = a 特效
@@ -60,7 +59,7 @@ export class BattleDisplacement {
    * client action can pass `keepFacing: false`. Pulls use the same display rule; raw displacements remain unmarked.
    * Returns the tiles moved.
    */
-  push(e, force, { from = null, dir = null, fixed = false, fixedAngle = false, inward = false, effect = false, keepFacing = true, keepDir = false } = {}) {
+  push(e, force, { from = null, dir = null, fixed = false, fixedAngle = false, inward = false, effect = false, keepFacing = true } = {}) {
     if (!this._displaceable(e)) { this._staticForce(e, force, false); return 0; }
     let level = this.forceLevel(e, force);
     const fx0 = fin(from?.x, e.x), fy0 = fin(from?.y, e.y);
@@ -72,10 +71,7 @@ export class BattleDisplacement {
       ux = dirX / dl; uy = dirY / dl;
       if (from && !fixed && (d < PUSH_DIRECTIONAL_MIN_DIST || (!fixedAngle && vx * ux + vy * uy < d * Math.SQRT1_2))) {
         level -= 2;
-        // behind the pusher (dot < 0): 野鬃 keeps the attack direction (keepDir). Everyone else, and her
-        // forward-hemisphere / too-close targets, become radial.
-        const behind = vx * ux + vy * uy < 0;
-        if (!(keepDir && behind) && d > 1e-6) { ux = vx / d; uy = vy / d; }
+        if (d > 1e-6) { ux = vx / d; uy = vy / d; }
       }
     } else if (d > 1e-6) { ux = vx / d; uy = vy / d; }
     else if (!inward && from && Array.isArray(from.fwd)) { ux = from.fwd[1]; uy = from.fwd[0]; }

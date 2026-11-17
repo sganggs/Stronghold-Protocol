@@ -11,7 +11,7 @@ import { readPluginFolder } from '../plugins/registry.js';
 import { operatorTraitPermissions } from '../plugins/operatorTraits.js';
 import fs from 'node:fs';
 import { PLUGIN_API } from '../../shared/constants.js';
-import { PLUGIN_CLASSES, PLUGIN_MANIFEST, isPackPath, isSemver } from '../../shared/plugins/manifest.js';
+import { PLUGIN_CLASSES, PLUGIN_MANIFEST, isPackPath, isSemver, validPluginVersions } from '../../shared/plugins/manifest.js';
 import { atlasInfo } from '../../tools/assets/atlas.mjs';
 import { errorWords } from '../plugins/pack.js';
 import { appRangeNow, manifestText } from './templates/index.js';
@@ -75,14 +75,15 @@ export function openPlugin(files, id) {
     try { overlay = JSON.parse(fs.readFileSync(files.resolve(id, overlayFile), 'utf8')); } catch { overlay = {}; }
     if (!isObj(overlay)) overlay = {};
   } else {
-    if (!isObj(manifest.assets)) manifest.assets = {};
-    overlay = manifest.assets;
+    overlay = isObj(manifest.assets) ? manifest.assets : {};
   }
-  const before = { manifest: JSON.stringify(manifest), overlay: overlayFile ? JSON.stringify(overlay) : null };
+  const before = { manifest: JSON.stringify(manifest), overlay: JSON.stringify(overlay) };
   return {
     dir, manifest, overlay, overlayFile,
     /** Write plugin.json (and the overlay's own file) when they changed. */
     save() {
+      // Metadata edits alone must not add an assets part (and require art permissions) to a gameplay plugin.
+      if (!overlayFile && JSON.stringify(overlay) !== before.overlay) manifest.assets = overlay;
       if (overlayFile && JSON.stringify(overlay) !== before.overlay) files.write(id, overlayFile, Buffer.from(manifestText(overlay)));
       if (JSON.stringify(manifest) !== before.manifest) files.write(id, PLUGIN_MANIFEST, Buffer.from(manifestText(manifest)));
     },
@@ -91,7 +92,7 @@ export function openPlugin(files, id) {
 
 /** The basic fields the studio's form edits, with what each accepts (an empty value removes the field). */
 const META_FIELDS = Object.freeze({
-  name: 'text', description: 'longtext', version: 'version', authors: 'list', license: 'line', credits: 'line', homepage: 'line', scope: 'scope',
+  name: 'text', description: 'longtext', version: 'version', versions: 'versions', authors: 'list', license: 'line', credits: 'line', homepage: 'line', scope: 'scope',
 });
 
 /**
@@ -116,6 +117,9 @@ export function editMeta(p, fields, lang = 'zh') {
       const s = str.trim();
       if (!isSemver(s)) throw new StudioError('PLUGIN_VERSION', 400, {}, `${s.slice(0, 40)} is not a version`);
       m.version = s;
+    } else if (kind === 'versions') {
+      if (!validPluginVersions(v)) throw new StudioError('PLUGIN_VERSIONS', 400, {});
+      m.versions = [...v];
     } else if (kind === 'list') {
       const list = (Array.isArray(v) ? v : str.split(/[,，、\n]/)).map((x) => (typeof x === 'string' ? x : '').trim().slice(0, 200)).filter(Boolean).slice(0, 32);
       if (list.length) m[k] = list; else delete m[k];

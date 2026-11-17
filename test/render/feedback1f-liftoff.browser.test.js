@@ -3,7 +3,7 @@
 // keeps ground enemies off an airborne 蒂比. On act2 m02's lower lane 蒂比 (S2 紧急赶场通知) stands on the road with 角峰 on
 // the fence tile below her and a still 控潮术师 (ground caster: target + 周围四格) in range of both: its first shot sets her
 // off (dodged), and while she is airborne (起飞: flag `liftoff`, 对地规避) it only hits 角峰 — never her, neither directly
-// nor through the 周围四格 — and once she lands she is hit again (sim: targeting.js evadesGround, damage.js).
+// nor through the 周围四格 — and once she lands she is hit again (sim: targeting.js evadesGround, attack/helpers.js liftoffEvades).
 //
 // Opt-in (starts Chrome): RENDER_E2E=1 node --test test/render/feedback1f-liftoff.browser.test.js
 // Chrome path: $CHROME_PATH or the macOS default.

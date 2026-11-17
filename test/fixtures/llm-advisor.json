@@ -1,0 +1,44 @@
+{
+  "description": "Authored, recorded mock decision trace for the round49 failure patterns; synthetic catalogue, no official table extracts or real provider calls.",
+  "knowledge": {
+    "schema": "sp-knowledge/1", "version": "offline-fixture-v1",
+    "operators": [
+      {"id":"lead","baseId":"lead","cost":1,"tier":1,"bonds":["a","b","c","d"],"poolEligible":true},
+      {"id":"support","baseId":"support","cost":2,"tier":1,"bonds":["a","b","c","d"],"poolEligible":true},
+      {"id":"elite","baseId":"lead","elite":true,"tier":1,"bonds":["a","b","c","d"]},
+      {"id":"distant","baseId":"distant","cost":6,"tier":6,"bonds":["e"],"poolEligible":true}
+    ],
+    "items": [{"id":"item"}],
+    "bonds": [
+      {"id":"a","thresholds":[2,3],"countMode":"BOARD"},
+      {"id":"b","thresholds":[2],"countMode":"BOARD"},
+      {"id":"c","thresholds":[2],"countMode":"BOARD"},
+      {"id":"d","thresholds":[2],"countMode":"BOARD"},
+      {"id":"e","thresholds":[2],"countMode":"BOARD"}
+    ]
+  },
+  "digest": {
+    "playerId":"seat-a", "round":1, "phase":"PREP", "lp":20, "deployCap":6,
+    "band":{"id":"carry"}, "factions":["armored"],
+    "economy":{"gold":8,"level":1,"upgradePrice":4,"refreshPrice":2,"interest":{"carries":true,"now":1,"nextGold":10}},
+    "board":[{"id":"lead","baseId":"lead","kind":"chess","uid":"u1","stars":1,"bonds":["a","b","c","d"],"row":9,"col":3}],
+    "bench":[{"id":"lead","baseId":"lead","kind":"chess","uid":"u2","stars":1,"bonds":["a","b","c","d"]}],
+    "overflow":[],
+    "shop":[{"id":"support","baseId":"support","kind":"chess","slot":0,"stars":1,"price":2,"tier":1,"bonds":["a","b","c","d"]}],
+    "bonds":[{"bondId":"a","count":1,"nextThreshold":2},{"bondId":"b","count":1,"nextThreshold":2},{"bondId":"c","count":1,"nextThreshold":2},{"bondId":"d","count":1,"nextThreshold":2}],
+    "upcoming":[{"enemyKey":"foe","count":4,"fly":true,"gate":"upper","t":3}],
+    "boss":{"id":"boss","round":4}, "availability":{"disabledBonds":[],"bannedChess":[],"diyBanned":[]},
+    "actions":[{"id":"a1","intent":{"t":"g.reward","idx":0},"text":"support"}],
+    "feedback":{"events":[],"through":0,"lastBattle":null,"acceptedPlan":null}
+  },
+  "replies": [
+    {"why":"Complete the held core. Keep the pair. Save for the next interest step.","pivot":false,"pivotReason":"","plan":{"bonds":[{"id":"a","priority":5},{"id":"b","priority":4},{"id":"c","priority":3},{"id":"d","priority":2},{"id":"e","priority":1}],"buy":["support","item","unknown","support"],"keep":["lead"],"economy":{"reserve":999,"maxRefreshes":-2,"level":"2.9"}}},
+    {"why":"Try a different build.","pivot":false,"pivotReason":"","plan":{"bonds":[{"id":"d","priority":5}],"buy":["support"]}},
+    {"why":"The next boss needs this core.","pivot":true,"pivotReason":"Boss and armored enemies favor d; the new elite anchors it.","plan":{"bonds":[{"id":"d","priority":5},{"id":"b","priority":4}],"keep":["elite"]}}
+  ],
+  "events": [
+    {"seq":1,"round":1,"type":"buy","id":"support","kind":"chess","cost":2},
+    {"seq":2,"round":1,"type":"merge","id":"elite","kind":"chess","baseId":"lead","consumed":["u1","u2","u3"]},
+    {"seq":3,"round":1,"type":"sell","id":"support","uid":"u4"}
+  ]
+}

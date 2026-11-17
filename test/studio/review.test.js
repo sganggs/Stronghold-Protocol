@@ -191,7 +191,11 @@ for (const mode of ['sandbox', 'trusted']) test(`trial uses the actual ${mode} e
       fs.appendFileSync(path.join(f.pluginsDir, 'demo/index.js'), '\n// changed after authorization');
       packPlugin(path.join(f.pluginsDir, 'demo'));
     }
-    return fork(...args);
+    // This test checks the executor and the pinned mode, not the probe's timing: its trial child gets a wider probe
+    // ceiling (as loopBench does), so a fully loaded runner's slow child start cannot fail it (GitHub #847, one Windows
+    // job in 66 hit the 5 s default). The lobby default and the shared SIGKILL deadline stay as they are.
+    const [entry, argv, opts] = args;
+    return fork(entry, argv, { ...opts, env: { ...process.env, SP_SCRIPT_PROBE_MS: '15000' } });
   } }); t.after(() => bench.close());
   const r = await bench.run({ id: 'demo', seconds: 2 });
   assert.equal(r.ok, true, JSON.stringify(r)); assert.deepEqual(r.plugin.errors, []); assert.ok(r.plugin.damage > r.vanilla.damage);

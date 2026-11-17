@@ -16,7 +16,7 @@ import {
   resolveSkill, skillPlan, attackFx, slotKey, planKeys, anchorOf, chargePlan, chargeStep, chargeKeys, hitGroups, unitKeyOf,
   skillRecordOf, skillIdsOf, mountPointName, CHARGE_EMITTERS, UNMAPPED,
 } from '../../public/js/render/vfx/skills.js';
-import { coverage, roster } from '../../tools/vfx-skill-coverage.mjs';
+import { coverage, roster, parseArgs, loadRosterData } from '../../tools/vfx-skill-coverage.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const INDEX = path.join(ROOT, 'public/assets/local/fx/index.json');
@@ -220,6 +220,23 @@ describe('skill plans (synthetic)', () => {
   });
 });
 
+describe('a unit entry aliased from another node', () => {
+  // 规程 铸铁: our record's skcom_heal_self is the extractor's copy of her skchr_sidero_1 node; the shared skill
+  // prefab of that id still has its own hit, which the plan keeps beside the unit node's cast
+  const idx = {
+    units: { char_x: { skills: { skcom_heal_self: { rootClass: 'CastSkill', uses: [{ role: 'start', keys: ['x_skill_01_start'], from: 'UberEffectEmitter._castEffects', node: 'skchr_x_1', ability: 'Heal', list: 'cast' }] },
+      skchr_x_2: { rootClass: 'CastSkill', uses: [{ role: 'start', keys: ['x_skill_02_start'], from: 'UberEffectEmitter._castEffects', node: 'skchr_x_2', ability: 'Heal', list: 'cast' }] } } } },
+    skills: { skcom_heal_self: { rootClass: 'CastSkill', uses: [{ role: 'hit', keys: ['common_heal_hit_01'], from: 'UberEffectEmitter._hitEffects', node: 'skcom_heal_self', ability: 'Heal', list: 'hit' }] },
+      skchr_x_2: { rootClass: 'CastSkill', uses: [{ role: 'hit', keys: ['other_hit'], from: 'UberEffectEmitter._hitEffects', node: 'skchr_x_2', ability: 'Heal', list: 'hit' }] } },
+    prefabs: { x_skill_01_start: {}, x_skill_02_start: {}, common_heal_hit_01: {}, other_hit: {} },
+    projectiles: {},
+  };
+  test('keeps the shared prefab\'s keys; a unit entry of its own node does not take them', () => {
+    assert.deepEqual(planKeys(skillPlan(idx, 'char_x', 'skcom_heal_self')).sort(), ['common_heal_hit_01', 'x_skill_01_start']);
+    assert.deepEqual(planKeys(skillPlan(idx, 'char_x', 'skchr_x_2')), ['x_skill_02_start']);
+  });
+});
+
 describe('anchors and mount points', () => {
   test('anchorOf reads the root ParticleEffect and FollowMountPoint (also of a compiled def)', () => {
     const desc = { nodes: [{ behaviours: [{ class: 'ParticleEffect', fields: { _spawnLocation: 9, _isLoop: 1 } }, { class: 'FollowMountPoint', fields: { _mountPointType: 6 } }] }] };
@@ -302,6 +319,23 @@ describe('the coverage roster (tools/vfx-skill-coverage.mjs)', () => {
     assert.deepEqual(rep.groups.tokens.notResolved, { 'token-skill': 1 });
     assert.deepEqual(rep.groups.enemies.notResolved, { 'enemy-skill': 1 });
     assert.equal(rep.charge.find((c) => c.unit === 'char_469_indigo').slots, 4);
+  });
+
+  test('--version reads that version\'s roster; the default roster does not include 旅骨', () => {
+    assert.equal(parseArgs([]).version, null);
+    assert.equal(parseArgs(['--json']).json, true);
+    assert.equal(parseArgs(['--json']).version, null);
+    assert.equal(parseArgs(['--version', 'all']).version, 'all');
+    assert.equal(parseArgs(['--version', 'act3autochess-v3_1']).version, 'act3autochess-v3_1');
+    assert.equal(parseArgs(['--version']), null, 'a missing value is an error');
+    assert.equal(parseArgs(['--version', '--json']), null);
+    assert.equal(parseArgs(['--nope']), null);
+    const ids = (data) => roster(data).filter((r) => r.id === 'char_4232_hbound').map((r) => r.skill.skillId).sort();
+    assert.deepEqual(ids(loadRosterData()), []);
+    assert.deepEqual(ids(loadRosterData('act2autochess')), []);
+    assert.deepEqual(ids(loadRosterData('act3autochess@V3_1')), ['skchr_hbound_1', 'skchr_hbound_2']);
+    assert.deepEqual(ids(loadRosterData('act3autochess-v3_1')), ['skchr_hbound_1', 'skchr_hbound_2']);
+    assert.equal(loadRosterData('no-such-version'), null);
   });
 });
 

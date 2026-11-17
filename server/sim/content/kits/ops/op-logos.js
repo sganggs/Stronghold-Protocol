@@ -10,12 +10,13 @@
 // - Trait (中坚术师) "攻击造成法术伤害": the profession default (ranged arts bolt, hits air units, targetable by ground
 //   enemies). CCR-Δ “来自河谷的笔盒” adds "造成法术伤害时附带相当于8%伤害的凋亡损伤" (hidden module talent
 //   `ep_damage_ratio`): every arts damage he deals — attacks, the talent's extra hits, 殁亡's follow-up — fills 8 % of the
-//   HP it removed as 凋亡 损伤 (the kits' element convention, docs/SIM.md §7.2). CCR-Y “《语义范式百科》” adds
+//   post-injury damage amount as 凋亡 损伤 (not the overkill-clamped HP delta; docs/SIM.md §7.2). CCR-Y “《语义范式百科》” adds
 //   "普通攻击命中精英或领袖敌人时获得1点技力" (trait bb `sp`): +sp SP per normal-attack hit on an elite or leader enemy
 //   (none while a timed skill runs — AK) and, per the 语汇演化 备注 "<Y模组>…可触发模组提供的额外特性", per talent hit too.
 // - T1 语汇演化 "对一个目标发起攻击时，有40%几率额外对攻击范围内一个随机目标造成相当于攻击力60%的法术伤害并使其停顿0.8秒"
-//   (full potential: 65 %; bb prob / atk_scale / sluggish): rolled for every target of each of his attacks and after 殁亡's
-//   follow-up hit (S1 备注 "可触发第一天赋"); the extra hit lands at once on a random targetable enemy of his current range
+//   (full potential: 65 %; bb prob / atk_scale / sluggish): rolled for every target of each of his attacks and after a
+//   successful 殁亡 execution, before selecting its follow-up target (logos_s_1 native action order). The extra hit lands
+//   at once on a random targetable enemy of his current range
 //   [ASSUMED: the attacked target can be drawn], then 停顿 (the engine `sluggish`) for `sluggish` s. 备注 "该天赋的触发不依赖
 //   普通攻击，不受缴械类效果制约". CCR-Δ stage 2+: prob 0.5 / 0.6 and, on a target in its 凋亡 burst, `element_atk_scale` × ATK
 //   元素伤害 after the arts hit (备注 "先造成法术伤害，后造成元素伤害"). CCR-Y stage 2+: `emit_count` 2 — 备注 "本质上是将该天赋
@@ -43,9 +44,9 @@
 //   he is knocked out [ASSUMED]. Every enemy projectile counts as 可变速 / 可消除 [ASSUMED]. The sim's projectiles live in
 //   `battle.projectiles.list` (ProjectileSystem, server/sim/projectiles.js): the kit adjusts `speed` / `maxAge` there.
 
-import { num, talentBb, moduleBb, traitBb, skillRec, up, giveSp, once } from '../shared/tier1.js';
+import { num, talentBb, moduleBb, traitBb, skillRec, up, giveSp } from '../shared/tier1.js';
 import { isElite, elementDmg } from '../shared/tier6.js';
-import { hasHp } from '../../../damage.js';
+import { hasHp, isHpLoss } from '../../../attack.js';
 import { COLS, ROWS } from '../../../constants.js';
 
 const S1 = 'skchr_logos_1';
@@ -71,6 +72,7 @@ const enemyShots = (battle) => (battle.projectiles?.list ?? []).filter((p) => p 
 function slowShots(battle, unit, scale) {
   const set = unit.rangeKeySet;
   for (const p of enemyShots(battle)) {
+    if (!p.speedChangeable) continue;
     let s = SLOWED.get(p);
     if (set && set.has(tileOf(p))) {
       if (!s) { s = { orig: p.speed, by: new Set() }; SLOWED.set(p, s); }
@@ -91,7 +93,7 @@ function endShots(battle, unit, clear) {
   if (clear && set && battle.projectiles) {
     const keep = [];
     for (const p of battle.projectiles.list) {
-      if (p && p.source && p.source.side === 'enemy' && set.has(tileOf(p))) { n++; SLOWED.delete(p); } else keep.push(p);
+      if (p && p.removable && p.source && p.source.side === 'enemy' && set.has(tileOf(p))) { n++; SLOWED.delete(p); } else keep.push(p);
     }
     battle.projectiles.list = keep;
   }
@@ -123,25 +125,28 @@ export default {
         const t = battle.rng.pick(battle.enemiesInKeys(unit.rangeKeys, unit, ANY));
         if (!t) continue;
         battle.fx('logosLexicon', { x: t.x, y: t.y, id: unit.id, target: t.id });
-        battle.dealDamage(unit, t, { amount: unit.s.atk * lex.scale, type: 'arts', tags: ['talent', 'logosLexicon'] });
+        battle.dealDamage(unit, t, { amount: unit.s.atk * lex.scale, type: 'arts', calculation: 'precomputed', tags: ['talent', 'logosLexicon'] });
         if (t.alive && lex.sluggish > 0) battle.applyStatus(t, 'sluggish', { duration: lex.sluggish, source: unit });
         if (lex.elemScale > 0 && hasHp(t) && t.findBuff('apoptosisBurst')) {
-          battle.dealDamage(unit, t, { amount: unit.s.atk * lex.elemScale, type: 'elemental', element: 'apoptosis', canDodge: false, tags: ['talent', 'logosLexicon'] });
+          battle.dealDamage(unit, t, { amount: unit.s.atk * lex.elemScale, type: 'elemental', element: 'apoptosis', calculation: 'precomputed', tags: ['talent', 'logosLexicon'] });
         }
       }
     }
 
-    /** 殁亡's execution of `e` (HP below the threshold), then the follow-up arts hit on another random enemy of his range. */
-    function execute(battle, unit, e, st) {
-      const left = e.hp;
-      battle.fx('logosExecute', { x: e.x, y: e.y, id: unit.id, target: e.id });
-      battle.dealDamage(unit, e, { amount: num(b1['attack@kill_damage'], 9999999), type: 'true', canDodge: false, sourceless: true, isSkill: true, tags: ['skill', 'execute'] });
-      if (e.alive) st.spared.add(e.id);   // survived (不死, 频次, 限伤 …): never tried again
-      const t = battle.rng.pick(battle.enemiesInKeys(unit.rangeKeys, unit, ANY).filter((x) => x !== e));
-      if (!t || !(left > 0)) return;
-      battle.dealDamage(unit, t, { amount: left, type: 'arts', isSkill: true, tags: ['skill', 'logosPerish'] });
-      lexicon(battle, unit);
-    }
+  /** 殁亡's execution, talent trigger on death, then the independent inherited-HP follow-up. */
+  function execute(battle, unit, e, st) {
+    const left = e.hp;
+    battle.fx('logosExecute', { x: e.x, y: e.y, id: unit.id, target: e.id });
+    battle.dealDamage({ source: null, credit: unit, target: e, amount: num(b1['attack@kill_damage'], 9999999),
+      type: 'true', ignoreCancelReasons: ['dodge', 'block', 'miss'], isSkill: true, tags: ['skill', 'execute'] });
+    if (e.alive) st.spared.add(e.id); // survived (不死, 频次, 限伤 …): never tried again
+    // Native CheckUnitAlive → IfNot → TriggerBuffsByKeys(logos_t_1), then a separate follow-up projectile.
+    // [ASSUMED] Keep this kit's immediate talent/follow-up delivery; native projectile arrival order is not modeled.
+    else lexicon(battle, unit);
+    const t = battle.rng.pick(battle.enemiesInKeys(unit.rangeKeys, unit, ANY).filter((x) => x !== e));
+    if (!t || !(left > 0)) return;
+    battle.dealDamage(unit, t, { amount: left, type: 'arts', isSkill: true, tags: ['skill', 'logosPerish'] });
+  }
 
     /** 提喻: end the lock (its slow leaves the target). */
     function unlock(battle, unit) {
@@ -226,20 +231,14 @@ export default {
             for (let i = 0; i < ctx.targets.length; i++) lexicon(battle, unit);
           }, { owner: unit });
         } },
-        { install(battle, unit) { // 剜魂具辞: his attack hits mark the target (before mitigation: the hit itself counts)
+        { install(battle, unit) { // 剜魂具辞: native source calculation marks the target (before its target calculation / mitigation)
           const dur = num(t1.duration), res = num(t1.magic_resistance), add = num(t1.atk_addition);
           if (!(dur > 0) || !(add > 0 || res)) return;
-          battle.on('hit', (ctx) => {
-            if (ctx.source !== unit || !ctx.dmg?.isAttack || !ctx.target || ctx.target.side !== 'enemy') return;
-            battle.applyStrongest(ctx.target, T2_KEY, { duration: dur, value: add, source: unit, mods: () => (res ? { resFlat: res } : {}) });
+          battle.on('damageCalculate', (ctx) => {
+            if (ctx.source !== unit || !ctx.target || ctx.target.side !== 'enemy') return;
+            battle.applyStrongest(ctx.target, T2_KEY, { duration: dur, value: add, source: unit, mods: value => ({ resFlat: res, artsAttackAddition: value }) });
           }, { owner: unit, priority: 10 });
-          // "受到的法术伤害提高N点": every arts damage on a marked enemy, after the attack multiplier, before its RES
-          once(battle, 'logos:artsAddition', () => battle.on('hit', (ctx) => {
-            const d = ctx.dmg;
-            if (!d || d.type !== 'arts' || !ctx.target || ctx.target.side !== 'enemy') return;
-            const m = ctx.target.findBuff(T2_KEY);
-            if (m && m.data && m.data.value > 0) d.amount += m.data.value;
-          }, { priority: -50 }));
+
         } },
       ],
       install(battle, unit) {
@@ -259,17 +258,19 @@ export default {
         // CCR-Δ: 8 % of every arts damage as 凋亡 损伤
         const ep = num(hidden.ep_damage_ratio);
         if (ep > 0) {
-          battle.on('damaged', (ctx) => {
-            if (ctx.source !== unit || ctx.type !== 'arts' || !(ctx.amount > 0) || !ctx.target || ctx.target.side !== 'enemy') return;
+          battle.on('damageApplied', ctx => {
+            if (ctx.source !== unit || ctx.dmg.type !== 'arts' || ctx.target.side !== 'enemy') return;
+            // Native logos_e_002_tr uses successful damage with assignRealDelta=false.
             elementDmg(battle, unit, ctx.target, 'apoptosis', ctx.amount * ep, ['trait', 'logosCcrd']);
           }, { owner: unit });
         }
         // CCR-Y: a normal-attack (or 语汇演化) hit on an elite / leader enemy gives SP
+        // [ASSUMED] Keep legacy zero/full-shield trigger behavior until the native Y event is established.
         const sp = num(tb.sp);
         if (sp > 0) {
           battle.on('damaged', (ctx) => {
             const d = ctx.dmg;
-            if (ctx.source !== unit || !d || ctx.type === 'element' || !ctx.target || ctx.target.side !== 'enemy') return;
+            if (ctx.source !== unit || !d || isHpLoss(d) || ctx.type === 'element' || !ctx.target || ctx.target.side !== 'enemy') return;
             if ((d.isAttack || (d.tags || []).includes('logosLexicon')) && isElite(ctx.target)) giveSp(unit, sp, 'trait');
           }, { owner: unit });
         }

@@ -15,6 +15,15 @@ function captured(text, re) {
   return m && m[1] != null && m[1] !== '' ? m[1] : null;
 }
 
+function finiteFromCapture(raw, fallback) {
+  if (raw == null) return fallback;
+  if (Object.prototype.hasOwnProperty.call(CN_DIGIT, raw)) return CN_DIGIT[raw];
+  const n = Number(raw);
+  if (Number.isFinite(n)) return n;
+  const fb = Number(fallback);
+  return Number.isFinite(fb) ? fb : 0;
+}
+
 /**
  * Finite number captured by `re`, or `fallback` when the text has no capture.
  * A non-finite capture (a run of nines that becomes Infinity) uses a finite fallback, or 0.
@@ -24,13 +33,25 @@ function captured(text, re) {
  * @param {unknown} fallback
  */
 export function textFinite(text, re, fallback) {
-  const raw = captured(text, re);
-  if (raw == null) return fallback;
-  if (Object.prototype.hasOwnProperty.call(CN_DIGIT, raw)) return CN_DIGIT[raw];
-  const n = Number(raw);
-  if (Number.isFinite(n)) return n;
-  const fb = Number(fallback);
-  return Number.isFinite(fb) ? fb : 0;
+  return finiteFromCapture(captured(text, re), fallback);
+}
+
+/**
+ * Snapshot a pattern for repeated finite-number reads, without changing the caller's RegExp.
+ * Global matching is disabled as in textFinite; sticky matching starts at zero on every read.
+ * @param {RegExp} re
+ * @returns {<T>(text: unknown, fallback: T) => number | T}
+ */
+export function createTextFiniteReader(re) {
+  const copy = re instanceof RegExp ? new RegExp(re.source, re.flags.replace(/g/g, '')) : null;
+  return (text, fallback) => {
+    if (!copy) return fallback;
+    const input = text == null ? '' : String(text);
+    // Coercion may re-enter this reader, so reset after String(text), immediately before exec.
+    copy.lastIndex = 0;
+    const m = copy.exec(input);
+    return finiteFromCapture(m && m[1] != null && m[1] !== '' ? m[1] : null, fallback);
+  };
 }
 
 /**

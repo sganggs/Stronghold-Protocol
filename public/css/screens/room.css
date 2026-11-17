@@ -1,217 +1,443 @@
 /* ==========================================================================================
-   screens/room.css — room/waiting screen: invite key, 4 seat cards, bottom action bar.
+   screens/room.css — room/waiting screen, laid out like the event's room: the top bar (leave, mode and ping, tools,
+   干员调配, 同盟密钥), 4 tall seat cards with their name plates, the bottom (status, the difficulty pill with ⚙, the big
+   开始模拟 / 准备就绪 — `.proto-start`, screens/lobby.css). Text follows 文字大小 (calc(k * var(--t))).
    ========================================================================================== */
 
-.room-screen .topbar { height: 1.36rem; }
-.room-ping { display: flex; flex-direction: column; align-items: flex-start; gap: .04rem; }
-
-/* ---- invite key ---------------------------------------------------------------------------------------- */
-.invite {
-  --bk-c: var(--mint-500);
-  display: grid;
-  grid-template-columns: auto auto;
-  column-gap: .2rem;
-  row-gap: .06rem;
-  align-items: center;
-  padding: .1rem .16rem .12rem;
-  background: rgba(0, 0, 0, .38);
-  border: 1px solid var(--line);
+.rs { background: #0a0b0b; color: #eef0ef; }
+/* Korean breaks between words, not between the syllables of one (§35.18 review: 「시뮬레이션 시|작」 on the big button, and
+   the seat cards' labels once they wrap); a word too long for its box still breaks rather than running out of it */
+.rs:lang(ko) { word-break: keep-all; overflow-wrap: break-word; }
+/* Japanese never starts a line with a small kana, ー or a closing mark (§35.18 review: 「シミュレーシ|ョン開始」 on the big
+   button, 「ドクタ|ーの画面」 in a spectator's status line, 「シークレ|ットコア」 in 独立模拟's briefing — line-break: normal
+   allows a break before a small kana and ー) */
+.rs:lang(ja) { line-break: strict; }
+/* a last line of one character (§35.18 review of the text-fit fixes: 「…各位博|士」 in the room's status line, 「ドクターの
+   参加待|ち」, 「添加AI队|友」 at 特大). The paragraphs wrap `pretty` (Chrome never adds a line for it); the short labels
+   `balance` (the line count stays): WebKit's `pretty` adds lines to short labels (review of that review: 「AI同盟者を追加」
+   took 4 lines in Safari on a 640×360 phone at 特大 and was cut, 2 with `balance`). `balance`: Chrome 114+, Safari 17.5+,
+   Firefox 121+; `pretty`: Chrome 117+, Safari 26+, Firefox wraps as before. The big button's label wraps plainly (in
+   Safari `pretty` and `balance` broke 「シミュレー|ション開始」 inside the word at 小 on the phones; 选择模拟协议's own button
+   keeps `pretty`, lobby.css); the picker's names below */
+.rs-hint, .rs-brief p, .rs-brief li { text-wrap: pretty; }
+/* (§35.51: the empty seat's invite hint too — 「…仲間を招|待」 at 大 in a 1024×600 window) */
+.rseat__add, .rseat__wait small, .rseat__invite small { text-wrap: balance; }
+/* `balance` broke Japanese 「AI同盟|者を追加」 inside the word at 特大 on the phones (review of 6f34f380; 「AI同盟者を|追加」
+   with `pretty`): phrase breaks (BudouX) in Chrome 119+; Safari and Firefox ignore it */
+.rseat__add:lang(ja) { word-break: auto-phrase; }
+.rs__bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 50% at 30% 40%, rgba(23, 249, 183, .05), transparent 70%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, .02) 0 1px, transparent 1px 4px),
+    linear-gradient(rgba(255, 255, 255, .025) 1px, transparent 1px) 0 0 / 1.1rem 1.1rem,
+    linear-gradient(90deg, rgba(255, 255, 255, .025) 1px, transparent 1px) 0 0 / 1.1rem 1.1rem,
+    radial-gradient(120% 90% at 50% 30%, #161818, #070808);
 }
-.invite__label { grid-column: 1 / -1; display: flex; align-items: center; gap: .07rem; font-size: calc(.14 * var(--t)); color: var(--text-lo); }
-.invite__label .icon { width: .16rem; height: .16rem; color: var(--mint-500); }
-.invite__code { display: flex; gap: .06rem; }
-.invite__code span {
+.rs-top, .rs-seats, .rs .specbar, .rs-foot { position: relative; }
+
+/* ---- top bar ------------------------------------------------------------------------------------------- */
+.rs .rs-top {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: .2rem;
+  height: auto;
+  padding: .16rem .3rem 0 .22rem;
+  background: none;
+  border-bottom: 0;
+  z-index: 3;
+}
+.rs-top__left { display: flex; align-items: center; flex-wrap: wrap; gap: .16rem; min-width: 0; }
+.rs-exit {
   display: grid;
   place-items: center;
-  width: .46rem;
-  height: .58rem;
-  background: linear-gradient(180deg, rgba(78, 216, 175, .1), rgba(78, 216, 175, .02));
-  border-bottom: 2px solid var(--mint-600);
-  color: var(--mint-400);
-  font-size: calc(.44 * var(--t));
-  font-weight: 700;
-  line-height: 1;
-  text-shadow: 0 0 .16rem rgba(23, 249, 183, .45);
+  width: max(.6rem, 32px, calc(36px * var(--sp-ui, 1)));
+  height: max(.6rem, 32px, calc(36px * var(--sp-ui, 1)));
+  padding: 0;
+  color: #1b1e1d;
+  background: linear-gradient(180deg, #e3e7e5, #b7bfbc);
+  border: 0;
+  border-radius: .06rem;
+  box-shadow: 0 .03rem .1rem rgba(0, 0, 0, .5);
 }
-.invite__btns { display: flex; flex-direction: column; gap: .06rem; }
-.solo-note { display: flex; flex-direction: column; align-items: flex-end; gap: .03rem; font-size: calc(.16 * var(--t)); color: var(--text-lo); }
+.rs-exit:hover:not(:disabled), .rs-exit:focus-visible { filter: brightness(1.08); }
+.rs-exit .icon { width: 60%; height: 60%; }
+.rs-clock { display: flex; flex-direction: column; gap: .02rem; min-width: 0; }
+.rs-clock > b { display: inline-flex; align-items: center; gap: .1rem; font-size: calc(.2 * var(--t)); font-weight: 700; white-space: nowrap; }
+.rs-clock__sep { width: 1px; height: .9em; background: rgba(255, 255, 255, .3); }
+/* the plugin mode the host chose (0.3.0, DESIGN §32.6), beside the mode name: the orange chip of the old room bar */
+.rs-clock .room-mode {
+  min-width: 0;
+  max-width: min(3.6rem, 30vw);
+  overflow: hidden;
+  padding: 0 .08rem;
+  border: 1px solid rgba(255, 106, 61, .6);
+  color: #ff8a5c;
+  font-size: calc(.16 * var(--t));
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+.rs-clock__ping { display: inline-flex; align-items: center; gap: .08rem; font-size: calc(.15 * var(--t)); color: #9aa19e; }
+/* the shared ping pill has a fixed .32rem (12.8 px on a phone) its text outgrows at 大 / 特大: in the room's top bar it
+   grows with it (§35.18 review; older than the event UI). Scoped: title.css and the match's bars size their own pill */
+.rs-clock__ping .ping { height: auto; min-height: .32rem; padding-top: 1px; padding-bottom: 1px; }
+.rs-tools { display: flex; gap: .08rem; margin-left: .1rem; }
+.rs-top__right { display: flex; align-items: center; gap: .14rem; }
+.rs .rs-loadout {
+  --pl-ink: #222b28;
+  display: flex;
+  align-items: center;
+  gap: .1rem;
+  height: max(.56rem, 32px, calc(34px * var(--sp-ui, 1)));
+  padding: 0 .2rem 0 .14rem;
+  font-size: calc(.18 * var(--t));
+  color: #111816;
+  background:
+    linear-gradient(var(--pl-ink), var(--pl-ink)) left .05rem center / 2px 54% no-repeat,
+    linear-gradient(var(--pl-ink), var(--pl-ink)) right .05rem center / 2px 54% no-repeat,
+    linear-gradient(180deg, #e8edea, #c6cfcb);
+  border: 1px solid rgba(255, 255, 255, .5);
+  box-shadow: 0 .04rem .14rem rgba(0, 0, 0, .5);
+}
+.rs .rs-loadout:not(:disabled):hover { border-color: #fff; filter: brightness(1.05); }
+.rs .rs-loadout .lo-entry__icon, .rs .rs-loadout > .btn__icon {
+  width: max(.36rem, 22px);
+  height: max(.36rem, 22px);
+  padding: .04rem;
+  box-sizing: border-box;
+  color: var(--mint-400);
+  background: #182120;
+}
+.rs .rs-loadout .btn__label { font-weight: 900; color: #111816; }
+.rs-key {
+  display: flex;
+  align-items: center;
+  gap: .14rem;
+  height: max(.56rem, 32px, calc(34px * var(--sp-ui, 1)));
+  padding: 0 .06rem 0 .2rem;
+  background: rgba(28, 30, 30, .9);
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: .06rem;
+}
+.rs-key__k { padding-right: .14rem; font-size: calc(.17 * var(--t)); color: #b7bdbb; border-right: 1px solid rgba(255, 255, 255, .25); white-space: nowrap; }
+.rs-key__code { font-size: calc(.28 * var(--t)); letter-spacing: .06em; color: #f2f4f3; white-space: nowrap; }
+.rs-key__copy {
+  height: 78%;
+  padding: 0 .26rem;
+  font: inherit;
+  font-size: calc(.2 * var(--t));
+  font-weight: 800;
+  /* after `font` (which resets it): a 1.5 line taller than the 78% button set the label at its top and cut its lower half
+     at 大 / 特大 on a phone (§35.18 review) */
+  line-height: 1;
+  white-space: nowrap;
+  color: #1b1e1d;
+  background: linear-gradient(180deg, #e9edeb, #c3cac7);
+  border: 0;
+  border-radius: .05rem;
+}
+.rs-key__copy:hover, .rs-key__copy:focus-visible { filter: brightness(1.06); }
+.rs-key__link {
+  display: grid;
+  place-items: center;
+  width: max(.44rem, 28px);
+  height: 78%;
+  padding: 0;
+  color: #c9cecc;
+  background: rgba(255, 255, 255, .06);
+  border: 1px solid rgba(255, 255, 255, .15);
+  border-radius: .05rem;
+}
+.rs-key__link:hover, .rs-key__link:focus-visible { border-color: rgba(255, 255, 255, .4); }
+.rs-key__link .icon { width: 60%; height: 60%; }
+.rs-key--solo { gap: .1rem; padding-right: .2rem; font-size: calc(.16 * var(--t)); color: #b7bdbb; }
+/* beside a longer title (规程: 「Regulation Level 1」 and the version on two lines) 「SINGLE OPERATOR / 1 Doctor only」
+   wraps at 大 / 特大 in an 800–960 px window: the plate grows with it instead of cutting the second line */
+.rs-key--solo { height: auto; min-height: max(.56rem, 32px, calc(34px * var(--sp-ui, 1))); padding-block: 2px; }
 
-/* ---- seats ------------------------------------------------------------------------------------------------ */
-.seats {
-  flex: 1;
+/* ---- seats: a tall card (strip, portrait, state) and the name plate under it ---------------------------------- */
+.rs-seats {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: max(.3rem, 2.2vw);
+  padding: .3rem .4rem .1rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+.rseat {
+  --w: min(18vw, 3.4rem, calc((100vw - 1.6rem) / var(--n, 4) - .3rem));
+  position: relative;
+  isolation: isolate; /* keep the card's controls below top-bar dialogs after its entry animation (#888) */
+  flex: none;
+  width: var(--w);
+  display: flex;
+  flex-direction: column;
+  animation: rseat-in 480ms cubic-bezier(.16, .84, .3, 1) backwards;
+  animation-delay: calc(150ms + var(--i) * 70ms);
+}
+/* 转场 (PR #643): the room comes up from black, card by card — each lights up as it lands. [ASSUMED] The motion and its
+   timings are the community PR #643 design, not a recording of the event. */
+@keyframes rseat-in { from { opacity: 0; transform: translateY(.16rem) scale(1.03); filter: brightness(1.9) saturate(.3); } 55% { filter: none; } }
+.rs__bg { animation: rs-fade 440ms ease-out backwards; }
+.rs-top { animation: rs-fade 320ms ease-out 120ms backwards; }
+.rs-brief { animation: rs-right 440ms cubic-bezier(.16, .84, .3, 1) 260ms backwards; }
+.rs-foot { animation: rs-rise 420ms cubic-bezier(.16, .84, .3, 1) 300ms backwards; }
+@keyframes rs-fade { from { opacity: 0; } }
+@keyframes rs-right { from { opacity: 0; transform: translateX(.36rem); } }
+@keyframes rs-rise { from { opacity: 0; transform: translateY(.22rem); } }
+/* a doctor turns ready or an AI teammate is added (ui/transitions.js useRise): a green flash over the portrait, a beam from
+   the clip, the state pops */
+.rseat.is-flash .rseat__art { animation: rseat-glow 700ms ease-out; }
+@keyframes rseat-glow { 20% { box-shadow: 0 0 .5rem rgba(120, 255, 215, .9), 0 0 .12rem #b9ffe9; border-color: #b9ffe9; } }
+.rseat.is-flash .rseat__art::before { content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background: linear-gradient(180deg, rgba(214, 255, 243, .95), rgba(79, 232, 192, .7)); animation: rseat-wash 700ms ease-out forwards; }
+@keyframes rseat-wash { 0% { opacity: 0; } 14% { opacity: 1; } 100% { opacity: 0; } }
+.rseat.is-flash .rseat__clip::after { content: ''; position: absolute; left: 50%; bottom: 100%; width: 6px; height: .16rem; transform-origin: 50% 100%;
+  background: linear-gradient(0deg, #c9fff0, rgba(93, 240, 198, 0)); box-shadow: 0 0 8px #5df0c6; animation: rseat-beam 700ms ease-out forwards; }
+@keyframes rseat-beam { 0% { opacity: 0; transform: translateX(-50%) scaleY(0); } 22% { opacity: 1; transform: translateX(-50%) scaleY(1); }
+  100% { opacity: 0; transform: translateX(-50%) scaleY(1.3); } }
+.rseat.is-flash .rseat__state { animation: rseat-pop 380ms cubic-bezier(.3, 1.7, .5, 1) 100ms backwards; }
+@keyframes rseat-pop { from { opacity: 0; transform: scale(.4); } }
+/* 2.7 × --t: 2.7rem at 小 as before, wider with the text (§35.18 review: at a fixed 2.7rem 独立模拟's single card was the
+   narrowest, and its 「Standing by」 broke inside the word at 特大 in an 800–1100 px window) */
+.rs--solo .rseat { --w: min(calc(2.7 * var(--t)), 34vw); }  /* (capped on a short screen: below) */
+.rseat__clip { position: absolute; left: 50%; top: -.14rem; z-index: 2; width: .16rem; height: .2rem; transform: translateX(-50%); background: #3a3e3d; border: 2px solid #1a1c1c; }
+.rseat.is-lit .rseat__clip { background: #4fe8c0; }
+.rseat__strip { position: relative; display: flex; align-items: center; justify-content: space-between; height: max(.26rem, 16px); padding: 0 .08rem; background: #2b2e2e; }
+.rseat__strip i { width: .5rem; height: 4px; background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .45) 0 3px, transparent 3px 5px); }
+.rseat__strip span { font-size: calc(.12 * var(--t)); color: #8d9391; }
+.rseat.is-lit .rseat__strip { background: #4fe8c0; }
+.rseat.is-lit .rseat__strip i { background: repeating-linear-gradient(90deg, rgba(8, 34, 27, .6) 0 3px, transparent 3px 5px); }
+.rseat.is-lit .rseat__strip span { color: #08221b; }
+.rseat__art {
+  position: relative;
+  flex: 1 1 auto;
   min-height: 0;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 3.8rem));
-  grid-template-rows: minmax(0, 6rem);
-  justify-content: center;
-  align-content: center;
-  gap: .3rem;
-  padding: .3rem .6rem .24rem;
-}
-.seats--solo { grid-template-columns: 3.8rem minmax(0, 6.4rem); }
-
-.seat {
-  --bk-c: var(--line-3);
-  --bk-l: .18rem;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: .07rem;
-  height: 100%;
-  min-height: 0;
-  padding: .16rem .2rem .18rem;
-  background:
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, .014) 0 1px, transparent 1px 3px),
-    linear-gradient(180deg, rgba(29, 35, 32, .95), rgba(11, 14, 13, .97));
-  border: 1px solid var(--line);
-  box-shadow: 0 .14rem .34rem rgba(0, 0, 0, .4);
-  transition: border-color var(--t-med), box-shadow var(--t-med);
-  animation: seat-in var(--t-slow) var(--ease-out) backwards;
-  animation-delay: calc(var(--seat-i, 0) * 60ms);
-}
-@keyframes seat-in { from { opacity: 0; transform: translateY(.18rem); } }
-.seat::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: 3px;
-  background: var(--line-2);
-  transition: background var(--t-med), box-shadow var(--t-med);
-}
-.seat__head { align-self: stretch; display: flex; align-items: center; gap: .1rem; }
-.seat__no { font-size: calc(.22 * var(--t)); font-weight: 700; color: var(--text-md); padding-left: .08rem; border-left: 3px solid var(--line-3); line-height: 1.1; }
-.seat__host {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: .04rem;
-  padding: .02rem .09rem;
-  background: var(--gold);
-  color: #1d1400;
-  font-size: calc(.13 * var(--t));
-  font-weight: 700;
-}
-.seat__host .icon { width: .15rem; height: .15rem; }
-.seat__art {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-  align-self: stretch;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: .08rem;
-  margin: .06rem 0 .04rem;
+  place-items: center;
   overflow: hidden;
-  background:
-    radial-gradient(circle at 50% 42%, rgba(78, 216, 175, .08), transparent 62%),
-    linear-gradient(rgba(78, 216, 175, .04) 1px, transparent 1px) 0 0 / .3rem .3rem,
-    linear-gradient(90deg, rgba(78, 216, 175, .04) 1px, transparent 1px) 0 0 / .3rem .3rem,
-    #0b0e0d;
-  border: 1px solid rgba(255, 255, 255, .04);
+  background: linear-gradient(180deg, #1f2222, #141616);
+  border: 2px solid #2b2e2e;
+  border-top: 0;
 }
-.seat__stripes {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: .14rem;
-  background: repeating-linear-gradient(-45deg, rgba(255, 255, 255, .06) 0 .05rem, transparent .05rem .1rem);
-}
-.seat__art .avatar { --av: 2.1rem; }
-.seat__bot-label {
+.rseat.is-lit .rseat__art { border-color: #4fe8c0; box-shadow: 0 0 .2rem rgba(79, 232, 192, .35); }
+/* an occupied card's art: the badge (创建者 / AI 队友), 更换立绘 and the tags at the top, the avatar frame (a bot, no art pack)
+   between, the operator's name and the state at the bottom — in flow, so a larger 文字大小 or a longer language pushes
+   them apart and wraps them instead of drawing one over another (§35.18 review: they were placed by fixed offsets, and on
+   a phone at 大 / 特大 「Standing by」 ran past the card and over 创建者) */
+.seat__art.rseat__art {
   display: flex;
-  align-items: center;
-  gap: .05rem;
-  padding: .02rem .1rem;
-  background: rgba(159, 212, 255, .1);
-  border: 1px solid rgba(159, 212, 255, .35);
-  color: var(--ice);
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: stretch;
+  gap: .04rem;
+  padding: .14rem .08rem;
+}
+/* the avatar frame gives way first (it shrinks, square, when the text above and below needs the height) */
+.seat__art.rseat__art > .avatar { align-self: center; flex: 0 1 var(--av); width: auto; height: auto; min-height: 0; aspect-ratio: 1; }
+.rseat__top, .rseat__low { position: relative; z-index: 1; display: flex; flex-direction: column; gap: .04rem; min-width: 0; }
+.rseat__top { order: -1; align-items: center; }
+.rseat__low { align-items: stretch; }
+.rseat__art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 12%; }
+.rseat.is-lit .rseat__art::after { content: ''; position: absolute; inset: 50% 0 0; background: linear-gradient(180deg, transparent, rgba(47, 207, 159, .85)); pointer-events: none; }
+.rseat.is-offline .rseat__art img { filter: grayscale(.8) brightness(.6); }
+.seat__op {
+  align-self: flex-start;
+  max-width: 100%;
+  padding: .02rem .08rem;
   font-size: calc(.14 * var(--t));
   font-weight: 700;
+  color: #eef0ef;
+  background: rgba(0, 0, 0, .5);
+  border-left: 2px solid #4fe8c0;
 }
-.seat__bot-label .icon { width: .16rem; height: .16rem; }
-.seat__who { display: flex; align-items: center; gap: .08rem; max-width: 100%; }
-.seat__name { font-size: calc(.26 * var(--t)); font-weight: 700; max-width: 3rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.seat__you { flex: none; padding: .01rem .07rem; background: var(--mint-500); color: var(--text-on-mint); font-size: calc(.13 * var(--t)); font-weight: 700; }
-.seat__foot {
-  align-self: stretch;
+.rseat__host, .rseat__bot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .04rem;
+  max-width: 100%;
+  padding: .02rem .18rem;
+  font-size: calc(.18 * var(--t));
+  font-weight: 800;
+  line-height: 1.15;
+  text-align: center;
+  color: #08221b;
+  background: #4fe8c0;
+  border-radius: .04rem;
+}
+.rseat__bot { background: #c9cecc; }
+.rseat__host .icon, .rseat__bot .icon { flex: none; width: 1em; height: 1em; }
+.rseat__tag {
+  align-self: flex-start;
+  max-width: 100%;
+  padding: .02rem .08rem;
+  font-size: calc(.13 * var(--t));
+  color: #eef0ef;
+  background: rgba(0, 0, 0, .6);
+  border: 1px solid rgba(255, 255, 255, .25);
+}
+.seat__content.is-ready { border-color: #4fe8c0; color: #8ff3d6; }
+.seat__content.is-failed { border-color: #ff7a8a; color: #ff9aa6; }
+.rseat__lost {
+  /* in flow between the top and the bottom text, across the art (§35.18 review: at 40% from the top it ran over the state
+     below and the tags above once the card was short) */
+  position: relative;
+  z-index: 1;
+  margin: 0 -.08rem;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: .1rem;
-  min-height: .46rem;
-  margin-top: .06rem;
-  padding-top: .1rem;
-  border-top: 1px solid var(--line);
+  padding: .14rem 0;
+  font-size: calc(.24 * var(--t));
+  font-weight: 800;
+  color: #ff7a8a;
+  background: rgba(80, 10, 18, .85);
 }
-.seat__foot .tt-anchor { position: absolute; right: .14rem; bottom: .14rem; }
-.seat__state { display: flex; align-items: center; gap: .06rem; font-size: calc(.18 * var(--t)); font-weight: 700; letter-spacing: .06em; }
-.seat__state .icon { width: .22rem; height: .22rem; }
-.seat__state--ready { color: var(--mint-400); }
-.seat__state--waiting { color: var(--text-lo); }
-.seat__state--offline { color: var(--orange-hi); }
-.seat__state--host { color: var(--gold-2); }
-/* a room with gameplay plugins (DESIGN §32.6): whether the seat's page has loaded and checked the room's content */
-.seat__content { display: block; padding: 0 .12rem; font-size: calc(.13 * var(--t)); color: var(--text-lo); letter-spacing: .04em; }
-.seat__content.is-ready { color: var(--mint-400); }
-.seat__content.is-failed { color: var(--orange-hi); }
-.room-mode { margin-left: .1rem; padding: 0 .08rem; border: 1px solid rgba(255, 106, 61, .6); color: #ff8a5c; font-size: calc(.16 * var(--t)); vertical-align: middle; }
-
-.seat.is-ready { --bk-c: var(--mint-500); border-color: var(--mint-800); }
-.seat.is-ready::before { background: var(--mint-500); box-shadow: 0 0 .12rem rgba(23, 249, 183, .6); }
-.seat.is-host .seat__no { border-left-color: var(--gold); }
-.seat.is-me { box-shadow: 0 0 0 1px rgba(78, 216, 175, .28), 0 0 .44rem rgba(23, 249, 183, .12), 0 .14rem .34rem rgba(0, 0, 0, .4); }
-.seat.is-me .seat__no { color: var(--mint-400); }
-.seat.is-offline::before { background: var(--orange); }
-.seat.is-bot .seat__art { background:
-    radial-gradient(circle at 50% 42%, rgba(159, 212, 255, .08), transparent 62%),
-    linear-gradient(rgba(159, 212, 255, .04) 1px, transparent 1px) 0 0 / .3rem .3rem,
-    linear-gradient(90deg, rgba(159, 212, 255, .04) 1px, transparent 1px) 0 0 / .3rem .3rem,
-    #0b0e10; }
-
-.seat--empty { background: rgba(10, 13, 12, .5); border-style: dashed; border-color: var(--line-2); box-shadow: none; }
-.seat--empty .seat__art { background: transparent; border: 0; }
-.seat__radar {
-  width: 1.3rem;
-  height: 1.3rem;
-  border-radius: 50%;
-  background:
-    repeating-radial-gradient(circle, transparent 0 .2rem, rgba(78, 216, 175, .14) .2rem .21rem),
-    /* same geometry as .title-bg__sweep: bright edge at 100% (== 0deg) so it leads the clockwise
-       rotation and the glow trails behind; see the comment in screens/title.css. */
-    conic-gradient(from 0deg, transparent 0 75%, rgba(23, 249, 183, .2) 100%);
-  -webkit-mask-image: radial-gradient(circle, #000 60%, transparent 71%);
-  mask-image: radial-gradient(circle, #000 60%, transparent 71%);
-  animation: radar-sweep 4s linear infinite;
-}
-@keyframes radar-sweep { to { transform: rotate(360deg); } }
-.seat__wait { font-size: calc(.2 * var(--t)); color: var(--text-lo); letter-spacing: .08em; }
-.seat--empty .seat__foot { border-top-style: dashed; }
-
-.solo-brief {
-  --bk-c: var(--mint-500);
-  align-self: stretch;
+.rseat__lost .icon { width: 1.2em; height: 1.2em; }
+.rseat__state {
   display: flex;
-  flex-direction: column;
-  gap: .14rem;
-  height: 100%;
-  padding: .34rem .4rem;
-  background:
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, .014) 0 1px, transparent 1px 3px),
-    linear-gradient(180deg, rgba(24, 29, 27, .92), rgba(11, 14, 13, .95));
-  border: 1px solid var(--line);
-  animation: seat-in var(--t-slow) 80ms var(--ease-out) backwards;
+  align-items: center;
+  justify-content: center;
+  gap: .1rem;
+  /* the art's side padding back, so the state is as wide as when it was placed across the card (§35.18 review of the
+     text-fit fixes: in flow it was 12–16 px narrower on desktops at 小) */
+  margin: 0 -.08rem;
+  font-size: calc(.26 * var(--t));
+  font-weight: 900;
+  line-height: 1.1;
+  text-align: center;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .6);
 }
-.solo-brief h2 { font-size: calc(.36 * var(--t)); font-weight: 900; letter-spacing: .06em; }
-.solo-brief p { font-size: calc(.18 * var(--t)); color: var(--text-md); }
-.solo-brief ul { margin: .06rem 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: .08rem; font-size: calc(.16 * var(--t)); color: var(--text-lo); }
-.solo-brief li::before { content: ''; display: inline-block; width: .06rem; height: .06rem; margin: 0 .12rem .02rem 0; background: var(--mint-600); transform: rotate(45deg); vertical-align: middle; }
-.solo-brief b { color: var(--text-hi); }
+.rseat:not(.is-lit) .rseat__state { font-size: calc(.2 * var(--t)); color: #c9cecc; }
+.rseat__said { min-width: 0; overflow-wrap: break-word; }
+.rseat__box { flex: none; display: grid; place-items: center; width: max(.34rem, 20px); height: max(.34rem, 20px); background: rgba(0, 0, 0, .25); border: 2px solid currentColor; border-radius: 4px; }
+.rseat__box .icon { width: 80%; height: 80%; }
+.rseat__kick {
+  position: absolute;
+  right: -.08rem;
+  top: -.12rem;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  height: max(.4rem, 24px);
+  padding: 0 .1rem;
+  color: #ff8a96;
+  background: #3b1218;
+  border: 1px solid rgba(255, 120, 130, .6);
+  border-radius: 999px;
+}
+.rseat__kick .icon { width: max(.2rem, 12px); height: max(.2rem, 12px); }
+/* 转为观战 on one's own card (room.js SeatCard): the kick's corner, free on one's own card; only on a short screen, where
+   the 观战席 bar gives its line up (below) — elsewhere the bar's own button */
+.rseat__spectate {
+  position: absolute;
+  right: -.08rem;
+  top: -.12rem;
+  z-index: 3;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: max(.4rem, 24px);
+  height: max(.4rem, 24px);
+  padding: 0;
+  color: #eef0ef;
+  background: rgba(0, 0, 0, .7);
+  border: 1px solid rgba(255, 255, 255, .45);
+  border-radius: 999px;
+}
+.rseat__spectate .icon { width: max(.2rem, 12px); height: max(.2rem, 12px); }
+.rseat__spectate:hover:not(:disabled), .rseat__spectate:focus-visible { border-color: var(--mint-400); }
+.rseat__spectate:disabled { opacity: .45; }
+.rseat__kick .icon + .icon { width: max(.14rem, 9px); margin-left: -2px; }
+.rseat__kick:hover:not(:disabled), .rseat__kick:focus-visible { filter: brightness(1.3); }
+.rseat__pick {
+  align-self: flex-end;
+  display: inline-flex;
+  align-items: center;
+  gap: .04rem;
+  max-width: 100%;
+  min-height: max(.36rem, 22px);
+  padding: .02rem .1rem;
+  font: inherit;
+  font-size: calc(.14 * var(--t));
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: left;
+  color: #eef0ef;
+  background: rgba(0, 0, 0, .55);
+  border: 1px solid rgba(255, 255, 255, .3);
+  border-radius: max(.18rem, calc(11px * var(--sp-ui, 1)));
+  opacity: .8;
+  transition: opacity var(--t-fast), border-color var(--t-fast);
+}
+.rseat__pick .icon { flex: none; width: 1.1em; height: 1.1em; }
+.rseat__art:hover .rseat__pick, .rseat__pick:focus-visible { opacity: 1; border-color: #5df0c6; }
+.rseat__plate {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: .1rem;
+  align-items: center;
+  min-height: max(.76rem, 32px, calc(46px * var(--sp-ui, 1)));
+  margin-top: .08rem;
+  padding: .06rem .1rem;
+  background: linear-gradient(90deg, #232626, #161818);
+  border: 1px solid rgba(255, 255, 255, .1);
+}
+.rseat.is-lit .rseat__plate { border-color: rgba(79, 232, 192, .55); }
+.rseat.is-me .rseat__plate { background: linear-gradient(90deg, #26302d, #161a19); }
+.rseat__plate .avatar { grid-row: 1 / 3; }
+.rseat__who { display: flex; align-items: center; gap: .06rem; min-width: 0; font-size: calc(.18 * var(--t)); }
+.seat__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.seat__you { flex: none; padding: 0 .06rem; font-size: calc(.12 * var(--t)); font-weight: 700; color: var(--text-on-mint); background: var(--mint-500); }
+.rseat__doc { font-size: calc(.11 * var(--t)); letter-spacing: .1em; color: #7f8583; }
+.rseat__me { position: absolute; left: -.1rem; top: -.1rem; display: grid; place-items: center; width: max(.26rem, 16px); height: max(.26rem, 16px); color: #08221b; background: #4fe8c0; border-radius: 3px; }
+.rseat__me .icon { width: 80%; height: 80%; }
+.rseat__plate--empty { display: flex; justify-content: center; border-style: dashed; border-color: rgba(255, 255, 255, .12); background: none; font-size: calc(.15 * var(--t)); }
+.rseat--empty .rseat__art { grid-template-rows: 1fr auto; padding-bottom: .5rem; background: linear-gradient(135deg, transparent 47%, rgba(255, 255, 255, .06) 50%, transparent 53%), #141616; }
+.rseat__invite { align-self: end; display: flex; flex-direction: column; align-items: center; gap: .1rem; padding: .2rem .1rem; font: inherit; color: #eef0ef; background: none; border: 0; }
+.rseat__plus { position: relative; width: max(.9rem, 32px, calc(46px * var(--sp-ui, 1))); height: max(.9rem, 32px, calc(46px * var(--sp-ui, 1))); }
+.rseat__plus::before, .rseat__plus::after { content: ''; position: absolute; background: #f2f4f3; box-shadow: 0 0 .1rem rgba(255, 255, 255, .5); }
+.rseat__plus::before { left: 50%; top: 0; bottom: 0; width: 7px; transform: translateX(-50%); }
+.rseat__plus::after { top: 50%; left: 0; right: 0; height: 7px; transform: translateY(-50%); }
+.rseat__invite b { font-size: calc(.26 * var(--t)); }
+.rseat__invite small { font-size: calc(.15 * var(--t)); color: #8d9391; text-align: center; }
+.rseat__invite:hover .rseat__plus::before, .rseat__invite:hover .rseat__plus::after,
+.rseat__invite:focus-visible .rseat__plus::before, .rseat__invite:focus-visible .rseat__plus::after { background: #5df0c6; }
+.rseat__add { align-self: start; max-width: calc(100% - .12rem); height: auto; min-height: .36rem; padding-block: .03rem; margin-top: .1rem; white-space: normal; line-height: 1.1; text-align: center; }
+.rseat__wait { display: flex; flex-direction: column; align-items: center; gap: .1rem; color: #b7bdbb; }
+.rseat__wait small { font-size: calc(.16 * var(--t)); text-align: center; }
+.rseat__noinfo { position: absolute; right: .12rem; bottom: .14rem; font-family: var(--font-display); font-size: calc(.12 * var(--t)); letter-spacing: .1em; color: rgba(255, 255, 255, .15); }
+
+/* 独立模拟: the briefing beside the single seat */
+.rs-brief { align-self: center; max-width: min(5rem, 46vw); max-height: 100%; overflow-y: auto; scrollbar-width: thin; padding: .24rem .3rem; background: rgba(10, 13, 12, .8); border: 1px solid var(--line); }
+.rs-brief h2 { margin: .06rem 0; font-size: calc(.32 * var(--t)); color: var(--d-color); }
+/* the difficulty's code on one line: the title breaks before it, not after its hyphen (§35.18 review of the text-fit fixes:
+   「Perilous Simulation AC-」 / 「2」 in a window ≤ 640 px tall at 特大, the briefing wider since its review). The title
+   wraps plainly (with `pretty` and the nowrap code, Chrome broke 「Perilous Simulation / AC-2」 in a 1024×600 window at 小,
+   where it fits on one line) */
+.rs-brief h2 .num { white-space: nowrap; }
+.rs-brief p { margin: 0 0 .1rem; font-size: calc(.17 * var(--t)); color: var(--text-md); }
+.rs-brief ul { margin: 0; padding-left: .24rem; font-size: calc(.16 * var(--t)); color: var(--text-lo); line-height: 1.7; }
+
+/* a short window (≤ 640 px tall, phones below): the briefing wider and its list tighter, so its text fits beside the seat
+   at 特大 instead of scrolling (§35.18 review: 1100×530 at 特大 hid 55 px). [ASSUMED] the widths */
+@media (max-height: 640px) {
+  .rs-brief { max-width: min(7rem, 46vw); }
+  .rs-brief ul { line-height: 1.45; }
+}
 
 /* ---- spectator seats (观战席, community report #26) -------------------------------------------------------------- */
 .specbar {
@@ -242,35 +468,192 @@
 .specbar__who.is-offline { color: var(--text-dim); }
 .specbar__who > .icon { width: .16rem; height: .16rem; }
 
-/* ---- bottom bar ----------------------------------------------------------------------------------------- */
-.room-bar {
+/* ---- 名片干员 picker (PR #643 split 6) --------------------------------------------------------------------------- */
+.cardpick .modal__body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: .12rem; overflow: hidden; }
+.cardpick__bar { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: .12rem; }
+.cardpick__search { flex: 1 1 2.6rem; min-width: 0; }
+.cardpick__stars { display: inline-flex; border: 1px solid var(--line-2); background: rgba(0, 0, 0, .3); }
+.cardpick__stars button {
+  min-height: .44rem;
+  padding: 0 .16rem;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: none;
+  color: var(--text-lo);
+  font-size: calc(.16 * var(--t));
+  font-weight: 700;
+}
+.cardpick__stars button:last-child { border-right: 0; }
+.cardpick__stars button:hover { color: var(--text-hi); }
+.cardpick__stars button.is-on { background: var(--mint-500); color: var(--text-on-mint); }
+.cardpick__grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 5.2rem;
+  display: grid;
+  /* a tile at least as wide as a long one-word name at the names' size (em of this font), so the names wrap whole rather
+     than end in an ellipsis (§35.18 review: at 特大 a phone showed 「Ang…」). [ASSUMED] the 6.6em */
+  font-size: calc(.14 * var(--t));
+  grid-template-columns: repeat(auto-fill, minmax(max(.96rem, 6.6em), 1fr));
+  align-content: start;
+  gap: .08rem;
+  padding: 2px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.cardpick__op {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: .03rem;
+  padding: .03rem;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, .3);
+  color: var(--text-md);
+  transition: border-color var(--t-fast), color var(--t-fast);
+}
+.cardpick__op:hover { border-color: var(--line-3); color: var(--text-hi); }
+.cardpick__op.is-on { border-color: var(--mint-400); box-shadow: 0 0 0 1px var(--mint-400); color: var(--text-hi); }
+.cardpick__img { display: grid; place-items: center; aspect-ratio: 1; overflow: hidden; background: linear-gradient(180deg, #2a302d, #151917); }
+.cardpick__img img { width: 100%; height: 100%; object-fit: cover; }
+.cardpick__img .icon { width: 45%; height: 45%; color: var(--mint-400); }
+.cardpick__glyph { font-size: calc(.36 * var(--t)); font-weight: 900; color: rgba(255, 255, 255, .3); }
+.cardpick__name { text-align: center; font-size: calc(.14 * var(--t)); line-height: 1.15; }
+/* a name's lines balanced, so none ends in one character (§35.18 review: 「アンジェリー|ナ」, 「维娜·维多利|亚」 at 小, and
+   「ファートゥー|ス」, which `pretty` kept in Chrome and none of which it changed in Safari) */
+.cardpick__name { text-wrap: balance; }
+/* a name with a Latin word of 12+ characters is set smaller (room.js longWord: English 「Leizi the Thunderbringer」 —
+   「Thunderbringer」 alone ran past the tile at every 文字大小 on the phones — and 「Miss.Christine」 at 小); a word still
+   wider than the tile breaks inside it (break-word, not anywhere: with `balance` that split words that fit). [ASSUMED] .115
+   (×.82 of the names' .14) */
+.cardpick__name { overflow-wrap: break-word; }
+.cardpick__name.is-long { font-size: calc(.115 * var(--t)); }
+.cardpick__star { position: absolute; top: .04rem; right: .04rem; padding: 0 .04rem; background: #d9dedc; color: #111; font-size: calc(.12 * var(--t)); font-weight: 800; }
+.cardpick__op.r6 .cardpick__star { background: #ffcf5a; }
+.cardpick__op.r5 .cardpick__star { background: #f2e06b; }
+.cardpick__empty { flex: none; margin: 0; font-size: calc(.16 * var(--t)); color: var(--text-lo); }
+.cardpick__note { flex: none; display: flex; align-items: center; gap: .06rem; margin: 0; font-size: calc(.15 * var(--t)); color: var(--text-lo); }
+.cardpick__note .icon { flex: none; width: .18rem; height: .18rem; }
+
+/* ---- bottom: status, the difficulty pill with ⚙, the big button ------------------------------------------------ */
+.rs-foot {
   flex: none;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  /* the side columns at least their content (the big button keeps its width: a spectator's 观战中 was squeezed to a few px
+     by a long status line in the centre's auto column, §35.18 review), the centre's text wraps in what is left */
+  grid-template-columns: minmax(min-content, 1fr) auto minmax(min-content, 1fr);
+  align-items: end;
+  gap: .2rem;
+  padding: .1rem .3rem .2rem .22rem;
+  z-index: 2;
+}
+.rs-foot__left { min-width: 0; }
+.rs-foot__center { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: .08rem; }
+.rs-hint { margin: 0; font-size: calc(.18 * var(--t)); color: #d6dad8; text-align: center; }
+.room-bar__status .icon { width: 1.1em; height: 1.1em; margin-right: 4px; vertical-align: -2px; }
+.rs-ready { display: inline-flex; align-items: center; gap: 2px; margin-right: .14rem; font-size: calc(.16 * var(--t)); color: #9aa19e; vertical-align: middle; }
+.rs-ready .icon { width: max(.2rem, 13px); height: max(.2rem, 13px); color: #4b504e; }
+.rs-ready .icon.is-on { color: #4fe8c0; }
+.rs-ready b { margin-left: .06rem; color: #eef0ef; }
+.rs-pill {
+  position: relative;
+  display: inline-flex;
+  max-width: 100%;
   align-items: center;
-  gap: .3rem;
-  height: 1.5rem;
-  padding: 0 .6rem;
-  background: linear-gradient(0deg, rgba(7, 9, 8, .96), rgba(10, 13, 12, .7));
-  border-top: 1px solid var(--line);
+  gap: .14rem;
+  height: max(.68rem, 32px, calc(40px * var(--sp-ui, 1)));
+  padding: 0 .08rem;
+  background: rgba(14, 15, 15, .92);
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 999px;
+  box-shadow: 0 .04rem .16rem rgba(0, 0, 0, .5);
 }
-.room-bar::before {
-  content: '';
+.rs-pill__diff, .rs-pill__ver {
+  display: inline-flex;
+  align-items: center;
+  gap: .08rem;
+  height: 78%;
+  padding: 0 .2rem;
+  font: inherit;
+  font-size: calc(.2 * var(--t));
+  font-weight: 800;
+  white-space: nowrap;
+  border: 0;
+  border-radius: 999px;
+}
+.rs-pill__diff {
+  color: var(--d-color);
+  background: rgba(255, 255, 255, .06);
+  background: color-mix(in srgb, var(--d-color) 22%, #151616);
+}
+.rs-pill__diff .icon, .rs-pill__ver .icon { flex: none; width: 1.2em; height: 1.2em; }
+.rs-pill__code { font-size: calc(.13 * var(--t)); color: #9aa19e; }
+.rs-pill__diff:disabled { cursor: default; }
+.rs-pill__diff:hover:not(:disabled), .rs-pill__diff:focus-visible { filter: brightness(1.2); }
+/* another doctor's pill: opens the read-only 选择模拟协议 (the host chooses) */
+.rs-pill__diff.is-ro { cursor: help; }
+.rs-pill__gear {
+  display: grid;
+  place-items: center;
+  width: max(.52rem, 32px);
+  height: max(.52rem, 32px);
+  padding: 0;
+  color: #1b1e1d;
+  background: linear-gradient(180deg, #e9edeb, #c3cac7);
+  border: 2px solid #0e0f0f;
+  border-radius: 50%;
+}
+.rs-pill__gear svg { width: 62%; height: 62%; fill: currentColor; }
+.rs-pill__gear.is-on, .rs-pill__gear:hover, .rs-pill__gear:focus-visible { background: #fff; }
+.rs-opts {
   position: absolute;
-  left: .6rem;
-  right: .6rem;
-  top: -1px;
-  height: 1px;
-  background: linear-gradient(90deg, var(--mint-700), transparent 30%, transparent 70%, var(--mint-700));
+  left: 50%;
+  bottom: calc(100% + .14rem);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: .12rem;
+  width: max-content;
+  max-width: 92vw;
+  padding: .16rem .2rem;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, #202323, #141616);
+  border: 1px solid rgba(255, 255, 255, .16);
+  box-shadow: 0 .1rem .4rem rgba(0, 0, 0, .7);
 }
-.room-bar__left { display: flex; align-items: center; gap: .22rem; min-width: 0; }
-.room-bar__label { display: flex; flex-direction: column; font-size: calc(.17 * var(--t)); font-weight: 700; color: var(--text-md); line-height: 1.35; }
-.room-bar__center { display: flex; flex-direction: column; align-items: center; gap: .06rem; }
-.room-bar__right { justify-self: end; display: flex; align-items: center; gap: .16rem; }
-.room-bar__status { font-size: calc(.15 * var(--t)); }
-.room-bar__status .icon { width: .18rem; height: .18rem; margin-right: .05rem; vertical-align: -.03rem; }
+.rs-opts h4 { margin: 0; font-size: calc(.2 * var(--t)); }
+/* 同盟设置's 模拟难度 row: the difficulty (the host's 更改 opens 选择模拟协议; the others read it) */
+.rs-opts__row { display: flex; align-items: center; gap: .12rem; font-size: calc(.14 * var(--t)); }
+.rs-opts__k { color: var(--text-lo); }
+.rs-opts__diff {
+  display: inline-flex; align-items: center; gap: .06rem; min-height: .36rem; padding: .02rem .14rem;
+  font: inherit; font-size: calc(.15 * var(--t)); font-weight: 700; white-space: nowrap;
+  color: var(--d-color); background: rgba(0, 0, 0, .3); border: 1px solid var(--line-2);
+}
+.rs-opts__diff .icon { width: 1.1em; height: 1.1em; }
+.rs-opts__diff em { margin-left: .06rem; font-style: normal; color: var(--text-hi); text-decoration: underline; text-underline-offset: 2px; }
+.rs-opts__diff:hover:not(:disabled), .rs-opts__diff:focus-visible { border-color: var(--d-color); }
+.rs-opts__diff:disabled { cursor: default; opacity: .6; }
+.room-bar__right { display: flex; align-items: center; justify-content: flex-end; gap: .14rem; }
+.rs-go.proto-start { flex: none; width: min(4.6rem, 40vw); }
+/* the label (§35.18 review: it shared 选择模拟协议's wrapping label by accident, and on a phone a fixed 46 px button then cut
+   every line): like the dialog's, it wraps onto a second line and the button grows (`.proto-start` min-height) rather than
+   cutting it — on one line English 开始模拟 ran off the right at 中 and above at every desktop size, Japanese and Korean
+   at 特大 (Korean from 中 in a 960–1024 px window) —, stopping at .46rem (大's size); the mark's rook at .4rem and its
+   STRONGHOLD PROTOCOL at .1rem (the design's .08rem at 小:
+   at 特大 its 88 px floor made it 54 px wide in a 960 px window, which left 「Simulation」 no line of its own); on a short
+   screen below. [ASSUMED] the caps */
+.rs-go .proto-start__label { flex: 1 1 auto; padding-right: 8%; font-size: min(calc(.4 * var(--t)), .46rem); white-space: normal; line-height: 1.1; }
+.rs-go .proto-start__rook { font-size: min(calc(.36 * var(--t)), .4rem); }
+.rs-go .proto-start__mark small { font-size: min(calc(.08 * var(--t)), .1rem); }
+.rs-go__box { flex: none; display: grid; place-items: center; width: max(.5rem, 28px); height: max(.5rem, 28px); border: 3px solid currentColor; border-radius: 6px; }
+.rs-go__box .icon { width: 80%; height: 80%; }
+.rs-go__icon { flex: none; display: grid; place-items: center; width: max(.5rem, 28px); height: max(.5rem, 28px); }
+.rs-go__icon .icon { width: 100%; height: 100%; }
+.rs-go.is-ready { background: linear-gradient(180deg, #7ff3d4, #4fe0bf); }
 
+/* the plugin panel's mode picker (ui/pluginPanel.js) and the 「AI 队友最后选择」 switch share these */
 .dpick { display: flex; border: 1px solid var(--line-2); background: rgba(0, 0, 0, .3); }
 .dpick__opt {
   --d-color: var(--amber);
@@ -301,24 +684,207 @@
 }
 .dpick__opt.is-active .icon { opacity: 1; filter: drop-shadow(0 0 5px var(--d-color)); }
 .dpick--ro { border: 0; background: none; gap: .18rem; align-items: center; font-size: calc(.14 * var(--t)); }
-/* 「AI 队友最后选择」 (GitHub #338, co-op): one switch styled like a difficulty option, under the difficulty picker */
-.room-bar__opts { display: flex; flex-direction: column; align-items: flex-start; gap: .08rem; min-width: 0; }
 .ailast { display: flex; align-items: center; gap: .12rem; font-size: calc(.14 * var(--t)); }
-.ailast__opt { --d-color: var(--mint-400); height: .36rem; padding: 0 .14rem; border: 1px solid var(--line-2); background: rgba(0, 0, 0, .3); font-size: calc(.15 * var(--t)); letter-spacing: .04em; }
+.ailast__opt { --d-color: var(--mint-400); height: auto; min-height: .36rem; padding: .02rem .14rem; border: 1px solid var(--line-2); background: rgba(0, 0, 0, .3); font-size: calc(.15 * var(--t)); letter-spacing: .04em; }
 .ailast__opt:last-child { border-right: 1px solid var(--line-2); }
 .ailast__opt .icon { opacity: .25; }
 .ailast__opt .icon.is-on { opacity: 1; }
 
-.ready-count[hidden] { display: none; }
-.ready-count { display: flex; align-items: baseline; gap: .06rem; font-size: calc(.16 * var(--t)); }
-.ready-count b { font-size: calc(.36 * var(--t)); line-height: 1; color: var(--mint-400); text-shadow: 0 0 .14rem rgba(23, 249, 183, .45); }
-.ready-count .t-dim { font-size: calc(.22 * var(--t)); }
-.ready-count__icons { display: flex; gap: .02rem; margin-left: .12rem; align-self: center; }
-.ready-count__icons .icon { width: .28rem; height: .28rem; color: var(--line-3); transition: color var(--t-med); }
-.ready-count__icons .icon.is-on { color: var(--mint-400); filter: drop-shadow(0 0 4px var(--mint-glow)); }
 
-.room-bar .btn--xl { min-width: 3.2rem; letter-spacing: .2em; }
 
 .trusted-banner { position: fixed; top: 0; left: 0; right: 0; z-index: 90; padding: 5px 16px; background: #9b202b; color: #fff; display: flex; justify-content: space-between; gap: 12px; }
 .trusted-banner button { color: inherit; text-decoration: underline; }
 .trusted-hash { overflow-wrap: anywhere; font-family: monospace; }
+
+/* ---- short landscape phones (≤ 520 CSS px tall; 1rem is ~40 px: the text gets its own sizes) ------------------- */
+@media (max-height: 520px) {
+  .rs .rs-top { padding-top: 6px; }
+  .rs-seats { padding-top: 14px; gap: 12px; }
+  .rseat__plate { min-height: 36px; margin-top: 4px; }
+  /* 独立模拟's card no wider than a co-op one here (3.4rem, 136 px; §35.18 review: the 2.7 × --t of a 64 / 76 / 88 px --t
+     made it 173–238 px at 中 / 大 / 特大, as wide as it is tall, while its text stays capped — the portrait a strip. The
+     briefing beside it scrolled at 特大 for another reason, see .rs-brief below) */
+  .rs--solo .rseat { --w: min(calc(2.7 * var(--t)), 3.4rem, 34vw); }
+  .rseat__doc, .rseat__noinfo, .rseat__invite small, .seat__op { display: none; }
+  /* the seat cards' text capped (§35.18 review: at 大 / 特大 the .26–.34 × --t sizes, 23–30 px in a card about 120 px wide
+     and 100 px tall, ran 「Standing by」 / 「AI Teammate」 / 「Add AI Teammate」 past the card and the badge over the state).
+     Each cap is its size at 中 and grows half a pixel a step above it (--t-step, theme.css; a whole pixel ran 「Standing」
+     past a 640 px phone's card at 特大), so 大 and 特大 still change the text. The avatar frame of a bot or a card without
+     the art pack is 2rem at 小 as everywhere (80 px) and 1rem less the text's growth above it (56 / 44 / 40 px at 中 / 大 /
+     特大), its AI tag with it; it gives way (flex) only when the text needs the height. [ASSUMED] the caps and the frame */
+  .seat__art.rseat__art { gap: 2px; padding: 4px 3px; }
+  .seat__art.rseat__art > .avatar--xl { --av: clamp(1rem, calc(3rem - var(--t)), 2rem); }
+  .rseat__host, .rseat__bot { padding: 1px 6px; font-size: min(calc(.26 * var(--t)), calc(15px + var(--t-step) / 2)); }
+  /* the state takes 2 px of the art's 3 px side padding back here, beside a 16 px box and a 3 px gap (§35.18 review of the
+     text-fit fixes: in flow it had 98 px of 独立模拟's 108 px card at 小, against 104 px before, and English 「Standing /
+     by」 took two lines on every phone; all 3 px and an 18 px box with a 4 px gap kept it on one line but put the box and
+     「by」 0.2 px from the card's border, now 1.7 px on either side). [ASSUMED] */
+  .rseat__state { gap: 3px; margin-inline: -2px; font-size: min(calc(.34 * var(--t)), calc(17px + var(--t-step) / 2)); }
+  .rseat:not(.is-lit) .rseat__state { font-size: min(calc(.28 * var(--t)), calc(15px + var(--t-step) / 2)); }
+  .rseat__box { width: 16px; height: 16px; }
+  .rseat__who { font-size: min(calc(.28 * var(--t)), calc(18px + var(--t-step) / 2)); }
+  /* your own plate drops its 你 tag here: the mint corner mark (.rseat__me, which screen readers read as 你) already marks
+     it, and the name gets the tag's ~35 px back (§35.18 review of the text-fit fixes: 「Kal'…」, 「ケ…」 at 特大 in a card
+     about 120 px wide). [ASSUMED] */
+  .rseat__who .seat__you { display: none; }
+  /* an AI teammate's name without its 「AI·」 prefix (room.js): the avatar's AI badge and the card's AI 队友 tag already say
+     it, and at 特大 on the 640 / 667 px phones it left 「AI·华…」 (review of 6f34f380). [ASSUMED] */
+  .seat__name-pre { display: none; }
+  .rseat__pick { min-height: 22px; font-size: min(calc(.22 * var(--t)), calc(16px + var(--t-step) / 2)); }
+  .rseat__pick span { display: none; }
+  /* the badge and 更换立绘 share a row, the tags wrap under them; the 连接中断 band gives way to the state, which says the
+     same, and an offline doctor's state drops its empty box (§35.18 review: a modded room's two tags and an offline
+     doctor's card ran past the art) */
+  .rseat__top { flex-direction: row; flex-wrap: wrap; justify-content: center; }
+  .rseat__top > .rseat__pick, .rseat__top > .rseat__tag { align-self: auto; }
+  .rseat__lost, .rseat.is-offline .rseat__box { display: none; }
+  /* in a modded room the 插件内容就绪 tag gives way here, the expected state (载入中 / 校验失败 stay, and the status line
+     waits for every doctor's content): with 已同意 as well, the badge and the tag's two lines left no room for the state —
+     the host's 「Standing by」 / 待機中 below the art at 大 / 特大 on the 640 / 667 px phones (§35.18 review of the text-fit
+     fixes). [ASSUMED] */
+  .seat__content.is-ready { display: none; }
+  .rseat--empty .rseat__art { padding-bottom: 6px; }
+  .rseat__invite { gap: 2px; padding: 2px 4px; }
+  .rseat__invite b { font-size: min(calc(.34 * var(--t)), calc(18px + var(--t-step) / 2)); line-height: 1.15; }
+  .rseat__wait small { font-size: min(calc(.16 * var(--t)), calc(15px + var(--t-step) / 2)); }
+  .rseat__add { margin-top: 2px; }
+  /* PR #910 put 观战席 on every co-op room, a line the seats had here (the caps around assume it: 「Add AI Teammate」 /
+     「Standing by」 ran past the cards at 大 / 特大 on the 640 / 667 px phones). With nobody watching the bar gives the line
+     back, and 转为观战 sits on one's own card instead (its corner, .rseat__spectate) — also while spectators fill the bar,
+     so the bar wraps no second line for it. [ASSUMED] */
+  .specbar--empty, .specbar [data-testid="room-spectate"] { display: none; }
+  .rseat__spectate { display: inline-flex; }
+  .rseat__plus { width: 26px; height: 26px; }
+  .rseat__plus::before { width: 5px; }
+  .rseat__plus::after { height: 5px; }
+  /* the picker's names (and with them its tiles, 6.6em wide) capped, so a phone at 特大 keeps five tiles a row. [ASSUMED] */
+  .cardpick__grid, .cardpick__name { font-size: min(calc(.14 * var(--t)), 11px); }
+  .cardpick__name.is-long { font-size: min(calc(.115 * var(--t)), calc(11px + var(--t-step) / 2)); }
+  .rs-foot { padding-bottom: 8px; gap: 8px; }
+  /* the mode line, the status line (a spectator's runs to two lines) and 独立模拟's briefing, capped so the seat cards keep
+     their height (at 特大 the .28 × --t status took four lines on a 640×360 phone and left the cards 40 px); each a pixel
+     more a step above 中, the status line half a pixel (a whole one took a third line for a spectator on 640×360 at 特大).
+     [ASSUMED] the caps */
+  .rs-clock > b { font-size: min(calc(.28 * var(--t)), calc(20px + var(--t-step))); }
+  .rs-clock__ping, .rs-ready { font-size: min(calc(.22 * var(--t)), calc(15px + var(--t-step))); }
+  .rs-hint { font-size: min(calc(.28 * var(--t)), calc(14px + var(--t-step) / 2)); }
+  /* 独立模拟's briefing holds its text without scrolling at every size (§35.18 review of the text-fit fixes: from 大 its
+     text grows a pixel a step while the bars above and below take height from it, and at 特大 on the 640–740 px phones its
+     last bullet sat half cut at the bottom, 214–217 px of text in 197–212): it may be up to 11rem / 62vw wide (at 小 it
+     stays narrower, as wide as its text), and above 中 its padding, the title's and the list's line heights give a pixel,
+     three and a pixel a step. [ASSUMED] the width and the spacing */
+  .rs-brief { max-width: min(11rem, 62vw); padding: calc(6px - max(0px, var(--t-step))) 12px; }
+  .rs-brief h2 { font-size: min(calc(.32 * var(--t)), calc(20px + var(--t-step))); line-height: calc(1.5em - 3 * max(0px, var(--t-step))); }
+  .rs-brief p { font-size: min(calc(.17 * var(--t)), calc(14px + var(--t-step))); }
+  .rs-brief ul { font-size: min(calc(.16 * var(--t)), calc(13px + var(--t-step))); line-height: calc(1.35em - max(0px, var(--t-step))); }
+  /* the difficulty's name in its 40 px pill and the key's 复制 in its 26 px button: capped so the line stays inside (a
+     pixel more a step above 中). [ASSUMED] the caps */
+  .rs-pill__diff, .rs-pill__ver { font-size: min(calc(.28 * var(--t)), calc(20px + var(--t-step))); }
+  .rs-key__code { font-size: calc(.36 * var(--t)); }
+  .rs-key__copy { font-size: min(calc(.26 * var(--t)), calc(18px + var(--t-step))); }
+  /* English 「Copy」's descenders came within 0.1 px of the button's bottom at 特大 (its cap top 7.4 px below the top): set
+     a pixel higher a step above 中, 2 px at 特大, so at 小 / 中, where it was centred, it stays put (review of 7aa59703:
+     a fixed 4 px set it 2 px high at 小). [ASSUMED] */
+  .rs-key__copy:lang(en) { padding-bottom: calc(2 * max(0px, var(--t-step))); }
+  /* the button at least 46 px, taller for a second line; the label 18–20 px at 小 / 中, a pixel more a step above (as
+     选择模拟协议's here: it was .46 × --t, 40 px at 特大, which cut 开始模拟 in English, Japanese and Korean, and at 特大 in
+     Chinese once it wrapped). [ASSUMED] the cap */
+  .rs-go.proto-start { height: auto; min-height: 46px; }
+  .rs-go .proto-start__mark { display: none; }
+  .rs-go .proto-start__label { font-size: min(calc(.46 * var(--t)), calc(20px + var(--t-step))); }
+  .rs .rs-loadout .btn__label { display: none; }
+  /* the tool buttons give way; a settings window already open stays: it is position: fixed but rendered inside this
+     toolbar, so hiding the toolbar itself hid the window with it (a desktop shrunk to a phone's 390 px height, #888) */
+  .rs-tools { margin-left: 0; }
+  .rs-tools > :not(.modal), .rs-key__k { display: none; }
+}
+
+/* A long name takes a second line on the phones at least 370 px tall, then ends in an ellipsis (§35.51: one line kept 3–5
+   characters of a long name at 特大 — 「罗德岛…」, 「ロドス…」 — and 1–3 on your own plate before its tag went). The plate's
+   second row is free there (.rseat__doc hidden) and every plate is two lines tall, so the cards' art stays one height
+   whatever the names; the art gives up that height. On the 360 px tall phones the art has none to give at 大 / 特大
+   (「Standing by」, the AI frame's tag and 添加 AI 队友 ran past it with a modded room's tags), so the name keeps its one
+   line there. [ASSUMED] two lines, the 370 px */
+@media (max-height: 520px) and (min-height: 370px) {
+  .rseat__plate { min-height: max(32px, calc(36px * var(--sp-ui, 1)), calc(2.2 * min(calc(.28 * var(--t)), calc(18px + var(--t-step) / 2)) + 8px)); }
+  .rseat__who { grid-row: 1 / 3; align-self: center; }
+  .rseat__who .seat__name { white-space: normal; overflow-wrap: anywhere; line-height: 1.1; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+}
+@media (max-width: 900px) {
+  /* the centre column takes what the button leaves (it keeps its width); the status line and the pill sit at its start, as
+     narrow as their text (left-aligned, as before the §35.18 review) */
+  .rs-foot { grid-template-columns: minmax(0, 1fr) auto; }
+  .rs-foot__left { display: none; }
+  .rs-foot__center { justify-self: start; max-width: 100%; }
+}
+@media (max-aspect-ratio: 1/1) {
+  .rs-seats { justify-content: flex-start; }
+  .rseat { --w: max(1.8rem, 42vw); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rseat, .rs__bg, .rs-top, .rs-brief, .rs-foot { animation: none; }
+}
+
+/* ---- official versions (DESIGN §35.23): the version pill beside the difficulty, ⚙'s 版本 row, the banner; the name ends
+   in an ellipsis in the pill (a phone, a long language) ---- */
+.rs-clock__ver { margin-left: .1rem; }
+/* the version beside the mode holds its whole name, on two lines if it must (English 「Regulation · Sequence I」 at 大 /
+   特大 ended in an ellipsis or ran past the tag). A short screen gives its line to the seats, as it does the banner's
+   (below): the footer's version pill names the version (its tooltip and picker; on a 规程-default server every room
+   showed the tag, and its second line ran the seat cards' text past them at 特大). [ASSUMED] */
+.rs-clock__ver { height: auto; min-height: .26rem; padding-block: 1px; line-height: 1.15; white-space: normal; }
+.rs-clock__ver .vertag__label { white-space: normal; text-overflow: clip; }
+@media (max-height: 520px) { .rs-clock__ver { display: none; } }
+/* The tooltip must carry the pill's height: an auto-height wrapper makes its child's 78% resolve to auto. */
+.rs-pill__version { height: 100%; min-width: 0; align-items: center; }
+.rs-pill__ver {
+  min-width: 0; max-width: 2.6rem;
+  color: #cfe9ff; background: rgba(120, 196, 255, .12);
+}
+.rs-pill__ver .icon { color: #9fd3ff; }
+.rs-pill__vername { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.rs-pill__ver:disabled { cursor: default; opacity: .7; }
+.rs-pill__ver.is-ro { cursor: help; }
+.rs-pill__ver:hover:not(:disabled), .rs-pill__ver:focus-visible { filter: brightness(1.2); }
+.rs-opts__ver { color: #cfe9ff; }
+.rs-verbanner {
+  position: relative; flex: none; display: flex; align-items: center; justify-content: center; gap: .08rem;
+  margin: 0 .6rem .1rem; padding: .06rem .16rem; color: var(--text-md); font-size: calc(.14 * var(--t)); text-align: center; overflow-wrap: anywhere;
+  background: rgba(120, 196, 255, .08); border: 1px solid rgba(120, 196, 255, .35);
+}
+.rs-verbanner .icon { flex: none; width: 1.1em; height: 1.1em; color: #9fd3ff; }
+/* a short screen (a phone in landscape): the seats and the footer keep the height — the strip floats over the seats while
+   the vote runs (it wraps and scrolls inside), the banner gives its line up (the pill's tooltip says it) */
+@media (max-height: 520px) {
+  .rs-verbanner { display: none; }
+  .rs .vervote {
+    position: fixed; left: 50%; top: 50%; z-index: 30; width: min(calc(100vw - 24px), 9rem); max-height: 70svh; margin: 0; overflow-y: auto;
+    transform: translate(-50%, -50%); box-shadow: 0 .1rem .5rem rgba(0, 0, 0, .8);
+    /* too tall for the screen: the text scrolls, the buttons stay in view below it (like the floating strip's) */
+    flex-direction: column; flex-wrap: nowrap; align-items: stretch;
+  }
+  .rs .vervote .vervote__text { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
+  .rs .vervote .vervote__actions { flex: none; }
+}
+
+/* 规程·序列Ⅰ's room (data-season="act3autochess", as the lobby's — lobby.css): the room's mint turns the season's red, its
+   ground the season's dark red with scan lines; the seat cards and controls stay the room's own */
+.rs[data-season="act3autochess"] {
+  --mint-400: #ff5b41;
+  --mint-500: #e2412c;
+  --mint-600: #e2412c;
+  --mint-glow: #ff7a52;
+  --mint-a10: rgba(226, 65, 44, .10);
+  --mint-a20: rgba(226, 65, 44, .22);
+  --mint-a35: rgba(226, 65, 44, .38);
+  background: repeating-linear-gradient(180deg, rgba(0, 0, 0, .18) 0 1px, transparent 1px 3px), radial-gradient(120% 95% at 50% 35%, #2c0f0b 0%, #120807 60%, #0d0b0a 100%);
+}
+/* the lit seat (#4fe8c0 above) and the go plate in the season's colours: the red frame, the cream plate of its banners */
+.rs[data-season="act3autochess"] .rseat.is-lit .rseat__clip, .rs[data-season="act3autochess"] .rseat.is-lit .rseat__strip { background: #e2412c; }
+.rs[data-season="act3autochess"] .rseat.is-lit .rseat__strip span { color: #1a0d0a; }
+.rs[data-season="act3autochess"] .rseat.is-lit .rseat__art { border-color: #e2412c; box-shadow: 0 0 .2rem rgba(226, 65, 44, .4); }
+.rs[data-season="act3autochess"] .rseat.is-lit .rseat__art::after { background: linear-gradient(180deg, transparent, rgba(143, 33, 23, .85)); }
+.rs[data-season="act3autochess"] .seat__content.is-ready { border-color: #e8dfc4; color: #e8dfc4; }
+.rs[data-season="act3autochess"] .proto-start { color: #1a0d0a; background: linear-gradient(180deg, #efe6cc, #cdbf9d); box-shadow: 0 0 0 1px rgba(232, 223, 196, .5), 0 .06rem .2rem rgba(0, 0, 0, .55); }
+.rs[data-season="act3autochess"] .proto-start__deco { background: repeating-linear-gradient(135deg, rgba(226, 65, 44, .75) 0 5px, transparent 5px 11px), linear-gradient(90deg, rgba(143, 33, 23, .15), rgba(143, 33, 23, .45)); }
+.rs[data-season="act3autochess"] .rs-go.is-ready { background: linear-gradient(180deg, #ff8a6d, #e2412c); }

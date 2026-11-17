@@ -22,6 +22,7 @@ async function fixture(t, kind) {
     fs.cpSync(path.join(ROOT, dir), path.join(root, dir), { recursive: true });
   }
   for (const rel of ['tools/setup.mjs', 'tools/doctor.mjs', 'tools/local-extract/expected.mjs',
+    'tools/local-extract/client-candidates.json',
     'server/update.js', 'server/plugins/fxReferences.js', 'server/plugins/artReferences.js']) {
     put(rel, fs.readFileSync(path.join(ROOT, rel)));
   }

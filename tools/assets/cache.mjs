@@ -5,11 +5,22 @@
 // Downloaded once when missing (or with --refresh-index), then reused.
 
 import { mkdir, readFile, rename, writeFile, stat, rm } from 'node:fs/promises';
+import { existsSync, readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { RAW } from './sources.mjs';
 import { MirrorPolicy } from './network.mjs';
 import { guardDefaultFetch } from './env-proxy.mjs';
+
+/** The served local manifest can select an immutable index when shared assets must remain add-only. */
+export function localFxIndexPath(root) {
+  const manifest = join(root, 'data/local-fx.json');
+  if (existsSync(manifest)) {
+    const url = JSON.parse(readFileSync(manifest, 'utf8')).groups?.fx?.index?.path;
+    if (typeof url === 'string' && /^\/assets\/local\/fx\/[a-zA-Z0-9_-]+\.json$/.test(url)) return join(root, 'public', url);
+  }
+  return join(root, 'public/assets/local/fx/index.json');
+}
 
 /**
  * Read a cached JSON file, downloading it first when missing or unparsable.

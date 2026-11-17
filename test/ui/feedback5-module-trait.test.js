@@ -105,7 +105,7 @@ test('the 干员调配 module card: 特性 = the class trait (or the rewrite), �
   }
 });
 
-test('the 自选 picker\'s module rows: the class trait, then the module\'s line', () => {
+test('the 自选 picker\'s module card: the class trait, then the module\'s line (the roster\'s ModuleInfo)', () => {
   const pick = { charId: 'char_112_siege', skillIndex: 2, uniEquipId: 'uniequip_002_siege' };
   const slot = { slotId: 'chess_char_5_diy1_a', tier: 5, shopLevel: 5 };
   const tree = DiyPickerView({ m: null, slot, picks: { [slot.slotId]: pick }, kitted: [...KITTED_CHARS], onDone() {}, onClose() {},
@@ -117,16 +117,19 @@ test('the 自选 picker\'s module rows: the class trait, then the module\'s line
     const c = v.props?.children;
     return c === undefined ? v : { ...v, props: { ...v.props, children: expand(c, d) } };
   };
-  const rows = [...walk(expand(tree))].filter((v) => v.props?.role === 'radio' && v.props['data-module'] && v.props['data-module'] !== 'none');
-  assert.ok(rows.length >= 1);
-  const backups = data.get('backups');
-  const mods = Object.values(backups.units.char_112_siege.forms).flatMap((f) => f.modules || []);
-  for (const row of rows) {
-    const rec = mods.find((x) => x.uniEquipId === row.props['data-module']);
-    const t = rec.traitOverride;
-    const first = [...walk(row)].find((n) => typeof n.type === 'function' && n.type.name === 'RichText');
-    assert.equal(first.props.text, t.moduleDesc ? `${t.descRaw || t.desc}\n${t.moduleDescRaw || t.moduleDesc}` : (t.descRaw || t.desc));
-  }
+  // the picker draws the roster's ModuleInfo card (screens/loadoutSections.js): the rows are the same ones the 干员调配
+  // module card asserts — 特性 first, the module's own line under 特性追加, never the added line alone
+  const rows = cardRows(expand(tree));
+  const mods = Object.values(data.get('backups').units.char_112_siege.forms).flatMap((f) => f.modules || []);
+  const trait = mods.find((x) => x.uniEquipId === 'uniequip_002_siege').traitOverride;
+  const base = rows.find((r) => r.kind === 'base');
+  assert.ok(base && base.k === '特性', 'the class trait (or the module\'s rewrite) has its own row');
+  assert.equal(base.text, trait.descRaw || trait.desc);
+  const added = rows.find((r) => r.kind === 'added');
+  if (trait.moduleDesc) {
+    assert.ok(added && added.k === '特性追加', 'the module\'s own line follows under 特性追加');
+    assert.equal(added.text, trait.moduleDescRaw || trait.moduleDesc);
+  } else assert.equal(added, undefined, 'a module without an added line has none');
 });
 
 test('the sim: an added-line module keeps the class trait (the same text, targeting and attack shape as 不装备)', () => {

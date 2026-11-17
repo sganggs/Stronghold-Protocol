@@ -16,6 +16,7 @@
 // Every page must finish with zero console errors, page errors, failed requests or HTTP errors.
 // Screenshots: test/e2e/out/real-*.png.
 
+import { seedReleaseRead } from '../helpers/releaseNotes.js';
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync } from 'node:fs';
@@ -60,6 +61,7 @@ class Client {
       }
     });
     page.on('dialog', (d) => d.dismiss().catch(() => {}));
+    await seedReleaseRead(page);
     await page.goto(`${this.base}/${query}`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!globalThis.__SP__ && !!document.querySelector('.screen'), { timeout: 30000 });
   }
@@ -479,10 +481,14 @@ describe('real server + real browsers', { skip: !ENABLED && 'set SP_REAL_E2E=1 (
       // ---- lobby & room --------------------------------------------------------------------------------------------
       await host.open();
       await host.enter('凯尔希');
+      // 创建同盟 creates the room at once (标准 in a fresh browser); the host changes the difficulty in the room
       await host.click('.mode-card', '同盟模拟');
-      await host.click('.diff-card', '险境模拟');
-      await host.click('.create-box button', '创建同盟');
+      await host.click('[data-testid="alliance-create"]');
       const room = (await host.waitFor((s) => !!s.room?.code, 'room created')).room;
+      await host.click('.rs-pill__diff');
+      await host.click('.modal__box.proto .diff-card', '险境模拟');
+      await host.click('.modal__box.proto .proto-start', '确认');
+      await host.page.waitForFunction(() => globalThis.__SP__.store.get().room?.difficulty === 'NORMAL' && !document.querySelector('.modal__box.proto'), { timeout: 10000 });
       await host.click('button', '添加 AI 队友');
       await guest.open(`?room=${room.code}`);
       await guest.enter('阿米娅');
@@ -513,10 +519,11 @@ describe('real server + real browsers', { skip: !ENABLED && 'set SP_REAL_E2E=1 (
           if (c === guest && !guestSkipped) {
             guestSkipped = true;
             // one skip — only while someone is left to pass to: the last player still to pick sees 跳过 disabled (PR #546)
-            const canSkip = await c.page.evaluate(() => [...document.querySelectorAll('.draft-detail__btns .btn')]
+            // (PR #828: 跳过选择 sits in the step header's turn line, .dturn .draft-skip, on the player's own turn)
+            const canSkip = await c.page.evaluate(() => [...document.querySelectorAll('.dturn .draft-skip')]
               .some((b) => b.textContent.includes('跳过') && !b.disabled));
             if (canSkip) {
-              await c.click('.draft-detail__btns .btn', '跳过');
+              await c.click('.dturn .draft-skip', '跳过');
               c.note('skipped once');
               continue;
             }

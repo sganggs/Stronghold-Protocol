@@ -4,7 +4,7 @@
 import { COLS } from '../../../constants.js';
 import { bodyInRange } from '../../../body.js';
 import { absoluteRangeKeys, sortEnemyTargets } from '../../../targeting.js';
-import { isHpLoss } from '../../../damage.js';
+import { isHpLoss } from '../../../attack.js';
 import { num, tbb, whileDeployed, toggleBuff, skillActive, isSel, alt, withDefaults } from '../shared/tier4.js';
 import { hypot } from '../../../detmath.js';
 

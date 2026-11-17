@@ -16,7 +16,7 @@ export default {
         kind: 'instant', trigger: 'SP_FULL',
         onStart({ battle, unit }) {
           const n = num(skillBbOf(chess, 'skcom_charge_cost[3]').cost);
-          battle.addDp(unit.ownerId, n);
+          battle.addDp(unit.ownerId, n, unit);
           battle.fx('dp', { x: unit.x, y: unit.y, n, id: unit.id });
         },
       },
@@ -24,7 +24,7 @@ export default {
     skill: {
       kind: 'instant',
       onStart({ battle, unit }) {
-        battle.addDp(unit.ownerId, num(bb.cost));
+        battle.addDp(unit.ownerId, num(bb.cost), unit);
         battle.fx('dp', { x: unit.x, y: unit.y, n: num(bb.cost), id: unit.id });
         const grid = def?.skill?.rangeGrid;
         const foes = grid ? enemiesInGrid(battle, unit, grid) : battle.foesInRadius(unit.x, unit.y, RING1).filter((e) => !e.s.flags.untargetable);

@@ -37,8 +37,10 @@ function setup({ band, mode = 'solo', humans = 1, seed = 41, bands: perPlayer = 
   if (band) ps.bandId = band;
   const at = (r) => { m.round = r; };
   const roundStart = (r, who = ps) => { at(r); m.dispatch(who, 'onRoundStart', { round: r }); };
+  /** The round start, then the prep start (after the round's 机变 phase: the 「进入休整期时」 effects, GitHub #851). */
+  const prepStart = (r, who = ps) => { roundStart(r, who); m.dispatch(who, 'onPrepStart', { round: r }); };
   const prepEnd = (who = ps) => m.dispatch(who, 'onPrepEnd', { round: m.round });
-  return { h, m, ps, at, roundStart, prepEnd };
+  return { h, m, ps, at, roundStart, prepStart, prepEnd };
 }
 const handIds = (ps, kind) => [...ps.hand, ...ps.temp].filter((p) => p && (!kind || p.kind === kind)).map((p) => p.id);
 const plain = (pred = () => true) => Object.values(DATA.chess)
@@ -130,7 +132,7 @@ test('杜遥夜 广交豪杰: the first 2 manual refreshes of a round show ≥ 1
 });
 
 test('梓兰 猎头顾问: every manual refresh copies the highest-tier shop operator into another slot and freezes the copy; R10 寻呼模块', () => {
-  const { m, ps, roundStart } = setup({ band: 'band_orchid', seed: 12 });
+  const { m, ps, prepStart } = setup({ band: 'band_orchid', seed: 12 });
   ps.shop.level = 4;
   for (let i = 0; i < 4; i++) {
     assert.deepEqual(m.handle('p_0', { t: 'g.refresh' }), OK);
@@ -143,9 +145,9 @@ test('梓兰 猎头顾问: every manual refresh copies the highest-tier shop ope
     assert.ok(chess.some((sl) => sl.id === dup && sl.frozen), 'one of them frozen');
     assert.equal(ps.shop.frozen, false);
   }
-  roundStart(9);
+  prepStart(9);
   assert.deepEqual(handIds(ps, 'item'), []);
-  roundStart(10);
+  prepStart(10);
   assert.deepEqual(handIds(ps, 'item'), [A('4_01')]);
   cover('band_orchid');
 });
@@ -163,10 +165,10 @@ test('fixed-round grants: 小贾斯汀 / 昆图斯 / 马克维茨 / 变形者集
     ['band_dusk', 'chess_item_6_02_m', [1]],
   ];
   for (const [band, id, rounds] of CASES) {
-    const { ps, roundStart } = setup({ band, seed: 5 });
+    const { ps, prepStart } = setup({ band, seed: 5 });
     for (let r = 1; r <= 15; r++) {
       const before = handIds(ps).filter((x) => x === id).length;
-      roundStart(r);
+      prepStart(r);
       const got = handIds(ps).filter((x) => x === id).length - before;
       assert.equal(got, rounds.includes(r) ? 1 : 0, `${band} R${r}`);
       ps.hand.fill(null); ps.temp.fill(null);
@@ -176,10 +178,10 @@ test('fixed-round grants: 小贾斯汀 / 昆图斯 / 马克维茨 / 变形者集
 });
 
 test('杜宾 加练！: a 教鞭 every 2 rounds (even rounds)', () => {
-  const { ps, roundStart } = setup({ band: 'band_doberm' });
+  const { ps, prepStart } = setup({ band: 'band_doberm' });
   const got = [];
   for (let r = 1; r <= 8; r++) {
-    roundStart(r);
+    prepStart(r);
     if (handIds(ps, 'item').includes('chess_item_6_03_m')) got.push(r);
     ps.hand.fill(null);
   }
@@ -187,8 +189,8 @@ test('杜宾 加练！: a 教鞭 every 2 rounds (even rounds)', () => {
   cover('band_doberm');
 });
 
-test('老鲤 得闲饮茶: income R1 0, R2 0, R3 15; R3 round start: 1 random tier-II and 1 tier-IV operator', () => {
-  const { m, ps, at, roundStart } = setup({ band: 'band_lmlee', seed: 14 });
+test('老鲤 得闲饮茶: income R1 0, R2 0, R3 15; R3 prep start (进入休整期时, not the round start): 1 random tier-II and 1 tier-IV operator', () => {
+  const { m, ps, at, roundStart, prepStart } = setup({ band: 'band_lmlee', seed: 14 });
   const got = [];
   for (const r of [1, 2, 3, 4]) {
     at(r);
@@ -199,8 +201,10 @@ test('老鲤 得闲饮茶: income R1 0, R2 0, R3 15; R3 round start: 1 random ti
   assert.deepEqual(got, [0, 0, 15, m.gd.income(4)]);
   const grants = spyGrants(ps);
   roundStart(3);
+  assert.deepEqual(grants, [], 'not at the round start (before the R3 机变 phase, GitHub #851)');
+  m.dispatch(ps, 'onPrepStart', { round: 3 });
   assert.deepEqual(grants.map((id) => DATA.chess[id].tier).sort(), [2, 4]);
-  roundStart(4);
+  prepStart(4);
   assert.equal(grants.length, 2);
   cover('band_lmlee');
 });
@@ -364,6 +368,7 @@ test('鸭爵 “神秘顾客”: from R5, 0–2 ground enemies in the last 40 % 
   const counts = {};
   for (let k = 0; k < 30; k++) {
     m.round = 5;
+    m.seed = 4 + k; // one draw per round from the match seed (GitHub #839): another seed, another draw
     const ev = { input: p0.battleInput({ side: 'L', colOffset: 0 }), kind: 'normal', round: 5, spawns: wave() };
     m.dispatch(p0, 'onBattleStart', ev);
     const dk = ev.spawns.filter((sp) => ducks.includes(sp.enemyKey));
@@ -442,13 +447,13 @@ test('巫恋 替身娃娃: the first sale of a normal operator each round swaps 
 });
 
 test('松桐 九流之缘: at even rounds\' prep start 1 random shop operator is taken for free (its slot empties)', () => {
-  const { ps, roundStart } = setup({ band: 'band_makiri', seed: 8 });
+  const { ps, prepStart } = setup({ band: 'band_makiri', seed: 8 });
   const ids = plain((c) => c.tier === 1).slice(0, 3);
   for (const r of [1, 2, 3, 4]) {
     ps.shop.slots = ids.map(slotOf);
     ps.hand.fill(null);
     const f0 = ps.funds;
-    roundStart(r);
+    prepStart(r);
     const got = handIds(ps, 'chess');
     assert.equal(got.length, r % 2 === 0 ? 1 : 0, `R${r}`);
     assert.equal(ps.shop.slots.filter(Boolean).length, r % 2 === 0 ? 2 : 3);
@@ -495,11 +500,11 @@ test('贾维 团伙行动: every 6 manual refreshes ⇒ a <叙拉古> operator (
 });
 
 test('娜仁图亚 见者有份: even rounds\' prep start — pick 1 of 2 different shop equips for free (any tier [ASSUMED])', () => {
-  const { ps, roundStart } = setup({ band: 'band_narant', seed: 13 });
+  const { ps, prepStart } = setup({ band: 'band_narant', seed: 13 });
   ps.shop.level = 3;
   for (const r of [1, 2, 3, 4]) {
     ps.offers.length = 0;
-    roundStart(r);
+    prepStart(r);
     if (r % 2) { assert.equal(ps.offers.length, 0, `R${r}`); continue; }
     assert.equal(ps.offers.length, 1, `R${r}`);
     const ids = ps.offers[0].slots.map((sl) => sl.id);

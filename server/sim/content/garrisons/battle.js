@@ -37,12 +37,15 @@
 //                       ignore and dealt/taken multipliers; a tie keeps the type).
 //   NONE                风丸 "2 copies merge" — prep rule (chess.upgradeNum 2), nothing in battle.
 //
-// Hooks: priority 0, except 弱点伤害 (hit, WEAKNESS_PRIORITY −10: decided on the final amount after the ATK
-// multipliers). install() registers nothing when no operator carries an IN_BATTLE garrison.
+// Hooks: priority 0, except 弱点伤害 (damageCalculate, WEAKNESS_PRIORITY −10: decided on the final amount after the ATK
+// multipliers). install() always stores a late-install hook (a summon's own IN_BATTLE traits); it registers no
+// listeners when nobody carries one. 规程·序列Ⅰ keys live in garrisons/regulation.js and are spread in first.
+// A garrison_trigger_buff row runs its child (runChild) and does not also add its own layers.
 
 import * as S from '../support/index.js';
-import { mitigate } from '../../damage.js';
+import { mitigate, attackInput } from '../../attack.js';
 import { frontOf } from '../../dir.js';
+import { REGULATION_INSTALLERS, runChild, inGarrisonRange, grantBondRange } from './regulation.js';
 
 const ids = (s) => String(s ?? '').split(',').map((x) => x.trim()).filter(Boolean);
 const EMPTY = Object.freeze([]);
@@ -54,48 +57,77 @@ function garrisonIdsOf(u) {
   return Array.isArray(list) ? list : EMPTY;
 }
 
+/** 远牙: the trait its own traits grant also gains on body / substitute switches (act2autochess_gar_event_onstart). */
+const FAR_TOOTH_CHAR = 'char_430_fartth';
+let FAR_TOOTH = null;
+let FAR_TOOTH_DATA = null;
+const FAR_TOOTH_DEFAULT = Object.freeze(new Set(['garrison_108_a', 'garrison_108_b']));
+/**
+ * The garrison ids 远牙's own traits grant (bbStr.give_garrison_id): garrison_108_a/b (granted by garrison_148_a/b), or
+ * on another version's build (S.isVersionData) the grants found by charId over its official chess records — garrison
+ * and chess ids are season-local.
+ */
+function farToothGrants() {
+  const d = S.gameData();
+  if (!S.isVersionData(d)) return FAR_TOOTH_DEFAULT;
+  if (FAR_TOOTH_DATA !== d) {
+    FAR_TOOTH_DATA = d;
+    FAR_TOOTH = new Set();
+    for (const [id, c] of Object.entries(d.chess || {})) {
+      if (c?.charId !== FAR_TOOTH_CHAR || !S.isOfficialId('chess', id) || !Array.isArray(c.garrisonIds)) continue;
+      for (const gid of c.garrisonIds) {
+        const give = S.garrisonRecord(gid)?.bbStr?.give_garrison_id;
+        if (typeof give === 'string' && give) FAR_TOOTH.add(give);
+      }
+    }
+  }
+  return FAR_TOOTH;
+}
+
 // ---------------------------------------------------------------------------------------------------------------------
 // install
 
-export function install(battle) {
-  const all = [];
-  const owned = new Map(); // unit → Set(garrisonId)
-  const add = (unit, g, grantedBy = null) => {
-    let set = owned.get(unit);
-    if (!set) { set = new Set(); owned.set(unit, set); }
-    if (set.has(g.garrisonId)) return null;
-    set.add(g.garrisonId);
-    const bb = g.bb || {};
-    const cap = S.num(bb.max_add_count_per_battle, 0) > 0 ? S.num(bb.max_add_count_per_battle) : Infinity;
-    const it = {
-      unit, g, gid: g.garrisonId, key: g.effectKey, bb, bbStr: g.bbStr || {}, grantedBy,
-      cap, capKey: `gar:${g.garrisonId}:${unit.id}`, cnt: 0, k: -1,
-    };
-    all.push(it);
-    return it;
+function makeInstance(unit, g, grantedBy = null) {
+  const bb = g.bb || {};
+  // a 规程 指令 may raise the per-battle cap (unit.commandLayerCapBonus, bandCommands.js)
+  const cap = S.num(bb.max_add_count_per_battle, 0) > 0
+    ? S.num(bb.max_add_count_per_battle) + S.num(unit.commandLayerCapBonus) : Infinity;
+  return {
+    unit, g, gid: g.garrisonId, key: g.effectKey, bb, bbStr: g.bbStr || {}, grantedBy,
+    cap, capKey: `gar:${g.garrisonId}:${unit.id}`, cnt: 0, k: -1,
   };
-  for (const u of battle.allyUnits) {
-    if (!S.isOp(u)) continue;
-    for (const gid of garrisonIdsOf(u)) {
-      const g = S.garrisonRecord(gid);
-      if (g && g.eventType === 'IN_BATTLE') add(u, g);
+}
+
+/**
+ * A child another garrison on the same unit points at does not fire itself (the parent calls runChild).
+ * A row with garrison_event_key and no garrison_type is that child even when it is the only copy (garrison_169).
+ * A parent keeps garrison_type, so its own event key does not mark it.
+ */
+function markPayloads(list) {
+  const byUnit = new Map();
+  for (const it of list) {
+    let group = byUnit.get(it.unit);
+    if (!group) { group = []; byUnit.set(it.unit, group); }
+    group.push(it);
+  }
+  for (const group of byUnit.values()) {
+    const childIds = new Set();
+    for (const it of group) {
+      if (it.bbStr.garrison_type === 'garrison_trigger_buff' && it.bbStr.garrison_trigger_buff_garrison_key) {
+        childIds.add(it.bbStr.garrison_trigger_buff_garrison_key);
+      }
+    }
+    for (const it of group) {
+      if (childIds.has(it.gid)) it.payload = true;
+      else if (it.bbStr.garrison_event_key && !it.bbStr.garrison_type) it.payload = true;
     }
   }
-  if (!all.length) return;
+}
 
-  const grants = [];
-  for (const it of all.slice()) {
-    if (it.key !== 'ADD_BOND') continue;
-    const g2 = S.garrisonRecord(it.bbStr.give_garrison_id);
-    if (!g2 || g2.eventType !== 'IN_BATTLE') continue;
-    for (const t of grantTargets(battle, it)) {
-      const got = add(t, g2, it);
-      if (got) grants.push(got);
-    }
-  }
-
+function dispatchInstallers(battle, slice) {
+  if (!slice.length) return;
   const by = new Map();
-  for (const it of all) {
+  for (const it of slice) {
     let arr = by.get(it.key);
     if (!arr) { arr = []; by.set(it.key, arr); }
     arr.push(it);
@@ -106,6 +138,66 @@ export function install(battle) {
   }
   installHitMods(battle, by);
   installReaders(battle, by);
+}
+
+/** IN_BATTLE traits of one unit that joined after the opening install (a bench summon). No ADD_BOND grants. */
+function installLate(battle, unit) {
+  if (!S.isOp(unit)) return;
+  const owned = battle._garOwned;
+  let set = owned.get(unit);
+  const fresh = [];
+  for (const gid of garrisonIdsOf(unit)) {
+    const g = S.garrisonRecord(gid);
+    if (!g || g.eventType !== 'IN_BATTLE') continue;
+    if (!set) { set = new Set(); owned.set(unit, set); }
+    if (set.has(g.garrisonId)) continue;
+    set.add(g.garrisonId);
+    const it = makeInstance(unit, g);
+    fresh.push(it);
+    battle._garInstances.push(it);
+  }
+  if (!fresh.length) return;
+  markPayloads(battle._garInstances.filter((it) => it.unit === unit));
+  dispatchInstallers(battle, fresh);
+}
+
+export function install(battle) {
+  if (!battle._garOwned) battle._garOwned = new Map();
+  if (!battle._garInstances) battle._garInstances = [];
+  // Set before the empty-board return: a later summon still installs (regulation.js summonFromBench).
+  battle._installGarrisonLate = (unit) => installLate(battle, unit);
+
+  const all = [];
+  const add = (unit, g, grantedBy = null) => {
+    let set = battle._garOwned.get(unit);
+    if (!set) { set = new Set(); battle._garOwned.set(unit, set); }
+    if (set.has(g.garrisonId)) return null;
+    set.add(g.garrisonId);
+    const it = makeInstance(unit, g, grantedBy);
+    all.push(it);
+    battle._garInstances.push(it);
+    return it;
+  };
+  for (const u of battle.allyUnits) {
+    if (!S.isOp(u)) continue;
+    for (const gid of garrisonIdsOf(u)) {
+      const g = S.garrisonRecord(gid);
+      if (g && g.eventType === 'IN_BATTLE') add(u, g);
+    }
+  }
+
+  const grants = [];
+  for (const it of all.slice()) {
+    if (it.key !== 'ADD_BOND' && it.g.battleRuneKey !== 'give_garrion_to_front') continue;
+    const g2 = S.garrisonRecord(it.bbStr.give_garrison_id ?? it.bbStr.give_garrion_id);
+    if (!g2 || g2.eventType !== 'IN_BATTLE') continue;
+    for (const t of grantTargets(battle, it)) {
+      const got = add(t, g2, it);
+      if (got) grants.push(got);
+    }
+  }
+  markPayloads(all);
+  dispatchInstallers(battle, all);
 
   if (grants.length) {
     battle.on('battleStart', () => {
@@ -186,6 +278,12 @@ function conditionMet(battle, it) {
 
 /** Fire a layer-gain garrison instance. Returns the layers added. */
 export function fireGain(battle, it) {
+  // A trigger-buff wrapper only runs its child. Default data has no garrison_trigger_buff rows.
+  if (it.bbStr.garrison_type === 'garrison_trigger_buff') {
+    if (!conditionMet(battle, it)) return 0;
+    runChild(battle, it);
+    return 0;
+  }
   if (!conditionMet(battle, it)) return 0;
   const bonds = targetBonds(battle, it);
   if (!bonds.length) return 0;
@@ -241,6 +339,19 @@ function ammoScope(it, u) {
 }
 
 const INSTALLERS = {
+  ...REGULATION_INSTALLERS,
+  act1autochess_gar_event_recoverhp_enemy_abflag_inrange(battle, list) {
+    battle.on('statusApplied', ({ target, status, entered }) => {
+      if (!entered || target?.side !== 'enemy') return;
+      for (const it of list) {
+        if (status !== (AB_FLAG_STATUS[S.num(it.bb.check_ab_flag, 16)] ?? 'freeze') || !S.onField(it.unit) || !S.inRange(it.unit, target)) continue;
+        // [ASSUMED] The text only says "数次". One pulse immediately, then two at one-second intervals.
+        for (let i = 0; i < 3; i++) battle.after(i, () => {
+          if (S.onField(it.unit)) battle.heal({ source: it.unit, target: it.unit, amount: it.unit.s.maxHp * S.num(it.bb.hp_ratio) });
+        });
+      }
+    });
+  },
   act1autochess_gar_event_useskill(battle, list) {
     const m = byUnit(list);
     battle.on('skillStart', ({ unit }) => {
@@ -318,7 +429,8 @@ const INSTALLERS = {
     });
     // Player-confirmed: 远牙's granted trait also gains on each body / substitute switch (DESIGN §28.5).
     // Restrict this extra trigger to that trait; use its existing amounts, active-bond checks and battle cap.
-    const farTooth = byUnit(list.filter((it) => it.gid === 'garrison_108_a' || it.gid === 'garrison_108_b'));
+    const granted = farToothGrants();
+    const farTooth = byUnit(list.filter((it) => granted.has(it.gid)));
     if (farTooth.size) battle.on('dollSwap', ({ unit }) => {
       const arr = farTooth.get(unit);
       if (arr) for (const it of arr) fireGain(battle, it);
@@ -329,7 +441,17 @@ const INSTALLERS = {
     battle.on('statusApplied', ({ target, status, entered }) => { // "进入沉睡/晕眩时": new entries only (ctx.entered)
       if (!target || (status !== 'sleep' && status !== 'stun') || !entered) return;
       if (!(target.side === 'enemy' || (target.side === 'ally' && target.kind === 'op'))) return;
-      for (const it of list) if (S.onField(it.unit) && S.inRange(it.unit, target)) fireGain(battle, it);
+      for (const it of list) {
+        if (!S.onField(it.unit)) continue;
+        // Default rows have neither range_id nor bond_allinrange and keep the attack-range test.
+        // [ASSUMED] garrison_49 is bond_self: the x-4 test only decides whether the carrier's own bonds gain.
+        // The 身后 recipient is bond_allinrange (garrison_237), not a second target invented for bond_self.
+        if (it.bbStr.range_id || it.bbStr.bond_type === 'bond_allinrange') {
+          if (!inGarrisonRange(battle, it, target)) continue;
+          if (it.bbStr.bond_type === 'bond_allinrange') grantBondRange(battle, it);
+          else fireGain(battle, it);
+        } else if (S.inRange(it.unit, target)) fireGain(battle, it);
+      }
     });
   },
 
@@ -468,15 +590,17 @@ export function weaknessType(source, target, dmg) {
     resIgnorePct: S.num(dmg.resIgnorePct, 0) + (ss ? S.num(ss.resIgnorePct, 0) : 0),
     resIgnoreFlat: S.num(dmg.resIgnoreFlat, 0) + (ss ? S.num(ss.resIgnoreFlat, 0) : 0),
   };
-  const ph = mitigate(dmg.amount, 'phys', target.s, ign) * (ss ? S.num(ss.physDealtMul, 1) : 1) * S.num(target.s.physTakenMul, 1);
-  const ar = mitigate(dmg.amount, 'arts', target.s, ign) * (ss ? S.num(ss.artsDealtMul, 1) : 1) * S.num(target.s.artsTakenMul, 1);
+  const ts = target.s;
+  // Native weakness theory includes ATK/scales/additions/penetration, not source damage or injury multipliers.
+  const ph = mitigate(attackInput(dmg.amount, 'phys', ts), 'phys', ts, ign);
+  const ar = mitigate(attackInput(dmg.amount, 'arts', ts), 'arts', ts, ign);
   if (ar > ph + 1e-9) return 'arts';
   if (ph > ar + 1e-9) return 'phys';
   return dmg.type;
 }
 const bound = (t) => !!(t.s && t.s.flags && t.s.flags.bind) || !!t.findBuff('bind');
 
-/** Priority of the 弱点伤害 conversion: after every default-priority hit modifier, so the final amount decides. */
+/** Priority of the 弱点伤害 conversion: after default-priority source calculation modifiers, so the scaled input decides. */
 export const WEAKNESS_PRIORITY = -10;
 
 function installHitMods(battle, by) {
@@ -508,7 +632,7 @@ function installHitMods(battle, by) {
   }
   const chaos = new Set((by.get('act1autochess_gar_eff_chaos') ?? EMPTY).map((it) => it.unit));
   if (chaos.size) {
-    battle.on('hit', ({ source, target, dmg }) => {
+    battle.on('damageCalculate', ({ source, target, dmg }) => {
       if (!source || !chaos.has(source) || !target || target.side !== 'enemy' || !dmg) return;
       if (dmg.type === 'phys' || dmg.type === 'arts') dmg.type = weaknessType(source, target, dmg);
     }, { priority: WEAKNESS_PRIORITY });

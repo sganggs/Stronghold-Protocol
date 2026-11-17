@@ -60,7 +60,7 @@
 
 import { gameData, num, buffsOf, passiveBuff, effectRecord, directMods } from './support/index.js';
 import { isShopItem } from '../simdata.js';
-import { isHpLoss } from '../damage.js';
+import { isHpLoss } from '../attack.js';
 import { PLUGIN_GAIN_COUNT_MAX } from '../../../shared/plugins/limits.js';
 
 // =====================================================================================================================

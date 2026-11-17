@@ -1,9 +1,11 @@
 // server/sim/content/enemies/element.js — ELEMENT 元素 kits (element damage, 海嗣 / 萨卡兹 / 孽生 enemies) and their part of
 // KITS (split from content/enemies.js).
 
-import { periodicDamage } from '../../damage.js';
+import { periodicDamage } from '../../attack.js';
+import { hypot } from '../../detmath.js';
 import {
-  stOf, T, elem, hurt, targetsNear, areaAllies, areaAlliesInTiles, targetAndArea, byPriority, setForm, onTerrain,
+  stOf, T, elem, hurt, targetsNear, areaAllies, areaAlliesInTiles, targetAndArea, byPriority, setForm, onTerrain, stepToward,
+  attackSkillOf,
 } from './helpers.js';
 import { taunt, ep, deathSpawn, deathBoom, setFloat, float, skill, kitEp, kitStun3 } from './archetypes.js';
 
@@ -81,22 +83,30 @@ function kitDeathEye(ab, e) {
     const t = byPriority(e2, targetsNear(b, e2, r))[0];
     if (!t) return;
     const dur = s.bb.hit_duration ?? 0;
+    // 持续施法 stands still through the channel buff (ai.js updateEnemy): its own duration, or a stun (冻结 / 沉睡 / 浮空 set the
+    // same flag, units.js) / silence / the locked target's fall ends it early. Not `noMove`: that would also freeze a route
+    // WAIT / a portal, the leak and a 恐惧. The cooldown restarts at the channel's end (PRTS 「同一技能的冷却时间于该技能结束时
+    // 开始计时」; `fire`'s 24 s then runs from here, so it walks between casts).
     b.addBuff(e2, { key: 'ab:channel', duration: dur, flags: { disarm: true } });
     b.fx('beam', { x: e2.x, y: e2.y, from: e2.id, to: t.id, kind: 'deathEye', dur });
     let n = 0;
+    const stop = () => {
+      h.cancel(); b.removeBuff(e2, 'ab:channel');
+      if (a && a.cd != null) a.left = Math.max(a.left, a.cd);
+    };
     const h = b.every(1, () => {
       if (!e2.alive) { h.cancel(); return; }
-      // a stun / silence (SILENCE-flagged ability) or the locked target's fall interrupts the channel: no burst
-      if (e2.s.flags.stun || e2.s.flags.silence || !t.alive) { h.cancel(); b.removeBuff(e2, 'ab:channel'); b.fx('beam', { x: e2.x, y: e2.y, from: e2.id, to: t.id, kind: 'deathEyeEnd' }); return; }
+      // the stun / silence or the locked target's fall interrupts the channel: no burst
+      if (e2.s.flags.stun || e2.s.flags.silence || !t.alive) { stop(); b.fx('beam', { x: e2.x, y: e2.y, from: e2.id, to: t.id, kind: 'deathEyeEnd' }); return; }
       hurt(b, e2, t, e2.s.atk * (s.bb.atk_scale ?? 0), 'arts');
       if (++n >= dur) {
-        h.cancel();
+        stop();   // the burst ends the channel: the buff is removed and `a.left` restarts (the natural end too)
         b.fx('explode', { x: t.x, y: t.y, r: 1, kind: 'apoptosis' });
         // "对目标及其周围4格的我方单位": the locked target (a 隐匿 it gained mid-channel does not save it) + an area around it
         for (const u of targetAndArea(t, areaAllies(b, e2, t.x, t.y, 1))) elem(b, e2, u, 'apoptosis', e2.s.atk * (s.bb.ep_damage_ratio ?? 0));
       }
     }, { owner: e2 });
-  }, { sil: true, cond: (b, e2) => targetsNear(b, e2, r).length > 0 })];
+  }, { sil: true, cond: (b, e2) => targetsNear(b, e2, r).length > 0, turn: attackSkillOf('enemy_1275_dwlock_2', 'DeathEye') })];   // the attack's turn (DESIGN §35.52)
 }
 
 /**
@@ -120,10 +130,20 @@ function kitParasite(ab) {
     iv: 0.2,
     tick(b, e, a) {
       const host = e.blockedBy && e.blockedBy.alive ? e.blockedBy : null;
-      if (a.host && a.host !== host) { b.removeBuff(a.host, 'ab:parasite'); a.host = null; }
+      if (a.host && a.host !== host) {
+        b.removeBuff(a.host, 'ab:parasite');
+        b.removeBuff(e, 'ab:parasiteAttached');
+        a.host = null;
+      }
       if (!host || a.host === host) return;
       a.host = host;
       ensureParasiteHook(b);
+      // PRTS parasite: blink to the blocker's tile centre and stay self-bound until the block ends.
+      const fromX = e.x, fromY = e.y;
+      stepToward(e, host.tileC, host.tileR, hypot(host.tileC - fromX, host.tileR - fromY));
+      if (e.route) e.route.pts = null;
+      b.addBuff(e, { key: 'ab:parasiteAttached', flags: { noMove: true, selfBound: true } });
+      b.fx('teleport', { x: e.x, y: e.y, fromX, fromY, id: e.id, kind: 'parasite' });
       b.fx('beam', { x: e.x, y: e.y, from: e.id, to: host.id, kind: 'parasite' });
       b.addBuff(host, {
         // "受到的元素损伤提高至130%": a 元素损伤 multiplier on the element hit (ensureParasiteHook), not 元素伤害
@@ -131,7 +151,7 @@ function kitParasite(ab) {
         onTick: ({ battle, unit }) => { if (e.alive) battle.dealDamage(e, unit, { amount: e.s.atk * scale, type: 'arts', canDodge: false, ignoreSelect: true, tags: ['enemyAbility', 'parasite'] }); },
       });
     },
-    death(c, b, e, a) { if (a.host) b.removeBuff(a.host, 'ab:parasite'); },
+    death(c, b, e, a) { if (a.host) b.removeBuff(a.host, 'ab:parasite'); b.removeBuff(e, 'ab:parasiteAttached'); },
   }];
 }
 

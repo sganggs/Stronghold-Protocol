@@ -44,7 +44,7 @@ const FORMS_ALL = [[5, false, null], [6, false, null], ...[5, 6].flatMap((t) => 
 function field({ tier = 5, elite = false, mod = null, skill = 0, row = 10, col = 5, others = [], seed = 5 } = {}) {
   const h = makeBattle({
     defs: { enemies: ENEMIES }, timeLimit: 900, autoFinish: false, seed,
-    flags: { dpPerSec: 0, dpMax: 999 }, hooks: ['damaged', 'hit', 'skillStart', 'skillEnd', 'statusApplied'], captureNoisy: true,
+    flags: { dpPerSec: 0, dpMax: 999 }, hooks: ['damaged', 'hit', 'block', 'skillStart', 'skillEnd', 'statusApplied'], captureNoisy: true,
     units: [{ uid: 1, diy: { slot: SLOT[tier], charId: VVANA, skillIndex: skill, uniEquipId: mod }, elite, row, col }, ...others],
   });
   h.step();
@@ -367,8 +367,50 @@ test('T2 散华 in battle: an enemy shooter\'s projectile (ai.js: DamageInfo isP
   h.spawn('enemy_brute', { routeIndex: 0 });
   assert.ok(h.runUntil(() => (u.findBuff(SHIELD)?.data.n ?? 0) < 2, 60), 'the brute\'s blow spends one');
   const blow = h.hooksOf('hit').filter((c) => c.source?.defId === 'enemy_brute' && c.target === u)[0];
-  assert.deepEqual([blow.dmg.isProjectile, blow.dmg.cancel], [false, true], 'a melee blow, negated');
+  assert.equal(blow.dmg.isProjectile, false, 'a melee blow');
+  assert.ok(h.hooksOf('block').some(c => c.source?.defId === 'enemy_brute' && c.target === u), 'the ordered shield blocks it');
   done(h);
+});
+
+test('T2 uses explicit damage route across all HP types, independently of projectile marker and kill credit', () => {
+  for (const type of ['phys', 'arts', 'true', 'elemental']) {
+    const { h, u } = field({ tier: 6, elite: true, mod: AFTY });
+    const e = h.spawn('enemy_elite', { pos: [11, 9] });
+    h.b.rng.chance = () => true;
+    for (let i = 0; i < 2; i++) h.b.dealDamage({ source: u, target: e, amount: 1, type: 'true' });
+    assert.equal(u.findBuff(SHIELD).data.n, 2);
+    h.b.dealDamage({ source: null, credit: e, target: u, amount: 1, type, applyWay: 'MELEE' });
+    h.b.dealDamage({ source: e, target: u, amount: 1, type, applyWay: 'RANGED', isProjectile: false });
+    h.b.dealHPLose({ source: e, target: u, amount: 1 });
+    h.b.dealElementDamage({ source: e, target: u, amount: 1, element: 'burn' });
+    assert.equal(u.findBuff(SHIELD).data.n, 2, 'unqualified source/route and non-HP-damage paths preserve layers');
+    assert.equal(h.b.dealDamage({ source: e, target: u, amount: 100, type, applyWay: 'MELEE', isProjectile: true }), 0);
+    assert.equal(u.findBuff(SHIELD).data.n, 1);
+    assert.ok(h.hooksOf('block').some(c => c.target === u && c.dmg.type === type));
+    done(h);
+  }
+});
+
+test('T2 layers keep their acquisition position when replenished, and earlier dodge preserves them', () => {
+  for (const earlier of [true, false]) {
+    const { h, u } = field({ tier: 6, elite: true, mod: AFTY });
+    const e = h.spawn('enemy_elite', { pos: [11, 9] });
+    h.b.rng.chance = () => true;
+    const dodge = () => h.b.addBuff(u, { key: 'test:dodge', mods: { dodgePhys: 1 } });
+    if (earlier) dodge();
+    h.b.dealDamage({ source: u, target: e, amount: 1, type: 'true' });
+    const shield = u.findBuff(SHIELD), seq = shield.seq;
+    if (!earlier) dodge();
+    h.b.dealDamage({ source: u, target: e, amount: 1, type: 'true' });
+    assert.equal(u.findBuff(SHIELD), shield);
+    assert.equal(shield.seq, seq);
+    let rolls = 0;
+    h.b.rng = () => { rolls++; return 0; };
+    assert.equal(h.b.dealDamage({ source: e, target: u, amount: 100, type: 'phys' }), 0);
+    assert.equal(rolls, earlier ? 1 : 0);
+    assert.equal(shield.data.n, earlier ? 2 : 1);
+    done(h);
+  }
 });
 
 test('AFT-D 目不能及之处 trait: her damage on an enemy in its 灼燃 爆发冷却 is followed by 15 % ATK 元素伤害 (stages 1 and 3) — once per instance, never otherwise', () => {

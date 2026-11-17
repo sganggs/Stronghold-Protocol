@@ -41,7 +41,7 @@
 //   --local          extract local art and used official effects, including installed plugin references
 //   --scenes         download and extract the official battlefield scenes without asking
 //   --no-scenes      do not download or extract battlefield scenes (the metal board stays)
-//   --game <dir>     AssetBundle root of the local client (…/StreamingAssets/AB/Windows or PlayCover …/Documents/Bundles)
+//   --game <dir>     local client: the install directory (Arknights.exe / Arknights_Data, including "Arknights Game") or the AssetBundle root (…/StreamingAssets/AB/Windows, PlayCover …/Documents/Bundles). A path that still exists is remembered in .cache/setup-state.json.
 //   -y, --yes        answer "yes" to every question
 //   --quiet          fewer lines (used by scripts/launch.mjs)
 //   -h, --help
@@ -632,40 +632,65 @@ function cropBoardTiles(log) {
 // Local Arknights client detection
 // ---------------------------------------------------------------------------------------------------
 
-const AB_TAIL = ['Arknights_Data', 'StreamingAssets', 'AB', 'Windows'];
+const CLIENT_SPEC_FILE = path.join(ROOT, 'tools', 'local-extract', 'client-candidates.json');
+let clientSpecCache = null;
+
+/** Shared with tools/local-extract/extract.py (the same JSON). */
+export function clientSpec() {
+  if (!clientSpecCache) {
+    const raw = fs.readFileSync(CLIENT_SPEC_FILE, 'utf8');
+    const spec = JSON.parse(raw);
+    if (!Array.isArray(spec.abTail) || !spec.abTail.length) throw new Error(`client candidate spec has no abTail: ${CLIENT_SPEC_FILE}`);
+    if (!Array.isArray(spec.gameFolders) || !spec.gameFolders.length) throw new Error(`client candidate spec has no gameFolders: ${CLIENT_SPEC_FILE}`);
+    clientSpecCache = spec;
+  }
+  return clientSpecCache;
+}
+
+/** Windows install suffixes, `Arknights` and `Arknights Game` included. extract.py prints the same list. */
+export function windowsCandidateSuffixes() {
+  const spec = clientSpec();
+  const out = [];
+  for (const base of spec.windowsBases) {
+    for (const game of spec.gameFolders) out.push([...base, game, ...spec.abTail].join('/'));
+  }
+  return out;
+}
 
 /** Candidate AssetBundle roots for this OS (existence not checked). */
 export function clientCandidates() {
+  const spec = clientSpec();
   const home = os.homedir();
   const out = [];
   const add = (p, kind) => out.push({ path: p, kind });
+  const ab = spec.abTail;
   if (IS_WIN) {
-    const drives = ['C', 'D', 'E', 'F', 'G', 'H'];
-    const bases = [
-      ['Program Files', 'Hypergryph Launcher', 'games', 'Arknights'],
-      ['Program Files (x86)', 'Hypergryph Launcher', 'games', 'Arknights'],
-      ['Hypergryph Launcher', 'games', 'Arknights'],
-      ['Games', 'Hypergryph Launcher', 'games', 'Arknights'],
-      ['Program Files', 'Hypergryph', 'Arknights'],
-      ['Arknights'],
-    ];
-    for (const d of drives) for (const b of bases) add(path.win32.join(`${d}:\\`, ...b, ...AB_TAIL), 'Windows');
-  }
-  if (IS_MAC) {
-    const bottles = path.join(home, 'Library', 'Application Support', 'CrossOver', 'Bottles');
-    let names = [];
-    try { names = fs.readdirSync(bottles); } catch { /* no CrossOver */ }
-    names.sort((a, b) => (b === 'Arknights') - (a === 'Arknights'));
-    for (const n of names) {
-      for (const pf of ['Program Files', 'Program Files (x86)']) {
-        add(path.join(bottles, n, 'drive_c', pf, 'Hypergryph Launcher', 'games', 'Arknights', ...AB_TAIL), `CrossOver (${n})`);
+    for (const d of spec.windowsDrives) {
+      for (const base of spec.windowsBases) {
+        for (const game of spec.gameFolders) add(path.win32.join(`${d}:\\`, ...base, game, ...ab), 'Windows');
       }
     }
-    add(path.join(home, 'Library', 'Containers', 'com.hypergryph.arknights', 'Data', 'Documents', 'Bundles'), 'PlayCover');
+  }
+  if (IS_MAC) {
+    const bottles = path.join(home, ...spec.crossoverBottles);
+    let names = [];
+    try { names = fs.readdirSync(bottles); } catch { /* no CrossOver */ }
+    const prefer = spec.defaultCrossoverBottle;
+    names.sort((a, b) => (b === prefer) - (a === prefer));
+    for (const n of names) {
+      for (const pf of spec.crossoverProgramFiles) {
+        for (const game of spec.gameFolders) {
+          add(path.join(bottles, n, 'drive_c', pf, ...spec.crossoverGameTail, game, ...ab), `CrossOver (${n})`);
+        }
+      }
+    }
+    add(path.join(home, ...spec.playcoverTail), 'PlayCover');
   }
   if (!IS_WIN) {
-    for (const prefix of [path.join(home, '.wine'), path.join(home, 'Games', 'arknights')]) {
-      add(path.join(prefix, 'drive_c', 'Program Files', 'Hypergryph Launcher', 'games', 'Arknights', ...AB_TAIL), 'Wine');
+    for (const prefix of spec.winePrefixes) {
+      for (const game of spec.gameFolders) {
+        add(path.join(home, prefix, 'drive_c', 'Program Files', ...spec.crossoverGameTail, game, ...ab), 'Wine');
+      }
     }
   }
   return out;
@@ -678,9 +703,103 @@ export function inspectClientRoot(dir) {
   return { exists: true, autochess };
 }
 
-/** First installed client (explicit dir first). */
-export function findClient(explicit) {
-  const list = explicit ? [{ path: path.resolve(explicit), kind: '--game' }] : clientCandidates();
+function endsWithAbTail(dir, spec) {
+  const norm = String(dir).replace(/\\/g, '/').replace(/\/+$/, '');
+  return norm.endsWith(spec.abTail.join('/'));
+}
+
+function hasInstallMarker(dir) {
+  return exists(path.join(dir, 'Arknights.exe')) || exists(path.join(dir, 'Arknights_Data'));
+}
+
+/** [ASSUMED] A parent of the install is searched one level down; a path inside the install walks up at most 8 levels. */
+function findInstallRoot(start, spec) {
+  const named = (dir) => {
+    for (const game of spec.gameFolders) {
+      const child = path.join(dir, game);
+      if (hasInstallMarker(child)) return child;
+    }
+    return null;
+  };
+  if (hasInstallMarker(start)) return start;
+  const atStart = named(start);
+  if (atStart) return atStart;
+  try {
+    for (const name of fs.readdirSync(start)) {
+      if (spec.gameFolders.includes(name)) continue;
+      const child = path.join(start, name);
+      if (hasInstallMarker(child)) return child;
+    }
+  } catch { /* not a readable directory */ }
+  let cur = start;
+  for (let i = 0; i < 8; i++) {
+    const parent = path.dirname(cur);
+    if (parent === cur) break;
+    cur = parent;
+    if (hasInstallMarker(cur)) return cur;
+  }
+  return null;
+}
+
+function playcoverBundles(dir, spec) {
+  const playcover = String(dir).includes(`${path.sep}com.hypergryph.arknights${path.sep}`)
+    || String(dir).endsWith(`${path.sep}com.hypergryph.arknights`);
+  for (const rel of spec.playcoverBundleRels) {
+    const bundles = path.join(dir, ...rel);
+    if (inspectClientRoot(bundles).autochess) return bundles;
+    if (playcover && exists(bundles)) return bundles;
+  }
+  return null;
+}
+
+/**
+ * AssetBundle root for a --game directory. An existing AB root (the autochess marker, or a path that already ends in
+ * the AB tail) is returned as-is. An install directory — or [ASSUMED] one level above it, or a directory inside it —
+ * becomes Arknights_Data/StreamingAssets/AB/Windows. A PlayCover container becomes its Documents/Bundles.
+ * Null when `dir` is not a client location.
+ */
+export function resolveGameDir(dir) {
+  if (!dir) return null;
+  const abs = path.resolve(String(dir));
+  if (!exists(abs)) return null;
+  const spec = clientSpec();
+  if (inspectClientRoot(abs).autochess || endsWithAbTail(abs, spec)) return abs;
+  const bundles = playcoverBundles(abs, spec);
+  if (bundles) return bundles;
+  const install = findInstallRoot(abs, spec);
+  if (!install) return null;
+  return path.join(install, ...spec.abTail);
+}
+
+function describeClient(dir, kind) {
+  if (!dir) return null;
+  const info = inspectClientRoot(dir);
+  if (!info.exists) return null;
+  return { path: dir, kind, ...info };
+}
+
+/**
+ * First installed client. An explicit directory is resolved (install dir or AB root). With no explicit directory,
+ * `.cache/setup-state.json` `localExtractedFrom` wins when that directory is still there, then the OS candidates.
+ * `opts.state` replaces the state file (tests).
+ */
+export function findClient(explicit, opts = {}) {
+  const state = opts.state !== undefined ? opts.state : loadState();
+  if (explicit) {
+    const abs = path.resolve(explicit);
+    const resolved = resolveGameDir(abs);
+    const described = describeClient(resolved, '--game');
+    if (described) return described;
+    if (resolved && exists(abs)) return { path: resolved, kind: '--game', exists: false, autochess: false };
+    return describeClient(abs, '--game');
+  }
+  const list = [];
+  const remembered = state && state.localExtractedFrom;
+  if (remembered) {
+    const resolved = resolveGameDir(remembered) || (exists(remembered) ? path.resolve(remembered) : null);
+    if (resolved) list.push({ path: resolved, kind: 'remembered' });
+  }
+  list.push(...clientCandidates());
   let partial = null;
   for (const cand of list) {
     const info = inspectClientRoot(cand.path);

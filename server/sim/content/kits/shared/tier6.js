@@ -81,8 +81,8 @@
 //       gate); spreads go to the thinnest 4-neighbour; the 20 % DoT ticks once per second.
 //  6_03 S2 teleport = the ground-reachable (grid path) enemies of the skill grid moved onto his tile, in the cast's
 //       tick (PRTS: 0.13 s after the damage), leaders included unless 自缚.
-//  6_04 S1 transfer: the ally takes ×(1 − share), she takes the rest as true damage from the attacker; module 新生代
-//       "30点伤害减免" = +30 effective DEF (physical) / −30 ÷ (1 − RES) before mitigation (arts).
+//  6_04 S1 transfer: reserves a post-barrier share, received as HP loss. Module 新生代 grants per-type strongest
+//       flat 伤害减免 through an ordered aura buff, independent of defence/resistance penetration.
 //  6_06 S2 the ASPD stacks last the whole battle; S1 "异常状态时可以释放" = cleanse + cast (tick check).
 //  6_07 S2 passive counts the OTHER allies of the talent-1 area.
 //  6_08 S2 carriers = operators of her range (ground first, then lowest HP); a fireball shoots an enemy of the carrier's
@@ -113,7 +113,7 @@
 import { textCount, textFinite } from '../../../../../shared/plugins/textNumber.js';
 import { absoluteRangeKeys } from '../../../targeting.js';
 import { COLS, ROWS, PULL_STOP_RADIUS } from '../../../constants.js';
-import { hasHp } from '../../../damage.js';
+import { hasHp } from '../../../attack.js';
 import { hypot } from '../../../detmath.js';
 
 // ------------------------------------------------------------------------------------------------------------------

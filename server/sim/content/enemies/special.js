@@ -3,14 +3,14 @@
 
 import { ALLY_COLLIDER_RADIUS } from '../../constants.js';
 import { canTargetAlly, areaSelectable } from '../../targeting.js';
-import { periodicDamage } from '../../damage.js';
+import { periodicDamage } from '../../attack.js';
 import {
   BOOM_RADIUS, nthOf, stOf, T, elem, hurt, targetsNear, allTargets, areaAllies, areaAlliesInTiles, byPriority,
-  stayRoute, spawnChildren, expose, auraBuff, watchDeaths, onTerrain, castSlot,
+  stayRoute, spawnChildren, expose, auraBuff, watchDeaths, onTerrain, castSlot, grantHitShield, attackSkillOf,
 } from './helpers.js';
 import {
   unblockable, runWhenHit, blockWeight, taunt, maxTargets, ep, nthAttackPower, lowHpBuff, deathBoom, setFloat, float,
-  reborn, frontGuard, faceMove, unbalanced, skill, kitEp, kitPrisoner, kitStun3,
+  reborn, frontGuard, unbalanced, skill, kitEp, kitPrisoner, kitStun3,
 } from './archetypes.js';
 import { hypot } from '../../detmath.js';
 import { passengerBus } from './passengers.js';
@@ -281,6 +281,27 @@ function catapultVolley(ab, b, e, aim) {
 // ---------------------------------------------------------------------------------------------------------------
 // this family's part of KITS (content/enemies.js spreads the parts in this order)
 
+/**
+ * 心虚设计师: while a living blocker stands off the same column, the front is that side; otherwise the walk
+ * (faceMove). The unit's `dir` and the display-only snapshot `face` use the same sign, so the model turns with the
+ * cut. A blocker on the same column keeps the last sign [ASSUMED: PRTS names the front, not a same-column tie].
+ */
+function faceCrshd(b, e, a) {
+  const blk = e.blockedBy;
+  let sign = null;
+  if (blk && blk.alive) {
+    const dx = blk.x - e.x;
+    if (Math.abs(dx) > 1e-6) sign = dx > 0 ? 1 : -1;
+  } else {
+    const dx = e.x - a.px;
+    if (Math.abs(dx) > 1e-6) sign = dx > 0 ? 1 : -1;
+  }
+  if (sign != null) a.facing = sign;
+  e.facing = a.facing;
+  e.mem.publishFacing = true;
+  a.px = e.x;
+}
+
 export const SPECIAL_KITS = Object.freeze({
   // --- SPECIAL 特异 / others
   enemy_1045_hammer: kitStun3,                                       // 粉碎攻坚手 · every 3rd attack stuns
@@ -296,7 +317,7 @@ export const SPECIAL_KITS = Object.freeze({
   enemy_1302_ymtro_2: (ab) => [blockWeight(4), passengerBus(ab)],    // “越长尘” · block ≥4, carries up to Bus.max_cnt
   enemy_1329_cbshld: kitDefDecay,                                    // 弧光镜卫 · DEF/RES drop with every damage instance
   enemy_1329_cbshld_2: kitDefDecay,                                  // 弧光镜卫长 · same
-  enemy_1249_lysdb_2: (ab) => [{ spawn(b, e, a, ab2) { ab2.hitShield = T(ab, 'Shield.max_block_damage_cnt') ?? 0; } }], // 莱茵生命防卫科高级成员 · blocks one phys/arts hit
+  enemy_1249_lysdb_2: (ab) => [{ spawn(b, e) { grantHitShield(b, e, T(ab, 'Shield.max_block_damage_cnt') ?? 0); } }], // 莱茵生命防卫科高级成员 · blocks one phys/arts hit
   enemy_1402_tgshd_2: kitExposeOnHit,                                // 重装侦察兵 · exposes its attackers 5 s
   enemy_1081_sotisd: (ab) => [taunt(T(ab, 'taunt.taunt_level') ?? 0)], // 游击队盾卫 · taunt +1
   enemy_1427_lrnazg: kitNazg,                                        // “灵幛” · attack hits everyone around it (+ on infection tiles)
@@ -337,10 +358,10 @@ export const SPECIAL_KITS = Object.freeze({
           .sort((p, q) => q.hpRatio - p.hpRatio)[0];
         if (t) { b.fx('explode', { x: t.x, y: t.y, r: 0.5, kind: 'cannon' }); hurt(b, e, t, e.s.atk * (ab.sk.Cannon.bb.atk_scale ?? 0), 'arts'); }
       }, { owner: e });
-    }, { cond: (b, e) => inRange(b, e).length > 0 })];
+    }, { cond: (b, e) => inRange(b, e).length > 0, turn: attackSkillOf('enemy_1273_stmgun_2', 'Cannon') })];   // the attack's turn (DESIGN §35.52)
   },
   // 萨卡兹骸骨拷打者 · heals + ATK stack when a unit within Attack.range_radius is knocked out; leaves 2 血珀 on death — they
-  // stay where it fell and wait for a 唤血祭坛 that this mode has none of (inert, not counted)
+  // stay where it fell, uncounted, and bleed out (enemy_1367_dseed). This mode has no 唤血祭坛 to pulse them.
   enemy_1364_spnaxe_2: (ab) => [{
     death(c, b, e) {
       const key = ab.tS['Summon.enemy_key'], n = T(ab, 'Summon.cnt') ?? 0;
@@ -356,6 +377,20 @@ export const SPECIAL_KITS = Object.freeze({
       b.addBuff(e, { key: 'ab:torture', refresh: 'stack', stacks: 1, maxStacks: T(ab, 'Attack.max_stack_cnt') ?? 1, persist: true, mods: { atkPct: T(ab, 'Attack.atk') ?? 0 } });
     },
     hitOut(c, b, e) { if (c.dmg.isAttack && c.target !== e.blockedBy) c.dmg.amount *= T(ab, 'Attack.attack@ranged_atk_scale') ?? 1; },
+  }],
+  // 血珀 · PRTS 天赋: 自缚, 失衡免疫, 不攻击, 无法被阻挡. With no 唤血祭坛 / 沥血王座 on the field, lose Passive.hp_ratio of
+  // max HP per second (true 流失, can kill). The handbook line is the altar rebirth ("在祭坛处重生为新生血裔"); this mode
+  // has no altar, so that pulse is not modelled. Passive.damage_resistance is 0 (0% 庇护) and applies nothing.
+  enemy_1367_dseed: (ab) => [{
+    spawn(b, e) {
+      e.profile.noAttack = true;
+      b.addBuff(e, { key: 'ab:dseed', persist: true, flags: { selfBound: true, noMove: true, unblockable: true, noDisplace: true } });
+    },
+    iv: 1,
+    tick(b, e) {
+      const r = T(ab, 'Passive.hp_ratio') ?? 0;
+      if (r > 0) b.loseHp(e, e.s.maxHp * r);
+    },
   }],
   enemy_1501_demonk: () => [maxTargets(2)],                          // 萨卡兹百夫长 · attacks 2 targets
   enemy_10018_sgrobh: () => [maxTargets(2)],                         // “独轮车玩具” · attacks 2 targets
@@ -441,9 +476,9 @@ export const SPECIAL_KITS = Object.freeze({
     },
   }],
   enemy_10094_crstf: kitEp('neural', 'ep.ep_damage_ratio'),          // 临时收音师 · neural on hit (filming zones n/a → always)
-  enemy_10097_crshd: (ab) => [                                       // 心虚设计师 · neural to its blocker every s; front damage −80 % (faces its walk)
+  enemy_10097_crshd: (ab) => [                                       // 心虚设计师 · neural to its blocker every s; front damage −80 % (faces the blocker, else the walk)
     { iv: 1, tick(b, e) { if (e.blockedBy) elem(b, e, e.blockedBy, 'neural', e.s.atk * (T(ab, 'block.ep_damage_ratio') ?? 0)); } },
-    frontGuard(T(ab, 'weakness.damage_resistance') ?? 0, faceMove),  // 减少来自正面的物理/法术伤害 (cameras absent: it never turns)
+    frontGuard(T(ab, 'weakness.damage_resistance') ?? 0, faceCrshd), // 减少来自正面的物理/法术伤害 (#869)
   ],
   enemy_10098_crhro: (ab) => [ep('neural', T(ab, 'inside.attack@ep_damage_ratio') ?? 0), // 主角阵营角色 · neural on hit; 重生 once (reborn.duration s, full HP)
     reborn({ dur: T(ab, 'reborn.duration') ?? 0, invincible: T(ab, 'reborn.invincible') ?? 0 })],

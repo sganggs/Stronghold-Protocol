@@ -69,7 +69,11 @@ export function mergeTarget(priv, chessId, getChess = () => null) {
 }
 
 /** Whether every hand slot is taken (the server refuses every purchase / reward pick then: HAND_FULL, GitHub #82). */
-export function handFull(priv) {
+export function handFull(priv, kind = 'chess', config = null) {
+  if (kind === 'item' && config?.version?.rules?.equipHand === true) {
+    const row = Array.isArray(priv?.temp) ? priv.temp.slice(0, GEO.TEMP_SIZE) : [];
+    return row.length >= GEO.TEMP_SIZE && row.every((p) => p != null);
+  }
   const hand = Array.isArray(priv?.hand) ? priv.hand : [];
   return hand.length >= GEO.HAND_SIZE && hand.every((p) => p != null);
 }
@@ -134,15 +138,18 @@ export function offerHeader(offer) {
 /**
  * Why a shop action is unavailable (null when available).
  * @param {'buy'|'reward'|'refresh'|'freeze'|'levelUp'|'ready'} kind
- * @param {{ priv:any, editable:boolean, slot?:any }} ctx
+ * @param {{ priv:any, editable:boolean, slot?:any, config?:any }} ctx
  * @returns {string|null} Chinese reason
  */
-export function shopBlockReason(kind, { priv, editable, slot } = {}) {
+export function shopBlockReason(kind, { priv, editable, slot, config = null } = {}) {
   if (!priv) return t('尚未就绪');
   if (priv.alive === false) return t('你已被淘汰');
   if (kind === 'ready') {
+    if (priv.commandDraft) return t('请先完成指令选择');
     if (priv.personalChoice) return t('请先完成教鞭选择');
-    return priv.canReady === false ? t('临时整备区不为空，请先处理溢出的资源') : null;
+    return priv.canReady === false ? (config?.version?.rules?.equipHand === true
+      ? t('暂存 {count} 个单位：{rule}', { count: priv.stashCount || 0, rule: t('有空位时自动移入；休整期结束时仍在暂存的单位将被销毁') })
+      : t('临时整备区不为空，请先处理溢出的资源')) : null;
   }
   if (!editable) {
     if (kind === 'reward') return t('当前无法选择');
@@ -154,7 +161,7 @@ export function shopBlockReason(kind, { priv, editable, slot } = {}) {
     if (!isObj(slot) || slot.sold) return kind === 'reward' ? t('已选择') : t('已售出');
     if ((Number(slot.price) || 0) > funds) return t('资金不足');
     // a full hand refuses every purchase / pick, a merge-completing one too (PRTS 卫戍协议/帮助 §手牌区, GitHub #82)
-    if (handFull(priv)) return t('整备区已满');
+    if (handFull(priv, slot.kind, config)) return slot.kind === 'item' && config?.version?.rules?.equipHand === true ? t('装备区已满') : t('整备区已满');
     return null;
   }
   if (kind === 'refresh') return (Number(shop.refreshPrice) || 0) > funds ? t('资金不足') : null;
@@ -185,6 +192,42 @@ export function readyFundsPrompt(priv, { ready = true, keptBands = null, autopla
   return {
     title: t('剩余资金'), micro: 'FUNDS LEFT', okText: t('准备就绪'), cancelText: t('继续整备'),
     text: t('还有 {funds} 资金未使用。休整期结束时，本回合的剩余资金将清零。确定准备就绪吗？', { funds }),
+  };
+}
+
+/**
+ * The 准备 confirmation's second reason (the owner, 2026-11-14 「当前回合能使用的拖拽类主动使用的策略没使用的话也像商店钱没
+ * 花完一样加个提示，可以勾选本局之后不再提醒」, §37.201): the strategy's active command (指令, m.private.command) is usable
+ * this round — not locked, cooled down, uses left, funds for its cost (the server's `usable`) — is dragged onto a target
+ * (not NO_TARGET) and has one. The same exclusions as the funds prompt (un-ready, already ready, out, AI 托管); the
+ * caller drops it once the player ticked 「本局不再提醒」. [ASSUMED] the wording (the official has no such dialog).
+ * @param {any} priv m.private
+ * @param {{ ready?: boolean, autoplay?: boolean }} [opts]
+ * @returns {{ text: string } | null}
+ */
+export function readyCommandPrompt(priv, { ready = true, autoplay = false } = {}) {
+  if (!ready || autoplay || !isObj(priv) || priv.alive === false || priv.ready) return null;
+  const c = priv.command;
+  if (!isObj(c) || c.type !== 'ACTIVE' || c.targetType === 'NO_TARGET' || c.usable !== true) return null;
+  if (!Array.isArray(c.targets) || !c.targets.length) return null;
+  return { text: t('本回合的指令还可以使用：拖动右侧的指令到高亮目标。') };
+}
+
+/**
+ * One 准备 dialog for both reasons (funds left, a usable command): their sentences in one box, the 「本局不再提醒」 box
+ * when the command is one of them. null when neither applies.
+ * @param {ReturnType<typeof readyFundsPrompt>} funds
+ * @param {ReturnType<typeof readyCommandPrompt>} command
+ * @returns {{ title: string, micro: string, okText: string, cancelText: string, lines: string[], mutable: boolean } | null}
+ */
+export function readyPrompt(funds, command) {
+  if (!funds && !command) return null;
+  // the command's sentence first: the funds sentence ends with the question
+  const lines = [...(command ? [command.text] : []), funds ? funds.text : t('确定准备就绪吗？')];
+  return {
+    title: funds && command ? t('准备就绪前') : funds ? funds.title : t('指令未使用'),
+    micro: funds && command ? 'BEFORE READY' : funds ? funds.micro : 'COMMAND READY',
+    okText: t('准备就绪'), cancelText: t('继续整备'), lines, mutable: !!command,
   };
 }
 

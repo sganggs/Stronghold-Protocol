@@ -1,6 +1,7 @@
 // public/js/render/fx/numbers.js — FxSystem damage numbers and screen-space labels.
 // Installed on FxSystem.prototype by ./system.js (a method container: never instantiated; `this` is the effect system).
 
+import { resourceFloat } from '../resourceNumbers.js';
 import { DMG_STYLE, HIT_TINT, dmgStyleKey } from '../style.js';
 import { camKey } from './camera.js';
 import { clamp, easeOut } from './limits.js';
@@ -36,7 +37,7 @@ const NUM_CROWD = 6;          // more live numbers than this around a spot → s
 const NUM_LANES = Object.freeze([0, -1, 1, -2, 2]);   // lane order (lane widths from the unit's head)
 
 /** Screen scale of a number's text (24 px font) at `s` px per tile. */
-const numScale = (s, big, style) => clamp(s / 115, 0.42, 1.05) * (big ? 1.35 : 1) * (style === 'heal' ? 0.9 : 1);
+const numScale = (s, big, style) => clamp(s / 115, 0.42, 1.05) * (big ? 1.35 : 1) * (style === 'heal' ? 0.9 : ['cost', 'costLoss', 'sp'].includes(style) ? 0.8 : 1);
 
 /** Characters of a damage number as drawn (heals get a '+'; a yellow MISS is four letters). */
 const numChars = (v, style) => (style === 'miss' ? 4 : String(Math.round(v)).length + (style === 'heal' ? 1 : 0));
@@ -117,11 +118,16 @@ export class FxNumbers {
     if (this.ctx.settings?.damageNumbers !== false && !this.ctx.settings?.officialDamageNumbers) this.number(view, amount, 'heal', false);
   }
 
+  resourceNumber(view, event) {
+    const receipt = resourceFloat(event, this.ctx.settings);
+    if (receipt) this.officialNumber(view, Math.abs(event[3]), receipt.type, receipt.text);
+  }
+
   /**
    * One official popup: a red integer (including 0) or the yellow MISS. It does not join a running total.
    * Position is client-side only — the sim stays deterministic.
    */
-  officialNumber(view, amount, style) {
+  officialNumber(view, amount, style, label = null) {
     if (!view) return;
     const miss = style === 'miss';
     const n = miss ? 0 : Math.round(amount);
@@ -133,20 +139,20 @@ export class FxNumbers {
     const ax = a.x, ay = a.y, s = a.s > 0 ? a.s : 100;
     const pxPerZ = ay - cam.project(view.x, view.y, base + 1, this._q).y;
     const tile = pxPerZ > 1e-3 ? pxPerZ : s;
-    const cx = ax + (Math.random() - 0.5) * OFFICIAL_JITTER_X * tile;
-    const cy = ay - (OFFICIAL_LIFT_MIN + Math.random() * OFFICIAL_LIFT_SPAN) * tile;
+    const cx = label ? ax : ax + (Math.random() - 0.5) * OFFICIAL_JITTER_X * tile;
+    const cy = ay - (label ? 0.2 : OFFICIAL_LIFT_MIN + Math.random() * OFFICIAL_LIFT_SPAN) * tile;
     const sc = numScale(s, false, style);
-    const w = numChars(n, style) * NUM_DIGIT_EM * 24 * sc * NUM_POP + NUM_GAP_PX;
+    const w = (label ? label.length : numChars(n, style)) * NUM_DIGIT_EM * 24 * sc * NUM_POP + NUM_GAP_PX;
     const h = 24 * NUM_LINE_EM * sc * NUM_POP;
     const maxNums = this.load >= 2 ? MAX_NUMBERS >> 1 : MAX_NUMBERS;
     while (this.nums.length >= maxNums) this._releaseNum(this.nums.shift());
     const t = this._takeNum(style);
     t.text.visible = true;
     t.text.alpha = 1;
-    t.text.text = miss ? 'MISS' : String(n);
+    t.text.text = label || (miss ? 'MISS' : String(n));
     Object.assign(t, {
       unit: view, style, value: n, life: 0, end: NUM_LIFE, born: now, lastHit: now, pop: 1, big: false, fading: false,
-      official: true, ox: cx - ax, oy: cy - ay, x0: view.x, y0: view.y, z0: base,
+      official: true, label, ox: cx - ax, oy: cy - ay, x0: view.x, y0: view.y, z0: base,
       risePx: NUM_RISE * tile * 0.5, _x: cx, _y: cy, _w: w, _h: h,
     });
     this.nums.push(t);
@@ -250,7 +256,7 @@ export class FxNumbers {
     t.text.alpha = 1;
     t.text.text = (style === 'heal' ? '+' : '') + n;
     Object.assign(t, {
-      unit: view, style, value: n, life: 0, end: life, born: now, lastHit: now, pop: 1, big: !!big, fading: false,
+      unit: view, style, label: null, value: n, life: 0, end: life, born: now, lastHit: now, pop: 1, big: !!big, fading: false,
       ox: cx - ax, oy: cy - ay, x0: view.x, y0: view.y, z0: base, risePx, _x: cx, _y: cy, _w: w, _h: h,
     });
     this.nums.push(t);
@@ -319,7 +325,7 @@ export class FxNumbers {
   _sizeNum(t) {
     const sc = numScale(t._s || 100, t.big, t.style);
     const pop = 1 + t.pop * (NUM_POP - 1);
-    t._w = numChars(t.value, t.style) * NUM_DIGIT_EM * 24 * sc * pop + NUM_GAP_PX;
+    t._w = (t.label ? t.label.length : numChars(t.value, t.style)) * NUM_DIGIT_EM * 24 * sc * pop + NUM_GAP_PX;
     t._h = 24 * NUM_LINE_EM * sc * pop;
     t._sc = sc;
   }

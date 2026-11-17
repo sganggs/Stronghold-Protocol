@@ -1,0 +1,451 @@
+/* ==========================================================================================
+   screens/game-reghud.css — 规程 in-match shop (卫戍协议终端).
+   Only .shopbar--reg / .scard--reg / .gm.gm--reg. 盟约 keeps game-shop.css.
+   Prefab sizes (ac_n_initial layout.json, 100 px = 1rem at 1920×1080):
+   card 155×187, level box 112×189, character plate 192×213, freeze/refresh hit 144×49
+   (visual plate 168×72). [ASSUMED] Packed and centred, not a full-bleed shop plate.
+   A missing sprite is the CSS shape in the same colours (lite zip).
+   ========================================================================================== */
+
+.shopbar.shopbar--reg {
+  left: 0; right: 0; width: auto; bottom: 0;
+  /* Right-aligned like the official shop: the character card stays at the right edge and the cards grow leftwards with
+     the slots (BV13LWM6BEvY 4:05 at a low shop level, BV12ZWP6pE7m 1:31 at level II). */
+  align-items: flex-end;
+  padding: 0 .08rem .04rem;
+  pointer-events: none;
+  transform-origin: bottom right;
+}
+/* Beats devices.css .gm__hud > .shopbar (the home-indicator pull). */
+.gm__hud > .shopbar.shopbar--reg {
+  bottom: calc(.04rem - var(--sa-b));
+  padding-left: max(.08rem, var(--sa-l));
+  padding-right: max(.08rem, var(--sa-r));
+}
+/* The prefab sizes are in the official canvas's units, which the client draws about 1.44× larger at 16:9 (a card is
+   ~147 px wide at 1280×720 in the recordings, 155 prefab units); [ASSUMED] 1.3× here, which keeps the cluster clear of
+   our bottom-left controls at five slots. The scale is a transform, so the deploy fold's scale(.7) still applies. */
+.shopbar--reg .shopbar__cluster {
+  display: flex; flex-direction: column; align-items: flex-end;
+  max-width: 100%; pointer-events: none;
+  --reg-k-max: 1.3;
+  transform: scale(var(--reg-k, var(--reg-k-max))); transform-origin: bottom right;
+}
+.shopbar--reg .shopbar__row {
+  width: max-content; max-width: 100%;
+  align-items: flex-end; justify-content: center;
+  gap: .06rem; padding: 0;
+  background: transparent; border: 0; box-shadow: none;
+}
+.shopbar--reg .shopbar__row::before { display: none; }
+.shopbar--reg .shopbar__cards { gap: .06rem; }
+.shopbar--reg .shopbar__item { padding-left: .06rem; border-left: 0; }
+.shopbar--reg.is-frozen .shopbar__row { border-color: transparent; }
+
+/* Freeze (blue) and refresh (gold) sit on the right end of the group. */
+.shopbar--reg .shopbar__tools { gap: .06rem .08rem; }
+.shopbar--reg .toolbtn {
+  position: relative; overflow: visible;
+  justify-content: center; gap: .04rem;
+  width: 1.68rem; min-width: 1.44rem; height: .72rem;
+  padding: 0 .08rem;
+  border: 0; box-shadow: none;
+  background-color: transparent;
+  background-repeat: no-repeat; background-size: 100% 100%;
+  font-size: .16rem; letter-spacing: .06em;
+}
+.shopbar--reg .toolbtn kbd { display: none; }
+.shopbar--reg .toolbtn__ticon { display: none; }
+/* The freeze plate follows the prefab's states: not frozen (reads 冻结) is frozen_bg_normal, frozen (reads 解冻) is
+   frozen_bg_unselect / frozen_bg_unlock, unavailable is bg_lock / frozen_bg_disable (ui/regHud.js). With a sprite the
+   colour behind it is transparent (--reg-*-bg), so a pill or a shadow edge shows no box.
+   Hover in game-shop.css sets the `background` shorthand, which would drop the plate; a theme slot's --sp-img-* wins
+   over the pack sprite when that slot is set. */
+.shopbar--reg .toolbtn--ice {
+  color: #e7f4ff;
+  background-color: var(--reg-frozen-bg, #2f6f9a);
+  background-image: var(--reg-frozen, none);
+}
+.shopbar--reg .toolbtn--ice.is-on {
+  color: #041018;
+  background-color: var(--reg-frozen-bg, #8ec8f0);
+  background-image: var(--reg-frozen-on, var(--reg-frozen, none));
+}
+.shopbar--reg .toolbtn--ice:disabled {
+  background-image: var(--reg-frozen-lock, var(--reg-frozen, none));
+}
+.shopbar--reg .toolbtn--ice:not(.is-on):hover:not(:disabled) {
+  background-color: var(--reg-frozen-bg, #3d86b4);
+  background-image: var(--sp-img-shop_frozen, var(--reg-frozen, none));
+  filter: brightness(1.08);
+}
+.shopbar--reg .toolbtn--ice.is-on:hover:not(:disabled) {
+  background-color: var(--reg-frozen-bg, #c2e5ff); color: #041018;
+  background-image: var(--sp-img-shop_frozen_on, var(--reg-frozen-on, var(--reg-frozen, none)));
+}
+.shopbar--reg .toolbtn--amber {
+  color: #1a1204;
+  background-color: var(--reg-refresh-bg, #e2b04a);
+  background-image: var(--reg-refresh, none);
+}
+.shopbar--reg .toolbtn--amber:hover:not(:disabled) {
+  background-color: var(--reg-refresh-bg, #f0c56a);
+  background-image: var(--sp-img-shop_refresh, var(--reg-refresh, none));
+  filter: brightness(1.08);
+}
+.shopbar--reg .toolbtn--amber:disabled {
+  background-image: var(--reg-refresh-lock, var(--reg-refresh, none));
+  filter: grayscale(.35);
+}
+.shopbar--reg .toolbtn--amber .hex,
+.shopbar--reg .toolbtn__free {
+  position: absolute; left: 50%; top: 0; z-index: 1;
+  transform: translate(-50%, -62%);
+}
+.shopbar--reg .toolbtn__free {
+  background-color: #3dcaa0;
+  background-image: var(--reg-cost-free, none);
+  background-repeat: no-repeat; background-size: 100% 100%;
+  color: #06281f;
+}
+/* With an official pack's plates the words and icons sit where its panel_shop_main prefab puts them, from the plate's
+   centre (y up): ac_n_initial icon 31×31 at (−41, 9) and words at (26, 9) in black 90 % at 19; 乌萨斯齐心团 has the
+   icon in the plate (178×83 / 177×81) and the words at (26, 14) / (20.5, 14), the freeze words light; 可露希尔's
+   refresh icon is its own sprite pair at (−29, 10) with the words at (25, 4), its freeze icon is in the plate
+   (172×76) with light words at (27, 2). */
+.shopbar--reg[data-reg-theme] .toolbtn {
+  --ico-w: .31rem; --ico-x: -.41rem; --ico-y: .09rem; --lbl-x: .26rem; --lbl-y: .09rem;
+  padding: 0; font-size: .19rem; letter-spacing: .04em;
+  color: rgba(0, 0, 0, .9);
+}
+.shopbar--reg[data-reg-theme] .toolbtn > .toolbtn__lbl,
+.shopbar--reg[data-reg-theme] .toolbtn > .toolbtn__img,
+.shopbar--reg[data-reg-theme] .toolbtn > .icon,
+.shopbar--reg[data-reg-theme] .toolbtn > .toolbtn__ticon {
+  position: absolute; left: calc(50% + var(--lbl-x)); top: calc(50% - var(--lbl-y));
+  transform: translate(-50%, -50%);
+  white-space: nowrap; line-height: 1;
+}
+.shopbar--reg[data-reg-theme] .toolbtn > .toolbtn__img,
+.shopbar--reg[data-reg-theme] .toolbtn > .icon {
+  left: calc(50% + var(--ico-x)); top: calc(50% - var(--ico-y));
+  width: var(--ico-w); height: var(--ico-w);
+}
+.shopbar--reg[data-reg-theme="ac_n_iron"] .toolbtn > .toolbtn__img,
+.shopbar--reg[data-reg-theme="ac_n_iron"] .toolbtn > .icon,
+.shopbar--reg[data-reg-theme="ac_s_closur"] .toolbtn > .toolbtn__img,
+.shopbar--reg[data-reg-theme="ac_s_closur"] .toolbtn > .icon { display: none; }
+.shopbar--reg[data-reg-theme="ac_n_iron"] .toolbtn--amber { width: 1.78rem; height: .83rem; --lbl-y: .14rem; }
+.shopbar--reg[data-reg-theme="ac_n_iron"] .toolbtn--ice { width: 1.77rem; height: .81rem; --lbl-x: .205rem; --lbl-y: .14rem; color: #f4eee2; }
+.shopbar--reg[data-reg-theme="ac_n_iron"] .toolbtn--ice:disabled { color: #a09d96; }
+.shopbar--reg[data-reg-theme="ac_s_closur"] .toolbtn--amber { --lbl-x: .25rem; --lbl-y: .04rem; }
+.shopbar--reg[data-reg-theme="ac_s_closur"] .toolbtn--amber:disabled { color: #1f1f1f; }
+.shopbar--reg[data-reg-theme="ac_s_closur"] .toolbtn--amber > .toolbtn__ticon {
+  display: block; left: calc(50% - .29rem); top: calc(50% - .098rem);
+  width: .58rem; height: .58rem;
+  background: var(--reg-refresh-icon, none) center / .48rem .48rem no-repeat, var(--reg-refresh-icon-bg, none) center / contain no-repeat;
+}
+.shopbar--reg[data-reg-theme="ac_s_closur"] .toolbtn--ice { width: 1.72rem; height: .76rem; --lbl-x: .27rem; --lbl-y: .02rem; color: #e8e8e8; }
+
+/* 升级 is the drawn pack's group_upgrade (ui/regHud.js regUpgradeModel): a 112×190 stage whose layers are absolute
+   boxes from the prefab (the plates run past the box as they do in the official shop), the level numeral, the caption
+   and the price hex (the prefab's root_cost, centred on the top edge). No box, gradient or pulse of our own: the
+   pack's normal / disable / max groups and its double-check layers are the states. A phone scales the stage
+   (--up-k) to the cards' height. Our LEVEL frame is only for screen readers. */
+.shopbar--reg .lvcard.lvcard--up {
+  --up-k: 1;
+  display: block; position: relative; overflow: visible; flex: none;
+  width: calc(1.12rem * var(--up-k)); height: calc(1.9rem * var(--up-k));
+  padding: 0; gap: 0; border: 0; border-radius: 0; clip-path: none;
+  background: none; box-shadow: none; animation: none; filter: none;
+  color: #e8fff8;
+}
+.shopbar--reg .lvcard.lvcard--up:hover:not(.is-disabled) { filter: brightness(1.08); }
+.lvcard--up .rup {
+  position: absolute; left: 0; bottom: 0;
+  width: 1.12rem; height: 1.9rem;
+  transform: scale(var(--up-k)); transform-origin: bottom left;
+  pointer-events: none;
+}
+.lvcard--up .rup__l,
+.lvcard--up .rup__num,
+.lvcard--up .rup__txt,
+.shopbar--reg .lvcard.lvcard--up .rup__tip {
+  position: absolute; box-sizing: border-box; margin: 0; pointer-events: none;
+}
+.lvcard--up .rup__l { background-repeat: no-repeat; background-size: 100% 100%; }
+.lvcard--up .rup__num {
+  display: grid; place-items: center;
+  font-family: 'Novecento Wide', var(--font-num); font-weight: 700; font-style: normal; line-height: 1;
+  letter-spacing: .03rem; text-indent: .03rem; -webkit-text-stroke: .025rem currentColor;
+}
+.lvcard--up .rup__txt {
+  display: grid; place-items: center;
+  font-family: var(--font-display); font-weight: 700; line-height: 1; letter-spacing: .16em; text-indent: .16em;
+}
+.shopbar--reg .lvcard.lvcard--up .rup__tip {
+  display: grid; place-items: center;
+  padding: 0; font-weight: 700; line-height: 1; letter-spacing: .04em; text-indent: .04em; white-space: nowrap;
+}
+.lvcard--up .lvcard__price { z-index: 2; top: var(--up-cost, .15rem); transform: translate(-50%, -50%); }
+.lvcard--up .rup__sr {
+  position: absolute; width: 1px; height: 1px; padding: 0; border: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+
+/* The card, its tier box, cost anchor and text positions come from layoutPrefab (one prefab unit is .01rem). */
+.shopbar--reg .scard {
+  width: 1.55rem; height: 1.87rem;
+}
+.scard.scard--reg {
+  /* not clipped: the portrait's overhang (§37.139), the repeat glow (§37.201), 乌萨斯齐心团's tier icon and the TV reach past the box */
+  box-sizing: border-box; padding: 0; overflow: visible;
+  background: linear-gradient(180deg, #1a2422, #101614);
+  border: 1px solid rgba(55, 229, 202, .28);
+}
+.scard.scard--reg .scard__tierbox {
+  position: absolute; z-index: 5; display: block; pointer-events: none;
+  background: none; color: #fff;
+}
+.scard.scard--reg .scard__tierbox .tier { margin: 0; }
+.scard.scard--reg .scard__cost {
+  position: absolute; z-index: 3; left: 49.4%; top: 6.7%;
+  transform: translate(-50%, -50%);
+}
+/* The cost is centred at root_cost's layoutPrefab position; the compact hex keeps the shop's readable price. */
+.scard.scard--reg .scard__cost--free {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: .6rem; height: .26rem; padding: 0 .08rem;
+  background-color: #3dcaa0;
+  background-image: var(--reg-cost-free, none);
+  background-repeat: no-repeat; background-size: 100% 100%;
+  color: #06281f; font-size: .14rem; font-weight: 700; line-height: 1; letter-spacing: .08em;
+}
+/* The portrait as the official card (and the covenant card) draws it: three quarters of the card's width from the
+   top edge, the face right of centre, the body running under the name bar and fading out. Percentages keep it on
+   the phone's smaller card. */
+.scard.scard--reg .scard__art {
+  left: auto; right: -8%; top: 0;
+  width: 74%; height: auto; max-width: none;
+  aspect-ratio: 1 / 2;
+  object-fit: cover; object-position: 50% 0;
+  -webkit-mask-image: linear-gradient(180deg, #000 46%, transparent 68%);
+  mask-image: linear-gradient(180deg, #000 46%, transparent 68%);
+}
+.scard.scard--reg .scard__itemart { top: .34rem; width: .84rem; height: .84rem; }
+.scard.scard--reg .scard__namebar {
+  position: absolute; z-index: 4; display: block; margin: 0; min-height: 0;
+  padding: 0; background: transparent;
+}
+.scard.scard--reg .scard__namebar::before { content: none; }
+.scard.scard--reg .scard__plate { position: absolute; inset: 0; display: block; }
+.scard.scard--reg .scard__prof {
+  position: absolute; object-fit: contain; max-width: none; filter: none;
+}
+/* char_name / eqiup_name are TextAnchor MiddleLeft: centred in their box's height; the inner span keeps the ellipsis */
+.scard.scard--reg .scard__name {
+  position: absolute; display: flex; align-items: center; overflow: hidden;
+  line-height: 1.15; font-weight: 500; text-shadow: none;
+}
+.scard.scard--reg .scard__nametxt { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.scard.scard--reg .scard__bonds {
+  position: absolute; z-index: 3; display: flex; flex-direction: column; align-items: flex-start;
+  gap: .005rem; margin: 0; padding: 0; overflow: hidden;
+}
+/* a bond's name and icon share one colour: 卫戍协议终端's bondColor #B7B7B7 by default (the 规程 look is that theme); an
+   installed theme's bondColor overrides it (ui-theme.css) */
+.scard.scard--reg .scard__bond { display: flex; align-items: center; min-height: 0; gap: .03rem; font-size: .105rem; line-height: 1.05; white-space: nowrap; color: #B7B7B7; }
+.scard.scard--reg .scard__bond .bglyph { width: .13rem; height: .13rem; flex: none; }
+.scard.scard--reg .scard__class { font-size: .11rem; }
+.scard.scard--reg .scard__prof { width: .14rem; height: .14rem; }
+.scard.scard--reg .scard__idesc { -webkit-line-clamp: 2; font-size: .11rem; }
+.scard.scard--reg .scard__itemart { position: absolute; z-index: 2; top: auto; left: auto; width: auto; height: auto; transform: none; }
+.scard.scard--reg .scard__itemart img { width: 100%; height: 100%; object-fit: contain; }
+.scard.scard--reg.scard--item .scard__namebar { z-index: 4; }
+.scard.scard--reg.scard--item .scard__name { color: #fff; }
+.scard.scard--reg.scard--item .scard__idesc { display: none; }
+.scard.scard--reg .scard__prefab-layer { position: absolute; display: block; pointer-events: none; }
+.scard.scard--reg .scard__prefab-layer > i {
+  position: absolute; inset: 0; display: block; background-position: center; background-repeat: no-repeat; background-size: 100% 100%;
+}
+.scard.scard--reg .scard__prefab-layer--bottom_grad { z-index: 4; }
+/* A slot without a card shows the face pack's empty card (§37.236, the prefab's state_empty: 「NO INFO」, 乌萨斯齐心团's
+   poster) in its prefab box, which may reach past the card; our hatching, frame and SOLD OUT text step aside. */
+.scard.scard--reg.scard--vacant.has-empty-art { background: none; border-color: transparent; }
+.scard.scard--reg.scard--vacant.has-empty-art > .scard__soldtxt { display: none; }
+/* 可露希尔 tier 5 / 6: the TV and the footer text sit over the name bar's corner, as on the official card */
+.scard.scard--reg .scard__prefab-layer--tv,
+.scard.scard--reg .scard__prefab-layer--tv_front,
+.scard.scard--reg .scard__prefab-layer--deco_txt { z-index: 6; }
+.scard.scard--reg .scard__prefab-layer--outline,
+.scard.scard--reg .scard__prefab-layer--star { z-index: 5; }
+/* the tier 5 / 6 stars (chess_level_*_obj nodes 1 and 2) shine around the level icon, over the tier box (z 5) */
+.scard.scard--reg .scard__prefab-layer--1,
+.scard.scard--reg .scard__prefab-layer--2 { z-index: 6; }
+.scard.scard--reg .tier--prefab-vi { position: absolute; overflow: hidden; color: transparent; font-size: 0; }
+.scard.scard--reg .tier--prefab-vi::before { content: none !important; }
+/* over the theme's level icon, which ui-theme.css draws as the chip's ::after (it painted over the VI) */
+.scard.scard--reg .tier__prefab-vi { position: absolute; z-index: 1; display: block; pointer-events: none; }
+.dhead .tier--prefab-vi { position: relative; overflow: hidden; color: transparent; font-size: 0; }
+.dhead .tier--prefab-vi::before { content: none !important; }
+.dhead .tier__prefab-vi { position: absolute; z-index: 1; display: block; pointer-events: none; }
+@keyframes reg-prefab-bg-scroll {
+  from { background-position: var(--reg-prefab-bg-from, 0 0); }
+  to { background-position: var(--reg-prefab-bg-to, 0 0); }
+}
+@keyframes reg-prefab-uv-scroll {
+  from { -webkit-mask-position: var(--reg-prefab-scroll-from); mask-position: var(--reg-prefab-scroll-from); }
+  to { -webkit-mask-position: var(--reg-prefab-scroll-to); mask-position: var(--reg-prefab-scroll-to); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scard.scard--reg .scard__prefab-layer i,
+  .tier__prefab-vi { animation: none !important; }
+}
+.scard.scard--reg .scard__skill { top: auto; bottom: .5rem; right: .04rem; }
+.scard.scard--reg .scard__pips { position: absolute; z-index: 3; left: .04rem; top: .4rem; }
+.scard.scard--reg .scard__standin,
+.scard.scard--reg .scard__diy,
+.scard.scard--reg .scard__mergetag { top: .4rem; }
+
+/* Character card: coin badge on top, portrait, 收起. No 「目前资金」 label. The plate (`--reg-char`) is drawn on the card's
+   box; a pack whose plate is a cut-out puts its backdrop under it (`--reg-char-back*`, ui/regHud.js regChromeStyle: 可露希尔's
+   bg_open, §37.235) instead of our dark green, which its transparent parts used to show. `--fw` / `--fh` are the box; the
+   backdrop overhangs it to the left and top as in the prefab, and the box clips that. */
+.shopbar--reg .funds.funds--reg {
+  --fw: 1.92rem; --fh: 2.13rem;
+  position: relative; flex: none;
+  width: var(--fw); height: var(--fh);
+  margin: 0; padding: 0; border: 0;
+  background-color: var(--reg-char-bg, #0c221e);
+  background-image: var(--reg-char, none), var(--reg-char-back, none), var(--reg-char-base, linear-gradient(180deg, #16443c, #0c221e));
+  background-repeat: no-repeat, no-repeat, no-repeat;
+  /* the backdrop's size and bottom offset as fractions of the box (unitless, set on the shop bar), right edges aligned */
+  background-size: 100% 100%, calc(var(--fw) * var(--reg-char-back-w, 1)) calc(var(--fh) * var(--reg-char-back-h, 1)), auto;
+  background-position: center, right 0 bottom calc(var(--fh) * var(--reg-char-back-b, 0)), center;
+}
+/* The character fills the card under the badge, as in the official preview; 收起 sits over its feet. */
+.shopbar--reg .funds__char {
+  position: absolute; left: .08rem; right: .08rem; top: .48rem; bottom: .1rem;
+  width: auto; height: auto;
+}
+.shopbar--reg .funds__badge {
+  position: absolute; z-index: 2; left: 50%; top: .06rem;
+  transform: translateX(-50%);
+  display: flex; align-items: center; justify-content: center; gap: .04rem;
+  min-width: .9rem; height: .4rem; padding: 0 .08rem;
+  color: #fff;
+  background-color: #1c1608;
+  background-image: var(--reg-money, none), linear-gradient(180deg, #3a3012, #1c1608);
+  background-repeat: no-repeat, no-repeat;
+  background-size: 100% 100%, auto;
+}
+.shopbar--reg .funds__badge .funds__coin { width: .22rem; height: .22rem; }
+.shopbar--reg .funds__badge .funds__num { font-size: .26rem; color: #fff; }
+.shopbar--reg .funds__collapse {
+  position: absolute; z-index: 2; left: 0; right: 0; bottom: .02rem;
+  justify-content: center;
+  border: 0; background: transparent;
+  color: #37e5ca; font-size: .15rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .9);
+}
+.shopbar--reg .funds__collapse:hover { color: #b8fff2; }
+
+/* 展开 sits where the shop folded away: the right edge, as the covenant tab does. */
+
+/* The right detail card ends above the 规程 shop: its top (剩余可放置角色 included) is 4.36rem up at the full 1.3×, 2.84rem on a
+   short landscape phone (gameLogic/panel.js PANEL_RIGHT_BOTTOM_SHOP_REG / _SHORT). It used to stop at the 盟约 bar's 3.78rem, so the
+   armed card's raised bar covered the card's stats and the 冻结 / 刷新 buttons sat on it. */
+.gm.gm--reg .dpanel--right.is-shop { bottom: 4.44rem; }
+@media (max-height: 430px) { .gm.gm--reg .dpanel--right.is-shop { bottom: 2.92rem; } }
+
+/* Bond discs under the middle of the top bar. The discs stay the hit targets. */
+.gm.gm--reg .gm__bonds {
+  left: 50%; right: auto;
+  width: max-content; max-width: calc(100% - 2.4rem);
+  transform: translateX(-50%);
+}
+
+/* Short landscape (844×390 → 1rem = 40px). One row of 1.55rem cards is 62px and fits;
+   wrap is the overflow safety. Touch targets stay at least --tap-min. */
+@media (max-width: 900px) {
+  .shopbar--reg .shopbar__cluster { width: 100%; --reg-k-max: 1; }
+  .shopbar--reg .shopbar__row,
+  .shopbar--reg .shopbar__cards,
+  .shopbar--reg .shopbar__rwcards { flex-wrap: wrap; justify-content: center; }
+  .shopbar--reg .shopbar__row { width: 100%; }
+}
+@media (max-height: 430px) {
+  .shopbar--reg .shopbar__cluster { --reg-k-max: 1; }
+  .shopbar--reg .shopbar__row {
+    max-height: 46vh; overflow-x: hidden; overflow-y: auto;
+  }
+  .shopbar--reg .scard { width: 1.2rem; height: 1.45rem; }
+  /* the upgrade stage at the cards' height (1.45 / 1.9) */
+  .shopbar--reg .lvcard.lvcard--up { --up-k: .763; }
+  .shopbar--reg .funds.funds--reg { --fw: 1.4rem; --fh: 1.6rem; }
+}
+.sp-coarse .shopbar--reg .toolbtn,
+.sp-coarse .shopbar--reg .funds__collapse,
+.sp-coarse .shopbar--reg .lvcard,
+.sp-coarse .shopbar--reg .scard,
+.sp-coarse .shopbar-tab--reg .shopbar-tab__btn {
+  min-width: var(--tap-min); min-height: var(--tap-min);
+}
+
+/* ---- official theme prefabs (ui/prefab/view.js): one prefab unit is .01rem × --pf-k. The boxes nest like the Unity
+   hierarchy; the tweens animate opacity or the individual translate / rotate / scale properties. ---- */
+.pf { position: relative; display: block; flex: none; pointer-events: none; }
+.pf__stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.pf__root { position: absolute; }
+.pf__n { position: absolute; box-sizing: border-box; }
+.pf__g { position: absolute; inset: 0; display: block; box-sizing: border-box; font-style: normal; }
+.pf__t { display: flex; white-space: nowrap; line-height: 1.15; letter-spacing: 0; }
+.pf__btext { display: flex; width: 100%; height: 100%; }
+.pf__glyph { display: block; flex: none; background-repeat: no-repeat; }
+/* the tweens' @keyframes are added with literal values by ui/prefab/view.js (no var(): no style recalculation a frame) */
+.pf--still .pf__n, .pf--still .pf__fx { animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .pf .pf__n, .pf .pf__fx { animation: none !important; }
+}
+
+/* 规程 top bar, countdown and ready button from the active official pack (ui/prefab/hud.js; ac_n_initial keeps the
+   hand-made top bar). The band is the prefab's 510×68 at the official 1.44×; the default bar's bracket frames and +
+   marks are its own look and stay off. */
+.gtop__band.gtop__band--pf { display: block; filter: none; }
+.gtop--pf .gtop__plus { display: none; }
+.gtop--pf .gtop__frame::before, .gtop--pf .gtop__frame::after { display: none; }
+.gtop__clock--pf { align-items: flex-start; }
+.pfclock { display: block; line-height: 0; }
+.readybtn.readybtn--pf {
+  position: relative; padding: 0; border: 0; background: none; box-shadow: none; min-width: 0; min-height: 0; height: auto;
+  line-height: 0;
+}
+.readybtn.readybtn--pf:hover:not(:disabled) { background: none; box-shadow: none; filter: brightness(1.08); }
+.readybtn.readybtn--pf.is-on { background: none; }
+.readybtn.readybtn--pf:disabled { filter: grayscale(.6) brightness(.8); }
+.readybtn--pf .readybtn__label {
+  position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+.readybtn--pf .readybtn__key { position: absolute; right: .1rem; bottom: .02rem; line-height: 1.2; background: rgba(0, 0, 0, .55); }
+/* the ready face on the countdown, where the official holder puts it (ui/prefab/hud.js cornerOffset) */
+.gtop__clock--pf { position: relative; }
+.readywrap.readywrap--pf { position: absolute; left: var(--pf-rx, 0); top: var(--pf-ry, 100%); z-index: 3; align-items: flex-start; }
+/* the 🔍 buttons stay above the band's long shadow (board_shadow overflows the 510-unit root) */
+.gtop--pf .gtop__frame { z-index: 2; }
+.gtop__band.gtop__band--pf { position: relative; z-index: 1; }
+/* the bond row over the band: 可露希尔's three TVs hang under its mid screen (group_hud tv_normal / tv_battle / tv_boss,
+   ~0.65rem below the band) and covered the discs' tops; the theme preview draws the discs in front of them (the owner,
+   2026-11-14 「还会挡道盟约那一行」, §37.201) */
+.gtop--pf ~ .gm__bonds { z-index: 2; }
+.readybtn.readybtn--pf:focus-visible { outline: 2px solid var(--mint-400); outline-offset: .03rem; }
+
+/* official banners (ui/prefab/banners.js) sit where the plates sit (.mpop: the middle of the field) */
+.mpop.mpop--pf { gap: 0; }
+.pf__spine { position: absolute; inset: 0; display: block; pointer-events: none; }
+.pf__spine canvas { display: block; }
+
+/* 规程 bond discs with the pack's own rings (bondicon/bond_icon_view_item: bg_active / bg_inactive, 75 units on the
+   58-unit disc); the active glyph is light on the pack's disc, as the theme previews show */
+.gm__bonds--pf .bond__core { background: var(--pf-bond-off) center / 129% 129% no-repeat; box-shadow: none; }
+.gm__bonds--pf .bond.is-active .bond__core { background: var(--pf-bond-on) center / 129% 129% no-repeat; box-shadow: none; }
+.gm__bonds--pf .bond.is-active .bond__icon { filter: brightness(0) invert(1); }
+.gm__bonds--pf .bond.is-active .bond__glyph { color: #fff; }

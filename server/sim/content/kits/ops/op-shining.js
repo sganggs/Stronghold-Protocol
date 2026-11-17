@@ -66,7 +66,7 @@ export function rangeAura(battle, unit, { key, value, mods, on = () => true }) {
 
 /**
  * A 屏障 on `target` (闪灵 S2 自动掩护, 夜莺 S2 法术护盾): `shield` HP for `duration` s — of `shieldType` damage only when
- * given (damage.js absorbShields), else every type — plus the buff `statKey` (`mods`) while any barrier `key` lasts. PRTS
+ * given (attack/effects.js injuryEffects), else every type — plus the buff `statKey` (`mods`) while any barrier `key` lasts. PRTS
  * 备注 of both skills: "多个屏障吸收量可叠加，持续时间独立计算，优先消耗先生成的屏障，…效果不可叠加" — each barrier is its own
  * buff (refresh 'independent': its own timer; absorbShields walks the buffs oldest first), the stat bonus one buff whose
  * life follows the barriers (it ends when the last one breaks or expires). Shared with 夜莺's kit (op-cgbird.js).

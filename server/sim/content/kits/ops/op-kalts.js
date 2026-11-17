@@ -22,7 +22,7 @@
 // - Trait (医师) "恢复友方单位生命": the profession default (one heal per attack on an injured ally of her 3-10 range), with T1's
 //   order: when she, her Mon3tr or — with no module — an operator Mon3tr (char_4179_monstr) is injured, the one of them with
 //   the lowest HP ratio (ties: herself); else the lowest HP ratio. Her heals reach her Mon3tr through its 禁疗, and her heal
-//   selection takes it (profile `healThrough`, damage.js heal / Battle.injuredAlliesInKeys); other 禁疗 units stay out.
+//   selection takes it (profile `healThrough`, attack/heal.js heal / Battle.injuredAlliesInKeys); other 禁疗 units stay out.
 // - Module PHY-X Mon2tr: ×heal_scale (1.15) on a heal whose target is at or below hp_ratio (50 %) before it
 //   (heal_scale_up[hpratio][LE]); stage 3 changes T2 (below). PHY-Y 医者: ×heal_scale on a heal whose target stands on a 地面
 //   tile (heal_scale_up[lowland]); stage 3 changes T1 (below). ISW-A 凯尔希特限证章: only its attributes act — its trait
@@ -183,7 +183,15 @@ export default {
       // her heals pass her Mon3tr's 禁疗 and her heal selection takes it (PRTS: "持有禁疗（可被凯尔希…无视）")
       trait: { healThrough: (healer, a) => isMon3trOf(a, healer) },
       skills: {
-        [S1]: { kind: 'duration', mods: { defPct: num(b1.def) } },
+        [S1]: {
+          kind: 'duration', mods: { defPct: num(b1.def) },
+          onStart({ battle, unit }) {
+            battle.addBuff(unit, { key: 'kalts:physicalBlock', tags: ['skill'], injury(c) {
+              if (c.type === 'phys' && c.block(num(b1.prob))) battle.fx('block', { x: unit.x, y: unit.y, id: unit.id });
+            } });
+          },
+          onEnd({ battle, unit }) { battle.removeBuff(unit, 'kalts:physicalBlock'); },
+        },
         [S2]: {
           kind: 'duration', mods: { aspd: num(b2.attack_speed) },
           onStart({ battle, unit, skill }) { if (!mon3trsOf(battle, unit).some(up)) skill.end('binding'); },   // 绑定
@@ -242,16 +250,6 @@ export default {
             if (c.source !== unit || c.opts?.regen || !c.target || !boosted(c.target)) return;
             c.amount *= hs;
           }, { owner: unit });
-        }
-        // S1 物理格挡: a physical damage instance blocked whole with prob
-        if (picked === S1) {
-          const p = num(b1.prob);
-          battle.on('hit', (c) => {
-            if (c.target !== unit || !skillOn(unit, S1) || !c.dmg || c.dmg.cancel || c.dmg.type !== 'phys' || !(p > 0)) return;
-            if (!battle.rng.chance(p)) return;
-            c.dmg.cancel = true;
-            battle.fx('block', { x: unit.x, y: unit.y, id: unit.id });
-          }, { owner: unit, priority: -500 });
         }
         // 绑定 (S2 / S3): no Mon3tr on the field ⇒ the skill ends, the SP is emptied and recovers no more
         if (picked === S2 || picked === S3) {

@@ -71,7 +71,7 @@ export function validateTraitSpec(spec, pluginId, data = null) {
     if (burst) entry.when = 'battleStart';
     if (object(entry.if)) {
       const c = entry.if;
-      // [ASSUMED] Closed vocabulary: only the five elements actually implemented by damage.js.
+      // [ASSUMED] Closed vocabulary: only the five elements the sim's gauges implement (server/sim/attack/element.js).
       if (c.element !== undefined && !ELEMENTS.includes(c.element)) fail('if.element', 'unknown element', 'PLUGIN_DSL_CONDITION');
       for (const key of ['targetOnField', 'selfOnField']) if (c[key] !== undefined && typeof c[key] !== 'boolean') fail(`if.${key}`, 'boolean required', 'PLUGIN_DSL_CONDITION');
       // Field conditions on always would bypass a callback when installed on a living unit.

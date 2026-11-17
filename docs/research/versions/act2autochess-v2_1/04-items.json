@@ -1,0 +1,894 @@
+{
+  "_note": "Pinned activity_table item text for act2autochess-v2_1. Numeric prose comes from this version. Stable trap classifications/ranges/flavour carry from research 04 [ASSUMED]. The cell lifecycle is the shared maintainer-approved rule.",
+  "items": [
+    {
+      "trapId": "trap_1041_acarm041",
+      "requiresBond": null,
+      "category": "STAT",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "一柄曾在维多利亚的工厂内铸造和平的重锤。\n“用同样的铁与火，去终结那场战争。”",
+      "implFormula": "攻击力+15%\n进阶品质：攻击力+25%"
+    },
+    {
+      "trapId": "trap_1047_acarm047",
+      "requiresBond": null,
+      "category": "STAT",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "一面属于坚守之人的盾牌。\n“推击、拨挡、压制，主动防御的基础在于对盾的运用。”",
+      "implFormula": "防御力+20%\n进阶品质：防御力+35%"
+    },
+    {
+      "trapId": "trap_1066_acarm066",
+      "requiresBond": null,
+      "category": "ECONOMY",
+      "kind": "consume_on_equip",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“推动协议模拟进程的基础。”",
+      "implFormula": "装备时销毁，并获得1资金\n进阶品质：装备时销毁，并获得2资金"
+    },
+    {
+      "trapId": "trap_1124_acarm124",
+      "requiresBond": null,
+      "category": "BOND",
+      "kind": "consume_on_equip",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "一个可以证明身份的便捷小装置。 “欢迎进入模拟战场。”",
+      "implFormula": "装备时销毁，并使携带者所属盟约层数+3（无需激活盟约）\n进阶品质：装备时销毁，并使携带者所属盟约层数+6（无需激活盟约）"
+    },
+    {
+      "trapId": "trap_1125_acarm125",
+      "requiresBond": null,
+      "category": "STAT",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“经典的工业材料军事化应用案例。”",
+      "implFormula": "携带者每秒流失60点生命值，攻击力+40%\n进阶品质：携带者每秒流失60点生命值，攻击力+60%"
+    },
+    {
+      "trapId": "trap_1056_acarm056",
+      "requiresBond": null,
+      "category": "STAT",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "一台属于不屈之人的弹射器。\n“它能让你在各个平台间快速移动，前提是你学会使用它，而不是摔个佩洛啃泥。”",
+      "implFormula": "再部署时间-30%，生命值-30%\n进阶品质：再部署时间-50%，生命值-30%"
+    },
+    {
+      "trapId": "trap_1115_acarm115",
+      "requiresBond": null,
+      "category": "RECRUIT",
+      "kind": "consume_on_equip",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“有时候成功是需要那么一点点运气……”",
+      "implFormula": "装备时销毁，随机获取当前调度中心内的1名干员 （调度中心中对应干员消失）\n进阶品质：装备时销毁，随机获取当前调度中心内的2名干员 （调度中心中对应干员消失）"
+    },
+    {
+      "trapId": "trap_1045_acarm045",
+      "requiresBond": null,
+      "category": "ON_HIT",
+      "kind": "passive",
+      "family": "hammer",
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "一柄曾在维多利亚的工厂内铸造和平的重锤，如今它的威名更盛。\n“用同样的铁与火，去终结那场战争。”",
+      "implFormula": "攻击力+20%；若携带者是地面干员则攻击时有10%概率使目标战栗2秒\n进阶品质：攻击力+35%；若携带者是地面干员则攻击时有10%概率使目标战栗2秒"
+    },
+    {
+      "trapId": "trap_1050_acarm050",
+      "requiresBond": null,
+      "category": "STAT",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "一种曾在萨尔贡的荒漠中救人性命的浓茶。\n“别畏惧苦涩，它能让你保持清醒，清醒地活下去。”",
+      "implFormula": "技力自然回复速度+0.15/秒\n进阶品质：技力自然回复速度+0.25/秒"
+    },
+    {
+      "trapId": "trap_1113_acarm113",
+      "requiresBond": null,
+      "category": "ECONOMY",
+      "kind": "consume_on_equip",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“她总是想为你多省一点。”",
+      "implFormula": "装备时销毁，之后每回合开始时额外获得1资金\n进阶品质：装备时销毁，之后每回合开始时额外获得2资金"
+    },
+    {
+      "trapId": "trap_1114_acarm114",
+      "requiresBond": null,
+      "category": "RECRUIT",
+      "kind": "consume_on_equip",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“我已到达接头地点。”",
+      "implFormula": "装备时销毁，随机获得1名与该干员有相同盟约的干员\n进阶品质：装备时销毁，随机获得2名与该干员有相同盟约的干员"
+    },
+    {
+      "trapId": "trap_1116_acarm116",
+      "requiresBond": null,
+      "category": "ECONOMY",
+      "kind": "consume_on_equip",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“看到你的钱包，她总是很开心。”",
+      "implFormula": "装备时销毁，下回合额外获得2资金\n进阶品质：装备时销毁，下回合额外获得4资金"
+    },
+    {
+      "trapId": "trap_1121_acarm121",
+      "requiresBond": null,
+      "category": "STAT",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "一套彰显家族成员身份的正式着装。 “在这里，服装有言语不能说明的意义。”",
+      "implFormula": "攻击速度+15，携带者部署方向左右两侧的我方干员攻击速度+10\n进阶品质：攻击速度+25，携带者部署方向左右两侧的我方干员攻击速度+15"
+    },
+    {
+      "trapId": "trap_1063_acarm063",
+      "requiresBond": null,
+      "category": "ON_HIT",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "一个属于精准之人的狙击镜。\n“定住身形，盯紧目标，钉死敌人。”",
+      "implFormula": "攻击距离自身3格及以上的目标时，伤害提高30%\n进阶品质：攻击距离自身3格及以上的目标时，伤害提高50%"
+    },
+    {
+      "trapId": "trap_1053_acarm053",
+      "requiresBond": null,
+      "category": "STAT",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“除了有定位与穿透效用，也可作为诱饵使用。”",
+      "implFormula": "攻击无视目标25%法术抗性\n进阶品质：攻击无视目标45%法术抗性"
+    },
+    {
+      "trapId": "trap_1040_acarm040",
+      "requiresBond": null,
+      "category": "ON_HIT",
+      "kind": "passive_counter",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "一把曾在炎国的江湖上铲除不义的短刀。\n“拔刀之前，先想清楚是否值得。拔出刀后，就不可再犹豫。”",
+      "implFormula": "每开启一次技能，获得5%的攻击力加成（最多叠加10次）\n进阶品质：每开启一次技能，获得8%的攻击力加成（最多叠加10次）"
+    },
+    {
+      "trapId": "trap_1051_acarm051",
+      "requiresBond": null,
+      "category": "SP",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "一份属于迅捷之人的作战粮。\n“它的作用是提供能量，不是满足口腹之欲。”",
+      "implFormula": "部署时，获得3点技力；每有一个同盟约的其他干员，额外获得3点技力\n进阶品质：部署时，获得6点技力；每有一个同盟约的其他干员，额外获得6点技力"
+    },
+    {
+      "trapId": "trap_1049_acarm049",
+      "requiresBond": null,
+      "category": "STAT",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“锅炉工先生经常看着这个头盔发呆，他在想什么呢？”",
+      "implFormula": "生命值+25%；部署时若身前一格没有其他干员，生命值额外+15%\n进阶品质：生命值+45%；部署时若身前一格没有其他干员，生命值额外+25%"
+    },
+    {
+      "trapId": "trap_1046_acarm046",
+      "requiresBond": null,
+      "category": "STAT",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "一把曾在阿戈尔的漩涡里击碎浪涛的重刃。\n“直面那些你必将战胜的目标，证明你比它们更强大。”",
+      "implFormula": "攻击力+40%，攻击速度-10\n进阶品质：攻击力+60%，攻击速度-10"
+    },
+    {
+      "trapId": "trap_1048_acarm048",
+      "requiresBond": null,
+      "category": "STAT",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“赶紧把术师们派到战场上去！”",
+      "implFormula": "法术抗性+20\n进阶品质：法术抗性+30"
+    },
+    {
+      "trapId": "trap_1043_acarm043",
+      "requiresBond": null,
+      "category": "SURVIVAL",
+      "kind": "passive",
+      "family": "hammer",
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "一柄曾在维多利亚的工厂内铸造和平的重锤，如今它的质地更硬。\n“用同样的铁与火，去终结那场战争。”",
+      "implFormula": "攻击力+25%；首次受到致命伤害时生命值不低于1，持续8秒\n进阶品质：攻击力+45%；首次受到致命伤害时生命值不低于1，持续8秒"
+    },
+    {
+      "trapId": "trap_1044_acarm044",
+      "requiresBond": null,
+      "category": "STAT",
+      "kind": "passive",
+      "family": "hammer",
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "一柄曾在维多利亚的工厂内铸造和平的重锤，如今它的势头更猛。\n“用同样的铁与火，去终结那场战争。”",
+      "implFormula": "攻击力+25%；攻击速度+30\n进阶品质：攻击力+45%；攻击速度+30"
+    },
+    {
+      "trapId": "trap_1064_acarm064",
+      "requiresBond": null,
+      "category": "ON_HIT",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "一枚属于突袭之人的手雷。\n“就是现在！！！”",
+      "implFormula": "每次部署后的10秒内，攻击时使目标晕眩2秒\n进阶品质：每次部署后的15秒内，攻击时使目标晕眩2秒"
+    },
+    {
+      "trapId": "trap_1123_acarm123",
+      "requiresBond": null,
+      "category": "ECONOMY",
+      "kind": "consume_on_equip",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "一款卡西米尔各大周边商城在售的储蓄罐。 “将你积攒起的幸运传递给喜爱的选手吧。”",
+      "implFormula": "装备时销毁，并随机获得1~6资金\n进阶品质：装备时销毁，并随机获得2~12资金"
+    },
+    {
+      "trapId": "trap_1075_acarm075",
+      "requiresBond": null,
+      "category": "RECRUIT",
+      "kind": "consume_on_equip",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“呼叫调度中心，呼叫调度中心，我们已准备好接收指令。”",
+      "implFormula": "装备时销毁，立即特殊刷新一次调度中心，出现三名与该干员有相同盟约的干员，免费获取其中一名！（不高于当前调度中心等级）"
+    },
+    {
+      "trapId": "trap_1054_acarm054",
+      "requiresBond": null,
+      "category": "SURVIVAL",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“你们去救伤员，我来对付这些混蛋！”",
+      "implFormula": "更容易受到攻击，生命值+40%\n进阶品质：更容易受到攻击，生命值+60%"
+    },
+    {
+      "trapId": "trap_1052_acarm052",
+      "requiresBond": null,
+      "category": "ON_HIT",
+      "kind": "passive_counter",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“通过触摸有限的极致，我们得以观察无限的边缘。”",
+      "implFormula": "每次攻击或治疗后，本场战斗中攻击速度+1，最高60层\n进阶品质：每次攻击或治疗后，本场战斗中攻击速度+2，最高60层"
+    },
+    {
+      "trapId": "trap_1055_acarm055",
+      "requiresBond": null,
+      "category": "SURVIVAL",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“我会让你们记住这份教训，我将让你们永远对暗处怀有恐惧。”",
+      "implFormula": "首次受到伤害后获得隐匿，持续15秒\n进阶品质：首次受到伤害后获得隐匿，持续25秒"
+    },
+    {
+      "trapId": "trap_1060_acarm060",
+      "requiresBond": null,
+      "category": "SURVIVAL",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“我会保护好我的队友，我会保护好我自己。”",
+      "implFormula": "阻挡敌人时，受到来自非自身阻挡单位的伤害降低40%\n进阶品质：阻挡敌人时，受到来自非自身阻挡单位的伤害降低70%"
+    },
+    {
+      "trapId": "trap_1065_acarm065",
+      "requiresBond": null,
+      "category": "SURVIVAL",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“别把袋子戳破了，你不会想和这些小家伙亲密接触的。”",
+      "implFormula": "每攻击1个目标，回复自身2%最大生命值\n进阶品质：每攻击1个目标，回复自身4%最大生命值"
+    },
+    {
+      "trapId": "trap_1119_acarm119",
+      "requiresBond": null,
+      "category": "ON_HIT",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "一面代表卡西米尔骑士竞技的旗帜。 “看见它仿佛就能听到山呼海啸般的助威声。”",
+      "implFormula": "部署后15秒内造成的伤害提升至135%，随后逐渐衰减\n进阶品质：部署后15秒内造成的伤害提升至160%，随后逐渐衰减"
+    },
+    {
+      "trapId": "trap_1057_acarm057",
+      "requiresBond": null,
+      "category": "ON_HIT",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "一个曾在拉特兰的夜空里引发大爆炸的桥夹。\n“开火，别停下！克里夫，我们三个一定能闯出比这更辉煌的事业！”",
+      "implFormula": "子弹类技能剩余一发子弹时有50%概率恢复40%的子弹（每次部署最多触发3次）\n进阶品质：子弹类技能剩余一发子弹时有60%概率恢复60%的子弹（每次部署最多触发3次）"
+    },
+    {
+      "trapId": "trap_1042_acarm042",
+      "requiresBond": null,
+      "category": "ON_HIT",
+      "kind": "passive",
+      "family": "hammer",
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "一柄曾在维多利亚的工厂内铸造和平的重锤，如今它的火焰更旺。\n“用同样的铁与火，去终结那场战争。”",
+      "implFormula": "攻击力+30%；造成法术伤害附带相当于10%伤害的灼燃损伤\n进阶品质：攻击力+50%；造成法术伤害附带相当于10%伤害的灼燃损伤"
+    },
+    {
+      "trapId": "trap_1059_acarm059",
+      "requiresBond": null,
+      "category": "SURVIVAL",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“增强了烈性的配方，能让你保持清醒，前提是你能忍受那种奇特的味道。”",
+      "implFormula": "生命值大于70%时，免疫晕眩、冻结等特殊状态\n进阶品质：生命值大于40%时，免疫晕眩、冻结等特殊状态"
+    },
+    {
+      "trapId": "trap_1061_acarm061",
+      "requiresBond": null,
+      "category": "SURVIVAL",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“你可以用它来挡住一些攻击，它并不介意。”",
+      "implFormula": "治疗时有10%概率使目标获得1层护盾（最多1层）\n进阶品质：治疗时有15%概率使目标获得1层护盾（最多1层）"
+    },
+    {
+      "trapId": "trap_1068_acarm068",
+      "requiresBond": null,
+      "category": "SURVIVAL",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“她听懂了你说的那句谢谢，她很高兴能救下你。”",
+      "implFormula": "战斗阶段被击倒时立刻复活（一场战斗仅1次）\n进阶品质：战斗阶段被击倒时立刻复活（一场战斗仅2次）"
+    },
+    {
+      "trapId": "trap_1058_acarm058",
+      "requiresBond": null,
+      "category": "ON_HIT",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“它能让目标痛到打滚，使用前一定要确认好风向。”",
+      "implFormula": "攻击时有3%概率使目标获得一层麻痹\n进阶品质：攻击时有5%概率使目标获得一层麻痹"
+    },
+    {
+      "trapId": "trap_1062_acarm062",
+      "requiresBond": null,
+      "category": "ON_HIT",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "\"一块曾在谢拉格的山峰上见证日月升落的不融冰。\n“让自己冷静下来，如同冰川，不可被撼动，却能摧毁一切。”\"",
+      "implFormula": "攻击时有12%概率对目标施加1.5秒的寒冷\n进阶品质：攻击时有20%概率对目标施加1.5秒的寒冷"
+    },
+    {
+      "trapId": "trap_1067_acarm067",
+      "requiresBond": null,
+      "category": "ON_HIT",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“是的，这台设备能帮上你不小的忙，但要获得胜利，还是得靠你自己。”",
+      "implFormula": "攻击力+30%，自身造成物理和法术伤害时，伤害类型转化为弱点伤害\n进阶品质：攻击力+50%，自身造成物理和法术伤害时，伤害类型转化为弱点伤害"
+    },
+    {
+      "trapId": "trap_1109_acarm109",
+      "requiresBond": null,
+      "category": "RECRUIT",
+      "kind": "consume_on_equip",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": null,
+      "implFormula": "装备时，目标干员和本装备销毁并进行一次特殊刷新，出现两名与携带者同等阶的干员，免费获取其中一名\n若在同盟模拟中且存在其他队友，下个休整期向相应盟约人数最多的队友发送1个原干员\n相应盟约人数相同则随机发送\n无法装备给自编干员"
+    },
+    {
+      "trapId": "trap_1069_acarm069",
+      "requiresBond": null,
+      "category": "RECRUIT",
+      "kind": "consume_on_equip",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“这是一份礼物，你可以让它变成任何你想要的样子。”",
+      "implFormula": "装备时销毁，若已拥有至少2名该初始干员，则再获得1名该初始干员；否则随机获得1名同盟约初始干员"
+    },
+    {
+      "trapId": "trap_1071_acarm071",
+      "requiresBond": null,
+      "category": "RECRUIT",
+      "kind": "consume_on_equip_or_delayed",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“仔细听，博士正在布置任务。”",
+      "implFormula": "任意干员可装备，下个回合开始时销毁，并使该干员晋升为精锐干员\n进阶品质：任意干员可装备，立即使该干员晋升为精锐干员"
+    },
+    {
+      "trapId": "trap_1074_acarm074",
+      "requiresBond": null,
+      "category": "RECRUIT",
+      "kind": "passive_player",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“端起酒杯，注意微笑的弧度，我保证你会火得一塌糊涂！不，现在还不够打动人，再去换一套衣服看看。”",
+      "implFormula": "每出售7名干员，额外获得一个与此装备携带者的同盟约初始干员（不高于当前调度中心等级）\n进阶品质：每出售6名干员，额外获得一个与此装备携带者的同盟约初始干员（不高于当前调度中心等级）"
+    },
+    {
+      "trapId": "trap_1072_acarm072",
+      "requiresBond": null,
+      "category": "RECRUIT",
+      "kind": "post_battle_transform",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“代价……”",
+      "implFormula": "战斗结束后，装备者替换为高一阶的随机干员"
+    },
+    {
+      "trapId": "trap_1118_acarm118",
+      "requiresBond": null,
+      "category": "SET",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“见证过无数勇士与英豪的诞生。”",
+      "implFormula": "生命值+50%，若与“天马之枪”一起装备，每秒回复8%最大生命值。\n进阶品质：生命值+75%，若与“天马之枪”一起装备，每秒回复8%最大生命值。"
+    },
+    {
+      "trapId": "trap_1117_acarm117",
+      "requiresBond": null,
+      "category": "SET",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“造就了无数血肉与精神的溃散。”",
+      "implFormula": "攻击力+40%，若与“天马之盔”一起装备，造成伤害时额外造成30%的真实伤害\n进阶品质：攻击力+60%，若与“天马之盔”一起装备，造成伤害时额外造成30%的真实伤害"
+    },
+    {
+      "trapId": "trap_1108_acdisney",
+      "requiresBond": null,
+      "category": "MAGIC",
+      "kind": "art_instant",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": null,
+      "implFormula": "拖拽至场上使用后，选择一项特殊悬赏任务进行挑战；主动销毁时获得1份资金，并将“神秘顾客”传递给下一名玩家"
+    },
+    {
+      "trapId": "trap_1076_acarm076",
+      "requiresBond": "lateranoShip",
+      "category": "BOND_SIGNATURE",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“拉特兰人从不曾怀疑过铳骑的威严。”",
+      "implFormula": "攻击力+40%；若携带者为【拉特兰】盟约干员，该干员每次攻击时，有35%概率额外对攻击范围内一名敌人发射子弹造成150%攻击力的物理伤害\n若该【拉特兰】盟约干员同时装备“拉特兰桥夹”，子弹伤害改为300%攻击力\n进阶品质：攻击力+60%；若携带者为【拉特兰】盟约干员，该干员每次攻击时，有35%概率额外对攻击范围内一名敌人发射子弹造成150%攻击力的物理伤害\n若该【拉特兰】盟约干员同时装备“拉特兰桥夹”，子弹伤害改为300%攻击力"
+    },
+    {
+      "trapId": "trap_1110_accopy",
+      "requiresBond": null,
+      "category": "MAGIC",
+      "kind": "art_instant",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        },
+        {
+          "row": 0,
+          "col": 1
+        }
+      ],
+      "flavor": null,
+      "implFormula": "拖拽至场上使用后，获得范围内的干员（包括精锐状态和装备！）"
+    },
+    {
+      "trapId": "trap_1077_acarm077",
+      "requiresBond": "yanShip",
+      "category": "BOND_SIGNATURE",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“炎国人相信那些关于天师的上古传说绝非完全出自虚构。”",
+      "implFormula": "生命值+45%；若携带者为【炎】盟约干员，本回合每获得过1名干员战斗开始后攻击速度+25（最多3层）\n若该【炎】盟约干员同时装备“炎国短刀”，每次获得干员时获得2资金（每回合最多3次）\n进阶品质：生命值+70%；若携带者为【炎】盟约干员，本回合每获得过1名干员战斗开始后攻击速度+25（最多3层）\n若该【炎】盟约干员同时装备“炎国短刀”，每次获得干员时获得2资金（每回合最多3次）"
+    },
+    {
+      "trapId": "trap_1111_acchal",
+      "requiresBond": null,
+      "category": "MAGIC",
+      "kind": "art_instant",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": null,
+      "implFormula": "拖拽至场上使用后，选择一项悬赏任务进行挑战"
+    },
+    {
+      "trapId": "trap_1078_acarm078",
+      "requiresBond": "egirShip",
+      "category": "BOND_SIGNATURE",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“属于阿戈尔人的秘密被埋葬在最深的海沟中，但它从未真正死去。”",
+      "implFormula": "获得180点伤害减免；若携带者为【阿戈尔】盟约干员，自身受到伤害时对伤害来源造成自身攻击力50%的法术伤害（每0.5秒最多触发一次）\n若该【阿戈尔】盟约干员同时装备“阿戈尔重刃”，则自身受到伤害时额外造成一次50%攻击力的法术伤害（每0.5秒最多触发一次）\n进阶品质：获得300点伤害减免；若携带者为【阿戈尔】盟约干员，自身受到伤害时对伤害来源造成自身攻击力50%的法术伤害（每0.5秒最多触发一次）\n若该【阿戈尔】盟约干员同时装备“阿戈尔重刃”，则自身受到伤害时额外造成一次50%的攻击力的法术伤害（每0.5秒最多触发一次）"
+    },
+    {
+      "trapId": "trap_1079_acarm079",
+      "requiresBond": "victoriaShip",
+      "category": "BOND_SIGNATURE",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“维多利亚人用数个时代证明了蒸汽与齿轮中蕴藏着真理。”",
+      "implFormula": "攻击速度+35；若携带者为【维多利亚】盟约干员，该干员获得当前场上所有维式重锤特殊效果\n若该【维多利亚】盟约干员同时装备“维式重锤”系列装备，该“维式重锤”装备特殊效果获得强化（效果变为2倍）\n进阶品质：攻击速度+55；若携带者为【维多利亚】盟约干员，该干员获得当前场上所有维式重锤特殊效果\n若该【维多利亚】盟约干员同时装备“维式重锤”系列装备，该“维式重锤”装备特殊效果获得强化（效果变为2倍）"
+    },
+    {
+      "trapId": "trap_1102_acarm102",
+      "requiresBond": "kjeragShip",
+      "category": "BOND_SIGNATURE",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“谢拉格人相信冰川最深处的宝石是耶拉冈德的眼泪。”",
+      "implFormula": "法术抗性+30；若携带者为【谢拉格】盟约干员，该干员攻击范围内被寒冷或冻结的敌人每秒受到一次自身攻击力30%的法术伤害\n若该【谢拉格】盟约干员同时装备“谢拉格不融冰”，则使自身攻击范围内寒冷或冻结的敌人每秒受到的法术伤害提升至100%攻击力\n进阶品质：法术抗性+50；若携带者为【谢拉格】盟约干员，该干员攻击范围内被寒冷或冻结的敌人每秒受到一次自身攻击力30%的法术伤害\n若该【谢拉格】盟约干员同时装备“谢拉格不融冰”，则使自身攻击范围内寒冷或冻结的敌人每秒受到的法术伤害提升至100%攻击力"
+    },
+    {
+      "trapId": "trap_1103_acarm103",
+      "requiresBond": "sargonShip",
+      "category": "BOND_SIGNATURE",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“传说萨尔贡人将会在黄沙尽头找到时间回流的刻印。”",
+      "implFormula": "初始技力+30；若携带者为【萨尔贡】盟约干员，该干员首次技能结束时立刻回复30点技力\n若该【萨尔贡】盟约干员同时装备“萨尔贡浓茶”，每次开启技能时为全部【萨尔贡】干员回复3点技力\n进阶品质：初始技力+50；若携带者为【萨尔贡】盟约干员，该干员首次技能结束时立刻回复30点技力\n若该【萨尔贡】盟约干员同时装备“萨尔贡浓茶”，每次开启技能时为全部【萨尔贡】干员回复3点技力"
+    },
+    {
+      "trapId": "trap_1070_acarm070",
+      "requiresBond": null,
+      "category": "RECRUIT",
+      "kind": "consume_on_equip",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“新来的这家伙肯定能帮上忙，不是吗？”",
+      "implFormula": "装备时销毁，最大可部署人数变为9"
+    },
+    {
+      "trapId": "trap_1073_acarm073",
+      "requiresBond": null,
+      "category": "BOND_GRANT",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "“变形者集群，我们早已见识到了你都能做到些什么……”",
+      "implFormula": "携带者获得额外盟约（由另一件携带装备而定）\n具体对应关系可在模拟中查看本装备天赋栏"
+    },
+    {
+      "trapId": "trap_1120_acarm120",
+      "requiresBond": "kazimierzShip",
+      "category": "BOND_SIGNATURE",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "一份为卡西米尔的骑士定下的戒律。 “诚实、坚定、勇敢、不屈。”",
+      "implFormula": "再部署时间-40%；若携带者为【卡西米尔】盟约干员，开启技能后20s内，使攻击范围内敌人攻击速度-35%，移动速度-35%\n若该【卡西米尔】盟约干员同时装备“卡西米尔竞技旗”，该卡西米尔干员技能持续期间，攻击力+100%，且受到致命伤害时不撤退，技能结束后退场\n进阶品质：再部署时间-60%；若携带者为【卡西米尔】盟约干员，开启技能后20s内，使攻击范围内敌人攻击速度-35%，移动速度-35%\n若该【卡西米尔】盟约干员同时装备“卡西米尔竞技旗”，该卡西米尔干员技能持续期间，攻击力+100%，且受到致命伤害时不撤退，技能结束后退场"
+    },
+    {
+      "trapId": "trap_1122_acarm122",
+      "requiresBond": "siracusaShip",
+      "category": "BOND_SIGNATURE",
+      "kind": "passive",
+      "family": null,
+      "rangeGrids": [
+        {
+          "row": 0,
+          "col": 0
+        }
+      ],
+      "flavor": "一枚能让人成为“家族成员”的叙拉古徽章。 “学会陪伴你的家人，真正的，家人。”",
+      "implFormula": "技力自然回复速度+0.2/秒；若携带者为【叙拉古】盟约干员，该干员处于隐匿状态时，攻击力逐渐提升至200%，持续至隐匿结束后首次造成伤害或干员离场\n若该【叙拉古】盟约干员同时装备“叙拉古正装”，该叙拉古干员失去隐匿后首次造成伤害时额外造成800%攻击力的真实伤害\n进阶品质：技力自然回复速度+0.35/秒；若携带者为【叙拉古】盟约干员，该干员处于隐匿状态时，攻击力逐渐提升至200%，持续至隐匿结束后首次造成伤害或干员离场\n若该【叙拉古】盟约干员同时装备“叙拉古正装”，该叙拉古干员失去隐匿后首次造成伤害时额外造成800%攻击力的真实伤害"
+    }
+  ]
+}

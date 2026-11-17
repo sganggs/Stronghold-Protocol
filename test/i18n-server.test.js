@@ -91,6 +91,9 @@ test('client: the same frames in English — msgid + params, broadcast template 
     // error codes: ERR_TEXT / net.js CLIENT_ERR_TEXT are msgids
     assert.equal(toasts.describeError({ code: 'HAND_FULL', msg: '整备区已满' }), 'Bench is full');
     assert.equal(toasts.describeError('NO_FUNDS'), EN_UI['资金不足']);
+    assert.equal(toasts.describeError({ code: 'NOT_READY', detail: 'at least one player must remain seated' }), EN_UI['至少保留一名参赛博士']);
+    assert.equal(toasts.describeError({ code: 'ROOM_FULL', detail: 'no free spectator seat' }), EN_UI['观战席已满']);
+    assert.equal(toasts.describeError({ code: 'ROOM_FULL', detail: 'solo room' }), EN_UI['房间已满']);
   } finally {
     setLang('zh');
     await data.setLocale('zh');
@@ -110,7 +113,7 @@ test('a real match: 歌蕾蒂娅 grants a chess → 「歌蕾蒂娅：获得X」
   give(m, ps, row[0], 'board', [10, 6]);
   give(m, ps, row[1], 'board', [10, 8]);
   const n0 = h.allTo('p_0', 'm.toast').length;
-  m.dispatch(ps, 'onRoundStart', { round: m.round });
+  m.dispatch(ps, 'onPrepStart', { round: m.round });   // 歌蕾蒂娅's 「<进入休整期时>」 (DESIGN §35.53)
   const frame = h.allTo('p_0', 'm.toast').slice(n0).find((t) => t.msgid === '{who}：获得{name}');
   assert.ok(frame, JSON.stringify(h.allTo('p_0', 'm.toast').slice(n0)));
   assert.ok(frame.text.startsWith('歌蕾蒂娅：获得'), frame.text);

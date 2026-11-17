@@ -512,10 +512,10 @@ for (const [idA, idB] of [['chess_char_1_16_a', 'chess_char_1_16_b'], ['chess_ch
     yak.hp = yak.s.maxHp * 0.3;
     h.run(bb.projectile_delay_time + 1);
     const [g, f] = h.enemies();
-    const z = dealt(h, u, (c) => c.target === g && (c.dmg.tags || []).includes('zone'));
+    const z = h.hooksOf('damaged').filter((c) => c.credit === u && c.target === g && (c.dmg.tags || []).includes('zone'));
     assert.equal(z.length, bb.projectile_delay_time);
     for (const c of z) approx(c.amount, u.s.atk * bb.atk_scale);
-    assert.equal(dealt(h, u, (c) => c.target === f && (c.dmg.tags || []).includes('zone')).length, 0, 'air units unaffected');
+    assert.equal(h.hooksOf('damaged').filter((c) => c.credit === u && c.target === f && (c.dmg.tags || []).includes('zone')).length, 0, 'air units unaffected');
     assert.equal(heals(h, u, (c) => c.target === yak).length, 0, 'no heal of hers: an hpRegen buff (PRTS 备注 「增加目标的“生命回复速度”属性」)');
     done(h);
     // the ally inside: 生命回复速度 + her ATK at the cast × hp_recovery_per_sec_ratio for the unit's life, then gone
@@ -543,7 +543,7 @@ for (const [idA, idB] of [['chess_char_1_16_a', 'chess_char_1_16_b'], ['chess_ch
     const sp0 = u2.skill.sp, t0 = h2.b.time;
     h2.run(4);
     approx((u2.skill.sp - sp0) / (h2.b.time - t0), u2.s.spRecovery + mb.sp_recovery_per_sec, 'SP rate with a unit on the field', 1e-3);
-    const z2 = dealt(h2, u2, (c) => (c.dmg.tags || []).includes('zone'));
+    const z2 = h2.hooksOf('damaged').filter((c) => c.credit === u2 && (c.dmg.tags || []).includes('zone'));
     assert.ok(z2.length >= 4);
     for (const c of z2) approx(c.amount, u2.s.atk * bbB.atk_scale * w, '×damage_scale');
     done(h2);
@@ -1073,13 +1073,14 @@ test('2_13 蒂比: an incoming attack triggers 紧急赶场通知 and is dodged;
   h.step();
   assert.equal(fl.blockedBy, null, 'landed: flyers released');
   done(h);
-  // talent: the first attack after stack_time s without being attacked is dodged, the next one lands
+  // Talent starts counting on deployment; it is not ready for the first immediate attack.
   const h2 = run({ defs: { enemies: { e: dummy('e', { atk: 400, bat: 1 }) } }, units: [{ chessId: id, row: 9, col: 5 }], enemies: [{ key: 'e', pos: [9, 5] }] });
   const u2 = h2.unit(id);
   h2.run(0.9);
-  assert.equal(u2.stats.taken, 0, 'first attack dodged');
+  assert.ok(u2.stats.taken > 0, 'the first attack before stack_time lands');
+  const taken = u2.stats.taken;
   h2.run(1.5);
-  assert.ok(u2.stats.taken > 0, 'second attack lands');
+  assert.ok(u2.stats.taken > taken, 'continued attacks keep restarting the timer');
   assert.ok(t.stack_time > 0);
   done(h2);
 });

@@ -31,7 +31,7 @@ import { COLS, TICK } from '../../../constants.js';
 import { absoluteRangeKeys, sortEnemyTargets } from '../../../targeting.js';
 import { offsetTile } from '../../../dir.js';
 import { bodyTileReach, bodyInRange } from '../../../body.js';
-import { isHpLoss } from '../../../damage.js';
+import { isHpLoss } from '../../../attack.js';
 
 // =================================================================================================================
 // shared helpers (named exports; content/index.js only merges the default export)
@@ -67,23 +67,16 @@ export const cheb = (a, b) => (b.hitArea ? bodyTileReach(b, Math.round(a.y), Mat
     : Math.max(Math.abs(Math.round(a.y) - Math.round(b.y)), Math.abs(Math.round(a.x) - Math.round(b.x))));
 /** Normal attack hit on its primary target (no splash, no chain jump). */
 export const isMainHit = (dmg) => !!dmg && dmg.isAttack && !dmg.isSplash && !(dmg.tags && dmg.tags.includes('chain'));
-/**
- * `damaged` ctx that sets off a "受到攻击时" counter: a damage instance from an enemy, of any kind — its normal attack, a
- * skill hit, an area pulse (深溟巢涌者's 无途径 法术伤害). The official counters fire on ON_TAKE_DAMAGE from a source of the
- * other side, not on attacks only (ArknightsGameData buff_template_data: inverse_damage / inverse_damage[magic] — 星熊 S2,
- * 年 S2 —, bubble_s_2 / bubble_t_1 — 泡泡 —, vendla_s_2 — 刺玫 —, yu_s_1[inverse_damage] — 余 S1 —, hsgma2_s_1 /
- * hsgma2_e_003_tr_take — 斩业星熊 —, mlynar_t_2[inverse] — 玛恩纳 无动于衷; 菲莱 S2's philae_s_2 checks no source at all).
- * Never a 流失 (PRTS 作战机制 "生命流失…不会触发反伤、受击回复等受到攻击触发的时点"), an element 损伤 (its own event), 无来源 damage
- * (no source to strike back) or another counter / reflection (tags 'counter' / 'reflect': no ping-pong). Community report
- * of 2026-10-06 (item 30): it took enemy attacks only, so 深溟巢涌者's pulse never set a counter off.
- */
-export const byEnemyAttack = (ctx) => {
-  const s = ctx.source, d = ctx.dmg;
-  if (!s || s.side !== 'enemy' || !d || d.sourceless || ctx.type === 'element' || isHpLoss(d)) return false;
-  return !(Array.isArray(d.tags) && (d.tags.includes('counter') || d.tags.includes('reflect')));
+/** Ordinary HP injury from an actual enemy source; action flags and descriptive tags do not select it. */
+export const byEnemyDamage = (ctx) => {
+  const source = ctx.source, dmg = ctx.dmg;
+  return !!source && source.side === 'enemy' && !!dmg && !dmg.sourceless
+    && ctx.type !== 'element' && !isHpLoss(dmg);
 };
+/** @deprecated Use byEnemyDamage: these injury effects do not require an attack action. */
+export const byEnemyAttack = byEnemyDamage;
 /**
- * `damaged` ctx of a damage that removed HP and can give 受击回复 SP — the engine's rule (damage.js applyHpLoss: not a 流失
+ * `damaged` ctx of a damage that removed HP and can give 受击回复 SP — the engine's rule (attack/health.js applyHpDecrease: not a 流失
  * (`noSp`, Battle.loseHp), not an element 损伤), whatever its source: an attack, a zone, the 无来源 源石溶剂 tick.
  */
 export const hurtSpDamage = (ctx) => !!ctx.dmg && !ctx.dmg.noSp && ctx.type !== 'element' && ctx.amount > 0;
@@ -121,6 +114,19 @@ export const PROTECT_TICK_HOLD = 1.5 * TICK;
 /** Hold 庇护 `value` on `target` for `duration` s (the shared PROTECT effect). */
 export function holdProtect(battle, target, value, duration, source = null) {
   if (value > 0) battle.applyStrongest(target, PROTECT, { duration, value, mods: protectMods, source });
+}
+
+/**
+ * 术法充盈 (gamedata_const ba.magicarcane "造成的法术伤害提升（同名效果取最高）"; first granted by 溯光星源's DEC-X): like 庇护,
+ * ONE effect per unit whoever grants it — battle.applyStrongest under this key —, its value v = the arts damage the unit
+ * deals ×(1 + v) (the source-side `artsDealtMul`, after mitigation as every damage-dealt multiplier). No status icon.
+ */
+export const MAGIC_ARCANE = 'magicArcane';
+/** The mods of a 术法充盈 value: arts damage dealt ×(1 + v). */
+export const arcaneMods = (v) => ({ artsDealtMul: 1 + v });
+/** Hold 术法充盈 `value` on `target` for `duration` s (the shared MAGIC_ARCANE effect). */
+export function holdArcane(battle, target, value, duration, source = null) {
+  if (value > 0) battle.applyStrongest(target, MAGIC_ARCANE, { duration, value, mods: arcaneMods, source });
 }
 
 /** Targetable enemies inside `grid` (relative to the unit; null ⇒ current range), best targets first. */

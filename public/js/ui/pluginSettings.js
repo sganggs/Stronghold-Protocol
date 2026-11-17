@@ -1,6 +1,7 @@
 // Manifest-driven controls shared by the room panel and the studio's trial selector.
 import { useEffect, useLayoutEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Button } from './components.js';
+import { ComboBox } from './comboBox.js';
 import { getLang, t } from '../../../shared/i18n.js';
 import { normalizeSettings } from '../../../shared/plugins/patch.js';
 import { inputNumber, syncNumberInput } from './numberInput.js';
@@ -52,9 +53,9 @@ export function PluginSettings({ definitions = {}, values = {}, disabled = false
       const label = typeof def.label === 'string' ? def.label : def.label?.[lang] || def.label?.zh || def.label?.en || key;
       return html`<label key=${key} class="st-field-row plugin-settings__row"><span>${label}</span>
         ${def.type === 'boolean' ? html`<input type="checkbox" data-setting=${key} checked=${draft[key] === true} disabled=${disabled} onChange=${e => change(key, e.currentTarget.checked)} />`
-          : def.type === 'enum' ? html`<select data-setting=${key} disabled=${disabled} value=${def.options.indexOf(draft[key])} onChange=${e => change(key, e.currentTarget.value)}>
-            ${def.options.map((v, n) => html`<option value=${n}>${String(v)}</option>`)}
-          </select>` : html`<${SettingNumber} setting=${key} def=${def} value=${draft[key]} disabled=${disabled} invalid=${invalid[key]} onValue=${n => changeNumber(key, n)} />`}
+          : def.type === 'enum' ? html`<${ComboBox} setting=${key} label=${label} disabled=${disabled} value=${String(Math.max(0, def.options.indexOf(draft[key])))}
+            options=${def.options.map((v, n) => ({ value: String(n), label: String(v) }))} onChange=${e => change(key, e.currentTarget.value)} />`
+          : html`<${SettingNumber} setting=${key} def=${def} value=${draft[key]} disabled=${disabled} invalid=${invalid[key]} onValue=${n => changeNumber(key, n)} />`}
       </label>`;
     })}
     ${Object.values(invalid).some(Boolean) ? html`<p class="set-hint is-warn">${t('设置值须符合范围和步长。')}</p>` : null}

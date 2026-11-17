@@ -312,8 +312,8 @@ test('B5: 刺胄之弹 / 斩胄之剑 / 破胄之锤 are 静态刚体 + 失衡�
       units: [{ chessId: 't_hi', row: 10, col: 6 }],
     });
     h.step();
-    const boss = h.spawn('enemy_9013_acstmk', { pos: [3, 10], routeIndex: 0, mods: { speedMul: 0 }, tag: 'boss' });
-    boss.profile.noAttack = true;
+    // 灭顶之灾 takes an attack's turn (DESIGN §35.29): the leader attacks
+    h.spawn('enemy_9013_acstmk', { pos: [3, 10], routeIndex: 0, mods: { speedMul: 0 }, tag: 'boss' });
     const shell = () => h.b.enemies.find((x) => x.defId === SHELL);
     assert.ok(h.runUntil(() => !!shell(), 60), 'the shell is fired');
     const s = shell();

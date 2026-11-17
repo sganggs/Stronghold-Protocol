@@ -295,3 +295,20 @@ test('engine: applyStatus stackAs — a 同名效果取最高 status competing w
   assert.equal(now().data.value, 0.05, 'a plain 50 % does not outrank it either');
   checkInvariants(h.b);
 });
+
+for (const uncancellable of [false, true]) test(`Raidian accuracy preserves its miss and attack cache when cancellation is ${uncancellable ? 'rejected' : 'accepted'}`, () => {
+  const h = arena(RECORDS[0], { sp: 0 });
+  h.step();
+  const b = h.b, u = h.unit(1), e = h.spawn('brute', { pos: [10, 5] });
+  let rolls = 0;
+  b.rng = Object.assign(() => { rolls++; return 0; }, b.rng);
+  const seen = [];
+  b.on('hit', c => { if (c.source === e) seen.push(c.dmg); }, { priority: 1000 });
+  for (const attackId of [601, 601, 602]) assert.equal(b.dealDamage({ source: e, target: u, amount: 10,
+    type: 'arts', calculation: 'resolved', isAttack: true, attackId, dodgeMode: 'ignore', noSp: true,
+    ignoreCancelReasons: uncancellable ? ['miss'] : [] }), uncancellable ? 10 : 0);
+  assert.equal(rolls, 2);
+  assert.equal(seen.length, 3);
+  assert.ok(seen.every(d => d.missed && d.cancel === !uncancellable));
+  done(h);
+});

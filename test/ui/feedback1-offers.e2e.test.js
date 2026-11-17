@@ -29,6 +29,11 @@ async function soloToPrep(c, bandName) {
   await c.waitFor((s) => s.phase === 'INFO_CHECK', 'briefing', 30000);
   await c.click('.brief__foot .btn--primary', '准备就绪');
   await c.waitFor((s) => s.phase === 'BAND_DRAFT', 'band draft', 30000);
+  // The four-column strategy wall scrolls (DESIGN §35.18); 凯瑟琳 is below its first screen.
+  await c.page.waitForSelector('.dband');
+  await c.page.evaluate((name) => {
+    [...document.querySelectorAll('.dband')].find((el) => el.textContent.includes(name))?.scrollIntoView({ block: 'center' });
+  }, bandName);
   await c.click('.dband', bandName);
   await c.click('.draft-detail__btns .btn--primary', '确认选择');
   await c.waitFor((x) => x.phase === 'PREP' && !x.ready, 'prep', 60000);

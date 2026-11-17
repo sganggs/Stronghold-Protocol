@@ -30,8 +30,15 @@
 //               (seat order, cyclic)
 //   天师古鼎     equip_with_another_gain_coin_when_gain_char: a 【炎】 carrier also holding 炎国短刀 (either quality)
 //               gains `count` funds every time the player gains an operator, at most `max` times per round per item
+//
+// Each override is declared in OVERRIDES by its item's effectId, the buff key it reads and its default-data item key
+// (wrapEffect; versions M0, docs/META.md §2.1). The default data and the plugin content sets built on it bind the
+// default key, as before versions M0. Another official version's build (support isVersionData) gives these ids to
+// other items: there an override binds the item keys whose normal record carries its effectId AND its buff (support
+// itemIdsWithEffect), so an effectId whose mechanic differs there binds nothing. The registry keys stay
+// `item:<item key>`, as builtinMeta and the dispatcher expect.
 
-import { itemKeyOf, isCoreBond } from '../support/index.js';
+import { itemKeyOf, itemRecord, itemIdsWithEffect, isVersionData, isCoreBond } from '../support/index.js';
 import { metaBonds } from '../support/meta.js';
 import { msg, dn } from '../../../../shared/i18n.js';
 
@@ -69,9 +76,45 @@ function wrap(registry, key, hooks) {
   registry.item(key, { ...base, ...hooks(base) });
 }
 
+/**
+ * The overrides registerMeta installs, in registration order: the item's effectId, the buff key the override reads
+ * and the item's key in the default data. 上半's 寻呼模块 (eff_acarm075) is one special refresh of same-bond operators
+ * (use_equip_add_goods_rule_with_refresh_shop), not this pick of one of `refresh_cnt`: on that build `pager` binds nothing.
+ */
+const OVERRIDES = Object.freeze({
+  dispatchTicket: Object.freeze({ effectId: 'eff_acarm115', buff: 'use_equip_reward_random_char_chess_in_shop', key: 'chess_item_2_02_e' }),
+  pager: Object.freeze({ effectId: 'eff_acarm075', buff: 'use_equip_reward_special_goods_char_chess', key: 'chess_item_4_01_e' }),
+  pointer: Object.freeze({ effectId: 'eff_acchal', buff: 'trap_create_self_choice', key: 'chess_item_6_03_m' }),
+  customerBounty: Object.freeze({ effectId: 'eff_acdisney', buff: 'trap_create_self_choice', key: 'chess_item_6_01_m' }),
+  scroll: Object.freeze({ effectId: 'eff_accopy', buff: 'trap_copy_front_char', key: 'chess_item_6_02_m' }),
+  customerDestroy: Object.freeze({ effectId: 'eff_acdisney', buff: 'trap_disney_special', key: 'chess_item_6_01_m' }),
+  cauldron: Object.freeze({ effectId: 'eff_acarm077', buff: 'equip_with_another_gain_coin_when_gain_char', key: 'chess_item_6_03_e' }),
+});
+
+const carriesBuff = (id, buff) => (itemRecord(id)?.buffs ?? []).some((b) => b && b.key === buff);
+
+/**
+ * The item keys an override binds in the loaded data: its default key, or on another version's build the keys whose
+ * normal record carries its effectId and its buff, in data order (none: nothing is bound).
+ */
+function keysOf(o) {
+  if (!isVersionData()) return [o.key];
+  return [...new Set(itemIdsWithEffect(o.effectId, { normalOnly: true }).filter((id) => carriesBuff(id, o.buff)).map((id) => itemKeyOf(id)))];
+}
+
+/** wrap() on every item key override `o` binds in the loaded data (keysOf). */
+function wrapEffect(registry, o, hooks) {
+  for (const key of keysOf(o)) wrap(registry, key, hooks);
+}
+
+/** Tests: each override (OVERRIDES, registration order) with the item keys of the loaded data it binds to. */
+export function itemMetaBindings() {
+  return Object.entries(OVERRIDES).map(([name, o]) => ({ name, effectId: o.effectId, buff: o.buff, defaultKey: o.key, keys: keysOf(o) }));
+}
+
 export function registerMeta(registry) {
   // 紧急调度券 — use_equip_reward_random_char_chess_in_shop {count}
-  wrap(registry, 'chess_item_2_02_e', () => ({
+  wrapEffect(registry, OVERRIDES.dispatchTicket, () => ({
     onEquip(ctx, ev) {
       const p = buffP(ctx, ev.item && ev.item.id, 'use_equip_reward_random_char_chess_in_shop') || {};
       const n = Math.max(1, int(p.count, 1));
@@ -89,7 +132,7 @@ export function registerMeta(registry) {
   }));
 
   // 寻呼模块 — use_equip_reward_special_goods_char_chess {refresh_cnt, choice_cnt}
-  wrap(registry, 'chess_item_4_01_e', () => ({
+  wrapEffect(registry, OVERRIDES.pager, () => ({
     onEquip(ctx, ev) {
       const p = buffP(ctx, ev.item && ev.item.id, 'use_equip_reward_special_goods_char_chess') || {};
       const n = Math.max(1, int(p.refresh_cnt, 3));
@@ -109,7 +152,7 @@ export function registerMeta(registry) {
   }));
 
   // 教鞭 — trap_create_self_choice {choice_event}: the server keeps the offered 战术特训 cards until confirmed.
-  wrap(registry, 'chess_item_6_03_m', () => ({
+  wrapEffect(registry, OVERRIDES.pointer, () => ({
     onArt(ctx, ev) {
       const result = ctx.offerBountyChoice(bountyCards(ctx, isTraining), ev.item.id);
       if (!result.ok) { ev.error = result.error; ev.detail = result.detail; }
@@ -117,7 +160,7 @@ export function registerMeta(registry) {
   }));
 
   // “神秘顾客” — a random band bounty (enemyeffect_b_*).
-  wrap(registry, 'chess_item_6_01_m', (base) => ({
+  wrapEffect(registry, OVERRIDES.customerBounty, (base) => ({
     onArt(ctx, ev) {
       const cards = bountyCards(ctx, isBandBounty);
       if (!cards.length) { if (typeof base.onArt === 'function') base.onArt.call(base, ctx, ev); return; }
@@ -135,7 +178,7 @@ export function registerMeta(registry) {
   // completes a three-copy merge (GitHub #389, PR #390): the promotion returns the copies' equipment to the hand too
   // (PRTS 帮助 "在失去该干员（…合并等）…时自动卸除"), so the elite wears nothing and a copied normal item merges with the
   // returned original.
-  wrap(registry, 'chess_item_6_02_m', () => ({
+  wrapEffect(registry, OVERRIDES.scroll, () => ({
     onArt(ctx, ev) {
       const target = (ev.targets || []).find((p) => p && p.kind === 'chess');
       if (!target) { ev.error = 'BAD_TARGET'; ev.detail = 'no operator in range'; return; }
@@ -150,7 +193,7 @@ export function registerMeta(registry) {
   }));
 
   // “神秘顾客” — trap_create_self_choice (bounty above) + trap_disney_special {count}
-  wrap(registry, 'chess_item_6_01_m', () => ({
+  wrapEffect(registry, OVERRIDES.customerDestroy, () => ({
     onDestroy(ctx, ev) {
       if (!ev || ev.reason !== 'player') return;
       const item = ev.item || ctx.source.piece;
@@ -167,7 +210,7 @@ export function registerMeta(registry) {
   }));
 
   // 天师古鼎 — equip_with_another_gain_coin_when_gain_char {count, max} {other_equip, bond}
-  wrap(registry, 'chess_item_6_03_e', (base) => ({
+  wrapEffect(registry, OVERRIDES.cauldron, (base) => ({
     onGain(ctx, ev) {
       if (typeof base.onGain === 'function') base.onGain.call(base, ctx, ev);
       if (!ev || ev.kind !== 'chess' || !ev.piece) return;

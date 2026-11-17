@@ -6,7 +6,7 @@
 import { MOVE_SCALE, COLS, STEALTH_RESTORE } from '../../constants.js';
 import {
   HUSK_REBIRTH, BOOM_RADIUS, POLLUTION_INTERVAL, STEALTH_RESTORE_BY_KEY, DUCK_STEALTH_RESTORE, nthOf, stOf, safe, num, T, elem, hurt,
-  areaAllies, areaAlliesInTiles, zone, spawnChildren, stepToward, setHits, hitCount, setForm, absorbArts, auraBuff,
+  areaAllies, areaAlliesInTiles, zone, spawnChildren, stepToward, setHits, hitCount, setForm, auraBuff,
   unbalancedNow, castSlot,
 } from './helpers.js';
 import { hypot } from '../../detmath.js';
@@ -437,20 +437,19 @@ function artsBarrier(amount, { key = 'ab:artsBarrier', whileUp = null } = {}) {
     refresh(b, e, a) {
       a.left = amount;
       b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: 'artsBarrier', value: amount });
-      if (whileUp) b.addBuff(e, { key, persist: true, visible: true, mods: whileUp });
+      b.addBuff(e, { key, persist: true, visible: true, mods: whileUp, injury(c) {
+        if (c.type !== 'arts' || !(a.left > 0)) return;
+        const take = Math.min(a.left, c.amount);
+        a.left -= take;
+        c.amount -= take;
+        if (a.left > 1e-6) return;
+        a.left = 0;
+        b.fx('shieldBreak', { x: e.x, y: e.y, id: e.id });
+        // Remove HP-changing bonuses after the breaking instance, even if a later effect dodges its overflow.
+        c.defer(() => b.removeBuff(e, c.buff));
+      } });
     },
     spawn(b, e, a) { if (amount > 0) a.refresh(b, e, a); },
-    hitIn(c, b, e, a) {
-      if (!(a.left > 0)) return;
-      a.left -= absorbArts(c, a.left);
-      if (a.left > 1e-6) return;
-      a.left = 0;
-      b.fx('shieldBreak', { x: e.x, y: e.y, id: e.id });
-      // the bonus it grants ends once the overflow of the breaking hit has landed (never before: an HP bonus removed
-      // first would rescale HP and make the overflow count twice)
-      if (c.dmg.cancel) b.removeBuff(e, key); else a.breaking = true;
-    },
-    taken(c, b, e, a) { if (a.breaking) { a.breaking = false; b.removeBuff(e, key); } },
   };
 }
 
@@ -612,9 +611,13 @@ function dmgZone(b, src, x, y, r, life, iv, amount, type = 'arts', kind = 'zone'
   } });
 }
 
-/** A cooldown skill ability (`id` labels it for tests / other abilities). */
-const skill = (s, fire, { cond = null, sil = false, cd = null, icd = null, id = null } = {}) => (s || cd != null) && fire ? ({
+/**
+ * A cooldown skill ability (`id` labels it for tests / other abilities). `turn`: the attack-turn fields of an attack-class
+ * skill (helpers.js attackSkillOf — `atk`, `clip`, `own`; DESIGN §35.52), cast in the attack's turn instead of on its own.
+ */
+const skill = (s, fire, { cond = null, sil = false, cd = null, icd = null, id = null, turn = null } = {}) => (s || cd != null) && fire ? ({
   id: id ?? null, sil, cd: cd ?? s.cd, icd: icd ?? s.icd, cond, fire, sk: s || null,   // sk: its slot for the 'cast' event
+  ...turn,
 }) : null;
 
 /** Blink past the blocker along the path (弑君者 / 卢西恩). Returns the start position. */

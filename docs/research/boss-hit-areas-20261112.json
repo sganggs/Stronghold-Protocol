@@ -1,0 +1,2002 @@
+{
+  "clientVersion": "26-11-06-12-42-25-70182449",
+  "scope": "root hit colliders of all shipped rank=BOSS records",
+  "prefabs": [
+    {
+      "prefab": "enemy_1001_bigbo",
+      "enemies": [
+        "enemy_1001_bigbo"
+      ],
+      "names": [
+        "大鲍勃"
+      ],
+      "dataFiles": [
+        "data/enemies.json",
+        "data/versions/act1autochess-v1_1/enemies.json",
+        "data/versions/act1autochess/enemies.json",
+        "data/versions/act2autochess-v2_1/enemies.json",
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_0.ab",
+      "bundleSha256": "76a93bea29400a8eaf9c94699996b281ae7955a87ff4e32885a73a52b01642dd",
+      "rootPathId": 8851722739199509783,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 0.5009999871253967,
+          "y": 3.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": -0.0,
+          "y": -0.0,
+          "z": -0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": -241660584976317161,
+        "type": "CircleCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "m_Radius": 0.10000000149011612
+      },
+      "hitArea": null
+    },
+    {
+      "prefab": "enemy_1050_lslime",
+      "enemies": [
+        "enemy_1050_lslime"
+      ],
+      "names": [
+        "“庞贝”"
+      ],
+      "dataFiles": [
+        "data/enemies.json",
+        "data/versions/act1autochess-v1_1/enemies.json",
+        "data/versions/act1autochess/enemies.json",
+        "data/versions/act2autochess-v2_1/enemies.json",
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_4.ab",
+      "bundleSha256": "eee56a7fcabb99b9464626aec0a8308e9a60fc7d3c888931ebfddfe0fcd8b66b",
+      "rootPathId": 2050092629496706068,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": -2.4800000190734863,
+          "y": 1.0499999523162842,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": -0.0,
+          "y": -0.0,
+          "z": -0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": -5883397190771395564,
+        "type": "CircleCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "m_Radius": 0.10000000149011612
+      },
+      "hitArea": null
+    },
+    {
+      "prefab": "enemy_1500_skulsr",
+      "enemies": [
+        "enemy_1500_skulsr"
+      ],
+      "names": [
+        "碎骨"
+      ],
+      "dataFiles": [
+        "data/enemies.json",
+        "data/versions/act1autochess-v1_1/enemies.json",
+        "data/versions/act1autochess/enemies.json",
+        "data/versions/act2autochess-v2_1/enemies.json",
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_base_0.ab",
+      "bundleSha256": "8ad3f66ba83f9bd1b5b256009ff262eead54ac4d07bc921d1f5b7337226cf7df",
+      "rootPathId": 2948654658506231304,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 4.0,
+          "y": 3.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": -0.0,
+          "y": -0.0,
+          "z": -0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": -7172883829761864184,
+        "type": "CircleCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "m_Radius": 0.10000000149011612
+      },
+      "hitArea": null
+    },
+    {
+      "prefab": "enemy_1501_demonk",
+      "enemies": [
+        "enemy_1501_demonk"
+      ],
+      "names": [
+        "萨卡兹百夫长"
+      ],
+      "dataFiles": [
+        "data/enemies.json",
+        "data/versions/act1autochess-v1_1/enemies.json",
+        "data/versions/act1autochess/enemies.json",
+        "data/versions/act2autochess-v2_1/enemies.json",
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_base_0.ab",
+      "bundleSha256": "8ad3f66ba83f9bd1b5b256009ff262eead54ac4d07bc921d1f5b7337226cf7df",
+      "rootPathId": 1458007857488685218,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 9.689000129699707,
+          "y": 3.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": -0.0,
+          "y": -0.0,
+          "z": -0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": 7165651238486698146,
+        "type": "CircleCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "m_Radius": 0.10000000149011612
+      },
+      "hitArea": null
+    },
+    {
+      "prefab": "enemy_1502_crowns",
+      "enemies": [
+        "enemy_1502_crowns"
+      ],
+      "names": [
+        "弑君者"
+      ],
+      "dataFiles": [
+        "data/enemies.json",
+        "data/versions/act1autochess-v1_1/enemies.json",
+        "data/versions/act1autochess/enemies.json",
+        "data/versions/act2autochess-v2_1/enemies.json",
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_base_0.ab",
+      "bundleSha256": "8ad3f66ba83f9bd1b5b256009ff262eead54ac4d07bc921d1f5b7337226cf7df",
+      "rootPathId": 957564530016958180,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 6.388999938964844,
+          "y": 3.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": -0.0,
+          "y": -0.0,
+          "z": -0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": 4916368727972951780,
+        "type": "CircleCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "m_Radius": 0.10000000149011612
+      },
+      "hitArea": null
+    },
+    {
+      "prefab": "enemy_1504_cqbw",
+      "enemies": [
+        "enemy_1504_cqbw"
+      ],
+      "names": [
+        "W"
+      ],
+      "dataFiles": [
+        "data/enemies.json",
+        "data/versions/act1autochess-v1_1/enemies.json",
+        "data/versions/act1autochess/enemies.json",
+        "data/versions/act2autochess-v2_1/enemies.json",
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_base_0.ab",
+      "bundleSha256": "8ad3f66ba83f9bd1b5b256009ff262eead54ac4d07bc921d1f5b7337226cf7df",
+      "rootPathId": 3315247245224318923,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": -0.0,
+          "y": -0.0,
+          "z": -0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": 1135584355296417739,
+        "type": "CircleCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "m_Radius": 0.10000000149011612
+      },
+      "hitArea": null
+    },
+    {
+      "prefab": "enemy_1509_mousek",
+      "enemies": [
+        "enemy_1509_mousek"
+      ],
+      "names": [
+        "鼠王"
+      ],
+      "dataFiles": [
+        "data/enemies.json",
+        "data/versions/act1autochess-v1_1/enemies.json",
+        "data/versions/act1autochess/enemies.json",
+        "data/versions/act2autochess-v2_1/enemies.json",
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_17.ab",
+      "bundleSha256": "5cab229230f1ad686df4048a44c7d0bfb719b0993ba38e25e66bce15c1e22e7a",
+      "rootPathId": -8007585103802768071,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 21.520000457763672,
+          "y": 3.509999990463257,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": -0.0,
+          "y": -0.0,
+          "z": -0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": -1209005871807961799,
+        "type": "CircleCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "m_Radius": 0.10000000149011612
+      },
+      "hitArea": null
+    },
+    {
+      "prefab": "enemy_1511_mdrock",
+      "enemies": [
+        "enemy_1511_mdrock"
+      ],
+      "names": [
+        "泥岩"
+      ],
+      "dataFiles": [
+        "data/enemies.json",
+        "data/versions/act1autochess-v1_1/enemies.json",
+        "data/versions/act1autochess/enemies.json",
+        "data/versions/act2autochess-v2_1/enemies.json",
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_18.ab",
+      "bundleSha256": "7bc74aef8fbb3cbc7ce86d7e4b789e2c0daaadf076d47b0e9989e83e7ff4eb69",
+      "rootPathId": 5805966845154907789,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": -0.0,
+          "y": -0.0,
+          "z": -0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": 3764040176537982605,
+        "type": "CircleCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "m_Radius": 0.10000000149011612
+      },
+      "hitArea": null
+    },
+    {
+      "prefab": "enemy_1512_mcmstr",
+      "enemies": [
+        "enemy_1512_mcmstr"
+      ],
+      "names": [
+        "“巨大的丑东西”"
+      ],
+      "dataFiles": [
+        "data/enemies.json",
+        "data/versions/act2autochess-v2_1/enemies.json",
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_18.ab",
+      "bundleSha256": "7bc74aef8fbb3cbc7ce86d7e4b789e2c0daaadf076d47b0e9989e83e7ff4eb69",
+      "rootPathId": -1742803049847121312,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": -0.0,
+          "y": -0.0,
+          "z": -0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": -2966436654316971424,
+        "type": "CircleCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "m_Radius": 0.10000000149011612
+      },
+      "hitArea": null
+    },
+    {
+      "prefab": "enemy_1513_dekght",
+      "enemies": [
+        "enemy_1513_dekght"
+      ],
+      "names": [
+        "腐败骑士"
+      ],
+      "dataFiles": [
+        "data/enemies.json",
+        "data/versions/act1autochess-v1_1/enemies.json",
+        "data/versions/act1autochess/enemies.json",
+        "data/versions/act2autochess-v2_1/enemies.json",
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_18.ab",
+      "bundleSha256": "7bc74aef8fbb3cbc7ce86d7e4b789e2c0daaadf076d47b0e9989e83e7ff4eb69",
+      "rootPathId": -441840224942153135,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": -0.0,
+          "y": -0.0,
+          "z": -0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": -4881794052433305007,
+        "type": "CircleCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "m_Radius": 0.10000000149011612
+      },
+      "hitArea": null
+    },
+    {
+      "prefab": "enemy_1513_dekght_2",
+      "enemies": [
+        "enemy_1513_dekght_2"
+      ],
+      "names": [
+        "凋零骑士"
+      ],
+      "dataFiles": [
+        "data/enemies.json",
+        "data/versions/act1autochess-v1_1/enemies.json",
+        "data/versions/act1autochess/enemies.json",
+        "data/versions/act2autochess-v2_1/enemies.json",
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_18.ab",
+      "bundleSha256": "7bc74aef8fbb3cbc7ce86d7e4b789e2c0daaadf076d47b0e9989e83e7ff4eb69",
+      "rootPathId": -5651874967767162125,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": -0.0,
+          "y": -0.0,
+          "z": -0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": 5559219864261616371,
+        "type": "CircleCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "m_Radius": 0.10000000149011612
+      },
+      "hitArea": null
+    },
+    {
+      "prefab": "enemy_1516_jakill",
+      "enemies": [
+        "enemy_1516_jakill"
+      ],
+      "names": [
+        "杰斯顿·威廉姆斯"
+      ],
+      "dataFiles": [
+        "data/enemies.json",
+        "data/versions/act1autochess-v1_1/enemies.json",
+        "data/versions/act1autochess/enemies.json",
+        "data/versions/act2autochess-v2_1/enemies.json",
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_18.ab",
+      "bundleSha256": "7bc74aef8fbb3cbc7ce86d7e4b789e2c0daaadf076d47b0e9989e83e7ff4eb69",
+      "rootPathId": -3227052211237692971,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": -0.0,
+          "y": -0.0,
+          "z": -0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": -298148378055353899,
+        "type": "CircleCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "m_Radius": 0.10000000149011612
+      },
+      "hitArea": null
+    },
+    {
+      "prefab": "enemy_1517_xi",
+      "enemies": [
+        "enemy_1517_xi"
+      ],
+      "names": [
+        "“自在”"
+      ],
+      "dataFiles": [
+        "data/enemies.json",
+        "data/versions/act1autochess-v1_1/enemies.json",
+        "data/versions/act1autochess/enemies.json",
+        "data/versions/act2autochess-v2_1/enemies.json",
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_18.ab",
+      "bundleSha256": "7bc74aef8fbb3cbc7ce86d7e4b789e2c0daaadf076d47b0e9989e83e7ff4eb69",
+      "rootPathId": -7077445847595902267,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": -0.0,
+          "y": -0.0,
+          "z": -0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": -1635377842463073595,
+        "type": "CircleCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "m_Radius": 0.10000000149011612
+      },
+      "hitArea": null
+    },
+    {
+      "prefab": "enemy_1521_dslily",
+      "enemies": [
+        "enemy_1521_dslily"
+      ],
+      "names": [
+        "盐风主教昆图斯"
+      ],
+      "dataFiles": [
+        "data/enemies.json",
+        "data/versions/act1autochess-v1_1/enemies.json",
+        "data/versions/act1autochess/enemies.json",
+        "data/versions/act2autochess-v2_1/enemies.json",
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_18.ab",
+      "bundleSha256": "7bc74aef8fbb3cbc7ce86d7e4b789e2c0daaadf076d47b0e9989e83e7ff4eb69",
+      "rootPathId": -1225244058112211443,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": -1.5,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": -0.0,
+          "y": -0.0,
+          "z": -0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": -5871092945827969523,
+        "type": "BoxCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 1.0
+        },
+        "m_Size": {
+          "x": 4.949999809265137,
+          "y": 2.950000047683716
+        }
+      },
+      "hitArea": {
+        "w": 4.95,
+        "h": 2.95,
+        "dx": 0.0,
+        "dy": 1.0
+      }
+    },
+    {
+      "prefab": "enemy_1525_blkswb",
+      "enemies": [
+        "enemy_1525_blkswb"
+      ],
+      "names": [
+        "锏"
+      ],
+      "dataFiles": [
+        "data/enemies.json",
+        "data/versions/act1autochess-v1_1/enemies.json",
+        "data/versions/act1autochess/enemies.json",
+        "data/versions/act2autochess-v2_1/enemies.json",
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_18.ab",
+      "bundleSha256": "7bc74aef8fbb3cbc7ce86d7e4b789e2c0daaadf076d47b0e9989e83e7ff4eb69",
+      "rootPathId": 582973716843786698,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": -0.0,
+          "y": -0.0,
+          "z": -0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": -3201680469653982774,
+        "type": "CircleCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "m_Radius": 0.10000000149011612
+      },
+      "hitArea": null
+    },
+    {
+      "prefab": "enemy_1535_wlfmster",
+      "enemies": [
+        "enemy_1535_wlfmster"
+      ],
+      "names": [
+        "扎罗，“狼之主” "
+      ],
+      "dataFiles": [
+        "data/enemies.json",
+        "data/versions/act1autochess-v1_1/enemies.json",
+        "data/versions/act1autochess/enemies.json",
+        "data/versions/act2autochess-v2_1/enemies.json",
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_18.ab",
+      "bundleSha256": "7bc74aef8fbb3cbc7ce86d7e4b789e2c0daaadf076d47b0e9989e83e7ff4eb69",
+      "rootPathId": 8072014392330151519,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 0.0,
+          "y": -2.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": -0.0,
+          "y": -0.0,
+          "z": -0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": -5670681573406939553,
+        "type": "CircleCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "m_Radius": 0.10000000149011612
+      },
+      "hitArea": null
+    },
+    {
+      "prefab": "enemy_1539_reid",
+      "enemies": [
+        "enemy_1539_reid"
+      ],
+      "names": [
+        "“复仇者”"
+      ],
+      "dataFiles": [
+        "data/enemies.json",
+        "data/versions/act2autochess-v2_1/enemies.json",
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_18.ab",
+      "bundleSha256": "7bc74aef8fbb3cbc7ce86d7e4b789e2c0daaadf076d47b0e9989e83e7ff4eb69",
+      "rootPathId": 5129420624802749534,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": -3439280218556916642,
+        "type": "CircleCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "m_Radius": 0.10000000149011612
+      },
+      "hitArea": null
+    },
+    {
+      "prefab": "enemy_2003_rockman",
+      "enemies": [
+        "enemy_2003_rockman"
+      ],
+      "names": [
+        "迷路的巨像"
+      ],
+      "dataFiles": [
+        "data/enemies.json",
+        "data/versions/act1autochess-v1_1/enemies.json",
+        "data/versions/act1autochess/enemies.json",
+        "data/versions/act2autochess-v2_1/enemies.json",
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_19.ab",
+      "bundleSha256": "84fdb631abc524475d7d739652267c2f8af3282c0ed5675dc2c26eceaf50b2c5",
+      "rootPathId": -9060030525923360484,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 1.1410000324249268,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": 7696313854056562972,
+        "type": "CircleCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "m_Radius": 0.10000000149011612
+      },
+      "hitArea": null
+    },
+    {
+      "prefab": "enemy_2004_balloon",
+      "enemies": [
+        "enemy_2004_balloon"
+      ],
+      "names": [
+        "喷气人"
+      ],
+      "dataFiles": [
+        "data/enemies.json",
+        "data/versions/act1autochess-v1_1/enemies.json",
+        "data/versions/act1autochess/enemies.json",
+        "data/versions/act2autochess-v2_1/enemies.json",
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_19.ab",
+      "bundleSha256": "84fdb631abc524475d7d739652267c2f8af3282c0ed5675dc2c26eceaf50b2c5",
+      "rootPathId": 3816945383868331630,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 1.1410000324249268,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": 3637769304003114606,
+        "type": "CircleCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "m_Radius": 0.10000000149011612
+      },
+      "hitArea": null
+    },
+    {
+      "prefab": "enemy_2005_axetro",
+      "enemies": [
+        "enemy_2005_axetro"
+      ],
+      "names": [
+        "“遗弃者”"
+      ],
+      "dataFiles": [
+        "data/enemies.json",
+        "data/versions/act1autochess-v1_1/enemies.json",
+        "data/versions/act1autochess/enemies.json",
+        "data/versions/act2autochess-v2_1/enemies.json",
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_19.ab",
+      "bundleSha256": "84fdb631abc524475d7d739652267c2f8af3282c0ed5675dc2c26eceaf50b2c5",
+      "rootPathId": -4409158369608212619,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 2.0,
+          "y": 3.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": -0.0,
+          "y": -0.0,
+          "z": -0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": -8644222358104645771,
+        "type": "CircleCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "m_Radius": 0.10000000149011612
+      },
+      "hitArea": null
+    },
+    {
+      "prefab": "enemy_2008_flking",
+      "enemies": [
+        "enemy_2008_flking"
+      ],
+      "names": [
+        "“墓碑”"
+      ],
+      "dataFiles": [
+        "data/enemies.json",
+        "data/versions/act1autochess-v1_1/enemies.json",
+        "data/versions/act1autochess/enemies.json",
+        "data/versions/act2autochess-v2_1/enemies.json",
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_19.ab",
+      "bundleSha256": "84fdb631abc524475d7d739652267c2f8af3282c0ed5675dc2c26eceaf50b2c5",
+      "rootPathId": 8138662525746378529,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 4.0,
+          "y": 3.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": -0.0,
+          "y": -0.0,
+          "z": -0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": -1777486053971953887,
+        "type": "CircleCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "m_Radius": 0.10000000149011612
+      },
+      "hitArea": null
+    },
+    {
+      "prefab": "enemy_2016_csphtm",
+      "enemies": [
+        "enemy_2016_csphtm"
+      ],
+      "names": [
+        "卢西恩，“猩红血钻”"
+      ],
+      "dataFiles": [
+        "data/enemies.json",
+        "data/versions/act2autochess-v2_1/enemies.json",
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_19.ab",
+      "bundleSha256": "84fdb631abc524475d7d739652267c2f8af3282c0ed5675dc2c26eceaf50b2c5",
+      "rootPathId": 7122847866454941322,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": -0.5299999713897705,
+          "y": 4.340000152587891,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": -0.0,
+          "y": -0.0,
+          "z": -0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": 7830533638635527818,
+        "type": "CircleCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "m_Radius": 0.10000000149011612
+      },
+      "hitArea": null
+    },
+    {
+      "prefab": "enemy_2048_smgrd",
+      "enemies": [
+        "enemy_2048_smgrd"
+      ],
+      "names": [
+        "“邪魔的利刃”"
+      ],
+      "dataFiles": [
+        "data/enemies.json",
+        "data/versions/act2autochess-v2_1/enemies.json",
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_19.ab",
+      "bundleSha256": "84fdb631abc524475d7d739652267c2f8af3282c0ed5675dc2c26eceaf50b2c5",
+      "rootPathId": 3368161564906809631,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": -8773687060970280673,
+        "type": "CircleCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "m_Radius": 0.10000000149011612
+      },
+      "hitArea": null
+    },
+    {
+      "prefab": "enemy_2050_smsha",
+      "enemies": [
+        "enemy_2050_smsha"
+      ],
+      "names": [
+        "陷落雪祀"
+      ],
+      "dataFiles": [
+        "data/enemies.json",
+        "data/versions/act2autochess-v2_1/enemies.json",
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_19.ab",
+      "bundleSha256": "84fdb631abc524475d7d739652267c2f8af3282c0ed5675dc2c26eceaf50b2c5",
+      "rootPathId": -5519355595069135296,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": 2509527893241620032,
+        "type": "CircleCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "m_Radius": 0.10000000149011612
+      },
+      "hitArea": null
+    },
+    {
+      "prefab": "enemy_2052_smgia",
+      "enemies": [
+        "enemy_2052_smgia"
+      ],
+      "names": [
+        "纠缠藤蔓"
+      ],
+      "dataFiles": [
+        "data/enemies.json",
+        "data/versions/act2autochess-v2_1/enemies.json",
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_20.ab",
+      "bundleSha256": "a8691210052bd5668850ab7b08d0926f835f17abce02503efea0556e418017ee",
+      "rootPathId": -496846548849791163,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": 7199806867807334213,
+        "type": "CircleCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "m_Radius": 0.10000000149011612
+      },
+      "hitArea": null
+    },
+    {
+      "prefab": "enemy_2123_dyjsww",
+      "enemies": [
+        "enemy_2123_dyjsww"
+      ],
+      "names": [
+        "后兽"
+      ],
+      "dataFiles": [
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_27.ab",
+      "bundleSha256": "71ca2e2ea0b108a93414d1141f55901d4df325295d02b00f41357e4c8715db6a",
+      "rootPathId": -4424595440846001169,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": 3577772115276180463,
+        "type": "BoxCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "m_Size": {
+          "x": 2.950000047683716,
+          "y": 2.950000047683716
+        }
+      },
+      "hitArea": {
+        "w": 2.95,
+        "h": 2.95,
+        "dx": 0.0,
+        "dy": 0.0
+      }
+    },
+    {
+      "prefab": "enemy_2124_dyjsfg",
+      "enemies": [
+        "enemy_2124_dyjsfg"
+      ],
+      "names": [
+        "矩兽"
+      ],
+      "dataFiles": [
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_28.ab",
+      "bundleSha256": "559485d435af0ebe0f4c5e3c02719db797cf691d736fd82cdaa382ec0718a0d9",
+      "rootPathId": -5039987097983317733,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": 3464667387366869275,
+        "type": "CircleCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "m_Radius": 0.10000000149011612
+      },
+      "hitArea": null
+    },
+    {
+      "prefab": "enemy_9013_acstmk",
+      "enemies": [
+        "enemy_9013_acstmk",
+        "enemy_9013_acstmk_2"
+      ],
+      "names": [
+        "假想敌：胄"
+      ],
+      "dataFiles": [
+        "data/enemies.json",
+        "data/versions/act1autochess-v1_1/enemies.json",
+        "data/versions/act1autochess/enemies.json",
+        "data/versions/act2autochess-v2_1/enemies.json",
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_28.ab",
+      "bundleSha256": "559485d435af0ebe0f4c5e3c02719db797cf691d736fd82cdaa382ec0718a0d9",
+      "rootPathId": 8915770806903392567,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": 9061330787609626935,
+        "type": "BoxCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 1.0
+        },
+        "m_Size": {
+          "x": 4.949999809265137,
+          "y": 2.950000047683716
+        }
+      },
+      "hitArea": {
+        "w": 4.95,
+        "h": 2.95,
+        "dx": 0.0,
+        "dy": 1.0
+      }
+    },
+    {
+      "prefab": "enemy_9017_achunt",
+      "enemies": [
+        "enemy_9017_achunt",
+        "enemy_9017_achunt_2"
+      ],
+      "names": [
+        "假想敌：铳"
+      ],
+      "dataFiles": [
+        "data/enemies.json",
+        "data/versions/act1autochess-v1_1/enemies.json",
+        "data/versions/act1autochess/enemies.json",
+        "data/versions/act2autochess-v2_1/enemies.json",
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_28.ab",
+      "bundleSha256": "559485d435af0ebe0f4c5e3c02719db797cf691d736fd82cdaa382ec0718a0d9",
+      "rootPathId": -8787142366822207324,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": 1234553307215294628,
+        "type": "CircleCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "m_Radius": 0.10000000149011612
+      },
+      "hitArea": null
+    },
+    {
+      "prefab": "enemy_9021_acduml",
+      "enemies": [
+        "enemy_9021_acduml"
+      ],
+      "names": [
+        "假想敌：管"
+      ],
+      "dataFiles": [
+        "data/enemies.json",
+        "data/versions/act1autochess-v1_1/enemies.json",
+        "data/versions/act1autochess/enemies.json",
+        "data/versions/act2autochess-v2_1/enemies.json",
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_28.ab",
+      "bundleSha256": "559485d435af0ebe0f4c5e3c02719db797cf691d736fd82cdaa382ec0718a0d9",
+      "rootPathId": 7947945485281693927,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": 567716748612702439,
+        "type": "BoxCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 1.0
+        },
+        "m_Size": {
+          "x": 4.949999809265137,
+          "y": 2.950000047683716
+        }
+      },
+      "hitArea": {
+        "w": 4.95,
+        "h": 2.95,
+        "dx": 0.0,
+        "dy": 1.0
+      }
+    },
+    {
+      "prefab": "enemy_9021_acduml_2",
+      "enemies": [
+        "enemy_9021_acduml_2"
+      ],
+      "names": [
+        "假想敌：管"
+      ],
+      "dataFiles": [
+        "data/enemies.json",
+        "data/versions/act1autochess-v1_1/enemies.json",
+        "data/versions/act1autochess/enemies.json",
+        "data/versions/act2autochess-v2_1/enemies.json",
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_29.ab",
+      "bundleSha256": "a45b8db9ce6c888fbb144000a8da3fdc0b142ca8e8152da352d0ddc22f997913",
+      "rootPathId": 3982743448935380316,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": -4396521143159573156,
+        "type": "BoxCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 1.0,
+          "y": 1.0
+        },
+        "m_Size": {
+          "x": 4.949999809265137,
+          "y": 2.950000047683716
+        }
+      },
+      "hitArea": {
+        "w": 4.95,
+        "h": 2.95,
+        "dx": 1.0,
+        "dy": 1.0
+      }
+    },
+    {
+      "prefab": "enemy_9029_acfnc",
+      "enemies": [
+        "enemy_9029_acfnc"
+      ],
+      "names": [
+        "假想敌：械"
+      ],
+      "dataFiles": [
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_36.ab",
+      "bundleSha256": "1df48c571e7e419e735e351d174c9345c502c8a694b31b464d7884fe3745033c",
+      "rootPathId": 3245407771913664719,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": 7305665814224025807,
+        "type": "BoxCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 1.0
+        },
+        "m_Size": {
+          "x": 4.949999809265137,
+          "y": 2.950000047683716
+        }
+      },
+      "hitArea": {
+        "w": 4.95,
+        "h": 2.95,
+        "dx": 0.0,
+        "dy": 1.0
+      }
+    },
+    {
+      "prefab": "enemy_9029_acfnc_2",
+      "enemies": [
+        "enemy_9029_acfnc_2"
+      ],
+      "names": [
+        "假想敌：械"
+      ],
+      "dataFiles": [
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_36.ab",
+      "bundleSha256": "1df48c571e7e419e735e351d174c9345c502c8a694b31b464d7884fe3745033c",
+      "rootPathId": 1115502308613878869,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": 6184812528750949461,
+        "type": "BoxCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 1.0
+        },
+        "m_Size": {
+          "x": 4.949999809265137,
+          "y": 2.950000047683716
+        }
+      },
+      "hitArea": {
+        "w": 4.95,
+        "h": 2.95,
+        "dx": 0.0,
+        "dy": 1.0
+      }
+    },
+    {
+      "prefab": "enemy_9032_aclionk",
+      "enemies": [
+        "enemy_9032_aclionk"
+      ],
+      "names": [
+        "阿利斯泰尔，帝国余晖"
+      ],
+      "dataFiles": [
+        "data/enemies.json",
+        "data/versions/act1autochess-v1_1/enemies.json",
+        "data/versions/act1autochess/enemies.json",
+        "data/versions/act2autochess-v2_1/enemies.json",
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_29.ab",
+      "bundleSha256": "a45b8db9ce6c888fbb144000a8da3fdc0b142ca8e8152da352d0ddc22f997913",
+      "rootPathId": 1770554816996651062,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": -1663214121109999562,
+        "type": "BoxCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 1.0
+        },
+        "m_Size": {
+          "x": 4.949999809265137,
+          "y": 2.950000047683716
+        }
+      },
+      "hitArea": {
+        "w": 4.95,
+        "h": 2.95,
+        "dx": 0.0,
+        "dy": 1.0
+      }
+    },
+    {
+      "prefab": "enemy_9033_acdeer",
+      "enemies": [
+        "enemy_9033_acdeer"
+      ],
+      "names": [
+        "“萨米的意志”"
+      ],
+      "dataFiles": [
+        "data/enemies.json",
+        "data/versions/act1autochess-v1_1/enemies.json",
+        "data/versions/act1autochess/enemies.json",
+        "data/versions/act2autochess-v2_1/enemies.json",
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_29.ab",
+      "bundleSha256": "a45b8db9ce6c888fbb144000a8da3fdc0b142ca8e8152da352d0ddc22f997913",
+      "rootPathId": 7859740430962114931,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 0.0,
+          "y": 5.880000114440918,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": 4165954101551219059,
+        "type": "BoxCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 1.0
+        },
+        "m_Size": {
+          "x": 4.949999809265137,
+          "y": 2.950000047683716
+        }
+      },
+      "hitArea": {
+        "w": 4.95,
+        "h": 2.95,
+        "dx": 0.0,
+        "dy": 1.0
+      }
+    },
+    {
+      "prefab": "enemy_9035_acspider",
+      "enemies": [
+        "enemy_9035_acspider"
+      ],
+      "names": [
+        "假想敌：茧"
+      ],
+      "dataFiles": [
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_37.ab",
+      "bundleSha256": "782c45b5dd64164347915bc730bb4d29efb3e28318fe0ced099ad606c700b251",
+      "rootPathId": -2216223103367817844,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": -6124559485015992948,
+        "type": "BoxCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 1.0
+        },
+        "m_Size": {
+          "x": 4.949999809265137,
+          "y": 2.950000047683716
+        }
+      },
+      "hitArea": {
+        "w": 4.95,
+        "h": 2.95,
+        "dx": 0.0,
+        "dy": 1.0
+      }
+    },
+    {
+      "prefab": "enemy_9035_acspider_2",
+      "enemies": [
+        "enemy_9035_acspider_2"
+      ],
+      "names": [
+        "假想敌：茧"
+      ],
+      "dataFiles": [
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_37.ab",
+      "bundleSha256": "782c45b5dd64164347915bc730bb4d29efb3e28318fe0ced099ad606c700b251",
+      "rootPathId": 8473302229790319706,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": 6015638063045370970,
+        "type": "BoxCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 1.0
+        },
+        "m_Size": {
+          "x": 4.949999809265137,
+          "y": 2.950000047683716
+        }
+      },
+      "hitArea": {
+        "w": 4.95,
+        "h": 2.95,
+        "dx": 0.0,
+        "dy": 1.0
+      }
+    },
+    {
+      "prefab": "enemy_9037_aceel",
+      "enemies": [
+        "enemy_9037_aceel"
+      ],
+      "names": [
+        "假想敌：鳍"
+      ],
+      "dataFiles": [
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_37.ab",
+      "bundleSha256": "782c45b5dd64164347915bc730bb4d29efb3e28318fe0ced099ad606c700b251",
+      "rootPathId": 6426269103627653382,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": -1817125658168897274,
+        "type": "CircleCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "m_Radius": 0.10000000149011612
+      },
+      "hitArea": null
+    },
+    {
+      "prefab": "enemy_9037_aceel_2",
+      "enemies": [
+        "enemy_9037_aceel_2"
+      ],
+      "names": [
+        "假想敌：鳍"
+      ],
+      "dataFiles": [
+        "data/versions/act3autochess-v3_1/enemies.json"
+      ],
+      "bundle": "battle/enm_pfb_37.ab",
+      "bundleSha256": "782c45b5dd64164347915bc730bb4d29efb3e28318fe0ced099ad606c700b251",
+      "rootPathId": -978061744270951393,
+      "layer": 9,
+      "transform": {
+        "m_LocalPosition": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "m_LocalRotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        }
+      },
+      "collider": {
+        "pathId": 747654273681505311,
+        "type": "CircleCollider2D",
+        "m_Enabled": 1,
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "m_Radius": 0.10000000149011612
+      },
+      "hitArea": null
+    }
+  ]
+}

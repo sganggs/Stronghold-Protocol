@@ -218,13 +218,13 @@ test('E2 audit: 咒愈师 strike the enemy they block and heal by their trait (D
 // =====================================================================================================================
 // every boss round
 
-test('E2 audit: healers on the lane tiles of every boss / hidden field deal no damage; they block the roaming 卢西恩 / 不祥幻影 and a patrolling 碎铳之簧 whose shield is down, and keep healing', REAL, () => {
+test('E2 audit: healers on every boss / hidden field deal no damage; they block roaming 卢西恩 / 不祥幻影 and heal, while 碎铳之簧 stays unblockable', REAL, () => {
   const ds = getDefaultSource();
   const W = waves();
   const HEALERS = ['chess_char_5_23_a', 'chess_char_2_14_a', 'chess_char_6_14_a', 'chess_char_2_06_a', 'chess_char_6_20_a', 'chess_char_4_26_a', 'chess_char_4_21_a', 'chess_char_4_08_a', 'chess_char_2_05_a', 'chess_char_2_02_a'];
   const SPRING = /^enemy_90(18|19|20)_actrp/;
   /** The leaders / parts a block-1 operator can block at all (the rest: 自缚 / 无法被阻挡, the 剑 / 锤 anchored, 余音 block ≥ 2). */
-  const EXPECT = { act2autochess_h07_05: [LUCIEN], act2autochess_h07_05_s: [LUCIEN], act1autochess_h08_02: [SPRING], act1autochess_h08_02_s: [SPRING] };
+  const EXPECT = { act2autochess_h07_05: [LUCIEN], act2autochess_h07_05_s: [LUCIEN] };
   let templates = 0;
   for (const [key, tpl] of Object.entries(W)) {
     if (tpl.kind !== 'boss' && tpl.kind !== 'hidden') continue;
@@ -247,13 +247,13 @@ test('E2 audit: healers on the lane tiles of every boss / hidden field deal no d
     const lead = (e) => e.isBoss || e.tag === 'boss' || e.tag === 'part' || LUCIEN.test(e.defId);
     let healsOnLead = 0;
     h.b.on('heal', (c) => { if (healers.includes(c.source) && c.amount > 0 && c.source.blocking.some(lead)) healsOnLead++; });
-    // 200 s on the fields whose leaders / parts a healer must block (the solo 铳 field's springs first meet a healer at
-    // 145 s since their 末日布道 chase lasts its whole 5 s — PR #347), 120 s elsewhere
-    for (let i = 0; i < (EXPECT[key] ? 200 : 120) * 30; i++) {
+    // Keep 200 s on roaming fields: springs first meet a healer at 145 s, so a shorter no-block check is vacuous.
+    const longRun = EXPECT[key] || key.startsWith('act1autochess_h08_02');
+    for (let i = 0; i < (longRun ? 200 : 120) * 30; i++) {
       h.step();
-      // operators break the 碎铳之簧 shields (unblockable while shielded): a hit of the kind each shield yields to
+      // Break each held shield too: PRTS corrects the handbook's claim that this makes springs blockable.
       for (const e of h.b.enemies) {
-        if (!e.alive || !SPRING.test(e.defId) || !e.s.flags.unblockable) continue;
+        if (!e.alive || !SPRING.test(e.defId) || !e.findBuff('boss:springShield')) continue;
         if (/9018/.test(e.defId)) h.b.dealDamage(null, e, { amount: e.s.maxHp * 0.02, type: 'arts' });   // 法术屏障 (0.5 % max HP)
         else if (/9019/.test(e.defId)) h.b.dealDamage(null, e, { type: 'element', element: 'burn', amount: 1000 }); // 元素护盾: its burst
         else h.b.dealDamage(null, e, { amount: 1, type: 'true' });                                        // 频次护盾: 5 hits

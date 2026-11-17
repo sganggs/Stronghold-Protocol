@@ -43,10 +43,11 @@
 // undying duration ×m, ASPD ×m, tremble chance ×m. Granted hammers without an own copy use 蒸汽之心's blackboard.
 
 import {
-  num, itemRecord, itemKeyOf, buffsOf, isOp, onField, unitBonds, isMember, bondActive, isGroundOp, frontTile,
-  alliesAround, passiveBuff, fxOn, battleStore, contentInfo, itemsOf, directMods,
+  num, itemRecord, itemKeyOf, itemEffectKey, itemIdsWithEffect, isVersionData, gameData, buffsOf, isOp, onField, unitBonds,
+  isMember, bondActive, activeBondIds, isGroundOp, frontTile, alliesAround, passiveBuff, fxOn, battleStore, contentInfo, itemsOf, directMods, bodyInRadius,
 } from '../support/index.js';
-import { mitigate, hasHp, periodicDamage, isHpLoss } from '../../damage.js';
+import { bodyInRange } from '../../body.js';
+import { mitigate, hasHp, periodicDamage, isHpLoss, damageAttackType } from '../../attack.js';
 import { hypot } from '../../detmath.js';
 
 // =====================================================================================================================
@@ -100,22 +101,44 @@ function statMods(p) {
   return any ? m : null;
 }
 
-// ---- hammers (蒸汽之心) — derived from data: hammer records carry bbStr.big_hammer on their special buff
+// ---- hammers (蒸汽之心) — derived from data: hammer records carry bbStr.big_hammer on their special buff. 蒸汽之心 is
+// chess_item_6_05_e, on another version's build the record of its effectId (上半 gives chess_item_6_05_e to 耶拉冈德之泪).
 const STEAM_KEY = 'chess_item_6_05_e';
+const STEAM_EFFECT = 'eff_acarm079';
 const STEAM_BUFF = 'act1autochess_equip_acarm079_global_buff';
 function hammerTypeOf(p) {
   if (!p) return null;
   if (p.damage_scale != null) return 'burn';
   if (p.undeadable_duration != null) return 'undying';
   if (p.disarmed_duration != null) return 'tremble';
+  // 电流维式重锤 (规程) also carries no attack_speed; palsy_prob is checked first so a future blackboard that has both
+  // is still 麻痹, not 加速.
+  if (p.palsy_prob != null) return 'palsy';
   if (p.attack_speed != null) return 'aspd';
   return null;
 }
-/** hammer item key → { type, bbKey } */
-const HAMMERS = new Map();
+/** The steam record: 蒸汽之心 by effectId, else the equipment that carries the same buff (规程 终极维式重锤, eff_acarm155). */
+function steamRecord() {
+  if (!isVersionData()) return itemRecord(`${STEAM_KEY}_a`);
+  const byEffect = itemIdsWithEffect(STEAM_EFFECT, { normalOnly: true })[0];
+  if (byEffect) return itemRecord(byEffect);
+  const items = gameData().items;
+  if (!items || typeof items !== 'object') return null;
+  for (const id of Object.keys(items)) {
+    if (id.endsWith('_b')) continue;
+    const rec = items[id];
+    if (!rec || rec.itemType !== 'EQUIP') continue;
+    if (buffsOf(rec).some((b) => b.bbKey === STEAM_BUFF)) return rec;
+  }
+  return null;
+}
+/** hammer item key → { type, bbKey }, for the data object it was read from */
+let HAMMERS = new Map();
+let HAMMERS_DATA = null;
 function hammerInfo(key) {
+  if (HAMMERS_DATA !== gameData()) { HAMMERS = new Map(); HAMMERS_DATA = gameData(); }
   if (!HAMMERS.size) {
-    const steam = itemRecord(`${STEAM_KEY}_a`);
+    const steam = steamRecord();
     const sp = steam ? bp(steam, STEAM_BUFF) : null;
     const keys = sp ? Object.keys(sp).filter((k) => /^hammer_\d+$/.test(k)).map((k) => itemKeyOf(sp[k])) : [];
     for (const k of keys) {
@@ -234,7 +257,10 @@ function hammerState(battle, rt, u) {
   if (!hs) {
     // lockAt: the deployment (deploymentOf) whose 坚固 lock is spent — kept here, not in the grant's Scope, so a lend
     // that ends and comes back never resets it, and a redeploy while no hammer is held still re-arms it
-    hs = { own: { burn: 0, undying: 0, aspd: 0, tremble: 0 }, params: {}, steam: 0, steamP: null, refs: 0, scope: null, aspdCur: 0, lockAt: null };
+    hs = {
+      own: { burn: 0, undying: 0, aspd: 0, tremble: 0, palsy: 0 }, params: {}, steam: 0, steamP: null,
+      regulation: false, refs: 0, scope: null, aspdCur: 0, atkCur: 0, lockAt: null,
+    };
     rt.hammers.set(u, hs);
   }
   return hs;
@@ -286,7 +312,13 @@ export function holdsUndying(battle, u) {
 }
 /** Effective multiplier of a hammer type on `u` and its params (null when the type does not apply). */
 function hammerMul(battle, rt, u, hs, type) {
-  const own = hs.own[type];
+  const own = hs.own[type] || 0;
+  // 终极维式重锤 (规程): each special hammer type on the field is granted once. A type the carrier already carries
+  // is not doubled, and there is no 维多利亚 gate (the sentence does not name one). [ASSUMED]
+  if (hs.regulation && hs.steam > 0) {
+    if (own > 0) return own;
+    return fieldHammers(battle, rt, u.ownerId).has(type) ? 1 : 0;
+  }
   const steam = hs.steam > 0 && memberOf(battle, u, 'victoriaShip') && fieldHammers(battle, rt, u.ownerId).has(type) ? 1 : 0;
   return own + steam;
 }
@@ -296,11 +328,20 @@ function hammerRefresh(battle, rt, u, hs) {
   if (!hs.scope) return;
   const p = hammerParams(hs, 'aspd');
   const v = p ? num(p.attack_speed) * hammerMul(battle, rt, u, hs, 'aspd') : 0;
-  if (v === hs.aspdCur) return;
+  // 每有一种带有特殊效果的维式重锤，攻击力 +atk_per_hammer. Only while deployed. Default 蒸汽之心 has no such field.
+  let atk = 0;
+  if (hs.regulation && hs.steam > 0 && onField(u)) {
+    const per = num(hs.steamP && hs.steamP.atk_per_hammer);
+    if (per) atk = per * fieldHammers(battle, rt, u.ownerId).size * hs.steam;
+  }
+  if (v === hs.aspdCur && atk === hs.atkCur) return;
   hs.aspdCur = v;
-  const k = hs.scope.key('aspd');
-  if (v) hs.scope.stat('aspd', { aspd: v });
-  else battle.removeBuff(u, k);
+  hs.atkCur = atk;
+  const mods = {};
+  if (v) mods.aspd = v;
+  if (atk) Object.assign(mods, directMods({ atk }));
+  if (v || atk) hs.scope.stat('aspd', mods);
+  else battle.removeBuff(u, hs.scope.key('aspd'));
 }
 
 function hammerAcquire(battle, rt, u) {
@@ -356,6 +397,29 @@ function hammerAcquire(battle, rt, u) {
     c.prevented = true;
     fxOn(battle, 'undying', u, 'item:hammer', 'chess_item_3_09_e', { duration: dur });
   }, PRIO_REVIVE);
+  // 电流: on damage, palsy_prob × m ⇒ 1 麻痹. Hits against a 麻痹 target ignore def_penetrate / magic_resist_penetrate
+  // (not multiplied by m). [ASSUMED] the chance scales like 战栗; the penetration does not. Default steam blackboards
+  // have no palsy_prob, so both hooks return before they change a hit.
+  S.on('damaged', (c) => {
+    if (c.source !== u || c.type === 'element' || isHpLoss(c.dmg) || isProc(c.dmg) || !(c.amount > 0)) return;
+    if (!c.target || c.target.side !== 'enemy' || !c.target.alive) return;
+    const pp = hammerParams(hs, 'palsy');
+    if (!pp || pp.palsy_prob == null) return;
+    const pm = hammerMul(battle, rt, u, hs, 'palsy');
+    if (!(pm > 0)) return;
+    if (chance(battle, Math.min(1, num(pp.palsy_prob) * pm))) battle.applyStatus(c.target, 'palsy', { value: 1, source: u });
+  });
+  S.on('hit', (c) => {
+    if (c.source !== u || !c.target || !c.dmg || c.dmg.type === 'element' || isProc(c.dmg)) return;
+    const pp = hammerParams(hs, 'palsy');
+    if (!pp || pp.palsy_prob == null) return;
+    if (!(hammerMul(battle, rt, u, hs, 'palsy') > 0)) return;
+    if (!c.target.findBuff('palsy')) return;
+    const defP = num(pp.def_penetrate);
+    const resP = num(pp.magic_resist_penetrate);
+    if (defP) c.dmg.defIgnorePct = Math.min(1, (c.dmg.defIgnorePct || 0) + defP);
+    if (resP) c.dmg.resIgnorePct = Math.min(1, (c.dmg.resIgnorePct || 0) + resP);
+  });
   return hs;
 }
 function hammerRelease(battle, rt, u, hs) {
@@ -369,7 +433,7 @@ function hammerRelease(battle, rt, u, hs) {
 // =====================================================================================================================
 // item behaviours: key → (battle, u, rec, S, ctx) — register through S (disposed with the grant)
 
-/** Damage mitigation estimate for flat DR / weakness damage (same formula as damage.js). */
+/** Mitigation-only estimate for weakness damage; actual flat reductions use ordered injury effects. */
 function mitigated(amount, type, target, source, dmg) {
   const ss = source && source.s ? source.s : null;
   return mitigate(amount, type, target.s, {
@@ -389,7 +453,10 @@ function onAttackEnemies(S, u, fn) {
   });
 }
 
-/** Actual carrier damage to enemies, including DoT/skill/splash. Element gauge fill and HP loss are not damage. */
+/**
+ * Actual carrier damage to enemies, including DoT/skill/splash. Gauges and HP loss are not damage.
+ * [ASSUMED] Preserve legacy notification order until native item timing is established (research 12 S59).
+ */
 function onDamageEnemies(S, u, fn) {
   S.on('damaged', (c) => {
     if (c.source !== u || c.type === 'element' || isHpLoss(c.dmg) || !(c.amount > 0)
@@ -397,6 +464,22 @@ function onDamageEnemies(S, u, fn) {
     fn(c.target, c);
   });
 }
+
+/** The carrier's attack range (tile keys). Allies use their body; enemies use the collider test. */
+function inAttackRange(u, target) {
+  return !!(u && target && bodyInRange(target, u.rangeKeySet || u.rangeKeys));
+}
+/** 晕眩 / 冻结 / 恐惧. `flags.stun` is also set by freeze, sleep and levitate, so a real stun is the stun buff. */
+function hardControl(t) {
+  if (!t) return false;
+  const f = t.s && t.s.flags;
+  if (f && (f.freeze || f.fear)) return true;
+  const bs = t.buffs;
+  if (!bs) return false;
+  for (let i = 0; i < bs.length; i++) if ((bs[i].status ?? bs[i].key) === 'stun') return true;
+  return false;
+}
+const RIOT = new Set(['stun', 'freeze', 'fear']);
 
 /** Generic buff-key behaviours (shared by several items). */
 const BY_BUFF = {
@@ -442,14 +525,7 @@ const BY_BUFF = {
   halfidle_block_fixed_damage(battle, u, p, S) {
     const v = num(p.value);
     if (!(v > 0)) return;
-    S.on('hit', (c) => {
-      if (c.target !== u) return;
-      const d = c.dmg;
-      if (d.type === 'element') return;
-      const base = mitigated(d.amount * d.mul, d.type, u, c.source, d);
-      if (!(base > 0)) return;
-      d.mul *= Math.max(0, base - v) / base;
-    }, -10);
+    S.buff(u, { key: S.key('fixedReduction'), persist: true, allowDead: true, injury(c) { c.amount = Math.max(0, c.amount - v); } });
   },
   // 叙拉古正装: allies on the two tiles beside the carrier ("左右两格", perpendicular to its direction: the facing-RIGHT
   // offsets (±1, 0) rotated by its dir) get ASPD +attack_speed
@@ -464,12 +540,365 @@ const BY_BUFF = {
       for (const a of alliesAround(battle, u, SIDES)) if (a.kind === 'op') S.buff(a, { key, duration: 0.6, mods, refresh: 'replace' });
     }, { immediate: true });
   },
+  // 虹彩活血饮料: 无法被治疗, and 生命回复速度 value HP/s (the regen attribute, which 禁疗 does not stop).
+  act3autochess_equip_acarm126_global_buff(battle, u, p, S) {
+    const v = num(p.value);
+    if (!(v > 0)) return;
+    S.stat('rainbow', { hpRegen: v }, { flags: { noHeal: true } });
+  },
+  // 雪祀之衣: 阻挡数 block_cnt, 嘲讽 taunt_level. The max-HP bonus is the separate attr buff.
+  act3autochess_equip_acarm127_global_buff(battle, u, p, S) {
+    const mods = {};
+    if (num(p.block_cnt)) mods.blockCnt = num(p.block_cnt);
+    if (num(p.taunt_level)) mods.taunt = num(p.taunt_level);
+    if (mods.blockCnt != null || mods.taunt != null) S.stat('snow', mods);
+  },
+  // 聚合急救箱: the first time each ally operator in attack range drops below check_hp_ratio, heal hp_ratio of THAT
+  // ally's max HP. [ASSUMED] once per ally per battle (not reset on redeploy); the carrier counts when their own tile
+  // is in range. docShip is a shop tag, not a gate.
+  act3autochess_equip_acarm136_ability(battle, u, p, S) {
+    const thr = num(p.check_hp_ratio, 0.5);
+    const healR = num(p.hp_ratio);
+    if (!(healR > 0)) return;
+    const seen = new Set();
+    S.every(0.25, () => {
+      if (!onField(u)) return;
+      for (const a of battle.allyUnits) {
+        if (a.kind !== 'op' || a.ownerId !== u.ownerId || !onField(a) || seen.has(a.id)) continue;
+        if (!inAttackRange(u, a) || !(a.hpRatio < thr)) continue;
+        seen.add(a.id);
+        battle.heal(u, a, a.s.maxHp * healR);
+      }
+    }, { immediate: true });
+  },
+  // 灵巧涡轮手套: after deploy, +attack_speed ASPD per second, cap atk_speed_layer_max. [ASSUMED] "失去该效果" clears the
+  // stacks when damage is taken (a 流失 is not 受到伤害) and they build again; a new deployment starts from zero.
+  act3autochess_equip_acarm132_global_buff(battle, u, p, S) {
+    const step = num(p.attack_speed);
+    const cap = Math.max(1, Math.floor(num(p.atk_speed_layer_max, 20)));
+    if (!step) return;
+    const st = { n: 0, seq: u.deploySeq };
+    const key = S.key('glove');
+    const apply = () => {
+      if (st.n > 0) S.buff(u, { key, mods: { aspd: step * st.n }, persist: true, allowDead: true, refresh: 'replace' });
+      else battle.removeBuff(u, key);
+    };
+    S.every(1, () => {
+      if (!onField(u)) return;
+      if (u.deploySeq !== st.seq) { st.seq = u.deploySeq; st.n = 0; }
+      if (st.n < cap) { st.n++; apply(); }
+    });
+    S.on('damaged', (c) => {
+      if (c.target !== u || !(c.amount > 0) || isHpLoss(c.dmg) || st.n === 0) return;
+      st.n = 0;
+      apply();
+    });
+    S.on('deploy', (c) => {
+      if (c.unit !== u) return;
+      st.seq = u.deploySeq;
+      st.n = 0;
+      apply();
+    });
+  },
+  // 乌萨斯呼吸器: block_cnt_cell and atk_cell × stacks, cap layer_max. [ASSUMED] the deployment already in progress is
+  // stack 1; the same deploySeq does not add another, and each later deployment adds one.
+  act3autochess_equip_acarm138_global_buff(battle, u, p, S) {
+    const block = num(p.block_cnt_cell);
+    const atk = num(p.atk_cell);
+    const cap = Math.max(1, Math.floor(num(p.layer_max, 1)));
+    const st = { n: 0, seq: null };
+    const apply = () => S.stat('breath', { blockCnt: block * st.n, ...directMods({ atk: atk * st.n }) });
+    const add = (seq) => {
+      if (st.seq === seq) return;
+      st.seq = seq;
+      if (st.n < cap) st.n++;
+      apply();
+    };
+    if (onField(u)) add(u.deploySeq);
+    S.on('deploy', (c) => { if (c.unit === u) add(u.deploySeq); });
+  },
+  // 多功能补剂: each non-proc damage adds temp_stack_count_add layers to each of the carrier's own active bonds, capped
+  // per bond at temp_stack_count_max. Live battle layers only — not gainLayers, so the match does not keep them.
+  act3autochess_equip_acarm131_global_buff(battle, u, p, S) {
+    const add = Math.floor(num(p.temp_stack_count_add));
+    const cap = Math.floor(num(p.temp_stack_count_max));
+    if (!(add > 0) || !(cap > 0)) return;
+    const got = new Map();
+    const player = () => battle.getPlayer(u.ownerId);
+    onDamageEnemies(S, u, (_t, c) => {
+      if (isProc(c.dmg)) return;
+      const ps = player();
+      if (!ps || !ps.bonds) return;
+      for (const id of unitBonds(u)) {
+        if (!bondActive(battle, u.ownerId, id)) continue;
+        const b = ps.bonds[id];
+        if (!b) continue;
+        const have = got.get(id) || 0;
+        const n = Math.min(add, cap - have);
+        if (n <= 0) continue;
+        b.layers = num(b.layers) + n;
+        got.set(id, have + n);
+      }
+    });
+    S.onDispose(() => {
+      const ps = player();
+      if (!ps || !ps.bonds) return;
+      for (const [id, n] of got) {
+        const b = ps.bonds[id];
+        if (b) b.layers = Math.max(0, num(b.layers) - n);
+      }
+      got.clear();
+    });
+  },
+  // 伊比利亚骨刺刀: each non-proc damage also deals 1 + double_damage arts hits of atk_scale × ATK. Not bond-gated.
+  act3autochess_equip_acarm133_global_buff(battle, u, p, S) {
+    const sc = num(p.atk_scale);
+    const hits = 1 + Math.max(0, Math.floor(num(p.double_damage)));
+    if (!(sc > 0) || !(hits > 0)) return;
+    onDamageEnemies(S, u, (t, c) => {
+      // not on an addition either (a module's arts rider such as 棘刺's LOR-X): the two would feed each other
+      if (isProc(c.dmg) || damageAttackType(c.dmg) === 'ADDITION') return;
+      for (let i = 0; i < hits && t.alive; i++) {
+        battle.dealDamage(u, t, { amount: u.s.atk * sc, type: 'arts', tags: procTags('bone') });
+      }
+    });
+  },
+  // 莱塔尼亚小鼓: a unit knocked out in attack range restores `sp`. [ASSUMED] 单位 is either side; the carrier's own
+  // knock-out does not restore their own SP.
+  act3autochess_equip_acarm134_ability(battle, u, p, S) {
+    const sp = num(p.sp);
+    if (!(sp > 0)) return;
+    S.on('death', (c) => {
+      const v = c.unit;
+      if (!v || v === u || !onField(u) || !u.skill || !inAttackRange(u, v)) return;
+      u.skill.gainSp(sp, 'item');
+    });
+  },
+  // 可靠怀表: skill cost × sp_cost_scale (floor, at least sp_cost_min). [ASSUMED] copies stack by multiplying the
+  // cost, and attack_speed −0.25 is that fraction of base ASPD during the skill, not −0.25 ASPD.
+  act3autochess_equip_acarm137_global_buff(battle, u, p, S) {
+    if (!u.skill || !(u.skill.baseSpCost > 0)) return;
+    const scale = num(p.sp_cost_scale, 1);
+    const minCost = Math.floor(num(p.sp_cost_min, 0));
+    const frac = num(p.attack_speed);
+    if (scale > 0 && scale !== 1) {
+      u.skill.spCostMul *= scale;
+      S.onDispose(() => { if (u.skill) u.skill.spCostMul /= scale; });
+    }
+    const raw = Math.floor(u.skill.baseSpCost * u.skill.spCostMul);
+    if (minCost > 0 && raw < minCost) S.stat('spmin', { spCostFlat: minCost - raw });
+    if (!frac) return;
+    const key = S.key('slow');
+    S.every(0.5, () => {
+      if (u.skill && u.skill.active) S.buff(u, { key, duration: 0.6, mods: { aspd: num(u.base.aspd, 100) * frac }, refresh: 'replace' });
+      else battle.removeBuff(u, key);
+    }, { immediate: true });
+  },
+  // Named so the key is handled. The 麻痹 itself is the hammer runtime (big_hammer); applying it here would stack twice.
+  act3autochess_equip_acarm140_global_buff() {},
+  // 佣兵名牌: ATK and max HP per active bond of the player, cap max_layer. [ASSUMED] the player's active bonds, not
+  // only the ones on the carrier.
+  act3autochess_equip_acarm141_global_buff(battle, u, p, S) {
+    const atk = num(p.atk), hp = num(p.hp);
+    const cap = Math.max(0, Math.floor(num(p.max_layer, 8)));
+    if (!atk && !hp) return;
+    S.every(0.5, () => {
+      const n = Math.min(cap, activeBondIds(battle, u.ownerId).length);
+      if (n > 0) S.stat('bonds', directMods({ atk: atk * n, hp: hp * n }));
+      else battle.removeBuff(u, S.key('bonds'));
+    }, { immediate: true });
+  },
+  // 瓶装烈性反应: damage × damage_scale against a target in an element burst (burstLock). Not +0.3 on top of 1.
+  act3autochess_equip_acarm158_global_buff(battle, u, p, S) {
+    const sc = num(p.damage_scale, 1);
+    if (sc === 1) return;
+    S.on('hit', (c) => {
+      if (c.source !== u || !c.target || !c.dmg || c.dmg.type === 'element' || isProc(c.dmg)) return;
+      if (c.target.s && c.target.s.flags.burstLock) c.dmg.mul *= sc;
+    });
+  },
+  // 驱逐者警棍: damage × damage_scale against 晕眩 / 冻结 / 恐惧. flags.stun alone is not a stun.
+  act3autochess_equip_acarm144_global_buff(battle, u, p, S) {
+    const sc = num(p.damage_scale, 1);
+    if (sc === 1) return;
+    S.on('hit', (c) => {
+      if (c.source !== u || !c.target || !c.dmg || c.dmg.type === 'element' || isProc(c.dmg)) return;
+      if (hardControl(c.target)) c.dmg.mul *= sc;
+    });
+  },
+  // 驱逐者瓦斯: stun / freeze / fear on an enemy in attack range lasts × (1 + one_minus_status_resistance).
+  // 抵抗 still applies after this hook. Two carriers both extend the same application. [ASSUMED]
+  act3autochess_equip_acarm143_ability(battle, u, p, S) {
+    const extra = num(p.one_minus_status_resistance);
+    if (!extra) return;
+    S.on('beforeStatus', (c) => {
+      if (!RIOT.has(c.status) || !c.target || c.target.side !== 'enemy' || !onField(u) || !inAttackRange(u, c.target)) return;
+      const d = Number(c.duration);
+      if (!(d > 0) || d === Infinity) return;
+      c.duration = d * (1 + extra);
+    });
+  },
+  // 不退者力场: 阻挡数 + block_cnt. Per enemy currently blocked, max HP and DEF + the cell ratios.
+  act3autochess_equip_acarm147_global_buff(battle, u, p, S) {
+    const block = num(p.block_cnt);
+    const hp = num(p.hp_cell), def = num(p.def_cell);
+    if (block) S.stat('block', { blockCnt: block });
+    S.every(0.5, () => {
+      const n = onField(u) && Array.isArray(u.blocking) ? u.blocking.length : 0;
+      if (n > 0 && (hp || def)) S.stat('cell', directMods({ hp: hp * n, def: def * n }));
+      else battle.removeBuff(u, S.key('cell'));
+    }, { immediate: true });
+  },
+  // 动能加速器. Without have_splash_damage, each attack or heal adds attack_speed ASPD (cap layer_max). The fused
+  // 轰击弩 sets have_splash_damage on this same buff: stacks grow on attacks only, and at the cap each attack has
+  // `prob` to splash atk_scale × ATK physical damage on enemies within range_radius of a random enemy in range.
+  act3autochess_equip_acarm149_global_buff(battle, u, p, S) {
+    const step = num(p.attack_speed);
+    const cap = Math.max(1, Math.floor(num(p.layer_max, 60)));
+    const splash = p.have_splash_damage != null && num(p.have_splash_damage) !== 0;
+    if (!step && !splash) return;
+    let n = 0;
+    let ready = -Infinity;
+    const key = S.key('kine');
+    const grow = () => {
+      if (!step || n >= cap) return;
+      n++;
+      S.buff(u, { key, mods: { aspd: step * n }, persist: true, allowDead: true, refresh: 'replace' });
+    };
+    const burst = () => {
+      if (!splash || n < cap || battle.time < ready || !chance(battle, num(p.prob))) return;
+      ready = battle.time + num(p.splash_cd, 0.5);
+      const cands = battle.enemiesInKeys(u.rangeKeys, u, u.profile);
+      const t = battle.rng.pick(cands);
+      if (!t) return;
+      const amt = u.s.atk * num(p.atk_scale, 1);
+      const r = num(p.range_radius, 1.5);
+      for (const e of battle.enemiesInRadius(t.x, t.y, r)) {
+        if (!e.alive) continue;
+        battle.dealDamage({ source: u, target: e, amount: amt, type: 'phys', attackType: 'SPLASH', tags: procTags('kine') });
+      }
+    };
+    S.on('attack', (c) => {
+      if (c.attacker !== u) return;
+      if (n >= cap) burst();
+      else grow();
+    });
+    if (!splash) {
+      S.on('heal', (c) => {
+        if (c.source !== u || (c.opts && c.opts.regen) || !(c.amount > 0)) return;
+        grow();
+      });
+    }
+  },
+  // 动能单手弩: on a hit, prob to multiply that damage by atk_scale ("提升至130%"). [ASSUMED] the same hit-mul slot
+  // as 精准狙击镜, so it stacks multiplicatively with other hit multipliers. Element gauges and item procs are skipped.
+  act3autochess_equip_acarm150_global_buff(battle, u, p, S) {
+    const pr = num(p.prob), sc = num(p.atk_scale, 1);
+    if (!(pr > 0) || sc === 1) return;
+    S.on('hit', (c) => {
+      if (c.source !== u || !c.dmg || c.dmg.type === 'element' || isProc(c.dmg)) return;
+      if (chance(battle, pr)) c.dmg.mul *= sc;
+    });
+  },
+  // 汲取者之喙: heal self heal_scale × the damage dealt. can_double (the fused 镰) doubles that while the skill is on.
+  act3autochess_equip_acarm152_global_buff(battle, u, p, S) {
+    const sc = num(p.heal_scale);
+    if (!(sc > 0)) return;
+    const doubled = () => p.can_double != null && num(p.can_double) !== 0 && u.skill && u.skill.active;
+    onDamageEnemies(S, u, (_t, c) => {
+      if (isProc(c.dmg)) return;
+      const amt = c.amount * sc * (doubled() ? 2 : 1);
+      if (amt > 0) battle.heal(u, u, amt, { self: true });
+    });
+  },
+  // 汲取者之心: atk / attack_speed live on this buff. Lose hp_ratio_base of max HP per second (流失, never below 1).
+  // can_double (the fused 镰) doubles all of that during the skill and sets 无法被治疗.
+  act3autochess_equip_acarm153_global_buff(battle, u, p, S) {
+    const atk = num(p.atk), aspd = num(p.attack_speed), ratio = num(p.hp_ratio_base);
+    const doubled = () => p.can_double != null && num(p.can_double) !== 0 && u.skill && u.skill.active;
+    const key = S.key('noheal');
+    S.every(0.5, () => {
+      const m = doubled() ? 2 : 1;
+      const mods = { ...directMods({ atk: atk * m }) };
+      if (aspd) mods.aspd = aspd * m;
+      if (atk || aspd) S.stat('core', mods);
+      if (m === 2) S.buff(u, { key, duration: 0.6, flags: { noHeal: true }, refresh: 'replace' });
+      else battle.removeBuff(u, key);
+    }, { immediate: true });
+    if (ratio > 0) {
+      S.every(1, () => {
+        if (!onField(u)) return;
+        const want = u.s.maxHp * ratio * (doubled() ? 2 : 1);
+        const room = u.hp - 1;
+        if (room > 0) battle.dealHPLose(u, Math.min(want, room));
+      });
+    }
+  },
+  // 天马之耀: extra true damage atk_scale × ATK on each non-proc hit, and hp_recovery_per_sec_by_max_hp_ratio regen.
+  // The ATK / max-HP percents are the attr buff. No "both equipped" gate — this record is already the fusion.
+  act3autochess_equip_acarm156_global_buff(battle, u, p, S) {
+    const sc = num(p.atk_scale);
+    const regen = num(p.hp_recovery_per_sec_by_max_hp_ratio);
+    if (regen) S.stat('regen', { hpRegenRatio: regen });
+    if (!(sc > 0)) return;
+    onDamageEnemies(S, u, (t, c) => {
+      if (isProc(c.dmg)) return;
+      battle.dealDamage(u, t, { amount: u.s.atk * sc, type: 'true', tags: procTags('pegasus') });
+    });
+  },
+  // 不退者之盾 / 浓缩嗅盐 share this key. hp_ratio 0 cancels the CC list whenever the carrier is alive. A second
+  // cancel-only hook on 浓缩嗅盐 (its BY_EFFECT installs the same one) does not change the outcome.
+  act1autochess_equip_acarm059_global_buff(battle, u, p, S) {
+    const thr = num(p.hp_ratio, 1);
+    S.on('beforeStatus', (c) => { if (c.target === u && CC.has(c.status) && u.hpRatio > thr) c.cancel = true; });
+  },
+  // 驱逐者防暴装备: while the skill is on, a stun / freeze / fear just applied to an enemy in range has `prob` to be
+  // passed to another enemy within 1.5 tiles. [ASSUMED] 1.5 — this buff has no radius; the passed status lasts
+  // ab_buff_duration, not the original duration. The guard stops the copy from copying itself.
+  act3autochess_equip_acarm145_ability(battle, u, p, S) {
+    const pr = num(p.prob);
+    const dur = num(p.ab_buff_duration, 3);
+    if (!(pr > 0) || !(dur > 0)) return;
+    const store = battleStore(battle, 'items:riot', () => ({ busy: false }));
+    S.on('statusApplied', (c) => {
+      if (store.busy || !c.entered || !RIOT.has(c.status) || !c.target || c.target.side !== 'enemy') return;
+      if (!onField(u) || !u.skill || !u.skill.active || !inAttackRange(u, c.target)) return;
+      if (!chance(battle, pr)) return;
+      const near = battle.enemiesInRadius(c.target.x, c.target.y, 1.5).filter((e) => e !== c.target && e.alive);
+      const t = battle.rng.pick(near);
+      if (!t) return;
+      store.busy = true;
+      try { battle.applyStatus(t, c.status, { duration: dur, source: u }); }
+      finally { store.busy = false; }
+    });
+  },
+  // 不退者卫护系统: skill start attracts enemies within range_radius for attract_duration.
+  act3autochess_equip_acarm148_global_buff(battle, u, p, S) {
+    const dur = num(p.attract_duration);
+    const r = num(p.range_radius);
+    if (!(dur > 0) || !(r > 0)) return;
+    S.on('skillStart', (c) => {
+      if (c.unit !== u || !onField(u)) return;
+      for (const e of battle.enemiesInRadius(u.x, u.y, r)) {
+        if (e.alive) battle.applyStatus(e, 'attract', { duration: dur, source: u, point: { x: u.x, y: u.y } });
+      }
+    });
+  },
+  // Marker buffs. The numbers live on the sibling buff (145 splash duration, 148 attract, 149 splash, 152/153 can_double).
+  act3autochess_equip_acarm145_global_buff() {},
+  act3autochess_equip_acarm148_ability() {},
+  act3autochess_equip_acarm151_ability() {},
+  act3autochess_equip_acarm154_global_buff() {},
 };
 
-/** Item-key behaviours. */
-const BY_ITEM = {
-  // 精准狙击镜: damage ×damage_scale against targets ≥ radius tiles away
-  chess_item_3_02_e(battle, u, rec, S) {
+/**
+ * Item behaviours by the normal record's effectId (support itemEffectKey; versions M0, docs/SIM.md §7.2: another
+ * official version reuses item ids for other effects). Each entry names the item and its default-data key
+ * (DEFAULT_ITEM_KEYS); the buff and fx labels inside keep that key (golden digests hash them).
+ */
+const BY_EFFECT = {
+  // 精准狙击镜 (chess_item_3_02_e): damage ×damage_scale against targets ≥ radius tiles away
+  eff_acarm063(battle, u, rec, S) {
     const p = bp(rec, 'act1autochess_equip_acarm063_global_buff');
     if (!p) return;
     const r = num(p.radius, 3), sc = num(p.damage_scale, 1);
@@ -478,8 +907,8 @@ const BY_ITEM = {
       if (hypot(c.target.x - u.x, c.target.y - u.y) >= r - 1e-6) c.dmg.mul *= sc;
     });
   },
-  // 炎国短刀: each skill activation +atk (≤ atk_buff_cnt stacks) — one 直接乘算 bonus of atk × stacks
-  chess_item_3_04_e(battle, u, rec, S) {
+  // 炎国短刀 (chess_item_3_04_e): each skill activation +atk (≤ atk_buff_cnt stacks) — one 直接乘算 bonus of atk × stacks
+  eff_acarm040(battle, u, rec, S) {
     const p = bp(rec, 'act1vautochess_equip_acarm024_global_buff');
     if (!p) return;
     let n = 0;
@@ -490,8 +919,8 @@ const BY_ITEM = {
       S.stat('stacks', directMods({ atk: num(p.atk) * n }));
     });
   },
-  // 迅捷作战粮: on deploy SP += sp_each_person × (1 + other operators sharing a bond)
-  chess_item_3_05_e(battle, u, rec, S) {
+  // 迅捷作战粮 (chess_item_3_05_e): on deploy SP += sp_each_person × (1 + other operators sharing a bond)
+  eff_acarm051(battle, u, rec, S) {
     const p = bp(rec, 'act1autochess_equip_acarm051_global_buff');
     const each = p ? num(p.sp_each_person) : 0;
     if (!(each > 0)) return;
@@ -509,8 +938,8 @@ const BY_ITEM = {
       u.skill.gainSp(each * (1 + n), 'item');
     });
   },
-  // 歌利亚头盔: HP +init_max_hp; deploy with no operator on the tile in front ⇒ HP +ex_max_hp (until it leaves)
-  chess_item_3_06_e(battle, u, rec, S) {
+  // 歌利亚头盔 (chess_item_3_06_e): HP +init_max_hp; deploy with no operator on the tile in front ⇒ HP +ex_max_hp (until it leaves)
+  eff_acarm049(battle, u, rec, S) {
     const p = bp(rec, 'act1autochess_equip_acarm049_global_buff');
     if (!p) return;
     if (num(p.init_max_hp)) S.stat('hp', directMods({ hp: num(p.init_max_hp) }));
@@ -531,16 +960,16 @@ const BY_ITEM = {
     S.on('deploy', (c) => { if (c.unit === u) check(!!c.initial); });
     if (onField(u)) check(false);
   },
-  // 突袭手雷: within `duration` s after each deploy, attacks stun the target `stun` s
-  chess_item_3_11_e(battle, u, rec, S) {
+  // 突袭手雷 (chess_item_3_11_e): within `duration` s after each deploy, attacks stun the target `stun` s
+  eff_acarm064(battle, u, rec, S) {
     const p = bp(rec, 'act1autochess_equip_acarm064_global_buff');
     if (!p) return;
     const win = num(p.duration), st = num(p.stun);
     if (!(win > 0 && st > 0)) return;
     onAttackEnemies(S, u, (t) => { if (battle.time - u.deployedAt <= win + 1e-9) battle.applyStatus(t, 'stun', { duration: st, source: u }); });
   },
-  // 有限加速器: every attack or heal ⇒ ASPD +attack_speed (≤ max_buff_cnt stacks, whole battle)
-  chess_item_4_03_e(battle, u, rec, S) {
+  // 有限加速器 (chess_item_4_03_e): every attack or heal ⇒ ASPD +attack_speed (≤ max_buff_cnt stacks, whole battle)
+  eff_acarm052(battle, u, rec, S) {
     const p = bp(rec, 'act1vautochess_equip_acarm037_global_buff');
     if (!p || !num(p.attack_speed)) return;
     const key = S.key('stacks');
@@ -551,8 +980,13 @@ const BY_ITEM = {
       S.buff(u, { key, mods, refresh: 'stack', stacks: 1, maxStacks: cap, persist: true, allowDead: true });
     });
   },
-  // 伪装服: first damage taken in the battle ⇒ 隐匿 `duration` s (a 流失 is not 受到伤害: damage.js isHpLoss)
-  chess_item_4_04_e(battle, u, rec, S) {
+  // 伪装服 (chess_item_4_04_e): first damage taken in the battle ⇒ 隐匿 `duration` s (a 流失 is not 受到伤害: attack.js isHpLoss)
+  eff_acarm055(battle, u, rec, S) {
+    const old = bp(rec, 'act1autochess_equip_acarm055_global_buff');
+    if (old) {
+      S.on('deploy', (c) => { if (c.unit === u) battle.applyStatus(u, 'camou', { duration: num(old.camouflage_duration), source: u }); });
+      return;
+    }
     const p = bp(rec, 'act2autochess_equip_acarm055_global_buff');
     const d = p ? num(p.duration) : 0;
     if (!(d > 0)) return;
@@ -564,8 +998,8 @@ const BY_ITEM = {
       fxOn(battle, 'camouflage', u, 'item:chess_item_4_04_e', rec.id, { duration: d });
     });
   },
-  // 防暴盾: while blocking, damage from units it does not block ×damage_scale
-  chess_item_4_05_e(battle, u, rec, S) {
+  // 防暴盾 (chess_item_4_05_e): while blocking, damage from units it does not block ×damage_scale
+  eff_acarm060(battle, u, rec, S) {
     const p = bp(rec, 'act1autochess_equip_acarm060_global_buff');
     if (!p) return;
     const sc = num(p.damage_scale, 1);
@@ -578,14 +1012,14 @@ const BY_ITEM = {
       c.dmg.mul *= sc;
     });
   },
-  // 休眠子裔: each attacked target ⇒ heal self hp_ratio × max HP
-  chess_item_4_06_e(battle, u, rec, S) {
+  // 休眠子裔 (chess_item_4_06_e): each attacked target ⇒ heal self hp_ratio × max HP
+  eff_acarm065(battle, u, rec, S) {
     const p = bp(rec, 'act1vautochess_equip_acarm025_global_buff');
     const r = p ? num(p.hp_ratio) : 0;
     if (r > 0) onAttackEnemies(S, u, () => battle.heal(u, u, u.s.maxHp * r, { self: true }));
   },
-  // 卡西米尔竞技旗: damage ×damage_scale for `interval` s after each deploy, then −damage_scale_minus every ex_interval s
-  chess_item_4_07_e(battle, u, rec, S) {
+  // 卡西米尔竞技旗 (chess_item_4_07_e): damage ×damage_scale for `interval` s after each deploy, then −damage_scale_minus every ex_interval s
+  eff_acarm119(battle, u, rec, S) {
     const p = bp(rec, 'act2autochess_equip_acarm120_global_buff');
     if (!p) return;
     const sc = num(p.damage_scale, 1), win = num(p.interval, 15), step = Math.max(0.1, num(p.ex_interval, 0.5)), minus = num(p.damage_scale_minus);
@@ -597,11 +1031,11 @@ const BY_ITEM = {
       if (m !== 1) c.dmg.mul *= m;
     });
   },
-  // 拉特兰桥夹: ammo skill down to 1 bullet ⇒ prob: +ceil(ammo_percent × ammo) bullets (≤ max_trigger_cnt per deploy)
-  chess_item_4_08_e(battle, u, rec, S) {
+  // 拉特兰桥夹 (chess_item_4_08_e): ammo skill down to 1 bullet ⇒ prob: +ceil(ammo_percent × ammo) bullets (≤ max_trigger_cnt per deploy)
+  eff_acarm057(battle, u, rec, S) {
     const p = bp(rec, 'act1autochess_equip_acarm057_global_buff');
     if (!p) return;
-    const cap = Math.floor(num(p.max_trigger_cnt, 3));
+    const cap = Math.floor(num(p.max_trigger_cnt, isVersionData() ? Infinity : 3));
     let seq = -1, n = 0;
     S.on('ammoUsed', (c) => {
       if (c.unit !== u || c.left !== 1 || !c.skill) return;
@@ -612,15 +1046,15 @@ const BY_ITEM = {
       fxOn(battle, 'buff', u, 'item:chess_item_4_08_e', rec.id);
     });
   },
-  // 浓缩嗅盐: while HP ratio > hp_ratio, immune to 晕眩/冻结 … special states
-  chess_item_4_10_e(battle, u, rec, S) {
+  // 浓缩嗅盐 (chess_item_4_10_e): while HP ratio > hp_ratio, immune to 晕眩/冻结 … special states
+  eff_acarm059(battle, u, rec, S) {
     const p = bp(rec, 'act1autochess_equip_acarm059_global_buff');
     if (!p) return;
     const thr = num(p.hp_ratio, 1);
     S.on('beforeStatus', (c) => { if (c.target === u && CC.has(c.status) && u.hpRatio > thr) c.cancel = true; });
   },
-  // 护盾无人机: heals ⇒ prob: target gets 1 shield layer (≤ max_stack_cnt)
-  chess_item_4_11_e(battle, u, rec, S) {
+  // 护盾无人机 (chess_item_4_11_e): heals ⇒ prob: target gets 1 shield layer (≤ max_stack_cnt)
+  eff_acarm061(battle, u, rec, S) {
     const p = bp(rec, 'act1autochess_equip_acarm061_global_buff');
     if (!p) return;
     const pr = num(p.prob), cap = Math.max(1, Math.floor(num(p.max_stack_cnt, 1)));
@@ -632,9 +1066,9 @@ const BY_ITEM = {
       if (addShieldLayer(battle, c.target, SHIELD_KEY, cap)) fxOn(battle, 'shield', c.target, 'item:chess_item_4_11_e', rec.id);
     });
   },
-  // M3茧甲: knocked down in battle ⇒ 立刻复活 (max_respawn_cnt per battle) — PRTS's form: the knock-out stands (its
+  // M3茧甲 (chess_item_4_12_e): knocked down in battle ⇒ 立刻复活 (max_respawn_cnt per battle) — PRTS's form: the knock-out stands (its
   // 被击倒时 effects run) and the carrier redeploys at once, free, where it lies (reviveNow; in place until 0.2.0)
-  chess_item_4_12_e(battle, u, rec, S) {
+  eff_acarm068(battle, u, rec, S) {
     const p = bp(rec, 'act1autochess_equip_acarm068_global_buff');
     const max = p ? Math.floor(num(p.max_respawn_cnt, 1)) : 0;
     if (!(max > 0)) return;
@@ -646,45 +1080,48 @@ const BY_ITEM = {
     }, PRIO_RESPAWN); // a knock-out: after every 不死 (the hammer's lock), whatever the equip order (header)
   },
   // PRTS 盟约记录 corrects both items' "攻击时" to "造成伤害时" (#489); no attack event is required.
-  // 催泪瓦斯: on damage prob ⇒ 1 麻痹 stack
-  chess_item_5_01_e(battle, u, rec, S) {
+  // 催泪瓦斯 (chess_item_5_01_e): on damage prob ⇒ 1 麻痹 stack
+  eff_acarm058(battle, u, rec, S) {
     const p = bp(rec, 'act1autochess_equip_acarm058_global_buff');
     const pr = p ? num(p.prob) : 0;
     if (pr > 0) onDamageEnemies(S, u, (t) => { if (chance(battle, pr)) battle.applyStatus(t, 'palsy', { value: 1, source: u }); });
   },
-  // 谢拉格不融冰: on damage prob ⇒ 寒冷 `cold` s
-  chess_item_5_02_e(battle, u, rec, S) {
+  // 谢拉格不融冰 (chess_item_5_02_e): on damage prob ⇒ 寒冷 `cold` s
+  eff_acarm062(battle, u, rec, S) {
     const p = bp(rec, 'act1vautochess_equip_acarm003_global_buff');
     if (!p) return;
     const pr = num(p.prob), d = num(p.cold);
     if (pr > 0 && d > 0) onDamageEnemies(S, u, (t) => { if (chance(battle, pr)) battle.applyStatus(t, 'cold', { duration: d, source: u }); });
   },
-  // 双模机械臂: physical/arts damage becomes 弱点伤害 (whichever type the target resists less)
-  chess_item_5_03_e(battle, u, rec, S) {
+  // 双模机械臂 (chess_item_5_03_e): physical/arts damage becomes 弱点伤害 (whichever type the target resists less)
+  eff_acarm067(battle, u, rec, S) {
     S.on('hit', (c) => { if (c.source === u) weaknessRetype(c.dmg, u, c.target); }, 5);
   },
-  // 天马之盔: with 天马之枪 ⇒ regen hp_recovery_per_sec_by_max_hp_ratio × max HP per second
-  chess_item_5_09_e(battle, u, rec, S) {
+  // 天马之盔 (chess_item_5_09_e): with 天马之枪 ⇒ regen hp_recovery_per_sec_by_max_hp_ratio × max HP per second
+  eff_acarm118(battle, u, rec, S) {
     const p = bp(rec, 'act2autochess_equip_acarm118_global_buff');
     const partner = partnerOf(p);
     const r = p ? num(p.hp_recovery_per_sec_by_max_hp_ratio) : 0;
     if (!partner || !(r > 0)) return;
     S.stat('set', null, { interval: 1, onTick: ({ unit }) => { if (unit.deployed && carries(battle, unit, partner)) battle.heal(unit, unit, unit.s.maxHp * r, { self: true }); } });
   },
-  // 天马之枪: with 天马之盔 ⇒ every damage instance also deals atk_scale × ATK true damage
-  chess_item_6_01_e(battle, u, rec, S) {
+  // 天马之枪 (chess_item_6_01_e): with 天马之盔 ⇒ every damage instance also deals a source-less ADDITION true damage of
+  // atk_scale × the parent's scaled input, before the parent's injury / HP (credited to the carrier)
+  eff_acarm117(battle, u, rec, S) {
     const p = bp(rec, 'act2autochess_equip_acarm117_global_buff');
     const partner = partnerOf(p);
-    const sc = p ? num(p.atk_scale) : 0;
-    if (!partner || !(sc > 0)) return;
-    S.on('damaged', (c) => {
-      if (c.source !== u || isProc(c.dmg) || c.type === 'element' || !c.target || c.target.side !== 'enemy' || !c.target.alive) return;
+    const scale = p ? num(p.atk_scale) : 0;
+    if (!partner || !(scale > 0)) return;
+    S.on('damageBeforeApply', c => {
+      if (c.source !== u || damageAttackType(c.dmg) === 'ADDITION' || c.target.side !== 'enemy' || !hasHp(c.target)) return;
       if (!carries(battle, u, partner)) return;
-      battle.dealDamage(u, c.target, { amount: u.s.atk * sc, type: 'true', canDodge: false, tags: procTags('pegasus') });
+      // [ASSUMED] A resolved request's supplied amount is its only available origin input.
+      battle.dealDamage({ source: null, credit: u, target: c.target, amount: c.dmg.amount * scale,
+        type: 'true', attackType: 'ADDITION', applyWay: 'NONE', calculation: 'precomputed', origin: c.dmg, tags: procTags('pegasus') });
     });
   },
-  // 铳骑之威 (拉特兰): on attack 35 % ⇒ extra bullet at 1 enemy in range, atk_scale_1 (with 拉特兰桥夹 atk_scale_2) × ATK phys
-  chess_item_6_02_e(battle, u, rec, S) {
+  // 铳骑之威 (chess_item_6_02_e, 拉特兰): on attack 35 % ⇒ extra bullet at 1 enemy in range, atk_scale_1 (with 拉特兰桥夹 atk_scale_2) × ATK phys
+  eff_acarm076(battle, u, rec, S) {
     const p = bp(rec, 'act1autochess_equip_acarm076_global_buff');
     if (!p) return;
     const partner = partnerOf(p);
@@ -699,15 +1136,15 @@ const BY_ITEM = {
       battle.dealDamage(u, t, { amount: u.s.atk * sc, type: 'phys', tags: procTags('gunknight') });
     });
   },
-  // 天师古鼎 (炎): ASPD +attack_speed × min(operators gained this round, max_cnt) for the battle
-  chess_item_6_03_e(battle, u, rec, S) {
+  // 天师古鼎 (chess_item_6_03_e, 炎): ASPD +attack_speed × min(operators gained this round, max_cnt) for the battle
+  eff_acarm077(battle, u, rec, S) {
     const p = bp(rec, 'act1autochess_equip_acarm077_global_buff');
     if (!p || !memberOf(battle, u, 'yanShip')) return;
     const k = Math.min(Math.floor(num(p.max_cnt, 3)), Math.max(0, Math.floor(num(contentInfo(battle, u.ownerId).roundStats?.gainedChess))));
     if (k > 0) S.stat('yan', { aspd: num(p.attack_speed) * k });
   },
-  // 海沟实验体 (阿戈尔): hit taken ⇒ atk_scale × ATK arts to the source (lock_duration CD); + 阿戈尔重刃 ⇒ one more hit
-  chess_item_6_04_e(battle, u, rec, S) {
+  // 海沟实验体 (chess_item_6_04_e, 阿戈尔): hit taken ⇒ atk_scale × ATK arts to the source (lock_duration CD); + 阿戈尔重刃 ⇒ one more hit
+  eff_acarm078(battle, u, rec, S) {
     const p = bp(rec, 'act2autochess_equip_acarm078_global_buff');
     if (!p) return;
     const partner = partnerOf(p);
@@ -722,8 +1159,8 @@ const BY_ITEM = {
       for (let i = 0; i < hits && src.alive; i++) battle.dealDamage(u, src, { amount: u.s.atk * sc, type: 'arts', tags: procTags('trench') });
     });
   },
-  // 蒸汽之心 (维多利亚): hammer effects of the field (see header)
-  chess_item_6_05_e(battle, u, rec, S, g) {
+  // 蒸汽之心 (chess_item_6_05_e, 维多利亚): hammer effects of the field (see header)
+  eff_acarm079(battle, u, rec, S, g) {
     const rt = runtime(battle);
     const hs = hammerAcquire(battle, rt, u);
     hs.steam++;
@@ -731,8 +1168,21 @@ const BY_ITEM = {
     hammerRefresh(battle, rt, u, hs);
     S.onDispose(() => { hs.steam = Math.max(0, hs.steam - 1); hammerRelease(battle, rt, u, hs); });
   },
-  // 耶拉冈德之泪 (谢拉格): every interval s, cold/frozen enemies in range take atk_scale (+不融冰: atk_scale_ex) × ATK arts
-  chess_item_6_06_e(battle, u, rec, S) {
+  // 耶拉冈德之泪 (chess_item_6_06_e, 谢拉格): every interval s, cold/frozen enemies in range take atk_scale (+不融冰: atk_scale_ex) × ATK arts
+  eff_acarm102(battle, u, rec, S) {
+    const old = bp(rec, 'act1autochess_equip_acarm102_global_buff');
+    if (old) {
+      const partner = partnerOf(old);
+      S.on('kill', ({ killer, victim }) => {
+        if (killer !== u || victim?.side !== 'enemy' || !memberOf(battle, u, 'kjeragShip')) return;
+        const count = partner && carries(battle, u, partner) ? 2 : 1;
+        for (const e of battle.enemies) {
+          if (!e.alive || !bodyInRadius(e, victim.x, victim.y, num(old.range_radius))) continue;
+          for (let i = 0; i < count; i++) battle.applyStatus(e, 'cold', { duration: num(old.duration), source: u });
+        }
+      });
+      return;
+    }
     const p = bp(rec, 'act2autochess_equip_acarm102_ability');
     if (!p) return;
     const partner = partnerOf(p);
@@ -745,8 +1195,8 @@ const BY_ITEM = {
       }
     });
   },
-  // 黄沙罗盘 (PRTS: all its SP ignores 阻回): 初始技力 +init_sp each deploy; (萨尔贡) first skill end +sp; + 萨尔贡浓茶: each cast all 萨尔贡 +addition_sp
-  chess_item_6_07_e(battle, u, rec, S) {
+  // 黄沙罗盘 (chess_item_6_07_e, PRTS: all its SP ignores 阻回): 初始技力 +init_sp each deploy; (萨尔贡) first skill end +sp; + 萨尔贡浓茶: each cast all 萨尔贡 +addition_sp
+  eff_acarm103(battle, u, rec, S) {
     const p = bp(rec, 'act1autochess_equip_acarm103_global_buff');
     if (!p) return;
     const partner = partnerOf(p);
@@ -770,10 +1220,10 @@ const BY_ITEM = {
       }
     });
   },
-  // 骑士戒律 (卡西米尔): skill start ⇒ 20 s aura: enemies in range ASPD ×attack_speed, move ×move_speed;
+  // 骑士戒律 (chess_item_6_10_e, 卡西米尔): skill start ⇒ 20 s aura: enemies in range ASPD ×attack_speed, move ×move_speed;
   //   + 卡西米尔竞技旗: during the (timed) skill ATK +atk, lethal damage does not retreat it — it retreats when the skill ends
   //   ("受到致命伤害时不撤退，技能结束后退场": a knock-out put off, so a `dying` retreat — Touch's 超脱 counts it [ASSUMED])
-  chess_item_6_10_e(battle, u, rec, S) {
+  eff_acarm120(battle, u, rec, S) {
     const p = bp(rec, 'act2autochess_equip_acarm119_global_buff');
     const a = bp(rec, 'act2autochess_equip_acarm119_ability');
     if (!p) return;
@@ -812,9 +1262,9 @@ const BY_ITEM = {
       }
     }, { immediate: true });
   },
-  // 家族徽章 (叙拉古): while 隐匿 ATK grows atk_per_sec/s up to +max_atk until the first damage after 隐匿 ends
+  // 家族徽章 (chess_item_6_11_e, 叙拉古): while 隐匿 ATK grows atk_per_sec/s up to +max_atk until the first damage after 隐匿 ends
   //   (or leaving the field); + 叙拉古正装 ⇒ that first hit also deals atk_scale × ATK true damage
-  chess_item_6_11_e(battle, u, rec, S) {
+  eff_acarm122(battle, u, rec, S) {
     const p = bp(rec, 'act2autochess_equip_acarm122_global_buff');
     if (!p) return;
     const partner = partnerOf(p);
@@ -854,7 +1304,7 @@ const SHIELD_KEY = 'item:shield_drone';
 
 /**
  * 弱点伤害 (双模机械臂, band 陈 以己之长): a physical or arts DamageInfo from `source` becomes whichever of the two types
- * `target` resists less (same mitigation formula as damage.js, incl. the source's ignore stats). Mutates `dmg.type`.
+ * `target` resists less (the mitigation formula of attack.js mitigate, incl. the source's ignore stats). Mutates `dmg.type`.
  */
 export function weaknessRetype(dmg, source, target) {
   if (!dmg || !target || !target.s || (dmg.type !== 'phys' && dmg.type !== 'arts')) return;
@@ -877,12 +1327,49 @@ export function addShieldLayer(battle, target, key, cap = 1) {
   return true;
 }
 
+/**
+ * The default data's item key of each BY_EFFECT behaviour. Data without config.version (support isVersionData: the
+ * default data and the plugin content sets built on it) dispatches by item key (itemKeyOf, which follows a plugin
+ * record's effectRef), as before versions M0 (DESIGN §35.22.3): a plugin that patches an official item's effectId does
+ * not change its behaviour there.
+ */
+export const DEFAULT_ITEM_KEYS = Object.freeze({
+  eff_acarm063: 'chess_item_3_02_e', eff_acarm040: 'chess_item_3_04_e', eff_acarm051: 'chess_item_3_05_e',
+  eff_acarm049: 'chess_item_3_06_e', eff_acarm064: 'chess_item_3_11_e', eff_acarm052: 'chess_item_4_03_e',
+  eff_acarm055: 'chess_item_4_04_e', eff_acarm060: 'chess_item_4_05_e', eff_acarm065: 'chess_item_4_06_e',
+  eff_acarm119: 'chess_item_4_07_e', eff_acarm057: 'chess_item_4_08_e', eff_acarm059: 'chess_item_4_10_e',
+  eff_acarm061: 'chess_item_4_11_e', eff_acarm068: 'chess_item_4_12_e', eff_acarm058: 'chess_item_5_01_e',
+  eff_acarm062: 'chess_item_5_02_e', eff_acarm067: 'chess_item_5_03_e', eff_acarm118: 'chess_item_5_09_e',
+  eff_acarm117: 'chess_item_6_01_e', eff_acarm076: 'chess_item_6_02_e', eff_acarm077: 'chess_item_6_03_e',
+  eff_acarm078: 'chess_item_6_04_e', eff_acarm079: 'chess_item_6_05_e', eff_acarm102: 'chess_item_6_06_e',
+  eff_acarm103: 'chess_item_6_07_e', eff_acarm120: 'chess_item_6_10_e', eff_acarm122: 'chess_item_6_11_e',
+});
+const EFFECT_OF_DEFAULT_KEY = new Map(Object.entries(DEFAULT_ITEM_KEYS).map(([eff, key]) => [key, eff]));
+
+/** The BY_EFFECT key of item `itemId`: its effectId on another version's build (itemEffectKey), else by its item key. */
+function behaviourKey(itemId) {
+  const eff = isVersionData() ? itemEffectKey(itemId) : EFFECT_OF_DEFAULT_KEY.get(itemKeyOf(itemId));
+  return eff != null && Object.hasOwn(BY_EFFECT, eff) ? eff : null;
+}
+/** The BY_EFFECT behaviour of item `itemId` (behaviourKey), or null. */
+function effectBehaviour(itemId) {
+  const eff = behaviourKey(itemId);
+  return eff == null ? null : BY_EFFECT[eff];
+}
+
+/** The effectIds with a hand-written battle behaviour (BY_EFFECT; tests). */
+export const BATTLE_EFFECT_IDS = Object.freeze(Object.keys(BY_EFFECT));
+/** The BY_EFFECT key item `itemId` dispatches to, or null (tests: test/versions-keying.test.js). */
+export const battleEffectOf = (itemId) => behaviourKey(itemId);
+/** The hammer item keys of the loaded data (蒸汽之心's hammer_N; tests). */
+export const hammerKeys = () => { hammerInfo(''); return [...HAMMERS.keys()].filter((k) => k !== '__none__'); };
+
 /** Does this record have a battle part? (stat buffs, known buff behaviours, hammer specials, item behaviours) */
 export function hasBattleEffect(rec) {
   if (!rec || rec.itemType !== 'EQUIP') return false;
-  const key = itemKeyOf(rec.id);
-  if (BY_ITEM[key] || hammerInfo(key)) return true;
-  return buffsOf(rec).some((b) => STAT_BUFFS.has(b.bbKey) || BY_BUFF[b.bbKey]);
+  if (effectBehaviour(rec.id) || hammerInfo(itemKeyOf(rec.id))) return true;
+  // STEAM_BUFF without eff_acarm079 is 规程 终极维式重锤. Default 蒸汽之心 is already true via its effect.
+  return buffsOf(rec).some((b) => b.bbKey === STEAM_BUFF || STAT_BUFFS.has(b.bbKey) || BY_BUFF[b.bbKey]);
 }
 
 // =====================================================================================================================
@@ -898,7 +1385,13 @@ export function installItem(battle, u, itemId, { lent = false } = {}) {
   const rt = runtime(battle);
   const gm = grantsOf(rt, u);
   const gid = lent ? `lend:${itemId}` : `own:${itemId}:${gm.size}`;
-  const S = new Scope(battle, u, `item:${itemId}${lent ? '@lend' : ''}`);
+  // #902: a further own copy of the same item (two advanced 源石溶剂 on one operator) gets its own buff keys, so every copy
+  // counts — before, the second copy's stat and drain buffs replaced the first's. [ASSUMED] equal copies stack: neither the
+  // item texts nor the blackboards say otherwise, and the hammer specials and M3茧甲 already counted per copy. The first copy
+  // keeps the plain tag; a lent copy keeps `@lend` (lending the same id again only refreshes it).
+  const copies = lent ? 0 : [...gm.values()].filter((g) => !g.lent && g.id === itemId).length;
+  const tag = lent ? '@lend' : copies ? `#${(rt.copySeq = (rt.copySeq || 0) + 1)}` : '';
+  const S = new Scope(battle, u, `item:${itemId}${tag}`);
   const key = itemKeyOf(itemId);
   const grant = { gid, id: itemId, key, lent, scope: S, timer: null, dispose: null };
   grant.dispose = () => {
@@ -923,7 +1416,23 @@ export function installItem(battle, u, itemId, { lent = false } = {}) {
       hammerRefresh(battle, rt, u, hs);
       S.onDispose(() => { hs.own[h.type] = Math.max(0, hs.own[h.type] - 1); hammerRelease(battle, rt, u, hs); });
     }
-    if (BY_ITEM[key]) BY_ITEM[key](battle, u, rec, S, grant);
+    // 规程 终极维式重锤 carries the steam buff and is not eff_acarm079. Default 蒸汽之心 enters through BY_EFFECT
+    // below; a second acquire here would count it twice.
+    const steamBuff = bp(rec, STEAM_BUFF);
+    if (steamBuff && behaviourKey(itemId) !== STEAM_EFFECT) {
+      const hs = hammerAcquire(battle, rt, u);
+      hs.regulation = true;
+      hs.steam++;
+      if (!hs.steamP) hs.steamP = steamBuff;
+      hammerRefresh(battle, rt, u, hs);
+      S.onDispose(() => {
+        hs.steam = Math.max(0, hs.steam - 1);
+        if (hs.steam <= 0) hs.regulation = false;
+        hammerRelease(battle, rt, u, hs);
+      });
+    }
+    const fx = effectBehaviour(itemId);
+    if (fx) fx(battle, u, rec, S, grant);
   } catch (e) {
     battle._handlerError?.(`item:${itemId}`, u, e);
   }

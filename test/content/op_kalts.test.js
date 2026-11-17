@@ -229,6 +229,40 @@ test('S1 指令：结构加固 (MANUAL, data DEFAULT — cast as she is about to
   }
 });
 
+// PRTS 凯尔希 + 伤判效果: physical block is an ordinary injury effect, not a dodge.
+test('S1 physical block follows acquisition order, ignores dodge policy and expires with the skill', () => {
+  for (const earlier of ['barrier', 'dodge', 'none']) {
+    const { h, u } = field({ mon3tr: null });
+    if (earlier === 'barrier') h.b.addBuff(u, { key: 'earlier', shield: 10000 });
+    if (earlier === 'dodge') h.b.addBuff(u, { key: 'earlier', mods: { dodgePhys: 1 } });
+    assert.ok(u.skill.activate('test', { free: true }));
+    let rolls = 0, blocks = 0, dodges = 0;
+    h.b.rng = () => { rolls++; return 0; };
+    h.b.on('block', () => { blocks++; });
+    h.b.on('dodge', () => { dodges++; });
+    const hp = u.hp;
+    h.b.dealDamage({ target: u, amount: 100, type: 'phys' });
+    assert.equal(u.hp, hp);
+    assert.equal(rolls, earlier === 'barrier' ? 0 : 1);
+    assert.equal(blocks, earlier === 'dodge' ? 0 : 1);
+    assert.equal(dodges, earlier === 'dodge' ? 1 : 0);
+    h.b.removeBuff(u, 'earlier');
+    for (const dodgeMode of ['ignore', 'uncancellable']) {
+      assert.equal(h.b.dealDamage({ source: null, credit: u, target: u, amount: 100, type: 'phys', dodgeMode }), 0);
+    }
+    const before = rolls;
+    h.b.dealHPLose({ target: u, amount: 10 });
+    h.b.dealElementDamage({ target: u, amount: 10, element: 'burn' });
+    h.b.dealDamage({ target: u, amount: 10, type: 'true' });
+    assert.equal(rolls, before, 'loss, gauges and nonphysical damage never attempt this block');
+    u.skill.end('test');
+    assert.equal(u.findBuff('kalts:physicalBlock'), null);
+    assert.ok(h.b.dealDamage({ target: u, amount: 100, type: 'phys' }) > 0);
+    assert.equal(rolls, before);
+    done(h);
+  }
+});
+
 test('S2 指令：战术协同 (MANUAL, data DEFAULT, 绑定 Mon3tr): her ASPD +45 / +60, Mon3tr ATK +35 % / +50 % and each attack strikes every enemy it blocks; no Mon3tr: no cast, SP emptied and frozen; it leaving ends the skill', () => {
   for (const f of [[5, false, null], [6, true, PHYY]]) {
     const [tier, elite, mod] = f;

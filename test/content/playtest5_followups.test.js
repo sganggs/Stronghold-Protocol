@@ -1,7 +1,7 @@
 // test/content/playtest5_followups.test.js — user playtest #5, cross-workstream follow-ups of the integration
 // (docs/DESIGN.md §19): the element pipeline rules the workstreams left to the integrator, 塑心 S2's timing and
 // 纯烬艾雅法拉's per-source 氤氲.
-//   * damage.js applyElement refuses a target with no HP left (hasHp — one shared helper): a rider in a `damaged` hook
+//   * attack/element.js applyElement refuses a target with no HP left (hasHp — one shared helper): a rider in a `damaged` hook
 //     of a killing blow cannot burst the corpse, whatever content adds it.
 //   * 脆弱 (dmgTakenMul) does not scale 元素伤害 — gamedata_const ba.fragile "受到的物理、法术、真实伤害提升"; 元素脆弱
 //     (elementalTakenMul) does.
@@ -15,7 +15,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle, enemyRec, chessRec, checkInvariants } from '../helpers/battleHarness.js';
 import { getDefaultSource } from '../../server/sim/simdata.js';
-import { hasHp } from '../../server/sim/damage.js';
+import { hasHp } from '../../server/sim/attack.js';
 
 const SRC = getDefaultSource();
 const raw = (id) => SRC.rawChess(id);
@@ -24,7 +24,7 @@ const dummy = (key, o = {}) => enemyRec({ key, hp: 1e7, speed: 0, ...o });
 const plain = (id, o = {}) => chessRec({ id, skill: null, stats: { maxHp: 1e6, ...(o.stats || {}) }, ...o });
 
 // ---------------------------------------------------------------------------------------------------------------------
-// damage.js
+// the settlement pipeline (attack/element.js)
 
 test('applyElement refuses a target with no HP left: a rider on a killing blow bursts nothing (pipeline guard)', () => {
   for (const lethal of [true, false]) {

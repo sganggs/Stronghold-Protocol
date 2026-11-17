@@ -534,7 +534,9 @@ test('战术决策 E2E (co-op 3): team cards reach every teammate (AI included),
   for (const ps of all) {
     const had = before.get(ps.playerId).items;
     const now = new Set(itemsOf(ps).map((p) => p.uid));
-    const fresh = itemsOf(ps).filter((p) => !had.has(p.uid));
+    // a strategy's 「进入休整期时」 item (昆图斯's R3 突变细胞 …) now comes at the prep start, after the draft (GitHub #851)
+    const bandItems = new Set((DATA.bands[ps.bandId]?.buffs || []).filter((x) => /^prep(aration)?_start_/.test(x.key)).map((x) => x.bbStr?.chess).filter(Boolean));
+    const fresh = itemsOf(ps).filter((p) => !had.has(p.uid) && !bandItems.has(p.id));
     // an identical normal pair merges into the 进阶 item (counts 2); an owned copy consumed by a merge counts −1
     const n = fresh.reduce((k, p) => k + (DATA.items[p.id].isGolden ? 2 : 1), 0) - [...had].filter((u) => !now.has(u)).length;
     assert.equal(n, 2, `${ps.playerId}: 列装 gives 2 items`);

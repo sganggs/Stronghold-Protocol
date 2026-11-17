@@ -10,6 +10,11 @@
 // { v: 1, notOwned }) and sent with C2S `room.ownership { notOwned }` (the server keeps the droppable ids and drops the
 // rest — shared/protocol.js checkNotOwned — so a stale list never gets refused). 导出 / 导入 use a versioned envelope
 // like the loadout presets.
+// By operator (DESIGN §35.23, M1): stored as charIds — `sp.pref.ownership` = { v: 2, notOwnedChars } — so 第一期's reused
+// chess ids never mark another operator; ui/loadoutSync.js shows `notOwned` (chess ids of the data on screen) as a view
+// (notOwnedView) and writes an edit back by operator (rebaseChars). A v1 list (chess ids of 第二期下半) is migrated
+// through 第二期下半's chess.json; 导出 writes v2, 导入 reads v1 and v2. A v2 store also carries `notOwned` (the same list by
+// 第二期下半's chess ids, when the page has that map) for an older build on the same origin; this build ignores it.
 
 import { checkNotOwned, OWNERSHIP_LIMITS } from '../../../shared/protocol.js';
 import { isDroppableChess, standInRecord } from '../../../shared/standIn.js';
@@ -17,7 +22,7 @@ import { t } from '../../../shared/i18n.js';
 
 /** localStorage key (store.js loadPref/savePref prefix `sp.pref.`) and format version. */
 export const OWNERSHIP_PREF = 'ownership';
-export const OWNERSHIP_VERSION = 1;
+export const OWNERSHIP_VERSION = 2;
 /** `kind` of an exported ownership envelope. */
 export const OWNERSHIP_EXPORT_KIND = 'stronghold.ownership';
 /** A picked file / pasted payload longer than this is refused before parsing (a real payload is under 4 KB). */
@@ -42,17 +47,48 @@ export function cleanIds(list) {
 }
 
 /**
- * Parse a stored setting (any junk → []): `{ v, notOwned }` or a bare array from an older build.
+ * Parse a stored v1 setting (any junk → []): `{ v: 1, notOwned }` or a bare array from an older build — chess ids of
+ * 第二期下半 (the migration's input).
  * @param {any} raw
  * @returns {string[]}
  */
 export function parseStoredOwnership(raw) {
   if (Array.isArray(raw)) return cleanIds(raw);
-  return isObj(raw) ? cleanIds(raw.notOwned) : [];
+  return isObj(raw) && raw.v !== 2 ? cleanIds(raw.notOwned) : [];
 }
 
-/** Serialised form for localStorage. */
-export const toStoredOwnership = (notOwned) => ({ v: OWNERSHIP_VERSION, notOwned: cleanIds(notOwned) });
+/** Parse a stored v2 setting: the operators marked not owned (charIds; any junk → []). @param {any} raw */
+export function parseStoredOwnershipChars(raw) {
+  return isObj(raw) && raw.v === 2 ? cleanIds(raw.notOwnedChars) : [];
+}
+
+/** Serialised form for localStorage (v2: charIds; `notOwned`: the copy by 第二期下半's chess ids for older builds, when given). */
+export const toStoredOwnership = (notOwnedChars, notOwned = undefined) => ({ v: OWNERSHIP_VERSION, notOwnedChars: cleanIds(notOwnedChars),
+  ...(Array.isArray(notOwned) ? { notOwned: cleanIds(notOwned) } : {}) });
+/** The v1 form (chess ids), written only while a v1 store still waits for its migration. */
+export const toStoredOwnershipV1 = (notOwned) => ({ v: 1, notOwned: cleanIds(notOwned) });
+
+/**
+ * The view of the operators marked not owned for a data set (`map`: ui/loadoutModel.js charKeyMap): their chess ids.
+ * @param {string[]} chars @param {{ toChess: Map<string, string> }} map
+ */
+export function notOwnedView(chars, map) {
+  return cleanIds((chars || []).map((c) => map?.toChess?.get(c)).filter(Boolean));
+}
+
+/**
+ * Write an edit of a view back by operator (like ui/loadoutModel.js rebaseByChar) — only what the edit changed: chess it
+ * removed clear their operator, chess it added add theirs; operators the view did not show stay.
+ * @param {string[]} chars @param {string[]} prev @param {string[]} next @param {(chessId: string) => string|null|undefined} charOf
+ */
+export function rebaseChars(chars, prev, next, charOf) {
+  const out = new Set(chars || []);
+  const keep = new Set(next || []);
+  const had = new Set(prev || []);
+  for (const id of had) if (!keep.has(id)) { const c = charOf(id); if (c) out.delete(c); }
+  for (const id of keep) if (!had.has(id)) { const c = charOf(id); if (typeof c === 'string' && c) out.add(c); }
+  return cleanIds([...out]);
+}
 
 /**
  * The ids to keep / send against the loaded data: droppable chess only (checkNotOwned), sorted.
@@ -129,15 +165,15 @@ export function notOwnedCount(notOwned, roster) {
 
 // ---- export / import -------------------------------------------------------------------------------------------------
 
-/** Portable payload of a not-owned list, as downloaded / copied by 导出. */
-export function exportOwnership(notOwned, { now = Date.now() } = {}) {
-  const list = cleanIds(notOwned);
+/** Portable payload of the operators marked not owned (v2: charIds), as downloaded / copied by 导出. */
+export function exportOwnership(notOwnedChars, { now = Date.now() } = {}) {
+  const list = cleanIds(notOwnedChars);
   return {
     kind: OWNERSHIP_EXPORT_KIND,
     v: OWNERSHIP_VERSION,
     exportedAt: new Date(Number.isFinite(now) ? now : Date.now()).toISOString(),
     count: list.length,
-    notOwned: list,
+    notOwnedChars: list,
   };
 }
 
@@ -147,9 +183,10 @@ export const serializeOwnership = (notOwned, opts) => JSON.stringify(exportOwner
 /**
  * Parse an imported list: the envelope, the stored `{ v, notOwned }` form, a bare array of ids, or the text of any of
  * them. STRUCTURAL only — the caller sanitises against the loaded data (sanitizeNotOwned). An envelope may hold an empty
- * list (= every operator owned).
+ * list (= every operator owned). A v2 payload gives `notOwnedChars` (charIds) instead of `notOwned` (v1: chess ids of
+ * 第二期下半 — the caller maps them, ui/loadoutSync.js).
  * @param {any} input payload or text
- * @returns {{ ok: true, notOwned: string[] } | { ok: false, error: string }}
+ * @returns {{ ok: true, notOwned?: string[], notOwnedChars?: string[] } | { ok: false, error: string }}
  */
 export function parseOwnershipImport(input) {
   let raw = input;
@@ -165,6 +202,7 @@ export function parseOwnershipImport(input) {
   if (v != null && v > OWNERSHIP_VERSION) return { ok: false, error: t('这份数据来自更新的版本（v{v}），请先更新游戏', { v }) };
   const kind = typeof raw.kind === 'string' ? raw.kind : null;
   if (kind && kind !== OWNERSHIP_EXPORT_KIND) return { ok: false, error: t('这不是干员持有的数据') };
+  if (v === 2) return Array.isArray(raw.notOwnedChars) ? { ok: true, notOwnedChars: cleanIds(raw.notOwnedChars) } : { ok: false, error: t('里面没有干员持有的数据') };
   if (!Array.isArray(raw.notOwned)) return { ok: false, error: t('里面没有干员持有的数据') };
   return { ok: true, notOwned: cleanIds(raw.notOwned) };
 }

@@ -147,4 +147,64 @@ describe('leader plates and endings (headless Chrome)', { skip: !ENABLED && 'set
     assert.deepEqual(problems, []);
     await context.close();
   });
+
+  test('leader ranking: three rows under 隐藏, clear of the phone HUD at 844×390 and 667×375', async () => {
+    const { page, problems, context } = await open();
+    await setPhase(page, 'FINAL_ASSAULT');
+    await page.waitForSelector('[data-testid="final-plate"]', { timeout: 3000 });
+    await page.waitForFunction(() => !document.querySelector('[data-testid="final-plate"]'), { timeout: 4000 });
+    await mutate(page, `
+      s.pub.bossHp = { hp: 78, max: 100 };
+      const a = s.pub.players[0].playerId, b = s.pub.players[1].playerId;
+      s.pub.leaderTop = [
+        { pid: a, uid: 1, chess: 'op_a', tier: 5, dmg: 22 },
+        { pid: b, uid: 2, chess: 'op_b', tier: 4, dmg: 6 },
+        { pid: a, uid: 3, chess: 'op_c', tier: 6, dmg: 4 },
+      ];
+    `);
+    await page.waitForSelector('.ldmg__row', { timeout: 3000 });
+    const read = () => page.evaluate(() => {
+      // An empty slot is display:none. Show it at the boss-phase max box.
+      // height (not min-height): a min-height above max-height drops the max-height.
+      const slot = document.querySelector('.gm__ui-slot');
+      if (slot) { slot.style.display = 'block'; slot.style.height = '100vh'; }
+      const box = (sel) => {
+        const el = document.querySelector(sel);
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        if (r.width < 1 && r.height < 1) return null;
+        return { left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+      };
+      const hit = (a, b) => !!(a && b && a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top);
+      const panel = box('.ldmg');
+      const overlaps = {};
+      for (const sel of ['.team', '.gm__effects', '.dpbox', '.ticker', '.gm__corner', '.chud__bottom', '.gm__ui-slot']) {
+        overlaps[sel] = hit(panel, box(sel));
+      }
+      return {
+        rows: document.querySelectorAll('.ldmg__row').length,
+        toggle: document.querySelector('.ldmg__toggle')?.textContent,
+        shares: [...document.querySelectorAll('.ldmg__share')].map((el) => el.textContent),
+        overlaps,
+        boss: document.querySelector('.gm')?.classList.contains('is-boss'),
+        clicks: getComputedStyle(document.querySelector('.ldmg')).pointerEvents,
+      };
+    });
+    for (const [w, h] of [[844, 390], [667, 375]]) {
+      await page.setViewport({ width: w, height: h });
+      await sleep(50);
+      const s = await read();
+      assert.equal(s.boss, true, `${w}×${h}`);
+      assert.equal(s.rows, 3, `${w}×${h}`);
+      assert.equal(s.clicks, 'auto', `${w}×${h}`);
+      assert.equal(s.toggle, '隐藏');
+      assert.deepEqual(s.shares, ['22%', '6%', '4%']);
+      for (const [sel, over] of Object.entries(s.overlaps)) assert.equal(over, false, `${w}×${h} overlaps ${sel}`);
+    }
+    await page.click('.ldmg__toggle');
+    await page.waitForFunction(() => document.querySelectorAll('.ldmg__row').length === 0 && document.querySelector('.ldmg__toggle')?.textContent === '显示');
+    assert.equal(await page.evaluate(() => localStorage.getItem('sp.pref.leaderRankHidden')), 'true');
+    assert.deepEqual(problems.filter((p) => p.startsWith('pageerror')), []);
+    await context.close();
+  });
 });

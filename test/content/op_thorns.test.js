@@ -172,7 +172,7 @@ test('S2: the cooldown (0.8 s) holds a second hit back; 持续 / 溅射 / elemen
   assert.ok(h.runUntil(() => u.skill.active, 2));
   const spikes = () => from(h, u, (c) => tagged(c, 'thorns:spike')).length;
   const hit = (o) => h.b.dealDamage(e, u, { amount: 1, type: 'phys', ...o });
-  hit({ tags: ['dot'] }); hit({ tags: ['periodic'] }); hit({ isSplash: true }); hit({ sourceless: true });
+  hit({ tags: ['dot'] }); hit({ attackType: 'BUFF', tags: ['periodic'] }); hit({ isSplash: true }); hit({ sourceless: true });
   h.b.dealDamage(e, u, { type: 'element', element: 'burn', amount: 10 });
   h.b.loseHp(u, 1, { source: e });
   h.b.dealDamage(u, u, { amount: 1, type: 'phys' });
@@ -246,7 +246,7 @@ test('T1 神经腐蚀: an attack poisons its target — 3 ticks of 140 arts (280
       approx(ticks[0].t - hitT, 1, `T${tier} ${key}: the first a second in`, 0.05);
       for (const c of ticks) {
         approx(c.amount, dmg, `T${tier} ${key}: ${dmg} arts`);
-        assert.deepEqual([c.type, c.dmg.canDodge, tagged(c, 'dot'), c.target], ['arts', false, true, e]);
+        assert.deepEqual([c.type, c.dmg.canDodge, tagged(c, 'dot'), c.target], ['arts', true, true, e]);
       }
       done(h);
     }
@@ -391,5 +391,126 @@ test('T2 故土潮声: 生命回复速度 +4 % max HP/s (an hpRegenRatio buff, n
   h.run(5);
   assert.ok(from(h, u, (c) => tagged(c, 'thorns:spike')).length > 0, 'spikes');
   assert.ok(u.findBuff('talent:thorns:tide'), 'still on');
+  done(h);
+});
+
+for (const [tier, mod] of [[5, null], [5, LORX], [6, LORX], [5, LORD], [6, LORD]]) test(`precomputed poison omits source calculation and LOR-X re-entry: T${tier} ${mod}`, () => {
+  const { h, u } = field({ tier, elite: true, mod });
+  const e = h.spawn('enemy_dummy', { pos: [10, 6] });
+  u.atkCd = e.atkCd = 999;
+  let calculations = 0;
+  h.b.on('damageCalculate', c => { if (c.source === u) { calculations++; c.dmg.amount *= 2; } });
+  h.b.dealDamage({ source: u, target: e, amount: 100, type: 'phys', isAttack: true });
+  h.run(1.1);
+  const ticks = from(h, u, c => tagged(c, 'thorns:poison'));
+  assert.equal(calculations, 1, 'only the primary enters source calculation');
+  assert.equal(ticks.length, 1);
+  approx(ticks[0].amount, t0Of(tier, true, mod)['damage[normal]'], 'fixed poison input is not doubled');
+  assert.equal(ticks[0].dmg.calculation, 'precomputed');
+  assert.equal(ticks[0].dmg.attackType, 'BUFF');
+  assert.equal(ticks[0].dmg.applyWay, 'NONE');
+  assert.equal(from(h, u, c => tagged(c, 'thorns:lorx')).length, mod === LORX ? 1 : 0);
+  done(h);
+});
+
+test('LOR-X child consumes a count shield before its primary', () => {
+  const { h, u } = field({ tier: 6, elite: true, mod: LORX });
+  const e = h.spawn('enemy_dummy', { pos: [10, 6] });
+  h.b.addBuff(e, { key: 'shield', shieldHits: 1 });
+  approx(h.b.dealDamage({ source: u, target: e, amount: 1000, type: 'true', isAttack: true }), 1000, 'primary lands');
+  const hits = from(h, u);
+  assert.equal(hits[0].dmg.attackType, 'ADDITION');
+  assert.equal(hits[0].amount, 0);
+  assert.equal(hits[0].dmg.origin, hits[1].dmg);
+  done(h);
+});
+
+test('poison retains ordinary arts dodge rather than an implicit ignore-cancellation mask', () => {
+  const { h, u } = field();
+  const e = h.spawn('enemy_dummy', { pos: [10, 6] });
+  u.atkCd = e.atkCd = 999;
+  h.b.addBuff(e, { key: 'dodge', mods: { dodgeArts: 1 } });
+  let attempts = 0;
+  h.b.on('dodge', c => { if (c.source === u && c.dmg.tags.includes('thorns:poison')) attempts++; });
+  h.b.dealDamage({ source: u, target: e, amount: 100, type: 'phys', isAttack: true });
+  h.run(1.1);
+  assert.equal(attempts, 1);
+  assert.equal(from(h, u, c => tagged(c, 'thorns:poison')).length, 0);
+  done(h);
+});
+
+for (const defense of ['shield', 'overkill']) test(`LOR-Delta takes its gauge basis before parent ${defense}`, () => {
+  const { h, u } = field({ tier: 5, elite: true, mod: LORD });
+  const e = h.spawn('enemy_dummy', { pos: [10, 6] });
+  if (defense === 'shield') h.b.addBuff(e, { key: 'shield', shieldHits: 1 });
+  else e.hp = 1;
+  h.b.dealDamage({ source: u, target: e, amount: 1000, type: 'true' });
+  approx(e.elem.neural, 100, '10% of output amount, independent of parent injury/remaining HP');
+  done(h);
+});
+
+for (const [attackType, tags, splash, expected] of [
+  ['NORMAL', ['dot', 'addition'], true, 1], ['ADDITION', [], false, 0], ['BUFF', [], false, 0],
+  ['SPLASH', [], false, 0], ['NONE', [], false, 0],
+]) test(`S2 reads explicit ${attackType} rather than descriptive tags or splash flags`, () => {
+  const { h, u } = field({ skill: 1 });
+  const e = h.spawn('enemy_dummy', { pos: [10, 6] });
+  e.atkCd = 999;
+  assert.ok(u.skill.activate('test', { free: true }));
+  h.b.dealDamage({ source: e, target: u, amount: 1, type: 'true', attackType, tags, isSplash: splash });
+  h.run(0.6);
+  assert.equal(from(h, u, c => tagged(c, 'thorns:spike')).length, expected);
+  done(h);
+});
+
+// Literal-zero dispatch is the sim's [ASSUMED] shared event contract; cancelled nonzero hits have native evidence.
+for (const [defense, before] of [['shield', true], ['shield', false], ['dodge', true], ['dodge', false], ['zero', false]]) test(`S2 observer accepts ${defense} acquired ${before ? 'before' : 'after'} the skill`, () => {
+  const { h, u } = field({ skill: 1 });
+  const e = h.spawn('enemy_dummy', { pos: [10, 6] });
+  e.atkCd = 999;
+  const addDefense = () => {
+    if (defense === 'shield') h.b.addBuff(u, { key: 'shield', shieldHits: 1 });
+    if (defense === 'dodge') h.b.addBuff(u, { key: 'dodge', mods: { dodgePhys: 1 } });
+  };
+  if (before) addDefense();
+  assert.ok(u.skill.activate('test', { free: true }));
+  if (!before) addDefense();
+  h.b.dealDamage({ source: e, target: u, amount: defense === 'zero' ? 0 : 10, type: 'phys', attackType: 'NORMAL' });
+  h.run(0.6);
+  assert.equal(from(h, u, c => tagged(c, 'thorns:spike')).length, 1);
+  done(h);
+});
+
+test('S2 held observer ends with the skill and its LOR-X spike has only one precomputed child', () => {
+  const { h, u } = field({ tier: 6, elite: true, mod: LORX, skill: 1 });
+  const e = h.spawn('enemy_dummy', { pos: [10, 6] });
+  e.atkCd = 999;
+  assert.ok(u.skill.activate('test', { free: true }));
+  assert.ok(u.findBuff('skill:thorns:spikes'));
+  let calculations = 0;
+  h.b.on('damageCalculate', c => { if (c.source === u) calculations++; });
+  h.b.dealDamage({ source: e, target: u, amount: 10, type: 'true' });
+  h.run(0.6);
+  assert.equal(from(h, u, c => tagged(c, 'thorns:spike')).length, 1);
+  assert.equal(from(h, u, c => tagged(c, 'thorns:lorx')).length, 1);
+  assert.equal(calculations, 1);
+  u.skill.end('test');
+  u.atkCd = 999;
+  assert.equal(u.findBuff('skill:thorns:spikes'), null);
+  h.b.dealDamage({ source: e, target: u, amount: 10, type: 'true' });
+  h.run(0.6);
+  assert.equal(from(h, u, c => tagged(c, 'thorns:spike')).length, 1);
+  assert.equal(from(h, u, c => tagged(c, 'thorns:lorx')).length, 1, 'poison does not make another module child');
+  done(h);
+});
+
+test('an attack-shaped HP-loss origin cannot apply Thorns poison', () => {
+  const { h, u } = field();
+  const e = h.spawn('enemy_dummy', { pos: [10, 6] });
+  u.atkCd = e.atkCd = 999;
+  h.b.dealHPLose(e, 10, { source: u, from: { isAttack: true, tags: ['thorns:spike'] } });
+  assert.equal(e.findBuff(`thorns:poison:${u.id}`), null);
+  h.b.dealHPLose({ source: u, target: e, amount: 10, origin: { isAttack: true, tags: ['thorns:spike'] } });
+  assert.equal(e.findBuff(`thorns:poison:${u.id}`), null);
   done(h);
 });

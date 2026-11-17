@@ -10,6 +10,10 @@ import { startServer } from '../server/index.js';
 import { StubMatch } from '../server/match/StubMatch.js';
 import { TestClient } from './helpers/wsClient.js';
 import { ERR, PHASE } from '../shared/constants.js';
+import { DEFAULT_VERSION } from '../shared/versions.js';
+
+// settings outside a room are checked against the server's default version: these tests use 第二期下半's records
+const CLASSIC = Object.freeze({ default: DEFAULT_VERSION });
 
 const SILVER = 'chess_char_4_22_a'; // 银灰 (NORMAL)
 const SARIA = 'chess_char_5_11_a'; // 塞雷娅 (NORMAL)
@@ -53,7 +57,7 @@ describe('room.ownership (lobby, stub match)', () => {
   let pool;
   const cap = quietLog();
   before(async () => {
-    srv = await startServer({ port: 0, host: '127.0.0.1', log: cap.log, MatchClass: RecordingStub, heavyBurst: 12, heavyPerSec: 4 });
+    srv = await startServer({ port: 0, host: '127.0.0.1', versions: CLASSIC, log: cap.log, MatchClass: RecordingStub, heavyBurst: 12, heavyPerSec: 4 });
     pool = clientPool(() => `ws://127.0.0.1:${srv.port}/ws`);
   });
   afterEach(async () => { RecordingStub.instances = []; await pool.closeAll(); });
@@ -112,7 +116,7 @@ describe('room.ownership (lobby + real match)', () => {
   let pool;
   const cap = quietLog();
   before(async () => {
-    srv = await startServer({ port: 0, host: '127.0.0.1', log: cap.log, seedFn: () => 4242 });
+    srv = await startServer({ port: 0, host: '127.0.0.1', versions: CLASSIC, log: cap.log, seedFn: () => 4242 });
     pool = clientPool(() => `ws://127.0.0.1:${srv.port}/ws`);
   });
   afterEach(async () => { await pool.closeAll(); });

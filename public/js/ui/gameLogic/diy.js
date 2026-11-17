@@ -106,7 +106,7 @@ export function pickGetter(getChess, pick, data) {
 export const isDiyRecord = (rec) => isObj(rec) && typeof rec.diyFor === 'string';
 
 /**
- * The player's slotted 自选 pieces this match leaves out of the shop because every bond of the operator is switched off
+ * The player's slotted 自选 pieces this match leaves out of the shop under the server's version-specific bond rule
  * (m.private.diyBanned — the server's initDiyStock: no stock), in slot order: [{ slotId, charId, name }] (the operator's
  * name from its composed record; the charId when the data lacks it). [] without any.
  * @param {any} priv m.private @param {(id: string) => any} getChess @param {{ chess?: any, backups?: any }} data

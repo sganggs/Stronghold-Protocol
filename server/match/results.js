@@ -91,7 +91,7 @@ export function buildResult(m, outcome) {
   const gd = m.gd;
   const { victory, hiddenReached, hiddenCleared } = outcome;
   const players = [...m.players.values()].sort((a, b) => a.seat - b.seat);
-  const titles = assignTitles(gd, players, victory);
+  const titles = assignTitles(gd, players.filter(ps => !Number.isInteger(ps.aiTakeoverRound)), victory);
   const teamRounds = victory ? gd.bossRound + (hiddenCleared ? 1 : 0) : Math.max(0, Math.min(m.round, gd.bossRound) - 1);
   const rows = players.map((ps) => {
     const roundsPassed = !ps.alive && ps.eliminatedRound != null ? Math.max(0, ps.eliminatedRound - 1) : teamRounds;
@@ -113,6 +113,7 @@ export function buildResult(m, outcome) {
       seat: ps.seat,
       name: ps.name,
       isBot: ps.isBot,
+      ...(Number.isInteger(ps.aiTakeoverRound) ? { aiTakeoverRound: ps.aiTakeoverRound } : {}),
       left: ps.left,
       alive: ps.alive,
       victory: cleared,
@@ -129,9 +130,9 @@ export function buildResult(m, outcome) {
         bossDamage: Math.round(ps.stats.bossDamage), activatedLayers: ps.activatedLayers(), lpLost: ps.stats.lpLost,
         perfectRounds: ps.stats.perfectRounds,
       },
-      title: m.test === true ? null : titles.get(ps.playerId) ?? null,
-      trophies: m.test === true ? 0 : trophiesFor(gd, roundsPassed, cleared && hiddenCleared),
-      reward: m.test === true ? 0 : rewardFor(gd, roundsPassed),
+      title: m.test === true || Number.isInteger(ps.aiTakeoverRound) ? null : titles.get(ps.playerId) ?? null,
+      trophies: m.test === true || Number.isInteger(ps.aiTakeoverRound) ? 0 : trophiesFor(gd, roundsPassed, cleared && hiddenCleared),
+      reward: m.test === true || Number.isInteger(ps.aiTakeoverRound) ? 0 : rewardFor(gd, roundsPassed),
     };
   });
   const out = {
@@ -146,6 +147,10 @@ export function buildResult(m, outcome) {
     modeId: m.modeId,
     difficulty: m.difficulty,
     stageId: m.stageId,
+    // a non-default official version's match (DESIGN §35.23): its registry id — the page records and draws the settlement
+    // with that version even when it never saw the room (the lobby's replay after a kick / grace timeout); absent for
+    // the default, so its result stays byte-identical
+    ...(m.version ? { version: m.version } : {}),
     bossId: m.bossId,
     hiddenBossId: m.hiddenBossId,
     seed: m.seed,

@@ -15,17 +15,16 @@
 // - Trait (领主) "可以进行远程攻击，但此时攻击力降低至80%": the lord profile (professions.js: ×atk_scale unless the target
 //   stands on his tile / the tile in front or he blocks it), range 3-12, hits air units (data canHitFly), blocks 2.
 //   Module LOR-X “盐与沙” adds "攻击附带10%攻击力的法术伤害" (trait atk_scale_m; thorns_e_002_tr: ON_CALCULATE_DAMAGE, attack
-//   type ADDITION — PRTS "造成预计算法术附加伤害"): atk_scale_m × ATK arts after every hit of his attacks (the trait's
-//   afterHit, as 拉普兰德 / 断崖 / 仇白 / 银灰 do it; tags module / addition) and of S2's spikes [ASSUMED: the Thorn ability
-//   calculates its damage like an attack; the fixed-value poison ticks do not]. Module LOR-Δ “沙蚀” adds
+//   type ADDITION — PRTS "造成预计算法术附加伤害"): atk_scale_m × ATK arts at source calculation, including S2 spikes.
+//   Fixed-value poison is precomputed BUFF and does not enter source calculation. Module LOR-Δ “沙蚀” adds
 //   "造成伤害时附带相当于10%伤害的神经损伤" (trait ep_damage_ratio; thorns_e_003_tr: ON_AFTER_OUTPUT_DAMAGE, every damage
-//   type): ep_damage_ratio × the HP damage of every damage instance he deals — attacks, spikes, LOR-X additions and the
+//   type): ep_damage_ratio × output damage before target injury for every instance he deals — attacks, spikes, LOR-X additions and the
 //   poison ticks — as 神经损伤 (docs/SIM.md §7.2 element conventions).
 // - T1 神经腐蚀 "攻击使目标中毒，在3秒内每秒受到125点法术伤害（对会远程攻击的目标伤害加倍）" (full potential: 140): every
 //   hit of his attacks (and of the S2 spikes, PRTS "所有攻击均能附加") poisons the target — one poison per 棘刺
 //   (independentCharacterSource) for `duration` s, ticking every second, the first a second in (waitFirstTriggerInterval), damage[normal] or
 //   damage[ranged] (an enemy whose 攻击方式 includes 远程: data applyWay RANGED or ALL; PRTS "伤害加倍为数值提升") as a fixed
-//   arts 持续伤害 (FixedValueDamage MAGICAL, attack type BUFF: RES applies, no dodge, tags dot). A new hit refreshes the
+//   arts 持续伤害 (FixedValueDamage MAGICAL, attack type BUFF: RES and ordinary dodge apply, tags dot). A new hit refreshes the
 //   duration and keeps the damage value and the tick rhythm (PRTS "仅刷新持续时间而不改变伤害数值"). The ticks go on after
 //   he leaves the field [ASSUMED, as 伊芙利特's 灼伤]. A dodged hit poisons nothing (no `damaged`; 击中目标的攻击).
 //   LOR-X stage 2+ (thorns_e_002_t: no end of its own, cnt 1; every hit a new [mark] of `duration` s whose start adds 1
@@ -43,7 +42,7 @@
 // - S1 攻击力强化·γ型 (MANUAL, data DEFAULT): ATK +atk for `duration` s.
 // - S2 护身尖刺 (MANUAL, 技能范围 3-1, data SKILL_RANGE): "停止攻击" (no normal attack; PRTS "技能期间，自身丢失全部视野"),
 //   ATK +atk, DEF +def; every 普通伤害 an enemy deals him (PRTS "指受到普通伤害（伤害类型），而非由普通攻击造成的伤害";
-//   thorns_s_2 FilterDamageModifer attack type NORMAL: not 溅射, not 持续 (dot / periodic), not 附加, not element damage,
+//   thorns_s_2 FilterDamageModifer attack type NORMAL: not 溅射, not 持续 (dot / periodic), not 附加, not a gauge,
 //   not a 流失, not 无来源) sets off the Thorn ability when its `cooldown` (0.8 / 0.75 s) is ready and he can act: 0.5 s
 //   later (its `_preDelay`) up to max_target enemies of the 3-1 — ground and air, the usual target order — each take ATK ×
 //   the trait's atk_scale (PRTS "始终受降低攻击倍率特性的影响") physical, a skill hit that is no normal attack (no `attack`
@@ -57,7 +56,8 @@
 
 import { num, talentBb, traitBb, skillRec, up } from '../shared/tier1.js';
 import { absoluteRangeKeys, sortEnemyTargets } from '../../../targeting.js';
-import { hasHp, isHpLoss } from '../../../damage.js';
+import { hasHp, isHpLoss, damageAttackType } from '../../../attack.js';
+import { installLordArtsAddition } from '../shared/lord.js';
 
 const S1 = 'skcom_atk_up[3]';
 const S2 = 'skchr_thorns_2';
@@ -77,15 +77,12 @@ const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 /** An enemy whose 攻击方式 includes 远程 (PRTS "图鉴中【攻击方式】包含远程的敌人"; data applyWay). */
 const attacksRanged = (e) => { const w = String(e?.def?.applyWay ?? '').toUpperCase(); return w === 'RANGED' || w === 'ALL'; };
 /**
- * 普通伤害 (PRTS 伤害分类; thorns_s_2 FilterDamageModifer attack type NORMAL) an enemy dealt — not 溅射, 持续 (dot /
- * periodic), 附加, element damage, a 流失 or 无来源 damage.
+ * thorns_s_2 filters the explicit NORMAL class and enemy source, without filtering the HP-damage type.
+ * Descriptive dot/addition/splash flags do not override that class; gauges and HP loss omit injury dispatch.
  */
 function normalHitFromEnemy(c) {
   const d = c.dmg;
-  if (!d || !c.source || c.source.side !== 'enemy' || d.sourceless || d.isSplash || isHpLoss(d)) return false;
-  if (c.type === 'element' || c.type === 'elemental') return false;
-  const tags = d.tags || [];
-  return !tags.includes('dot') && !tags.includes('periodic') && !tags.includes('addition');
+  return !!d && !!c.source && c.source.side === 'enemy' && !isHpLoss(d) && damageAttackType(d) === 'NORMAL';
 }
 
 export default {
@@ -100,13 +97,6 @@ export default {
     const maxCnt = Math.max(1, Math.floor(num(t0.max_cnt, 1)));   // LOR-X stage 2+: 可叠加
     const breakMul = num(t0.ep_break_multi);           // LOR-Δ stage 2+: ×multi 元素伤害 in a 神经 burst
     const spikesPoison = !(breakMul > 0);              // LOR-Δ stage 2+: only normal attacks poison
-
-    /** LOR-X "攻击附带10%攻击力的法术伤害": the arts addition of one hit (PRTS: 预计算法术附加伤害). */
-    const addition = (battle, unit, target) => {
-      if (loreX > 0 && target && target.alive && target.side === 'enemy' && hasHp(target)) {
-        battle.dealDamage(unit, target, { amount: unit.s.atk * loreX, type: 'arts', tags: ['module', 'addition', 'thorns:lorx'] });
-      }
-    };
 
     /** T1 神经腐蚀: poison `e` (one per 棘刺; a new hit refreshes it, LOR-X stage 2+ adds a layer). */
     const poison = (battle, unit, e) => {
@@ -125,23 +115,46 @@ export default {
           let amount = buff.data.base * (maxCnt > 1 ? buff.data.cnt : 1);
           let type = 'arts';
           if (breakMul > 0 && tgt.findBuff('neuralBurst')) { amount *= breakMul; type = 'elemental'; }
-          bt.dealDamage(unit, tgt, { amount, type, element: type === 'elemental' ? 'neural' : undefined, canDodge: false, tags: ['talent', 'dot', 'thorns:poison'] });
+          bt.dealDamage({ source: unit, target: tgt, amount, type, element: type === 'elemental' ? 'neural' : undefined,
+            attackType: 'BUFF', applyWay: 'NONE', calculation: 'precomputed', tags: ['talent', 'dot', 'thorns:poison'] });
         },
       });
       if (old && b === old && maxCnt > 1) old.data.cnt = Math.min(maxCnt, num(old.data.cnt, 1) + 1);
     };
 
     return {
-      trait: {
-        // LOR-X: every hit of his attacks carries the arts addition
-        afterHit(battle, u, target) { addition(battle, u, target); },
-      },
       skills: {
         [S1]: { kind: 'duration', mods: { atkPct: num(b1.atk) } },
         [S2]: {
           kind: 'duration',
           mods: { atkPct: num(b2.atk), defPct: num(b2.def) },
           attack: { noAttack: true },     // 停止攻击
+          onStart({ battle, unit }) {
+            const cd = num(b2.cooldown, 0.8), n = Math.max(1, Math.floor(num(b2.max_target, 4)));
+            // [ASSUMED] Literal-zero requests retain the simulator's shared injury dispatch policy.
+            battle.addBuff(unit, { key: 'skill:thorns:spikes',
+              observeInjury(c) {
+                const sk = unit.skill;
+                if (c.target !== unit || !sk || !sk.active || !up(unit) || !unit.canAct || !normalHitFromEnemy(c)) return;
+                if (battle.time < unit.mem.thornsSpikeAt + cd - 1e-9) return;
+                unit.mem.thornsSpikeAt = battle.time;
+                const seq = unit.deploySeq, act = sk.activations;
+                battle.after(SPIKE_DELAY, () => {
+                  if (!up(unit) || unit.deploySeq !== seq || !unit.canAct || !unit.skill?.active || unit.skill.activations !== act) return;
+                  const list = battle.enemiesInKeys(absoluteRangeKeys(grid2, unit.tileR, unit.tileC, unit.dir, 0), unit, AIR);
+                  sortEnemyTargets(battle, unit, list, null);
+                  const targets = list.slice(0, n);
+                  if (!targets.length) return;
+                  battle.fx('thorns', { x: unit.x, y: unit.y, id: unit.id, n: targets.length });
+                  for (const e of targets) {
+                    if (!e.alive) continue;
+                    battle.dealDamage(unit, e, { amount: unit.s.atk * rangedScale * unit.s.atkScaleMul, type: 'phys', isSkill: true, tags: ['skill', 'thorns:spike'] });
+                  }
+                }, { owner: unit });
+              },
+            });
+          },
+          onEnd({ battle, unit }) { battle.removeBuff(unit, 'skill:thorns:spikes'); },
         },
         [S3]: {
           kind: 'toggle',
@@ -167,7 +180,7 @@ export default {
       talents: [
         { install(battle, unit) { // 神经腐蚀: his attack hits (and the spikes, but under LOR-Δ stage 2+) poison
           battle.on('damaged', (c) => {
-            if (c.source !== unit || !c.target || c.target.side !== 'enemy' || !c.dmg || c.type === 'element') return;
+            if (c.source !== unit || !c.target || c.target.side !== 'enemy' || !c.dmg || isHpLoss(c.dmg) || c.type === 'element') return;
             const tags = c.dmg.tags || [];
             if (c.dmg.isAttack || (spikesPoison && tags.includes('thorns:spike'))) poison(battle, unit, c.target);
           }, { owner: unit });
@@ -190,39 +203,19 @@ export default {
         } },
       ],
       install(battle, unit) {
+        installLordArtsAddition(battle, unit, loreX, ['module', 'addition', 'thorns:lorx']);
         // S3: the use count restarts with every deployment (PRTS "每次部署棘刺时，重新计算该技能的使用次数")
         battle.on('deploy', (c) => { if (c.unit === unit) unit.mem.thornsS3Uses = 0; }, { owner: unit });
-        // LOR-Δ: 神经损伤 = ep_damage_ratio × the HP damage of every damage instance he deals
+        // thorns_e_003_tr: 神经损伤 uses output damage before target injury, not eventual HP removed.
         if (loreD > 0) {
-          battle.on('damaged', (c) => {
+          battle.on('damageOutput', (c) => {
             if (c.source !== unit || !c.target || c.target.side !== 'enemy' || c.type === 'element' || !(c.amount > 0) || !hasHp(c.target)) return;
-            battle.dealDamage(unit, c.target, { type: 'element', element: 'neural', amount: c.amount * loreD, tags: ['module', 'thorns:lord'] });
+            battle.dealElementDamage({ source: unit, target: c.target, element: 'neural', amount: c.amount * loreD, tags: ['module', 'thorns:lord'] });
           }, { owner: unit });
         }
         if (unit.skill?.id !== S2) return;
-        // S2 护身尖刺: 普通伤害 from an enemy ⇒ the Thorn ability (cooldown), 0.5 s later up to max_target spikes on the 3-1
+        // The actual S2 buff owns its observer; cooldown state lasts for this deployment.
         unit.mem.thornsSpikeAt = -Infinity;
-        const cd = num(b2.cooldown, 0.8), n = Math.max(1, Math.floor(num(b2.max_target, 4)));
-        battle.on('damaged', (c) => {
-          const sk = unit.skill;
-          if (c.target !== unit || !sk || !sk.active || !up(unit) || !unit.canAct || !normalHitFromEnemy(c)) return;
-          if (battle.time < unit.mem.thornsSpikeAt + cd - 1e-9) return;
-          unit.mem.thornsSpikeAt = battle.time;
-          const seq = unit.deploySeq, act = sk.activations;
-          battle.after(SPIKE_DELAY, () => {
-            if (!up(unit) || unit.deploySeq !== seq || !unit.canAct || !unit.skill?.active || unit.skill.activations !== act) return;
-            const list = battle.enemiesInKeys(absoluteRangeKeys(grid2, unit.tileR, unit.tileC, unit.dir, 0), unit, AIR);
-            sortEnemyTargets(battle, unit, list, null);
-            const targets = list.slice(0, n);
-            if (!targets.length) return;
-            battle.fx('thorns', { x: unit.x, y: unit.y, id: unit.id, n: targets.length });
-            for (const e of targets) {
-              if (!e.alive) continue;
-              battle.dealDamage(unit, e, { amount: unit.s.atk * rangedScale * unit.s.atkScaleMul, type: 'phys', isSkill: true, tags: ['skill', 'thorns:spike'] });
-              addition(battle, unit, e);
-            }
-          }, { owner: unit });
-        }, { owner: unit });
       },
     };
   },

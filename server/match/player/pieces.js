@@ -8,10 +8,89 @@
 
 import { tileKey, boardOrder, freeSlot } from '../board.js';
 import { TEMP_SIZE } from './common.js';
+import { N_, msg, dn } from '../../../shared/i18n.js';
 
 export class PlayerPieces {
+  /** Free slot in the card's regular row (equipment has its own row only in 规程). */
+  handSlot(kind) {
+    return freeSlot(this.equipHand && kind === 'item' ? this.temp.slice(0, TEMP_SIZE) : this.hand);
+  }
+
+  /** Unequipped cards, including overflow, in the existing hand-then-temp scan order. */
+  itemCards() { return [...this.hand, ...this.temp].filter((p) => p?.kind === 'item'); }
+
+  _noticeStash(piece) {
+    // [ASSUMED] Owner's 2026-11-09 overflow policy: forced gains wait invisibly, block Ready, and keep temp's deadline.
+    const rec = piece.kind === 'item' ? this.gd.item(piece.id) : piece.kind === 'token' ? this.gd.token(piece.id) : this.fieldRecord(this.gd.chess(piece.id));
+    this.m.toast(this, 'warn', msg(piece.kind === 'item'
+      ? N_('装备区已满，{name}进入暂存') : N_('手牌已满，{name}进入暂存'), { name: dn(rec?.name || piece.id) }));
+    this.m.toast(this, 'warn', N_('有空位时自动移入；休整期结束时仍在暂存的单位将被销毁'));
+  }
+
+  _stowSplit(piece, { allowTemp = true, preferIdx = null } = {}) {
+    const item = piece.kind === 'item';
+    const row = item ? this.temp : this.hand;
+    const size = item ? TEMP_SIZE : row.length;
+    // [ASSUMED] The equipment row fills right-to-left, like the regular hand.
+    const i = Number.isInteger(preferIdx) && preferIdx >= 0 && preferIdx < size && row[preferIdx] == null
+      ? preferIdx : this.handSlot(piece.kind);
+    if (i >= 0) {
+      if (item) this._putTemp(i, piece);
+      else { row[i] = piece; this._tempDue.delete(piece.uid); }
+      return item ? 'temp' : 'hand';
+    }
+    if (!allowTemp) return null;
+    this._putTemp(Math.max(TEMP_SIZE, this.temp.length), piece);
+    return 'temp';
+  }
+
+  _fillSplitHand() {
+    let moved = 0;
+    // Arrival order within each kind; a full row must not prevent the other row from refilling.
+    for (let j = TEMP_SIZE; j < this.temp.length; j++) {
+      const p = this.temp[j];
+      if (!p) continue;
+      const i = this.handSlot(p.kind);
+      if (i < 0) continue;
+      this._detach({ piece: p, area: 'temp', idx: j });
+      if (p.kind === 'item') this._putTemp(i, p);
+      else this.hand[i] = p;
+      moved++;
+    }
+    this.temp = this.temp.slice(0, TEMP_SIZE).concat(this.temp.slice(TEMP_SIZE).filter(Boolean));
+    return moved;
+  }
+
+  /**
+   * Hidden overflow uses the old prep deadline; the permanent equipment row never expires. A due piece is cleared as
+   * resolveTemp clears a covenant temp piece: pool copies and item stock return, no item's onDestroy runs (the row is
+   * 清空, not a 销毁 the item's own effect answers).
+   */
+  _resolveStash() {
+    const due = this.tempPieces().filter((p) => this.tempDue(p) <= this.prepsEnded);
+    for (const p of due) {
+      const loc = this.find(p.uid);
+      if (!loc || loc.area !== 'temp') continue;
+      this._detach(loc);
+      if (p.kind === 'chess') {
+        this.removeTokensOf(p.uid);
+        this.returnCopies(p);
+        for (const it of p.items || []) this.releaseItemStock(it);
+        p.items = [];
+      } else if (p.kind === 'item') this.releaseItemStock(p);
+    }
+    if (due.length) this.recompute();
+  }
+
   newPiece(kind, id, extra = {}) {
     return { uid: this.m.nextUid(), kind, id, items: kind === 'chess' ? [] : undefined, count: kind === 'token' ? 1 : undefined, ownerUid: undefined, poolCopies: 0, boughtRound: this.m.round, meta: {}, ...extra };
+  }
+
+  /** What selling this chess pays. An effect may store a resolved price on `meta.sellPrice`; otherwise the table. */
+  sellPriceOf(piece) {
+    const n = piece && piece.meta && piece.meta.sellPrice;
+    if (typeof n === 'number' && Number.isFinite(n)) return Math.max(0, Math.trunc(n));
+    return this.gd.sellPrice(piece && piece.id);
   }
 
   /**
@@ -74,6 +153,7 @@ export class PlayerPieces {
    * slot is free (`toTemp`) moves into the hand at the next recompute (_fillHandFromTemp).
    */
   stow(piece, { allowTemp = true, toTemp = false, preferIdx = null } = {}) {
+    if (this.equipHand) return this._stowSplit(piece, { allowTemp, preferIdx });
     if (!toTemp) {
       if (Number.isInteger(preferIdx) && preferIdx >= 0 && preferIdx < this.hand.length && this.hand[preferIdx] == null) {
         this.hand[preferIdx] = piece;
@@ -92,6 +172,7 @@ export class PlayerPieces {
 
   /** Overflow refill order: the visible row right-to-left, then the hidden queue. */
   tempPieces() {
+    if (this.equipHand) return this.temp.slice(TEMP_SIZE).filter(Boolean);
     return this.temp.slice(0, TEMP_SIZE).reverse().concat(this.temp.slice(TEMP_SIZE)).filter(Boolean);
   }
 
@@ -104,6 +185,7 @@ export class PlayerPieces {
    * @returns {number}
    */
   _fillHandFromTemp() {
+    if (this.equipHand) return this._fillSplitHand();
     let moved = 0;
     const indices = Array.from({ length: TEMP_SIZE }, (_, i) => TEMP_SIZE - 1 - i)
       .concat(Array.from({ length: Math.max(0, this.temp.length - TEMP_SIZE) }, (_, i) => TEMP_SIZE + i));

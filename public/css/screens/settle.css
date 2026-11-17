@@ -2,7 +2,7 @@
    screens/settle.css — the settlement flow (js/screens/settle.js): radar intro → 个人战报 → 同盟, drawn with the
    official settlement sprites (assets settle/*). Every page is a 1920×1080 stage (19.2rem × 10.8rem, scaled down by
    --k where the screen is smaller: settle.js useStageFit); positions are the design's pixels / 100. The boxes of
-   the sprites are set here, and the plain CSS under / instead of them keeps every page readable without the
+   the sprites are set here, and the plain CSS fallbacks keep every page readable without the
    resource pack.
    ========================================================================================== */
 /* clip, not hidden: the bars and the terrain reach past the stage, and a hidden overflow could still be scrolled to them */
@@ -14,6 +14,13 @@
 .settle__barbg .sprite { position: absolute; left: 0; top: 0; width: 100%; height: 1.8rem; object-fit: fill; }
 .settle__detail { position: absolute; inset: 0; z-index: 5; background: #070909; }
 .settle__btnbg { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; object-fit: fill; pointer-events: none; }
+/* [ASSUMED] Preserve #698's boxes; uniformly shrink long translations and enlarged text within them (§35.1). */
+.settle__title { position: relative; overflow: hidden; }
+.settle__title > span { position: absolute; left: 0; top: 50%; display: block; width: max-content; white-space: nowrap;
+  transform-origin: left center; transform: translateY(-50%) scale(var(--title-scale, 1)); }
+.settle__btnbg--ghost { background: #2a2f2e; box-shadow: inset 0 0 0 2px rgba(220, 230, 226, .2); }
+.settle__btnbg--primary { background: linear-gradient(90deg, #44e6b8, #33d8ab);
+  clip-path: polygon(.12rem 0, 100% 0, 100% 100%, 0 100%, 0 .12rem); }
 @keyframes settle-fade { from { opacity: 0; } }
 
 /* logo (top left) */
@@ -118,7 +125,7 @@ small.starget__down { font-family: var(--font-display); font-size: calc(.14 * va
 .smode__bg--css .icon { width: .32rem; height: .32rem; color: var(--d-color); }
 .smode__name { font-size: calc(.22 * var(--t)); font-weight: 700; color: #fff; white-space: nowrap; text-shadow: 0 .02rem .04rem rgba(0, 0, 0, .5); }
 .sself__mode { position: absolute; left: 2.4rem; top: 2.24rem; display: flex; align-items: center; gap: .12rem; animation: sself-slide 420ms var(--ease-out) 260ms both; }
-.sself__title { position: absolute; left: 2.42rem; top: 2.8rem; margin: 0; white-space: nowrap; font-size: calc(.9 * var(--t)); font-weight: 900; letter-spacing: .03em; line-height: 1.15;
+.sself__title { position: absolute; left: 2.42rem; top: 2.8rem; width: 7.8rem; height: 1.04rem; margin: 0; white-space: nowrap; font-size: calc(.9 * var(--t)); font-weight: 900; letter-spacing: .03em; line-height: 1.15;
   color: #4af2c4; text-shadow: 0 0 .2rem rgba(30, 240, 180, .45), 0 .03rem 0 rgba(0, 0, 0, .5); animation: sself-title 560ms var(--ease-out) 300ms both; }
 .sself.is-lose .sself__title { color: #ff4b3e; text-shadow: 0 0 .2rem rgba(255, 60, 50, .45), 0 .03rem 0 rgba(0, 0, 0, .5); }
 @keyframes sself-slide { from { opacity: 0; transform: translateX(-.3rem); } }
@@ -201,9 +208,9 @@ small.selite { width: auto; height: auto; font-family: var(--font-display); font
 .sop.is-golden .sop__lv b { color: #ffd34d; }
 .sop__si { position: absolute; z-index: 2; right: .04rem; top: .04rem; padding: 0 .04rem; font-size: calc(.13 * var(--t)); font-weight: 700; background: var(--ice, #9ad7ff); color: var(--ice-900, #06202e); }
 .sop__slots { position: absolute; left: 0; right: 0; bottom: 0; height: .6rem; display: flex; gap: .05rem; padding: .05rem; box-sizing: border-box; background: #d3d8d6; }
-.sop__slot { flex: 1; display: grid; place-items: center; overflow: hidden; background: #3a403f; box-shadow: inset 0 0 0 1px #8e9593; }
+.sop__slot { flex: 1 1 0; min-width: 0; min-height: 0; display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); place-items: center; overflow: hidden; background: #3a403f; box-shadow: inset 0 0 0 1px #8e9593; }
 .sop__slot.has-item { background: #2c3231; box-shadow: inset 0 0 0 1px #5e6664; }
-.sop__slot img { width: 92%; height: 92%; object-fit: contain; }
+.sop__slot img { display: block; min-width: 0; min-height: 0; max-width: 100%; max-height: 100%; width: 92%; height: 92%; object-fit: contain; }
 .sop__slot .sop__trap { width: 100%; height: 100%; }
 .sop__slot b { font-size: calc(.2 * var(--t)); color: #e6eae8; }
 .sop__noinfo { font-family: var(--font-display); font-size: calc(.08 * var(--t)); letter-spacing: .02em; white-space: nowrap; color: #9aa3a0; }
@@ -265,14 +272,20 @@ img.sbonds__none { width: .64rem; height: .12rem; }
 .slv__gain--daily small { margin-left: .06rem; font-size: calc(.18 * var(--t)); color: #8a9592; }
 .slv__gain--off { color: #ff8a5c; }
 
-.settle__next { position: absolute; left: 14.77rem; top: 9.42rem; width: 4.43rem; height: 1rem; isolation: isolate; display: flex; align-items: center; justify-content: center; gap: .24rem;
-  padding: 0; border: 0; cursor: pointer; color: #062a20; background: linear-gradient(90deg, #44e6b8, #33d8ab); font-size: calc(.4 * var(--t)); font-weight: 700; letter-spacing: .06em;
-  clip-path: polygon(.12rem 0, 100% 0, 100% 100%, 0 100%, 0 .12rem); animation: snext-in 460ms var(--ease-out) 1400ms both; }
+.settle__next { position: absolute; left: 14.77rem; top: 9.42rem; width: 4rem; height: 1rem; isolation: isolate; display: flex; align-items: center; justify-content: center; gap: .28rem;
+  padding: 0; border: 0; cursor: pointer; color: #062a20; background: transparent; font-size: .4rem; font-weight: 700; letter-spacing: .06em;
+  animation: snext-in 460ms var(--ease-out) 1400ms both; }
+/* btn_next_bg.png is 297×86; the face (white frame + green) is rows 1–68, columns 1–268, with the machine at the
+   right and the shadow below. Fit only the official image to that face; the art-less fallback keeps the CSS button. */
+.settle__next img.settle__btnbg { inset: auto; left: -.3745%; top: -1.4706%; width: 111.236%; height: 126.4706%; }
+/* The official label is heavier than the installed CJK 700 face (800/900 resolve to the same on Windows); a thin
+   text-colour stroke adds the difference. */
+.settle__nextlabel { -webkit-text-stroke: .03em currentColor; }
 .settle__next:hover, .settle__next:focus-visible { filter: brightness(1.12); outline: none; }
 .settle__next:focus-visible { box-shadow: 0 0 0 3px #fff inset; }
-.settle__nexticon { width: .4rem; height: .4rem; }
+.settle__nexticon { width: .45rem; height: .45rem; }
 span.settle__nexticon { display: grid; place-items: center; border-radius: .08rem; background: #0b2d25; color: #44e6b8; }
-span.settle__nexticon .icon { width: .3rem; height: .3rem; }
+span.settle__nexticon .icon { width: .34rem; height: .34rem; }
 @keyframes snext-in { from { opacity: 0; transform: translateX(.6rem); } }
 
 /* ---- 同盟 ---- */
@@ -344,7 +357,7 @@ span.settle__nexticon .icon { width: .3rem; height: .3rem; }
 .steam__tags { display: flex; align-items: center; gap: .1rem; }
 /* the 测试 mark of a 「测试」 match (0.3.1), beside the mode pill on both pages */
 .settle__test { display: inline-flex; align-items: center; gap: .06rem; color: #e8b84a; font-size: calc(.15 * var(--t)); white-space: nowrap; }
-.steam__title { font-size: calc(.66 * var(--t)); font-weight: 900; letter-spacing: .03em; line-height: 1.15; color: #f4f7f6; white-space: nowrap; }
+.steam__title { width: 2.8rem; height: .9rem; font-size: calc(.66 * var(--t)); font-weight: 900; letter-spacing: .03em; line-height: 1.15; color: #f4f7f6; white-space: nowrap; }
 .steam__rounds { position: absolute; left: 3.45rem; top: 9.24rem; width: 2.7rem; height: 1.36rem; display: flex; flex-direction: column; align-items: center; justify-content: center;
   border-left: 2px solid rgba(200, 214, 210, .14); border-right: 2px solid rgba(200, 214, 210, .14); }
 .steam__rounds span { font-size: calc(.27 * var(--t)); color: #a9b3b0; white-space: nowrap; }
@@ -356,10 +369,9 @@ span.settle__nexticon .icon { width: .3rem; height: .3rem; }
 .steam__rowbg { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; object-fit: fill; }
 .steam__ico { width: .28rem; height: .28rem; object-fit: contain; }
 .sbtn { position: absolute; isolation: isolate; top: 9.55rem; height: 1.03rem; display: flex; align-items: center; justify-content: center; gap: .16rem; padding: 0 .2rem; border: 0; cursor: pointer; white-space: nowrap; }
-.sbtn--ghost { left: 12.18rem; width: 2.57rem; background: #2a2f2e; color: #e2e8e6; box-shadow: inset 0 0 0 2px rgba(220, 230, 226, .2); font-size: calc(.3 * var(--t)); }
+.sbtn--ghost { left: 12.18rem; width: 2.57rem; background: transparent; color: #e2e8e6; font-size: calc(.3 * var(--t)); }
 .sbtn--ghost .icon { width: .3rem; height: .3rem; padding: .03rem; border-radius: .05rem; background: #e2e8e6; color: #2a2f2e; }
-.sbtn--primary { left: 15.12rem; width: 4.08rem; background: linear-gradient(90deg, #44e6b8, #33d8ab); color: #062a20; font-size: calc(.38 * var(--t)); font-weight: 700; letter-spacing: .04em;
-  clip-path: polygon(.12rem 0, 100% 0, 100% 100%, 0 100%, 0 .12rem); }
+.sbtn--primary { left: 15.12rem; width: 4.08rem; background: transparent; color: #062a20; font-size: calc(.38 * var(--t)); font-weight: 700; letter-spacing: .04em; }
 .sbtn__mark { width: .44rem; height: .38rem; }
 .sbtn--primary .icon { width: .34rem; height: .34rem; }
 .sbtn:hover, .sbtn:focus-visible { filter: brightness(1.14); outline: none; }

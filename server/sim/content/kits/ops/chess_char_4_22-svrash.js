@@ -4,6 +4,9 @@
 import {
   AURA, num, tbb, grid, enemiesOnRange, whileDeployed, reveal, alt, instantKind, withDefaults,
 } from '../shared/tier4.js';
+import { installLordArtsAddition } from '../shared/lord.js';
+
+const eliteOrBoss = target => target.isBoss || target.def?.rank === 'ELITE' || target.def?.rank === 'BOSS';
 
 export default withDefaults({
   // ===== 银灰 (lord) S3 真银斩 — DEF −70 %, ATK +125 %, wider range, ≤ 4 targets at melee scale; 领袖 / 鹰眼视觉; module
@@ -40,12 +43,20 @@ export default withDefaults({
         { install(battle, unit) { whileDeployed(battle, unit, AURA, () => reveal(battle, enemiesOnRange(battle, unit))); } }, // 鹰眼视觉
       ],
       install(battle, unit) {
-        const m = num(tb.atk_scale_m, 0); // module (elite): attacks add 10 % ATK arts damage
-        if (!(m > 0)) return;
-        battle.on('damaged', (c) => {
-          if (c.source !== unit || !c.dmg?.isAttack || c.type !== 'phys' || !c.target.alive || c.target.side !== 'enemy') return;
-          battle.dealDamage(unit, c.target, { amount: unit.s.atk * m, type: 'arts', tags: ['module'] });
+        const moduleArts = num(tb.atk_scale_m);
+        if (!(moduleArts > 0)) return;
+        // svrash_e_002_t[atk]: higher module stages scale source calculation against elite/boss enemies.
+        // Shipped chess forms use stage 1 (no talent atk_scale); do not borrow trait's ranged scale.
+        const eliteScale = num(t0.atk_scale, 1);
+        if (eliteScale !== 1) battle.on('damageCalculate', c => {
+          if (c.source === unit && eliteOrBoss(c.target)) c.dmg.amount *= eliteScale;
         }, { owner: unit });
+        installLordArtsAddition(battle, unit, c => {
+          // S1 can finish before its projectile lands; its retained flags identify the skill attack.
+          const skillAttack = c.dmg.isAttack && c.dmg.isSkill;
+          const skillScale = unit.skill && (unit.skill.active || skillAttack) ? num(unit.skill.bb.atk_scale, 1) : 1;
+          return moduleArts * skillScale * (eliteOrBoss(c.target) ? eliteScale : 1);
+        });
       },
     };
   },

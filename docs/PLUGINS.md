@@ -4,7 +4,7 @@ A **plugin** is a folder a server owner puts into `plugins/`: a manifest, `plugi
 it names. The interface calls them 「插件」, never 「模组」 (that word is the operators' modules). The design and its
 phases are DESIGN §32 (`docs/history/0.3.0.md`); this file is the reference.
 
-**Status — 0.3.1: content sets, scripts, sandbox execution and the Forge-pack additions (§34).** The server finds, checks and lists plugins and names its content
+**Status — 0.3.3: content sets, scripts, sandbox execution and the Forge-pack additions (§34).** The server finds, checks and lists plugins and names its content
 with a hash (P0); a room's host switches the server's cosmetic plugins on for the whole room, a player switches them on
 for themself (§9) — art, models and audio only: the battles stay the original ones and a room's `cs` stays the vanilla
 one. Language packs (`docs/PACKS.md`) are the plugin class `lang` and work as before. Data plugins (§10) build
@@ -116,7 +116,7 @@ classes and the content sets running at once — §11 and `docs/DEPLOY.md`.
   "id": "marathon",
   "name": { "zh": "马拉松模式", "en": "Marathon" },
   "version": "0.1.0",
-  "app": ">=0.3.0 <0.4.0",
+  "app": ">=0.4.0 <0.5.0",
   "api": 1,
   "class": "content",
   "scope": ["room"],
@@ -137,7 +137,8 @@ classes and the content sets running at once — §11 and `docs/DEPLOY.md`.
 | `id` | the folder name decides: `^[a-z0-9][a-z0-9-]{1,31}$` (it becomes part of record ids; lower case only); a different `id` in the file is a warning; script/trusted execution requires an explicit matching id in the verified manifest bytes |
 | `name`, `description` | a text in `sourceLang` or `{ "<lang>": "…" }`; `englishName` a text |
 | `version` | semver, required |
-| `app` | the game versions it is made for — `>=0.3.0 <0.4.0`, `0.3.x`, `^0.3.0` … (a pre-release counts as its release); required but for `lang`. Outside it: `compatible: false` and a warning (P1 refuses a gameplay plugin by default) |
+| `versions` | optional, non-empty array of unique official ids from `shared/versions.js`; gameplay plugins default to `["act2autochess"]` when absent; cosmetic plugins still apply to every version |
+| `app` | the game versions it is made for — `>=0.4.0 <0.5.0`, `0.4.x`, `^0.4.0` … (a pre-release counts as its release); required but for `lang`. Outside it: `compatible: false` and a warning (P1 refuses a gameplay plugin by default). 0.4.x also runs plugins made for the 0.3 line (`>=0.3.0 <0.4.0`, `0.3.x`, `^0.3.1` …): 0.4 kept the 0.3 plugin surface and only added `versions` (§37.231) |
 | `api` | the plugin API level, within `shared/constants.js` `PLUGIN_API` (`{ current: 2, min: 1 }`); required but for `lang`. A manifest that uses a part of level 2 (today `offers`, §10b) states `"api": 2` |
 | `class` | §2; every part the manifest names must belong to it |
 | `scope` | `room` (the host's choice for the whole room), `personal` (the player's own setting), `server` (trusted code only), as the class allows — `cosmetic`: room and/or personal; `content`, `script`: room; `ui`, `lang`: personal; `trusted`: server or room |
@@ -181,8 +182,10 @@ deep and 50 000 entries (`server/plugins/registry.js WALK_LIMITS`): a folder pas
 also when it is a link to a large tree.
 
 Limits [ASSUMED, all of them]: 8 MB per JSON file, nesting ≤ 64 levels, numbers finite within ±1e9; 200 MB and 5000
-files per plugin. The registry checks the manifest, the files and the paths whenever it scans; `tools/plugin.mjs check`
-also parses every JSON file against the limits.
+files per plugin, except that a cosmetic pack may hold 512 MB (`PLUGIN_CLASSES.cosmetic.bytes`,
+`pluginByteLimit`): its art and Spine models are what the client extracted, and a single operator's model is already
+hundreds of kilobytes. The registry checks the manifest, the files and the paths whenever it scans; `tools/plugin.mjs
+check` also parses every JSON file against the limits.
 
 ## 6. Content identity (`cs`)
 
@@ -305,7 +308,7 @@ is a number of `data/enemies.json`), so a room's `cs` is the vanilla one whateve
 |---|---|
 | `chars[charId]` | `avatar`, `avatarE2`, `portrait`, `portraitE2`, `illust` (image), `spine.front`, `spine.back` (Spine), `skins` (one key per skin, below) |
 | `enemies[key]` | `icon` (image), `spine` (Spine) |
-| `tokens[id]` | `avatar` (image), `spine` (Spine) |
+| `tokens[id]` | `avatar` (image), `spine` (Spine), `skins` (one key per owner skin, below) |
 | `bonds`, `items`, `bands`, `skills`, `modules`, `ui`, `prof.icon` / `large` / `battlecard` / `sub` `[key]` | an image |
 | `audio.bgm[lobby \| prep \| combat \| unite \| boss]`, `audio.bossBgm[bossId]` | a track `{ loop, intro? }` (audio), written whole — not `audio.bgm.combatAlts` (see below) |
 | `audio.voice[charId]`, `audio.voiceJp[charId]`, `audio.voiceEn[charId]`, `audio.voiceKr[charId]`, `audio.voiceNative[charId]` (the operator's own-language dub) | `<slot>`: an audio file or a list of 1–16 |
@@ -331,13 +334,15 @@ also takes away that entry's local-client model (`spineLocal`, which the client 
 that model: a model write the browser leaves out, or whose file fails to load, leaves the local model too. The split
 battle music `audio.bgm.combatAlts` (the mode's own 开战 tracks, 骑士之日 / 无畏者, fixed per round) is not something a
 plugin changes: the client plays it instead of `combat` in the rounds it covers, so a plugin's `combat` is heard only
-where no such track plays. Writing an
-entry the installation has needs the permission `assets.override`, a new entry `assets.add`. `theme` is the allowlisted variables of §9.1, applied on this player's page only.
+where no such track plays. A track a plugin writes replaces that music in every version: the seasons' own tables
+(`audio.seasons`, docs/ASSETS.md "BGM" — 规程's lobby and leaders, 第一期's 开战) give that key up while the plugin is on
+(shared/plugins/visual.js layVisualOps). A player's own lobby music (大厅背景与音乐, `ui/lobbyMedia.js`) outranks a plugin's
+`audio.bgm.lobby` in that player's browser while it is switched on. Writing an
 entry the installation has needs the permission `assets.override`, a new entry `assets.add` — the decision the permission
 is: a write to a path whose entry the installation's manifest already has is an override, whatever it writes there, so an
-operator the manifest has counts as one even when the write only adds a skin under `chars[<charId>].skins` or a field the
-record did not have (`illust`); a new operator is an `assets.add`. `theme` is not applied yet
-(a warning).
+operator the manifest has counts as one even when the write only adds a skin under `chars[<charId>].skins` or
+`tokens[<tokenId>].skins`, or a field the record did not have (`illust`); a new operator or token is an `assets.add`.
+`theme` is the allowlisted variables of §9.1, applied on this player's page only.
 
 **立绘 and the skins of one operator.** `illust` is the full illustration (立绘), the picture a detail view shows. The
 committed `data/assets.json` of this version carries no `illust` and no `skins` yet, so a plugin that writes one adds that field to the
@@ -383,17 +388,34 @@ As the opening of this section says, the committed `data/assets.json` has no `sk
 path the installation's manifest does not carry yet and is `PLUGIN_REF` — it means something only once the installation's
 manifest has `skins` of its own; in this version only the fields of an operator's own record can be referenced.
 
+**A summon's own appearances.** A token record may also carry `skins`, keyed by the id of the OWNER outfit that brings
+each appearance (not the token's own): official `skin_table.json` `charSkins[*].tokenSkinMap` is the source (e.g.
+`char_250_phatom@sale#4` → `token_10007_phatom_twin_sale#4`). A summon skin is the same record an operator skin is
+(pictures and Front/Back model), at most 64 per summon, under the same key rules. A summon has no picker and no
+`room.skins` entry: it wears what its owner wears (docs/SKINS.md), so the client draws
+`tokens[<tokenId>].skins[<owner skin id>]` and falls back to the summon's own model.
+
 **Wearing a skin — docs/SKINS.md.** The overlay above is what a *server's owner* installs and what a player switches on
 for themself (`scope: ["personal"]`, 设置 → 外观插件); **no room and no host is involved**, and this version has no
 server-side install route at all (upstream #652 closed the one that let any client make the server download files and
 rewrite the shared `data/assets.json`). What a player then picks is a `{ [charId]: skinKey }` map, keyed by the
 **operator** — the container the key is written under — sent as `room.skins` (accepted in any phase: an appearance
 changes nothing a battle does, so it never enters `cs`) and published to teammates in `Match.publicView().players[]`,
-which is how a co-op partner's piece draws your skin. `public/js/assets.js` resolves it (`spineEntry`, `avatarUrl`,
+which is how a co-op partner's piece draws your skin, and, while the room waits, in `room.state.seats[].skins` (the
+名片干员 seat cards; SKINS.md). `public/js/assets.js` resolves it (`spineEntry`, `avatarUrl`,
 `portraitUrl`, `illustUrl` take `opts.skin`) and falls back to the operator's own model and pictures for a skin (or a
 skin's layer) that is not there, so a plugin that replaces only a model still draws a face. 设置「显示其他玩家的皮肤」
-(default on) is a pure client preference: off, this browser draws every OTHER seat's piece on the operator's own model
+(default on) is a pure client preference: off, this browser draws every OTHER seat's piece on the operator's own model and pictures
 while keeping its own player's — their screen keeps showing their skin.
+
+**Picture-only outfits (B6, 0.3.2).** Maintainer decision, 2026-10-18 option A: a skin with an avatar and/or
+portrait but no Spine is wearable. The picker marks it 「仅更换头像与立绘」; all owner-specific cards, panels and
+result rows use its pictures, while battle models use the effective operator's default Front / Back. Missing pictures
+fall back independently to that operator's normal / elite art. #686's per-seat choices, other-player visibility,
+stand-ins and DIY bodies stay in force; model outfits retain their model and image fallback behavior.
+[ASSUMED] The existing `avatarE2`, `portraitE2` and `illust` fields count too; metadata alone is not wearable.
+Official `skin_table.charSkins` separates operator identity, avatar, portrait, illustration and battle skin; the
+missing-plugin policy is the maintainer's choice. See [SKINS.md](SKINS.md#picture-only-outfits-032-b6) and §35.4.
 
 **Spine models and `plugin.lock.json`.** A model's clip roles, durations, events, hit times and bounds come from the
 skeleton itself: `node tools/plugin.mjs pack <dir>` parses it the way `tools/fetch-assets.mjs` parses the game's
@@ -411,7 +433,7 @@ manifest at most 2 MB [ASSUMED] — and permissions, the lock — a problem keep
 files that shape it (SHA-256, kept by path while a file keeps its size, mtime, inode and ctime: a rescan reads only what
 changed, and a file rewritten with its old size and mtime put back — `rsync -t`, `touch -r` — is read again, its ctime
 gives it away; the folders' own check looks at the same four, so such a rewrite is noticed without a request for it)
-[ASSUMED: at scan, a 200 MB plugin costs about a second once].
+[ASSUMED: at scan, a 200 MB plugin costs about a second once; a 512 MB cosmetic pack, its class ceiling, about 2.5 s].
 
 **The visual hash.** A set of cosmetic plugins in load order is named by
 `vs = sha256(canonical({ v: 2, assets: <SHA-256 of data/assets.json>, overlays: [{ id, version, files, writes }] }))`,
@@ -645,7 +667,7 @@ Since 0.3.1, a content plugin can carry only `rules`, with no data files or perm
 
 ```json
 { "manifest": 2, "id": "prep-rules", "name": "Prep rules", "version": "1.0.0",
-  "app": ">=0.3.1 <0.4.0", "api": 1, "class": "content", "scope": ["room"],
+  "app": ">=0.4.0 <0.5.0", "api": 1, "class": "content", "scope": ["room"],
   "rules": { "prepLoadout": "prep", "unequip": "allow" } }
 ```
 
@@ -895,6 +917,32 @@ the briefing, the result and the HUD, and left out of the statistics overview un
 cosmetic plugins only still plays the vanilla `cs` and counts as the original game (§9). DESIGN §32.6 keeps the
 decisions, the measurements and the open points.
 
+Gameplay plugins (content, script and trusted) work in an official version only when their manifest's `versions`
+includes its id. Absent means `["act2autochess"]`, independently of the lobby default: existing plugins, templates and
+Forge imports stay 第二期下半-only. Every gameplay dependency must support the target too. `room.setPlugins` and
+`room.proposeVersion` return `VERSION_UNSUPPORTED` with the unsupported plugin and target version in the detail.
+`VERSION_UNSUPPORTED` means the mode/data is unavailable or a gameplay plugin does not declare the target;
+`PLUGIN_VERSIONS` rejects a malformed manifest declaration (see the error table).
+The 插件 panel enables matching plugins and explains a disabled switch; version proposals remain available in modded rooms.
+On `room.create`, compatible defaults apply and unsupported defaults (including incompatible requirements) are skipped
+with one log warning per selection/version. `rooms: "fixed"` keeps the entire fixed list and refuses an unsupported target.
+Cosmetic plugins carry over to every version. Other validation, permission, dependency and consent checks still apply.
+
+Composition starts from that official version's data and bounds. Unchanged files use `/data/versions/<slug>/`;
+changed files and bounds use the composition's own `/cs/<cs16>/`. A non-default gameplay composition includes `version`
+in its hash input and manifest; the plugin manifest bytes already cover `versions`. Default compositions keep their
+existing hash formula. The browser verifies the composed set and retains its version for data, art and loadout lookups.
+These unofficial matches use the **plugin host pool**, so every composition counts against `limits.maxSets` and the
+plugin host limit; official unmodded versions keep their separate pool (§35.23). This preserves the plugin watchdog,
+script isolation and owner gates without letting a new version bypass the plugin limits. Switching version recomposes
+the same plugins/settings; if gameplay no longer resolves when a vote completes, the original room remains intact.
+
+Studio's 信息 form offers official-version checkboxes for content, script and trusted manifests; 清单 also accepts the
+field. Folder/import checks and Studio's declarative checks validate against the declared versions. Templates and Forge
+conversion still omit it; authors must explicitly opt in. The existing template wizards and trial scenario pickers
+continue to use 第二期下半; this change adds no version-specific authoring wizard.
+
+
 | File | Role |
 |---|---|
 | `server/plugins/roomSets.js` | what a room's plugin list makes: closed over requirements, ordered, split into the visual set and the content set, the policy's refusals |
@@ -1129,7 +1177,9 @@ export default function setup(sp) {
 by battle, never in a module variable. Child hosts and browsers run setup in the composition's
 resolved load order. While composing a set, a disposable child probes each plugin's registrations (5 s default ceiling per
 uncached plugin (`SP_SCRIPT_PROBE_MS`) [ASSUMED]). The parent combines the registration reports in load order and rejects conflicts.
-The probe uses SIGKILL on timeout; spawnSync waits for the child to exit before composition returns a failure.
+The probe uses SIGKILL on timeout; spawnSync waits for the child to exit before composition returns a failure, whose
+message names the ceiling and the variable (`script setup exceeded 5000 ms; child terminated (SIGKILL); a slow or busy
+server can raise SP_SCRIPT_PROBE_MS`, GitHub #847).
 Results, including failures, are cached per registry by plugin id + lock hash + actual descriptor hash + normalized
 settings (256 recent results [ASSUMED]); changing settings or executable bytes requires another probe. This also
 prevents a stale or missing lock in an explicit CLI test from reusing another source's result.
@@ -1165,6 +1215,18 @@ are unrestricted and never labelled sandboxable; their sim/meta entries still us
 
 Geometry helpers read no battle state and incur no engine-action charge; their caller still uses the callback budget.
 `sortEnemyTargets` remains unavailable: it mutates its candidate array, uses live Unit references and calls Battle.remainingDistance.
+
+**SDK hit and damage helpers (0.3.2 settlement, DESIGN §35.32).** `kit.onHitBy(battle, unit, fn)` (damage `unit` deals to
+an enemy) and `kit.onHitOn(battle, unit, fn)` (damage dealt to `unit`) listen on `hit`: once per HP-damage instance, before
+the calculation, output and injury stages — `ctx.dmg.amount` is the instance's input, no DEF / RES, barrier, shield or
+dodge has acted yet, and a handler may still set `ctx.dmg.cancel`. A 流失 (`dealHPLose`) and a gauge fill (`'element'`)
+never reach `hit`. `kit.onDamagedOn(battle, unit, fn)` listens on `damaged`, after the HP step: `ctx.amount` is the damage
+dealt (on a special-HP target the computed damage, while its HP drops by one point); a hit a barrier absorbs whole reports
+0; a dodged one reports nothing; a 流失 and a gauge fill report too (`isHpLoss(ctx.dmg)`, `ctx.type === 'element'`); a
+无来源 instance has `source: null` and names its `credit`. `kit.byEnemyAttack(ctx)` (= tier1 `byEnemyDamage`) is true for
+damage from an enemy source, never a 流失, a gauge fill or a 无来源 instance; since 0.3.2 a `'counter'` / `'reflect'`
+tag no longer excludes it (the official counters filter by source, type and route), so a counter written with it must
+guard its own output (SIM §5 re-entrancy rule). `test/plugins/sdk-hooks-settlement.test.js` pins this.
 
 **Budget.** Script callbacks and engine actions use the same per-battle/per-plugin counter as DSL (default 8000).
 Setup installs, hooks, timer callbacks and skill callbacks count. Engine actions (damage, buffs, spawning, DP, etc.)
@@ -1216,7 +1278,8 @@ same registered extensions in the set's child; script sets always use a process 
 entries run at startup in one separate child, never the HTTP process. `api.http.route('/x/<id>/…', fn)` registers an
 exact path whose handler receives a frozen `{ method, path, url }` and returns a JSON value. No live request/socket is
 passed. `api.lobby.on(name, fn)` receives frozen copies for `roomCreated`, `playerJoined`, `playerLeft`, `matchStarted`,
-`roomClosed`. `api.health.extend(value)` replaces that plugin's JSON under `/healthz.plugins[id]`. Routes never leave
+`roomClosed`; their `room` is the room.state the members get, so on a server that enables official versions it carries
+`version` and, while a version vote is open, `versionVote` (DESIGN §35.23; absent in 第二期下半 rooms). `api.health.extend(value)` replaces that plugin's JSON under `/healthz.plugins[id]`. Routes never leave
 `/x/<id>/`: both the child API and parent IPC receiver check the loaded plugin id, reject `..`, `%2e` in any
 letter case and backslashes, and dispatch by the same raw path used by the HTTP handler (query excluded). A nonmatch
 continues to the original health/static handler. `health.extend` accepts at most 16 KiB of serialized UTF-8 JSON per
@@ -1693,8 +1756,8 @@ a link either (`server/plugins/pack.js plainPath`); every walk of a folder is bo
 folder past the limits, and `plugins/` is watched as a tree only while it holds at most 100 000 entries); a write goes to a
 dot-named temporary file renamed over the target; a body over the limit is refused before it is read and its connection
 closed; a file system error answers with its code only (its message, with the absolute path, stays in the log); a file at most
-64 MB, plugin.json at most 1 MB, a request at most 160 MB (a model's files in one go, base64), a plugin at most 200 MB
-and 5000 files [ASSUMED: the studio's limits].
+64 MB, plugin.json at most 1 MB, a request at most 160 MB (a model's files in one go, base64), a plugin at most its class ceiling
+(512 MB for cosmetic packs, 200 MB otherwise) and 5000 files [ASSUMED: the studio's limits].
 
 **The error catalogue** (`shared/plugins/errors.js`, the 0.3.0 plan's interface C6): every `PLUGIN_*` code — the
 manifest and file rules, a cosmetic plugin's overlay and lock, the registry's scan, the packer, a room's refusals (the
@@ -1755,7 +1818,8 @@ lacks). The table below is generated from it (`node tools/plugin.mjs errors --wr
 | The plugin works, with a note in the check | `PLUGIN_TEXT` | “{where}” should be a text or { "<lang>": "text" }; it is ignored | Write "Name" or { "zh": "名字", "en": "Name" }. |
 | The plugin is not listed (skipped); the start log and check say why | `PLUGIN_LANG_CODE` | “{where}” is not a language code | Use a language code such as zh, en, ja, ko or zh-TW. |
 | The plugin is not listed (skipped); the start log and check say why | `PLUGIN_VERSION` | The plugin's "version" is missing or not a version number | Write three numbers such as "1.0.0"; raise it whenever the plugin changes (1.0.1, 1.1.0 …). (the studio fixes it in one click) |
-| The plugin is not listed (skipped); the start log and check say why | `PLUGIN_APP` | The game versions the plugin is made for, "app", are missing or not a range | Write a range such as ">=0.3.0 <0.4.0" (this game is {app}). (the studio fixes it in one click) |
+| The plugin is not listed (skipped); the start log and check say why | `PLUGIN_VERSIONS` | The supported official versions "versions" are invalid | Use a non-empty array of distinct official version ids; omission limits gameplay plugins to act2autochess. |
+| The plugin is not listed (skipped); the start log and check say why | `PLUGIN_APP` | The game versions the plugin is made for, "app", are missing or not a range | Write a range such as ">=0.4.0 <0.5.0" (this game is {app}). (the studio fixes it in one click) |
 | The plugin works, with a note in the check | `PLUGIN_APP_MISMATCH` | The plugin is made for the game {range}; this server is {app} | A cosmetic plugin still works (a reminder only). Once it is checked with this version, widen "app" to include {app}. (the studio fixes it in one click) |
 | The plugin is not listed (skipped); the start log and check say why | `PLUGIN_API` | The plugin API level "api" is missing, not an integer, or not supported | Write "api": {current} (this game supports {min}–{current}). (the studio fixes it in one click) |
 | The plugin is not listed (skipped); the start log and check say why | `PLUGIN_SCOPE` | "scope" is not one this class allows | A cosmetic plugin has ["room", "personal"]: room — the host switches it on for the whole room; personal — a player for themself in 设置. (the studio fixes it in one click) |
@@ -1787,7 +1851,7 @@ lacks). The table below is generated from it (`node tools/plugin.mjs errors --wr
 | The plugin is not listed (skipped); the start log and check say why | `PLUGIN_FILE_NAME` | The file name “{where}” cannot be used | Names of files and folders use letters, digits, . _ - and spaces; none starts with . or is "..". |
 | The plugin is not listed (skipped); the start log and check say why | `PLUGIN_FILE_TYPE` | {where}: a {class} plugin may not carry this kind of file | Pictures are .png .jpg .webp (no SVG), sounds .mp3 .ogg, models .skel .atlas; documents (.md, .txt, README, LICENSE) may sit beside them. Move the file out of the plugin folder (the one-click fix moves it to plugins/_moved/, never deletes it) or convert it. (the studio fixes it in one click) |
 | The plugin is not listed (skipped); the start log and check say why | `PLUGIN_FILE_FRAME` | {where} is a frame file outside the folder of entry.client | Put a ui plugin's .html .js .css into the folder of entry.client. |
-| The plugin is not listed (skipped); the start log and check say why | `PLUGIN_FILE_SIZE` | The plugin is too large: {where} | A plugin holds at most 200 MB in 5000 files (2000 folders, 12 levels deep), a JSON file at most 8 MB. Compress pictures and sounds, remove unused files, or split it. |
+| The plugin is not listed (skipped); the start log and check say why | `PLUGIN_FILE_SIZE` | The plugin is too large: {where} | A cosmetic pack holds at most 512 MB, every other class 200 MB, in 5000 files (2000 folders, 12 levels deep), a JSON file at most 8 MB. Compress pictures and sounds, remove unused files, or split it. |
 | The plugin is not listed (skipped); the start log and check say why | `PLUGIN_FILE_MISSING` | The manifest names {file}, which the plugin folder does not hold | Put the file there (folders and case must match) or correct the path in the manifest. Dropping the file on its slot in the studio puts it in the right place. |
 | The plugin is not listed (skipped); the start log and check say why | `PLUGIN_FILE_OUTSIDE` | {where} leads out of the plugin folder or cannot be read inside it | A plugin uses plain files of its own folder only: copy the file in (no link) and check that it opens. |
 | The plugin is not listed (skipped); the start log and check say why | `PLUGIN_LANG` | A language pack's language is not right: {where} | "lang" is a language code (en, ja, zh-TW …); zh is the source language and never a pack; machineTranslated is true or false. |
@@ -1879,11 +1943,11 @@ lacks). The table below is generated from it (`node tools/plugin.mjs errors --wr
 | The plugin is not listed (skipped); the start log and check say why | `PLUGIN_CATALOG_HASH` | A catalogue entry has no sha256, or it is not 64 lowercase hex digits: {detail} | Each plugin names the SHA-256 of its zip (64 lowercase hex digits). |
 | The plugin is not listed (skipped); the start log and check say why | `PLUGIN_CATALOG_ID` | A plugin id is not valid, or it is repeated: {detail} | An id is 2 to 32 lowercase letters, digits and hyphens, and it appears once in the catalogue. |
 | The plugin is not listed (skipped); the start log and check say why | `PLUGIN_CATALOG_FIELD` | A catalogue field is not valid: {detail} | Follow docs/plugin-catalog.example.json: version is semver, class is a known class, and long text is shortened. |
-| The studio refuses the action and says why | `PLUGIN_CATALOG_SIZE` | The catalogue file is too large: {detail} | The catalogue document itself is at most 1 MB. A plugin zip has its own 200 MB cap. |
+| The studio refuses the action and says why | `PLUGIN_CATALOG_SIZE` | The catalogue file is too large: {detail} | The catalogue document itself is at most 1 MB. A plugin zip has a 512 MB outer cap; the extracted folder is limited to 512 MB for cosmetic packs, 200 MB otherwise. |
 | The studio refuses the action and says why | `PLUGIN_CATALOG_FETCH` | The catalogue could not be fetched: {detail} | Check that the address is public https on port 443, that the server can reach it, and that it is not redirected to a non-public address or off https. The one deadline covers the body, not each redirect on its own. A local catalogue file works too. |
 | The studio refuses the action and says why | `PLUGIN_INSTALL_URL` | The install address is not a public https address: {detail} | Install a public https zip on port 443 only. A private or loopback address is refused unless the operator allowlist names it. A file on this machine can be given as a path, including a Windows drive or a UNC path. |
 | The studio refuses the action and says why | `PLUGIN_INSTALL_HASH` | The zip SHA-256 does not match, or none was given: {detail} | An https install needs --sha256 (or the sha256 of a catalogue entry). Do not install when the hash differs. |
-| The studio refuses the action and says why | `PLUGIN_INSTALL_SIZE` | The zip is over the size cap, or it is not the byte length the catalogue names: {detail} | A plugin is at most 200 MB. When the catalogue gives bytes, it has to be the zip size. |
+| The studio refuses the action and says why | `PLUGIN_INSTALL_SIZE` | The zip is over the size cap, or it is not the byte length the catalogue names: {detail} | A zip has a 512 MB outer cap; the extracted folder is limited to 512 MB for cosmetic packs, 200 MB otherwise. When the catalogue gives bytes, it has to be the zip size. |
 | The studio refuses the action and says why | `PLUGIN_INSTALL_TIMEOUT` | The download timed out: {detail} | Check the network and try again. A zip waits up to 60 seconds, a catalogue up to 20. That one deadline covers the connection, the redirects and the body. |
 | The studio refuses the action and says why | `PLUGIN_INSTALL_FETCH` | The download failed: {detail} | Check that the address opens and answers with the zip (HTTP 200). |
 | The studio refuses the action and says why | `PLUGIN_INSTALL_REDIRECT` | The download was redirected to a non-public address, off port 443, or too many times: {detail} | Only a public https redirect on port 443 is followed, at most 5. Use a direct https address. |
@@ -1891,7 +1955,7 @@ lacks). The table below is generated from it (`node tools/plugin.mjs errors --wr
 | The studio refuses the action and says why | `PLUGIN_INSTALL_CHECK` | The plugin failed its check and was not placed in plugins/: {detail} | Fix the plugin as node tools/plugin.mjs check says, then install again. A failed check deletes only the temporary files. |
 | The studio refuses the action and says why | `PLUGIN_INSTALL_EXISTS` | plugins/ already has this id: {detail} | Without --force nothing is overwritten. --force moves the old folder to plugins/_replaced/ and does not delete it. |
 | The plugin is not listed (skipped); the start log and check say why | `PLUGIN_FORGE_INPUT` | This is not a Forge pack that can be read: {detail} | Choose a workshop folder that contains pack.json, or a zip of that folder. |
-| The plugin is not listed (skipped); the start log and check say why | `PLUGIN_FORGE_ZIP` | This pack's files are not safe to unpack: {detail} | Paths must stay inside the pack, with no symbolic links, at most 5000 files and 200 MB. Import another pack. |
+| The plugin is not listed (skipped); the start log and check say why | `PLUGIN_FORGE_ZIP` | This pack's files are not safe to unpack: {detail} | Paths must stay inside the pack, with no symbolic links, at most 5000 files and 512 MB (the largest class ceiling; the plugin's own class check follows). Import another pack. |
 | The plugin is not listed (skipped); the start log and check say why | `PLUGIN_FORGE_JSON` | JSON in the pack cannot be read: {detail} | JSON must parse, stay within 8 MB and 64 levels. A Forge pack may contain finite numbers within ±1e9 and safe integers; non-finite numbers and values past the safe-integer range are still refused. A number written into a plugin or into game data must still stay within ±1e9. |
 | The plugin is not listed (skipped); the start log and check say why | `PLUGIN_FORGE_ID` | This pack's id cannot become a plugin id: {detail} | Pass --id with a plugin id: 2–32 lower-case letters, digits and -, for example rose-skin. |
 | The plugin is not listed (skipped); the start log and check say why | `PLUGIN_FORGE_EXISTS` | The destination folder already exists, so nothing was written: {detail} | Choose another --out or --id, or move the existing plugin folder aside and import again. |
@@ -1995,9 +2059,10 @@ into a folder that already exists is `PLUGIN_FORGE_EXISTS` and writes nothing.
 and does not call `unzipFiles`. It rejects `..`, an absolute path, a backslash, NUL, a symbolic link (unix mode
 `0120000`), ZIP64 (the EOCD sentinel, a ZIP64 extra field, or a ZIP64 locator in the 20 bytes immediately before a
 real EOCD — not a `PK\\x06\\x06` that happens to sit inside an entry), encryption, a data descriptor, more than
-`PLUGIN_LIMITS.files` entries (5000), and a declared or inflated size over `PLUGIN_LIMITS.pluginBytes` (200 MB). A
-raw zip larger than that unpacked cap plus 64 KiB is refused before it is read [ASSUMED: the 64 KiB is header
-room, so a zip only slightly over 200 MB is refused too]. JSON follows `checkJsonLimits` (8 MB, depth 64) and refuses
+`PLUGIN_LIMITS.files` entries (5000), and a declared or inflated size over the largest class ceiling
+(`PLUGIN_MAX_BYTES`: 200 MB for most classes, 512 MB for a cosmetic pack — the class itself is checked when the folder
+loads). A raw zip larger than that unpacked cap plus 64 KiB is refused before it is read [ASSUMED: the 64 KiB is header
+room, so a zip only slightly over the cap is refused too]. JSON follows `checkJsonLimits` (8 MB, depth 64) and refuses
 `__proto__`, `constructor` and `prototype` before mapping. A Forge file may contain a finite number within ±1e9 and a
 safe integer past that window (a Unix timestamp on a field that is not imported). A non-finite number, and any magnitude
 past `Number.MAX_SAFE_INTEGER`, still rejects that file (`PLUGIN_FORGE_JSON`). A number written into a plugin, or copied
@@ -2230,7 +2295,7 @@ to unpack), `PLUGIN_FORGE_JSON` (parse, size, depth, a non-finite number or a nu
 `PLUGIN_FORGE_EXISTS` (the destination exists), `PLUGIN_FORGE_SCRIPT` (a script was not imported and was not run).
 
 The version written into a product is the pack's version when it is a restricted semver with no build metadata,
-otherwise `0.1.0` [ASSUMED]. `app` is `>=0.3.0 <0.4.0` and `api` is 1. A language-pack manifest omits `$schema`,
+otherwise `0.1.0` [ASSUMED]. `app` is `>=0.4.0 <0.5.0` and `api` is 1. A language-pack manifest omits `$schema`,
 `app`, `api` and `permissions`.
 
 ## 17. The catalogue and installing by address (目录与安装)
@@ -2243,8 +2308,9 @@ example whose addresses do not exist.
 
 `node tools/plugin.mjs install <zip path | https URL> [--sha256 <hex>] [--force]` installs into `plugins/<id>/`. A file
 on this machine installs as it is, including a Windows drive (`C:/…`, `C:\…`) and a UNC path (`\\server\…`, `//server/…`).
-An https address is accepted only with `--sha256`. The hash is checked on the bytes. The download stops at 200 MB
-(`PLUGIN_LIMITS.pluginBytes`). One deadline covers the connection, every redirect and the body. A redirect is followed
+An https address is accepted only with `--sha256`. The hash is checked on the bytes. The download stops at 512 MB
+(`PLUGIN_MAX_BYTES`, the largest class ceiling; the folder's class check decides afterwards). One deadline covers the
+connection, every redirect and the body. A redirect is followed
 only when the next address is still public https on port 443. A literal private, loopback, link-local or `.local`
 address is refused before the request, and so is an address that resolves to one of those. The zip is extracted with
 the same protections as any plugin zip (no path traversal, no symbolic link, no file-count or size bomb, no two paths
@@ -2436,3 +2502,7 @@ sets pin the runtime bytes. Match hosts, bot rehearsals, studio trials and the b
 Workers still cannot fetch: the page verifies the runtime bytes before sending content. The standalone battle console
 does not replay preparation; use room test grants for gain effects. Forge's existing custom JavaScript handlers are
 not inferred from effect names or prose: this API does not automatically translate those handlers.
+
+Studio aggregate writes and staged candidates read `plugin.json` before applying the class ceiling. Replacing the manifest
+uses the incoming class; invalid JSON or an unknown class receives the 200 MB default, and a missing manifest retains the
+512 MB outer ceiling until its class is known. These are [ASSUMED] authoring limits, not game rules (§37.17).

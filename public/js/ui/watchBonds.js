@@ -239,9 +239,9 @@ export function detailBondOwner(target, { pub, myId, stripOwnerId = null }) {
 
 /**
  * Open / close a bond popup: `open` = { id, ownerId, from } — the bond, the player it shows (the strip's owner, or the
- * detail card's: detailBondOwner) and where it was opened ('strip' | 'detail'). The same bond of the same player closes it.
+ * detail card's: detailBondOwner) and where it was opened ('strip' | 'detail' | 'info'). The same bond of the same player closes it.
  * @param {{ id: string, ownerId: string, from?: string }|null} open @param {string} id @param {string} ownerId
- * @param {'strip'|'detail'} from
+ * @param {'strip'|'detail'|'info'} from
  */
 export function toggleBond(open, id, ownerId, from) {
   if (isObj(open) && open.id === id && open.ownerId === ownerId) return null;

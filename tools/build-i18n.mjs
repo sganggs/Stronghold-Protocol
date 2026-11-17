@@ -38,7 +38,9 @@
 //               Kengxxiao/ArknightsGameData_YoStar en_US (archived in 2025-11: no 盟约 season, only the 2025 test event
 //               act1vautochess)
 //   --refresh   re-download the target tables;  --offline  never download (fail when a table is missing)
-//   --cache     zh_CN cache (default <repo>/.cache/gamedata, shared with build-data; missing tables are downloaded)
+//   --cache     zh_CN cache (default <repo>/.cache/gamedata, shared with build-data; missing tables are downloaded). A table
+//               is read at the commit the default build pins its group to, from <cache>@<sha> (tools/versions/act2autochess.mjs,
+//               as tools/build-data.mjs: the texts of data/*.json come from those tables, DESIGN §37.91)
 //   --cache-en  target cache (default <repo>/.cache/gamedata-en for en 'assets', .cache/gamedata-en-yostar for 'yostar',
 //               .cache/gamedata-<code> for the others)
 //   --data      the data/*.json to localize (default <repo>/data);  --out  default <repo>/data/i18n/<code>.json
@@ -53,6 +55,8 @@ import { existsSync } from 'node:fs';
 import { basename, dirname, join, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildRecordOverlay, applyFileOverlay, OVERLAY_VERSION } from '../shared/i18nData.js';
+import defaultProfile from './versions/act2autochess.mjs';
+import { pinnedShaOf } from './versions/profiles.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const USAGE = 'usage: node tools/build-i18n.mjs [--lang en|ja|ko|zh-TW | --lang <code> --dict <file.json>] [--dict <file.json>] [--refresh | --offline] [--source assets|yostar] [--cache <dir>] [--cache-en <dir>] [--data <dir>] [--out <file>] [--report <file>] [--check] [--quiet]';
@@ -81,6 +85,13 @@ export const EN_SOURCES = Object.freeze({
   },
 });
 const ZH_URL = 'https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/';
+/** Where the zh_CN side reads a table: the default build's pinned commit for its group (master's activity_table has no 盟约
+ * season since CN 2.7.91), cached in <cache>@<sha> like tools/build-data.mjs sourceOf. */
+function zhSourceOf(cache, rel) {
+  const sha = pinnedShaOf(defaultProfile, rel);
+  return sha ? { dir: `${cache}@${sha}`, url: `https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/${sha}/zh_CN/gamedata/` }
+    : { dir: cache, url: ZH_URL };
+}
 
 /**
  * The official clients by target language, each with its table sources. `untranslated`: how a target text that is not
@@ -737,7 +748,8 @@ async function main() {
   const zh = [];
   const en = [];
   for (const t of client ? TABLES : []) {
-    const zj = await loadTable(opts.cache, ZH_URL, t.rel, { refresh: false, offline: opts.offline, log });
+    const zs = zhSourceOf(opts.cache, t.rel);
+    const zj = await loadTable(zs.dir, zs.url, t.rel, { refresh: false, offline: opts.offline, log });
     const ej = await loadTable(opts.cacheEn, src.url, t.rel, { refresh: opts.refresh, offline: opts.offline, log });
     zh.push(t.pick ? t.pick(zj) : zj);
     en.push(t.pick ? t.pick(ej) : ej);

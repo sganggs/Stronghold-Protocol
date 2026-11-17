@@ -1,4 +1,4 @@
-// test/sim/feedback5-hpdamage-hook.test.js — the `hpDamage` hook of damage.js dealDamage (0.2.0, the 自选 operator kits):
+// test/sim/feedback5-hpdamage-hook.test.js — the `hpDamage` hook of the settlement (attack/hit.js) (0.2.0, the 自选 operator kits):
 // what passed the shields of a damage instance, before the HP loss; a handler may only lower it — the 伤判效果 that act
 // after a barrier (煌's 紧急除颤 HP floor, 左乐's 庇护 re-applied behind his 行险 barrier). A 流失 (Battle.loseHp) never
 // reaches it, a hit the shields absorb whole neither. docs/SIM.md §4 / §5.

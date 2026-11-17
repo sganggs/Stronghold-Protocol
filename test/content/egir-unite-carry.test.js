@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { makeBattle, chessRec, checkInvariants } from '../helpers/battleHarness.js';
 import { makeMatch } from '../match/harness.js';
 import { uniteBattleOpts } from '../../server/match/unite.js';
-import { FORCED_EXIT } from '../../server/sim/constants.js';
 
 const egir = (layers = 0, count = 5) => ({ count, active: true, tier: count >= 5 ? 2 : 1, layers });
 const close = (a, b) => assert.ok(Math.abs(a - b) < 1e-8, `${a} != ${b}`);
@@ -54,15 +53,22 @@ test('a previous full-health survivor cannot be newly killed by opening devour d
   close(next.unit(1).findBuff('bond:egir:devour').mods.atkFinal, 100);
 });
 
-test('forced-down carry still contributes devour attributes without consuming any of the three later revives', () => {
+test('forced-down carry still contributes devour attributes and spends one of the three revives at the 协防 start', () => {
   const lineup = units.map(u => ({ ...u, carryState: u.uid === 2 ? { down: true } : { hpPct: 0.4, sp: 17 } }));
-  const next = makeBattle({ kind: 'unite', defs, players: [{ playerId: 'p1', units: lineup, bonds: { egirShip: egir() } }], autoFinish: false });
+  const next = makeBattle({ kind: 'unite', defs, players: [{ playerId: 'p1', units: lineup, bonds: { egirShip: egir() } }], autoFinish: false, hooks: ['deploy'] });
   next.b.start();
-  assert.equal(next.unit(2).alive, false); assert.equal(next.unit(2).removeReason, FORCED_EXIT);
+  const down = next.unit(2);
+  assert.equal(down.alive, true, 'the down member is revived on the battle-start scan');
+  assert.equal(next.b.isDown(down), false);
+  close(down.hp, down.s.maxHp);
+  assert.ok(next.hooksOf('deploy').some((c) => c.unit === down && !c.initial));
   close(next.unit(1).findBuff('bond:egir:devour').mods.atkFinal, 200);
+  // one slot already spent: the next two knock-outs revive, the two after that stay down
   const survived = [];
   for (const uid of [4, 5, 1, 3]) { next.b.loseHp(next.unit(uid), 1e9); survived.push(next.unit(uid).alive); }
-  assert.deepEqual(survived, [true, true, true, false]);
+  assert.deepEqual(survived, [true, true, false, false]);
+  next.b.loseHp(down, 1e9);
+  assert.equal(down.alive, false, 'its first knock-out of this battle was the 协防 entry');
   checkInvariants(next.b);
 });
 

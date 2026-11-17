@@ -48,6 +48,17 @@ describe('normalizeSnapshot', () => {
   });
 });
 
+test('face keeps ±1 for listed units and sample uses the older snapshot', () => {
+  const s = normalizeSnapshot({ t: 1, units: [U(1, 2, 3), U(2, 4, 5)], face: [[1, 1], [2, -1], [9, 1], [1, 0], [2, 2]] });
+  assert.deepEqual([...s.face], [[1, 1], [2, -1]]);
+  assert.equal(normalizeSnapshot({ t: 1, units: [U(1, 0, 0)] }).face, null);
+  const b = new SnapshotBuffer();
+  b.push({ t: 0, units: [U(1, 0, 0)], face: [[1, 1]] });
+  b.push({ t: 1, units: [U(1, 1, 0)] });
+  assert.equal(b.sample(0).get(1).face, 1);
+  assert.equal(b.sample(1).get(1).face, null);
+});
+
 describe('SnapshotBuffer', () => {
   test('render clock trails the newest snapshot by delay × rate', () => {
     const b = new SnapshotBuffer({ delay: 0.1, rate: 2 });
@@ -101,6 +112,33 @@ describe('SnapshotBuffer', () => {
     b.push(snap(0.1, [U(1, 8, 10)]), 0.05);
     assert.equal(b.sample(0.05).get(1).x, 0);
     assert.equal(b.sample(0.1).get(1).x, 8);
+  });
+
+  test('a short parasite attachment blink snaps at its event time and does not create extrapolated walking', () => {
+    const b = new SnapshotBuffer();
+    b.push(snap(0, [U(1, 5.7, 9), U(2, 2, 9)]), 0);
+    b.pushEvents([['fx', 'teleport', 5, 9, { id: 1, kind: 'parasite', fromX: 5.7, fromY: 9 }]], 0.05, 0.1);
+    b.push(snap(0.1, [U(1, 5, 9), U(2, 2.2, 9)]), 0.05);
+    assert.equal(b.sample(0.05).get(1).x, 5.7, 'hold at the contact point before the blink');
+    assert.ok(near(b.sample(0.05).get(2).x, 2.1), 'ordinary movement still interpolates');
+    b.takeEvents(0.1);
+    assert.equal(b.sample(0.1).get(1).x, 5, 'the model jumps to the destination');
+    assert.equal(b.sample(0.15).get(1).x, 5, 'a short blink does not extrapolate as a walk');
+  });
+
+  test('unrelated short teleport effects keep the usual interpolation and extrapolation', () => {
+    const b = new SnapshotBuffer();
+    b.push(snap(0, [U(1, 5.7, 9), U(2, 3.7, 9)]), 0);
+    b.pushEvents([
+      ['fx', 'teleport', 5, 9, { id: 1, kind: 'other' }],
+      ['fx', 'teleport', 3, 9, { id: 2 }],
+    ], 0.05, 0.1);
+    b.push(snap(0.1, [U(1, 5, 9), U(2, 3, 9)]), 0.05);
+    assert.ok(near(b.sample(0.05).get(1).x, 5.35));
+    assert.ok(near(b.sample(0.05).get(2).x, 3.35));
+    b.takeEvents(0.1);
+    assert.ok(near(b.sample(0.15).get(1).x, 4.65));
+    assert.ok(near(b.sample(0.15).get(2).x, 2.65));
   });
 
   test('extrapolation guard: never more than maxExtrapolate past the newest; then freezes', () => {

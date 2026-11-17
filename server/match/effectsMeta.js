@@ -16,7 +16,7 @@
 //   onBattleStart onBattleResult onChoicePick onEquip onArt onDestroy onLayers onActiveBonds
 // (onActiveBonds: the set of active bonds changed — PlayerState.recompute, player/round.js _reportActiveBonds.)
 // Garrisons fire only on the hook of their eventType (SERVER_GAIN→onGain of the gained piece, SERVER_PREP_START→
-// onRoundStart, SERVER_PREP_FIN→onPrepEnd, SERVER_CHESS_SOLD→onSold of the sold piece, SERVER_PRICE→onPrice of the
+// onPrepStart — 「进入休整期时」, after a 机变 draft (DESIGN §35.53; the strategies' grants §35.24) —, SERVER_PREP_FIN→onPrepEnd, SERVER_CHESS_SOLD→onSold of the sold piece, SERVER_PRICE→onPrice of the
 // slot's chess, SERVER_REFRESH_SHOP→onRefresh); the dispatcher calls `handler[hook] ?? handler.run`. A handler may
 // widen that per garrison with `garrisonHooks(garrison) → hook[]` (e.g. "<进入休整期时><休整期结束时>"). Owned-piece
 // garrisons fire for board pieces, and for hand pieces unless bbStr.conditionkey is 'character_target_inboard'. A
@@ -50,6 +50,8 @@ import { registerBuiltins } from './builtinMeta.js';
 import { msg, dn } from '../../shared/i18n.js';
 import { onGiftTicker } from './botEmotes.js';
 import { previewContext } from './preview.js';
+import { deriveSeed } from '../sim/rng.js';
+import { commandMetaHandler, openSkillChangeDraft } from './bandCommands.js';
 
 export const HOOKS = Object.freeze([
   'onRoundStart', 'onIncome', 'onPrepStart', 'onPrepEnd', 'onGain', 'onSold', 'onRefresh', 'onPrice', 'onBuy',
@@ -62,11 +64,12 @@ const HANDLER_EXTRAS = new Set(['run', 'garrisonHooks']);
 /** Garrison eventType → dispatcher hook. */
 export const GARRISON_HOOK = Object.freeze({
   SERVER_GAIN: 'onGain',
-  SERVER_PREP_START: 'onRoundStart',
+  SERVER_PREP_START: 'onPrepStart',   // 「进入休整期时」: PREP opens, after the 机变 draft (DESIGN §35.53; was onRoundStart)
   SERVER_PREP_FIN: 'onPrepEnd',
   SERVER_CHESS_SOLD: 'onSold',
   SERVER_PRICE: 'onPrice',
   SERVER_REFRESH_SHOP: 'onRefresh',
+  SERVER_BATTLE_FIN: 'onBattleResult',
 });
 
 const KEY_RE = /^(garrison|band|bond|item|choice|effect|global):[A-Za-z0-9_\-.:#]+$/;
@@ -250,7 +253,7 @@ export class EffectDispatcher {
       // 2. band
       if (ps.bandId) {
         const key = `band:${ps.bandId}`;
-        const h = reg.get(key) ?? reg.get(`band:${this.m.gd.band(ps.bandId)?.effectRef}`);
+        const h = commandMetaHandler(ps) ?? reg.get(key) ?? reg.get(`band:${this.m.gd.band(ps.bandId)?.effectRef}`);
         if (h) this._call(ps, key, h, hook, { kind: 'band', key, bandId: ps.bandId, band: this.m.gd.band(ps.bandId) }, ev);
       }
       // 3. bonds
@@ -350,7 +353,7 @@ export class EffectDispatcher {
       if (ev && ev.slot && ev.slot.kind === 'chess') run({ uid: 0, kind: 'chess', id: ev.slot.id, items: [] }, 'shop');
       return;
     }
-    if (hook !== 'onRoundStart' && hook !== 'onPrepEnd' && hook !== 'onRefresh') return;
+    if (hook !== 'onPrepStart' && hook !== 'onRoundStart' && hook !== 'onPrepEnd' && hook !== 'onRefresh' && hook !== 'onBattleResult') return;
     if (refreshed) {
       for (const { piece, area } of refreshed) {
         const loc = ps.find(piece.uid);
@@ -521,6 +524,11 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
     data: gd.raw,
     gd,
     rng,
+    /**
+     * A uint32 derived from the match seed and `salt`: the same for every player, dispatch and preview, consuming no
+     * stream — for a draw that every player of a round must share (鸭爵's swaps, GitHub #839: createRng(seedFor(…))).
+     */
+    seedFor: (salt) => deriveSeed(m.seed, `meta:${String(salt)}`),
     log: (msg) => m.log.info?.(`[meta ${m.roomCode}] ${ps.playerId}: ${msg}`),
 
     // ---- reads
@@ -528,6 +536,7 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
     lp: () => ps.lp,
     alive: () => ps.alive,
     bandId: () => ps.bandId,
+    commandEffectId: ps.command?.currentEffectId ?? null,
     teamMedicGranted: () => m.teamMedicGranted(),
     shopLevel: () => ps.shop.level,
     bond: (id) => (ps.bonds[id] ? { ...ps.bonds[id] } : null),
@@ -584,6 +593,38 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
     addPendingFunds: (n) => { const v = finiteInt(n); if (v > 0) { ps.pendingFunds += v; ps.dirty(); } return v > 0 ? v : 0; },
     spendFunds: (n) => { const v = finiteInt(n); if (!ps.spend(v)) return false; ps._afterSpend(v, 'effect'); return true; },
     grantFreeRefresh: (n = 1) => { const v = finiteInt(n); if (v > 0) { ps.shop.freeRefreshes += v; ps.dirty(); } return ps.shop.freeRefreshes; },
+    /** One special-refresh charge: the next rollShop shows `count` chess of `bond`. Absent until a garrison grants it. */
+    grantBondRefresh: (bond, count) => {
+      const n = finiteInt(count);
+      if (!(n > 0) || typeof bond !== 'string' || !gd.bond(bond)) return 0;
+      if (!Array.isArray(ps.shop.bondRefresh)) ps.shop.bondRefresh = [];
+      ps.shop.bondRefresh.push({ bond, count: n });
+      return n;
+    },
+    /** Resolved sell price of an owned piece (an effect override, else the table). */
+    sellPrice: (uid) => {
+      const loc = ps.find(uid);
+      if (loc && loc.piece) return ps.sellPriceOf(loc.piece);
+      if (source?.piece && source.piece.uid === uid) return ps.sellPriceOf(source.piece);
+      return 0;
+    },
+    /** Temporary bond layers copied onto the player for this settle only (规程). 0 when absent. */
+    tempLayers: (bondId) => {
+      const n = ps.tempLayers && ps.tempLayers[bondId];
+      return typeof n === 'number' && n > 0 ? Math.floor(n) : 0;
+    },
+    /** Take up to `n` temporary layers of `bondId`. Returns how many were taken. */
+    convertTempLayers: (bondId, n) => {
+      if (!ps.tempLayers || typeof bondId !== 'string' || !bondId) return 0;
+      const have = ps.tempLayers[bondId];
+      if (!(typeof have === 'number' && have > 0) || !(n > 0) || !Number.isFinite(n)) return 0;
+      const take = Math.min(Math.floor(have), Math.floor(n));
+      if (!(take > 0)) return 0;
+      const left = have - take;
+      if (left > 0) ps.tempLayers[bondId] = left;
+      else delete ps.tempLayers[bondId];
+      return take;
+    },
 
     // ---- prices (onPrice only; the same as writing ev.price)
     modifyPrice: (delta) => { if (hook === 'onPrice' && ev && Number.isFinite(delta)) ev.price = Math.max(0, (Number(ev.price) || 0) + delta); return ev ? ev.price : null; },
@@ -636,7 +677,18 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
         if (opts.bond) { const c = gd.chess(id); if (!c || !Array.isArray(c.bonds) || !c.bonds.includes(opts.bond)) return false; }
         return typeof opts.filter === 'function' ? !!opts.filter(id) : true;
       };
-      const extra = typeof ps.diyStockEntries === 'function' ? ps.diyStockEntries() : null;
+      let extra = typeof ps.diyStockEntries === 'function' ? ps.diyStockEntries() : null;
+      if (Array.isArray(opts.tierExemptChess) && opts.tierExemptChess.length) {
+        const exempt = [];
+        // Only explicitly marked, non-shop normal forms may bypass a shop-level gate. Callers name the eligible copy.
+        // [ASSUMED] For mixed candidates, use the existing per-tier copy weight; no official weights are published.
+        for (const id of new Set(opts.tierExemptChess)) {
+          const rec = gd.chess(id);
+          if (rec?.recruitTierExempt !== true || !rec.isHidden || rec.isGolden || rec.isDiy || m.pool.has(id) || m.chessExcluded(rec)) continue;
+          exempt.push([id, { tier: gd.tierOf(id), left: gd.poolCopies(id), tierExempt: true }]);
+        }
+        if (exempt.length) extra = [...(extra || []), ...exempt];
+      }
       return m.pool.roll(rng, { maxTier: Number.isInteger(opts.maxTier) ? opts.maxTier : 6, tier: Number.isInteger(opts.tier) ? opts.tier : null, filter: f, extra, ignoreCounts: opts.ignoreCounts === true });
     },
     rollItem: (opts = {}) => rolls.rollItemId(opts),
@@ -669,6 +721,18 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
     transform: (uid, chessId) => { const l = ps.find(uid); if (!l || l.piece.kind !== 'chess') return null; const p = ps.transformChess(l.piece, chessId); return p ? view(p) : null; },
     /** Normal item piece → its golden version in place. */
     upgradeItem: (uid) => { const l = ps.find(uid); return l && l.piece.kind === 'item' ? ps.upgradeItem(l.piece) : false; },
+    /** Forced equipment return by a trait/effect: keep the instance and allow overflow, independent of manual unequip. */
+    unequipDirect: (uid) => {
+      const loc = ps.find(uid);
+      if (!loc || loc.piece.kind !== 'item' || loc.area !== 'equipped') return false;
+      ps._detach(loc);
+      if (!ps.stow(loc.piece, { allowTemp: true })) {
+        ps._attach(loc.holder, loc.piece);
+        return false;
+      }
+      ps.recompute();
+      return true;
+    },
     /** Attach an owned hand/temp item to an owned chess without equip effects (copies, restores). */
     equipDirect: (itemUid, chessUid) => {
       const il = ps.find(itemUid);
@@ -699,16 +763,20 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
       return true;
     },
     /** Queue a free pick-one offer of chess (shop.rewardOffer; `label` defaults to offerLabel(source), the bar's header). */
-    offerChess: (ids, opts = {}) => !!ps.pushRewardOffer(opts.source || source.key || 'effect', { ids, tier: opts.tier ?? null, label: opts.label ?? offerLabel(gd, source) }),
-    /** Queue a free pick-one offer of items (shop.rewardOffer with slots of kind 'item'). */
-    offerItems: (ids, opts = {}) => !!ps.pushItemOffer(ids, { source: opts.source || source.key || 'effect', tier: opts.tier ?? null, label: opts.label ?? offerLabel(gd, source) }),
+    offerChess: (ids, opts = {}) => !!ps.pushRewardOffer(opts.source || source.key || 'effect', { ids, tier: opts.tier ?? null, label: opts.label ?? offerLabel(gd, source), picks: opts.picks }),
+    /** Queue a free offer of items (shop.rewardOffer with slots of kind 'item'). `picks` > 1 keeps the offer open. */
+    offerItems: (ids, opts = {}) => !!ps.pushItemOffer(ids, { source: opts.source || source.key || 'effect', tier: opts.tier ?? null, label: opts.label ?? offerLabel(gd, source), picks: opts.picks }),
     setShopSlot: (i, slot) => {
       if (!Number.isInteger(i) || i < 0 || i >= ps.shop.slots.length) return false;
       if (slot == null) { ps.shop.slots[i] = null; ps.dirty(); return true; }
       const kind = slot.kind === 'item' ? 'item' : 'chess';
-      if (kind === 'chess' ? !gd.chess(slot.id) : !gd.item(slot.id)) return false;
+      if (kind === 'chess' ? !gd.chess(slot.id) || m.chessExcluded(gd.chess(slot.id)) : !gd.item(slot.id)) return false;
       const basePrice = Number.isFinite(slot.price) ? Math.max(0, Math.trunc(slot.price)) : kind === 'chess' ? gd.chessPrice(slot.id) : gd.itemPrice(slot.id);
-      ps.shop.slots[i] = { kind, id: slot.id, basePrice, frozen: !!slot.frozen, sold: false };
+      // a card put in while the whole shop is frozen is frozen too, as a reroll marks it (economy.js): the lock shows the
+      // shop locked, and 巫恋's 售出 swap left an unfrozen card under it that the combat start then cleared (community
+      // report via the owner, 2026-11-14, §37.205). An explicit `frozen` still wins.
+      const frozen = slot.frozen != null ? !!slot.frozen : !!ps.shop.frozen;
+      ps.shop.slots[i] = { kind, id: slot.id, basePrice, frozen, sold: false };
       ps.dirty();
       return true;
     },
@@ -735,6 +803,7 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
     // ---- bounties / choices
     addBounty: (card) => m.addBounty(ps, card),
     offerBountyChoice: (cards, sourceItemId) => m.offerBountyChoice(ps, cards, sourceItemId),
+    openSkillChangeDraft: choiceId => openSkillChangeDraft(ps, choiceId, ctx),
 
     // ---- messaging
     // a string or a shared/i18n.js msg(msgid, params)

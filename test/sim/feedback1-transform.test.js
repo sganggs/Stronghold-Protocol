@@ -27,7 +27,7 @@ import { getDefaultSource } from '../../server/sim/simdata.js';
 import { GEO } from '../../shared/constants.js';
 import { makeBattle, chessRec, checkInvariants } from '../helpers/battleHarness.js';
 import { canTargetEnemy } from '../../server/sim/targeting.js';
-import { HUSK_REBIRTH, TRANSLATOR_CHANGE, abOf } from '../../server/sim/content/enemies.js';
+import { HUSK_REBIRTH, TRANSLATOR_CHANGE } from '../../server/sim/content/enemies.js';
 
 const QUIET = { warn() {}, error() {}, info() {} };
 const DATA = getData({ log: QUIET });
@@ -241,10 +241,10 @@ describe('#8 深池逐火: a knock-out is a walking 隐匿 ember that a blocker 
     h.b.kill(e, h.unit('t_gun'));
     assert.ok(e.alive && e.form === 'husk');
     h.run(HUSK_REBIRTH - 0.1);
-    assert.equal(abOf(h.b, near).hitShield ?? 0, 0, 'no shield while it is still in its 重生');
+    assert.equal(near.findBuff('ab:hitShield')?.shieldHits ?? 0, 0, 'no shield while it is still in its 重生');
     h.run(0.2);
-    assert.equal(abOf(h.b, near).hitShield, tb('enemy_9010_acpupp', 'Aura.max_damage_block_cnt'), 'the 再生状态 begins: 5 hits of shield within 1.8');
-    assert.equal(abOf(h.b, far).hitShield ?? 0, 0, 'nothing 1.9 away');
+    assert.equal(near.findBuff('ab:hitShield')?.shieldHits, tb('enemy_9010_acpupp', 'Aura.max_damage_block_cnt'), 'the 再生状态 begins: 5 hits of shield within 1.8');
+    assert.equal(far.findBuff('ab:hitShield')?.shieldHits ?? 0, 0, 'nothing 1.9 away');
     assert.ok(e.s.flags.unblockable && !e.s.flags.noMove, '不可阻挡, free to move after the 1 s');
   });
 });

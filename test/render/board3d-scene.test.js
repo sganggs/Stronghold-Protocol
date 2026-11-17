@@ -7,7 +7,7 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -30,6 +30,14 @@ const ENV = { ...process.env, PYTHONDONTWRITEBYTECODE: '1' };
 const PY = ['python3', 'python'].find((bin) => spawnSync(bin, ['--version']).status === 0);
 const HAS_PIL = !!PY && spawnSync(PY, ['-I', '-B', '-c', 'import PIL'], { env: ENV }).status === 0;
 const stages = JSON.parse(readFileSync(path.join(ROOT, 'data/stages.json'), 'utf8'));
+// every official version's stages, for the extracted-scene checks (规程's act3autochess_m01… are only in
+// data/versions/act3autochess-v3_1; `stages` stays the default data, whose battlefields scenes.SCENES lists)
+const allStages = { ...stages };
+for (const dir of existsSync(path.join(ROOT, 'data/versions')) ? readdirSync(path.join(ROOT, 'data/versions')) : []) {
+  const file = path.join(ROOT, 'data/versions', dir, 'stages.json');
+  if (!existsSync(file)) continue;
+  for (const [id, stage] of Object.entries(JSON.parse(readFileSync(file, 'utf8')))) if (!allStages[id]) allStages[id] = stage;
+}
 const manifest = (() => { try { return JSON.parse(readFileSync(path.join(ROOT, 'data/local-assets.json'), 'utf8')); } catch { return null; } })();
 
 function py(code) {
@@ -134,6 +142,180 @@ describe('scenes.py (no UnityPy needed)', { skip: !PY && 'no python3' }, () => {
 print(json.dumps({'all': len(e.scene_ids([])), 'scene': len(e.scene_ids(['scene'])), 'one': e.scene_ids(['scene/act2autochess_m02']),
   'other': e.scene_ids(['emoticon']), 'missing': s.find_scene('act2autochess_m02', ['/no/such/root']) is None}))`);
     assert.deepEqual(out, { all: 11, scene: 11, one: ['act2autochess_m02'], other: [], missing: true });
+  });
+
+  test('规程 row moves follow layouts.mjs; unborrowed rows and foreign cells drop', () => {
+    const out = py(`import regulation_scenes as r
+table = r.stage_row_table()
+def tri(piece, x, y):
+    return r.place_triangle(piece, [x - 0.2, x + 0.2, x], [y - 0.2, y - 0.2, y + 0.2])
+print(json.dumps({
+  'n': len(table), 'boards': [t[0] for t in table],
+  'pins': [list(table[i]) for i in (0, 7, 8, 9, 13, 14, 18)],
+  'd': {
+    'p1y0': r.regulation_delta(1, 4, 0), 'p1y1': r.regulation_delta(1, 4, 1), 'p1y3': r.regulation_delta(1, 4, 3),
+    'pen': r.regulation_delta(1, 15, 1), 'y149': r.regulation_delta(1, 4, 1.49), 'y15': r.regulation_delta(1, 4, 1.5),
+    'below': r.regulation_delta(1, 4, -0.8), 'lip': r.regulation_delta(1, 4, -0.2),
+    'p2r0': r.regulation_delta(2, 4, 0), 'p2r1': r.regulation_delta(2, 4, 1), 'p2hi': r.regulation_delta(2, 4, 5.8),
+    'p3r0': r.regulation_delta(3, 10, 0), 'p3r7': r.regulation_delta(3, 8, 7), 'p3r12': r.regulation_delta(3, 8, 12),
+    'p3lo': r.regulation_delta(3, 10, -1),
+  },
+  'own': {'8,15': r.owner_of(8, 15), '8,20': r.owner_of(8, 20), '6,10': r.owner_of(6, 10), '10,0': r.owner_of(10, 0)},
+  'g': {'left': tri(2, 4, 2), 'right': tri(2, 16, 2), 'boss': tri(3, 10, 2), 'pen': tri(3, 8, 9),
+        'stick': r.place_triangle(3, [10, 11, 10.5], [4.5, 4.5, 6.6])},
+}))`);
+    assert.equal(out.n, 19);
+    assert.deepEqual(out.boards, [...Array(19).keys()]);
+    assert.deepEqual(out.pins, [[0, 3, 0, 0], [7, 1, 0, 7], [8, 1, 1, 7], [9, 2, 1, 8], [13, 2, 5, 8], [14, 3, 7, 7], [18, 3, 11, 7]]);
+    assert.deepEqual(out.d, {
+      p1y0: 7, p1y1: 7, p1y3: null, pen: 7, y149: 7, y15: null, below: null, lip: 7,
+      p2r0: null, p2r1: 8, p2hi: null, p3r0: 0, p3r7: 7, p3r12: null, p3lo: 0,
+    });
+    assert.deepEqual(out.own, { '8,15': 1, '8,20': null, '6,10': 3, '10,0': 2 });
+    assert.deepEqual(out.g, {
+      left: [8, 'HIDDEN@1'], right: [8, 'HIDDEN@2'], boss: [0, 'HIDDEN@3'], pen: [7, ''], stick: [0, ''],
+    });
+  });
+
+  test('规程 lightmap atlas: three pages share one 2 × 2 atlas (row 0 at the bottom, flipY), page UVs land inside their cell', () => {
+    const out = py(`import regulation_scenes as r
+print(json.dumps({
+  'slots': [list(r.atlas_slot(i, 1024)) for i in range(3)],
+  'uv': [list(r.atlas_uv(u, v, i, 1024)) for i, u, v in ((0, 0, 0), (0, 1, 1), (1, 0, 0), (2, 0.5, 0.5))],
+}))`);
+    assert.deepEqual(out.slots, [[0, 0, 1008, 2048], [1, 0, 1008, 2048], [0, 1, 1008, 2048]]);
+    assert.deepEqual(out.uv, [[8 / 2048, 8 / 2048], [1016 / 2048, 1016 / 2048], [1032 / 2048, 8 / 2048], [512 / 2048, 1536 / 2048]]);
+  });
+
+  test('规程 water is one quad of the shifted sheets; low ground outside a piece is kept, a dune is not', () => {
+    // m01's three StylizedWater quads (piece-local AABBs measured from the prefabs). Rows the piece does not
+    // lend are omitted; WATER_GAP then joins the three into one board quad so the alpha cannot stack.
+    const out = py(`import regulation_scenes as r
+quads = [(1, -3.73, 16.52, -8.50, 4.97), (2, -0.57, 19.67, -8.81, 4.65), (3, 0.46, 20.70, -0.60, 12.86)]
+xs, ys, zs = [3.8, 4.2, 4.0], [-0.2, -0.2, 0.2], [-1, -1, -1]
+outside = ([9.8, 10.2, 10.0], [-4.2, -4.2, -3.8])
+merged = {}
+n = r._emit_water(merged, [(*q, -0.86, 'MT_AutochessSand_water') for q in quads], lambda *_a, **_k: None, 'act3autochess_m01')
+key = next(iter(merged))
+chunk = merged[key]
+print(json.dumps({
+  'water': r.water_sheet_quads(quads),
+  'quads': n, 'key': list(key), 'verts': len(chunk['pos']), 'idx': chunk['idx'], 'z': chunk['pos'][0][2],
+  'borrowed': r.place_floor_triangle(1, xs, ys, zs),
+  'borrowed_strict': r.place_triangle(1, xs, ys),
+  'outside': r.place_floor_triangle(3, outside[0], outside[1], [-1, -1, -1]),
+  'dune': r.place_floor_triangle(3, outside[0], outside[1], [1, 1, 1]),
+  'foreign': r.place_floor_triangle(1, [3.8, 4.2, 4.0], [-8.2, -8.2, -7.8], [-1, -1, -1]),
+  'span': r.place_floor_triangle(3, [-5, 25, 10], [1, 1, 4], [-1, -1, -1]),
+  'span_strict': r.place_triangle(3, [-5, 25, 10], [1, 1, 4]),
+  'bridge': r._merge_rects([(0, 0, 1, 1), (3.2, 0, 4.2, 1), (1.2, 0, 2.8, 1)], 0.5),
+  'sheet': r._is_water_sheet('MT_AutochessSand_water', 'Torappu/Scene/StylizedWater', 20, 0),
+  'named': r._is_water_sheet('MT_AutochessSand_water', '', 20, 0),
+  'decal': r._is_water_sheet('platform_water', 'Torappu/Scene/DynamicWaterTile', 20, 0),
+  'small': r._is_water_sheet('MT_AutochessSand_water', 'Torappu/Scene/StylizedWater', 4, 0),
+  'bumpy': r._is_water_sheet('MT_AutochessSand_water', 'Torappu/Scene/StylizedWater', 20, 1),
+  'tess': r._is_water_sheet('MT_church_tower_water', 'Torappu/Scene/StylizedWater', 20, 0, 95),
+  'river': r._is_water_surface('MT_church_tower_water', 'Torappu/Scene/StylizedWater'),
+  'bg': r._is_background_sheet('lit', 20, 30),
+  'bg_water': r._is_background_sheet('water', 20, 30),
+  'bg_few': r._is_background_sheet('lit', 20, 10),
+}))`);
+    assert.deepEqual(out.water, [[-3.73, -1.5, 20.7, 19.86]]);
+    assert.equal(out.quads, 1);
+    assert.deepEqual(out.key, ['MT_AutochessSand_water', -1, '']);
+    assert.equal(out.verts, 4);
+    assert.deepEqual(out.idx, [0, 1, 2, 0, 2, 3]);
+    assert.equal(out.z, -0.86);
+    assert.deepEqual(out.borrowed, [7, '']);
+    assert.deepEqual(out.borrowed, out.borrowed_strict);
+    assert.deepEqual(out.outside, [0, '']);
+    assert.equal(out.dune, null);
+    assert.equal(out.foreign, null);
+    assert.deepEqual(out.span, [0, 'HIDDEN@3']);
+    assert.equal(out.span_strict, null);
+    assert.deepEqual(out.bridge, [[0, 0, 4.2, 1]]);
+    assert.equal(out.sheet, true);
+    assert.equal(out.named, true);
+    assert.equal(out.decal, false);
+    assert.equal(out.small, false);
+    assert.equal(out.bumpy, false);
+    assert.equal(out.tess, false);
+    assert.equal(out.river, true);
+    assert.equal(out.bg, true);
+    assert.equal(out.bg_water, false);
+    assert.equal(out.bg_few, false);
+  });
+
+  test('规程 lightmap resize keeps indirect RGB where the shadowmask alpha is 0', { skip: !HAS_PIL && 'no Pillow' }, () => {
+    const out = py(`from PIL import Image
+import regulation_scenes as r
+im = Image.new('RGBA', (32, 32), (200, 100, 50, 0))
+im.putpixel((16, 16), (200, 100, 50, 255))
+straight = r.resize_straight(im, (8, 8), Image.LANCZOS)
+prem = im.resize((8, 8), Image.LANCZOS)
+a = Image.new('RGBA', (4, 4), (180, 40, 20, 0))
+b = Image.new('RGBA', (4, 4), (180, 40, 20, 0))
+images, _chunks = r._atlas([a, b], {}, lambda *_a, **_k: None, 't', gutter=0)
+page = Image.new('RGBA', (4, 4), (0, 0, 0, 255))
+page.putpixel((0, 3), (255, 255, 255, 255))
+print(json.dumps({
+  'straight': list(straight.getpixel((0, 0)))[:3],
+  'prem': list(prem.getpixel((0, 0)))[:3],
+  'atlas': list(images[0].getpixel((0, 4)))[:3],
+  'share': r.lightmap_black_share(page, [(0, 0), (1, 1)]),
+  'outside': r.lightmap_black_share(page, [(-0.1, 0.5)]),
+}))`);
+    assert.ok(out.straight[0] > 100 && out.straight[1] > 40, JSON.stringify(out.straight));
+    assert.deepEqual(out.prem, [0, 0, 0]);
+    assert.ok(out.atlas[0] > 100, JSON.stringify(out.atlas));
+    assert.equal(out.share, 0.5);
+    assert.equal(out.outside, 1);
+  });
+
+  test('--only scene selects the ten 规程 stages without folding them into the covenant list', () => {
+    const out = py(`import extract as e, regulation_scenes as r
+print(json.dumps({
+  'all': e.regulation_ids([]), 'scene': e.regulation_ids(['scene']), 'one': e.regulation_ids(['scene/act3autochess_m01']),
+  'other': e.regulation_ids(['emoticon']), 'covenant': len(e.scene_ids([])),
+  'overlap': sorted(set(e.scene_ids([])) & set(r.REGULATION_IDS)),
+  'prefab': r.prefab_rel('act3autochess_m01', 1), 'missing': r.find_prefab('act3autochess_m01', 1, ['/no/such/root']) is None,
+}))`);
+    assert.equal(out.all.length, 10);
+    assert.deepEqual(out.scene, out.all);
+    assert.deepEqual([...out.all].sort(), [
+      'act3autochess_m01', 'act3autochess_m02', 'act3autochess_m03', 'act3autochess_m04', 'act3autochess_m05',
+      'act3autochess_m06', 'act3autochess_m09', 'act3autochess_m10', 'act3autochess_m11', 'act3autochess_m12',
+    ]);
+    assert.deepEqual(out.one, ['act3autochess_m01']);
+    assert.deepEqual(out.other, []);
+    assert.equal(out.covenant, 11);
+    assert.deepEqual(out.overlap, []);
+    assert.equal(out.prefab, 'battle/prefabs/levelprefabs/activities/act3autochess/level_act3autochess_m01/level_act3autochess_m01_sub_01/level_act3autochess_m01_sub_01.ab');
+    assert.equal(out.missing, true);
+  });
+
+  test('规程 stages stay out of expectedGroups', () => {
+    const r = spawnSync(PY, ['-I', '-B', path.join(TOOL, 'extract.py'), '--print-jobs'], { encoding: 'utf8', env: ENV });
+    assert.equal(r.status, 0, r.stderr);
+    const j = JSON.parse(r.stdout);
+    const ids = j.regulationScenes.stages.map((st) => st.id);
+    assert.equal(j.scenes.stages.length, 11);
+    assert.equal(ids.length, 10);
+    assert.ok(!j.expectedGroups.some((g) => g.startsWith('scene/act3autochess')), j.expectedGroups.filter((g) => g.startsWith('scene/')).join());
+    assert.equal(j.regulationScenes.stages[0].prefabs.length, 3);
+    assert.ok(j.regulationScenes.stages[0].prefabs[0].endsWith('level_act3autochess_m01_sub_01.ab'));
+    const depsOf = Object.fromEntries(j.regulationScenes.stages.map((st) => [st.id, st.deps]));
+    assert.deepEqual(depsOf.act3autochess_m01, ['arts/maps/map_autochesssand/res.ab', 'arts/maps/effect.ab']);
+    assert.deepEqual(depsOf.act3autochess_m05, ['arts/maps/map_syracuse_metro/res.ab', 'arts/maps/common/meshes/s_background_common.ab']);
+    assert.deepEqual(depsOf.act3autochess_m09, ['arts/maps/map_icewild/res.ab', 'arts/maps/map_icewild/background_mesh/s_background_icewild.ab']);
+    assert.deepEqual(depsOf.act3autochess_m10, ['arts/maps/map_ltny2/res.ab', 'arts/maps/map_ltny2/background_mesh/bg_church_tower.ab']);
+    assert.deepEqual(depsOf.act3autochess_m11, depsOf.act3autochess_m09);
+    assert.deepEqual(depsOf.act3autochess_m12, depsOf.act3autochess_m10);
+  });
+
+  test('a disabled group is kept for the duplicate check and left out of scene.bin (#918)', () => {
+    const out = py(`print(json.dumps({'off': s.chunk_group_exported('inactive'), 'base': s.chunk_group_exported(''), 'hidden': s.chunk_group_exported('HIDDEN@3'), 'none': s.chunk_group_exported(None)}))`);
+    assert.deepEqual(out, { off: false, base: true, hidden: true, none: true });
   });
 
   test('board space: Unity anchor-local (x, y, −z); transforms compose; a mirrored transform has a negative determinant', () => {
@@ -345,12 +527,21 @@ describe('scene chunks (load.js)', () => {
     const rects = sceneGroupRects(parseSceneChunks(doc, bin));
     assert.deepEqual(Object.keys(rects).sort(), ['HIDDEN@1', 'HIDDEN@2', 'HIDDEN@3']);
     assert.deepEqual(rects['HIDDEN@1'], [4, 9, 6, 10], 'union of the group\'s chunks');
-    const shown = (areas) => Object.keys(rects).filter((g) => sceneGroupVisible(rects[g], areas)).sort();
+    const shown = (areas) => Object.keys(rects).filter((g) => sceneGroupVisible(rects[g], areas, g)).sort();
     assert.deepEqual(shown(AREAS.normal), ['HIDDEN@1'], 'own field');
     assert.deepEqual(shown(AREAS.unite), ['HIDDEN@1', 'HIDDEN@2'], 'both normal fields');
     assert.deepEqual(shown(AREAS.boss), ['HIDDEN@3'], 'the boss field');
     assert.deepEqual(shown(AREAS.all), ['HIDDEN@1', 'HIDDEN@2', 'HIDDEN@3']);
     assert.equal(sceneGroupVisible(null, AREAS.normal), true, 'a part without bounds is shown');
+    // GitHub #918: fog_1 / fog_2 (a later extract: mapeff_survival_shadow_*) are one ±30 quad each at the
+    // origin, height −0.02. That centre is inside the boss field and outside a normal / 联防 field.
+    const shadow = [-30, -30, 30, 30];
+    for (const areas of [AREAS.normal, AREAS.unite, AREAS.boss, AREAS.all]) {
+      assert.equal(sceneGroupVisible(shadow, areas, 'inactive'), false, 'a disabled group stays off');
+    }
+    assert.equal(sceneGroupVisible(null, AREAS.boss, 'inactive'), false, 'missing bounds do not bring it back');
+    assert.equal(sceneGroupVisible(shadow, AREAS.boss, 'HIDDEN@3'), true, 'the boss sub-graphic at the same centre stays');
+    assert.equal(sceneGroupVisible(shadow, AREAS.normal, 'HIDDEN@3'), false);
   });
 
   test('loadScenePack: scene.json + scene.bin + lightmap pages + textures through the store; null when not listed or malformed', async () => {
@@ -399,6 +590,43 @@ describe('scene materials', () => {
     assert.equal(sceneBlend({ keywords: ['_ALPHATEST_ON'] }), 'cutout');
     assert.equal(sceneBlend({ keywords: ['_ALPHABLEND_ON', '_EMISSION'] }), 'blend');
     assert.equal(sceneBlend(null), 'opaque');
+  });
+
+  test('opaque and cutout scene materials write alpha 1; only blend keeps the albedo alpha', () => {
+    const focus = focusUniforms(THREE);
+    const map = new THREE.Texture();
+    // MT_icewild: Standard-Ice, _Mode 0, no alpha keyword. The floor texels store ~0 in alpha.
+    const ice = sceneMaterial(THREE, {
+      map,
+      info: { shader: 'Torappu/Scene/Standard-Ice', keywords: ['_EMISSION', '_METALLICGLOSSMAP', '_NORMALMAP'] },
+    }, focus);
+    const cutout = sceneMaterial(THREE, {
+      map,
+      info: { keywords: ['_ALPHATEST_ON'], floats: { _Cutoff: 0.5 } },
+    }, focus);
+    const blend = sceneMaterial(THREE, { map, info: { keywords: ['_ALPHABLEND_ON'] } }, focus);
+    const premul = sceneMaterial(THREE, { map, info: { keywords: ['_ALPHAPREMULTIPLY_ON'] } }, focus);
+    assert.equal(ice.defines.SCENE_BLEND, undefined);
+    assert.equal(cutout.defines.SCENE_BLEND, undefined);
+    assert.equal(ice.transparent, false);
+    assert.equal(cutout.transparent, false);
+    assert.equal(ice.uniforms.uCutoff.value, 0, 'opaque does not discard a zero albedo alpha');
+    assert.equal(cutout.uniforms.uCutoff.value, 0.5);
+    assert.equal(blend.defines.SCENE_BLEND, 1);
+    assert.equal(premul.defines.SCENE_BLEND, 1);
+    assert.equal(blend.transparent, true);
+    assert.equal(premul.transparent, true);
+    const src = ice.fragmentShader;
+    assert.equal(src, cutout.fragmentShader);
+    assert.equal(src, blend.fragmentShader);
+    assert.ok(src.includes('float outAlpha = 1.0;'));
+    assert.ok(src.includes('#ifdef SCENE_BLEND'));
+    assert.ok(src.includes('outAlpha = a.a;'));
+    assert.ok(src.includes('gl_FragColor = vec4(c * focusMask(vWorld.xy), outAlpha);'));
+    assert.ok(!src.includes('gl_FragColor = vec4(c * focusMask(vWorld.xy), a.a);'));
+    const discardAt = src.indexOf('if (a.a < uCutoff) discard;');
+    const writeAt = src.indexOf('float outAlpha = 1.0;');
+    assert.ok(discardAt >= 0 && discardAt < writeAt, 'cutout still discards before the opaque write');
   });
 
   test('sceneMaterial: display-space tint, lightmap range by encoding, key light, cutoff; unlit fallback without a lightmap page', () => {
@@ -760,6 +988,70 @@ describe('BoardScene with an official scene (stub renderer)', () => {
     board.destroy();
   });
 
+  test('a disabled group is never drawn, including when its centre lies in the boss field (#918)', () => {
+    const board = new BoardScene(THREE, fakePack(), { renderer: stubRenderer() });
+    const { doc, bin } = fakeScene([
+      { material: 'M', x0: 9, y0: 15 },
+      { material: 'M', x0: 0, y0: 0, group: 'inactive' },
+      { material: 'M', x0: 10, y0: 3, group: 'HIDDEN@3' },
+    ]);
+    const chunks = parseSceneChunks(doc, bin);
+    board.setScenePack(stage.id, { key: 'inactive', stage: stage.id, doc, chunks, groups: sceneGroupRects(chunks), images: { tex: {}, lm: [] } });
+    board.setStage(stage);
+    const xsOf = () => sceneMeshes(board).flatMap((m) => {
+      const a = m.geometry.getAttribute('position').array;
+      const out = [];
+      for (let i = 0; i < a.length; i += 3) out.push(a[i]);
+      return out;
+    });
+    assert.ok(xsOf().includes(9) && !xsOf().includes(0), 'normal / prep: the base, not the disabled quad');
+    board.setArea(AREAS.boss);
+    const boss = xsOf();
+    assert.ok(boss.includes(9) && boss.includes(11) && !boss.includes(0), 'boss: base and HIDDEN@3, not the disabled quad');
+    board.setArea(AREAS.unite);
+    assert.ok(xsOf().includes(9) && !xsOf().includes(0) && !xsOf().includes(11), '联防: the disabled quad stays off');
+    board.destroy();
+  });
+
+  test('a 规程 stage names scene/<id>, and a missing group keeps the metal board', async () => {
+    assert.equal(sceneGroup('act3autochess_m01'), 'scene/act3autochess_m01');
+    resetBoardPack();
+    const store = { local: async () => ({}), localUrl: () => null, image: async () => ({ width: 1, height: 1 }) };
+    assert.equal(await sceneListed(store, 'act3autochess_m01'), false);
+    assert.equal(await loadScenePack(store, 'act3autochess_m01'), null);
+    resetBoardPack();
+  });
+
+  test('规程 field groups follow the built areas; the hand and the pen stay on', () => {
+    const board = new BoardScene(THREE, fakePack(), { renderer: stubRenderer() });
+    const { doc, bin } = fakeScene([
+      { material: 'M', x0: 2, y0: 7 },                          // hand, always drawn
+      { material: 'M', x0: 8, y0: 15 },                         // preview pen, always drawn
+      { material: 'M', x0: 4, y0: 9, group: 'HIDDEN@1' },       // left road
+      { material: 'M', x0: 16, y0: 9, group: 'HIDDEN@2' },      // right road
+      { material: 'M', x0: 10, y0: 2, group: 'HIDDEN@3' },      // boss field
+    ]);
+    const chunks = parseSceneChunks(doc, bin);
+    board.setScenePack(stage.id, { key: 'reg-areas', stage: stage.id, doc, chunks, groups: sceneGroupRects(chunks), images: { tex: {}, lm: [] } });
+    board.setStage(stage);
+    const xsOf = () => sceneMeshes(board).flatMap((m) => {
+      const a = m.geometry.getAttribute('position').array;
+      const out = [];
+      for (let i = 0; i < a.length; i += 3) out.push(a[i]);
+      return out;
+    });
+    const has = (xs, ...want) => want.every((x) => xs.includes(x));
+    const normal = xsOf();
+    assert.ok(has(normal, 2, 8, 4) && !has(normal, 16) && !has(normal, 10), 'normal: hand, pen, left road');
+    board.setArea(AREAS.unite);
+    const unite = xsOf();
+    assert.ok(has(unite, 2, 8, 4, 16) && !has(unite, 10), '联防: both road halves');
+    board.setArea(AREAS.boss);
+    const boss = xsOf();
+    assert.ok(has(boss, 2, 8, 10) && !has(boss, 4) && !has(boss, 16), 'boss: the boss field, hand and pen stay');
+    board.destroy();
+  });
+
   test('the scene\'s fields follow the built areas; materials and textures are reused across rebuilds', () => {
     const board = new BoardScene(THREE, fakePack(), { renderer: stubRenderer() });
     const pack = fakeScenePack();
@@ -1015,13 +1307,13 @@ describe('extracted scenes (when scene bundles were extracted here)', { skip: !O
       const bin = readFileSync(file(groups[g].bin.path));
       const chunks = parseSceneChunks(doc, bin.buffer.slice(bin.byteOffset, bin.byteOffset + bin.length));
       const rects = sceneGroupRects(chunks);
-      const stage = stages[doc.stage];
+      const stage = allStages[doc.stage];
       const board = new BoardScene(THREE, fakePack(), { renderer: stubRenderer() });
       board.setScenePack(doc.stage, { key: g, stage: doc.stage, doc, chunks, groups: rects, images: { tex: {}, lm: [] } });
       board.setStage(stage);
       for (const [name, area] of views) {
         board.setArea(area);
-        const shown = chunks.filter((c) => !c.group || sceneGroupVisible(rects[c.group], area));
+        const shown = chunks.filter((c) => sceneGroupVisible(c.group ? rects[c.group] : null, area, c.group));
         const keys = new Set(shown.map((c) => sceneMaterialKey(c, doc.materials[c.material])));
         const meshes = sceneMeshes(board);
         assert.equal(meshes.length, keys.size, `${doc.stage} ${name}: ${shown.length} chunks → ${keys.size} meshes`);

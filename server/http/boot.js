@@ -9,7 +9,7 @@
 //   * a server that cannot start exits 1 (with a hint when the port is in use); unhandled rejections and uncaught
 //     exceptions are logged, not fatal;
 //   * graceful shutdown on SIGINT/SIGTERM (rooms get room.closed{reason:'shutdown'}, sockets close 1001); a second
-//     signal exits at once, and the process exits anyway 5 s after the first.
+//     signal exits at once, and a shutdown that has not finished within SP_SHUTDOWN_TIMEOUT_MS (default 5 s) exits 1.
 
 import fs from 'node:fs';
 import os from 'node:os';
@@ -82,6 +82,52 @@ export function printBanner(srv) {
 }
 
 /**
+ * How long a graceful shutdown may take before the process exits 1 anyway: SP_SHUTDOWN_TIMEOUT_MS, default 5 s — the
+ * value the old hard-coded timer used. Only an explicit 1000–300000 ms is taken, so a typo keeps the default instead
+ * of removing the guard.
+ * @param {string | number | undefined} [value]
+ * @returns {number} milliseconds
+ */
+export function shutdownTimeoutMs(value = process.env.SP_SHUTDOWN_TIMEOUT_MS) {
+  const n = Number(value);
+  return Number.isSafeInteger(n) && n >= 1_000 && n <= 300_000 ? n : 5_000;
+}
+
+/**
+ * The SIGINT / SIGTERM handler: close the server, exit 0 when that finishes and 1 when the shutdown times out first.
+ * A second signal exits at once. Returned as a handler so the caller and the tests drive the same code.
+ * @param {{ close: () => Promise<void> }} srv
+ * @param {object} [opts]
+ * @param {(code: number) => void} [opts.exit] process.exit by default
+ * @param {(ms: number, fn: () => void) => any} [opts.setTimer] setTimeout by default
+ * @param {{ log?: (m: string) => void, error?: (m: string) => void }} [opts.out] console by default
+ * @param {number} [opts.timeoutMs] shutdownTimeoutMs() by default
+ * @returns {(signal: string) => void}
+ */
+export function shutdownHandler(srv, opts = {}) {
+  const exit = opts.exit || ((code) => process.exit(code));
+  const setTimer = opts.setTimer || ((ms, fn) => setTimeout(fn, ms).unref?.());
+  const log = opts.out?.log || ((m) => console.log(m));
+  const error = opts.out?.error || ((m) => console.error(m));
+  const timeoutMs = opts.timeoutMs ?? shutdownTimeoutMs();
+  let stopping = false;
+  let finished = false;
+  /** Exit once: whichever of the close, the timeout or the second signal gets there first. */
+  const finish = (code) => { if (finished) return; finished = true; exit(code); };
+  return (signal) => {
+    if (stopping) { log('forced exit'); finish(1); return; }
+    stopping = true;
+    log(`\n[${signal}] shutting down…`);
+    setTimer(timeoutMs, () => {
+      if (finished) return;
+      error(`[shutdown] timeout after ${timeoutMs} ms; exiting`);
+      finish(1);
+    });
+    srv.close().then(() => finish(0), () => finish(1));
+  };
+}
+
+/**
  * The process main: finish a pending update package, start the server, print the banner, stop gracefully on SIGINT /
  * SIGTERM.
  * @param {() => Promise<{ url: string, host: string, port: number, close: () => Promise<void> }>} start index.js startServer
@@ -102,14 +148,7 @@ export async function runMain(start) {
   }
   printBanner(srv);
 
-  let stopping = false;
-  const stop = (signal) => {
-    if (stopping) { console.log('forced exit'); process.exit(1); }
-    stopping = true;
-    console.log(`\n[${signal}] shutting down…`);
-    setTimeout(() => process.exit(0), 5000).unref();
-    srv.close().then(() => process.exit(0), () => process.exit(1));
-  };
+  const stop = shutdownHandler(srv);
   process.on('SIGINT', () => stop('SIGINT'));
   process.on('SIGTERM', () => stop('SIGTERM'));
 }

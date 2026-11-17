@@ -1,7 +1,7 @@
 // test/sim/feedback5-o16-engine.test.js — two additive engine rules the 0.2.0 自选 kits of 机械师 and 凯尔希 need:
-// - a 屏障 limited to several damage types (buff `shieldType` as a list, damage.js absorbShields): 机械师's 屏障 absorb
+// - a 屏障 limited to several damage types (buff `shieldType` as a list, attack/effects.js injuryEffects): 机械师's 屏障 absorb
 //   physical and arts damage only (buff_template_data mcnist_t_2 / mcnist_s_2_shield: BlockDamage PHYSICAL_AND_MAGICAL);
-// - a healer that heals an ally through its 禁疗 (profile `healThrough(healer, ally)`, damage.js heal and
+// - a healer that heals an ally through its 禁疗 (profile `healThrough(healer, ally)`, attack/heal.js heal and
 //   Battle.injuredAlliesInKeys): 凯尔希 on her Mon3tr (PRTS Mon3tr(凯尔希的召唤物) "持有禁疗（可被凯尔希…无视）") — her heal
 //   selection takes it and her heal reaches it; any other healer still skips it, a profile's `noHeal` (无法被友方治疗)
 //   still stops her.

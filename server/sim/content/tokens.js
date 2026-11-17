@@ -35,7 +35,8 @@
 //                 after duration_switch s on the field) and sluggish; the bomb is used up ('expired', never a knock-out;
 //                 its blast fx carries `consumed: true` so clients play the explosion, not a death sound); 禁疗, no HP
 //                 loss, never gone because of its HP (champagneHold — the owner's decision D2 of 2026-10-08); an
-//                 unrevealed 隐匿 enemy does not set it off (CHAMPAGNE_TRIGGER)
+//                 unrevealed 隐匿 enemy does not set it off (CHAMPAGNE_TRIGGER). It also leaves when 琳琅诗怀雅 leaves
+//                 (champagneLeavesWithOwner — [ASSUMED], the token has no owner-exit field)
 //   从不混淆的方向 untargetable marker; when the owner's skill ends it vanishes and the owner returns to its tile
 //   黄金盟誓      attacks deal true damage (trait); lasts while the owner's skill runs; 维娜 S3 places one on every
 //                 free deployable tile around her (kits/ops/chess_char_6_07-siege2.js) — no per-owner deploy limit (SKILL_SUMMON_UNCAPPED)
@@ -81,8 +82,8 @@
 //
 // Exports for other content: spawnYanyou, spawnMapChar, findSummonTile, summonToken, tacticalPoint, wolfShadows,
 // COUNTDOWN_SUMMONS / startCountdown (the countdown summons' 无敌 + 禁疗 and timer bar, shared with the kits that time them),
-// champagneHold / CHAMPAGNE_TRIGGER (香槟炸弹's durability and the enemies it goes off on, shared with 琳琅诗怀雅's kit,
-// kits/ops/chess_char_3_04-swire2.js),
+// champagneHold / CHAMPAGNE_TRIGGER / champagneLeavesWithOwner (香槟炸弹's durability, the enemies it goes off on, and
+// leaving with 琳琅诗怀雅, shared with her kit, kits/ops/chess_char_3_04-swire2.js),
 // wolfShadowInterval, installWolfTacticalPoint, wolfTacticalPoint, wolfReturnNow (the 狼群's 战术点形态, shared with the
 // 伺夜 kit's own pack, kits/ops/chess_char_3_19-vigil.js), releaseSkillSummon, SKILL_SUMMON_START_DEPLOY, CAT_SHIELD_KEY,
 // TOKEN_IDS; mapCharTalents and touchGospel (Touch's 攫升 / 超脱 and 恳切福音, shared with the Touch 补位 stand-in kit,
@@ -91,7 +92,7 @@
 import { COLS, ROWS, MOVE_SCALE, FORCED_EXIT } from '../constants.js';
 import { absoluteRangeKeys, sortEnemyTargets, canTargetEnemy } from '../targeting.js';
 import { bodyOnTile, bodyInRange } from '../body.js';
-import { hasHp } from '../damage.js';
+import { hasHp } from '../attack.js';
 import { textCount } from '../../../shared/plugins/textNumber.js';
 import { genericKit } from './generic.js';
 import { bardRegen } from '../professions.js';
@@ -100,6 +101,12 @@ import { SKILL_SUMMON_START_DEPLOY } from '../../../shared/constants.js';
 import { hypot } from '../detmath.js';
 import { atPotential } from '../../../shared/potential.js';
 import { textFinite } from '../../../shared/plugins/textNumber.js';
+import { isOfficialId, isVersionData, gameData } from './support/index.js';
+
+// Re-exported for the kits, which never import an index module (test/content/kits_layout.test.js): the group lists that
+// grow on another version's build only (DESIGN §35.22.4). `gameData` is the loaded object `isVersionData()` reads when
+// a kit calls it with no argument.
+export { isVersionData, gameData };
 
 const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : (typeof v === 'string' && v.trim() !== '' && Number.isFinite(+v) ? +v : d));
 const GRID_3X3 = Object.freeze([[1, -1], [1, 0], [1, 1], [0, -1], [0, 0], [0, 1], [-1, -1], [-1, 0], [-1, 1]]);
@@ -195,6 +202,8 @@ const ownerOf = (u) => (u.ownerUnit && u.ownerUnit.side === 'ally' ? u.ownerUnit
  */
 const managed = (u) => !!(u.ownerUnit && u.ownerUnit.kit && u.ownerUnit.kit.generic !== true);
 const baseKey = (id) => String(id ?? '').replace(/_[ab]$/, '');
+/** 夕 (char_2015_dusk): her generic-kit fallback summons 小自在 at the first target (install). */
+const DUSK_CHAR = 'char_2015_dusk';
 
 function onDeploy(battle, unit, fn, priority = 0) {
   battle.on('deploy', (ctx) => { if (ctx.unit === unit) fn(ctx); }, { owner: unit, priority });
@@ -1059,6 +1068,24 @@ export function champagneHold(battle, bomb) {
 }
 
 /**
+ * 香槟炸弹 leaves with 琳琅诗怀雅. A knock-out, a retreat (including a 联防 `forcedExit`) and a permanent retreat all
+ * emit `death` (deploy.js `_remove`); the bomb then retreats with `expired`, the same owner-exit the 诅咒娃娃 and
+ * 乌尔比安's marker use. champagneHold is not touched: D2 still means no HP loss and no heal.
+ * [ASSUMED] official data has no owner-exit field for token_10031_swire2_gdtrap (empty desc / descRaw on the shop
+ * token and on the 规程 backups record). A bomb placed in the same tick after she has already left misses that `death`
+ * — emit snapshots its listeners — so it withdraws on its own deploy.
+ */
+export function champagneLeavesWithOwner(battle, bomb) {
+  const owner = bomb.ownerUnit;
+  if (!owner) return;
+  const leave = () => {
+    if (bomb.alive) battle.retreat(bomb, { reason: 'expired', permanent: true });
+  };
+  battle.on('death', (ctx) => { if (ctx.unit === owner) leave(); }, { owner: bomb });
+  if (!owner.alive) onDeploy(battle, bomb, leave);
+}
+
+/**
  * The enemies a 香槟炸弹 may set off on: ground and selectable (canTargetEnemy) — a 隐匿 enemy that is neither revealed nor
  * blocked is none (PRTS 作战机制 §隐匿 "隐匿效果使得获得该效果的单位无法被任何敌方的能力索敌选中"; its pages carry no 无视隐匿 /
  * 无视可选性 note; the other contact traps — 多萝西's 共振装置, 望's 棋子 — select so too). A community report the owner relayed
@@ -1093,7 +1120,7 @@ function champagne(bb) {
       },
     },
     trait: { noAttack: true },
-    install(battle, unit) { untargetable(battle, unit); champagneHold(battle, unit); },
+    install(battle, unit) { untargetable(battle, unit); champagneHold(battle, unit); champagneLeavesWithOwner(battle, unit); },
   };
 }
 
@@ -1219,7 +1246,7 @@ function yanyouFallbackDef(battle) {
  *   * every damage it deals adds burn = ATK × 2.ep_damage_ratio (20 %: "自身造成伤害时，附加攻击力20%的灼燃损伤"; the
  *     official 下半 notice: "祛恶之焰附带的灼燃损伤调整为基于炎佑的攻击力") — normal attacks AND flame ticks;
  *   * 元素脆弱 aura: enemies within YANYOU_FRAGILE_RADIUS (1.5, PRTS "自身<固定半径>半径1.5范围内") take 元素伤害 (burst
- *     damage) × 2.damage_scale (1.2) — not the gauge fill (damage.js);
+ *     damage) × 2.damage_scale (1.2) — not the gauge fill (attack/element.js);
  *   * immune to element damage ("即将受到元素损伤前取消此元素损伤");
  *   * 祛恶之焰 [模式乙] (the 炎 bond's mode, Skill_2; cooldown / initCooldown 15, atk_scale 0.6, hit_duration 20,
  *     range_radius 1.0): "触发索敌和普通攻击相同：锁定1个目标持续施法，最多持续20秒，每秒对目标周围半径1.0范围内的所有
@@ -1254,7 +1281,8 @@ function yanyouKit(bb, raw) {
   const sk = skills.find((s) => s.prefabKey === 'Skill_2') ?? skills.find((s) => s.prefabKey === 'Skill') ?? skills[0] ?? {};
   const maxTargets = Math.max(1, Math.floor(num(tal['1.attack@max_target'], 1)));
   const epRatio = num(tal['2.ep_damage_ratio'], 0);
-  const fragMul = num(tal['2.damage_scale'], 1);
+  // V1_1 text promises 15% 元素脆弱; [ASSUMED] the older ep_damage_scale names the same HP-damage multiplier.
+  const fragMul = num(tal['2.damage_scale'] ?? tal['2.ep_damage_scale'], 1);
   const radius = num(raw?.stats?.rangeRadius, 0) > 0 ? num(raw.stats.rangeRadius, 0) : 2;
   const moveSpeed = num(raw?.stats?.moveSpeed, 1);
   const cd = num(sk.cooldown, 0);
@@ -1790,7 +1818,10 @@ export function install(battle) {
       }
     }
     if (!kitGeneric) continue;
-    if (toks.includes(TOKEN_IDS.duskDragon) && base === 'chess_char_5_12') {
+    // 夕: chess_char_5_12, or on another version's build by charId (上半 gives chess_char_5_12 to 林) and an official
+    // chess only (a plugin chess_x_ record keeps its own kit's behaviour)
+    const isDusk = isVersionData() ? owner.def?.charId === DUSK_CHAR && isOfficialId('chess', base) : base === 'chess_char_5_12';
+    if (toks.includes(TOKEN_IDS.duskDragon) && isDusk) {
       const life = num(owner.def?.talents?.find((t) => t.tokenKey === TOKEN_IDS.duskDragon)?.bb?.['attack@tokenduration'], 0);
       battle.on('deploy', (ctx) => { if (ctx.unit === owner) owner.mem.duskPending = true; }, { owner });
       battle.on('attack', (ctx) => {

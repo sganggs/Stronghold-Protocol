@@ -57,7 +57,7 @@
 
 import { num, talentBb, traitBb, moduleOn, skillRec, batMod, up, giveSp, installReveal } from '../shared/tier1.js';
 import { offsetTile, dirFromDelta, dirVec } from '../../../dir.js';
-import { isHpLoss } from '../../../damage.js';
+import { isHpLoss } from '../../../attack.js';
 import { hypot } from '../../../detmath.js';
 
 const S1 = 'skchr_jesca2_1';

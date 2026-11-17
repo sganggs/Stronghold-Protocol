@@ -226,7 +226,7 @@ export default {
       const cost1 = heal1 * num(tb0['nasti_nstbld_m1[heal_m456].cnt'], 1), cost2 = heal2 * num(tb0['nasti_nstbld_m2[heal_m456].cnt'], 1);
       return {
         skill: null,
-        // its heal of the 高台 ignores the 高台's 禁疗 ("_ignoreHealFree"): it heals through it (damage.js heal healThrough)
+        // its heal of the 高台 ignores the 高台's 禁疗 ("_ignoreHealFree"): it heals through it (attack/heal.js heal healThrough)
         trait: { noAttack: true, healThrough: (h, t) => !!t && t.mem?.nastiPlatform === true && t.ownerUnit === owner },
         talents: [],
         install(battle) {

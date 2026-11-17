@@ -142,7 +142,11 @@ async function prep(c, stats) {
     let placed = false;
     for (const [r, col] of TILES) {
       if (taken.has(`${r},${col}`)) continue;
-      const res = await c.request({ t: 'g.move', uid: piece.uid, to: { area: 'board', row: r, col } });
+      const move = () => c.request({ t: 'g.move', uid: piece.uid, to: { area: 'board', row: r, col } });
+      let res = await move();
+      // walking the whole tile list for a piece with few legal tiles can drain the socket's token bucket (40 msg/s):
+      // like the real client, wait and send the same move again
+      for (let k = 0; k < 5 && res.t === 'error' && res.code === 'RATE'; k++) { await delay(250); res = await move(); }
       if (res.t === 'ok') { placed = true; stats.placed++; break; }
       assert.equal(res.code, 'BAD_TILE', `g.move: ${JSON.stringify(res)}`);
     }
@@ -178,6 +182,12 @@ test('real-time co-op over websockets with the real simulation: 2 humans + 2 AI 
     drive(a, { skipOnce: true, until: () => reached(a), stats: stats.a }),
     drive(b, { skipOnce: true, until: () => reached(b), stats: stats.b }),
   ]);
+  // the humans ready in round 4's prep too: when everyone is ready the server starts round 4's combat at once, and a
+  // loop can still stop on PREP (m.public is throttled, b.start is not) while its own battle has started but not reported
+  // (CI 10-31; 1 of 32 runs under load here). The instant-paced client sim reports on its next timer turn (97 ms then)
+  const unreported = (c) => c.log.some((x) => x.t === 'b.start' && x.fieldId === `n:${c.id}` && x.authoritative && !c.sim.log.some((y) => y.t === 'b.result' && y.battleId === x.battleId));
+  const settleAt = Date.now() + 5000;
+  while (Date.now() < settleAt && [a, b].some(unreported)) await delay(20);
   const m = RealtimeMatch.last;
   assert.ok(m, 'the lobby built the match');
   for (const c of [a, b]) {
@@ -228,9 +238,14 @@ test('real-time co-op over websockets with the real simulation: 2 humans + 2 AI 
   // the AI teammates played too (bought, placed, readied every prep)
   for (const ps of m.order.filter((p) => p.isBot && p.alive)) assert.ok(ps.deployCount >= 3, `${ps.playerId} deployed ${ps.deployCount}`);
 
-  // both humans leave: the match ends as abandoned exactly once and the room returns to the lobby
-  assert.equal((await a.request({ t: 'g.leave' })).t, 'ok');
-  assert.equal((await b.request({ t: 'g.leave' })).t, 'ok');
+  // both humans leave: the match ends as abandoned exactly once and the room returns to the lobby. The last prep's tile
+  // walk can leave a socket's token bucket nearly empty (Bravo's, measured 15-27 of 40 at the loops' end): like the move
+  // above, a leave refused by the rate limit is sent again, and any other refusal shows its reply
+  for (const c of [a, b]) {
+    let res = await c.request({ t: 'g.leave' });
+    for (let k = 0; k < 5 && res.t === 'error' && res.code === 'RATE'; k++) { await delay(250); res = await c.request({ t: 'g.leave' }); }
+    assert.equal(res.t, 'ok', `${c.id} g.leave: ${JSON.stringify(res)}`);
+  }
   await delay(50);
   assert.equal(m.ended, true);
   assert.equal(m.outcome.reason, 'abandoned');

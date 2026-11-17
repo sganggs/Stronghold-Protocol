@@ -17,7 +17,7 @@
 
 import { COLS, ROWS } from './constants.js';
 import { normDir, rotateOffset } from './dir.js';
-import { bodyDist } from './body.js';
+import { bodyDist, bodyOnTile } from './body.js';
 import { roundHalfEven } from './detmath.js';
 
 /**
@@ -92,6 +92,24 @@ export function canTargetEnemy(attacker, e, profile) {
   if (profile && profile.groundOnly && e.isFlying) return false;
   if (profile && typeof profile.skipEnemy === 'function' && profile.skipEnemy(e)) return false;
   return true;
+}
+
+/** Attackable enemies in a fixed birth tile: tile occupancy and actual collision-radius reach are separate checks. */
+export function birthCellTargets(battle, attacker, profile, cell) {
+  if (!cell || !Number.isInteger(cell.row) || !Number.isInteger(cell.col)
+    || !Number.isFinite(profile?.attackRangeRadius) || !battle?.foesInColliderRadius) return [];
+  return battle.foesInColliderRadius(cell.col, cell.row, profile.attackRangeRadius)
+    .filter((e) => bodyOnTile(e, cell.row, cell.col) && canTargetEnemy(attacker, e, profile));
+}
+
+/** Current local-birth candidates, or null when the unit has no active local mode. An empty set exits permanently. */
+export function birthLocalTargets(battle, attacker, profile) {
+  if (!attacker?.mem?.lethaniaBirthMode) return null;
+  const targets = birthCellTargets(battle, attacker, profile, attacker.mem.lethaniaBirthCell);
+  if (targets.length) return targets;
+  attacker.mem.lethaniaBirthMode = false;
+  attacker.mem.lethaniaBirthTargetIds = [];
+  return null;
 }
 
 /**
@@ -171,7 +189,7 @@ export function auraSelectable(src, a) {
  * 萨卡兹悖谬暴虐兵长's 暴击 splash), direct picks (碎铳之簧's counter on its attacker: PRTS 异常效果 "'直接选中'的能力…不受这些
  * 仅在选择时生效的异常效果制约"), the blasts of flying units credited to a ground leader (刺胄之弹, 斩胄之剑 / 破胄之锤) and
  * the ticks of a debuff a ground enemy put on it before it took off (出血, 沙狱, burning DoTs, 【自然涌动】: a tick selects
- * nobody). A shot already in flight is refused [ASSUMED] (damage.js).
+ * nobody). A shot already in flight is refused [ASSUMED] (attack/helpers.js liftoffEvades).
  */
 export function evadesGround(src, a) {
   return !!(a && a.s && a.s.flags.liftoff && src && src.side === 'enemy' && !src.isFlying);

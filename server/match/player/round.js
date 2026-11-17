@@ -7,6 +7,8 @@
 // the player state).
 
 import { boardOrder, pieceDir } from '../board.js';
+import { equippedItemProgress } from '../itemProgress.js';
+import { syncCommand, commandBattleInput, keepsFunds } from '../bandCommands.js';
 import { computeBonds, bondSnapshot, activatedLayers, bondsWithGains } from '../bondsMeta.js';
 
 export class PlayerRound {
@@ -44,7 +46,7 @@ export class PlayerRound {
     for (const uid of [...this._tempDue.keys()]) if (!this.temp.some((p) => p && p.uid === uid)) this._tempDue.delete(uid);
     // (queued reward offers stay: they last until picked, startRound)
     this.clearUnfrozenShop();
-    if (!this.gd.leftoverKeptBands.includes(this.bandId)) this.funds = 0;
+    if (!keepsFunds(this)) this.funds = 0;
     this.ready = true;
     this.dirty();
   }
@@ -86,6 +88,7 @@ export class PlayerRound {
     // the states the last recompute stored: the change since then is reported once (_reportActiveBonds)
     const before = this.bonds;
     this.bonds = computeBonds(this.gd, this);
+    syncCommand(this);
     this.dirty();
     this._reportActiveBonds(before, this.bonds);
   }
@@ -135,6 +138,8 @@ export class PlayerRound {
     for (const { r, c, piece } of boardOrder(this.board)) {
       if (piece.kind === 'chess') {
         const u = { uid: piece.uid, kind: 'chess', chessId: piece.id, row: r, col: c, dir: pieceDir(piece), items: (piece.items || []).map((i) => i.id) };
+        const progress = equippedItemProgress(this, piece);
+        if (progress) u.itemProgress = progress;
         const pick = this.diyPickOf(piece.id);
         if (pick) {
           // 0.2.0 自选编队: a slotted DIY slot fights as its pick (sim getChess(id, { diy }): the operator's body, the pick's
@@ -167,18 +172,78 @@ export class PlayerRound {
         units.push(u);
       }
     }
-    return {
+    const bandProgress = this.bandProgressView();
+    const input = {
       playerId: this.playerId,
       seat: this.seat,
       side,
       colOffset,
       units,
+      ...commandBattleInput(this, units),
       bonds: bondSnapshot(reached ? this.bondsView() : this.bonds),
       bandId: this.bandId,
+      ...(bandProgress ? { bandProgress } : {}),
       playerEffects: this.effects.filter((e) => e.battle !== false).map((e) => ({
         id: e.id, key: e.key ?? null, source: e.iconKind ?? null, params: e.params ?? null, counter: e.counter ?? null, data: e.data ?? null,
       })),
       deviceOverrides: { ...this.deviceOverrides },
     };
+    // 规程 bench summons. Default tables have neither effect key, so the field is absent and the input stays as before.
+    const bench = regulationBench(this);
+    if (bench) input.bench = bench;
+    return input;
   }
+}
+
+const SWITCH_EFFECTS = new Set([
+  'act3autochess_gar_effect_switchcharinhand[trigger]',
+  'act3autochess_gar_effect_switchhand_triggergar',
+]);
+
+function boardNeedsBench(ps) {
+  for (const { piece } of boardOrder(ps.board)) {
+    if (!piece || piece.kind !== 'chess') continue;
+    const rec = ps.gd.chess(piece.id);
+    const gids = rec && rec.garrisonIds;
+    if (!Array.isArray(gids)) continue;
+    for (const gid of gids) {
+      const g = ps.gd.garrison(gid);
+      if (g && SWITCH_EFFECTS.has(g.effectKey)) return true;
+    }
+  }
+  return false;
+}
+
+/** Hand chess the switch garrisons may summon. Same loadout fields as a board unit. Rightmost is the highest index. */
+function regulationBench(ps) {
+  if (!boardNeedsBench(ps)) return null;
+  const bench = [];
+  for (let i = 0; i < ps.hand.length; i++) {
+    const piece = ps.hand[i];
+    if (!piece || piece.kind !== 'chess') continue;
+    const rec = ps.gd.chess(piece.id);
+    const u = {
+      uid: piece.uid, kind: 'chess', chessId: piece.id, idx: i, dir: pieceDir(piece),
+      items: (piece.items || []).map((it) => it.id),
+      bonds: Array.isArray(rec && rec.bonds) ? rec.bonds.slice() : [],
+    };
+    const progress = equippedItemProgress(ps, piece);
+    if (progress) u.itemProgress = progress;
+    const pick = ps.diyPickOf(piece.id);
+    if (pick) {
+      u.diy = { charId: pick.charId, skillIndex: pick.skillIndex, uniEquipId: pick.uniEquipId };
+    } else if (ps.fieldsStandIn(piece.id)) {
+      u.standIn = true;
+    } else {
+      const lo = ps.loadoutFor(rec);
+      u.skillIndex = lo.skillIndex;
+      u.moduleId = lo.moduleId;
+    }
+    const cv = u.standIn ? null : ps.cultivationFor(rec);
+    if (cv) { u.potential = cv.potential; u.cultivate = cv.cultivate; }
+    const skinId = ps.skinFor(rec, pick ? pick.charId : null);
+    if (skinId) u.skin = skinId;
+    bench.push(u);
+  }
+  return bench;
 }

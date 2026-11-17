@@ -270,6 +270,30 @@ describe('AudioManager.deployCue — the landing sound in its own voices, taken 
     } finally { r.restore(); }
   });
 
+  for (const [reason, cleanup] of [
+    ['field replacement', a => a.setFieldUnits([])],
+    ['screen cleanup', a => a.stopFieldSounds()],
+  ]) test(`${reason} cancels a downloading landing without affecting a new request for the same file`, async () => {
+    const r = landingRig();
+    try {
+      await r.unlock();
+      const born = manifest.audio.sfx.units[OWN].born;
+      const open = r.hold(born);
+      r.a.deployCue({ def: OWN, kind: 'op' }, 'old-piece');
+      assert.equal(r.a.landLimiter.active, 1);
+      cleanup(r.a); cleanup(r.a);
+      assert.equal(r.a.landLimiter.active, 0, 'the departed field no longer reserves a landing voice');
+      assert.equal(r.a.landVoices.length, 0);
+      r.a.deployCue({ def: OWN, kind: 'op' }, 'new-piece');
+      open(); await r.flush();
+      assert.equal(r.started().length, 1, 'only the new landing plays when their shared download finishes');
+      assert.equal(r.a.landLimiter.active, 1, 'the old callback cannot release the new landing');
+      assert.deepEqual(r.a.landStats, { started: 1, stolen: 0 }, 'cleanup is not a takeover');
+      cleanup(r.a);
+      assert.equal(r.playing().length, 0);
+    } finally { r.restore(); }
+  });
+
   test('the SFX volume and mute apply: muted or at 0 nothing is fetched, started or taken over; a manifest without the sound: nothing', async () => {
     const r = landingRig({ settings: { sfx: 0.8, muted: true } });
     try {

@@ -203,7 +203,7 @@ line is lost rather than clamped.
 | | Remake before (master 7094892) | Remake now (§6) | Official |
 |---|---|---|---|
 | Layers | uncapped: `PlayerState.addLayers` (prep), `Match.js` settle (`ps.layers[b] += layerGains`), `Battle.addLayers` (live in-battle copy) | per bond `min(L + n, 999)` at every writer (`layerGainRoom`) | per bond `min(L + n, 999)` |
-| Boss hits | no limit (`sim/damage.js dealDamage` → `applyHpLoss` → `bossPool.damage`) | leader hit in a 'boss' / 'hidden' battle with `ceil(d) ≥ 300000` → cancelled, 0 (`leaderHitCancelled`) | leader hit with `ceil(d) ≥ 300000` → 0 |
+| Boss hits | no limit (`sim/attack/hit.js resolveDamage` → `attack/health.js applyHpDecrease` → `bossPool.damage`) | leader hit in a 'boss' / 'hidden' battle with `ceil(d) ≥ 300000` → cancelled, 0 (`leaderHitCancelled`) | leader hit with `ceil(d) ≥ 300000` → 0 |
 
 ## 5. Proposal (as written before the implementation; §6 is what was built)
 
@@ -226,8 +226,8 @@ line is lost rather than clamped.
   reported gain by the room left from the bond's starting layers; `invariants.js` flags a bond above the cap. The dev
   tools write through the same helper: `tools/matchrun.mjs --layers N` (a raw boost, no milestones) and
   `tools/balance.mjs applyBoard` (any `--profile`) stop at 999 too.
-- 限伤: `sim/damage.js leaderHitCancelled` in `dealDamage` (after DEF / RES and every multiplier, before shields) and in
-  `Battle.loseHp` (losses passed on to a leader): a leader (`isBoss`, the tag-'boss' units = §2.3) in a 'boss' / 'hidden'
+- 限伤: `sim/attack/health.js leaderHitCancelled` in `attack/hit.js resolveDamage` (after DEF / RES and every multiplier,
+  before the ordered injury effects — shields, barriers, dodges) and in `Battle.dealHPLose` (losses passed on to a leader): a leader (`isBoss`, the tag-'boss' units = §2.3) in a 'boss' / 'hidden'
   battle with `ceil(amount) ≥ 300000` → the hit returns 0 before shields (阿利斯泰尔's 5000 `boss:vest` barrier stays
   untouched; 再生's hit blocks act earlier, in the `hit` step, §2.2), HP / pool loss, stats, the damage number, the
   `damaged` / `fatal` hooks and the kill; what ran before it (the attack, its SP, the `hit` hook, separate element 损伤

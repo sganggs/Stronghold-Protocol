@@ -47,12 +47,35 @@ test('computeBuildTag: server-only code and downloaded media do not change the b
   const root = fixture();
   try {
     const known = computeBuildTag(root);
-    for (const rel of ['server/index.js', 'server/http/routes.js', 'server/data.js', 'public/assets/sprite.png']) {
+    // data/versions/: another official version's data, served only when the server enables it (DESIGN §35.22, §35.23)
+    for (const rel of ['server/index.js', 'server/http/routes.js', 'server/data.js', 'public/assets/sprite.png',
+      'data/versions/act1autochess/chess.json']) {
       const abs = path.join(root, rel);
       fs.mkdirSync(path.dirname(abs), { recursive: true });
       fs.writeFileSync(abs, 'changed');
     }
     assert.equal(computeBuildTag(root), known);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('computeBuildTag: a served official version\'s data is part of the build; an unserved one\'s is not (DESIGN §35.23)', () => {
+  const root = fixture();
+  try {
+    const bare = computeBuildTag(root);
+    const served = path.join(root, 'data', 'versions', 'act1autochess');
+    const unserved = path.join(root, 'data', 'versions', 'act1autochess-v1_1');
+    for (const dir of [served, unserved]) { fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(path.join(dir, 'chess.json'), 'x'); }
+    const opts = { servedVersionDirs: [served] };
+    assert.equal(computeBuildTag(root), bare, 'no served version: data/versions/ never counts');
+    const known = computeBuildTag(root, opts);
+    assert.notEqual(known, computeBuildTag(root), 'a served version directory is part of the tag');
+    fs.writeFileSync(path.join(unserved, 'chess.json'), 'rebuilt, longer');
+    assert.equal(computeBuildTag(root, opts), known, 'an unserved version\'s rebuild is no new build');
+    fs.writeFileSync(path.join(served, 'chess.json'), 'rebuilt, longer');
+    assert.notEqual(computeBuildTag(root, opts), known, 'a served version\'s rebuild is a new build');
+    assert.equal(computeBuildTag(root, { servedVersionDirs: [path.join(root, 'elsewhere')] }), computeBuildTag(root), 'a directory outside data/versions/ is ignored');
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

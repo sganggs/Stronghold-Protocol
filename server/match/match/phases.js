@@ -1,26 +1,60 @@
 // server/match/match/phases.js — Match methods: the round flow up to the prep — INFO_CHECK, the strategy draft
 // (BAND_DRAFT: one countdown of BAND_TURN_SECONDS per turn, 队友已选, the highlighted strategy on a timeout, skips),
-// BATTLE_CHECK and ROUND_START (the round's enemies — a normal wave or the boss pairing — planned before the players'
-// round start).
+// CUSTOM_CHECK (选择自编, only when the data has diyBringLimits), BATTLE_CHECK and ROUND_START (the round's enemies —
+// a normal wave or the boss pairing — planned before the players' round start).
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
 import { PHASE, ERR } from '../../../shared/constants.js';
 import { buildNormalWave, buildBossWave } from '../waves.js';
-import { pairPlayers } from '../finalAssault.js';
+import { pairPlayers, bossPairSalt } from '../finalAssault.js';
 import { createRng, deriveSeed } from '../../sim/rng.js';
-import { botPickBand } from '../bot.js';
 import { OK, fail, DELAYS, BAND_TURN_SECONDS } from './common.js';
+import { SharedPool, bannedChessForBonds } from '../pool.js';
+import { botPickBondGroup } from '../botBondGroups.js';
+import { LEGACY_BOT } from '../botStrategyContract.js';
+import { diySlot, diySlotIds } from '../../../shared/diy.js';
+import { botPickDiy, checkDiyBring, defaultDiyBring } from '../../../shared/diyBring.js';
 
 export class MatchPhases {
   enterInfoCheck() {
     this.phase = PHASE.INFO_CHECK;
-    for (const ps of this.order) if (ps.botControlled) ps.infoReady = true;
+    for (const ps of this.order) if (ps.botControlled) {
+      this.pickBotBondGroup(ps);
+      ps.infoReady = true;
+    }
     // solo: no time limit (the player confirms); co-op: the official 25 s guard
     this.setDeadline(this.soloUntimed ? 0 : this.gd.timer('infoCheck'), () => this.enterBandDraft());
     this.markPublic();
     for (const ps of this.order) this.markPrivate(ps);
     this.flush(true);
     this.maybeEndInfo();
+  }
+
+  pickBotBondGroup(ps) {
+    if (this.bondChoice?.picked === null) this.pickBondGroup(ps, botPickBondGroup(this, ps), this.setupRevision);
+  }
+
+  pickBondGroup(ps, idx, revision) {
+    if (this.phase !== PHASE.INFO_CHECK || this.setupVote || !this.bondChoice || this.bondChoice.picked !== null) return fail(ERR.WRONG_PHASE);
+    if (ps.left || !this.players.has(ps.playerId)) return fail(ERR.NOT_IN_ROOM);
+    if (revision !== this.setupRevision || !Number.isInteger(idx) || idx < 0 || idx > 1) return fail(ERR.BAD_TARGET);
+    // INFO_CHECK has no shop roll or opening grants. Rebuild its provisional stock before the strategy draft.
+    const drawn = [...this.disabledBonds, ...this.bondChoice.groups[1 - idx]].sort();
+    const banned = bannedChessForBonds(this.gd, drawn, this.staticInactiveBonds);
+    const pool = new SharedPool(this.gd, { banned });
+    const off = new Set([...drawn, ...this.staticInactiveBonds]);
+    const stocks = this.order.map(p => p.buildDiyStock(off));
+    this.disabledBonds = drawn;
+    this.bannedChess = banned;
+    this.pool = pool;
+    this.bondChoice.picked = idx;
+    for (const [i, p] of this.order.entries()) {
+      p.diyStock = stocks[i].stock;
+      p.diyBanned = stocks[i].banned;
+      this.markPrivate(p);
+    }
+    this.markPublic();
+    return OK;
   }
 
   maybeEndInfo() {
@@ -43,7 +77,11 @@ export class MatchPhases {
    */
   enterBandDraft() {
     if (this.phase !== PHASE.INFO_CHECK) return;
+    // [ASSUMED] A human who confirms or times out without choosing keeps the seeded first group.
+    if (this.bondChoice?.picked === null) this.pickBondGroup(this.order[0], 0, this.setupRevision);
     this.phase = PHASE.BAND_DRAFT;
+    // The opening is settled, so no reroll cooldown outlives this phase.
+    this._rerollStartAt.clear();
     let order = this.order.map((p) => p.playerId);
     if (!this.isSolo) this.rngDraft.shuffle(order);
     order = this.humansFirst(order);
@@ -125,18 +163,28 @@ export class MatchPhases {
       if (this.phase !== PHASE.BAND_DRAFT || token !== this._turnToken) return;
       const ps = this.players.get(this.draftTurn());
       if (!ps || !ps.botControlled) return;
-      // a strategy a teammate already took is not selectable (队友已选): the bot re-draws, else the first free one
-      let id = botPickBand(this, ps);
-      for (let k = 0; k < 8 && this.bandTaken(id, ps.playerId); k++) id = botPickBand(this, ps);
-      if (this.bandTaken(id, ps.playerId)) id = this.gd.bandIds().find((b) => !this.bandTaken(b, ps.playerId)) || id;
-      this._applyBand(ps, id, { dedupe: true });
+      // a co-op seat gone before its pick has no game of its own to play: whatever strategy plays the AI seats, it drafts
+      // by the team's rule (botPickBand's departedWeight: Touch while nobody else holds it, never 歌利亚; §37.65)
+      const bot = !this.isSolo && ps.alive === false ? LEGACY_BOT : this.botFor(ps);
+      const fallback = () => {
+        // a strategy a teammate already took is not selectable (队友已选): the bot re-draws, else the first free one
+        let id = bot.pickBand(this, ps);
+        for (let k = 0; k < 8 && this.bandTaken(id, ps.playerId); k++) id = bot.pickBand(this, ps);
+        if (this.bandTaken(id, ps.playerId)) id = this.gd.bandIds().find((b) => !this.bandTaken(b, ps.playerId)) || id;
+        this._applyBand(ps, id, { dedupe: true });
+      };
+      if (bot.decide?.(this, ps, { kind: 'band',
+        valid: () => this.phase === PHASE.BAND_DRAFT && token === this._turnToken,
+        complete: () => token !== this._turnToken || !!this.draft?.picks[ps.playerId], fallback })) return;
+      fallback();
     });
   }
 
   /**
    * Whether `bandId` was already picked by another player of this draft. Research 09 §5 / DESIGN §14 corrections:
    * the strategy draft marks a teammate's pick as 队友已选 and it cannot be chosen again (co-op). The automatic
-   * assignments — a turn that runs out and a departing seat — obey the same rule: see timeoutBand / defaultBand.
+   * assignments — a turn that runs out, the AI's pick (also for a departed seat, scheduleBandBot) — obey the same rule:
+   * see timeoutBand / defaultBand.
    */
   bandTaken(bandId, playerId) {
     const picks = this.draft?.picks || {};
@@ -145,11 +193,11 @@ export class MatchPhases {
   }
 
   /**
-   * The strategy an automatic assignment gives `playerId` (a departing seat; a timed-out turn without a usable
-   * highlight, timeoutBand): the official default 「华法琳」 (bandDraft.timeoutBandId) while no teammate holds it, else the
-   * first strategy of the mode (sortId order, gd.bandIds) that nobody else picked — never a duplicate (队友已选; the
-   * client shows the same choice: public/js/screens/bandDraft.js timeoutBand). Solo drafts have no teammates, so it is
-   * always the default.
+   * The strategy an automatic assignment gives `playerId` (a timed-out turn without a usable highlight, timeoutBand; a
+   * seat still to pick when finishBandDraft ends the draft): the official default 「华法琳」 (bandDraft.timeoutBandId)
+   * while no teammate holds it, else the first strategy of the mode (sortId order, gd.bandIds) that nobody else picked —
+   * never a duplicate (队友已选; the client shows the same choice: public/js/screens/bandDraft.js timeoutBand). Solo drafts
+   * have no teammates, so it is always the default.
    * @param {string} playerId
    */
   defaultBand(playerId) {
@@ -202,7 +250,9 @@ export class MatchPhases {
     if (dedupe && this.bandTaken(id, ps.playerId)) id = this.gd.bandIds().find((b) => !this.bandTaken(b, ps.playerId)) || id;
     d.picks[ps.playerId] = id;
     ps.bandId = id;
-    ps.lp = this.gd.startLp(id);
+    // the strategy's starting LP is a living seat's: one gone before its pick (its turn is the AI's) keeps the 0 it left
+    // with (_quit), in m.public and the result as well (§37.65)
+    if (ps.alive) ps.lp = this.gd.startLp(id);
     this.markPrivate(ps);
     this.markPublic();
     this.startDraftTurn();
@@ -242,11 +292,124 @@ export class MatchPhases {
         const id = this.defaultBand(ps.playerId);
         this.draft.picks[ps.playerId] = id;
         ps.bandId = id;
-        ps.lp = this.gd.startLp(id);
+        if (ps.alive) ps.lp = this.gd.startLp(id); // a seat gone before its pick keeps its 0 (_applyBand)
       }
       this.markPrivate(ps);
     }
     void timeout;
+    if (this.gd.diyBringLimits) this.enterCustomCheck();
+    else this.enterBattleCheck();
+  }
+
+  _diyOff() { return new Set([...this.disabledBonds, ...this.staticInactiveBonds]); }
+
+  /** Bond-excluded slot ids of this player's current roster (the cards 选择自编 greys out). */
+  _diyBannedSlots(ps) {
+    const off = this._diyOff();
+    const banned = [];
+    for (const slotId of Object.keys(ps?.diy || {})) {
+      const rec = ps._diyRecords.get(slotId);
+      if (rec && this.gd.bondsExclude(rec, off)) banned.push(slotId);
+    }
+    return banned;
+  }
+
+  /**
+   * The bring a seat gets when it does not choose: a bot's ranked picks, otherwise the first legal slots per tier
+   * [ASSUMED]. An empty bot roster is synthesized first.
+   * @param {any} ps
+   * @returns {string[]}
+   */
+  _diyChoice(ps) {
+    const limits = this.gd.diyBringLimits;
+    const off = this._diyOff();
+    if (ps.isBot && Object.keys(ps.diy || {}).length === 0) ps.synthesizeBotRoster(off, limits);
+    const data = this.gd.raw;
+    const tierOf = (id) => diySlot(id, data)?.tier ?? null;
+    const order = diySlotIds(data);
+    const ctx = { roster: ps.diy || {}, banned: this._diyBannedSlots(ps), limits, tierOf };
+    if (ps.isBot) {
+      return botPickDiy(order, {
+        ...ctx,
+        rank: (id) => {
+          const rec = ps._diyRecords.get(id);
+          const bonds = Array.isArray(rec?.bonds) ? rec.bonds : [];
+          return { count: bonds.filter((b) => !off.has(b)).length, charId: ps.diy[id]?.charId || '' };
+        },
+      });
+    }
+    return defaultDiyBring(order, ctx);
+  }
+
+  _applyDiyBring(ps, slots) {
+    if (!ps || ps.diyBring != null) return;
+    ps.diyBring = Object.freeze([...slots]);
+    const built = ps.buildDiyStock(this._diyOff());
+    ps.diyStock = built.stock;
+    ps.diyBanned = built.banned;
+    this.markPrivate(ps);
+  }
+
+  /**
+   * 选择自编. Bot-controlled seats confirm immediately.
+   * [ASSUMED] Solo and a lone human are untimed, like the other decision steps. Co-op with two or more humans uses
+   * the enter-step seconds (30 on 规程).
+   */
+  enterCustomCheck() {
+    if (!this.gd.diyBringLimits) { this.enterBattleCheck(); return; }
+    this.phase = PHASE.CUSTOM_CHECK;
+    for (const ps of this.order) {
+      if (ps.botControlled) this._applyDiyBring(ps, this._diyChoice(ps));
+    }
+    this.setDeadline(this.soloUntimed ? 0 : this.gd.customCheckSeconds(), () => this.finishCustomCheck(true));
+    this.markPublic();
+    for (const ps of this.order) this.markPrivate(ps);
+    this.flush(true);
+    this.maybeEndCustom();
+  }
+
+  /**
+   * g.diyBring { slots }: confirm the slots this match brings. Any illegal slot refuses the whole list.
+   * An empty list is 禁用自选.
+   * @param {any} ps
+   * @param {string[]} slots
+   */
+  confirmDiyBring(ps, slots) {
+    if (this.phase !== PHASE.CUSTOM_CHECK || !this.gd.diyBringLimits) return fail(ERR.WRONG_PHASE);
+    if (!ps || ps.left || ps.spectator || !this.players.has(ps.playerId)) return fail(ERR.NOT_IN_ROOM);
+    if (ps.diyBring != null) return fail(ERR.ALREADY);
+    const data = this.gd.raw;
+    const res = checkDiyBring(slots, {
+      roster: ps.diy || {},
+      banned: this._diyBannedSlots(ps),
+      limits: this.gd.diyBringLimits,
+      tierOf: (id) => diySlot(id, data)?.tier ?? null,
+    });
+    if (!res.ok) return fail(res.error === 'BAD_MSG' ? ERR.BAD_MSG : ERR.BAD_TARGET, res.detail);
+    this._applyDiyBring(ps, res.slots);
+    this.markPublic();
+    this.maybeEndCustom();
+    return OK;
+  }
+
+  maybeEndCustom() {
+    if (this.phase !== PHASE.CUSTOM_CHECK || this._diyAdvanceTimer) return;
+    if (!this.order.every((p) => p.diyBring != null || p.left)) return;
+    this.setDeadline(0);
+    this._diyAdvanceTimer = this.later(0, () => {
+      this._diyAdvanceTimer = null;
+      if (this.phase === PHASE.CUSTOM_CHECK) this.finishCustomCheck(false);
+    });
+  }
+
+  finishCustomCheck(timeout) {
+    if (this.phase !== PHASE.CUSTOM_CHECK) return;
+    this.cancel(this._diyAdvanceTimer);
+    this._diyAdvanceTimer = null;
+    void timeout;
+    for (const ps of this.order) {
+      if (ps.diyBring == null) this._applyDiyBring(ps, this._diyChoice(ps));
+    }
     this.enterBattleCheck();
   }
 
@@ -284,6 +447,7 @@ export class MatchPhases {
     this.sp = null;
     this.wave = null;
     this.bossWaves = null;
+    this.bossPairsRound = null;
     const alive = this.alivePlayers();
     // the round's enemies (shared composition, generated now so the prep preview is exact). Planned BEFORE the players'
     // round start: its recompute() checks the board on the field the player deploys on this round (deployFieldOf reads
@@ -310,13 +474,21 @@ export class MatchPhases {
     for (const ps of this._viewers()) this._followScout(ps);
   }
 
-  /** Stable per-match pairs and their templates, generated before the prep preview / board validation. */
+  /** The round's pairs and their templates, generated before the prep preview / board validation. */
   _planBossWaves() {
     const r = this.round;
-    const bossId = r === this.gd.hiddenRound && r !== this.gd.bossRound ? this.hiddenBossId : this.bossId;
-    // Pairing uses an independent seeded draw, consuming no shop, wave, draft or battle randomness.
-    const groups = pairPlayers(this.alivePlayers(), createRng(deriveSeed(this.seed, 'boss-pairs')), this.bossPairs);
+    const hidden = r === this.gd.hiddenRound && r !== this.gd.bossRound;
+    const bossId = hidden ? this.hiddenBossId : this.bossId;
+    // Pairing uses an independent seeded draw, consuming no shop, wave, draft or battle randomness. The Hidden Core
+    // draws its pairs and sides anew (GitHub #845: the official R15 of BV1VCXyBjEN1 p1 pairs 1-2 / 3-4 after an R14 of
+    // 1-4 / 2-3; DESIGN §35.27, superseding §30.12's kept partners) from a stream of its own, so the Final Assault's
+    // draw is unchanged; a player who changes half keeps the board (bossFieldPlacement mirrors it, the halves' deploy
+    // maps are identical). Only the round's first plan draws anew: a re-plan after a departure in its round start, 机变
+    // draft or prep (platform.js _quit) keeps the intact pairs and re-pairs the orphan, as the Final Assault does.
+    const fresh = hidden && this.bossPairsRound !== r;
+    const groups = pairPlayers(this.alivePlayers(), createRng(deriveSeed(this.seed, bossPairSalt(this.gd, r))), fresh ? null : this.bossPairs);
     this.bossPairs = groups.map(g => g.map(p => p.playerId));
+    this.bossPairsRound = r;
     this.bossWaves = groups.map((g) => ({
       players: g.map((p) => p.playerId),
       wave: buildBossWave(this.gd, this.rngWaves, this.factions, r, { bossId, solo: this.isSolo || g.length === 1 }),

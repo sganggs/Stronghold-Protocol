@@ -123,13 +123,32 @@ describe('the postMessage contract', () => {
     assert.equal(nested.reason, 'intent');
     const buy = validatePluginMessage({ v: 1, t: 'g.buy', slot: 0 });
     assert.equal(buy.reason, 'intent');
+    // Every client message a plugin could put on the wire must be refused ... except the transport-level control
+    // messages, which carry no match intent (a plugin resyncing its own state view decides nothing in the match).
+    const control = new Set(['state.resync']);
     for (const key of Object.keys(C2S)) {
+      if (control.has(key)) {
+        const r = validatePluginMessage({ v: 1, t: key });
+        assert.equal(r.ok, false, key);
+        continue;
+      }
       assert.equal(isIntentType(key), true, key);
       const r = validatePluginMessage({ v: 1, t: key });
       assert.equal(r.ok, false, key);
       assert.equal(r.reason, 'intent', key);
     }
     assert.equal(validatePluginMessage({ v: 1, t: 'welcome' }).reason, 'shape');
+  });
+
+  test('P2P signaling and readiness cannot enter the plugin bridge through nested messages or storage', () => {
+    for (const type of ['p2p.enable', 'p2p.signal', 'p2p.ready']) {
+      for (const value of [{ nested: [{ t: type }] }, { [type]: { enabled: true } }]) {
+        assert.equal(isMatchIntent(value), true, type);
+        const message = validatePluginMessage({ v: 1, t: 'storage', op: 'set', key: 'transport', value });
+        assert.deepEqual(message, { ok: false, reason: 'intent' }, type);
+        assert.equal(checkStorageWrite(Object.create(null), 'transport', value).error, UI_ERRORS.PLUGIN_INTENT, type);
+      }
+    }
   });
 
   test('the rate limit, the storage quota and the slot table', () => {

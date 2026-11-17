@@ -9,7 +9,8 @@
 //     hash `content.vanilla`, the modded content sets in use `content.sets` and — only when there are some — how many
 //     unofficial plugins the server has, `content.plugins` (the title screen's count before any hello) — DESIGN §32 —,
 //     sockets, sessions,
-//     rooms, matches), never cached; `?traffic=1` adds the traffic counters (traffic.js: bytes by category since the
+//     rooms, matches; `versions: { enabled, default, hosts }` only when the server enables another official version than
+//     第二期下半 — DESIGN §35.23), never cached; `?traffic=1` adds the traffic counters (traffic.js: bytes by category since the
 //     start, WebSocket wire and payload bytes) for a loopback or private-network client only — the maintainer's
 //     decision of 2026-10-12: the figures are the host's, so any other client, also one a tunnel or proxy on this
 //     machine forwards, gets the plain report (net.js clientAddress, honouring TRUST_PROXY like the WebSocket limits);
@@ -44,11 +45,14 @@ function contentSets(lobby) {
  *           lobby: import('../lobby.js').Lobby, content?: { cs: string } | null,
  *           traffic?: ReturnType<typeof import('./traffic.js').createTrafficCounter>,
  *           assetIndex?: ReturnType<typeof import('./assetIndex.js').createAssetIndex> | null,
- *           views?: ReturnType<typeof import('./assetViews.js').createManifestViews> | null }} health
- *   content: the server's vanilla content (server/plugins/identity.js)
+ *           views?: ReturnType<typeof import('./assetViews.js').createManifestViews> | null, trusted?: any,
+ *           versions?: ReturnType<typeof import('../versions.js').createVersionSets> | null,
+ *           versionHosts?: { stats: () => object } | null }} health
+ *   content: the server's vanilla content (server/plugins/identity.js); versions / versionHosts: the official versions
+ *   and their match hosts (DESIGN §35.23)
  * @param {boolean} [withTraffic]
  */
-export function healthReport({ startedAt, network, registry, lobby, content = null, traffic, assetIndex, views, trusted }, withTraffic = false) {
+export function healthReport({ startedAt, network, registry, lobby, content = null, traffic, assetIndex, views, trusted, versions = null, versionHosts = null }, withTraffic = false) {
   const report = {
     ok: true, version: PROTOCOL_VERSION, app: APP_VERSION, uptimeSec: Math.round((Date.now() - startedAt) / 1000),
     // the runtime the server is serving right now (public/js/ui/buildGuard.js): a page whose own build is
@@ -61,6 +65,11 @@ export function healthReport({ startedAt, network, registry, lobby, content = nu
     sockets: network.connectionCount, sessions: registry.size, ...lobby.stats(),
   };
   if (trusted && Object.keys(trusted).length) report.plugins = trusted;
+  // the official versions (DESIGN §35.23): only when another one than 第二期下半 is enabled
+  if (versions && versions.nonDefault.length) {
+    report.versions = { enabled: [...versions.ids], default: versions.defaultId,
+      hosts: versionHosts ? versionHosts.stats() : { workers: 0, matches: 0, transport: 'process' } };
+  }
   if (withTraffic && traffic) report.traffic = traffic.snapshot();
   // content-hashed asset URLs (assetIndex.js / assetViews.js): off, building, or ready with how many files and URLs
   if (withTraffic) report.assetHashes = assetIndex ? { ...assetIndex.stats(), views: views ? views.stats() : null } : null;

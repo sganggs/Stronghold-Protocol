@@ -68,8 +68,11 @@ test('centurion hits every blocked enemy; reaper heals itself per enemy hit (cap
   });
   h2.step();
   const r = h2.unit('t_reaper');
+  h2.run(0.3); // Drain the initial full-HP attack's queued healing before wounding it.
   r.hp = 5000;
-  h2.run(1.02);
+  assert.ok(h2.runUntil(() => r.stats.attacks >= 2, 3));
+  r.atkCd = 999;
+  h2.run(0.3); // Both accepted heals settle at their native interval.
   approx(r.hp, 5000 + 50 * 2 * (r.stats.attacks - 1), 1e-6); // 3 enemies hit, heal capped at blockCnt 2 (first attack was at full HP)
 });
 

@@ -263,7 +263,8 @@ function resolveDie(names, find, form) {
  * @param {object} [opts]
  * @param {number[]} [opts.skillIndices] 0-based skill indices to resolve (first = primary); default [0]
  * @param {boolean} [opts.numberedSkills] also resolve every numbered skill clip of the skeleton (Skill_01, Skill_2_Loop …)
- *   after the caller's indices: an enemy's per-skill clips (a multi-skill boss such as 盐风主教昆图斯, Skill_01..04)
+ *   after the caller's indices: an enemy's per-skill clips (a multi-skill boss such as 盐风主教昆图斯, Skill_01..04).
+ *   One numbered clip is still a slot map (`skills`): 无畏掷弹兵 / 马特奥的近卫 have a single Skill_1.
  * @param {Record<string, number>} [opts.durations] animation durations in seconds (prefers animated idles)
  * @returns {Roles}
  */
@@ -280,13 +281,18 @@ export function resolveRoles(animationNames, opts = {}) {
     .filter((i) => Number.isInteger(i) && i >= 0 && i < 10))];
   if (!indices.length) indices.push(0);
   // an enemy's numbered skill clips (PR #275 by @xcdoge: its manifest only ever had index 0, so a multi-skill boss could
-  // show one cast clip): appended after the caller's indices, whose first stays the primary `skill`
+  // show one cast clip): appended after the caller's indices, whose first stays the primary `skill`.
+  // One numbered clip is still that slot. 无畏掷弹兵 Bomb and 马特奥的近卫 CrossBomb (fx/index.json
+  // units.enemy_1405_boomer_2 / enemy_1409_bdguad_2, prefab battle/enm_pfb_16.ab) each name Skill_1;
+  // Skill_1_Down / Skill_1_Up match the same index and are that slot's facing variants.
+  let numberedFound = false;
   if (opts.numberedSkills) {
     const found = new Set();
     for (const n of names) {
       const m = /^Skill_?0*(\d+)(?:$|_)/i.exec(n);
       if (m && Number(m[1]) >= 1 && Number(m[1]) <= 10) found.add(Number(m[1]) - 1);
     }
+    numberedFound = found.size > 0;
     for (const i of [...found].sort((a, b) => a - b)) if (!indices.includes(i)) indices.push(i);
   }
   /** @type {Record<string, SkillClip>} */
@@ -307,7 +313,7 @@ export function resolveRoles(animationNames, opts = {}) {
   };
   const run = resolveRun(find, form);
   if (run) roles.run = run;
-  if (indices.length > 1) roles.skills = skills;
+  if (indices.length > 1 || numberedFound) roles.skills = skills;
   return roles;
 }
 

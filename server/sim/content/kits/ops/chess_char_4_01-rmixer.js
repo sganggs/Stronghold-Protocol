@@ -1,7 +1,7 @@
 // server/sim/content/kits/ops/chess_char_4_01-rmixer.js — 信仰搅拌机 (char_4194_rmixer) kit, tier 4.
 // Conventions of the tier-4 kits: ../shared/tier4.js; kit contract and rules: ../README.md.
 
-import { isHpLoss } from '../../../damage.js';
+import { isHpLoss } from '../../../attack.js';
 import { holdsUndying } from '../../items/battle.js';
 import {
   AURA, num, tbb, grid, nationOf, enemiesOnRange, targetsInRange, whileDeployed, reveal, skillActive, isSel, alt,
@@ -63,16 +63,34 @@ export default withDefaults({
         attack: { noAttack: true },                 // 停止主动攻击敌人 (ammo is spent by counters)
         onStart({ battle, unit }) {
           unit.mem.counterReady = -Infinity;
+          battle.addBuff(unit, { key: 'rmixer:counter', tags: ['skill'], observeInjury(c) {
+            const d = c.dmg;
+            if (!S3 || !unit.canAct || unit.s.flags.disarm || !skillActive(unit) || !d || c.type === 'element') return;
+            if (isHpLoss(d)) return;
+            if (battle.time < (unit.mem.counterReady ?? -Infinity) - 1e-9) return;
+            const list = targetsInRange(battle, unit);
+            const i = c.source ? list.indexOf(c.source) : -1;
+            if (i > 0) { list.splice(i, 1); list.unshift(c.source); }
+            const targets = list.slice(0, counterMax);
+            unit.mem.counterReady = battle.time + unit.s.interval * counterRatio;
+            unit.mem.inCounter = true;
+            try {
+              if (targets.length) battle.forceAttack(unit, targets);
+              else { unit.stats.attacks++; unit.skill.onAttackPerformed([], true); } // a counter into nothing: its bullet goes
+            } finally { unit.mem.inCounter = false; }
+            battle.fx('counter', { x: unit.x, y: unit.y, id: unit.id, n: targets.length });
+          } });
           for (const a of battle.allies(unit.ownerId)) {
             if (a === unit || a.kind !== 'op' || nationOf(a) !== 'laterano') continue;
             if (a.skill && a.skill.active && a.skill.kind === 'ammo') { a.skill.addAmmo(num(bb.ammo, 0)); battle.fx('reload', { x: a.x, y: a.y, id: a.id, n: num(bb.ammo, 0) }); }
           }
           battle.fx('sermon', { x: unit.x, y: unit.y, id: unit.id });
         },
+        onEnd({ battle, unit }) { battle.removeBuff(unit, 'rmixer:counter'); },
       },
       talents: [
         { install(battle, unit) { // 扫射迎宾仪礼: every damage dealt → DEF +30 / ASPD +3 for 10 s, ≤ 3 stacks
-          battle.on('damaged', (c) => {
+          battle.on('damageApplied', (c) => {
             if (c.source !== unit || !unit.alive || c.target.side !== 'enemy' || !(c.amount > 0)) return;
             battle.addBuff(unit, { key: 'rmixer:t1', duration: num(t0.duration, 10), refresh: 'stack', maxStacks: Math.max(1, num(t0.max_stack_cnt, 3)),
               mods: { defFlat: num(t0.def), aspd: num(t0.attack_speed) } });
@@ -116,30 +134,7 @@ export default withDefaults({
         if (num(def.traitBb?.ability_range_forward_extend, 0) > 0) rangeUp(battle, unit, num(def.traitBb.ability_range_forward_extend, 1));
         // module SPT-X (elite default): 攻击范围内敌人的隐匿效果失效
         if (moduleIs(def, 'uniequip_002_rmixer')) whileDeployed(battle, unit, AURA, () => reveal(battle, enemiesOnRange(battle, unit)));
-        if (!S3) return;
-        // S3 counter (PRTS 备注 "反击受到任何伤害后均可触发，无需目标，视为普通攻击，受各类无法触发普通攻击效果的影响"): ANY damage
-        // she takes — an enemy's attack, a zone, the 无来源 源石溶剂 tick (items/battle.js periodic_damage) — fires one volley at
-        // ≤ 3 enemies in range (the attacker first), at most once per actual interval × ratio. With no enemy in range the
-        // counter still happens and spends its bullet (无需目标: the drain alone empties the skill — 莫斯提马's 特质 turns those
-        // bullets into 拉特兰 layers, player report D1). A 流失 (Battle.loseHp, tag 'hpLoss': it skips every damage event —
-        // PRTS 作战机制) and an element 损伤 never counter; stunned / disarmed: no counter
-        battle.on('damaged', (c) => {
-          const d = c.dmg;
-          if (c.target !== unit || !unit.canAct || unit.s.flags.disarm || !skillActive(unit) || !d || c.type === 'element') return;
-          if (isHpLoss(d)) return;
-          if (battle.time < (unit.mem.counterReady ?? -Infinity) - 1e-9) return;
-          const list = targetsInRange(battle, unit);
-          const i = c.source ? list.indexOf(c.source) : -1;
-          if (i > 0) { list.splice(i, 1); list.unshift(c.source); }
-          const targets = list.slice(0, counterMax);
-          unit.mem.counterReady = battle.time + unit.s.interval * counterRatio;
-          unit.mem.inCounter = true;
-          try {
-            if (targets.length) battle.forceAttack(unit, targets);
-            else { unit.stats.attacks++; unit.skill.onAttackPerformed([], true); } // a counter into nothing: its bullet goes
-          } finally { unit.mem.inCounter = false; }
-          battle.fx('counter', { x: unit.x, y: unit.y, id: unit.id, n: targets.length });
-        }, { owner: unit });
+
       },
     };
   },

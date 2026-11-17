@@ -310,7 +310,13 @@ describe('user playtest #2 — UI fixes (mock harness, headless Chrome)', { skip
       }
       await page.screenshot({ path: path.join(OUT, `fix-bonds-${w}.png`) });
       // the chip opens the bond popup; facts + current effect come before the long description
-      await page.click('.dpanel .dbonds--top .dbond');
+      const side = await page.$eval('.dpanel', el => el.dataset.side);
+      const chip = await (await page.$('.dpanel .dbonds--top .dbond')).boundingBox();
+      await page.mouse.move(chip.x + chip.width / 2, chip.y + chip.height / 2);
+      await page.mouse.down(); await sleep(100);
+      assert.equal(await page.$eval('.dpanel', el => el.dataset.side), side, '#792: pointerdown must not move the card before click');
+      assert.ok(await page.$(`.uframe[data-uid="${uid}"]`), 'using the card keeps its piece selected');
+      await page.mouse.up();
       await page.waitForSelector('.bpop', { timeout: 3000 });
       const pop = await page.evaluate(() => {
         const secs = [...document.querySelectorAll('.bpop .bpop__sec')].map((s) => s.querySelector('h4')?.textContent || '');
@@ -336,6 +342,14 @@ describe('user playtest #2 — UI fixes (mock harness, headless Chrome)', { skip
       assert.ok(pop.btnTop.every(Boolean), 'the underframe stays above the bond popup');
       await sleep(450); // the pop-in animation
       await page.screenshot({ path: path.join(OUT, `fix-bondpop-${w}.png`) });
+      await page.click('.bpop__facts');
+      assert.ok(await page.$('.bpop'), 'reading inside the popup keeps it open');
+      assert.ok(await page.$(`.uframe[data-uid="${uid}"]`), 'reading the popup keeps its piece selected');
+      await page.click('.gm__gear'); await page.waitForSelector('.modal');
+      assert.equal(await page.$('.bpop'), null, '#792: another HUD control still dismisses the popup');
+      assert.equal(await page.$('.dpanel'), null, 'another HUD control dismisses the card');
+      assert.equal(await page.$('.uframe'), null, 'another HUD control clears the selection');
+      await page.keyboard.press('Escape');
       assert.deepEqual(problems, []);
       await page.close();
     }

@@ -65,7 +65,7 @@
 
 import { num, talentBb, moduleBb, traitBb, skillRec, batMod, up, toggleBuff } from '../shared/tier1.js';
 import { canTargetEnemy, sortEnemyTargets } from '../../../targeting.js';
-import { hasHp } from '../../../damage.js';
+import { hasHp } from '../../../attack.js';
 import { COLS } from '../../../constants.js';
 import { hypot } from '../../../detmath.js';
 

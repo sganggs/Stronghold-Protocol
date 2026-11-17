@@ -21,22 +21,23 @@
 // (docs/PLUGINS.md §1 still asks never to put them in one).
 
 import fs from 'node:fs';
+import { DEFAULT_VERSION } from '../../shared/versions.js';
 import { readFxAssets, readFxManifest as readPluginManifest } from './fxAssets.js';
 import { pluginFxGap } from './fxReferences.js';
 import { readInstalledAssetOverlay } from './artReferences.js';
 import path from 'node:path';
 import { createHash, randomBytes } from 'node:crypto';
 import { readPluginFolder, listPluginFiles, walkProblem } from './registry.js';
-import { PLUGIN_LIMITS, PLUGIN_MANIFEST, isPluginId, checkJsonLimits, extOf } from '../../shared/plugins/manifest.js';
+import { PLUGIN_LIMITS, PLUGIN_MANIFEST, isPluginId, checkJsonLimits, extOf, pluginByteLimit } from '../../shared/plugins/manifest.js';
 import { LOCK_FILE, LOCK_VERSION } from '../../shared/plugins/visual.js';
 import { issueList } from '../../shared/plugins/errors.js';
 import { parseSkel } from '../../tools/assets/skel.mjs';
 import { resolveRoles } from '../../tools/assets/anim-roles.mjs';
 import { atlasInfo } from '../../tools/assets/atlas.mjs';
-import { DATA_DIR } from '../data.js';
+import { DATA_DIR, versionDataDir, getData } from '../data.js';
 import { gameplayDataFiles } from './identity.js';
 import { applyPatches, normalizeSettings } from '../../shared/plugins/patch.js';
-import { appendOfficialBounds } from '../../shared/plugins/officialBounds.js';
+import { appendOfficialBounds, rememberOfficialBounds } from '../../shared/plugins/officialBounds.js';
 import { zipFiles } from './zip.js';
 import { hasOperatorTrait } from './operatorTraits.js';
 import { buildContentSet } from './contentSet.js';
@@ -116,39 +117,43 @@ export function checkPluginFolder(dir, where, { vanilla, dataDir = DATA_DIR } = 
     for (const doc of Object.values(p.content.documents)) walk(doc);
     for (const id of pluginFxGap([...refs], index)) list.warning('PLUGIN_ASSET_IGNORED', `Official effects ${id} are absent locally; setup --local can extract them.`, { at: ['fx'], detail: id });
   }
-  const operators = [...(p?.manifest.parts.operators?.files || []), ...(p?.manifest.parts.data?.files || [])]
-    .flatMap(rel => { const doc = p.content?.documents[rel]; return Array.isArray(doc) ? doc : doc?.entries ?? [doc]; });
-  if (!list.problems.length && operators.some(op => op?.origin)) {
-    const official = Object.fromEntries(gameplayDataFiles(dataDir).map(f => [f.name, JSON.parse(fs.readFileSync(f.abs, 'utf8'))]));
-    for (const op of operators) for (const e of operatorMetadataProblems(op, p.id, official)) list.problem(e.code, e.message, { where: e.path, detail: e.message });
-  }
-  if (!list.problems.length && operators.some(hasOperatorTrait)) {
-    // [ASSUMED] Folder checks resolve required plugins beside this folder, as installed plugin folders do.
-    // readPluginFolder snapshots JSON/scripts as text; checkDataOnly stops before any script preflight.
-    const available = new Map([[p.id, p]]);
-    const registry = { contentDirs: { dataDir }, plugin(id) {
-      if (!available.has(id)) {
-        const safe = isPluginId(id) && available.size < 256;
-        const sibling = path.join(path.dirname(dir), id);
-        const plain = safe && fs.existsSync(sibling) && !fs.lstatSync(sibling).isSymbolicLink();
-        available.set(id, plain ? readPluginFolder(sibling, { vanilla }).plugin : null);
-      }
-      return available.get(id);
-    } };
-    const checked = buildContentSet({ registry, ids: [p.id], checkDataOnly: true });
-    for (const e of checked.problems) list.problem(e.code, e.message, { where: e.path, detail: e.message });
-  }
-  const patches = (p?.manifest.parts.data?.files || []).map(rel => p.content?.documents[rel]).filter(doc => doc?.patch === 1);
-  if (!list.problems.length && patches.length) {
-    const official = Object.fromEntries(gameplayDataFiles(dataDir).map(f => [f.name, JSON.parse(fs.readFileSync(f.abs, 'utf8'))]));
-    let data = official;
-    const settings = normalizeSettings(p.manifest.settings);
-    for (const doc of patches) for (const op of doc.ops) {
-      const applied = applyPatches(data, [op], { pluginId: p.id, settings });
-      if (!applied.problems.length) data = applied.data;
+  const supported = p?.manifest.versions ?? [DEFAULT_VERSION];
+  for (const version of supported) {
+    const operators = [...(p?.manifest.parts.operators?.files || []), ...(p?.manifest.parts.data?.files || [])]
+      .flatMap(rel => { const doc = p.content?.documents[rel]; return Array.isArray(doc) ? doc : doc?.entries ?? [doc]; });
+    if (!list.problems.length && operators.some(op => op?.origin)) {
+      const official = Object.fromEntries(gameplayDataFiles(versionDataDir(version, dataDir)).map(f => [f.name, JSON.parse(fs.readFileSync(f.abs, 'utf8'))]));
+      for (const op of operators) for (const e of operatorMetadataProblems(op, p.id, official)) list.problem(e.code, e.message, { where: e.path, detail: e.message });
     }
-    appendOfficialBounds(data, official, (where, detail, code) => list.problem(code, detail, { where, detail }));
+    if (!list.problems.length && operators.some(hasOperatorTrait)) {
+      // [ASSUMED] Folder checks resolve required plugins beside this folder, as installed plugin folders do.
+      // readPluginFolder snapshots JSON/scripts as text; checkDataOnly stops before any script preflight.
+      const available = new Map([[p.id, p]]);
+      const registry = { contentDirs: { dataDir }, plugin(id) {
+        if (!available.has(id)) {
+          const safe = isPluginId(id) && available.size < 256;
+          const sibling = path.join(path.dirname(dir), id);
+          const plain = safe && fs.existsSync(sibling) && !fs.lstatSync(sibling).isSymbolicLink();
+          available.set(id, plain ? readPluginFolder(sibling, { vanilla }).plugin : null);
+        }
+        return available.get(id);
+      } };
+      const checked = buildContentSet({ registry, ids: [p.id], version, checkDataOnly: true });
+      for (const e of checked.problems) list.problem(e.code, e.message, { where: e.path, detail: e.message });
+    }
+    const patches = (p?.manifest.parts.data?.files || []).map(rel => p.content?.documents[rel]).filter(doc => doc?.patch === 1);
+    if (!list.problems.length && patches.length) {
+      const official = Object.fromEntries(gameplayDataFiles(versionDataDir(version, dataDir)).map(f => [f.name, JSON.parse(fs.readFileSync(f.abs, 'utf8'))]));
+      let data = official;
+      const settings = normalizeSettings(p.manifest.settings);
+      for (const doc of patches) for (const op of doc.ops) {
+        const applied = applyPatches(data, [op], { pluginId: p.id, settings });
+        if (!applied.problems.length) data = applied.data;
+      }
+      appendOfficialBounds(data, official, (where, detail, code) => list.problem(code, detail, { where, detail }));
+    }
   }
+  if (supported.some(version => version !== DEFAULT_VERSION)) rememberOfficialBounds(getData());
   return { where, plugin: list.problems.length ? null : r.plugin, problems: list.problems, warnings: list.warnings, issues: list.issues };
 }
 
@@ -302,16 +307,19 @@ export function packPlugin(dir, { vanilla, dataDir = DATA_DIR, where = `plugins/
 export function zipPlugin(dir) {
   const id = path.basename(dir);
   let version = '0.0.0';
+  let cls = null;
   try {
     const m = JSON.parse(fs.readFileSync(abs(dir, PLUGIN_MANIFEST), 'utf8'));
     if (typeof m?.version === 'string' && /^[0-9A-Za-z.+-]{1,64}$/.test(m.version)) version = m.version;
+    if (typeof m?.class === 'string') cls = m.class;
   } catch { /* the folder's own check says why */ }
   // a folder within the walk and plugin limits only (its files are read into memory)
   const all = listPluginFiles(dir);
   const walked = walkProblem(all);
   const listed = all.filter((f) => !f.link);
   const bytes = listed.reduce((n, f) => n + f.bytes, 0);
-  const over = walked ? walked.where : listed.length > PLUGIN_LIMITS.files ? `more than ${PLUGIN_LIMITS.files} files` : bytes > PLUGIN_LIMITS.pluginBytes ? `more than ${PLUGIN_LIMITS.pluginBytes / 1048576} MB` : null;
+  const bytesLimit = pluginByteLimit(cls);
+  const over = walked ? walked.where : listed.length > PLUGIN_LIMITS.files ? `more than ${PLUGIN_LIMITS.files} files` : bytes > bytesLimit ? `more than ${bytesLimit / 1048576} MB` : null;
   if (over) throw Object.assign(new Error(`${id}: ${over} — not zipped`), { code: 'PLUGIN_FILE_SIZE', where: over });
   const files = listed.map((f) => f.rel);
   const body = zipFiles(files.map((rel) => ({ name: `${id}/${rel}`, data: fs.readFileSync(abs(dir, rel)) })));

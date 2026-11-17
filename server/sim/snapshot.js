@@ -13,6 +13,7 @@
 //   after the change, a field opened mid-battle, draws it: render/units.js FORMS)
 //   dir = 'UP'|'RIGHT'|'DOWN'|'LEFT' (allies: the deploy direction, sim/dir.js); facing = its horizontal sign (±1).
 //   items = an ally operator's equipped item ids (absent without any).
+//   itemProgress? = [{uid,id,current,total}], display-only counters captured at prep end; not in b.snap tuples.
 // flags bits & anim codes come from shared/constants.js (UF / ANIM); an enemy's stealth bit = its 隐匿 is on (not while it
 // is blocked or revealed, nor in the seconds after a block before it hides again — targeting.js enemyStealthed), an
 // ally's = 隐匿 / 迷彩 whatever it blocks.
@@ -27,6 +28,10 @@ const r1 = (v) => Math.round(v * 10) / 10;
 /** Static per-unit info sent on spawn / in m.field. */
 export function unitInfo(u) {
   const d = u.def || {};
+  const interval = u.s?.interval;
+  const atkInterval = Number.isFinite(interval) && interval > 0 ? Math.round(interval * 1000) / 1000 : undefined;
+  // Seed from the first published value, before a later buff can change the interval.
+  if (u._rateSent === undefined) u._rateSent = atkInterval;
   return {
     id: u.id,
     kind: u.kind,
@@ -36,11 +41,19 @@ export function unitInfo(u) {
     name: u.name,
     tier: d.tier ?? (d.rank === 'BOSS' ? 3 : d.rank === 'ELITE' ? 2 : 1),
     golden: !!d.golden,
+    // The unit's OWN attack interval in game seconds (units.js `s.interval`: bat × batPct × 100 / aspd, i.e. with the buffs
+    // this record carries). The renderer stretches the attack clip over it (render/attackRate.js): without it a view started
+    // from the operator's base-record guess and swung in slow motion until two attacks had been measured.
+    atkInterval,
     spine: d.spine ?? d.charId ?? u.defId,
     // 皮肤 (docs/SKINS.md): the owning player's chosen skinId. `undefined` (not null) on purpose — JSON.stringify drops
     // it, so an install with no skins produces the exact same wire format as before and the §8.2 contract holds; the key
     // only appears where a skin is actually in play.
     skin: u.skin ?? undefined,
+    // 召唤物皮肤 (docs/SKINS.md): the owner operator's charId, so a client can re-read the live public choice; display
+    // only, absent for a non-token.
+    ownerCharId: u.kind === 'token' && u.ownerUnit
+      ? (u.ownerUnit.def?.loadout?.diy?.charId || u.ownerUnit.def?.charId || undefined) : undefined,
     avatar: d.avatar ?? d.charId ?? u.defId,
     ...(d.voice ? { voice: d.voice } : {}),
     x: r2(u.x),
@@ -65,6 +78,7 @@ export function unitInfo(u) {
     // an ally operator's equipped item ids (display: a 变形同构体 wearer counts for the bond it grants — the bond popup's
     // member list and the detail card's bond chips of a teammate's unit)
     items: u.side === 'ally' && u.kind === 'op' && Array.isArray(u.items) && u.items.length ? [...u.items] : undefined,
+    itemProgress: u.itemProgress?.map(p => ({ ...p })),
     // 补位: the replaced operator's charId when the chess fights as its stand-in (spine / avatar are the stand-in's; the
     // detail card composes the stand-in record, shared/standIn.js standInRecord)
     standInFor: u.side === 'ally' && u.kind === 'op' && typeof d.standInFor === 'string' ? d.standInFor : undefined,
@@ -106,6 +120,7 @@ export function animOf(u, t) {
   if (t < (u.skillAnimUntil ?? -1)) return ANIM.SKILL;
   if (t - u.lastAttackAt < ATTACK_ANIM_TIME) return u.skill && u.skill.active && u.skill.kind !== 'passive' ? ANIM.SKILL : ANIM.ATTACK;
   if (u.side === 'enemy' && u.moving && !u.blockedBy) return ANIM.MOVE;
+  if (u.side === 'ally' && u.kind === 'token' && u.mem.lethaniaPursuit && u.moving && !u.blocking.length) return ANIM.MOVE;
   return ANIM.IDLE;
 }
 
@@ -212,6 +227,24 @@ export function chargeView(u) {
   if (u.side !== 'ally' || !sk || sk.noSkill || !(sk.maxCharges > 1)) return null;
   return [Math.max(0, Math.min(sk.maxCharges, Math.floor(sk.charges || 0))), sk.maxCharges];
 }
+
+/**
+ * `moteView(u)` = a unit's orbiting 「微尘」: `[count, wide]` (wide = the S2 半径扩大), null without a ring: 魔王's T1
+ * 过往尘埃 (kits/ops/chess_char_4_25-cetsyr.js sets `unit.moteRing`, read when the snapshot is taken; at most three, six
+ * while S2 runs) — display only: render/motes.js draws that many motes circling her, the sim's own mote logic (a mote
+ * touching an operator, respawn after 6 s, S2 hitting enemies instead) is untouched.
+ */
+export function moteView(u) {
+  if (typeof u.moteRing !== 'function') return null;
+  const v = u.moteRing();
+  if (!Array.isArray(v) || !Number.isFinite(v[0])) return null;
+  const n = Math.max(0, Math.min(MOTE_MAX, Math.floor(v[0])));
+  if (n <= 0) return null;
+  return [n, v[1] ? 1 : 0];
+}
+
+/** Upper bound of the mote count a snapshot may carry (the sim's own caps: 3, six while S2 runs). */
+export const MOTE_MAX = 9;
 
 /** Units included in a snapshot: deployed & visible, plus recently dead ones (DIE animation). */
 export function snapshotUnits(units, t) {

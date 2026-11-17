@@ -3,6 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle, enemyRec, chessRec, checkInvariants } from '../helpers/battleHarness.js';
+import { applyModuleRange } from '../../server/sim/content/kits/shared/tier4.js';
 
 const dummy = (o = {}) => enemyRec({ key: 'enemy_dummy', hp: 1e7, speed: 0, ...o });
 const DEFS = {
@@ -21,6 +22,7 @@ const DEFS = {
       id: 'test_lat_a', profession: 'SNIPER', bonds: ['lateranoShip'], skill: null, stats: { atk: 1 },
       rangeGrid: Array.from({ length: 11 }, (_, c) => [0, c]).concat(Array.from({ length: 11 }, (_, c) => [-2, c]), Array.from({ length: 11 }, (_, c) => [2, c])),
     }),
+    test_short_a: chessRec({ id: 'test_short_a', profession: 'SNIPER', skill: null, stats: { atk: 1 }, rangeGrid: [[0, 0], [0, 1]] }),
   },
 };
 
@@ -589,6 +591,89 @@ test('迷迭香: S2 adds 2 aftershocks per attack, ignores 160 DEF (talent)', ()
   assert.ok(near(atks[0].amount, u.s.atk - (e.s.def - u.def.talents[0].bb.def_penetrate_fixed), 1e-3), 'DEF 500 − 160');
   h.runUntil(() => !u.skill.active, 60);
   assert.equal(u.profile.shockTimes, u.def.traitBb['attack@times'], 'restored after the skill');
+});
+
+test('新约能天使 火力电台 (PRTS 备注, DESIGN §35.28): one target per round, a bombing per success 0.1 s apart, radius 1.3', () => {
+  const h = battle({
+    units: [{ chessId: 'chess_char_6_13_a', row: 10, col: 1 }, { chessId: 'test_lat_a', row: 10, col: 2 }],
+    enemies: [{ key: 'enemy_dummy', pos: [10, 8] }, { key: 'enemy_dummy2', pos: [9, 8.7] }],
+  });
+  const u = h.unit('chess_char_6_13_a'), lat = h.unit('test_lat_a');
+  h.step();
+  const a = enemyAt(h, 'enemy_dummy'), b = enemyAt(h, 'enemy_dummy2');
+  assert.ok(h.b.enemiesInKeys(lat.rangeKeys, u).includes(a) && !h.b.enemiesInKeys(lat.rangeKeys, u).includes(b), 'only the first one in the consumer\'s range');
+  const rng = h.b.rng;
+  h.b.rng = Object.assign(() => 0, rng); // every chance succeeds
+  const t0 = h.b.time;
+  for (let i = 0; i < 3; i++) h.b.emit('ammoUsed', { unit: lat, left: 10 - i, skill: lat.skill }); // one action spends 3 bullets
+  h.run(0.6);
+  h.b.rng = rng;
+  const hits = h.dmg.filter((d) => d.src === u.id && d.tags.includes('airstrike'));
+  const onA = hits.filter((d) => d.tgt === a.id).map((d) => d.t - t0), onB = hits.filter((d) => d.tgt === b.id).map((d) => d.t - t0);
+  assert.equal(onA.length, 3, 'three successes: three bombings of the round');
+  assert.equal(onB.length, 3, 'radius 1.3 reaches the enemy 1.22 tiles away (radius 1 did not)');
+  onA.forEach((t, k) => assert.ok(Math.abs(t - 0.1 * k) < 0.04, `bombing ${k} at +${t.toFixed(3)} s`));
+  assert.ok(near(hits[0].amount, hits[2].amount), 'the round\'s damage computed once');
+  // 「预计算的物理普通伤害」: an ATK buff after the round's first bombing leaves its later bombings at the first amount
+  h.b.rng = Object.assign(() => 0, rng);
+  const t1 = h.b.time;
+  for (let i = 0; i < 3; i++) h.b.emit('ammoUsed', { unit: lat, left: 7 - i, skill: lat.skill });
+  h.b.rng = rng;
+  h.b.addBuff(u, { key: 'test:atk', mods: { atkPct: 1 }, duration: 5 });
+  h.run(0.6);
+  const round2 = h.dmg.filter((d) => d.src === u.id && d.tags.includes('airstrike') && d.tgt === a.id && d.t >= t1 - 1e-9);
+  assert.equal(round2.length, 3);
+  assert.ok(near(round2[1].amount, round2[0].amount) && near(round2[2].amount, round2[0].amount), 'the round keeps the damage it was made with');
+});
+
+test('新约能天使 火力电台: the target among the enemies of the consumer\'s own grid — a permanent 攻击距离 extension does not count', () => {
+  // PRTS 「不受对方的攻击距离增减」: baseRangeKeys carries the permanent extension (talents, modules, bonds), the bombing's
+  // search takes the consumer's grid alone (DESIGN §35.28)
+  const h = battle({
+    units: [{ chessId: 'chess_char_6_13_a', row: 10, col: 1 }, { chessId: 'test_short_a', row: 10, col: 3 }],
+    enemies: [{ key: 'enemy_dummy', pos: [10, 5] }],
+  });
+  const u = h.unit('chess_char_6_13_a'), sh = h.unit('test_short_a');
+  h.step();
+  h.b.addBuff(sh, { key: 'test:range', persist: true, duration: Infinity, mods: { rangeExtend: 1 } });
+  h.step();
+  const d = enemyAt(h, 'enemy_dummy');
+  assert.ok(h.b.enemiesInKeys(sh.baseRangeKeys, u).includes(d), 'the permanent extension reaches the dummy');
+  const rng = h.b.rng;
+  h.b.rng = Object.assign(() => 0, rng);
+  const t0 = h.b.time;
+  h.b.emit('ammoUsed', { unit: sh, left: 4, skill: sh.skill });
+  h.b.rng = rng;
+  h.run(0.3);
+  assert.equal(h.dmg.filter((x) => x.src === u.id && x.tags.includes('airstrike') && x.t >= t0 - 1e-9).length, 0, 'no target in the consumer\'s own grid: no bombing');
+});
+
+test('新约能天使 火力电台: a module that replaces the consumer\'s grid defines its own range', () => {
+  const h = battle({
+    units: [{ chessId: 'chess_char_6_13_a', row: 10, col: 1 }, { chessId: 'test_short_a', row: 10, col: 3 }],
+    enemies: [{ key: 'enemy_dummy', pos: [10, 5] }],
+  });
+  const u = h.unit('chess_char_6_13_a'), sh = h.unit('test_short_a');
+  h.step();
+  const d = enemyAt(h, 'enemy_dummy');
+  assert.ok(!h.b.enemiesInKeys(sh.rangeKeys, u).includes(d), 'outside the original grid');
+  // The production module helper replaces rangeGrid, unlike a rangeExtend buff. No current ammo consumer has such
+  // a module, so the fixture supplies one to exercise that distinction (DESIGN §35.28 review).
+  const grid = [[0, 0], [0, 1], [0, 2]];
+  applyModuleRange(h.b, sh, { raw: {
+    module: { active: true, id: 'test:module' },
+    modules: [{ uniEquipId: 'test:module', talentChanges: [{ rangeGrid: grid }] }],
+  } });
+  assert.deepEqual(sh.rangeGrid, grid);
+  assert.ok(h.b.enemiesInKeys(sh.rangeKeys, u).includes(d), 'inside the module grid');
+  const rng = h.b.rng;
+  h.b.rng = Object.assign(() => 0, rng);
+  const t0 = h.b.time;
+  h.b.emit('ammoUsed', { unit: sh, left: 4, skill: sh.skill });
+  h.b.rng = rng;
+  h.run(0.3);
+  assert.equal(h.dmg.filter((x) => x.src === u.id && x.tgt === d.id && x.tags.includes('airstrike') && x.t >= t0 - 1e-9).length, 1);
+  checkInvariants(h.b);
 });
 
 test('新约能天使: S2 steals 70 ASPD from an ally in range, shields both, 35+5 ammo; 火力电台 heals per ammo', () => {

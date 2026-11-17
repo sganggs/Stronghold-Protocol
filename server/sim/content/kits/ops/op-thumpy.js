@@ -52,7 +52,7 @@ import { num, talentBb, traitBb, skillRec, up } from '../shared/tier1.js';
 import { offsetTile, frontOf, dirVec } from '../../../dir.js';
 import { bodyInKeys, bodyInRange } from '../../../body.js';
 import { enemyStealthed, tileKeyOf } from '../../../targeting.js';
-import { hasHp } from '../../../damage.js';
+import { hasHp } from '../../../attack.js';
 import { COLS } from '../../../constants.js';
 
 const S1 = 'skchr_thumpy_1';

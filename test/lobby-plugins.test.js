@@ -566,6 +566,23 @@ describe('room content sets (P1c: gameplay plugins)', () => {
     await ok(host, { t: 'room.leave' });
   });
 
+  test('room.card (名片干员) of a plugin operator: taken in its room, left off a vanilla room\'s seat — the session keeps it', async () => {
+    const OP = 'char_x_data_demo_guard';
+    const host = await player('Lappland');
+    await room(host, 'solo');
+    await ok(host, { t: 'room.setPlugins', plugins: [{ id: 'data-demo' }] });
+    await host.waitFor('room.state', (s) => s.content?.vanilla === false);
+    await ok(host, { t: 'room.card', charId: OP });
+    await host.waitFor('room.state', (s) => seatOf(s, host.id)?.card === OP);
+    await ok(host, { t: 'room.leave' });
+    // a new vanilla room checks the card again when the player takes the seat (server/lobby.js humanSeat)
+    const plain = await room(host, 'solo');
+    assert.ok(!('card' in seatOf(plain, host.id)), 'a room without the operator shows no card for it');
+    assert.equal(srv.registry.byId(host.id).card, OP, 'the session keeps it (the page sends the card it can show: installCardSync)');
+    await refuse(host, { t: 'room.card', charId: OP }, ERR.BAD_MSG);
+    await ok(host, { t: 'room.leave' });
+  });
+
   test('a page that drops checks the content again; the room\'s queue answers a worker room\'s requests in order', async () => {
     const host = await player('Skadi');
     const guest = await player('Specter');
@@ -663,6 +680,20 @@ describe('the server owner\'s policy and the content-set limit (P1c)', () => {
     assert.equal((await b.request({ t: 'room.setPlugins', plugins: [{ id: 'two' }] }, BUILD_MS)).t, 'ok');
     const st = await b.waitFor('room.state', (x) => x.content?.plugins?.[0]?.id === 'two', BUILD_MS);
     assert.equal(st.content.vanilla, false);
+  });
+
+  test('limits.maxSets and room.create: the set of the room its creator leaves (its only holder) is freed for the default set', async () => {
+    const s = await serverWith({ limits: { maxSets: 1 }, default: ['one'] });
+    const a = await player(s, 'A');
+    assert.equal((await a.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL' }, BUILD_MS)).t, 'ok');
+    await a.waitFor('room.state', (x) => x.content?.plugins?.[0]?.id === 'one', BUILD_MS);
+    // the room switches to another set (freed by the change): the server is at its limit with a set the default is not
+    assert.equal((await a.request({ t: 'room.setPlugins', plugins: [{ id: 'two' }] }, BUILD_MS)).t, 'ok');
+    const old = await a.waitFor('room.state', (x) => x.content?.plugins?.[0]?.id === 'two', BUILD_MS);
+    // a new room: the old one goes with the create, so the default set fits (not PLUGIN_BUSY → the original game)
+    assert.equal((await a.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL' }, BUILD_MS)).t, 'ok');
+    const st = await a.waitFor('room.state', (x) => x.code !== old.code, BUILD_MS);
+    assert.deepEqual([st.content.vanilla, st.content.plugins.map((p) => p.id)], [false, ['one']]);
   });
 
   test('rooms: fixed — every room starts with the default set and its host cannot change it; allow — only the listed plugins', async () => {

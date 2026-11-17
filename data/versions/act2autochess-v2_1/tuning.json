@@ -1,0 +1,11 @@
+{
+  "_doc": "Hand-maintained overrides layered on the generated data/config.json by server/match/gamedata.js (schema: docs/META.md §3.1). Enemy and leader numbers are the OFFICIAL ones (config.json enemyScale = the PRTS table, leader pool = bloodPoint): the custom enemyHpMul / enemyAtkMul / bossHpMul / flyPlaceholders balance was removed (research 08 §6, docs/BALANCE.md). Only result-title rules remain.",
+  "version": 2,
+  "titles": {
+    "comment_3": {
+      "stat": "lpLost",
+      "rule": "min",
+      "_why": "坚若磐石 text is 目标生命值损失最少 (least LP lost), not most LP remaining"
+    }
+  }
+}

@@ -31,11 +31,14 @@
 //   boss_2/9 假想敌：铳      unblockable; highest-DEF target in range; erosion; ASPD ramp (+80 × 5) on the same target
 //                            (floor 20); 最终之罚 charge at the highest-DEF ground unit (disabled by the h07_02 override).
 //                            boss_9: damage ×0.2 while springs live, 盲信之誓 links (100 phys/s on the lines), 末日布道 dash.
-//   碎铳之簧 a/b/c           arts barrier (absorbs arts after RES; phys ×0.1, counter phys + erosion) / element shield
-//                            (phys+arts ×0.1, broken by its own element burst; every (spCost+1)-th attack a bouncing erosion
-//                            shot) / 5-hit shield (every (spCost+1)-th attack a ten-hit combo); unblockable while shielded;
-//                            shield back 25 s after breaking; every damage taken costs 铳 as much (PART_TRANSFER, 无来源)
-//                            and, split, the other springs.
+//   碎铳之簧 a/b/c           arts barrier (a held barrier in the ordered injury chain: absorbs arts after RES; NORMAL phys
+//                            ×0.1 and a 无来源 phys ADDITION counter on its attacker, erosion only when the counter lands) /
+//                            element shield (phys+arts ×0.1, broken by its own element burst; every (spCost+1)-th attack a
+//                            bouncing erosion shot) / 5-hit count shield (every (spCost+1)-th attack a ten-hit combo); always
+//                            unblockable (PRTS 能力修正: also without the shield); shield back 25 s after breaking. It passes
+//                            on as 无来源 HP loss to the highest-hatred 铳 (PART_TRANSFER) and, split, the other springs: the
+//                            arts variant every applied modifier — damage, heals, element (actrpa_passive ON_APPLIED_MODIFIER)
+//                            —, the others the damage they take at their injury stage (§35.34).
 //   boss_3/10 假想敌：管     summons 余音 (dark) every 40 s (20 s < 50 %); normal attacks strike dark 余音 (their pulse hurts
 //                            operators); 裂管之奏 3 strikes on every dark 余音 (AoE arts + apoptosis). boss_10 + 假想敌：弦
 //                            (invulnerable, gold 余音, 断弦之奏 AoE + flips them dark; leaves with 管).
@@ -51,7 +54,7 @@
 //                            RES +45, animates 2; 斥退 at 999 s.
 //   boss_7 “萨米的意志”      冰凌 (its normal attack) hits a whole column; 自然涌动 stun + arts DoT; <50 %: damage taken
 //                            ×(1−0.6), 2 targets; Doom at 600 s (LP −30). Targets via fairOrder (two players alternate).
-// The huge leaders (SELF_BOUND: 胄 ×2, 管 ×2, 昆图斯, 阿利斯泰尔, 萨米的意志 — the 巨型单位 with a data `hitArea`) are
+// The legacy huge leaders (SELF_BOUND: 胄 ×2, 管 ×2, 昆图斯, 阿利斯泰尔, 萨米的意志) are
 // 自缚 + 无法被阻挡 (PRTS 天赋): a persistent noMove + unblockable buff from spawn, so they never walk their route.
 // Every leader (tag boss) ignores 侵蚀 gauge damage ("最终攻势中，敌方领袖不会受到侵蚀损伤").
 // An airborne (起飞) operator is no selection of a ground leader or part (对地规避: canTargetAlly, the damage pipeline,
@@ -73,10 +76,12 @@ import { compileRoute } from '../ai.js';
 import { normalizeRoute } from '../simdata.js';
 import {
   ensureInstalled, abOf, attach, T, elem, hurt, targetsNear, allTargets, byPriority, areaAllies, areaAlliesInTiles, fieldAllies,
-  remainingRoute, stayRoute, stepToward, setHits, hitCount, lpLoss, blinkForward, canCast, unbalancedNow, absorbArts, nthOf,
-  castSlot,
+  remainingRoute, stayRoute, stepToward, setHits, hitCount, lpLoss, blinkForward, canCast, unbalancedNow, nthOf,
+  castSlot, attackTurnSkill,
 } from './enemies.js';
+import { REGULATION_BOSS_KITS } from './regulation-bosses.js';
 import { hypot, powi } from '../detmath.js';
+import { damageAttackType, isHpLoss } from '../attack.js';
 
 // ---------------------------------------------------------------------------------------------------------------
 // constants
@@ -84,13 +89,14 @@ import { hypot, powi } from '../detmath.js';
 /**
  * Share of the damage a 剑/锤 or a 碎铳之簧 takes that its leader loses: 1, 等量 — PRTS talents (“斩胄之剑” / “破胄之锤”
  * "受到伤害时令假想敌：胄受到等量的无来源生命流失"; 碎铳之簧 (all three) "…令全场范围内仇恨值最高的1名假想敌：铳受到等量的无来源
- * 生命流失"); the enemy data carries no ratio blackboard (the handbook's "以一定比例" is that 1). The loss is 无来源 (hooks see
+ * 生命流失"; the arts variant's "被施加调整值后（调整值包括伤害、治疗、元素损伤等）"); the enemy data carries no ratio blackboard
+ * (the handbook's "以一定比例" is that 1). The loss is 无来源 (hooks see
  * no source; the attacker keeps the credit — stats, the per-player pool tally) and follows EVERY damage taken: a
  * 剑/锤 only takes damage outside its invulnerable 初始模式 (its 出击模式 dive and 【瘫痪】). The two official texts
  * disagree on the dive: the PRTS talent says "受到伤害时" (any damage), the in-game handbook (data/enemies.json abilities,
  * PRTS 能力) "被击落时受到伤害以一定比例传递" (only once shot down) — the dive hits passing on is [ASSUMED] (the talent
- * text; ≤ 15 hits per dive). A loss passed on to a leader is one hit for 限伤 (sim/damage.js leaderHitCancelled, via
- * Battle.loseHp). v2.5: 0.5 [ASSUMED], and a 剑/锤 passed damage on only while grounded (DESIGN §20.10, §20.13).
+ * text; ≤ 15 hits per dive). A loss passed on to a leader is one hit for 限伤 (sim/attack/health.js leaderHitCancelled, via
+ * Battle.dealHPLose). v2.5: 0.5 [ASSUMED], and a 剑/锤 passed damage on only while grounded (DESIGN §20.10, §20.13).
  */
 export const PART_TRANSFER = 1;
 /** The 斩胄之剑 / 破胄之锤 share — the same PRTS 等量 as PART_TRANSFER (kept as a name for the blade kit and its tests). */
@@ -145,16 +151,46 @@ const SPRING_BOUNCE_FALLOFF = 0.85, SPRING_BOUNCE_RANGE = 2, SPRING_COMBO_HITS =
  * 不可阻挡", 假想敌：管 (+ 隐秘核心) / 盐风主教昆图斯 / 阿利斯泰尔，帝国余晖 / “萨米的意志” "自缚 … 无法被阻挡"). 自缚 (PRTS
  * 异常效果 UNMOVABLE_PRIVATE) = 无法移动, like 束缚 but never recognised as 束缚: flag noMove, not bind. They stand where
  * they spawn whatever their route says (the official routes walk to a goal; only the talent holds them), so their
- * hit area (body.js) stays on the pipe block. These are exactly the enemies with a data `hitArea`.
+ * hit area (body.js) stays on the pipe block. This list is independent of `hitArea`: 后兽 has a rectangle but still moves.
  */
 export const SELF_BOUND = Object.freeze([
   'enemy_9013_acstmk', 'enemy_9013_acstmk_2', 'enemy_9021_acduml', 'enemy_9021_acduml_2', 'enemy_1521_dslily',
   'enemy_9032_aclionk', 'enemy_9033_acdeer',
 ]);
+/**
+ * Self-bound leaders whose area strike hits a random operator within the leader's rangeRadius and the four tiles beside
+ * it — 阿利斯泰尔's 【王权号令】 (kitLion decree). The bots space their units against it (server/match/bot.js, DESIGN §37.64).
+ */
+export const PLUS_STRIKE = Object.freeze(['enemy_9032_aclionk']);
 /** 阿利斯泰尔: enemy SP per second [ASSUMED] and 莫非王土 delay after each 王权号令 [ASSUMED]. */
 const ENEMY_SP_PER_SEC = 1, ANIMATE_DELAY = 2;
 const EQUIP_KEYS = Object.freeze(['enemy_10028_vtswd', 'enemy_10029_vtshld', 'enemy_10030_vtwand']);
 const SHELL_KEY = 'enemy_9016_acstmr', ECHO_KEY = 'enemy_9023_acdums', PHANTOM_KEY = 'enemy_2017_csphts';
+/**
+ * The attack-class skills of the leaders and parts other than 昆图斯 (QUINTUS_CLIP): enemy key → skill prefabKey → the
+ * length in s of the clip its official ability plays (prefab ability `_animKey`: fx/index.json units.<key>.skills.
+ * <prefabKey>.abilities[].animKey → data/assets.json enemies.<key>.spine.animations), or 0 when the ability names no
+ * clip. Each one is cast in place of a normal attack (`atk`, enemies.js attackTurnSkill — PRTS's skill rules,
+ * 「大多数技能自动触发会占用攻击间隔」) and its cooldown counts from its clip's end (「同一技能的冷却时间于该技能结束时开始
+ * 计时」). The class of each official ability: 卢西恩 / 不祥幻影 `aoe` MeleeAttack (Skill_2 / Skill), 胄 `1` (灭顶之灾)
+ * RangedAttack Skill_1, 管 `1` (裂管之奏) MultiRangedAttack Skill, 弦 `1` (断弦之奏) RangedAttack Skill, 阿利斯泰尔 `equip` /
+ * `equipA` (王权号令) RangedAttack Skill_1 and `Suicide` (斥退) MeleeAttack Skill_3, “萨米的意志” `Lasso` (自然涌动)
+ * RangedAttack with no `_animKey` [ASSUMED: no clip, cooldown from the cast — its clips Skill_01_Begin / _Loop / _End
+ * are a channel whose length the prefab does not give] and `Doom` MeleeAttack Skill_02 (DESIGN §35.29).
+ */
+export const ATTACK_SKILL_CLIP = Object.freeze({
+  enemy_2016_csphtm: { aoe: 1.8 },
+  enemy_2017_csphts: { aoe: 1.8 },
+  enemy_9013_acstmk: { 1: 2.333 },
+  enemy_9013_acstmk_2: { 1: 2.333 },
+  enemy_9021_acduml: { 1: 4.167 },
+  enemy_9021_acduml_2: { 1: 4.167 },
+  enemy_9022_acdumm: { 1: 3.333 },
+  enemy_9032_aclionk: { equip: 3.667, equipA: 3.667, Suicide: 5.667 },
+  enemy_9033_acdeer: { Lasso: 0, Doom: 2.667 },
+});
+/** The `atk` / `clip` fields of attack-class skill `prefabKey` of enemy `e` (ATTACK_SKILL_CLIP). */
+const atkSkill = (e, prefabKey) => ({ atk: true, clip: ATTACK_SKILL_CLIP[e.defId]?.[prefabKey] ?? 0 });
 
 // ---------------------------------------------------------------------------------------------------------------
 // per-battle state, template resolution
@@ -276,7 +312,8 @@ export function install(battle) {
 export function registerMeta() {}
 
 function onSpawn(b, e) {
-  const kit = BOSS_KITS[e.defId];
+  // Same split as enemies.js: regulation leaders are not spread into BOSS_KITS (they are absent from the default table).
+  const kit = BOSS_KITS[e.defId] || REGULATION_BOSS_KITS[e.defId];
   if (typeof kit !== 'function') return;
   if (SELF_BOUND.includes(e.defId)) b.addBuff(e, { key: 'boss:selfBound', persist: true, flags: { noMove: true, selfBound: true, unblockable: true } });
   const tpl = templateOf(b);
@@ -302,6 +339,7 @@ function patrolLoop() {
 }
 
 function mirror(b, e, tpl) {
+  if (b.data.raw?.config?.version?.rules?.bossMirrorShare === false) return;
   const st = stOf(b);
   const br = tpl && tpl.branches && tpl.branches.boss_battle_multi_player;
   if (!Array.isArray(br) || !br.length || st.mirrored.has(e.defId) || (b.opts && b.opts.bossMirror === false)) return;
@@ -404,7 +442,7 @@ function kitHelm(ab, e, b, tpl) {
       },
     },
     s1 && {
-      cd: s1.cd, icd: s1.icd, sk: s1, cond: (b2) => shellTargets(b2).length > 0,
+      cd: s1.cd, icd: s1.icd, sk: s1, ...atkSkill(e, '1'), cond: (b2) => shellTargets(b2).length > 0, // in the attack's turn
       // 【灭顶之灾】 one shell, also below 20 %: the handbook's "额外发射<刺胄之弹>" is wrong in game (PRTS 能力修正 原因 6
       // "描述与游戏实际表现不符合": "【灭顶之灾】不会额外发射") and no blackboard holds a second shell (skill 1 has none)
       fire(b2, e2) {
@@ -460,11 +498,27 @@ function fireShell(b, boss, target) {
   return sh;
 }
 
+/**
+ * The hit count of a leader token (刺胄之弹 enemy_9016_acstmr, the 余音 enemy_9023_acdums): the data's × the round's HP
+ * multiplier, without its 补给线 / 补给线II share (`supplyHpMul`, co-op 终极 from round 5) when the season's own 补给线
+ * effects leave the key out — 规程's aceffect_enemy_2 / 2_2 `enemy_exclude` lists both tokens (11-05 data), 下半's lists only
+ * 炎佑 and the 器物 hit-count keys (archetypes.js `times`), so 下半's tokens keep the whole multiplier.
+ */
+const SUPPLY_EFFECTS = ['aceffect_enemy_2', 'aceffect_enemy_2_2'];
+const supplyExempt = (b, key) => SUPPLY_EFFECTS.some((id) => {
+  const rec = b.data?.rawEffect?.(id);
+  return (Array.isArray(rec?.buffs) ? rec.buffs : []).some((x) => String(x?.bbStr?.enemy_exclude || '').split('|').includes(key));
+});
+const tokenHits = (b, e2) => {
+  const s = Number(e2.mods && e2.mods.supplyHpMul);
+  return Number.isFinite(s) && s > 0 && s !== 1 && supplyExempt(b, e2.defId) ? e2.base.maxHp / s : e2.base.maxHp;
+};
+
 function kitShell(ab, e) {
   const stun = T(ab, 'killed.duration') ?? 0, dot = T(ab, 'killed.value') ?? 0;
   return [{
     spawn(b, e2) {
-      setHits(e2, e2.base.maxHp); hitCount(b, e2, true);                      // 需要数次攻击击倒 (× the round's HP: summonMods)
+      setHits(e2, tokenHits(b, e2)); hitCount(b, e2, true);                   // 需要数次攻击击倒 (× the round's HP: summonMods, tokenHits)
       b.addBuff(e2, { key: 'boss:shellGuard', persist: true, flags: { noDisplace: true } }); // 失衡免疫 (PRTS 天赋; also 静态刚体)
     },
     tick(b, e2, a, dt) {
@@ -669,54 +723,71 @@ function kitGun(ab, e, b) {
 function kitSpring(ab, e) {
   const kind = /9018/.test(e.defId) ? 'arts' : /9019/.test(e.defId) ? 'element' : 'hits';
   const scale = T(ab, '1.damage_scale') ?? 1, regen = T(ab, '1.regenerate_duration') ?? 0;
-  const P = { up: false, barrier: 0, hits: 0, downAt: null };
+  const P = { up: false, downAt: null };
   const gun = (b) => nearestOf(b, e, (o) => isGun(o));
   const raise = (b) => {
     P.up = true;
-    if (kind === 'arts') P.barrier = e.s.maxHp * (T(ab, '1.shield_ratio') ?? 0);
-    if (kind === 'hits') P.hits = T(ab, '1.block_damage_max_times') ?? 0;
-    b.addBuff(e, { key: 'boss:springShield', persist: true, visible: true, flags: { unblockable: true } }); // 护盾生效时，自身无法被阻挡
+    // [ASSUMED] actrpc_t_1's native filterDamageType=false accepts every HP type; PRTS's detailed row says phys/arts.
+    // Prefer the pinned native flag until client evidence settles the discrepancy (research 12, S86).
+    const pool = kind === 'arts' ? { shield: e.s.maxHp * (T(ab, '1.shield_ratio') ?? 0), shieldType: 'arts' }
+      : kind === 'hits' ? { shieldHits: T(ab, '1.block_damage_max_times') ?? 0 } : {};
+    b.addBuff(e, { key: 'boss:springShield', persist: true, visible: true, keepEmptyShield: true, ...pool,
+      injury(c) {
+        if (!P.up) return;
+        if (kind === 'arts' && c.type === 'phys' && damageAttackType(c.dmg) === 'NORMAL'
+          || kind === 'element' && (c.type === 'phys' || c.type === 'arts')) c.amount *= scale;
+      },
+      observeInjury(c) {
+        if (!P.up) return;
+        if (kind === 'arts' && !(c.buff.shield > 1e-6) || kind === 'hits' && !(c.buff.shieldHits > 0)) {
+          drop(b);
+          return;
+        }
+        // actrpa_t_1: NORMAL physical filter, even after prior cancellation; child is source-less ADDITION.
+        const source = c.source;
+        if (kind !== 'arts' || c.type !== 'phys' || damageAttackType(c.dmg) !== 'NORMAL' || !source?.alive) return;
+        b.dealDamage({ source: null, credit: e, target: source, amount: e.s.atk * (T(ab, '1.atk_scale') ?? 0),
+          type: 'phys', attackType: 'ADDITION', applyWay: 'NONE', calculation: 'precomputed',
+          ignoreSelect: true, origin: c.dmg, tags: ['springCounter'], onApplied() {
+            elem(b, e, source, 'erosion', e.s.atk * (T(ab, '1.ep_damage_ratio') ?? 0), { ignoreSelect: true, tags: ['springCounter'] });
+          } });
+      },
+    });
     b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: `spring_${kind}` });
   };
   const drop = (b) => { P.up = false; P.downAt = b.time; b.removeBuff(e, 'boss:springShield'); b.fx('shieldBreak', { x: e.x, y: e.y, id: e.id }); };
+  const transfer = (b, c) => {
+    if (!(c.amount > 0) || c.cancelled || isHpLoss(c.dmg) || c.dmg?.tags?.includes(SPRING_SHARE_TAG)) return;
+    const credited = c.source || c.credit;
+    const credit = credited?.side === 'ally' ? credited : null;
+    // 仇恨值最高 (PRTS): the official BossSelector's logic is not in our data, so the hatred order is the engine's targeting
+    // one (targeting.js aggroCmp: taunt, then the latest arrival) applied to the guns — [ASSUMED] for enemy guns and ties.
+    const g = b.enemies.filter(o => o.alive && isGun(o)).sort(aggroCmp)[0];
+    const amount = c.amount * PART_TRANSFER;
+    if (g) b.dealHPLose({ source: null, credit, target: g, amount, origin: c.dmg });
+    // [ASSUMED] Preserve the project's equal split to other springs; PRTS explicitly specifies only the gun.
+    const others = b.enemies.filter(o => o.alive && o !== e && isSpring(o));
+    for (const target of others) b.dealHPLose({ source: null, credit, target, amount: amount / others.length,
+      origin: c.dmg, tags: [SPRING_SHARE_TAG] });
+  };
   const sk = ab.sk['1'];
   return [
     {
-      spawn(b) { raise(b); },
-      hitIn(c, b, e2) {
-        if (!P.up) return;
-        const ty = c.dmg.type;
-        if (kind === 'arts') {                           // 法术屏障: absorbs arts (after RES, like a shield); phys ×0.1 + counter
-          if (ty === 'arts') {
-            P.barrier -= absorbArts(c, P.barrier);
-            if (P.barrier <= 1e-6) { P.barrier = 0; drop(b); }
-          } else if (ty === 'phys') {
-            c.dmg.mul *= scale;
-            // the counter "对来源造成…无来源物理附加伤害" picks its attacker directly — no selection, so an airborne 起飞
-            // attacker takes it too (PRTS 异常效果 无法选择: "'直接选中'的能力…不受这些仅在选择时生效的异常效果制约")
-            const s = c.source, o = { ignoreSelect: true, tags: ['springCounter'] };
-            if (s && s.side === 'ally' && s.alive) { hurt(b, e2, s, e2.s.atk * (T(ab, '1.atk_scale') ?? 0), 'phys', o); elem(b, e2, s, 'erosion', e2.s.atk * (T(ab, '1.ep_damage_ratio') ?? 0), o); }
-          }
-        } else if (kind === 'element') {                 // 元素护盾: phys/arts heavily reduced
-          if (ty === 'phys' || ty === 'arts') c.dmg.mul *= scale;
-        } else if (ty === 'phys' || ty === 'arts' || ty === 'true') { // 频次护盾: negates N hits
-          c.dmg.cancel = true;
-          if (--P.hits <= 0) drop(b);
+      spawn(b) {
+        // PRTS corrects the handbook: unblockable even while the shield is regenerating.
+        b.addBuff(e, { key: 'boss:springUnblockable', persist: true, flags: { unblockable: true } });
+        raise(b);
+        if (kind === 'arts') {
+          // actrpa_passive: ON_APPLIED_MODIFIER, not HP-loss bookkeeping.
+          b.on('modifierApplied', c => { if (c.target === e) transfer(b, c); }, { owner: e });
+        } else {
+          // [ASSUMED] Native templates have DEFAULT priority, but prefab initial buff order is unavailable.
+          // Install after the first defence to preserve initial sharing order; regeneration reacquires only defence.
+          b.addBuff(e, { key: 'boss:springShare', persist: true, observeInjury(c) { transfer(b, c); } });
         }
       },
-      burst(c, b) { if (kind === 'element' && P.up) drop(b); },  // 自身元素损伤爆发时，护盾消失
-      taken(c, b, e2) {
-        if (!(c.amount > 0)) return;
-        if (c.dmg.tags && c.dmg.tags.includes(SPRING_SHARE_TAG)) return;       // a share never passes on again
-        const s0 = c.source || c.credit;                                       // a 无来源 burst still passes on (credited)
-        const src = s0 && s0.side === 'ally' ? s0 : null;
-        // 【盲信之誓】 受到伤害时令假想敌：铳受到等量的无来源生命流失 (PRTS); the even split to the other springs follows the
-        // 隐秘核心 handbook ("传递给<假想敌：铳>和场上其他<“碎铳之簧”>") — not in the PRTS talent, [ASSUMED] amount
-        const g = gun(b);
-        if (g) b.loseHp(g, c.amount * PART_TRANSFER, { source: src, from: c.dmg, sourceless: true });
-        const others = b.enemies.filter((o) => o.alive && o !== e2 && isSpring(o));
-        for (const o of others) b.loseHp(o, (c.amount * PART_TRANSFER) / others.length, { source: src, from: c.dmg, tags: [SPRING_SHARE_TAG], sourceless: true });
-      },
+      // elementBurst dispatch already precedes cooldown/status/HP resolution (ON_BEFORE_EP_BREAK_START).
+      burst(c, b) { if (kind === 'element' && P.up) drop(b); },
       tick(b, e2, a, dt) {
         if (!P.up && P.downAt != null && b.time - P.downAt >= regen) raise(b);
         const d = e2.mem.ab.dash;
@@ -810,7 +881,7 @@ function kitEcho(ab, e) {
   const s = ab.sk.Skill;
   return [
     {
-      spawn(b, e2) { setHits(e2, e2.base.maxHp); hitCount(b, e2, true); e2.blockWeight = ECHO_BLOCK_WEIGHT; setEchoForm(b, e2, 'dark'); }, // hits × the round's HP (summonMods)
+      spawn(b, e2) { setHits(e2, tokenHits(b, e2)); hitCount(b, e2, true); e2.blockWeight = ECHO_BLOCK_WEIGHT; setEchoForm(b, e2, 'dark'); }, // hits × the round's HP (summonMods, tokenHits)
       taken(c, b, e2) { const s = c.source || c.credit; if (s && s.side === 'ally') echoHit(b, e2); }, // 受到伤害时以自身为中心造成一次范围伤害 (a 无来源 burst too)
     },
     s && {
@@ -830,7 +901,7 @@ function kitEcho(ab, e) {
 function pipeCore(ab, e, b, tpl, { form, prefix }) {
   const hi = T(ab, `1.${prefix}_t_1[high_hp].interval`) ?? 40, lo = T(ab, `1.${prefix}_t_1[low_hp].interval`) ?? hi, thr = T(ab, '1.hp_ratio') ?? 0;
   const key = ab.tS['1.enemy_key'] ?? ECHO_KEY;
-  const P = { acc: 0, atk: Infinity };   // first strike as soon as an echo of its form exists (engine attack rule)
+  const P = { acc: 0, atk: Infinity, heldUntil: 0 };   // first strike as soon as an echo of its form exists (engine attack rule)
   const summon = (b2, e2) => {
     const got = branchSpawn(b2, tpl, 'summon_enemy', 0, { mods: summonMods(b2), at: { x: e2.x, y: e2.y }, fallback: () => [b2.spawnEnemy(key, { pos: [e2.y, e2.x], route: toGoal(b2, e2.x, e2.y), mods: summonMods(b2) })].filter(Boolean) });
     for (const u of got) if (u.defId === ECHO_KEY && form === 'gold') setEchoForm(b2, u, 'gold');
@@ -843,10 +914,16 @@ function pipeCore(ab, e, b, tpl, { form, prefix }) {
       if (P.acc >= (e2.hpRatio < thr ? lo : hi)) { P.acc = 0; summon(b2, e2); }
       if (!canCast(e2, false, b2)) return;
       P.atk += dt;
-      if (P.atk < e2.s.interval) return;
+      if (P.atk < e2.s.interval || b2.time < P.heldUntil) return;
       const t = b2.rng.pick(echoesOf(b2, form));                 // 优先攻击…形态余音
       if (!t) return;
       P.atk = 0;
+      const cast = attackTurnSkill(b2, e2);                       // 裂管之奏 / 断弦之奏 take this attack's turn (DESIGN §35.29)
+      if (cast) {
+        // [ASSUMED] a longer clip holds this custom attack loop too (管: 4.167 s clip, 3 s interval; DESIGN §35.54).
+        P.heldUntil = b2.time + (cast.clip || 0);
+        return;
+      }
       e2.lastAttackAt = b2.time;
       e2.stats.attacks++;
       b2.fx('beam', { x: e2.x, y: e2.y, from: e2.id, to: t.id, kind: `${prefix}Strike` });
@@ -863,7 +940,7 @@ function kitPipe(ab, e, b, tpl) {
       death(c, b2) { for (const o of b2.aliveEnemies()) if (o.defId === 'enemy_9022_acdumm') b2.kill(o, null); }, // 弦 leaves with 管
     },
     s && {
-      cd: s.cd, icd: s.icd, sk: s, cond: (b2) => echoesOf(b2, 'dark').length > 0,
+      cd: s.cd, icd: s.icd, sk: s, ...atkSkill(e, '1'), cond: (b2) => echoesOf(b2, 'dark').length > 0,
       fire(b2, e2) { // 【裂管之奏】 three strikes on every dark echo
         const r = s.bb.range_radius ?? 0, ep = s.bb.ep_damage_ratio ?? 0;
         for (const echo of echoesOf(b2, 'dark')) for (let k = 0; k < 3; k++) b2.after(k * PIPE_STRIKE_GAP, () => {
@@ -883,7 +960,7 @@ function kitString(ab, e, b, tpl) {
     pipeCore(ab, e, b, tpl, { form: 'gold', prefix: 'acdumm' }),
     { spawn(b2, e2) { b2.addBuff(e2, { key: 'boss:eternal', persist: true, flags: { invulnerable: true, untargetable: true } }); } }, // 永久无敌
     s && {
-      cd: s.cd, icd: s.icd, sk: s, cond: (b2) => echoesOf(b2, 'gold').length > 0,
+      cd: s.cd, icd: s.icd, sk: s, ...atkSkill(e, '1'), cond: (b2) => echoesOf(b2, 'gold').length > 0,
       fire(b2, e2) { // 【断弦之奏】 AoE on every gold echo, which then turns dark
         const r = s.bb.range_radius ?? 0, ep = s.bb.ep_damage_ratio ?? 0;
         for (const echo of echoesOf(b2, 'gold')) {
@@ -904,11 +981,30 @@ function kitQuintus(ab, e, b, tpl) {
   const stageSkills = [['Tidewater', 'Rockfall', 'SummonTentac'], ['TidewaterG1', 'RockfallG1', 'SummonTentacG1'], ['TidewaterG2', 'RockfallG2', 'SummonTentacG2', 'Doom']];
   const skills = [];
   const atkRatio = T(ab, 'epdamage.attack@ep_damage_ratio') ?? 0;
+  // 【大潮】 / 【崩坍】 are attack-class (prefab ability MeleeAttack like the Attack; PRTS 「触发索敌和普通攻击相同」): they take the
+  // attack's turn (enemies.js attackSlotSkill; PRTS 「大多数技能自动触发会占用攻击间隔」), equal priorities at random. Every
+  // skill's cooldown counts from the end of its clip (QUINTUS_CLIP; PRTS 「同一技能的冷却时间于该技能结束时开始计时」): the
+  // third-form tide (3.5 + 1.667 s) alternates with the attack instead of coming on top of it every 3.5 s (DESIGN §35.19).
+  // 断裂生殖 / 物种爆发 (AnimatedActionToOwnerAbility) take the attack's turn too — PRTS's default (most skills; no
+  // exception noted for them) and arknights.wiki.gg's one action ("attacking once or using another ability") between two
+  // tides —, with a trigger of their own (`own`: the abilities' `_allowNoTarget` 1), so they also come with the attack
+  // ready and nothing in range (enemies.js onTick; DESIGN §35.55; until then on their own timers). 断裂生殖 「仅仍有未执行的小队动作指令时
+  // 可触发」: its level branch (blackboard branch_id; prefab MoveNextLevelBranch, not looping) is shared by the three forms
+  // and used up after its last phase (7 in act1autochess_h07_04 / _s); a template without the branch keeps the
+  // random-target fallback with no limit.
+  const tentLeft = (s) => {
+    const br = tpl && tpl.branches && tpl.branches[s.bs.branch_id ?? 'dslily_dstnta'];
+    return Array.isArray(br) && br.length ? br.length : Infinity;
+  };
   const mk = (name, stage) => {
     const s = ab.sk[name];
     if (!s) return null;
     const kind = name.replace(/G\d$/, '');
-    const a = { cd: s.cd, icd: s.icd, sk: s, stage, cond: () => P.stage === stage, fire: (b2, e2) => QUINTUS[kind](b2, e2, s, P, tpl) };
+    const phases = kind === 'SummonTentac' ? tentLeft(s) : Infinity;
+    const a = {
+      cd: s.cd, icd: s.icd, sk: s, stage, atk: true, own: !QUINTUS_ATTACK_SKILLS.has(kind), clip: QUINTUS_CLIP[kind] ?? 0,
+      cond: () => P.stage === stage && P.tent < phases, fire: (b2, e2) => QUINTUS[kind](b2, e2, s, P, tpl),
+    };
     skills.push(a);
     return a;
   };
@@ -928,6 +1024,9 @@ function kitQuintus(ab, e, b, tpl) {
   }];
   const grow = (b2, e2, n) => {
     P.stage = n; P.stageAt = b2.time;
+    // one form's bonus at a time (the key is shared): the official AtkUp1 / AtkUp2 are mode-scoped talents (G1 / G2),
+    // so the third form is +70 %, not 40 + 70 (arknights.wiki.gg's +110 %, unsourced) [ASSUMED: inferred from where the
+    // talents sit; footage of the third-form panel ATK at base × 2.1 would make it one key per form; DESIGN §35.19]
     b2.addBuff(e2, { key: 'boss:grow', persist: true, visible: true, mods: { atkPct: T(ab, `atkup${n}.atk`) ?? 0 } });
     for (const a of skills) if (a.stage === n) a.left = a.icd;   // the new form's skills start from their initial cooldown
     b2.fx('grow', { x: e2.x, y: e2.y, id: e2.id, stage: n });
@@ -935,6 +1034,21 @@ function kitQuintus(ab, e, b, tpl) {
   stageSkills.forEach((names, i) => names.forEach((n) => list.push(mk(n, i))));
   return list;
 }
+
+/** 昆图斯's skills whose trigger is the attack's (「触发索敌和普通攻击相同」: MeleeAttack); 断裂生殖 / 物种爆发 trigger on their own. */
+const QUINTUS_ATTACK_SKILLS = new Set(['Tidewater', 'Rockfall']);
+/**
+ * The clip of each 昆图斯 skill, in s: its official ability's animKey (prefab battle/enm_pfb_18.ab — fx/index.json units.
+ * enemy_1521_dslily.skills: tidewater* Skill_02, rockfall* Skill_01, summontentac* Skill_03, doom Skill_04; not
+ * looping, `_maxAnimScale` 1.0: never faster) → that clip's length in the model (data/assets.json
+ * enemies.enemy_1521_dslily.spine.animations). The skill's cooldown counts from the clip's end (enemies.js castNow).
+ * [ASSUMED] the length holds under an attack-speed cut too, as the engine's normal attack clip does (ai.js clipSpeed);
+ * the skills' abilities share the timing fields of 昆图斯's own Attack (`_timeMode` 0, `_maxAnimScale` 1.0), but their
+ * `_affectedBySlowDown` 1 allows a slower clip. So the third-form tide is ready 3.5 + 1.667 = 5.167 s after its cast
+ * whatever the slow: an attack interval past that (寒冷's −30 gives 5.0 s; 寒冷 plus any further cut crosses it) makes
+ * every turn a tide, with no normal attack (DESIGN §35.19, CHANGELOG 0.3.2).
+ */
+export const QUINTUS_CLIP = Object.freeze({ Tidewater: 1.667, Rockfall: 3, SummonTentac: 2, Doom: 4.467 });
 
 const QUINTUS = {
   Tidewater(b, e, s) { // 【大潮】 "对场上所有我方单位…": every operator it can select (fieldAllies): arts + neural
@@ -991,8 +1105,10 @@ function lucienCore(ab, e) {
     s && {
       // cast with a target in the radius (PRTS 技能 "需要目标"; 不祥幻影 "仅在半径2范围内存在我方单位时触发"): the trigger
       // selection (targetsNear — PRTS 选择器 "所有触发选择器通常不无视迷彩"): an airborne (起飞) operator evades a ground
-      // leader (对地规避 — counting her spent the skill on nobody, §21.22), nor does an unblocking 隐匿 or 迷彩 one count
-      cd: s.cd, icd: s.icd, sk: s, cond: (b) => targetsNear(b, e, LUCIEN_AOE_RADIUS).length > 0,
+      // leader (对地规避 — counting her spent the skill on nobody, §21.22), nor does an unblocking 隐匿 or 迷彩 one count.
+      // In the attack's turn: a swing's (blocked) or, with that selector of its own (`own`), the ready attack of an
+      // unblocked one (enemies.js onTick; DESIGN §35.29)
+      cd: s.cd, icd: s.icd, sk: s, ...atkSkill(e, 'aoe'), own: true, cond: (b) => targetsNear(b, e, LUCIEN_AOE_RADIUS).length > 0,
       fire(b, e2) {
         // "该技能伤害无视迷彩": an area selection (areaAllies) — a 迷彩 operator is hit, an unblocking 隐匿 one not
         b.fx('explode', { x: e2.x, y: e2.y, r: LUCIEN_AOE_RADIUS, kind: 'crimsonAoe' });
@@ -1032,7 +1148,7 @@ function kitLion(ab, e, b) {
     const sk = P.adv && eqA ? eqA : eq;
     const t = b2.rng.pick(targetsNear(b2, e2, range()));
     if (!t) return false;
-    castSlot(b2, e2, sk);   // 【王权号令】: equip / equipA (display only)
+    castSlot(b2, e2, sk, ATTACK_SKILL_CLIP[e2.defId]?.equip ?? 0);   // 【王权号令】: equip / equipA, an attack-turn clip (§35.57)
     const r0 = t.tileR, c0 = t.tileC;
     const tiles = [[r0, c0], [r0 + 1, c0], [r0 - 1, c0], [r0, c0 + 1], [r0, c0 - 1]];
     b2.fx('telegraph', { x: c0, y: r0, r: 1, kind: 'royalDecree', tiles: 'plus', id: e2.id });
@@ -1077,7 +1193,6 @@ function kitLion(ab, e, b) {
         }
         if (!canCast(e2, false, b2)) return;
         P.sp += dt * ENEMY_SP_PER_SEC;
-        if (P.sp >= cost && decree(b2, e2)) P.sp = 0;
         // 【莫非王土】: ANIMATE_DELAY s after equipment first lies on the field, then once per 王权号令 cycle
         const has = equipment(b2).length > 0;
         if (!has) { P.nextAnim = null; return; }
@@ -1091,8 +1206,15 @@ function kitLion(ab, e, b) {
       hitOut(c, b2, e2) { if (P.wand && c.dmg.isAttack) c.dmg.type = 'arts'; },
       dealt(c, b2, e2) { if (!P.wand) return; P.wand = false; if (disarm > 0) b2.applyStatus(c.target, 'disarm', { duration: disarm, source: e2 }); },
     },
+    // 【王权号令】 (equip / equipA, RangedAttack, priority 1): with its SP full, cast in the attack's turn (DESIGN §35.29;
+    // until 0.3.2 at once, on top of the attacks); the SP restarts at the cast
+    eq && {
+      cd: 0, icd: 0, pr: eq.pr ?? 0, atk: true, clip: ATTACK_SKILL_CLIP[e.defId]?.equip ?? 0,
+      cond: (b2, e2) => P.sp >= cost && targetsNear(b2, e2, range()).length > 0,
+      fire(b2, e2) { if (decree(b2, e2)) P.sp = 0; },
+    },
     su && {
-      cd: su.cd, icd: su.icd, sk: su,
+      cd: su.cd, icd: su.icd, sk: su, ...atkSkill(e, 'Suicide'),
       fire(b2, e2) { // 【斥退】 "对场上所有我方单位…": every operator it can select (fieldAllies)
         b2.fx('telegraph', { x: e2.x, y: e2.y, r: 99, kind: 'repel', id: e2.id });
         for (const u of fieldAllies(b2, e2)) hurt(b2, e2, u, e2.s.atk * (su.bb.atk_scale ?? 0), 'arts');
@@ -1113,7 +1235,7 @@ function kitDeer(ab, e) {
   const dr = T(ab, 'Madness.damage_resistance') ?? 0;
   const atkN = T(ab, 'Madness.enemy_smdeer_mad[attack].max_cnt') ?? 1, skN = T(ab, 'Madness.enemy_smdeer_mad[skill].max_target') ?? 1;
   const lasso = ab.sk.Lasso, doom = ab.sk.Doom;
-  const P = { low: false, acc: Infinity };   // like engine attacks, the first 冰凌 comes as soon as it has a target
+  const P = { low: false, acc: Infinity, heldUntil: 0 };   // like engine attacks, the first 冰凌 comes as soon as it has a target
   return [
     {
       spawn(b, e2) { e2.profile.noAttack = true; },
@@ -1125,10 +1247,16 @@ function kitDeer(ab, e) {
         }
         if (!canCast(e2, false, b)) return;
         P.acc += dt;
-        if (P.acc < e2.s.interval) return;
+        if (P.acc < e2.s.interval || b.time < P.heldUntil) return;
         const cands = fairOrder(b, e2, allTargets(b, e2), P);
         if (!cands.length) return;
         P.acc = 0;
+        const cast = attackTurnSkill(b, e2);                        // 自然涌动 / Doom take this attack's turn (DESIGN §35.29)
+        if (cast) {
+          // [ASSUMED] no 冰凌 inside its skill clip even with a shortened interval (DESIGN §35.54).
+          P.heldUntil = b.time + (cast.clip || 0);
+          return;
+        }
         const cols = [];
         for (const t of cands) { if (!cols.includes(t.tileC)) cols.push(t.tileC); if (cols.length >= (P.low ? atkN : 1)) break; }
         for (const c of cols) { // 【冰凌】 its normal attack: the whole column (an area selection: no unblocking 隐匿 operator)
@@ -1141,7 +1269,7 @@ function kitDeer(ab, e) {
       },
     },
     lasso && {
-      cd: lasso.cd, icd: lasso.icd, sk: lasso, cond: (b) => allTargets(b, e).length > 0,
+      cd: lasso.cd, icd: lasso.icd, sk: lasso, ...atkSkill(e, 'Lasso'), cond: (b) => allTargets(b, e).length > 0,
       fire(b, e2) { // 【自然涌动】 stun + arts per second
         const n = P.low ? skN : (lasso.bb.max_target ?? 1);
         const dur = lasso.bb.projectile_life_time ?? 0;
@@ -1154,7 +1282,7 @@ function kitDeer(ab, e) {
       },
     },
     doom && {
-      cd: doom.cd, icd: doom.icd, sk: doom,
+      cd: doom.cd, icd: doom.icd, sk: doom, ...atkSkill(e, 'Doom'),
       fire(b, e2) {
         b.fx('telegraph', { x: e2.x, y: e2.y, r: 99, kind: 'samiDoom', id: e2.id });
         for (const u of fieldAllies(b, e2)) hurt(b, e2, u, e2.s.atk * (doom.bb.atk_scale ?? 0), 'arts');

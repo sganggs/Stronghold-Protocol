@@ -1,17 +1,20 @@
 // Real server and normal UI operations only: create/join, ready, skip and confirm.
 // No mocked draft, injected game state, direct network requests or fixed seed.
 // SP_E2E=1 node --test test/ui/band-draft-skip.e2e.test.js
+import { seedReleaseRead } from '../helpers/releaseNotes.js';
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { DEFAULT_VERSION } from '../../shared/versions.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const OUT = path.join(ROOT, 'test/e2e/out/band-draft-skip');
 const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const ENABLED = process.env.SP_E2E === '1' && existsSync(CHROME);
-const SKIP = '.draft-detail__btns .btn:not(.btn--primary)';
+// 跳过选择 / 无法跳过 sits in the step header's turn line (PR #643), only while it is the player's turn: no button = no skip
+const SKIP = '.dturn .draft-skip';
 
 describe('strategy skip eligibility (real server, normal browser operations)', {
   skip: !ENABLED && 'set SP_E2E=1 and have Chrome to run',
@@ -25,7 +28,8 @@ describe('strategy skip eligibility (real server, normal browser operations)', {
     mkdirSync(OUT, { recursive: true });
     const { startServer } = await import('../../server/index.js');
     const puppeteer = (await import('puppeteer-core')).default;
-    srv = await startServer({ port: 0, host: '127.0.0.1', quiet: true });
+    // written on 盟约 (第二期下半): a stock server's lobby starts on 规程 since 2026-11-09
+    srv = await startServer({ port: 0, host: '127.0.0.1', quiet: true, versions: { default: DEFAULT_VERSION } });
     base = `http://127.0.0.1:${srv.port}`;
     browser = await puppeteer.launch({ executablePath: CHROME, headless: true,
       args: ['--no-sandbox', '--no-first-run', '--mute-audio', '--disable-background-timer-throttling'] });
@@ -75,6 +79,7 @@ describe('strategy skip eligibility (real server, normal browser operations)', {
     cdp.on('Network.webSocketFrameReceived', ({ response }) => {
       try { const m = JSON.parse(response.payloadData); if (m.t === 'error') frames.push({ direction: 'received', message: m }); } catch { /* non-JSON */ }
     });
+    await seedReleaseRead(page);
     await page.goto(base + '/' + suffix, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('.title-login input');
     await page.type('.title-login input', name);
@@ -86,7 +91,8 @@ describe('strategy skip eligibility (real server, normal browser operations)', {
     const clients = [await player('轮选测试1')];
     const host = clients[0].page;
     await click(host, '.mode-card', mode === 'solo' ? '独立模拟' : '同盟模拟');
-    await click(host, '.create-box button', mode === 'solo' ? '开始独立模拟' : '创建同盟');
+    // 独立模拟 → 选择模拟协议 → 开始独立模拟; 创建同盟 creates the co-op room at once
+    await click(host, ...(mode === 'solo' ? ['.create-box button', '开始独立模拟'] : ['[data-testid="alliance-create"]']));
     await host.waitForFunction(() => !!globalThis.__SP__.store.get().room?.code);
     const code = (await state(host)).code;
     for (let i = 1; i < humans; i++) {
@@ -115,9 +121,11 @@ describe('strategy skip eligibility (real server, normal browser operations)', {
     assert.fail('current human not found');
   }
   async function capture(c, name) {
-    await c.page.waitForSelector(SKIP);
+    // the button stands in the status line on the player's own turn only; off-turn it is absent (= disabled)
+    await c.page.waitForSelector('.screen.draft .stephead');
+    if (await c.page.evaluate(() => { const s = globalThis.__SP__.store.get(); return s.match.public?.draft?.turn === s.me.playerId; })) await c.page.waitForSelector(SKIP);
     const s = await state(c.page);
-    const disabled = await c.page.$eval(SKIP, (el) => el.disabled);
+    const disabled = await c.page.evaluate((sel) => { const el = document.querySelector(sel); return !el || el.disabled; }, SKIP);
     const toasts = await c.page.$$eval('.toast', (els) => els.map((el) => el.textContent));
     const file = `${name}.png`;
     await c.page.screenshot({ path: path.join(OUT, file), fullPage: true });

@@ -3,85 +3,65 @@
    shared with the band draft (js/ui/matchChrome.js StepHeader). Research 06 §4.1 / §11.6.
    The bond rows, the legend and the banned operators (.brief-bonds / .brief-legend / .brief-banned) are
    js/ui/matchInfo.js MatchInfo — also shown by the band draft's 本局信息 dialog (css/screens/draft.css .minfo-dlg).
+   PR #643 (the event's pre-game, video 6:29–7:51): one column of sections under grey header
+   bars, 已就绪 and the big 准备就绪 in the bottom-right corner; the header with the step on the left and the countdown on
+   the right. Original drawings only (CSS / inline SVG).
    ========================================================================================== */
 
 /* ---- shared pre-game backdrop + header ---- */
 .brief__bg {
   position: absolute; inset: 0; z-index: 0; pointer-events: none;
   background:
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, .018) 0 1px, transparent 1px 4px),
-    radial-gradient(90% 70% at 20% 30%, rgba(232, 90, 26, .07), transparent 60%),
-    radial-gradient(80% 70% at 85% 60%, rgba(78, 216, 175, .07), transparent 60%);
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .02) 0 1px, transparent 1px 4px),
+    radial-gradient(60% 50% at 8% 6%, rgba(160, 166, 170, .12), transparent 70%),
+    radial-gradient(40% 30% at 96% 4%, rgba(63, 230, 180, .16), transparent 70%),
+    radial-gradient(70% 60% at 90% 100%, rgba(120, 128, 132, .08), transparent 70%),
+    linear-gradient(180deg, #0c0e0e, #090a0a);
 }
 .stephead {
-  position: relative; z-index: 2; flex: none;
-  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: .24rem;
-  height: 1.16rem; padding: 0 .36rem 0 .26rem;
-  background: linear-gradient(180deg, rgba(8, 10, 9, .94), rgba(10, 13, 12, .6)); border-bottom: 1px solid var(--line);
+  position: relative; z-index: 3; flex: none;
+  display: flex; align-items: center; justify-content: space-between; gap: .3rem;
+  height: 1.3rem; padding: 0 .5rem 0 .38rem;
+  background: linear-gradient(180deg, rgba(5, 7, 7, .92), rgba(5, 7, 7, 0));
 }
-.stephead::after { content: ''; position: absolute; left: .3rem; right: .3rem; bottom: -1px; height: 1px; background: linear-gradient(90deg, var(--mint-700), transparent 26%, transparent 74%, var(--mint-700)); }
-.stephead__left { display: flex; align-items: center; gap: .16rem; }
-.stephead__meta { display: flex; flex-direction: column; gap: .06rem; align-items: flex-start; }
-.stephead__center { display: flex; flex-direction: column; align-items: center; gap: .04rem; }
-.stephead__title { display: flex; align-items: baseline; gap: .02rem; font-size: calc(.34 * var(--t)); font-weight: 900; letter-spacing: .12em; }
-.stephead__title b { font-size: calc(.56 * var(--t)); line-height: 1; color: var(--mint-400); text-shadow: 0 0 .2rem rgba(23, 249, 183, .4); }
-.stephead__of { font-size: calc(.26 * var(--t)); color: var(--text-dim); margin-right: .18rem; }
-.stephead__right { justify-self: end; display: flex; align-items: center; gap: .24rem; }
-.stephead__right .countdown { --cd-h: .64rem; }
+.stephead__left { display: flex; align-items: center; gap: .26rem; min-width: 0; }
+.stephead__exit { display: flex; flex-direction: column; align-items: center; gap: .03rem; flex: none; }
+.stephead__exit .btn--danger {
+  --sq: .66rem; height: .66rem; --btn-bg: #d9dcdc; --btn-bg-hover: #f1f3f3; --btn-fg: #1a1d1e; --btn-bd: #f4f6f6; --btn-bd-hover: #fff;
+  --btn-glow: rgba(255, 255, 255, .3); --bk-c: #fff; background-image: linear-gradient(180deg, rgba(255, 255, 255, .5), rgba(255, 255, 255, 0) 60%);
+  box-shadow: 0 .04rem .1rem rgba(0, 0, 0, .6);
+}
+.stephead__exit .ping { font-size: calc(.15 * var(--t)); }
+.stephead__exit .ping__icon { display: none; }
+.stephead__mode { display: flex; align-items: center; gap: .14rem; flex: none; }
+.stephead__mode .dtag { font-size: calc(.26 * var(--t)); gap: .08rem; }
+.stephead__mode .dtag__icon { width: .34rem; height: .34rem; }
+.stephead__mode.has-extra { height: .52rem; padding: 0 .1rem 0 .16rem; border-radius: .26rem; background: rgba(60, 64, 66, .55); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06); }
+.stephead__info {
+  display: inline-flex; align-items: center; gap: .05rem; height: .4rem; padding: 0 .12rem; border-radius: .2rem;
+  font-size: calc(.2 * var(--t)); font-weight: 700; color: var(--text-hi); transition: background var(--t-fast);
+}
+.stephead__info:hover { background: rgba(255, 255, 255, .1); }
+.stephead__info .icon { width: .26rem; height: .26rem; }
+.stephead__sep { flex: none; width: 1px; height: .5rem; background: linear-gradient(180deg, transparent, rgba(255, 255, 255, .28), transparent); }
+.stephead__title { display: flex; align-items: baseline; gap: .02rem; margin: 0; font-size: calc(.32 * var(--t)); font-weight: 900; letter-spacing: .06em; white-space: nowrap; }
+.stephead__title b { font-size: calc(.54 * var(--t)); line-height: 1; color: var(--mint-400); text-shadow: 0 0 .16rem rgba(23, 249, 183, .35); }
+.stephead__of { font-size: calc(.34 * var(--t)); color: var(--text-lo); margin-right: .16rem; }
+.stephead__micro { align-self: flex-end; margin-bottom: .22rem; opacity: .35; white-space: nowrap; overflow: hidden; }
+.draft .stephead__micro { display: none; }
+.stephead__right { display: flex; align-items: center; gap: .24rem; min-width: 0; }
+.stephead__right .countdown { --cd-h: .74rem; }
+.stephead__status { min-width: 0; }
 
 .brief-h { display: flex; align-items: baseline; gap: .12rem; font-size: calc(.21 * var(--t)); font-weight: 700; letter-spacing: .1em; margin-bottom: .12rem; }
 .brief-h::before { content: ''; width: .06rem; height: .2rem; background: var(--mint-500); align-self: center; }
 
-/* ---- briefing layout ---- */
-.brief__main { position: relative; z-index: 1; flex: 1; min-height: 0; display: grid; grid-template-columns: 6.2rem 1fr; gap: .36rem; padding: .3rem .5rem .1rem; }
-/* a match with gameplay plugins (DESIGN §32.6): the unofficial mark under the step header */
-.brief__modmark { position: relative; z-index: 2; align-self: flex-start; margin: .06rem .5rem 0; }
-.brief__left { display: flex; flex-direction: column; gap: .2rem; min-height: 0; overflow: auto; padding-right: .06rem; }
-.brief__left > * { flex-shrink: 0; }
-.brief__right { display: flex; flex-direction: column; gap: .2rem; min-height: 0; overflow: auto; padding-right: .06rem; }
-
-.brief-boss {
-  --bk-c: var(--orange-hi);
-  position: relative; display: grid; grid-template-columns: 2rem 1fr; gap: .2rem; padding: .22rem .24rem;
-  background: linear-gradient(135deg, rgba(60, 18, 8, .55), rgba(12, 14, 13, .85) 60%); border: 1px solid rgba(255, 110, 40, .3);
-}
-.brief-boss > .micro { position: absolute; left: .24rem; top: .1rem; }
-.brief-boss__art { position: relative; width: 2rem; height: 2rem; display: grid; place-items: center; margin-top: .12rem; }
-.brief-boss__ring { position: absolute; inset: 0; border-radius: 50%; border: 2px solid rgba(255, 110, 40, .5);
-  background: radial-gradient(circle, rgba(255, 60, 20, .25), transparent 65%); box-shadow: 0 0 .4rem rgba(255, 80, 30, .25), inset 0 0 .3rem rgba(255, 80, 30, .3); }
-.brief-boss__ring::after { content: ''; position: absolute; inset: .14rem; border-radius: 50%; border: 1px dashed rgba(255, 110, 40, .45); animation: spin 18s linear infinite; }
-.brief-boss__sil { position: relative; width: 74%; height: 74%; object-fit: cover; border-radius: 50%;
-  filter: grayscale(1) sepia(1) hue-rotate(-28deg) saturate(3.2) brightness(.62) contrast(1.35);
-  box-shadow: 0 0 0 2px rgba(255, 110, 40, .7), 0 0 .3rem rgba(255, 80, 30, .5); }
-.brief-boss__art::after { content: ''; position: absolute; inset: 13%; border-radius: 50%; pointer-events: none;
-  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .22) 0 2px, transparent 2px 4px), radial-gradient(circle, transparent 45%, rgba(40, 8, 2, .75) 100%); }
-.brief-boss__q { font-size: 1rem; font-weight: 900; color: rgba(255, 110, 40, .6); }
-.brief-boss__text { display: flex; flex-direction: column; gap: .08rem; padding-top: .2rem; min-width: 0; }
-.brief-boss__name { font-size: calc(.34 * var(--t)); font-weight: 900; letter-spacing: .04em; line-height: 1.25; }
-.brief-boss__when { font-size: calc(.15 * var(--t)); color: var(--orange-hi); }
-.brief-boss__abil { margin: .04rem 0 0; padding-left: .18rem; display: flex; flex-direction: column; gap: .04rem; font-size: calc(.14 * var(--t)); line-height: 1.6; color: var(--text-md); }
-
-.brief-stage { display: flex; align-items: center; justify-content: space-between; gap: .2rem; padding: .12rem .18rem; background: rgba(12, 15, 14, .8); border: 1px solid var(--line); }
-.brief-stage__k { display: flex; align-items: baseline; gap: .12rem; min-width: 0; }
-.brief-stage__pool { font-size: calc(.14 * var(--t)); color: var(--text-lo); white-space: nowrap; }
-.brief-stage__name { display: flex; align-items: center; gap: .08rem; font-size: calc(.19 * var(--t)); font-weight: 700; }
-.brief-stage__name .icon { width: .2rem; height: .2rem; color: var(--mint-500); }
-
-.brief-factions { display: flex; flex-direction: column; gap: .1rem; min-height: 0; }
-.brief-faction { display: flex; gap: .14rem; align-items: center; padding: .12rem .16rem; background: rgba(12, 15, 14, .8); border: 1px solid var(--line); border-left: 3px solid var(--amber); }
-.brief-faction__icon { width: .72rem; height: .72rem; flex: none; display: grid; place-items: center; background: radial-gradient(circle, rgba(246, 163, 41, .16), transparent 70%); }
-.brief-faction__icon img { width: 100%; height: 100%; object-fit: contain; }
-.brief-faction__text { display: flex; flex-direction: column; gap: .03rem; }
-.brief-faction__text b { font-size: calc(.2 * var(--t)); color: var(--amber); }
-.brief-faction__text span { font-size: calc(.15 * var(--t)); color: var(--text-lo); }
-
+/* ---- the shared match-info blocks (briefing + the draft's 本局信息 dialog) ---- */
 .brief-bonds { padding: .16rem .2rem .2rem; background: rgba(12, 15, 14, .8); border: 1px solid var(--line); }
 .brief-bonds__row { display: flex; flex-wrap: wrap; gap: .16rem .1rem; }
 .brief-bond { position: relative; min-width: 1rem; width: max-content; max-width: 100%; display: flex; justify-content: center; }
 .brief-bond .bond { --disc: .66rem; max-width: 100%; }
 .brief-bond .bond__name { font-size: calc(.16 * var(--t)); max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: center; }
-.brief-bond__ban { position: absolute; top: -.04rem; right: .08rem; display: inline-flex; align-items: center; gap: .01rem; font-size: calc(.12 * var(--t)); font-weight: 700; padding: 0 .05rem; background: var(--red); color: #fff; line-height: 1.5; box-shadow: 0 0 0 1px #000; }
-.brief-bond__ban .icon { width: .12rem; height: .12rem; }
 .brief-bond.is-partial .bond__core { box-shadow: 0 0 0 2px rgba(255, 84, 84, .5); }
 /* the box beside a bond's tooltip (matchInfo.js BondBannedAside): its banned members with avatar, name and bonds */
 .brief-bantip { display: flex; flex-direction: column; gap: .06rem; }
@@ -94,8 +74,6 @@
 .brief-bantip__txt .is-this { color: var(--mint-400); }
 .brief-legend { display: flex; align-items: center; gap: .08rem; flex-wrap: wrap; font-size: calc(.14 * var(--t)); color: var(--text-dim); margin-top: -.06rem; }
 .brief-legend__off { width: .16rem; height: .16rem; border-radius: 50%; background: #3a403d; border: 2px solid #555; }
-.brief-legend__ban { display: inline-grid; place-items: center; width: .2rem; height: .18rem; background: var(--red); color: #fff; }
-.brief-legend__ban .icon { width: .12rem; height: .12rem; }
 
 .brief-banned { padding: .16rem .2rem .2rem; background: rgba(12, 15, 14, .8); border: 1px solid var(--line); }
 .brief-banned__n { margin-left: auto; font-size: calc(.22 * var(--t)); color: var(--red-premium); }
@@ -106,22 +84,123 @@
 .diybanned__tag { display: inline-block; margin-right: .06rem; padding: .01rem .06rem; font-size: calc(.12 * var(--t)); font-weight: 700;
   letter-spacing: .08em; background: var(--mint-500); color: var(--text-on-mint); vertical-align: .01rem; }
 
-.brief__foot { position: relative; z-index: 2; flex: none; display: flex; align-items: center; justify-content: flex-end; gap: .4rem; padding: .18rem .5rem .3rem; }
-.brief-ready { display: flex; align-items: center; gap: .16rem; }
-.brief-ready__txt { font-size: calc(.2 * var(--t)); color: var(--text-lo); }
-.brief-ready__txt b { font-size: calc(.4 * var(--t)); color: var(--mint-400); margin: 0 .02rem; }
-.brief-ready__txt span { font-size: calc(.24 * var(--t)); color: var(--text-dim); }
-.brief-ready__pips { display: flex; gap: .06rem; }
-.brief-ready__pips i { width: .3rem; height: .3rem; display: grid; place-items: center; color: var(--text-dim); }
-.brief-ready__pips i .icon { width: 100%; height: 100%; }
-.brief-ready__pips i.on { color: var(--mint-400); filter: drop-shadow(0 0 .06rem rgba(23, 249, 183, .6)); }
-.brief-ready__pips i.me { border-bottom: 2px solid var(--mint-700); }
+/* ---- briefing: one column of sections ---- */
+/* a match with gameplay plugins (DESIGN §32.6): the unofficial mark under the step header */
+.brief__modmark { position: relative; z-index: 2; align-self: flex-start; margin: .06rem .5rem 0; }
+.brief__main {
+  position: relative; z-index: 1; flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain;
+  display: flex; flex-direction: column; gap: .2rem; padding: .06rem .5rem 1.5rem .56rem;
+  scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .28) transparent;
+}
+.brief-sec { flex: none; display: flex; flex-direction: column; background: linear-gradient(180deg, rgba(30, 33, 34, .55), rgba(14, 16, 16, .35)); }
+.brief-sec > .brief-bonds, .brief-sec > .brief-banned { padding: 0; background: none; border: 0; }
+/* the grey header bar: icon, title, a faint plate on the right; it grows with its title (§35.51 and its review: cut 2 px
+   at 大 on phones and at 特大 in a 1024×600 window — at 小 / 中 the bar keeps its .66rem) */
+.brief .brief-h {
+  position: relative; display: flex; align-items: center; gap: .14rem; margin: 0; height: auto; min-height: .66rem; padding: 0 .3rem 0 .22rem;
+  font-size: calc(.32 * var(--t)); font-weight: 700; letter-spacing: .06em; color: #f2f4f4;
+  background: linear-gradient(90deg, rgba(122, 126, 128, .5), rgba(92, 96, 98, .42) 60%, rgba(80, 84, 86, .36));
+}
+.brief .brief-h::before {
+  content: ''; flex: none; width: .44rem; height: .44rem; background: #e9ecec; align-self: center;
+  -webkit-mask: var(--sec-icon) center / contain no-repeat; mask: var(--sec-icon) center / contain no-repeat;
+}
+.brief .brief-h .micro { margin-left: auto; padding-left: .5rem; opacity: .4; letter-spacing: .14em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.brief .brief-h .micro::before { content: ''; display: inline-block; width: .2rem; height: .2rem; margin-right: .08rem; vertical-align: -.04rem;
+  border: 2px solid currentColor; box-shadow: .3rem 0 0 -0px transparent; }
+.brief .brief-banned__n { margin-left: .2rem; font-size: calc(.3 * var(--t)); }
+.brief-sec--enemy { --sec-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M11 1h2v3.2l3-1.7 1 1.7-3 1.8 4.6 2.7-1 1.7-4.6-2.6v2.4h3V22H8V10.2h3V7.8L6.4 10.4l-1-1.7L10 6 7 4.2l1-1.7 3 1.7z'/%3E%3C/svg%3E"); }
+.brief-sec--core { --sec-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 1l1.6 7.2L19.8 4l-4.2 6.2L23 12l-7.4 1.8 4.2 6.2-6.2-4.2L12 23l-1.6-7.2L4.2 20l4.2-6.2L1 12l7.4-1.8L4.2 4l6.2 4.2z'/%3E%3C/svg%3E"); }
+.brief-sec--addon { --sec-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M1 6l22-3-7 18-4-7-5 4 1-6zm6 3.6 6.3 2.8L19.5 5.6z'/%3E%3C/svg%3E"); }
+.brief-sec--banned { --sec-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 2a3.2 3.2 0 1 1 0 6.4A3.2 3.2 0 0 1 9 2zM3 22v-6a6 6 0 0 1 10.4-4.1L12 13.3A4 4 0 0 0 5 16v6zm11.1-6.3 1.4-1.4 2.5 2.5 2.5-2.5 1.4 1.4-2.5 2.5 2.5 2.5-1.4 1.4-2.5-2.5-2.5 2.5-1.4-1.4 2.5-2.5z'/%3E%3C/svg%3E"); }
 
-/* Full setup reroll: consent stays visible alongside the information being confirmed. */
+/* 本局遭遇敌方 (ui/matchEnemies.js MatchEnemies): portrait + 敌方领袖 | name, round, abilities, battlefield | the 特训敌人.
+   Scoped under .brief: the draft's 本局信息 dialog shows the same markup stacked into its narrower column
+   (css/screens/draft.css .minfo-dlg). */
+.brief .brief-enemy { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: .3rem .4rem; padding: .3rem .4rem .34rem .6rem; }
+.brief .brief-boss { position: relative; display: flex; flex-direction: column; align-items: center; }
+.brief .brief-boss__art {
+  position: relative; width: 2.3rem; height: 2.3rem; display: grid; place-items: center; overflow: hidden;
+  background: radial-gradient(circle at 50% 40%, #6b3420, #2a120b 75%); box-shadow: 0 0 0 .04rem #4a4e50, 0 0 0 .06rem #1a1c1d, 0 .06rem .2rem rgba(0, 0, 0, .6);
+}
+.brief .brief-boss__art::before, .brief .brief-boss__art::after { content: ''; position: absolute; width: .5rem; height: .5rem; border: 1px solid rgba(255, 255, 255, .25); pointer-events: none; }
+.brief .brief-boss__art::before { left: -.26rem; top: -.26rem; border-width: 0 1px 1px 0; }
+.brief .brief-boss__art::after { right: -.26rem; bottom: -.26rem; border-width: 1px 0 0 1px; }
+.brief .brief-boss__img { width: 100%; height: 100%; object-fit: cover; }
+.brief .brief-boss__q { font-size: calc(1 * var(--t)); font-weight: 900; color: rgba(255, 140, 70, .6); }
+/* over the portrait frame's shadow (a phone's larger type would otherwise lose the glyphs' tops under it) */
+.brief .brief-boss__tag { position: relative; z-index: 1; margin-top: -.02rem; width: 2.05rem; padding: .03rem 0; text-align: center; font-size: calc(.2 * var(--t)); font-weight: 700; letter-spacing: .14em;
+  color: #ffcf4a; background: linear-gradient(180deg, #5a4210, #3a2a08); box-shadow: inset 0 0 0 1px rgba(255, 207, 74, .25); }
+.brief .brief-boss__text { display: flex; flex-direction: column; gap: .08rem; min-width: 0; }
+.brief .brief-boss__name { margin: 0; font-size: calc(.36 * var(--t)); font-weight: 900; letter-spacing: .04em; line-height: 1.25; }
+.brief .brief-boss__when { font-size: calc(.17 * var(--t)); color: var(--orange-hi); }
+.brief .brief-boss__abil { margin: .02rem 0 0; padding-left: .2rem; display: flex; flex-direction: column; gap: .04rem; font-size: calc(.18 * var(--t)); line-height: 1.55; color: #a9aeb0; }
+.brief .brief-stage { display: inline-flex; flex-wrap: wrap; align-items: center; gap: .08rem; margin-top: .04rem; font-size: calc(.16 * var(--t)); color: var(--text-lo); }
+.brief .brief-stage .icon { width: .2rem; height: .2rem; color: var(--mint-500); }
+.brief .brief-stage__name { color: var(--text-hi); }
+.brief .brief-stage__pool { color: var(--text-dim); }
+.brief .brief-factions { display: flex; align-items: flex-start; gap: .3rem; padding-right: .3rem; }
+.brief .brief-faction { display: flex; flex-direction: column; align-items: center; gap: .14rem; width: 1.9rem; cursor: help; }
+.brief .brief-faction__icon {
+  width: 1.12rem; height: 1.12rem; display: grid; place-items: center; border-radius: 50%; outline: none; transition: box-shadow var(--t-fast);
+  background: radial-gradient(circle at 50% 45%, #2a3a38, #121817 70%); box-shadow: 0 0 .22rem rgba(140, 255, 225, .14), inset 0 0 .16rem rgba(0, 0, 0, .7);
+}
+.brief .brief-faction__icon img { width: 78%; height: 78%; object-fit: contain; filter: grayscale(1) brightness(1.6) drop-shadow(0 0 .06rem rgba(160, 255, 230, .6)); }
+.brief .brief-faction:hover .brief-faction__icon { box-shadow: 0 0 .26rem rgba(140, 255, 225, .32), inset 0 0 .16rem rgba(0, 0, 0, .7); }
+.brief .brief-faction__icon:focus-visible { box-shadow: 0 0 0 .03rem var(--mint-400), 0 0 .26rem rgba(140, 255, 225, .32), inset 0 0 .16rem rgba(0, 0, 0, .7); }
+/* the name under the icon; the description (GitHub #484: every special enemy type with its description) in the tooltip —
+   hover, keyboard focus on the icon, a long press on touch — the maintainer's decision of 2026-10-22 (ui/matchEnemies.js) */
+.brief .brief-faction__text { display: flex; flex-direction: column; align-items: center; gap: .04rem; min-width: 0; max-width: 100%; text-align: center; overflow-wrap: anywhere; }
+.brief .brief-faction__text b { font-size: calc(.22 * var(--t)); font-weight: 700; color: #e6eaea; }
+/* Korean breaks a faction's name between words (§35.51 review: 「특훈 적 - 비|행」 on phones at 中) */
+.brief .brief-faction__text:lang(ko) { word-break: keep-all; }
+/* that tooltip (ui/components.js TooltipLayer, outside .brief: also the draft dialog's): the only place the description is
+   shown, so it keeps the dialog's former 10 px floor on a phone, where 1rem is 40 px — [ASSUMED] the floor and width */
+.tooltip.brief-faction__tip { max-width: max(3.8rem, min(calc(240px * var(--sp-ui, 1)), calc(100vw - 16px))); font-size: max(calc(.15 * var(--t)), 10px); }
+/* the bond rows and banned operators at the event's size */
+.brief .brief-bonds__row { gap: .24rem .3rem; padding: .32rem .4rem .3rem .78rem; }
+.brief .brief-bond { min-width: 1.3rem; }
+.brief .brief-bond .bond { --disc: 1.1rem; }
+.brief .brief-bond .bond__name { font-size: calc(.22 * var(--t)); color: #d6dada; }
+.brief .brief-legend { margin: -.1rem .4rem .22rem .78rem; font-size: calc(.16 * var(--t)); }
+.brief .brief-banned__grid { grid-template-columns: repeat(auto-fill, minmax(1.2rem, 1fr)); gap: .14rem; padding: .28rem .4rem .3rem .78rem; }
+.brief .brief-banned__grid .uthumb { --ut: 1.2rem; }
+.brief .brief-banned > .t-dim, .brief .brief-banned__diy { margin: .2rem .4rem .26rem .78rem; }
+
+/* 已就绪 x/N over the bracketed pips, 准备就绪 */
+.brief__foot {
+  position: absolute; z-index: 2; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: flex-end; gap: .36rem;
+  padding: .3rem .4rem .26rem; pointer-events: none;
+  background: linear-gradient(180deg, transparent, rgba(6, 8, 8, .78) 45%, rgba(6, 8, 8, .92));
+}
+.brief__foot > * { pointer-events: auto; }
+.brief-ready { display: flex; flex-direction: column; align-items: center; gap: .06rem; }
+.brief-ready__txt { display: flex; align-items: baseline; gap: .06rem; font-size: calc(.24 * var(--t)); color: #e6eaea; }
+.brief-ready__txt b { margin-left: .08rem; font-size: calc(.5 * var(--t)); line-height: 1; color: var(--mint-400); text-shadow: 0 0 .12rem rgba(23, 249, 183, .4); }
+.brief-ready__txt span { font-size: calc(.34 * var(--t)); color: #d6dada; }
+.brief-ready__pips { position: relative; display: flex; gap: .04rem; padding: 0 .1rem; }
+.brief-ready__pips::before, .brief-ready__pips::after { content: ''; position: absolute; top: -.02rem; bottom: -.02rem; width: .07rem; border: 2px solid rgba(255, 255, 255, .3); }
+.brief-ready__pips::before { left: 0; border-right: 0; }
+.brief-ready__pips::after { right: 0; border-left: 0; }
+.brief-ready__pips i { width: .34rem; height: .4rem; display: grid; place-items: center; color: #4c5152; transition: color var(--t-med), filter var(--t-med); }
+.brief-ready__pips i .icon { width: 100%; height: 100%; }
+.brief-ready__pips i.on { color: var(--mint-400); filter: drop-shadow(0 0 .06rem rgba(23, 249, 183, .6)); animation: brief-pip .5s var(--pg-ease); }
+@keyframes brief-pip { from { transform: translateY(-.08rem) scale(1.3); filter: brightness(2.2); } }
+.brief-go.btn--xl { height: .98rem; min-width: 3.9rem; padding: 0 .5rem 0 .3rem; justify-content: flex-start; font-size: calc(.38 * var(--t)); letter-spacing: .08em;
+  --btn-bg: #33d6a5; --btn-bg-hover: #4ee6b8; box-shadow: 0 0 0 .03rem rgba(255, 255, 255, .85), 0 .06rem .2rem rgba(0, 0, 0, .55); }
+.brief-go .btn__icon { width: .44rem; height: .44rem; }
+.brief-go.is-active, .brief-go:disabled { --btn-bg: #3f4344; --btn-fg: #f2f4f4; --btn-bd: #6b7071; box-shadow: 0 0 0 .03rem rgba(255, 255, 255, .55); opacity: 1; }
+.brief-go.is-loading { --btn-bg: var(--mint-700); }
+
+/* Full setup reroll: consent stays visible alongside the information being confirmed — above the absolute
+   .brief__foot (its height kept free below), never over 准备就绪. */
 .brief-reroll {
   position: relative; z-index: 2; flex: none;
   display: flex; align-items: center; justify-content: space-between; gap: .2rem;
-  margin: .1rem .5rem 0; padding: .14rem .2rem;
+  /* the foot's height grows with 文字大小 (about .73rem + .56 × --t above its content): the bottom margin keeps 已就绪 x/N
+     clear at 中 – 特大 on phones and short windows too (§35.56: the note ran over 2/2 at 大 / 特大 in English, Japanese
+     and Korean) */
+  margin: .1rem .5rem max(1.6rem, calc(.76rem + .58 * var(--t))); padding: .14rem .2rem;
   background: rgba(12, 15, 14, .9); border: 1px solid var(--mint-700);
 }
 .brief-reroll__text { display: flex; flex-direction: column; gap: .05rem; min-width: 0; font-size: calc(.16 * var(--t)); }
@@ -134,4 +213,192 @@
   .brief-reroll { margin-inline: .3rem; gap: .1rem; padding: .1rem .14rem; }
   .brief-reroll__actions { flex-shrink: 1; }
   .brief-reroll__actions .btn { min-height: .44rem; padding-inline: .12rem; }
+}
+
+/* short landscape phones (≤ 520 CSS px tall) at a big 文字大小 (§35.51; §35.18's leftovers): the header's decorative
+   BRIEFING // INFO CHECK gives way (cut at its end and over COUNTDOWN at 大 / 特大), 玩法说明 keeps its book (its label was
+   cut 4–7 px at 特大; the name stays its title and accessible name) */
+@media (max-height: 520px) {
+  .stephead__micro { display: none; }
+  .stephead__guide .btn__label { display: none; }
+  /* 确认本局信息's step name takes two lines before it runs under 玩法说明 and COUNTDOWN (§35.56: English 「Confirm Match
+     Info」 and Korean 「이번 시뮬레이션 정보 확인」 at 大 / 特大 on 640–740 px phones); the header grows with it */
+  .brief .stephead { height: auto; min-height: 1.3rem; }
+  .brief .stephead__left, .brief .stephead__title { min-width: 0; }
+  .brief .stephead__name { min-width: 0; white-space: normal; text-wrap: balance; line-height: 1.1; }
+  .brief .stephead__name:lang(ko) { word-break: keep-all; overflow-wrap: break-word; }
+  .brief .stephead__name:lang(ja) { line-break: strict; }
+}
+/* … and in a short desktop window (≤ 640 px tall: 1024×600) at 大 / 特大 (§35.51 review: the micro cut and over 玩法说明 there) */
+@media (max-height: 640px) {
+  :root[data-text="lg"] .stephead__micro, :root[data-text="xl"] .stephead__micro { display: none; }
+  /* 玩法说明 keeps its book there too (English 「How to Play」 ran past its button on the draft) */
+  :root[data-text="lg"] .stephead__guide .btn__label, :root[data-text="xl"] .stephead__guide .btn__label { display: none; }
+}
+
+/* the pre-game screens' motion (also css/screens/draft.css); none with reduced motion */
+.brief, .draft { --pg-ease: cubic-bezier(.16, .84, .3, 1); }
+@keyframes pg-fade { from { opacity: 0; } }
+@keyframes pg-out { to { opacity: 0; } }
+@keyframes pg-right { from { opacity: 0; transform: translateX(.36rem); } }
+@keyframes pg-left { from { opacity: 0; transform: translateX(-.36rem); } }
+@keyframes pg-rise { from { opacity: 0; transform: translateY(.22rem); } }
+@keyframes pg-pop { from { opacity: 0; transform: scale(.4); } }
+@keyframes pg-card { from { opacity: 0; transform: translateY(.16rem) scale(1.03); } }
+@keyframes pg-glow { 20% { box-shadow: 0 0 .5rem rgba(120, 255, 215, .9), 0 0 .12rem #b9ffe9; border-color: #b9ffe9; } }
+@keyframes pg-dots { to { width: 1.1em; } }
+
+/* ---- 开局转场 (the event's): the header drops in, the sections come in from the right one after another, the corner
+   controls rise ---- */
+.brief .stephead, .draft .stephead { animation: pg-fade 360ms var(--pg-ease) backwards; }
+.stephead__title { animation: pg-right 420ms var(--pg-ease) 120ms backwards; }
+.brief-sec { animation: pg-right 460ms var(--pg-ease) backwards; animation-delay: calc(160ms + var(--i, 0) * 80ms); }
+.brief-sec .brief-bonds__row > *, .brief-sec .brief-banned__grid > * { animation: pg-pop 340ms var(--pg-ease) backwards; animation-delay: calc(360ms + var(--i, 0) * 80ms); }
+.brief__foot .brief-ready, .brief__foot .brief-loadout { animation: pg-rise 420ms var(--pg-ease) 420ms backwards; }
+/* opens from its left edge by a transform (a scaleX from its left, held by the backwards fill until it starts): the
+   button takes taps only where it is drawn at that moment, and the corner's other controls stay put */
+.brief-go { transform-origin: left center; animation: brief-go-in 520ms var(--pg-ease) 480ms backwards; }
+@keyframes brief-go-in { 0% { opacity: 0; transform: scaleX(.08); filter: brightness(2.2); } 60% { opacity: 1; transform: none; filter: brightness(1.5); } }
+@media (prefers-reduced-motion: reduce) {
+  .brief .stephead, .draft .stephead, .stephead__title, .brief-sec, .brief-sec .brief-bonds__row > *, .brief-sec .brief-banned__grid > *,
+  .brief__foot .brief-ready, .brief__foot .brief-loadout, .brief-go, .brief-ready__pips i.on { animation: none; }
+}
+
+/* official versions (DESIGN §35.23): the version's tag beside the 非官方 mark */
+.brief__vertag { position: relative; z-index: 2; align-self: flex-start; margin: .06rem .5rem 0; }
+
+/* The regulation solo choice shares the briefing's scroll area and touch targets. */
+.brief-bond-groups { display: grid; gap: 16px; }
+.brief-bond-groups__hint { margin: 0; color: var(--text-dim); }
+.brief-bond-group { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
+.brief-bond-group > .brief-bonds { flex: 1 1 240px; }
+
+/* 规程 INFO_CHECK only (.brief--reg, ui/regulationBriefing.js). The column above is every other version.
+   Left scrolls; the right column stays put. Tracks use minmax(0, …) so a phone in landscape does not scroll sideways.
+   A second short-screen query is at the end of this file: the first @media (max-height: 520px) stays the covenant one. */
+.brief--reg { min-width: 0; overflow: hidden; }
+.brief--reg .brief__split {
+  position: relative; z-index: 1; flex: 1; min-height: 0; min-width: 0; overflow: hidden;
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(2.6rem, 4.2rem);
+}
+.brief--reg .brief__scroll, .brief--reg .brief__side { min-width: 0; min-height: 0; }
+.brief--reg .brief__scroll {
+  overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
+  display: flex; flex-direction: column; gap: .12rem; padding: .06rem .16rem .12rem;
+}
+.brief--reg .brief__side {
+  display: flex; flex-direction: column; gap: .06rem; overflow: hidden;
+  padding: .06rem .1rem .1rem 0;
+}
+.brief--reg .brief-sec { min-width: 0; }
+.brief--reg .reg-h { flex-wrap: wrap; min-width: 0; overflow: hidden; }
+.brief--reg .reg-h__title { flex: 0 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.brief--reg .reg-chip {
+  display: inline-flex; align-items: center; gap: .06rem; flex: 1 1 8em; min-width: 0; max-width: 100%;
+  margin-left: .08rem; padding: .02rem .08rem; font-size: calc(.15 * var(--t)); font-weight: 600; letter-spacing: 0;
+  color: var(--text-dim); background: rgba(0, 0, 0, .28);
+}
+.brief--reg .reg-chip__txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.brief--reg .reg-htools { margin-left: auto; display: inline-flex; gap: .04rem; flex: none; }
+.brief--reg .reg-htools i { width: .16rem; height: .16rem; background: rgba(255, 255, 255, .35); }
+.brief--reg .reg-panels {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 3.2rem), 1fr));
+  align-items: start; gap: .12rem;
+}
+.brief--reg .reg-panels > .reg-h,
+.brief--reg .reg-panels > .brief-bond-groups__hint,
+.brief--reg .reg-panels > .brief-bonds { grid-column: 1 / -1; }
+.brief--reg .brief-bond-group { flex-direction: column; flex-wrap: nowrap; align-items: stretch; min-width: 0; gap: .08rem; }
+.brief--reg .brief-bond-group > .brief-bonds { flex: 1 1 auto; min-width: 0; }
+.brief--reg .brief-bond-group .btn { min-width: 0; max-width: 100%; height: auto; min-height: .44rem; white-space: normal; text-align: center; }
+.brief--reg .reg-group__n { font-size: calc(.16 * var(--t)); font-weight: 700; letter-spacing: .06em; color: var(--text-dim); }
+.brief--reg .brief-bonds__row {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(max(10%, .7rem), 1fr));
+  gap: .08rem .04rem; padding: .12rem .16rem;
+}
+.brief--reg .brief-bond { min-width: 0; width: auto; }
+.brief--reg .brief-bond .bond { --disc: .62rem; }
+.brief--reg .brief-bond .bond__name { font-size: calc(.16 * var(--t)); }
+.brief--reg .reg-banned__group { display: flex; align-items: center; gap: .08rem; min-width: 0; padding: .08rem .16rem; }
+.brief--reg .reg-banned__disc { flex: none; }
+.brief--reg .reg-banned__disc .bond { --disc: .7rem; }
+.brief--reg .reg-banned__ops, .brief--reg .reg-banned__rest {
+  display: flex; flex-wrap: wrap; gap: .06rem; min-width: 0;
+}
+.brief--reg .reg-banned__ops .uthumb, .brief--reg .reg-banned__rest .uthumb { --ut: .72rem; }
+.brief--reg .reg-stage { flex: none; min-width: 0; }
+.brief--reg .reg-preview { position: relative; flex: none; min-width: 0; min-height: 1.2rem; max-height: 2.4rem; overflow: hidden; }
+.brief--reg .reg-preview > .reg-map { max-height: 2.4rem; overflow: hidden; }
+.reg-map { display: grid; gap: 1px; width: 100%; min-width: 0; background: #121614; }
+.reg-map__cell { position: relative; aspect-ratio: 1; min-width: 0; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .35); }
+.reg-map--pic { display: block; }
+.reg-map--render { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: #0c1114; }
+.reg-map__img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.reg-map--render .reg-map__img { aspect-ratio: 16 / 9; }
+.reg-map--lg { max-height: none; }
+/* [ASSUMED] fallbackField has no colour for 规程 speedup (z) or duelGrass (w). A flat tint so the thumbnail still shows them. */
+.reg-map__cell.reg-map__cell--speedup { background: linear-gradient(180deg, #3e5a40, #2c4230); }
+.reg-map__cell.reg-map__cell--duelGrass { background: linear-gradient(180deg, #2f6a38, #24562c); }
+.reg-preview__zoom {
+  position: absolute; right: .04rem; bottom: .04rem; z-index: 1;
+  width: max(.36rem, 28px); height: max(.36rem, 28px); display: grid; place-items: center;
+  padding: 0; border: 0; color: #fff; background: rgba(0, 0, 0, .55); cursor: pointer;
+}
+.reg-preview__zoom .icon { width: .22rem; height: .22rem; }
+.modal__box.reg-mapdlg { width: min(8rem, calc(100vw - .4rem)); max-width: calc(100vw - .4rem); }
+.reg-mapdlg__name { display: flex; flex-wrap: wrap; gap: .08rem; margin: 0 0 .1rem; font-size: calc(.18 * var(--t)); }
+.reg-mapdlg .reg-map { max-height: none; }
+.tooltip.reg-boss__tip {
+  max-width: max(3.8rem, min(calc(240px * var(--sp-ui, 1)), calc(100vw - 16px)));
+  font-size: max(calc(.15 * var(--t)), 10px);
+}
+.tooltip.reg-boss__tip .reg-boss__abil { margin: .04rem 0 0; padding-left: .16rem; }
+.tooltip.reg-boss__tip .brief-stage { display: flex; flex-wrap: wrap; gap: .06rem; margin-top: .06rem; }
+.brief--reg .reg-boss__tt { display: block; width: 100%; min-width: 0; }
+.brief--reg .brief-enemies--reg { flex: 1 1 auto; min-height: 0; min-width: 0; overflow: hidden; display: flex; flex-direction: column; }
+.brief--reg .brief-enemies--reg .brief-enemy {
+  display: flex; flex-direction: column; align-items: stretch; gap: .08rem;
+  flex: 1 1 auto; min-height: 0; min-width: 0; overflow: hidden; padding: .06rem;
+}
+.brief--reg .brief-boss.reg-boss {
+  position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: .08rem;
+  width: 100%; margin: 0; padding: .04rem; border: 0; background: transparent; color: inherit;
+  font: inherit; text-align: start; cursor: pointer;
+}
+.brief--reg .reg-boss .brief-boss__art { width: .84rem; height: .84rem; }
+.brief--reg .reg-boss .brief-boss__tag {
+  position: static; width: auto; margin: 0; font-size: calc(.14 * var(--t)); letter-spacing: .08em;
+}
+.brief--reg .reg-boss .brief-boss__name { font-size: calc(.2 * var(--t)); overflow-wrap: anywhere; }
+.brief--reg .reg-boss .brief-boss__text { min-width: 0; }
+.brief--reg .reg-factions {
+  display: flex; flex-direction: column; align-items: stretch; gap: .04rem;
+  width: 100%; min-width: 0; flex: 1 1 auto; min-height: 0; overflow: auto; padding: 0;
+}
+.brief--reg .reg-factions .brief-faction {
+  display: grid; grid-template-columns: .48rem minmax(0, 1fr) .48rem; width: 100%; min-width: 0;
+  align-items: center; gap: 0;
+}
+.brief--reg .reg-factions .brief-faction::after { content: ''; grid-column: 3; }
+.brief--reg .reg-factions .brief-faction__icon { width: .48rem; height: .48rem; }
+.brief--reg .reg-factions .brief-faction__text { grid-column: 2; min-width: 0; text-align: center; }
+.brief--reg .reg-factions .brief-faction__text b { font-size: calc(.16 * var(--t)); overflow-wrap: anywhere; }
+.brief--reg .reg-loadout { width: 100%; min-width: 0; }
+.brief--reg .reg-ready { flex: none; display: flex; flex-direction: column; align-items: stretch; gap: .06rem; min-width: 0; }
+.brief--reg .reg-ready .brief-ready { max-width: 100%; }
+.brief--reg .reg-ready .brief-ready__txt { flex-wrap: wrap; justify-content: center; font-size: calc(.18 * var(--t)); }
+.brief--reg .reg-ready .brief-ready__txt b { font-size: calc(.32 * var(--t)); }
+.brief--reg .reg-ready .brief-ready__pips { flex-wrap: wrap; justify-content: center; max-width: 100%; }
+.brief--reg .brief-go.btn--xl {
+  min-width: 0; width: 100%; height: auto; min-height: .72rem;
+  padding: .08rem .12rem; justify-content: center; font-size: calc(.28 * var(--t)); white-space: normal;
+}
+/* the absolute foot is gone, so the reroll bar does not reserve its height. The declaration above stays for the other versions. */
+.brief--reg .brief-reroll { margin: .08rem .2rem .1rem; }
+@media (max-width: 900px) {
+  .brief--reg .brief__split { grid-template-columns: minmax(0, 1fr) minmax(2.4rem, 3.2rem); }
+}
+@media (max-height: 520px) {
+  .brief--reg .reg-preview, .brief--reg .reg-preview > .reg-map { max-height: 1.35rem; }
+  .brief--reg .reg-boss .brief-boss__art { width: .64rem; height: .64rem; }
 }

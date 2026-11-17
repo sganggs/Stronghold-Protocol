@@ -10,9 +10,10 @@ import { FxWiring } from '../../public/js/render/vfx/wiring.js';
 import { COVER_AFTER_S } from '../../public/js/render/vfx/skillfx.js';
 import { FX_BINDINGS, FX_COVER, BOUND_BY_SKILL, coverOf, bindingEffects, bindingKeys } from '../../public/js/render/vfx/skills.js';
 
-const LOOPING = new Set(['tinman_skill_01_range_01', 'tinman_skill_01_token_01', 'mostma_skill_02_buff']);
+const CROSSHAIR = ['lemuen_skill_03_crosshair_range', 'lemuen_skill_03_crosshair_02'];
+const LOOPING = new Set(['tinman_skill_01_range_01', 'tinman_skill_01_token_01', 'mostma_skill_02_buff', ...CROSSHAIR]);
 const KEYS = ['quiet_hit', 'silent_attack_01_trail', 'tinman_attack_hit_01', 'tinman_skill_01_start_03', 'tinman_skill_01_range_01', 'tinman_skill_01_token_01',
-  'tinman_skill_01_start_01', 'mostma_skill_02_buff', 'reed2_attack_hit', 'reed2_skill_02_hit', 'g_birth', 'tok_birth', 'g_hit'];
+  'tinman_skill_01_start_01', 'mostma_skill_02_buff', 'reed2_attack_hit', 'reed2_skill_02_hit', 'g_birth', 'tok_birth', 'g_hit', ...CROSSHAIR];
 
 function makeIndex({ installed = KEYS } = {}) {
   const prefabs = Object.fromEntries(installed.map((k) => [k, { file: `prefabs/${k}.json`, looping: LOOPING.has(k) }]));
@@ -34,6 +35,7 @@ function makeIndex({ installed = KEYS } = {}) {
       ] } }),
       char_1020_reed2: unit(mode('reed2_attack_hit'), { skchr_reed2_2: { mode: null, projectiles: ['projectile_chr_reed2_fire'], uses: [] } }),
       char_900_carrier: unit(mode('g_hit'), {}),
+      char_4193_lemuen: unit(mode('g_hit'), { skchr_lemuen_3: { mode: null, projectiles: [], uses: [] } }),
       token_1_own: unit(mode('g_hit'), {}, { kind: 'token', startEffect: 'tok_birth' }),
       token_2_plain: unit(mode('g_hit'), {}, { kind: 'token' }),
       enemy_1: { kind: 'enemy', modes: mode('g_hit'), skills: {} },
@@ -57,6 +59,7 @@ const RECS = {
   char_4151_tinman: rec('skchr_tinman_1'),
   char_213_mostma: rec('skchr_mostma_2', { duration: 20 }),
   char_1020_reed2: rec('skchr_reed2_2', { duration: 20 }),
+  char_4193_lemuen: rec('skchr_lemuen_3'),
 };
 
 async function setup({ active = true, installed } = {}) {
@@ -230,13 +233,83 @@ describe('R11: FX_BINDINGS — the official prefab the client plays at the kit f
     e.alive = false;
   });
 
+  test('蕾缪安 S3: a lock\'s crosshair stays while her skill waits, at the spot of an enemy gone, until the shell fired at it lands', async () => {
+    const { w, view, frame, handles } = await setup();
+    const lem = view(1, 'char_4193_lemuen', 3);
+    const a = view(2, 'enemy_1', 5);
+    const b = view(3, 'enemy_1', 6);
+    frame();
+    w.skill(lem, true);
+    assert.equal(w.simFx('lock', 5, 10, { id: 2, src: 1, hold: 1 }), true, 'the official crosshair stands for the reticle');
+    frame();
+    assert.equal(w.simFx('lock', 6, 10, { id: 3, src: 1, hold: 1 }), true);
+    const on = (v) => handles.filter((h) => CROSSHAIR.includes(h.key) && h.alive && h.opts.owner === v);
+    assert.equal(on(a).length, 2, 'both prefabs on the locked enemy');
+    assert.ok(on(a).every((h) => typeof h.opts.track === 'function'), 'kept to the enemy (stick)');
+    for (let i = 0; i < 90; i++) frame();
+    assert.equal(on(a).length + on(b).length, 4, 'up 3 s later: her skill still runs (it waited 1 s — the fx\'s `hold` flag)');
+    a.alive = false;
+    frame();
+    assert.equal(on(a).length, 2, 'the enemy is gone: its crosshair stays, the shell still falls there');
+    w.skill(lem, false);
+    frame();
+    w.simFx('bombardShell', 5.1, 9.9, { id: 1, r: 1.5, t: 0.3, i: 0 });
+    for (let i = 0; i < 9; i++) frame();
+    assert.equal(on(a).length, 2, 'until its shell lands');
+    w.simFx('bombard', 5.1, 9.9, { id: 1, r: 1.5 });
+    frame();
+    assert.equal(on(a).length, 0, 'its shell landed');
+    assert.equal(on(b).length, 2, 'the other lock waits for its own');
+    for (let i = 0; i < 160; i++) frame();
+    assert.equal(on(b).length, 0, 'a shell that never comes: gone 5 s after the last sign of her S3');
+  });
+
+  test('蕾缪安 S3: her knock-out drops the locks no shell took; a shell in the air keeps its lock', async () => {
+    const { w, view, frame, handles } = await setup();
+    const lem = view(1, 'char_4193_lemuen', 3);
+    const a = view(2, 'enemy_1', 5);
+    const b = view(3, 'enemy_1', 7);
+    frame();
+    w.skill(lem, true);
+    w.simFx('lock', 5, 10, { id: 2, src: 1, hold: 1 });
+    w.simFx('lock', 7, 10, { id: 3, src: 1, hold: 1 });
+    w.skill(lem, false);
+    w.simFx('bombardShell', 5, 10, { id: 1, r: 1.5, t: 0.3, i: 0 });
+    lem.alive = false;
+    frame();
+    const on = (v) => handles.filter((h) => CROSSHAIR.includes(h.key) && h.alive && h.opts.owner === v).length;
+    assert.equal(on(a), 2, 'its shell is in the air');
+    assert.equal(on(b), 0, 'no shell will come');
+  });
+
+  test('蕾缪安 S3: a tier switch clears the held locks (PR #862 review); a later lock starts afresh', async () => {
+    const { w, ofx, view, frame, handles } = await setup();
+    const lem = view(1, 'char_4193_lemuen', 3);
+    view(2, 'enemy_1', 5);
+    frame();
+    w.skill(lem, true);
+    w.simFx('lock', 5, 10, { id: 2, src: 1, hold: 1 });
+    frame();
+    const crosshairs = () => handles.filter((h) => CROSSHAIR.includes(h.key) && h.alive).length;
+    assert.equal(crosshairs(), 2);
+    ofx.tier = 'lite';
+    frame();
+    assert.equal(crosshairs(), 0, 'the switch stops them and forgets the locks');
+    assert.equal(w.skills.locks.length, 0);
+    w.simFx('lock', 5, 10, { id: 2, src: 1, hold: 1 });
+    frame();
+    assert.equal(crosshairs(), 2, 'a new lock after the switch shows');
+  });
+
   test('the table: owner fields, keys, the owner-less kinds, preloading', () => {
     const idx = makeIndex();
     assert.equal(FX_BINDINGS.skchr_tinman_1.zone.hold, 'fx');
     assert.equal(FX_BINDINGS.skchr_lemuen_3.lock.owner, 'src');
+    assert.equal(FX_BINDINGS.skchr_lemuen_3.lock.hold, 'lock');
     assert.deepEqual(bindingEffects(idx, FX_BINDINGS.skchr_pasngr_3.lightning), ['pasngr_skill_03_hit'], 'explicit keys');
     assert.deepEqual(BOUND_BY_SKILL.strike, ['skchr_reed2_2']);
-    assert.deepEqual(bindingKeys(idx, 'skchr_tinman_1').sort(), ['tinman_skill_01_range_01', 'tinman_skill_01_start_01', 'tinman_skill_01_token_01']);
+    // + the area's tick hit (`hits`, history §37.207): preloaded with the binding
+    assert.deepEqual(bindingKeys(idx, 'skchr_tinman_1').sort(), ['tinman_skill_01_hit_01', 'tinman_skill_01_range_01', 'tinman_skill_01_start_01', 'tinman_skill_01_token_01']);
     for (const kinds of Object.values(FX_BINDINGS)) for (const b of Object.values(kinds)) assert.ok(['id', 'src', 'skill'].includes(b.owner));
   });
 });

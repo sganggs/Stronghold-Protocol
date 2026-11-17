@@ -255,13 +255,14 @@ test('garrisonHooks widens a garrison to extra hooks ("<进入休整期时><休�
   const hooks = [];
   const id = 'chess_char_2_02_a';
   const g = DATA.garrisons[DATA.chess[id].garrisonIds.find((x) => DATA.garrisons[x].eventType === 'SERVER_PREP_START')];
-  reg.garrison(g.effectKey, { garrisonHooks: (gar) => (gar.garrisonId === g.garrisonId ? ['onRoundStart', 'onPrepEnd'] : null), run(ctx) { hooks.push(ctx.hook); } });
+  reg.garrison(g.effectKey, { garrisonHooks: (gar) => (gar.garrisonId === g.garrisonId ? ['onPrepStart', 'onPrepEnd'] : null), run(ctx) { hooks.push(ctx.hook); } });
   const { m, ps } = prepSolo({ seed: 912, registry: reg });
   give(m, ps, id, 'board', legalTileFor(m, ps, id));
-  m.dispatch(ps, 'onRoundStart', { round: 1 });
+  m.dispatch(ps, 'onRoundStart', { round: 1 });   // 「进入休整期时」 is the prep start (DESIGN §35.53): nothing here
+  m.dispatch(ps, 'onPrepStart', { round: 1 });
   m.dispatch(ps, 'onPrepEnd', { round: 1 });
   m.dispatch(ps, 'onRefresh', {});
-  assert.deepEqual(hooks, ['onRoundStart', 'onPrepEnd']);
+  assert.deepEqual(hooks, ['onPrepStart', 'onPrepEnd']);
   m.dispose();
 });
 

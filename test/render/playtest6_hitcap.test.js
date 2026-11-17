@@ -1,5 +1,5 @@
 // 限伤 on screen (docs/research/11-limits-official.md §2, DESIGN §20.12): a leader's hit of ≥ 300000 in a boss battle
-// is cancelled by the sim (server/sim/damage.js leaderHitCancelled), which emits ['fx', 'hitCap', x, y, { id, n }] and
+// is cancelled by the sim (server/sim/attack/health.js leaderHitCancelled), which emits ['fx', 'hitCap', x, y, { id, n }] and
 // no 'dmg' event. The official shows no number for it [ASSUMED]; the renderer draws nothing for the event.
 
 import { test } from 'node:test';

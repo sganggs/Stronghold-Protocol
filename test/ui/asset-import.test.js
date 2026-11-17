@@ -617,6 +617,16 @@ test('the worker answers only hashed asset GET, and its copy matches the module'
   assert.equal(await (await missPromise).text(), 'from-network');
   assert.equal(fetched.length, fetchedBeforeHit + 1);
   assert.equal(fetched.at(-1), miss.url);
+
+  // The page already asked Cache Storage. A cache-only probe must not be answered here, or the HTTP cache stays hidden.
+  const fetchedBeforeProbe = fetched.length;
+  for (const url of [`${origin}/assets/~0123456789abcdef/hit.png`, `${origin}/assets/plain.png`, `${origin}/media/bgm/a`]) {
+    const request = new Request(url, { cache: 'only-if-cached', mode: 'same-origin' });
+    let responded = null;
+    listeners.fetch({ request, respondWith(p) { responded = p; } });
+    assert.equal(responded, null, `cache-only probe is not answered by the worker: ${url}`);
+  }
+  assert.equal(fetched.length, fetchedBeforeProbe, 'a cache-only probe does not use the network');
 });
 
 test('site CSP keeps worker-src self and blob, and the sim worker policy does not gain the asset worker', () => {
@@ -697,6 +707,76 @@ test('the import index merges imports, seeds itself from the keys once, and neve
   assert.ok(!IMPORTED_ASSET_PATH.test(IMPORTED_INDEX_URL), 'the worker never answers the index');
   await cache.put(IMPORTED_INDEX_URL, new Response('not json'));
   assert.deepEqual([...await listImportedPaths(mem.caches)], ['/assets/~0123456789abcdef/old.png'], 'a broken index falls back to the keys (the one stored file)');
+});
+
+// A portable LockManager adapter for Node 22 too; the browser suite uses actual locks in separate pages.
+function indexLocks(t) {
+  const pending = new Map();
+  t.mock.getter(globalThis, 'navigator', () => ({ locks: {
+    request(name, callback) {
+      const next = (pending.get(name) || Promise.resolve()).then(callback);
+      pending.set(name, next.catch(() => {}));
+      return next;
+    },
+  } }));
+}
+
+test('overlapping imports keep both paths and pruning can remove both files', async (t) => {
+  indexLocks(t);
+  const mem = memoryCache();
+  const cache = await mem.caches.open(IMPORTED_ASSET_CACHE);
+  const a = '/assets/~1111111111111111/a.png', b = '/fonts/~2222222222222222/b.woff2';
+  await cache.put(a, new Response('A'));
+  await cache.put(b, new Response('B'));
+  await cache.put(IMPORTED_INDEX_URL, Response.json([]));
+  await Promise.all([addImportedPaths(cache, [a]), addImportedPaths(await mem.caches.open(IMPORTED_ASSET_CACHE), [b])]);
+  assert.equal(await countImportedFiles(mem.caches), 2);
+  assert.deepEqual([...await listImportedPaths(mem.caches)].sort(), [a, b]);
+  assert.deepEqual(await pruneImportedPaths(new Set(), mem.caches), { removed: 2, removedFiles: 2, kept: 0 });
+  assert.deepEqual(mem.assets(), []);
+});
+
+for (const order of ['add-first', 'prune-first']) {
+  test(`overlapping import and prune preserve the completed update (${order})`, async (t) => {
+    indexLocks(t);
+    const mem = memoryCache();
+    const cache = await mem.caches.open(IMPORTED_ASSET_CACHE);
+    const a = '/assets/~1111111111111111/a.png', stale = '/assets/~0000000000000000/old.png';
+    await cache.put(a, new Response('A'));
+    await cache.put(stale, new Response('old'));
+    await cache.put(IMPORTED_INDEX_URL, Response.json([stale]));
+    const add = () => addImportedPaths(cache, [a]);
+    const prune = () => pruneImportedPaths(new Set([a]), mem.caches);
+    await Promise.all(order === 'add-first' ? [add(), prune()] : [prune(), add()]);
+    assert.deepEqual([...await listImportedPaths(mem.caches)], [a]);
+    assert.deepEqual(mem.assets(), [a]);
+  });
+}
+
+test('a rejected index write releases the lock for the next import', async (t) => {
+  indexLocks(t);
+  const mem = memoryCache();
+  const cache = await mem.caches.open(IMPORTED_ASSET_CACHE);
+  const a = '/assets/~1111111111111111/a.png';
+  await cache.put(IMPORTED_INDEX_URL, Response.json([]));
+  const put = cache.put;
+  cache.put = async () => { throw new Error('quota'); };
+  await assert.rejects(addImportedPaths(cache, [a]), /quota/);
+  cache.put = put;
+  await addImportedPaths(cache, [a]);
+  assert.deepEqual([...await listImportedPaths(mem.caches)], [a]);
+});
+
+test('without Web Locks the existing sequential import and prune APIs still work', async (t) => {
+  t.mock.getter(globalThis, 'navigator', () => ({}));
+  const mem = memoryCache();
+  const cache = await mem.caches.open(IMPORTED_ASSET_CACHE);
+  const a = '/assets/~1111111111111111/a.png';
+  await cache.put(a, new Response('A'));
+  await addImportedPaths(cache, [a]);
+  assert.equal(await countImportedFiles(mem.caches), 1);
+  await pruneImportedPaths(new Set(), mem.caches);
+  assert.deepEqual(mem.assets(), []);
 });
 
 test('a zip File is read in slices, never whole: the same entries and bytes as from memory, and the import accepts it', async () => {

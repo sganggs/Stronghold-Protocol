@@ -1,0 +1,378 @@
+{
+ "_": "规程·序列Ⅰ (act3autochess V3_1) blackboard audit, round 67 (tools/bb-audit.mjs --data data/versions/act3autochess-v3_1 --json): the season mechanics no code handles yet. test/versions-bb-audit.test.js compares exactly; an entry leaves when its handler lands — regenerate the lists with the tool and keep this note.",
+ "findings": [
+  {
+   "table": "effects",
+   "key": "bondeffect_sargon",
+   "buff": "act1autochess_bond_eff_sargon",
+   "field": "invalid_in_band",
+   "nonNeutral": false
+  },
+  {
+   "table": "effects",
+   "key": "bondeffect_yan",
+   "buff": "act1autochess_bond_eff_yan",
+   "field": "atk",
+   "nonNeutral": true
+  },
+  {
+   "table": "effects",
+   "key": "bondeffect_yan",
+   "buff": "act1autochess_bond_eff_yan",
+   "field": "damage_resistance",
+   "nonNeutral": false
+  },
+  {
+   "table": "effects",
+   "key": "bondeffect_yan",
+   "buff": "act1autochess_bond_eff_yan",
+   "field": "ex_bond_char_cnt",
+   "nonNeutral": false
+  },
+  {
+   "table": "effects",
+   "key": "bondeffect_yan",
+   "buff": "act1autochess_bond_eff_yan",
+   "field": "power_bond_char_cnt",
+   "nonNeutral": true
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_eff_attrByBond|act1autochess_gar_eff_attrByBond",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "def",
+   "nonNeutral": true
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_eff_attrByBond|act1autochess_gar_eff_attrByBond",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "hp_recovery_per_sec",
+   "nonNeutral": false
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_useskill|act1autochess_gar_event_useskill",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "bond_add_count_multi",
+   "nonNeutral": false
+  },
+  {
+   "table": "garrisons",
+   "key": "act2autochess_gar_event_allyenemy_sleepstun_inrange|act2autochess_gar_event_allyenemy_sleepstun_inrange",
+   "buff": "char_dynamic_ability_new",
+   "field": "bond_id",
+   "nonNeutral": false
+  },
+  {
+   "table": "garrisons",
+   "key": "ADD_BOND|",
+   "buff": "give_garrison_to_front",
+   "field": "check_bond_id",
+   "nonNeutral": false
+  },
+  {
+   "table": "garrisons",
+   "key": "SERVER_GAIN_FREE_REFRESH_COUNT|",
+   "buff": "SERVER_GAIN_FREE_REFRESH_COUNT",
+   "field": "conditionkey",
+   "nonNeutral": false
+  }
+ ],
+ "missingBuffKeys": [
+  "act1autochess_band18_buff",
+  "act1autochess_band28_buff",
+  "act1autochess_equip_acarm057_global_buff",
+  "act1autochess_equip_acarm058_global_buff",
+  "act1autochess_equip_acarm060_global_buff",
+  "act1autochess_equip_acarm076_global_buff",
+  "act1autochess_equip_acarm077_global_buff",
+  "act1autochess_equip_acarm103_global_buff",
+  "act1autochess_gar_eff_attack_enemy",
+  "act1autochess_gar_eff_respawnTimeByBond",
+  "act1autochess_gar_event_addition_cnt",
+  "act1autochess_gar_event_consume_ammo",
+  "act1vautochess_equip_acarm025_global_buff",
+  "act1vautochess_equip_acarm037_global_buff",
+  "act2autochess_band12_buff",
+  "act2autochess_bond_eff_sargon[share]",
+  "act2autochess_equip_acarm078_global_buff",
+  "act2autochess_equip_acarm102_ability",
+  "act2autochess_equip_acarm117_global_buff",
+  "act2autochess_equip_acarm118_global_buff",
+  "act2autochess_equip_acarm119_ability",
+  "act2autochess_equip_acarm119_global_buff",
+  "act2autochess_equip_acarm122_global_buff",
+  "act2autochess_gar_eff_ab_damageScaleByBond",
+  "band_coin_cost_gain_random_char_by_shop_level",
+  "band_cost_coin_reach_cnt_gain_chess_from_pool",
+  "band_first_self_refresh_present_char",
+  "band_shop_refresh_copy_max_lv_char",
+  "bond_multi_layer_char_goods_price_bond_discount",
+  "char_chess_transformation_equip",
+  "equip_destory_deployment_cnt_change",
+  "equip_with_another_gain_coin_when_gain_char",
+  "first_buy_in_round_char_price_change",
+  "first_sell_char_chess_exchange_char_chess_in_shop",
+  "halfidle_block_fixed_damage",
+  "magic_penetrate_global_buff",
+  "preparation_start_add_special_goods_every_n_round",
+  "preparation_start_gain_chess_every_n_round",
+  "round_start_activate_char_chess_effect_in_board",
+  "round_start_bond_check_gain_layer",
+  "round_start_gain_char_chess_in_shop_every_n_round",
+  "round_start_gain_coin_by_bond_char_chess_buy",
+  "sell_char_count_gain_equip_owner_bond",
+  "SERVER_ADD_ACT_BOND_DIFF_LV_MOST_LAYER",
+  "SERVER_ADD_BOND_CHESS_ALL",
+  "SERVER_ADD_MULTIPLE_BOND",
+  "SERVER_FRONT_SAME_EFFECT_PREP_START",
+  "SERVER_GAIN_RANDOM_EQUIP_CHESS_IN_POOL",
+  "SERVER_ONCE_GOLD_WITH_BOND_CONDITION",
+  "trap_copy_front_char",
+  "trap_create_self_choice",
+  "trap_disney_special",
+  "up_shop_add_special_goods",
+  "up_shop_next_refresh_must_present_bond_char",
+  "use_equip_gain_coin_when_next_round_start",
+  "use_equip_recruit_new_char_and_give_char_to_player_most_bond",
+  "use_equip_reward_char_chess",
+  "use_equip_reward_char_chess_bond_layer",
+  "use_equip_reward_char_chess_with_same_bond",
+  "use_equip_reward_random_char_chess_in_shop",
+  "use_equip_reward_special_goods_char_chess"
+ ],
+ "versionOnlyKeys": [
+  {
+   "key": "无",
+   "records": [
+    {
+     "table": "garrisons",
+     "id": "garrison_103_a"
+    },
+    {
+     "table": "garrisons",
+     "id": "garrison_103_b"
+    }
+   ]
+  }
+ ],
+ "versionOnlyFields": [
+  {
+   "table": "effects",
+   "key": "enemyeffect_1",
+   "buff": "next_battle_add_enemy_win_gain_coin",
+   "field": "round"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_eff_attrByBond|act1autochess_gar_eff_attrByBond",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_eff_chaos|act1autochess_gar_eff_chaos",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_enemy_abflag_inrange|act1autochess_gar_event_enemy_abflag_inrange",
+   "buff": "char_dynamic_ability_new",
+   "field": "at_root"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_enemy_abflag_inrange|act1autochess_gar_event_enemy_abflag_inrange",
+   "buff": "char_dynamic_ability_new",
+   "field": "garrison_event_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_enemy_abflag_inrange|act1autochess_gar_event_enemy_abflag_inrange",
+   "buff": "char_dynamic_ability_new",
+   "field": "garrison_trigger_buff_garrison_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_enemy_abflag_inrange|act1autochess_gar_event_enemy_abflag_inrange",
+   "buff": "char_dynamic_ability_new",
+   "field": "garrison_trigger_buff_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_enemy_abflag_inrange|act1autochess_gar_event_enemy_abflag_inrange",
+   "buff": "char_dynamic_ability_new",
+   "field": "garrison_type"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_selfdead|act1autochess_gar_event_selfdead",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_event_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_selfdead|act1autochess_gar_event_selfdead",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_selfdead|act1autochess_gar_event_selfdead",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_trigger_buff_garrison_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_selfdead|act1autochess_gar_event_selfdead",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_trigger_buff_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_selfdead|act1autochess_gar_event_selfdead",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_type"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_selfdead|act1autochess_gar_event_selfdead",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "max_add_count_per_battle"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_selfkillenemy|act1autochess_gar_event_selfkillenemy",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_event_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_selfkillenemy|act1autochess_gar_event_selfkillenemy",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_type"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_useskill|act1autochess_gar_event_useskill",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_event_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_useskill|act1autochess_gar_event_useskill",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_trigger_buff_garrison_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_useskill|act1autochess_gar_event_useskill",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_trigger_buff_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act1autochess_gar_event_useskill|act1autochess_gar_event_useskill",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_type"
+  },
+  {
+   "table": "garrisons",
+   "key": "act2autochess_gar_eff_attrByBond_add_onstart|act2autochess_gar_eff_attrByBond_add_onstart",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act2autochess_gar_event_allyenemy_sleepstun_inrange|act2autochess_gar_event_allyenemy_sleepstun_inrange",
+   "buff": "char_dynamic_ability_new",
+   "field": "bond_range_id"
+  },
+  {
+   "table": "garrisons",
+   "key": "act2autochess_gar_event_allyenemy_sleepstun_inrange|act2autochess_gar_event_allyenemy_sleepstun_inrange",
+   "buff": "char_dynamic_ability_new",
+   "field": "garrison_event_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act2autochess_gar_event_allyenemy_sleepstun_inrange|act2autochess_gar_event_allyenemy_sleepstun_inrange",
+   "buff": "char_dynamic_ability_new",
+   "field": "garrison_type"
+  },
+  {
+   "table": "garrisons",
+   "key": "act2autochess_gar_event_allyenemy_sleepstun_inrange|act2autochess_gar_event_allyenemy_sleepstun_inrange",
+   "buff": "char_dynamic_ability_new",
+   "field": "range_id"
+  },
+  {
+   "table": "garrisons",
+   "key": "act2autochess_gar_event_onstart|act2autochess_gar_event_onstart",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_event_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act2autochess_gar_event_onstart|act2autochess_gar_event_onstart",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_trigger_buff_garrison_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act2autochess_gar_event_onstart|act2autochess_gar_event_onstart",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_trigger_buff_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "act2autochess_gar_event_onstart|act2autochess_gar_event_onstart",
+   "buff": "env_gbuff_new_with_verify",
+   "field": "garrison_type"
+  },
+  {
+   "table": "garrisons",
+   "key": "ADD_BOND|",
+   "buff": "give_garrison_to_all",
+   "field": "garrison_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "ADD_BOND|",
+   "buff": "give_garrison_to_front",
+   "field": "garrison_executed_on_start"
+  },
+  {
+   "table": "garrisons",
+   "key": "ADD_BOND|",
+   "buff": "give_garrison_to_front",
+   "field": "garrison_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "GAIN_BUFF|",
+   "buff": "char_attribute_mul",
+   "field": "garrison_key"
+  },
+  {
+   "table": "garrisons",
+   "key": "SERVER_ADD_BOND_METHOD|",
+   "buff": "SERVER_ADD_BOND_METHOD",
+   "field": "max"
+  },
+  {
+   "table": "garrisons",
+   "key": "SERVER_ADD_BOND_ROUND_COIN_COST|",
+   "buff": "SERVER_ADD_BOND_ROUND_COIN_COST",
+   "field": "max"
+  },
+  {
+   "table": "garrisons",
+   "key": "SERVER_FRONT_SAME_EFFECT_PREP_FIN|",
+   "buff": "SERVER_FRONT_SAME_EFFECT_PREP_FIN",
+   "field": "conditionkey"
+  }
+ ]
+}

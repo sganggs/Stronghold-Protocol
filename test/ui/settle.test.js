@@ -1,12 +1,13 @@
 // The settlement flow's own facts (screens/settle.js): the level settlement against the official 60 levels of
 // cumulative 卫戍认证 (config.rewards.milestones, act2autochess milestoneList) and the 每日防卫目标 bonus
 // (config.rewards.daily, dailyMission*), counted from this device's records — official settled matches only — plus the
-// small helpers of the cards (elite level by tier, the ace, time and date). The pages themselves: test/ui/mock.e2e.test.js.
+// small helpers of the cards (the record's promotion status, the ace, time and date). The pages themselves: test/ui/mock.e2e.test.js.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { equippedLineup } from '../../public/dev/settle-fixture.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 globalThis.fetch = async (url) => {
@@ -20,6 +21,8 @@ globalThis.fetch = async (url) => {
 };
 
 const S = await import('../../public/js/screens/settle.js');
+const { data } = await import('../../public/js/data.js');
+await data.loadAll('chess', 'items', 'assets');
 const REWARDS = JSON.parse(readFileSync(path.join(ROOT, 'data/config.json'), 'utf8')).rewards;
 const MS = REWARDS.milestones;
 const DAILY = REWARDS.daily;
@@ -112,11 +115,13 @@ test('levelProgress without the data\'s rewards: the rewards only, no daily goal
   assert.deepEqual([p.before, p.after, p.bonus, p.daily], [30, 40, 0, null]);
 });
 
-test('the card helpers: elite level by tier, the ace, time and date, a row\'s own outcome', () => {
-  assert.deepEqual(S.opLevel(1, false), { phase: 1, level: 55 });
-  assert.deepEqual(S.opLevel(2, true), { phase: 2, level: 55 });
-  assert.deepEqual(S.opLevel(5, false), { phase: 2, level: 1 });
-  assert.deepEqual(S.opLevel(6, true), { phase: 2, level: 60 });
+test('the card helpers: actual promotion status, the ace, time and date, a row\'s own outcome', () => {
+  for (const [id, status] of [
+    ['chess_char_1_01_a', { phase: 1, level: 55 }], ['chess_char_2_01_b', { phase: 2, level: 55 }],
+    ['chess_char_5_01_a', { phase: 2, level: 1 }], ['chess_char_6_01_b', { phase: 2, level: 60 }],
+  ]) assert.deepEqual(S.opLevel(data.lookup('chess', id)), status);
+  assert.deepEqual(S.opLevel({ tier: 1, isGolden: true, status: { phase: 0, level: 30 } }), { phase: 0, level: 30 });
+  assert.deepEqual(S.opLevel(null), { phase: undefined, level: '—' }, 'a missing record invents no status');
   const lineup = [{ id: 'a', tier: 4 }, { id: 'b', tier: 5 }, { id: 'c', tier: 5, golden: true }, { id: 't', tier: 6, kind: 'token' }];
   assert.equal(S.aceOf(lineup).id, 'c', 'the highest tier, elite first; a token never');
   assert.equal(S.aceOf([]), null);
@@ -139,4 +144,61 @@ test('the stylesheet keeps to the project\'s rules', () => {
   const js = readFileSync(path.join(ROOT, 'public/js/screens/settle.js'), 'utf8');
   assert.equal(js.match(/data-ui-slot="result\.tab"/g)?.length, 1, 'one 结算 tab plugin slot (the team page); the detail view drops its own');
   assert.match(js, /slot=\$\{false\}/);
+});
+
+test('#745: translated titles fit both dimensions without enlarging a short title', () => {
+  assert.equal(S.titleScale(780, 104, 360, 104), 1);
+  assert.equal(S.titleScale(780, 104, 1200, 104), .65);
+  assert.equal(S.titleScale(280, 90, 840, 90), 1 / 3);
+  assert.equal(S.titleScale(280, 90, 280, 180), .5, 'enlarged text also stays within the height');
+  assert.equal(S.titleScale(280, 90, 0, 0), 1, 'an empty label never produces Infinity');
+});
+
+test('#745: official buttons supply decoration only through the missing/failed Sprite fallback', () => {
+  for (const ghost of [false, true]) {
+    const v = S.SettleButtonArt({ ghost });
+    assert.equal(v.type.name, 'Sprite');
+    assert.equal(v.props.k, ghost ? 'settle/btn_bg_02' : 'settle/btn_next_bg');
+    assert.equal(v.props.fallback.type, 'span');
+    assert.equal(v.props.fallback.props.class, `settle__btnbg settle__btnbg--${ghost ? 'ghost' : 'primary'}`);
+    assert.equal(v.props.children, undefined, 'the decoration is not an always-visible sibling');
+  }
+});
+
+function* walk(v) {
+  if (Array.isArray(v)) { for (const c of v) yield* walk(c); return; }
+  if (!v || typeof v !== 'object') return;
+  yield v;
+  yield* walk(v.props?.children);
+}
+
+test('#745: equipped settlement rows render two bounded slots, with two/one/no item images', () => {
+  const gd = { m: data.get('assets'), chess: (id) => data.lookup('chess', id) };
+  equippedLineup().forEach((u, i) => {
+    const slots = [...walk(S.OpCard({ u, gd, i }))].filter((v) => v.type === 'i');
+    assert.equal(slots.length, 2);
+    assert.equal(slots.filter((v) => v.props.class.includes('has-item')).length, 2 - i);
+    for (const slot of slots.filter((v) => v.props.class.includes('has-item'))) {
+      assert.ok(slot.props.children.props.src, 'an equipped item resolves its real icon');
+    }
+  });
+  const css = readFileSync(path.join(ROOT, 'public/css/screens/settle.css'), 'utf8');
+  assert.match(css, /\.sop__slot \{[^}]*min-width: 0;[^}]*min-height: 0;[^}]*minmax\(0, 1fr\)/);
+  assert.match(css, /\.sop__slot img \{[^}]*max-width: 100%;[^}]*max-height: 100%;[^}]*object-fit: contain/);
+});
+
+test('the mode tag names 规程\'s solo ladder like the official settlement (规程等级20), other modes by difficulty', async () => {
+  await data.loadAll('config');
+  const regulation = JSON.parse(readFileSync(path.join(ROOT, 'data/versions/act3autochess-v3_1/config.json'), 'utf8'));
+  assert.equal(S.modePillName({ difficulty: 'ABYSS', modeId: 'mode_multi_abyss' }), '终极模拟');
+  assert.equal(S.modePillName({ difficulty: 'HARD' }), '绝境模拟');
+  data.setView('config', () => regulation);
+  try {
+    assert.equal(S.modePillName({ difficulty: 'ABYSS', modeId: 'mode_single_20' }), '规程等级20');
+    assert.equal(S.modePillName({ difficulty: 'FAST', modeId: 'mode_single_funny' }), '极速模拟');
+    assert.equal(S.modePillName({ difficulty: 'ABYSS', modeId: 'mode_multi_abyss' }), '终极模拟');
+    assert.equal(S.modePillName({ difficulty: null, modeId: 'mode_single_20' }), '');
+  } finally {
+    data.setView('config', null);
+  }
 });

@@ -1,5 +1,5 @@
 // test/sim/feedback5-o8-engine.test.js — two additive engine rules the 0.2.0 自选 kits of 夜莺 and 嵯峨 need:
-// - a 屏障 of one damage type (buff `shieldType`, damage.js absorbShields): 夜莺 S2 法术护盾 "能吸收…法术伤害"; a shield
+// - a 屏障 of one damage type (buff `shieldType`, attack/effects.js injuryEffects): 夜莺 S2 法术护盾 "能吸收…法术伤害"; a shield
 //   without a type absorbs every type (PRTS 术语释义 屏障 "若无特殊说明，屏障可吸收全种类伤害"); older shields first;
 // - a profile's own target exclusion (`skipEnemy(e)`, targeting.js canTargetEnemy): 嵯峨 "不攻击重伤单位" — no normal
 //   attack on such an enemy, not as a block target, and the DEFAULT trigger condition ignores it.

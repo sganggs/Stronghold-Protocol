@@ -42,11 +42,11 @@
 //   attack@value HP every second (FixedValueDamage that skips the damage events: a 流失 here [ASSUMED: it may knock him out —
 //   no floor is named]); every damage he outputs on an enemy, and every damage an enemy deals him, marks that enemy if it is
 //   not 无敌 (one hodrer_s_3[burn] per enemy and 赫德雷, PRTS 备注 "仅判定本次技能期间满足条件的非无敌敌方单位…不可叠加"): from
-//   then on it takes attack@damage 无来源 true damage (NoSourceDamage PURE: damage.js periodicDamage, credited to him) every
+//   then on it takes attack@damage 无来源 true damage (NoSourceDamage PURE: attack.js periodicDamage, credited to him) every
 //   second of its own (triggerInterval 1 s from its mark) until the skill ends (a derived buff of the skill's).
 
 import { num, talentBb, talentGrid, moduleBb, traitBb, skillRec, statBuff, up, batMod, alliesInGridOf, holdProtect } from '../shared/tier1.js';
-import { periodicDamage } from '../../../damage.js';
+import { periodicDamage } from '../../../attack.js';
 
 const S1 = 'skchr_hodrer_1';
 const S2 = 'skchr_hodrer_2';

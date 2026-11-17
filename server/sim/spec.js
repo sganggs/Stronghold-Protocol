@@ -42,6 +42,7 @@ import { toDataSource, withUnitLoadouts } from './simdata.js';
 import { isPotential, isCultivate } from '../../shared/potential.js';
 import { isContentHash } from '../../shared/plugins/identity.js';
 import { BOSS_POOL_MIN_HP } from './constants.js';
+import { DEFAULT_VERSION, versionById, versionOfData } from '../../shared/versions.js';
 
 export const SPEC_VERSION = 1;
 
@@ -62,6 +63,7 @@ const specReplacer = (k, v) => (typeof v === 'number' && !Number.isFinite(v) ? (
  * @returns {object} a fresh JSON-safe object
  */
 export function buildBattleSpec(o = {}) {
+  if (o.version != null && !versionById(o.version)) throw new RangeError(`Unknown battle version ${o.version}`);
   const bossLike = o.kind === 'boss' || o.kind === 'hidden';
   const tl = Number(o.timeLimit);
   const spec = {
@@ -89,6 +91,7 @@ export function buildBattleSpec(o = {}) {
     // the content set the battle runs on and the art it was drawn with (header): not read by the sim
     ...(isContentHash(o.cs) ? { cs: o.cs } : {}),
     ...(isContentHash(o.vs) ? { vs: o.vs } : {}),
+    ...(o.version && o.version !== DEFAULT_VERSION ? { version: o.version } : {}),
     // morphPairing plus only. An official spec grows no key (identity and extra-field tests).
     ...(o.morphPairing === 'plus' ? { morphPairing: 'plus' } : {}),
   };
@@ -144,11 +147,14 @@ export { withUnitLoadouts };
  * @param {object} spec BattleSpec
  * @param {any} dataSource DataSource (or raw data maps; default: the sim's default source)
  * @param {{ sharedBoss?: object|null, BattleClass?: Function, logger?: object, recordEvents?: boolean, quiet?: boolean,
- *           content?: string }} [opts]
+ *           content?: string, resourceNumbers?: boolean }} [opts]
  */
 export function createBattleFromSpec(spec, dataSource, opts = {}) {
   if (!spec || typeof spec !== 'object') throw new TypeError('createBattleFromSpec: spec required');
   const s = jsonClone(spec);
+  if (s.version != null && (!versionById(s.version) || versionOfData(toDataSource(dataSource).raw) !== s.version)) {
+    throw new RangeError(`Battle version ${s.version} does not match loaded data`);
+  }
   const bossLike = s.kind === 'boss' || s.kind === 'hidden';
   let sharedBoss = opts.sharedBoss ?? null;
   if (!sharedBoss && bossLike && s.boss) sharedBoss = new LocalBossPool(s.boss.poolMax, s.boss.poolHp);
@@ -177,6 +183,7 @@ export function createBattleFromSpec(spec, dataSource, opts = {}) {
   if (opts.logger) battleOpts.logger = opts.logger;
   if (opts.recordEvents === false) battleOpts.recordEvents = false;
   if (opts.quiet) battleOpts.quiet = true;
+  if (opts.resourceNumbers) battleOpts.resourceNumbers = true;
   const b = new BattleClass(battleOpts);
   b.battleId = s.battleId ?? null;
   return b;
@@ -355,7 +362,7 @@ export function resultDigest(result) {
   const players = Object.keys(per).sort().map((pid) => {
     const p = per[pid] || {};
     const lg = p.layerGains && typeof p.layerGains === 'object' ? p.layerGains : {};
-    return [
+    const row = [
       pid,
       p.killed | 0, p.total | 0, !!p.perfect, r4(p.coins),
       Object.keys(lg).sort().map((k) => [k, r4(lg[k])]),
@@ -365,7 +372,12 @@ export function resultDigest(result) {
       (Array.isArray(p.leaked) ? p.leaked : []).map((l) => `${l && l.enemyKey}|${l && l.counted === false ? 0 : 1}|${l && l.uniteRuntime ? 'x' : ''}|${(l && l.sourcePlayerId) || ''}|${modsKey(l && l.mods)}`).sort(),
       Math.round(Number(p.damageDealt) || 0), Math.round(Number(p.bossDamage) || 0),
       (Array.isArray(p.unitsEnd) ? p.unitsEnd : []).map((u) => [u && u.uid, r4(u && u.hpPct), r4(u && u.sp), !!(u && u.alive)]),
+      ...(p.commandChests ? [p.commandChests.map(c => [c.id, c.alive])] : []),
     ];
+    // Optional. A result with no temporary layers keeps the same tuple length as before 规程.
+    const tg = p.tempLayerGains && typeof p.tempLayerGains === 'object' ? p.tempLayerGains : null;
+    if (tg && Object.keys(tg).length) row.push(Object.keys(tg).sort().map((k) => [k, r4(tg[k])]));
+    return row;
   });
   const json = JSON.stringify([res.reason ?? null, r4(res.time), res.killed | 0, res.total | 0, players]);
   let h = 2166136261;
@@ -437,9 +449,17 @@ export function compactResult(res) {
         taken: Math.max(0, Math.round(fnum(u.taken))), attacks: Math.max(0, Math.trunc(fnum(u.attacks))),
       })),
     };
+    if (Array.isArray(p.commandChests)) perPlayer[pid].commandChests = p.commandChests.slice(0, 64)
+      .filter(c => c && Number.isInteger(c.id) && c.id > 0 && typeof c.alive === 'boolean').map(c => ({ id: c.id, alive: c.alive }));
     // the HUD capsule's numerator (or absent for a result that has none: the teammate UI falls back to `killed`)
     const resolved = Number.isFinite(p.resolved) ? Math.max(0, Math.min(total, Math.trunc(p.resolved))) : null;
     if (resolved != null) perPlayer[pid].resolved = resolved;
+    // 规程 temporary layers. Omitted when empty so a default result stays the same shape.
+    const tempLayerGains = {};
+    for (const [k, v] of Object.entries(p.tempLayerGains || {}).slice(0, 40)) {
+      if (isKey(k) && fnum(v) > 0) tempLayerGains[k] = Math.min(1e4, Math.floor(fnum(v)));
+    }
+    if (Object.keys(tempLayerGains).length) perPlayer[pid].tempLayerGains = tempLayerGains;
   }
   const out = {
     reason: ['cleared', 'timeout', 'forced'].includes(r.reason) ? r.reason : 'forced',

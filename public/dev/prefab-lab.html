@@ -1,0 +1,32 @@
+<!doctype html>
+<!--
+  Official theme prefab lab (visual QA for js/ui/prefab/): /dev/prefab-lab.html?theme=ac_s_closur[&scale=1.44][&only=group_hud]
+  Draws every prefab of an installed official theme pack (themes/<id>/prefabs.json, tools/local-extract) with a status
+  picker for each status driver. Needs the local theme packs; shows a note without them.
+-->
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Prefab lab · 卫戍协议：盟约</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="/fonts/fonts.css" />
+  <link rel="stylesheet" href="/css/theme.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+  <link rel="stylesheet" href="/css/screens/game-reghud.css" />
+  <style>
+    body { margin: 0; background: #2a2f33; color: #ddd; font: 14px/1.4 var(--font-cjk); }
+    .lab { padding: 16px; display: flex; flex-direction: column; gap: 18px; }
+    .lab__row { display: flex; flex-direction: column; gap: 6px; padding: 10px; background: #1d2124; border-radius: 6px; }
+    .lab__head { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; font-size: 13px; }
+    .lab__head b { color: #fff; }
+    .lab__stage { padding: 12px; background: repeating-conic-gradient(#3a3f43 0 25%, #33383c 0 50%) 0 0 / 24px 24px; overflow: auto; }
+    .lab__stage .pf { outline: 1px dashed rgba(255, 255, 255, .25); }
+    select, input { font: inherit; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script type="module" src="/dev/prefab-lab.js"></script>
+</body>
+</html>

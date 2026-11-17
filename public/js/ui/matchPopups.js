@@ -21,6 +21,7 @@ import { CoinGlyph, Sprite } from './gameComponents.js';
 import { uiUrl } from './assetUrls.js';
 import { data } from '../data.js';
 import { t } from '../../../shared/i18n.js';
+import { RegRoundStart } from './prefab/banners.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -128,13 +129,21 @@ function RoundsLeft({ n }) {
 
 /**
  * The round-start plate.
- * @param {{ round: number, gain?: number|null, left?: number|null, sub?: any, watching?: boolean, onDone?: Function }} props
+ * @param {{ round: number, gain?: number|null, left?: number|null, sub?: any, watching?: boolean, onDone?: Function,
+ *   pf?: { pack: any, still?: boolean, spine?: any } | null }} props
+ *   pf: 规程's official pack (乌萨斯齐心团 / 可露希尔) — its own round_start banner instead of this plate
  *   gain: the funds this round start paid (null = not known: the icon without a number)
  *   left: rounds before the final assault (roundsToBoss) — the red strip on top
  *   watching: an eliminated player or a spectator seat — no 获得 cell, `sub` (phaseBanner's 观战中) under the plate
  */
-export function RoundPopup({ round, gain = null, left = null, sub = null, watching = false, onDone }) {
+export function RoundPopup({ round, gain = null, left = null, sub = null, watching = false, onDone, pf = null }) {
   const leaving = useTimedLeave(ROUND_POPUP_MS, onDone);
+  // 规程 with 乌萨斯齐心团 / 可露希尔: the pack's round_start banner (ui/prefab/banners.js) on the same clock — its out
+  // clip fits the plate's fold (LEAVE_MS) — not for a watcher with 观战中 under the plate
+  if (pf?.pack && !(watching && sub)) {
+    return html`<${RegRoundStart} pack=${pf.pack} round=${round} gain=${gain} left=${left} watching=${watching} leave=${leaving}
+      outMs=${LEAVE_MS} still=${!!pf.still} spine=${pf.spine || null} />`;
+  }
   const n = !watching && Number.isFinite(gain) && gain > 0 ? Math.trunc(gain) : null;
   const fm = frameMask();
   return html`<div class=${cx('mpop', 'mpop--round', fm.cls, leaving && 'is-leaving')} style=${fm.style} role="status" aria-live="polite"
@@ -172,7 +181,7 @@ export function PhasePopup({ tone = 'mint', faces = false, title, sub = null, ch
   const leaving = useTimedLeave(duration, onDone);
   const fm = frameMask();
   return html`<div class=${cx('mpop', 'mpop--phase', `mpop--${tone}`, fm.cls, chev && 'has-chev', leaving && 'is-leaving')} style=${fm.style} role="status" aria-live="polite"
-      data-testid="phase-popup">
+      data-testid="phase-popup" data-banner="coop">
     <${Panel}>
       <${PopArt} faces=${faces} />
       <div class="mpop__text">

@@ -261,6 +261,45 @@ test('缇缇 S2 封护: no attacks; she and the lowest-HP op in range sleep (inv
   }
 });
 
+test('缇缇 S2 封护: the lowest HP ratio first; an equal ratio goes to the latest-deployed op (maintainer 2026-10-29)', () => {
+  // 生命比例 is compared as a ratio; a tie goes to the last deployment (as 引星棘刺 S1's 「生命比例最低>最晚部署」), and the
+  // ratio still outranks the deployment order — the same board, only the HP moved.
+  const battle = (id, earlyRatio, lateRatio, before = null) => {
+    const h = run({
+      defs: { enemies: { enemy_dummy: dummy('enemy_dummy') }, chess: { t_early: ally('t_early'), t_late: ally('t_late') } },
+      units: [entry(id, 'skchr_titi_2', { row: 10, col: 4 }), { chessId: 't_early', row: 11, col: 6 }, { chessId: 't_late', row: 10, col: 6 }],
+      enemies: [{ key: 'enemy_dummy', pos: [10, 7] }],
+    });
+    const u = sel(h, id, 'skchr_titi_2');
+    const first = h.unit('t_early'), last = h.unit('t_late');
+    h.step();
+    assert.ok(first.deploySeq < last.deploySeq, 't_late is the later deployment');
+    if (before) before(h, first);
+    first.hp = first.s.maxHp * earlyRatio;
+    last.hp = last.s.maxHp * lateRatio;
+    cast(h, u);
+    assert.ok(u.findBuff('titi:ward') && u.s.flags.sleep, 'she sleeps');
+    return { h, first, last };
+  };
+  for (const id of pair('02')) {
+    const tied = battle(id, 0.5, 0.5);
+    assert.ok(tied.last.findBuff('titi:ward') && tied.last.s.flags.sleep, 'the latest-deployed op takes the tie');
+    assert.ok(!tied.first.findBuff('titi:ward'), 'the earlier deployment stays awake');
+    done(tied.h);
+    // the creation order never decides: the earlier-created op redeployed in place (a 【移动】 onto its own tile) is now
+    // the latest deployment and takes the tie (PR #907 follow-up)
+    const moved = battle(id, 0.5, 0.5, (h, first) => assert.ok(h.b.moveRedeploy(first, first.tileR, first.tileC)));
+    assert.ok(moved.first.deploySeq > moved.last.deploySeq);
+    assert.ok(moved.first.findBuff('titi:ward'), 'a later redeployment of the earlier-created op takes the tie');
+    assert.ok(!moved.last.findBuff('titi:ward'));
+    done(moved.h);
+    const lower = battle(id, 0.3, 0.6);
+    assert.ok(lower.first.findBuff('titi:ward'), 'a lower ratio outranks the deployment order');
+    assert.ok(!lower.last.findBuff('titi:ward'));
+    done(lower.h);
+  }
+});
+
 // =================================================================================================================
 // 烛煌
 
@@ -454,6 +493,9 @@ test('隐德来希 S2 绯红壁合: every 血镰 cut heals the 收割者 trait (
     u.hp = u.s.maxHp * 0.4; // wounded (and above 重盈's 25 %), so every heal shows
     const hp0 = u.hp, t0 = h.b.time;
     h.run(3);
+    h.b.addBuff(u, { key: 'test:stop-attacks', flags: { disarm: true } });
+    u.skill.end('test');
+    h.run(0.3); // Drain the final accepted heal batch; do not truncate it at a pulse boundary.
     const cuts = tagged(h, u, 'bloodSickle').filter((c) => c.t > t0 + 1e-9);
     const healed = heals(h, u, (c) => c.target === u && c.t > t0 + 1e-9);
     assert.ok(cuts.length >= 5, `${cuts.length} cuts`);
@@ -476,6 +518,9 @@ test('隐德来希 S2 绯红壁合: the 收割者 heal is capped by the block co
   u.hp = u.s.maxHp * 0.4;
   const hp0 = u.hp, t0 = h.b.time;
   h.run(3);
+  h.b.addBuff(u, { key: 'test:stop-attacks', flags: { disarm: true } });
+  u.skill.end('test');
+  h.run(0.3); // Drain the final accepted heal batch.
   const cuts = tagged(h, u, 'bloodSickle').filter((c) => c.t > t0 + 1e-9);
   const healed = heals(h, u, (c) => c.target === u && c.t > t0 + 1e-9);
   const ticks = cuts.length / 3; // three enemies stand in the sickle's ring
@@ -1006,6 +1051,27 @@ test('凛御银灰 S3 变革已至: skill range, line attacks bird_atk_scale × 
     h.run(60);
     cast(h, u);
     assert.deepEqual([hi.base.cost, lo.base.cost], [6, 30], 'first activation only');
+    done(h);
+  }
+});
+
+test('凛御银灰 S3 变革已至: a wave of flyers alone fires it — the skill range covers air, his normal attacks do not', () => {
+  // PRTS 备注 可对空: S3's range takes air although the operator is a melee PIONEER (data canHitFly false). The data's
+  // ACTIVE_RANGE condition is asked with the unit's own profile, so before the kit registered its grid as a content
+  // trigger range an air-only wave left the skill ready and closed for the whole battle (reported playtest).
+  for (const id of pair('14')) {
+    const h = run({
+      defs: { enemies: { enemy_air: dummy('enemy_air', { motion: 'FLY' }) } },
+      units: [entry(id, 'skchr_svash2_3', { row: 10, col: 3 })],
+      enemies: [{ key: 'enemy_air', pos: [10, 4] }], flags: { dpPerSec: 0 },
+    });
+    const u = sel(h, id, 'skchr_svash2_3');
+    const e = h.b.enemies[0];
+    assert.equal(u.skill.rule, 'ACTIVE_RANGE');
+    assert.equal(u.profile.canHitFly, false, 'a melee PIONEER: his own attacks stay ground-only');
+    assert.ok(e.isFlying, 'the only enemy on the field is a flyer');
+    cast(h, u);   // full SP: the skill must open on its own, with no attack to trigger it
+    assert.ok(h.runUntil(() => dealt(h, u, (c) => c.dmg.isAttack && c.target === e).length > 0, 5), `${id}: the flyer in the skill range is hit`);
     done(h);
   }
 });

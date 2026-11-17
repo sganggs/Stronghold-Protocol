@@ -1,10 +1,12 @@
 // C1 immutable content compositions (DESIGN §32.5). HTTP and room ownership are handled by contentSets.js and roomSets.js.
 import fs from 'node:fs';
 import path from 'node:path';
-import { ROOT, DATA_DIR, deepFreeze } from '../data.js';
+import { ROOT, DATA_DIR, deepFreeze, versionDataDir, getData } from '../data.js';
 import { DATA_SHIM_JS } from '../http/static.js';
-import { computeVanillaContent, gameplayDataFiles, nodeSha256 } from './identity.js';
+import { computeVanillaContent, versionContentOf, contentIndexOf, gameplayDataFiles, nodeSha256 } from './identity.js';
 import { contentHashOf, canonicalJson, csUrlPart } from '../../shared/plugins/identity.js';
+import { DEFAULT_VERSION, versionById } from '../../shared/versions.js';
+import { pluginSupportsVersion } from '../../shared/plugins/manifest.js';
 import { manifestTextWithoutNotices } from '../../shared/plugins/notices.js';
 import { resolvePluginOrder } from '../../shared/plugins/order.js';
 import { applyPatches, normalizeSettings } from '../../shared/plugins/patch.js';
@@ -16,7 +18,7 @@ import { buildRecordOverlay, walkOverlay, getPath, applyRecordOverlay } from '..
 import { computeGroundPaths, computeDeployTiles } from '../sim/groundPaths.js';
 import { officialKit } from '../sim/content/index.js';
 import { KITTED_CHARS } from '../sim/content/kits/index.js';
-import { exportOfficialBounds, rememberOfficialBounds } from '../../shared/plugins/officialBounds.js';
+import { officialBoundsOf, rememberOfficialBounds } from '../../shared/plugins/officialBounds.js';
 import { browserScriptSources } from '../../shared/plugins/scriptLoad.js';
 import { preflightScripts } from './scriptPreflight.js';
 import { bossCentreWarnings } from './stageWarnings.js';
@@ -25,11 +27,18 @@ import { composeRules } from '../../shared/plugins/rules.js';
 import { offerReferenceProblems } from './offerData.js';
 
 const bases = new WeakMap(), buffers = new WeakMap(), caches = new WeakMap();
-function baseFor(registry) {
-  if (bases.has(registry)) return bases.get(registry);
+function baseFor(registry, version = DEFAULT_VERSION) {
+  const cached = bases.get(registry) ?? new Map();
+  if (cached.has(version)) return cached.get(version);
+  if (!versionById(version)) throw new Error(`unknown official version: ${version}`);
   const dirs = registry.contentDirs ?? {};
-  const dataDir = dirs.dataDir ?? DATA_DIR;
-  const identity = computeVanillaContent({ dataDir, simDir: dirs.simDir ?? path.join(ROOT, 'server/sim'), sharedDir: dirs.sharedDir ?? path.join(ROOT, 'shared'), shim: DATA_SHIM_JS });
+  const rootDir = dirs.dataDir ?? DATA_DIR;
+  const dataDir = versionDataDir(version, rootDir);
+  const vanilla = computeVanillaContent({ dataDir: rootDir, simDir: dirs.simDir ?? path.join(ROOT, 'server/sim'), sharedDir: dirs.sharedDir ?? path.join(ROOT, 'shared'), shim: DATA_SHIM_JS });
+  const dataUrl = version === DEFAULT_VERSION ? '/data/' : `/data/${versionById(version).dir}`;
+  const identity = version === DEFAULT_VERSION ? vanilla : versionContentOf({ vanilla, dataDir, dataUrl, version });
+  if (!identity) throw new Error(`no data for official version: ${version}`);
+  if (version !== DEFAULT_VERSION) identity.index = contentIndexOf(identity, { dataUrl, version });
   const data = {}, files = new Map();
   for (const f of gameplayDataFiles(dataDir)) {
     const body = fs.readFileSync(f.abs);
@@ -43,8 +52,9 @@ function baseFor(registry) {
     i18n[file.slice(0, -5)] = JSON.parse(body.toString('utf8'));
     files.set(`i18n/${file}`, body);
   }
-  const base = { identity, data: deepFreeze(data), files, i18n };
-  bases.set(registry, base);
+  const base = { identity, data: deepFreeze(data), files, i18n, dataUrl };
+  cached.set(version, base);
+  bases.set(registry, cached);
   return base;
 }
 const maps = data => ({ ...Object.fromEntries(Object.keys(RECORD_MAPS).map(k => [k, data[k]])),
@@ -208,10 +218,10 @@ function wavesUsedByMode(mode) {
 }
 
 /** C1. ids accepts ids or {id, settings}; failures return only {problems}, never a usable cs/data. */
-function composeContentSet({ registry, ids = [], checkDataOnly = false }) {
+function composeContentSet({ registry, ids = [], checkDataOnly = false, version = DEFAULT_VERSION }) {
   if (!registry || !Array.isArray(ids)) return { problems: [problem('PLUGIN_CONTENT_FORMAT', 'ids', 'registry and plugin ids required')] };
   let base;
-  try { base = baseFor(registry); } catch (e) { return { problems: [problem('PLUGIN_CONTENT_FILE', 'data', e.message)] }; }
+  try { base = baseFor(registry, version); } catch (e) { return { problems: [problem('PLUGIN_CONTENT_FILE', 'data', e.message)] }; }
   const selected = ids.map(v => typeof v === 'string' ? { id: v } : v);
   const usable = id => {
     const p = registry.plugin(id);
@@ -225,6 +235,8 @@ function composeContentSet({ registry, ids = [], checkDataOnly = false }) {
   const collisions = namespaceCollisions(resolved.order);
   if (collisions.length) return { problems: collisions };
   const plugins = resolved.order.map(usable).filter(p => ['content','script','trusted'].includes(p.class)), settings = {}, owners = new Map();
+  const unsupported = plugins.find(p => !pluginSupportsVersion(p.manifest, version));
+  if (unsupported) return { problems: [problem('VERSION_UNSUPPORTED', 'versions', `${unsupported.id} does not support ${version}`)] };
   let data = base.data;
   // Install the vanilla snapshot before expand/validate so a DSL literal uses the real cap, not the floor.
   rememberOfficialBounds(base.data);
@@ -314,7 +326,7 @@ function composeContentSet({ registry, ids = [], checkDataOnly = false }) {
     const body = bodies.get(rel); hashes[name] = nodeSha256(body);
   }
   for (const [lang, doc] of Object.entries(tr.out)) if (canonicalJson(doc) !== canonicalJson(base.i18n[lang] ?? null)) bodies.set(`i18n/${lang}.json`, Buffer.from(JSON.stringify(doc)));
-  const boundsSnap = exportOfficialBounds(rememberOfficialBounds(base.data));
+  const boundsSnap = officialBoundsOf(base.data);
   if (plugins.length) bodies.set('bounds/official.json', Buffer.from(canonicalJson(boundsSnap)));
   // Notices and personal theme values are not gameplay. Use the same canonical snapshot whether those fields
   // are absent or present. The registry retains the raw manifest and lock for owner admission.
@@ -349,7 +361,8 @@ function composeContentSet({ registry, ids = [], checkDataOnly = false }) {
   const composed = composeRules(plugins.map((p) => ({ id: p.id, rules: p.manifest.rules })));
   if (composed.problems.length) return { problems: composed.problems };
   const rules = composed.rules;
-  const cs = contentHashOf({ app: base.identity.app, sim: base.identity.sim, data: hashes, plugins: parts, settings, ...(Object.keys(i18n).length ? { i18n } : {}), ...(rules ? { rules } : {}) });
+  const versionPart = plugins.length && version !== DEFAULT_VERSION ? { version } : {};
+  const cs = contentHashOf({ ...versionPart, app: base.identity.app, sim: base.identity.sim, data: hashes, plugins: parts, settings, ...(Object.keys(i18n).length ? { i18n } : {}), ...(rules ? { rules } : {}) });
   const cache = caches.get(registry) ?? new Map(); caches.set(registry, cache);
   if (cache.has(cs)) return cache.get(cs);
   if (scripts.length) {
@@ -363,12 +376,12 @@ function composeContentSet({ registry, ids = [], checkDataOnly = false }) {
   const offers = plugins.flatMap(p => (p.offers || []).map(o => ({ pluginId: p.id, ...o })));
   const index = vanilla ? base.identity.index : { ...base.identity.index, cs, vanilla: false, plugins: parts, settings, data: {}, i18n: {}, bounds: {}, ...(scripts.length ? {scripts:{}, execution} : {}), ...(rules ? { rules } : {}) };
   if (!vanilla) for (const [rel, f] of Object.entries(files)) {
-    const url = base.files.get(rel)?.equals(bodies.get(rel)) ? `/data/${rel.replace(/^(data\/)/, '')}?v=${f.sha256.slice(0, 8)}` : `/cs/${csUrlPart(cs)}/${rel}`;
+    const url = base.files.get(rel)?.equals(bodies.get(rel)) ? `${base.dataUrl}${rel.replace(/^(data\/)/, '')}?v=${f.sha256.slice(0, 8)}` : `/cs/${csUrlPart(cs)}/${rel}`;
     const [section, name] = rel.split('/');
     index[section][name.slice(0, -5)] = { url, ...f };
   }
   const set = deepFreeze({ cs, vanilla, plugins: plugins.map(p => ({ id: p.id, version: p.manifest.version, hash: p.content.hash })),
-    data, files, ...(scripts.length ? {scripts, execution} : {}), ...(rules ? { rules } : {}), modes: Object.values(data.config.modes), problems: [], warnings, index, settings, bounds: boundsSnap,
+    data, files, baseData: base.data, ...(scripts.length ? {scripts, execution} : {}), ...(rules ? { rules } : {}), modes: Object.values(data.config.modes), problems: [], warnings, index, settings, bounds: boundsSnap,
     kitted: [...KITTED_CHARS, ...Object.keys(data.backups.units).filter(id => !own(base.data.backups.units, id))],
     // PLUGIN API v2 (docs/PLUGINS.md §10b): the interaction windows the set declares, tagged with their plugin. Data
     // only and already checked by the registry; a set without one omits the field, so nothing downstream changes.
@@ -395,4 +408,8 @@ export function contentSetFiles(set) {
 export function buildContentSet(options) {
   try { return composeContentSet(options ?? {}); }
   catch (e) { return { problems: [problem('PLUGIN_CONTENT_FORMAT', 'content', e.message)] }; }
+  finally {
+    // Version composition temporarily installs its bounds for validation; main-process matches retain act2's caps.
+    if (options?.version && options.version !== DEFAULT_VERSION) rememberOfficialBounds(getData());
+  }
 }

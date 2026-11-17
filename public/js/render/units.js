@@ -81,6 +81,8 @@
 // screen rect for tooltips and overlays (view.pieceScreenRect). A dragged (lifted) item plate is drawn centred on its
 // ground point, i.e. on the pointer (render/app.js).
 
+import { progressLabel } from '../itemProgress.js';
+import { MoteRing } from './motes.js';
 import { UF, ANIM } from '../../../shared/constants.js';
 import { SpineActor } from './spine.js';
 import { skillAttackMode } from './skillAttack.js';
@@ -88,6 +90,7 @@ import { MANIFOLD, isManifold, manifoldCopyForm, manifoldAttackForm } from './ma
 import { diamondTexture, shadowTexture, fxAtlas, tierChip, statusTexture, itemTexture, hudRings, ringArc, downLabel, HUD_DISC, ELEMENT_RING } from './textures.js';
 import { COLORS, TIER_COLORS, ENEMY_FRAME, UNIT, PROJ, statusIconKey, statusIconSuppressed } from './style.js';
 import { drawCrate, rowDepthKey, ROW_KEY, deviceBoxOf, DEVICE_BOX } from './tiles.js';
+import { startAtkInterval, nextAtkInterval, clampAtkInterval } from './attackRate.js';
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const DIRS = ['UP', 'RIGHT', 'DOWN', 'LEFT'];
@@ -223,6 +226,12 @@ export const SLIDE_FRICTION = 1;
  */
 const DIE_FADE_TAIL = 0.55;
 /**
+ * Game s within which an 'atk' handed out after an enemy's `cast` of a `strike` slot is that cast's attack (UnitView.onCast):
+ * the sim sends both in one tick (the cast from the attack's `before` hook, the 'atk' of each target right after), so one
+ * render batch hands them out together; the window only covers a batch split by a late frame.
+ */
+export const STRIKE_WINDOW = 0.25;
+/**
  * Longest Die clip a death plays out (s): the longest enemy Die clip of data/assets.json is 盐风主教昆图斯's 7.97 s (234
  * enemy Die clips; the old 1.6 s cap cut 25 of them short — the bosses' most), and the official client plays its clip
  * out (PR #380). It only bounds a view whose data lies.
@@ -349,6 +358,8 @@ const clipSet = (idle, move, die, attack = null) => Object.freeze({
   attack: attack ? loop(attack, 'attackAny') : null,
   skill: attack ? Object.freeze({ begin: null, loop: attack, end: null, via: 'attack', index: 0, idle: null }) : null,
 });
+/** A clip set without its `skill` role: the unit's own skill slot clips (anims.skills, setSkillSlot) play in that form. */
+const withoutSkill = (roles) => Object.freeze(Object.fromEntries(Object.entries(roles).filter(([k]) => k !== 'skill')));
 const EMBER = Object.freeze({
   husk: Object.freeze({ change: 'Die', end: 'Revive', next: 'revived', roles: clipSet('Idle_2', 'Move_2', 'Die_2') }),
   revived: Object.freeze({ change: null, roles: Object.freeze({}) }),
@@ -416,7 +427,8 @@ export const FORMS = Object.freeze({
     husk: Object.freeze({ change: 'A_Die', end: 'B_Revive', next: 'revived', roles: clipSet('B_Idle', 'B_Move', 'B_Die') }),
     revived: Object.freeze({ change: null, roles: Object.freeze({}) }),
   }),
-  enemy_1525_blkswb: rebirth('Revive1', 'Revive2', 'Revive3', clipSet('B_Idle', 'B_Move', 'B_Die', 'B_Attack')),
+  // 锏's second form keeps the skill slot's clip (anims.skills: CircleAttack2 B_Skill2 — tools/assets/spine.mjs MACE_SKILLS)
+  enemy_1525_blkswb: rebirth('Revive1', 'Revive2', 'Revive3', withoutSkill(clipSet('B_Idle', 'B_Move', 'B_Die', 'B_Attack'))),
   enemy_1535_wlfmster: rebirth('A_revive_1', 'A_revive_2', 'A_revive_3', clipSet('B_Idle', 'B_Move', 'B_Die', 'B_Attack')),
   enemy_1539_reid: rebirth('Revive_Begin', 'Revive_Loop', 'Revive_End'),
   // 重生 on the skeleton's own Revive clip (PR #275 by @xcdoge; content/enemies/leaders.js kitUglyThing / kitXi): 巨大的丑东西
@@ -643,10 +655,12 @@ export class UnitView {
     // the skill slot whose Spine clip the unit shows (DESIGN §16): an ally's equipped skill; an enemy's cast slot when the
     // sim reports one (`cast` event, setSkillSlot — a multi-skill boss's Skill_01..04, PR #275)
     this.skillIndex = Number.isInteger(info.skillIndex) ? info.skillIndex : null;
+    this._cast = null;            // the last `cast` of a strike slot (onCast): { index, t }
     this.prep = !!opts.prep;
     this.lodIdle = opts.lod === 'idle';
     this.culled = false;          // outside the viewport this frame (not animated, not drawn)
     this._offDt = 0;              // animation time skipped while culled
+    this._faceHold = 0;           // how long a cast keeps the Front model round after its flag (game s; _skillFacesFront)
     this._far = false;            // small on screen (adaptive LOD, with hysteresis)
     this.isEnemy = info.side === 'enemy';
     this.isBoss = !!info.boss;
@@ -691,6 +705,8 @@ export class UnitView {
     this.energy = null;           // [stored energies, the trait's maximum] of a 秘术师, including zero (sync; b.snap `energy`)
     this.energyHud = null;
     this.neg = 0;                 // the share of its cap a negative-HP pool holds, 0 = none (sync; b.snap `neg`, 斩业星熊's 我执)
+    this.motes = null;            // 魔王's orbiting 「微尘」: { n, wide } | null (sync; b.snap `motes`, render/motes.js)
+    this.moteRing = null;
     this.layers = 0;              // hit-negating 护盾 layers (sync; b.snap `layers`: the official layer effect, vfx/talentfx.js)
     this.charges = null;          // [stored, maximum] of a charge skill (sync; b.snap `charges`: vfx/skillfx.js)
     this.flags = 0; this.anim = ANIM.IDLE;
@@ -711,7 +727,15 @@ export class UnitView {
     this.flash = 0;
     this.bob = Math.random() * Math.PI * 2;
     this.hovered = false; this.dimmed = false; this.lift = 0;
-    this.lastAtk = -1; this.atkInterval = defaultInterval(ctx, info);
+    this.lastAtk = -1; this.atkSeen = false;
+    // `atkKnown`: the interval came from the sim (the spawn info's atkInterval or a 'rate' event), so a measured gap must
+    // not overwrite it 鈥?a pause (a stop, a stun, a redeploy) is not a slower attack rhythm (render/attackRate.js).
+    this.atkKnown = Number.isFinite(Number(info.atkInterval)) && Number(info.atkInterval) > 0;
+    // `rateSeen`: a 'rate' event (render/app.js) carried an interval AFTER this view was spawned. UnitInfo is spawn-time
+    // metadata — ordinary snapshots do not refresh it — so once an event has spoken, the snapshot's copy is stale and must
+    // not overwrite it (the frame loop drains events BEFORE sync()).
+    this.rateSeen = false;
+    this.atkInterval = startAtkInterval(info.atkInterval, defaultInterval(ctx, info));
     this.shake = 0;
     this.screen = { x: 0, y: 0, s: 1, top: 0 };
     this.placed = false;          // set by the first update's projection: until then `screen` is not on screen (bounds)
@@ -935,7 +959,7 @@ export class UnitView {
         actor.setSkillIndex(this.skillIndex ?? undefined);
         // Query at attack time: late index loads, skill slots and facing changes need no new model or request.
         actor.skillAttackMode = () => {
-          // [ASSUMED] §34.31's cast heuristic is for operators; enemy abilities and token controllers keep their roles.
+          // §34.31 / §35.20 verify operator mappings only; enemy abilities and token controllers keep their roles.
           if (this.info.kind !== 'op') return { preserve: true };
           const mode = skillAttackMode(this.ctx.skillAttackIndex?.(), {
             info: this.info, rec: this.ctx.lookupDef?.(this.info), skillIndex: this.skillIndex,
@@ -981,7 +1005,16 @@ export class UnitView {
         const at = Math.min(d, this.dieT * (this.ctx.animRate?.() || 1));
         if (at > 0) this.actor.update(at);
       } else {
-        if (this.flags & UF.SKILL) this.actor.setSkill(true);
+        // the skill stance: the flag still on, or its clip's window not yet over — an instant skill's UF.SKILL lasts a
+        // single snapshot while the Front model is only being loaded now (剑雨's clip is 2.17 s), and a model built after
+        // the flag dropped used to stand in its idle on the Front model: the turn happened, the skill animation did not
+        if (this.flags & UF.SKILL || (this._faceHold > 0 && this._skillFacesFront())) {
+          this.actor.setSkill(true);
+          // a late Front model starts the clip from its beginning: keep it on screen for the clip's own length (and its
+          // End) instead of the window the flag left
+          const d = this._skillFaceDur(false) + this._skillFaceDur(true);
+          if (d > 0) this._faceHold = Math.max(this._faceHold, d);
+        }
         this.actor.setBase(this._baseFromAnim());
         if (deployed != null) { this.actor.deploy(); if (deployed > 0) this.actor.update(deployed); }
         // a stealth-driven form (STEALTH_FORMS): the pose of the clip set in force now, even under a frozen stun
@@ -1089,6 +1122,25 @@ export class UnitView {
     this.countText = null;
     this.ammoText = null;          // 设置「弹药数量」: the magazine's count under the ammo bar (_updateAmmoCount)
     this.itemPips = [];
+    this._itemPipRows = 0;
+    this.itemProgressText = null;
+    this.setItemProgress(this.info.itemProgress);
+  }
+
+  /** Equipment's prep-side progress, below the carrier's feet in prep and combat. */
+  setItemProgress(rows) {
+    const label = (rows || []).map(progressLabel).filter(Boolean).join('\n');
+    if (!label) {
+      if (this.itemProgressText) { this.itemProgressText.text = ''; this.itemProgressText.visible = false; }
+      return;
+    }
+    if (!this.itemProgressText) {
+      this.itemProgressText = new this.P.Text('', { fontFamily: 'Bender, Oxanium, sans-serif', fontSize: 16, fontWeight: '700', fill: '#4ed8af', stroke: '#0b0f0e', strokeThickness: 4, align: 'center' });
+      this.itemProgressText.anchor.set(0.5, 0);
+      this.hud.addChild(this.itemProgressText);
+    }
+    if (this.itemProgressText.text !== label) this.itemProgressText.text = label;
+    this.itemProgressText.visible = true;
   }
 
   /** Show a stack count (token stacks in the hand) — BitmapText-free: a tiny canvas-less chip via Text. */
@@ -1107,12 +1159,20 @@ export class UnitView {
   /** Equipped item pips (prep): list of item icon URLs. */
   setItems(urls) {
     const P = this.P;
-    // morphPairing plus can carry two ordinary items and one zero-slot morph (DESIGN §34.15).
-    const list = Array.isArray(urls) ? urls.slice(0, 3) : [];
-    while (this.itemPips.length > list.length) this.itemPips.pop().destroy(); // loop-cap: at most three item pips
+    // Display every carried item, including zero-slot equipment. Balance at most three icons per row:
+    // 4 → 2+2, 5 → 3+2, 6 → 3+3; larger valid inventories use more rows instead of truncating.
+    const list = Array.isArray(urls) ? urls : [];
+    const rows = Math.ceil(list.length / 3);
+    this._itemPipRows = rows;
+    const shortRow = rows ? Math.floor(list.length / rows) : 0, longRows = rows ? list.length % rows : 0;
+    let row = 0, col = 0;
+    while (this.itemPips.length > list.length) this.itemPips.pop().destroy(); // loop-cap: the previous carried-item count
     list.forEach((u, i) => {
       let s = this.itemPips[i];
       if (!s) { s = new P.Sprite(P.Texture.EMPTY); s.anchor.set(0.5); this.hud.addChild(s); this.itemPips[i] = s; }
+      const columns = shortRow + (row < longRows ? 1 : 0);
+      s._itemRow = row; s._itemCol = col; s._itemColumns = columns;
+      if (++col === columns) { row++; col = 0; }
       if (s._url === u) return;
       s._url = u;
       const a = this.ctx.assets;
@@ -1156,6 +1216,7 @@ export class UnitView {
     this.hp = hp;
     this.sp = s.sp; this.spMax = s.spMax;
     this.ammo = s.ammo || null; this.wolves = s.wolves || null; this.neg = s.neg > 0 ? Math.min(1, s.neg) : 0;
+    this.motes = s.motes && s.motes.n > 0 ? s.motes : null;
     this.coins = s.coins || null;
     this.energy = s.energy || null;
     this.layers = s.layers > 0 ? s.layers | 0 : 0; this.charges = s.charges || null;
@@ -1174,9 +1235,23 @@ export class UnitView {
       }
     }
     if (this.isEnemy && !this.slide?.keepFacing && Math.abs(s.vx) > 0.08) this.visFacing = s.vx < 0 ? -1 : 1;
+    // a scripted sign (心虚设计师, b.snap face) wins while the unit stands: a block freezes vx, so velocity never turns it
+    if (this.isEnemy && (s.face === -1 || s.face === 1) && !this.slide) this.visFacing = s.face;
     if ((prevFlags ^ this.flags) & UF.SKILL) this.setSkill(!!(this.flags & UF.SKILL));
     if (this.anim === ANIM.DIE && this.alive) this.die();
     if (this.actor && this.alive) this.actor.setBase(this._baseFromAnim());
+    // The spawn-time interval stands in for the sim's value (#729): a skill or buff that changed it in the same tick as
+    // this attack makes the 'rate' event one step late, and the look-ahead would pace the swing with the old value.
+    // UnitInfo is NOT refreshed by ordinary snapshots, so once a 'rate' event has been applied this copy is stale —
+    // skip it, or the event would be overwritten on every frame that follows (the loop drains events, then sync()).
+    if (!this.rateSeen) {
+      const iv = Number(this.info && this.info.atkInterval);
+      if (Number.isFinite(iv) && iv > 0 && Math.abs(iv - this.atkInterval) > 1e-6) {
+        this.atkInterval = clampAtkInterval(iv);
+        this.atkKnown = true;
+        if (this.actor) this.actor.interval = this.atkInterval;
+      }
+    }
   }
 
   /** The way the model looks (−1 left, 1 right); a FIXED_FACING leader keeps its own way whatever turn it is given. */
@@ -1244,6 +1319,8 @@ export class UnitView {
    * others have no Die clip, so the Front model shows the fall and the held knocked-down pose (GitHub issue #25: the
    * Back model went on with its attack loop under the redeploy ring) [ASSUMED: no source says which model the official
    * client lies down with; a Back skeleton without a Die clip cannot show a fall].
+   * A skill cast is the same story with the skill clip: while the skill runs (or its clip is still on screen) and only
+   * the Front model has an animation for it, the Front model shows it — see _skillFacesFront.
    */
   _wantsBack() {
     const a = this.ctx.assets;
@@ -1251,7 +1328,51 @@ export class UnitView {
     // an appearance may ship its own Front/Back pair, so both questions are asked of the skin, not the operator
     // (docs/SKINS.md): hasBackSpine falls back to the operator's own Back when the skin has none
     if (this.isEnemy || this.dir !== 'UP' || !id || !a || typeof a.hasBack !== 'function' || !a.hasBack(id, this.info.skin)) return false;
+    // the skill's own animation only the Front model has: turn it round for the cast (as the fall does when the Back
+    // model has no Die clip) — the Back model otherwise plays the attack triple as its skill (via:'attack')
+    if ((this.flags & UF.SKILL || this._faceHold > 0) && this._skillFacesFront()) return false;
     return this.alive || dieClipDur(typeof a.spineEntry === 'function' ? a.spineEntry(id, this.info.skin ? { back: true, skin: this.info.skin } : { back: true }) : null) > 0;
+  }
+
+  /**
+   * Whether the skill this unit casts is drawn by its Front model: the Back model's role for that skill — `anims.skill`,
+   * or `anims.skills[skillIndex]` — is borrowed from the attack triple (`via: 'attack'`: the resolver had no Skill clip
+   * to name, tools/assets/anim-roles.mjs) while the Front model's role is a clip of its own. Then the official client
+   * cannot show it on the Back model, and turns the Front round for the cast — the maintainer's report of 2026-10-18
+   * ("开技能转正面"). That is 10 of the 209 operators (德克萨斯 S2 剑雨, 推进之王, 蛇屠箱, 初雪, 艾雅法拉, 塞雷娅, 年 S1,
+   * 铃兰 S3, 斥罪 S2, 耀骑士临光 S2); the 164 Back models with a skill clip of their own keep playing it in place
+   * (灰烬's Back skeleton has Skill_Loop_Up / Skill_Idle_Up, excu's has Skill_Up_Begin/Loop/End — the official client
+   * does author skills for the up direction), and 75 more have the attack triple on both sides (the skill IS the attack).
+   * [ASSUMED] no source names the model for a cast (the data only proves the Back skeleton has nothing to show).
+   */
+  _skillFacesFront() {
+    if (!this.alive || this.isEnemy || this.dir !== 'UP') return false;
+    if (!this.ctx.assets || typeof this.ctx.assets.spineEntry !== 'function') return false;
+    const role = (e) => {
+      const a = e && e.anims;
+      if (!a) return null;
+      const s = (Number.isInteger(this.skillIndex) && a.skills && a.skills[this.skillIndex]) || a.skill;
+      return s && typeof s === 'object' ? s : null;
+    };
+    const b = role(this._modelEntry(true));
+    const f = role(this._modelEntry(false));
+    return !!b && !!f && b.via === 'attack' && f.via !== 'attack' && typeof f.loop === 'string' && f.loop !== '';
+  }
+
+  /**
+   * How long the Front model stays for a cast (game seconds): the clip an instant skill shows after the flag went off
+   * (spine.js plays such a clip once for its own length), else its End clip. 0 = the skill flag alone decides.
+   */
+  _skillFaceDur(afterFlag) {
+    const front = this._modelEntry(false);
+    const a = front && front.anims;
+    if (!a) return 0;
+    const s = (Number.isInteger(this.skillIndex) && a.skills && a.skills[this.skillIndex]) || a.skill;
+    if (!s || typeof s !== 'object' || s.via === 'attack') return 0;
+    const durs = (front && front.animations) || {};
+    const dur = (n) => (typeof n === 'string' && Number.isFinite(durs[n]) ? durs[n] : 0);
+    if (!afterFlag) return !s.begin && !s.end && s.loop !== a.idle ? dur(s.loop) : 0;
+    return dur(s.end);
   }
 
   /**
@@ -1328,8 +1449,35 @@ export class UnitView {
     try { this.ctx.assets?.spine?.release(entry); } catch { /* ignore */ }
   }
 
+  /**
+   * 魔王 T1 过往尘埃 的「微尘」: b.snap `motes` → { n, wide } (sync). render/motes.js draws `n` sprites of her model's
+   * own `C_Eff_Moire_B` region circling her (the official slots `C_Eff_Moire_B` / `B2` / `B3` are attached at runtime in
+   * the real client, and every animation leaves them empty); the ring lives inside the spine container so it inherits
+   * the model's scale, facing and alpha. Orbit: the hidden 5★'s parameters (1.15 tiles, 30°/s), S2's wider
+   * `outside_radius` (2 tiles) comes as `wide`. `n` drops when a mote touches an operator (it comes back 6 s later).
+   * The 4★'s ring is decoration only: her collision is a whole-circle check, so the drawn positions do not decide
+   * anything. The hidden 5★'s ring is not drawn yet (its kit publishes no `motes`). No state, no model or no motes:
+   * nothing is drawn (and the ring is torn down).
+   */
+  _syncMotes(dt) {
+    const st = this.motes;
+    if (!st || !(st.n > 0)) {
+      if (this.moteRing) { this.moteRing.destroy(); this.moteRing = null; }
+      return;
+    }
+    const spine = this.actor && this.spineReady ? this.actor.spine : null;
+    if (!spine) return;                               // no model yet (or the fallback picture): nothing to circle
+    if (!this.moteRing) {
+      this.moteRing = new MoteRing({ PIXI: this.P, getTexture: () => this.actor?.effectTexture?.('C_Eff_Moire_B', 'C_Eff_Moire_B') });
+      spine.addChild(this.moteRing.root);
+    }
+    this.moteRing.setState(st.n, st.wide);
+    this.moteRing.update(dt);
+  }
+
   /** Destroy the current Spine actor (and its impostor) and release its asset entry (model swap / destroy). */
   _dropActor() {
+    if (this.moteRing) { this.moteRing.destroy(); this.moteRing = null; }
     if (this.imp) {
       try { if (this.imp.slot) this.ctx.impostors?.free(this.imp.slot); this.imp.sprite.destroy(); if (this.imp.rt) this.imp.rt.destroy(true); } catch { /* ignore */ }
       this.imp = null;
@@ -1353,35 +1501,86 @@ export class UnitView {
     const once = !!PROJ[kind]?.once;
     if (!once) {
       if (this.lastAtk >= 0) {
-        const d = now - this.lastAtk;
-        if (d > 0.05 && d < 6) this.atkInterval = this.atkInterval * 0.6 + d * 0.4;
+        // the real gap between two attacks: the first one replaces the estimate (no slow-motion ramp-in), later ones
+        // follow a real change at once and only smooth tick-sized wobble (render/attackRate.js). With a sim-known
+        // interval only that small wobble is taken: a long gap is a pause, not a slower rhythm.
+        const r = nextAtkInterval(this.atkInterval, now - this.lastAtk, this.atkSeen, { authoritative: this.atkKnown });
+        this.atkInterval = r.interval;
+        if (r.measured) this.atkSeen = true;
       }
       this.lastAtk = now;
     }
-    if (target && !this.isEnemy && this.info.kind !== 'device') {
-      // operators keep their deploy direction (research 09 §1.2); enemies may turn towards their target
-    } else if (target && this.isEnemy) {
-      const dx = target.x - this.x;
-      if (Math.abs(dx) > 0.1) this.visFacing = dx < 0 ? -1 : 1;
-    }
+    // operators keep their deploy direction (research 09 §1.2); an enemy turns toward the target
+    this._faceAttack(target);
     if (target) {
       const dx = target.x - this.x, dy = target.y - this.y, len = Math.hypot(dx, dy) || 1;
       this.lungeDir.x = dx / len; this.lungeDir.y = dy / len;
     }
     this.lunge = 1;
-    if (this.actor) this.actor.attack(this.atkInterval, once); // game seconds: the actor's clock runs in game time
+    if (this.actor) {
+      this.actor.castStrike?.(this._takeStrike(now));
+      this.actor.attack(this.atkInterval, once); // game seconds: the actor's clock runs in game time
+    }
     if (this.imp) this.imp.dirty = true;
+  }
+
+  /**
+   * The sim says this unit's attack interval CHANGED (`b.ev` ['rate', id, seconds], EV.RATE): a skill or an attack-speed
+   * buff/debuff landed (`s.interval`). It is authoritative, so the attack clip is paced right on the NEXT wind-up instead
+   * of waiting for this view to measure two attacks by itself. Later measured gaps still smooth into it.
+   * @param {number} seconds the sim's attack interval
+   */
+  /**
+   * A spawn for a unit whose view already exists (#729): a 重生 or a second life reuses the object, so the pacing state
+   * starts over from this spawn's info. Without it `rateSeen` would keep the previous life's interval and skip the fresh
+   * UnitInfo — the one case where "an event outranks the spawn info" does not hold.
+   * @param {{ atkInterval?: number } | null | undefined} info the spawn's UnitInfo
+   */
+  respawn(info) {
+    if (info) this.info = info;
+    this.rateSeen = false;
+    this.atkSeen = false;
+    this.atkKnown = Number.isFinite(Number(this.info && this.info.atkInterval)) && Number(this.info.atkInterval) > 0;
+    this.atkInterval = startAtkInterval(this.info && this.info.atkInterval, this.atkInterval);
+    if (this.actor) this.actor.interval = this.atkInterval;
+  }
+
+  setAtkInterval(seconds) {
+    const v = Number(seconds);
+    if (!Number.isFinite(v) || v <= 0) return;
+    this.atkInterval = clampAtkInterval(v);
+    this.rateSeen = true;   // an event value outranks the spawn-time UnitInfo (see sync)
+    this.atkSeen = true;
+    this.atkKnown = true;      // the sim is authoritative from here on (the gaps measured later only smooth into it)
+    if (this.actor) this.actor.interval = this.atkInterval;
+    if (this.imp) this.imp.dirty = true;
+  }
+
+  /**
+   * Face this attack's target. An enemy turns when the target is not straight ahead (|dx| > 0.1); an operator keeps
+   * its deploy direction (research 09 §1.2). The wind-up uses the same rule the moment its clip starts (GitHub #869):
+   * the strike used to be the first time the model turned, so a blocker redeployed behind a walking enemy was swung
+   * at while the model still faced the old walk.
+   */
+  _faceAttack(target) {
+    if (!target || !this.isEnemy) return;
+    const dx = target.x - this.x;
+    if (Math.abs(dx) > 0.1) this.visFacing = dx < 0 ? -1 : 1;
   }
 
   /**
    * An attack by this unit is `lead` game seconds ahead in the snapshot buffer: start the Spine attack wind-up now
    * so the strike frame lines up with the attack. True once started (then stop calling for that attack). `kind` = the
-   * 'atk' projKind (a one-off cast winds up at the clip's own speed).
+   * 'atk' projKind (a one-off cast winds up at the clip's own speed). `target` = that attack's view: the model faces
+   * it as the clip starts, by the same rule as onAttack.
    */
-  windUp(lead, kind) {
+  windUp(lead, kind, castSlot = null, interval = this.atkInterval, target = null) {
     if (!this.alive || !this.actor || !this.spineReady) return false;
     this._attackForm(kind);
-    const ok = this.actor.windUp(this.atkInterval, lead, !!PROJ[kind]?.once);
+    this.actor.castStrike?.(this._strikeClip(castSlot));
+    const ok = this.actor.windUp(clampAtkInterval(interval), lead, !!PROJ[kind]?.once);
+    if (!ok) this.actor.castStrike?.(null);
+    else this._faceAttack(target);
     if (ok && this.imp) this.imp.dirty = true;
     return ok;
   }
@@ -1391,6 +1590,13 @@ export class UnitView {
   setSkill(on) {
     if (on) this.statuses.add('skill'); else this.statuses.delete('skill');
     if (this.actor) this.actor.setSkill(on);
+    // a cast whose animation only the Front model has: turn that model round now, the Back one after the clip (or its
+    // End) played out — _skillFacesFront / _faceHold
+    if (this._skillFacesFront()) {
+      const d = this._skillFaceDur(!on);
+      if (d > 0) this._faceHold = Math.max(this._faceHold, d);
+      this._modelDirty = true;
+    }
   }
 
   /**
@@ -1402,6 +1608,72 @@ export class UnitView {
     if (!Number.isInteger(index) || index < 0 || index === this.skillIndex) return;
     this.skillIndex = index;
     if (this.actor) this.actor.setSkillIndex(index);
+  }
+
+  /**
+   * The sim's `cast` event at render time `now` (render/app.js, after setSkillSlot): a slot whose clip is `strike`
+   * (tools/assets/spine.mjs PREFAB_SPINE_ROLES: an attack-class skill the sim casts in its attack's `before` hook —
+   * 杰斯顿·威廉姆斯, “碎铳之簧”) is the attack of the same tick, so the next attack (onAttack, within STRIKE_WINDOW) plays that
+   * clip in place of the attack clip. Any other slot changes nothing here.
+   */
+  onCast(index, now, turnClip = null) {
+    this._cast = this._strikeClip(index) ? { index, t: now } : null;
+    if (turnClip != null) this._turnCast(index, turnClip);
+  }
+
+  /**
+   * The clip of an attack-class skill cast in the attack's turn (the sim's ['cast', id, slot, dur, clip]; enemies.js
+   * attackTurnSkill — no 'atk' comes with it): the slot's clip (`anims.skills[slot]`, else the primary `anims.skill`) when
+   * its official ability names one (`clip` > 0: the §35.29 / §35.52 tables, 昆图斯's), else null — the attack clip
+   * [ASSUMED: an attack-class ability with an empty `_animKey` shows the unit's attack; DESIGN §35.57].
+   */
+  _turnClip(index, clip) {
+    if (!(clip > 0) || !this.actor) return null;
+    const an = this.actor.entry?.anims || {};
+    const c = an.skills?.[String(index)] || an.skill;
+    return c && this.actor.has?.(c.loop) ? c : null;
+  }
+
+  /**
+   * An attack-turn cast is rendered now (onCast): its clip plays once at its own speed in place of the attack — from
+   * its strike frame unless the look-ahead wound it up (windUpCast) —, or the attack clip in the attack's rhythm when
+   * the ability names none (DESIGN §35.57). Until then the swing it replaced showed nothing (the model stood idle).
+   */
+  _turnCast(index, clip) {
+    if (!this.alive || !this.actor) return;
+    this._pendingDeployElapsed = null;
+    const c = this._turnClip(index, clip);
+    this.actor.castStrike?.(c);
+    this.actor.attack(this.atkInterval, !!c);
+    if (this.imp) this.imp.dirty = true;
+  }
+
+  /**
+   * An attack-turn cast is `lead` game s ahead in the snapshot buffer (render/app/windup.js): wind its clip up so the
+   * strike frame lands with the cast, as windUp does for an attack. True once started.
+   */
+  windUpCast(lead, index, clip) {
+    if (!this.alive || !this.actor || !this.spineReady) return false;
+    const c = this._turnClip(index, clip);
+    this.actor.castStrike?.(c);
+    const ok = this.actor.windUp(this.atkInterval, lead, !!c);
+    if (!ok) this.actor.castStrike?.(null);
+    if (ok && this.imp) this.imp.dirty = true;
+    return ok;
+  }
+
+  /** The `strike` clip of skill slot `index` in this unit's model (`anims.skills`), else null. */
+  _strikeClip(index) {
+    if (!Number.isInteger(index) || index < 0) return null;
+    const c = this.actor?.entry?.anims?.skills?.[String(index)];
+    return c && c.strike ? c : null;
+  }
+
+  /** The strike clip of the cast this attack (at `now`) makes — every target's 'atk' of that tick —; null for a plain attack. */
+  _takeStrike(now) {
+    const c = this._cast;
+    if (c && now - c.t > STRIKE_WINDOW) this._cast = null;
+    return c && now - c.t >= 0 && now - c.t <= STRIKE_WINDOW ? this._strikeClip(c.index) : null;
   }
 
   onDeploy() {
@@ -1534,6 +1806,7 @@ export class UnitView {
   /** @param {number} dt real seconds @param {any} cam camera @param {number} t real clock */
   update(dt, cam, t) {
     if (this.destroyed) return;
+    this._syncMotes(dt * (this.ctx.animRate?.() ?? 1));
     if (this._pendingDeployElapsed != null) this._pendingDeployElapsed += dt * (this.ctx.animRate?.() || 1);
     // a displacement's slide (slideTo): held where it stood until the snapshot with the destination is shown, then
     // eased into the sampled position (sync keeps `lx, ly` current) under a constant deceleration
@@ -1562,6 +1835,11 @@ export class UnitView {
       }
     }
     const P = this.P;
+    // the cast's clip still on screen: once it played out and the skill is off, the Back model comes back (_skillFacesFront)
+    if (this._faceHold > 0) {
+      this._faceHold = Math.max(0, this._faceHold - dt * (this.ctx.animRate?.() ?? 1));
+      if (!this._faceHold && !(this.flags & UF.SKILL)) this._modelDirty = true;
+    }
     // the model for the state the frame's events and snapshot left (Front ⇄ Back when it went down / stood up: die, revive)
     if (this._modelDirty) { this._modelDirty = false; this._syncModel(); }
     // a failed / timed-out model load is tried again once its wait is over (SPINE_RETRY_MS; frames only: never hidden)
@@ -1858,12 +2136,21 @@ export class UnitView {
       this.countText.scale.set(clamp(s / 90, 0.5, 1.2));
       this.countText.position.set(x + s * 0.32, this.screen.y - s * 0.12);
     }
+    const pipSize = clamp(s * 0.26, 12, 30);
     for (let i = 0; i < this.itemPips.length; i++) {
       const pip = this.itemPips[i];
-      const ps = clamp(s * 0.26, 12, 30);
-      pip.width = pip.height = ps;
-      pip.position.set(this.screen.x - s * 0.36 + i * (ps + 1), this.screen.y - s * 0.05);
+      pip.width = pip.height = pipSize;
+      pip.position.set(
+        this.screen.x + (pip._itemCol - (pip._itemColumns - 1) / 2) * (pipSize + 1),
+        this.screen.y - s * 0.05 - (this._itemPipRows - 1 - pip._itemRow) * (pipSize + 2),
+      );
       pip.visible = this.alive;
+    }
+    if (this.itemProgressText) {
+      this.itemProgressText.visible = this.alive && !!this.itemProgressText.text;
+      this.itemProgressText.scale.set(clamp(s * 0.2, 10, 16) / 16);
+      const progressTop = this.itemPips.length ? Math.max(s * 0.14, -s * 0.05 + pipSize / 2 + 2) : s * 0.14;
+      this.itemProgressText.position.set(this.screen.x, this.screen.y + progressTop);
     }
   }
 
@@ -2365,6 +2652,7 @@ export class UnitView {
   destroy() {
     if (this.destroyed) return;
     this.destroyed = true;
+    if (this.moteRing) { this.moteRing.destroy(); this.moteRing = null; }
     this._dropActor();
     this.shadow.destroy();
     this.blockIcon.destroy();
@@ -2430,7 +2718,7 @@ export class ItemView {
     ctx.layers.shadow.addChild(this.shadow);
     this.root = new P.Container();
     ctx.layers.units.addChild(this.root);
-    this.plate = new P.Sprite(itemTexture(String(info.defId || 'item'), null, info.color || 0x9aa5a0));
+    this.plate = new P.Sprite(itemTexture('none', null, info.color || 0x9aa5a0));
     this.plate.anchor.set(0.5, 1);
     this.root.addChild(this.plate);
     this.info.icon = null;
@@ -2439,10 +2727,13 @@ export class ItemView {
   }
   /** Show the item's icon (an URL; the plain plate until it loads) — again when the asset manifest named it late. */
   setIcon(url) {
-    if (this.destroyed || !url || url === this.info.icon) return;
+    if (this.destroyed || url === this.info.icon) return;
     this.info.icon = url;
+    // Item ids are reused across official versions. Cache the resolved art, like equipped-item pips do.
+    this.plate.texture = itemTexture(url || 'none', null, this.info.color || 0x9aa5a0);
+    if (!url) return;
     const a = this.ctx.assets;
-    if (a?.image) a.image(url).then((img) => { if (!this.destroyed && img && this.info.icon === url) this.plate.texture = itemTexture(String(this.info.defId), img, this.info.color || 0x9aa5a0); }, () => {});
+    if (a?.image) a.image(url).then((img) => { if (!this.destroyed && img && this.info.icon === url) this.plate.texture = itemTexture(url, img, this.info.color || 0x9aa5a0); }, () => {});
   }
   setWorld(x, y, z = 0) { this.x = x; this.y = y; this.z = z; }
   /** A battle snapshot sample (syncBattle syncs every unit of the field): a hand item on a scouted prep board rides

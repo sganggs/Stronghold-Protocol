@@ -4,12 +4,15 @@
 import { COLS } from '../../../constants.js';
 import { bodyKeys } from '../../../body.js';
 import { toLocal } from '../../../dir.js';
+import { absoluteRangeKeys } from '../../../targeting.js';
 import {
   AURA_IV, AURA_DUR, num, on, talent, talentRec, skillGrid, mods, inFaction, isOp, selectedId, lazySkills, instantKind,
   skillRange, whileOn, enemiesInGrid,
 } from '../shared/tier5.js';
 
 const isKjerag = (u) => inFaction(u, 'kjeragShip', ['kjerag']);
+/** The enemy profile the skill's range selection uses: his own, lifted to air (PRTS 备注 可对空) — canHitFly false is a melee PIONEER's. */
+const AIR = Object.freeze({ canHitFly: true });
 
 export default {
   // ---------------------------------------------------------------------------------------------------------------
@@ -22,13 +25,25 @@ export default {
   // The eye follows the selected skill (its overrideTokenKey: S1 eagle1 cost 16, S2 eagle2 14, S3 eagle3 19).
   // S1 周旋的谋略 (instant): +cost DP at once; the waiting op nearest to the eye gets −[deck].cost redeploy cost (same pick
   // as S2) and a barrier of [deck].shield × his max HP when it redeploys.
-  // S3 变革已至 (duration 48 s): skill range; enemies in it lose 隐匿; every attack hits every enemy of the range on the
-  // target's line (his facing) for bird_atk_scale × ATK phys + 脆弱 (damage_scale − 1, weak[limit] s [ASSUMED duration]);
-  // +[start_cost] DP at once, then +[cost].cost DP every [cost].interval s; the first activation of the battle swaps the
-  // base costs of the most (guard/caster/sniper first) and least expensive waiting ops. "风雪之眼变为可部署" is not
-  // modelled (nobody deploys by hand in the auto battle).
+  // S3 变革已至 (duration 48 s): skill range — 可对空 (PRTS 备注), so a wave of flyers alone fires it: the data's
+  // ACTIVE_RANGE condition asks the unit's own attack profile, which for a melee PIONEER never counts a flyer, so the
+  // kit adds the skill's grid as a content trigger range selected with an air profile — the way 赤刃明霄陈 S3 does
+  // (op-chen3.js; user playtest: it never cast against air-only waves); enemies in it lose 隐匿; every attack hits
+  // every enemy of the range on the target's line (his facing) for bird_atk_scale × ATK phys + 脆弱 (damage_scale − 1,
+  // weak[limit] s [ASSUMED duration]); +[start_cost] DP at once, then +[cost].cost DP every [cost].interval s; the first
+  // activation of the battle swaps the base costs of the most (guard/caster/sniper first) and least expensive waiting
+  // ops. "风雪之眼变为可部署" is not modelled (nobody deploys by hand in the auto battle).
+  // Module CSR-X 邀约 (elite, CN 2.7.91; an optional choice — the season's default for this elite stays no module): stats,
+  // and the 特性追加 「首次部署时，待部署区最左侧的干员部署费用-4」 (its talent part, index −1, `value`). His first deployment
+  // is the battle-start one, when — the reading 开放性开局's 初始技力 takes above — his player's squad is the 待部署区,
+  // sorted by deploy cost: the cheapest other operator gets the cut [ASSUMED: ties → the lower unit id], kept until its next
+  // deployment like S1 / S2's cuts [ASSUMED] — the battle start deploys for free, so it pays off on its first redeploy.
+  // Stages 2 / 3 (the tier-6 forms; the tier-5 elite fields stage 1) also change T1: respawn_time 0.75, and ATK +atk for
+  // the ops left of the eye and himself, granted with the +4 SP at their deployment and kept for it [ASSUMED]; stage 3's
+  // multiplier_max_offset (「撤退后部署费用的增加上限减少25%」) has nothing to act on — this mode never raises a redeploy
+  // cost (docs/design/engine.md DP: base cost × costMul).
   chess_char_5_14_a: (bb, chess, def) => {
-    const t0 = talent(chess, 0), t1 = talent(chess, 1);
+    const t0 = talent(chess, 0), t1 = talent(chess, 1), tm = talent(chess, -1);
     const grid = skillGrid(chess, def) ?? [[0, 0], [0, 1]];
     const eyeId = chess?.skill?.overrideTokenKey ?? talentRec(chess, 0)?.tokenKey ?? 'token_10057_svash2_eagle2';
     const n = Math.max(1, num(bb.max_target, 6)), maxStacks = Math.max(1, num(bb.max_stack_cnt, 2));
@@ -73,7 +88,7 @@ export default {
         }),
         skchr_svash2_3: () => ({
           kind: 'duration',
-          targeting: skillRange(chess, def),
+          targeting: skillRange(chess, def, { canHitFly: true }),
           attack: {
             atkScale: num(bb.bird_atk_scale, 1),
             onEachHit({ battle, unit, target }) {
@@ -123,17 +138,21 @@ export default {
         },
       },
       talents: [
-        { install(battle, unit) { // 开放性开局
-          const sp = num(t0.sp), mul = num(t0.respawn_time, 1);
+        { install(battle, unit) { // 开放性开局 (CSR-X stages 2 / 3: + ATK, see the header)
+          const sp = num(t0.sp), mul = num(t0.respawn_time, 1), atk = num(t0.atk);
           const left = (a) => isOp(a) && a.ownerId === unit.ownerId && (a === unit || a.base.cost < num(unit.mem.eyeCost));
+          const gift = (a) => {
+            if (sp > 0 && a.skill) a.skill.gainSp(sp, 'talent');
+            if (atk) battle.addBuff(a, { key: 'svash2:open', mods: { atkPct: atk }, source: unit, tags: ['talent'] });
+          };
           battle.on('battleStart', () => {
-            if (!on(unit) || !(sp > 0)) return;
-            for (const a of battle.allies(unit.ownerId)) if (left(a) && a.skill) a.skill.gainSp(sp, 'talent');
+            if (!on(unit) || !(sp > 0 || atk)) return;
+            for (const a of battle.allies(unit.ownerId)) if (left(a)) gift(a);
           }, { owner: unit });
           battle.on('deploy', (c) => {
             const a = c.unit;
             if (c.initial || !left(a) || !(a === unit || on(unit))) return;
-            if (sp > 0 && a.skill) a.skill.gainSp(sp, 'talent');
+            gift(a);
           }, { owner: unit });
           battle.on('death', (c) => {
             const a = c.unit;
@@ -158,6 +177,15 @@ export default {
         const tok = battle.tokenDef(eyeId, unit); // the owner's skill variant (DESIGN §16)
         unit.mem.eyeCost = num(tok?.stats?.cost, 14);
         if (selectedId(chess, def) === 'skchr_svash2_3') {
+          // PRTS S3 notes: while active, Danzeng attacks and can select airborne targets; these are not his melee attacks. The data's
+          // ACTIVE_RANGE condition asks the UNIT's profile (canHitFly false), so a wave of flyers alone left the ready
+          // skill closed forever (reported playtest; the same hole 赤刃明霄陈 S3 had, op-chen3.js). Add those selectable
+          // targets to the existing ACTIVE_RANGE automation through a content trigger range, exactly as she does:
+          // [ASSUMED] its attack grid (plus permanent range extension), not the eagle's whole projectile path; the
+          // operation cooldown and control checks stay the engine's.
+          unit.skill.addTriggerRange(() => [{
+            keys: absoluteRangeKeys(grid, unit.tileR, unit.tileC, unit.dir, unit.s.baseRangeExtend || 0), profile: AIR,
+          }]);
           // S3: every attack hits the enemies of the skill range on the target's line (his facing frame): the line of
           // the target's position; another enemy is on it when its body is (a huge one: any tile — body.js)
           battle.on('beforeAttack', (c) => {
@@ -166,7 +194,7 @@ export default {
             const lat = (r, cc) => toLocal(r - unit.tileR, cc - unit.tileC, unit.dir)[0];
             const l0 = lat(Math.round(main.y), Math.round(main.x));
             const onLine = (e) => bodyKeys(e).some((k) => lat(Math.floor(k / COLS), k % COLS) === l0);
-            const line = battle.enemiesInKeys(unit.rangeKeys, unit, unit.profile).filter((e) => e !== main && onLine(e));
+            const line = battle.enemiesInKeys(unit.rangeKeys, unit, { ...unit.profile, canHitFly: true }).filter((e) => e !== main && onLine(e));
             if (line.length) c.targets = [main, ...line];
           }, { owner: unit, priority: 10 });
         }
@@ -184,6 +212,15 @@ export default {
             a.mem.svashCasts = 0;
             for (let i = 0; i < casts; i++) slash(battle, a, a.s.atk);
           }
+        }, { owner: unit });
+        // CSR-X 特性追加 (see the header): at the battle start — after 开放性开局's gifts, registered first — the cheapest
+        // other operator of his squad costs `value` less at its next deployment, when he deployed with the board
+        const firstCut = Math.abs(num(tm.value));
+        if (firstCut > 0) battle.on('battleStart', () => {
+          if (!(unit.deploySeq > 0)) return;
+          const squad = battle.allyUnits.filter((a) => isOp(a) && a !== unit && a.ownerId === unit.ownerId && !a.removed);
+          squad.sort((a, b) => a.base.cost - b.base.cost || a.id - b.id);
+          cutCost(squad[0], firstCut);
         }, { owner: unit });
       },
     };

@@ -451,7 +451,7 @@ test('#4 per-piece state rides on the returned equipment: 商业包装方案 kee
   m.dispose();
 });
 
-test('#4 strategy 昆图斯 end to end: the R3 cell survives its first transformation; a bot injects its weakest single normal operator, never an elite', () => {
+test('#4 strategy 昆图斯 end to end: the R3 cell survives its first transformation; a bot injects a single normal operator, never an elite', () => {
   const h = makeMatch({ mode: 'coop', difficulty: 'NORMAL', humans: 1, bots: 1, seed: 21, registry: REG, fake: true }).start();
   const m = h.m;
   h.toPrep(1, { band: 'band_quintus' });
@@ -467,7 +467,7 @@ test('#4 strategy 昆图斯 end to end: the R3 cell survives its first transform
   assert.equal(owned.length, 1, 'R4: the cell is still owned after its transformation');
   m.dispose();
 
-  // the bot's choice: its least valuable single normal operator below 6阶 — never an elite, a merge pair or a 6阶
+  // the bot's choice: a single normal operator below 6阶 (§37.45: the highest tier first) — never an elite, a merge pair or a 6阶
   const s = setup({ seed: 23 });
   const { m: m2, ps: p2 } = s;
   const [t1a, t1b] = plainOf(m2, 1);
@@ -488,6 +488,26 @@ test('#4 strategy 昆图斯 end to end: the R3 cell survives its first transform
   assert.ok(carrierOf, 'the bot equipped the cell');
   assert.ok(!m2.gd.isGolden(carrierOf.id) && m2.gd.tierOf(carrierOf.id) < 6, 'never an elite or a 6阶');
   m2.dispose();
+});
+
+// §37.45 [ASSUMED]: the cell comes back after every transformation, so its carrier is the highest-tier single (a 5阶
+// becomes a random 6阶, more than a 1阶 becoming a 2阶 by the bot's TIER_POWER); a member of the focus bond goes last.
+test('§37.45 昆图斯: the cell goes to the highest-tier single normal operator, a member of the focus bond last', () => {
+  const { m, ps } = setup({ seed: 24 });
+  const SIRA = 'siracusaShip';
+  const outside = (tier) => plainOf(m, tier).find((id) => !m.gd.chess(id).bonds.includes(SIRA));
+  const low = give(m, ps, outside(1), 'hand');
+  const high = give(m, ps, outside(4), 'hand');
+  assert.equal(cellTarget(m, ps).uid, high.uid, 'the 4阶 single, not the 1阶 one (the least valuable before §37.45)');
+  void low;
+  // four 叙拉古 operators (one of them 5阶) make it the focus; its members stay out of the transformation
+  const members = Object.values(DATA.chess).filter((c) => c.visible && !c.isGolden && c.tier <= 5 && c.bonds.includes(SIRA)
+    && !c.bonds.some((b) => b !== SIRA && DATA.bonds[b]?.isCore) && m.pool.left(c.chessId) > 0).sort((a, b) => b.tier - a.tier || (a.chessId < b.chessId ? -1 : 1)).slice(0, 4);
+  assert.equal(members.length, 4);
+  assert.equal(members[0].tier, 5, 'a 5阶 叙拉古 member');
+  for (const c of members) give(m, ps, c.chessId, 'hand');
+  assert.equal(cellTarget(m, ps).uid, high.uid, 'still the 4阶 outside the focus, not the 5阶 叙拉古 member');
+  m.dispose();
 });
 
 // ---------------------------------------------------------------------------------------------------------------------

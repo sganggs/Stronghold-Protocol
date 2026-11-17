@@ -19,7 +19,8 @@ export default {
   // instead of dying. T1 凝固的时光: can attack sleeping enemies, +15 % ATK arts vs non-moving
   // enemies, sleeping enemies take 30 % ATK arts/s. T2 勇气的报偿: Sargon/Minos ops above 50 % HP get +20 ASPD.
   // S1 缓蚀 (duration): ATK +, attack@prob chance per attack to sleep the target attack@sleep s.
-  // S2 封护 (duration): no attacks, ATK +; she and the lowest-HP-ratio operator in her range sleep until the skill ends
+  // S2 封护 (duration): no attacks, ATK +; she and the lowest-HP-ratio operator in her range (an equal ratio: the latest
+  // deployed, the maintainer's rule of 2026-10-29, GitHub #906 / PR #907) sleep until the skill ends
   // (沉睡 = invulnerable), enemies around either of them keep falling asleep — each 0.25 s pulse a new 沉睡 entry for
   // her trait (GitHub #162, DESIGN §24.8); T1 ×talent_scale.
   chess_char_5_02_a: (bb, chess, def) => {
@@ -51,8 +52,11 @@ export default {
           kind: 'duration', mods: mods({ atkPct: num(bb.atk) }),
           attack: { noAttack: true },
           onStart({ battle, unit }) {
+            // 生命比例最低; an equal ratio goes to the LAST-deployed op (the maintainer's rule of 2026-10-29 — the same
+            // tie-break as 引星棘刺 S1's 「生命比例最低>最晚部署」, thorn2: `b.deploySeq - a.deploySeq`), then the
+            // creation order as the final tie-break. Judged once, at the cast; the ward never moves afterwards.
             const pick = battle.alliesInGrid(unit).filter((a) => a !== unit && isOp(a) && a.hp > 0)
-              .sort((a, b) => a.hpRatio - b.hpRatio || a.id - b.id)[0] ?? null;
+              .sort((a, b) => a.hpRatio - b.hpRatio || b.deploySeq - a.deploySeq || a.id - b.id)[0] ?? null;
             unit.mem.titiWard = pick ? [unit, pick] : [unit];
             for (const a of unit.mem.titiWard) ward(battle, unit, a);
             unit.mem.titiWardAcc = AURA_IV;

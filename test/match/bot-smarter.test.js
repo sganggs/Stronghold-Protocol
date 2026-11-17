@@ -7,7 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PHASE } from '../../shared/constants.js';
-import { botPickBand, botPickCard, bountyKillChance, itemTarget, arrange, botPrepBegin, botPrepEnd, bondPlan, rangeTiles, effDps, rangeRec, buyScoreOf } from '../../server/match/bot.js';
+import { botPickBand, botPickCard, bountyKillChance, itemTarget, arrange, botPrepBegin, botPrepEnd, bondPlan, rangeTiles, effDps, rangeRec, buyScoreOf, engineFor } from '../../server/match/bot.js';
 import { parseKey, tileKey } from '../../server/match/board.js';
 import { makeMatch, checkInvariants, give, giveItem, legalTileFor, DATA } from './harness.js';
 
@@ -47,6 +47,58 @@ test('#514: a living teammate soft-reserves an opening bond, and elimination rel
     human.alive = false;
     assert.equal(focus(), other, 'elimination ends the reservation');
   } finally { m.dispose(); }
+});
+
+test('co-op focus: a changed public main releases the cached plan within the same prep', () => {
+  const { m } = makeMatch({ humans: 2, difficulty: 'HARD', seed: 11 }).start().toPrep();
+  const [ps, mate] = m.order;
+  try {
+    ps.bandId = mate.bandId = null;
+    mate.bonds = {};
+    const member = bond => Object.values(DATA.chess).find(c => c.visible && !c.isGolden && c.tier <= 3
+      && c.bonds.includes(bond) && c.bonds.filter(b => m.gd.bond(b)?.isCore).length === 1);
+    const cores = m.gd.bondIds.filter(id => m.gd.bond(id)?.isCore && !m.gd.modeInactiveBonds.has(id) && member(id)).slice(0, 2);
+    assert.equal(cores.length, 2);
+    for (const id of cores) give(m, ps, member(id).chessId);
+    const first = bondPlan(m, ps);
+    const other = cores.find(id => id !== first.focus);
+    mate.bonds = { [first.focus]: { count: 3 } };
+    const next = bondPlan(m, ps);
+    assert.equal(next.focus, other, 'a viable unclaimed core beats a small prior commitment');
+    assert.notEqual(next.key, first.key, 'public claims participate in the cache identity');
+    mate.alive = false;
+    assert.notEqual(bondPlan(m, ps).key, next.key, 'eliminated teammates release their claims');
+  } finally { m.dispose(); }
+});
+
+test('§37.34: 终极 solo bots prefer the sturdiest strategies more than on other difficulties', () => {
+  const share = (difficulty) => {
+    const { m } = makeMatch({ mode: 'solo', difficulty, seed: 5, seats: [{ seat: 0, playerId: 'ai_0', name: 'AI', isBot: true, connected: true }] }).start().toPrep();
+    try {
+      const bot = m.order[0], ids = m.gd.bandIds(), top = Math.max(...ids.map((id) => m.gd.startLp(id)));
+      let hits = 0;
+      for (let i = 0; i < 2000; i++) if (m.gd.startLp(botPickBand(m, bot)) === top) hits++;
+      return hits / 2000;
+    } finally { m.dispose(); }
+  };
+  const hard = share('HARD'), abyss = share('ABYSS');
+  assert.ok(abyss > hard + 0.15, `the highest-LP strategy: ${(abyss * 100).toFixed(0)} % on 终极 vs ${(hard * 100).toFixed(0)} % on 绝境`);
+});
+
+test('§37.39: 终极 co-op bots weigh the starting LP like 终极 solo bots (the team plays on while one seat lives)', () => {
+  const seats = Array.from({ length: 4 }, (_, i) => ({ seat: i, playerId: `ai_${i}`, name: `AI-${i + 1}`, isBot: true, connected: true }));
+  const share = (mode, difficulty) => {
+    const { m } = makeMatch({ mode, difficulty, seed: 5, seats: mode === 'solo' ? seats.slice(0, 1) : seats }).start().toPrep();
+    try {
+      const bot = m.order[0], top = Math.max(...m.gd.bandIds().map((id) => m.gd.startLp(id)));
+      let hits = 0;
+      for (let i = 0; i < 2000; i++) if (m.gd.startLp(botPickBand(m, bot)) === top) hits++;
+      return hits / 2000;
+    } finally { m.dispose(); }
+  };
+  const hard = share('coop', 'HARD'), abyss = share('coop', 'ABYSS'), solo = share('solo', 'ABYSS');
+  assert.ok(abyss > hard + 0.15, `co-op: the highest-LP strategy ${(abyss * 100).toFixed(0)} % on 终极 vs ${(hard * 100).toFixed(0)} % on 绝境`);
+  assert.ok(Math.abs(abyss - solo) < 0.06, `co-op 终极 ${(abyss * 100).toFixed(0)} % ≈ solo 终极 ${(solo * 100).toFixed(0)} %`);
 });
 
 test('#514: strategy selection stays possible, and less likely, while a teammate holds that opening', () => {
@@ -105,15 +157,59 @@ test('user: Given a faction strategy teammate, When scoring shared high-tier che
       assert.equal(buyScoreOf(m, ps, id), inactive, 'inactive faction does not trigger yielding');
       m.gd.modeInactiveBonds.delete('siracusaShip');
     }
-    const unaffected = Object.values(DATA.chess).filter((c) => c.visible && !c.isGolden &&
-      (c.tier < 5 || !c.bonds.includes('siracusaShip')));
-    for (const c of unaffected) {
+    // #121: tiers I–IV of the faction yield 12 points, every other card is unaffected
+    for (const c of Object.values(DATA.chess).filter((x) => x.visible && !x.isGolden && !x.diyFor)) {
       mate.bandId = null;
       const ordinary = buyScoreOf(m, ps, c.chessId);
       mate.bandId = 'band_chiave';
-      assert.equal(buyScoreOf(m, ps, c.chessId), ordinary, c.name);
+      const yields = c.bonds.includes('siracusaShip') && m.pool.has(m.gd.baseIdOf(c.chessId));
+      assert.equal(buyScoreOf(m, ps, c.chessId), ordinary - (yields ? (c.tier >= 5 ? 18 : 12) : 0), c.name);
     }
   } finally { m.dispose(); }
+});
+
+test('#121: Given a teammate building a faction, When scoring its low-tier chess, Then the bot yields unless its own strategy needs the faction', () => {
+  const { m } = makeMatch({ humans: 2, seed: 11 }).start().toPrep();
+  const [ps, mate] = m.order;
+  try {
+    ps.bandId = mate.bandId = null;
+    const low = Object.values(DATA.chess).find((c) => c.visible && !c.isGolden && c.tier <= 2 && c.bonds.includes('lateranoShip')
+      && m.pool.has(m.gd.baseIdOf(c.chessId)));
+    assert.ok(low, 'a low-tier <拉特兰> operator in the pool');
+    const ordinary = buyScoreOf(m, ps, low.chessId);
+    mate.bandId = 'band_paganini';
+    assert.deepEqual(m.gd.bandBondIds('band_paganini'), ['lateranoShip'], '潘格尼尼 names <拉特兰>');
+    assert.equal(buyScoreOf(m, ps, low.chessId), ordinary - 12, 'the opening strategy reserves the faction at every tier');
+    ps.bandId = 'band_paganini';
+    // no yield; §37.35: the own 职业队 strategy also makes <拉特兰> the focus (bondValue's +10 for a focus member), and
+    // §37.36 adds ENGINE_BONUS (10) for a focus engine (送葬人's first kill adds 拉特兰 layers)
+    const engine = engineFor(m, m.gd.chess(low.chessId), 'lateranoShip') ? 10 : 0;
+    assert.ok(Math.abs(buyScoreOf(m, ps, low.chessId) - (ordinary + 10 + engine)) < 1e-9, 'the own opening strategy needs the faction too');
+    ps.bandId = mate.bandId = null;
+    // the main core bond on the public bond strip counts like an opening strategy
+    mate.bonds = { lateranoShip: { count: 3 } };
+    assert.equal(buyScoreOf(m, ps, low.chessId), ordinary - 12, 'a teammate building <拉特兰> on its board');
+    mate.alive = false;
+    assert.equal(buyScoreOf(m, ps, low.chessId), ordinary, 'an eliminated teammate needs nothing');
+  } finally { m.dispose(); }
+});
+
+test('#121: Given a living teammate, When the bot draws its strategy, Then 鸭爵 (it changes the teammates\' enemies) keeps a tenth of its weight', () => {
+  const duck = Object.values(DATA.bands).find((b) => /队友遭遇/.test(b.desc || ''));
+  assert.ok(duck && /鸭爵/.test(duck.name), '鸭爵 「神秘顾客」 is detected by its description');
+  const rate = (o) => {
+    const { m } = makeMatch(o).start();
+    try {
+      const bot = m.order[0];
+      let hits = 0;
+      for (let i = 0; i < 4000; i++) if (botPickBand(m, bot) === duck.bandId) hits++;
+      return hits / 4000;
+    } finally { m.dispose(); }
+  };
+  const alone = rate({ mode: 'solo', difficulty: 'NORMAL', seed: 5, seats: [{ seat: 0, playerId: 'ai_0', name: 'AI', isBot: true, connected: true }] });
+  const team = rate({ humans: 2, seed: 5 });
+  assert.ok(alone > 0.02, `drawn alone (${alone})`);
+  assert.ok(team > 0 && team < alone / 4, `rarer with a teammate (${team} vs ${alone})`);
 });
 
 test('user: Given a teammate faction strategy, When buying or taking a reward, Then prefer an alternative but retain an immediate own merge', () => {
@@ -243,6 +339,12 @@ test('items: 信标 on a bench single; both 博士投影 on a normal operator ev
   const fresh = (tier) => Object.values(DATA.chess).find((c) => c.visible && !c.isGolden && c.tier === tier && m.pool.left(c.chessId) >= 3 && !owned.has(c.chessId)).chessId;
   for (const p of ps.hand) if (p && p.kind === 'chess') ps.returnCopies(p);
   ps.hand.fill(null);
+  // a bot may deploy two copies of one operator (§35.63 boards): keep one, so the hand pair below is the only pair
+  const seen = new Set();
+  for (const [key, p] of [...ps.board.entries()]) {
+    if (p.kind !== 'chess') continue;
+    if (seen.has(m.gd.baseIdOf(p.id))) { ps.returnCopies(p); ps.board.delete(key); } else seen.add(m.gd.baseIdOf(p.id));
+  }
   // the highest-tier deployed operator becomes an elite: the most valuable piece on the board
   const [topKey, top] = [...ps.board.entries()].filter(([, p]) => p.kind === 'chess' && !m.gd.isGolden(p.id))
     .sort((a, b) => m.gd.chess(b[1].id).tier - m.gd.chess(a[1].id).tier || a[1].uid - b[1].uid)[0];
@@ -475,6 +577,65 @@ test('merged rules (0.1.1): an attack on every enemy in range counts double (阵
   h.m.dispose();
 });
 
+test('#31: 信仰搅拌机 S3 is planned on its two-side grid; S1 and S2 stay on the line, and SPT-Y does not grow S3', () => {
+  const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seed: 3, fake: true }).start();
+  const ps = h.ps('p_0');
+  const has = (grid, dr, dc) => grid.some((p) => p[0] === dr && p[1] === dc);
+  const plan = (id, skill, module) => {
+    const rec = DATA.chess[id];
+    ps.loadout = Object.freeze({
+      chess_char_4_01_a: Object.freeze({
+        ...(skill == null ? {} : { skill }),
+        ...(module ? { module } : {}),
+      }),
+    });
+    ps._botRangeRecs = new Map();
+    return rangeRec(ps, rec).rangeGrid;
+  };
+  try {
+    for (const id of ['chess_char_4_01_a', 'chess_char_4_01_b']) {
+      const rec = DATA.chess[id];
+      const s3 = rec.skills.find((s) => s.skillId === 'skchr_rmixer_3');
+      assert.equal(rec.skill.skillId, 'skchr_rmixer_3', `${id} defaults to S3`);
+      assert.ok(s3.rangeGrid.length > rec.rangeGrid.length, `${id} S3 grid is wider than the base line`);
+      ps.loadout = Object.freeze({});
+      ps._botRangeRecs = new Map();
+      const def = rangeRec(ps, rec).rangeGrid;
+      assert.equal(def.length, s3.rangeGrid.length, `${id} default plan uses the skill grid`);
+      assert.deepEqual(def, s3.rangeGrid, `${id} default`);
+      assert.ok(has(def, 1, 1) && has(def, -1, 1) && has(def, 0, 3), `${id} covers both sides and the far tile`);
+      const on = plan(id, s3.index);
+      assert.deepEqual(on, s3.rangeGrid, `${id} explicit S3`);
+      for (const sid of ['skchr_rmixer_1', 'skchr_rmixer_2']) {
+        const sk = rec.skills.find((s) => s.skillId === sid);
+        const g = plan(id, sk.index);
+        assert.deepEqual(g, rec.rangeGrid, `${id} ${sid} keeps the deployed line`);
+        assert.equal(has(g, 1, 1) || has(g, -1, 1), false, `${id} ${sid} has no side tiles`);
+      }
+    }
+    const elite = DATA.chess.chess_char_4_01_b;
+    const spty = (elite.modules || []).find((m) => m.typeName === 'SPT-Y');
+    assert.ok(spty, 'SPT-Y is on the elite record');
+    const s3 = elite.skills.find((s) => s.skillId === 'skchr_rmixer_3');
+    const grown = plan('chess_char_4_01_b', s3.index, spty.uniEquipId);
+    assert.equal(grown.length, s3.rangeGrid.length, 'SPT-Y does not add tiles to S3');
+    assert.deepEqual(grown, s3.rangeGrid, 'S3 + SPT-Y is the skill grid as-is');
+    assert.equal(has(grown, 0, 4) || has(grown, 1, 3) || has(grown, -1, 3), false, 'the 攻击距离 +1 cells are absent');
+    const s1 = elite.skills.find((s) => s.skillId === 'skchr_rmixer_1');
+    const line = plan('chess_char_4_01_b', s1.index, spty.uniEquipId);
+    assert.equal(line.length, elite.rangeGrid.length + 1, 'S1 still takes SPT-Y +1');
+    assert.equal(has(line, 0, 3), true, 'S1 + SPT-Y reaches one tile farther');
+    assert.equal(has(line, 1, 1) || has(line, -1, 1), false, 'S1 + SPT-Y grows the line, not the sides');
+  } finally {
+    h.m.dispose();
+  }
+});
+
+// CPU of one bot prep at R10 of the guard's match, on a development machine: 15–30 ms, the 阿戈尔 seat 95 ms (about half of that
+// on the JIT and GC threads, which process.cpuUsage counts). GitHub's runners measured 316–390 ms for that seat, so the bar
+// is 600 ms when process.env.CI is set (test/sim/robustness.test.js does the same); a real regression still shows locally.
+const PREP_CPU_MS = process.env.CI ? 600 : 300;
+
 test('cost guard: the prep heuristics of a late-round 4-bot match stay cheap (rehearsal off)', () => {
   const seats = [0, 1, 2, 3].map((i) => ({ seat: i, playerId: `ai_${i}`, name: `AI${i}`, isBot: true, connected: true }));
   const h = makeMatch({ mode: 'coop', difficulty: 'NORMAL', seats, seed: 13, fake: true }).start();
@@ -490,8 +651,7 @@ test('cost guard: the prep heuristics of a late-round 4-bot match stay cheap (re
     const u = process.cpuUsage(u0);
     worst = Math.max(worst, (u.user + u.system) / 1000);
   }
-  // 7–35 ms of CPU per bot prep R6–R13 (seeds 13–15); ≈ 10× headroom for a loaded host
-  assert.ok(worst < 300, `worst bot prep ${worst.toFixed(1)} ms of CPU`);
+  assert.ok(worst < PREP_CPU_MS, `worst bot prep ${worst.toFixed(1)} ms of CPU`);
   assert.equal(m.errorCount, 0);
   m.dispose();
 });
@@ -505,7 +665,9 @@ test('bench shed: the buy loop never sells a piece that came this prep (it used 
   PlayerState.prototype.sell = function (uid) {
     const loc = this.find(uid);
     const p = loc && loc.piece;
-    if (p && p.boughtRound === this.m.round && /buyLoopSteps/.test(new Error().stack)) shed.push(`${p.id} R${this.m.round}`);
+    // §35.63's layer trade (tradeOnce) sells a 获得时 layer unit right after buying it on purpose; the shed never does
+    const stack = new Error().stack;
+    if (p && p.boughtRound === this.m.round && /buyLoopSteps/.test(stack) && !/tradeOnce/.test(stack)) shed.push(`${p.id} R${this.m.round}`);
     return oSell.call(this, uid);
   };
   try {

@@ -109,8 +109,8 @@ for (const hidden of [false, true]) test(`${hidden ? 'hidden' : 'final'} Helm ac
       { uid: 3, chessId: 'bystander', row: 11, col: 7 }, { uid: 4, chessId: 'bystander', row: 12, col: 3 }],
   });
   h.step();
-  const e = h.spawn(hidden ? 'enemy_9013_acstmk_2' : 'enemy_9013_acstmk', { pos: [3, 10], tag: 'boss', mods: { speedMul: 0 } });
-  e.profile.noAttack = true;
+  // 灭顶之灾 takes an attack's turn (DESIGN §35.29): the leader attacks
+  h.spawn(hidden ? 'enemy_9013_acstmk_2' : 'enemy_9013_acstmk', { pos: [3, 10], tag: 'boss', mods: { speedMul: 0 } });
   assert.ok(h.runUntil(() => h.b.enemies.some(e => e.defId === 'enemy_9016_acstmr'), 60), 'shell was fired');
   assert.ok(h.runUntil(() => h.hooksOf('statusApplied').some(c => c.target === h.unit(1) && c.status === 'stun'), 25), 'shell arrived');
   const stunned = new Set(h.hooksOf('statusApplied').filter(c => c.status === 'stun').map(c => c.target.uid));

@@ -2,8 +2,9 @@
 // 2026-10-05) — the human's picks for the four DIY slots and what a slotted operator changes in the player's own state.
 //   * setDiy: the seat's picks when the match started (seats[].diy, server/lobby.js room.diy), re-checked against this
 //     match's data and kit registry (shared/protocol.js checkDiyPicks, server/sim/content/kits/index.js KITTED_CHARS) and
-//     fixed for the match — an out-of-match setting: a change during a match applies to the next one. Bots field no 自选
-//     piece [ASSUMED]. `diy` = { [slotBaseId]: { charId, skillIndex, uniEquipId } } (frozen; uniEquipId null = none).
+//     fixed for the match — an out-of-match setting: a change during a match applies to the next one. Bots field no
+//     lobby 自选 piece [ASSUMED]; 规程 gives them one at 选择自编. `diy` = { [slotBaseId]: { charId, skillIndex,
+//     uniEquipId } } (frozen; uniEquipId null = none).
 //   * the player's data view (diyGameData): with picks, `ps.gd` is a view of the match's GameData whose chess(id) is the
 //     composed 自选 record of a slotted slot, both forms (shared/diy.js diyRecord: the slot's identity — tier, price, sell
 //     price, the 3 → elite merge, status: E2 Lv1 skill rank 4 / E2 Lv60 rank 7 with the module at stage 1 at tier 5, 3 at
@@ -21,7 +22,11 @@
 //     the maintainer's decision of 2026-10-15, GitHub #650, DESIGN §32.14.31). A piece all of whose bonds are switched
 //     off this match (本局禁用: the drawn bans and the mode's static list)
 //     gets no stock and so leaves the shop, like a preset chess whose bonds are all off (PRTS 卫戍协议：盟约 "禁用盟约有可能
-//     影响自选的支援干员"); 协防 (emptyShip) is never banned, so a prototype always stays. poolOf(baseId) routes every copy
+//     影响自选的支援干员"); 协防 (emptyShip) is never banned, so a prototype always stays. A version with diyBringLimits and
+//     the CUSTOM_CHECK enter step does not stock a slot until 选择自编 confirms it (0–2 per tier on 规程); before that
+//     the stock is empty and diyBanned still lists the bond-excluded slots. Other versions stock every legal lobby
+//     slot. Bots still have no lobby roster [ASSUMED]; on that step a bot with an empty roster is given a deterministic
+//     capped one (synthesizeBotRoster) [ASSUMED]. poolOf(baseId) routes every copy
 //     taken or returned for a slotted slot to that stock (buy, reward picks, merges, promotions, sells, temp, elimination).
 //   * the shop's draws (diyRollEntries): the stock of each slotted slot joins this player's copy-weighted shop rolls,
 //     weighted like any chess of its tier, once the 调度中心 has reached the slot's shopLevel (activity_table
@@ -42,11 +47,21 @@
 
 import { KITTED_CHARS } from '../../sim/content/kits/index.js';
 import { checkDiyPicks } from '../../../shared/protocol.js';
-import { diyRecord, diySlot, diyTokenOwner } from '../../../shared/diy.js';
+import { diyRecord, diySlot, diyTokenOwner, diyPool, diySlotIds, isPrototypePick } from '../../../shared/diy.js';
+import { diyBringCap } from '../../../shared/diyBring.js';
 import { atPotential } from '../../../shared/potential.js';
 
 const posIntOr = (v, d) => (Number.isInteger(v) && v > 0 ? v : d);
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+
+/** First composing skill of an owned pick (index 0, then 1, then 2; no module). Null when none compose. */
+function ownedPick(data, slotId, charId) {
+  for (const skillIndex of [0, 1, 2]) {
+    const pick = { charId, skillIndex, uniEquipId: null };
+    try { if (diyRecord(slotId, pick, { data })) return pick; } catch { /* missing form */ }
+  }
+  return null;
+}
 
 /**
  * The copies of a player's slotted DIY pieces — the shared pool's copy interface (has / cap / left / take / give) for
@@ -144,12 +159,13 @@ export class PlayerDiy {
    * Fix the 自选 picks for the match (see the header): the seat's picks re-checked against this match's data and kits;
    * a slot whose record cannot be composed is left empty. With picks, `this.gd` becomes the player's data view.
    * @param {any} picks `{ [slotBaseId]: { charId, skillIndex?, uniEquipId? } | null }`
-   * @param {{ kitted?: Iterable<string> }} [opts] the operators with a kit (default: the registry's KITTED_CHARS; tests may
-   *   widen it to slot an operator whose kit is still being written)
-   * @returns {boolean} false when the picks are malformed (nothing changes) or the player is a bot
+   * @param {{ kitted?: Iterable<string>, allowBot?: boolean }} [opts] the operators with a kit (default: the registry's
+   *   KITTED_CHARS; tests may widen it to slot an operator whose kit is still being written). `allowBot` is the 规程
+   *   synthesis only — a lobby write still refuses a bot.
+   * @returns {boolean} false when the picks are malformed (nothing changes) or the player is a bot without allowBot
    */
-  setDiy(picks, { kitted = KITTED_CHARS } = {}) {
-    if (this.isBot) return false;
+  setDiy(picks, { kitted = KITTED_CHARS, allowBot = false } = {}) {
+    if (this.isBot && !allowBot) return false;
     const gd = this.m.gd;
     const data = gd.raw;
     const res = checkDiyPicks(picks, { data, kitted });
@@ -180,7 +196,7 @@ export class PlayerDiy {
 
   /**
    * The stock of each slotted DIY piece (see the header), once the match has drawn its bans: `off` = the bonds switched
-   * off this match (drawn + the mode's static list). A piece all of whose bonds are off gets none (`diyBanned`).
+   * off this match (drawn + the mode's static list). GameData.bondsExclude applies the version's rule (`diyBanned`).
    * @param {Set<string>} off
    */
   initDiyStock(off = new Set()) {
@@ -194,17 +210,74 @@ export class PlayerDiy {
     const stock = new DiyStock();
     const banned = [];
     const gd = this.m.gd;
+    const limits = gd.diyBringLimits;
+    const bring = limits && Array.isArray(this.diyBring) ? new Set(this.diyBring) : null;
     for (const slotId of Object.keys(this.diy || {})) {
       const rec = this._diyRecords.get(slotId);
       const slot = diySlot(slotId, gd.raw);
       if (!rec || !slot) continue;
-      const bonds = Array.isArray(rec.bonds) ? rec.bonds : [];
-      if (bonds.length > 0 && bonds.every((b) => off.has(b))) { banned.push(slotId); continue; }
+      if (gd.bondsExclude(rec, off)) { banned.push(slotId); continue; }
+      // 选择自编 has not confirmed this slot (or confirmed a different set): it is not banned, just absent.
+      if (limits && (!bring || !bring.has(slotId))) continue;
       const cap = gd.poolCopies(slotId);
       if (!(cap > 0)) continue;
       stock.entries.set(slotId, { cap, left: cap, tier: gd.tierOf(slotId), shopLevel: slot.shopLevel });
     }
     return { stock, banned: Object.freeze(banned) };
+  }
+
+  /**
+   * Give a bot with an empty lobby roster a deterministic 选择自编 roster [ASSUMED]: per tier, kitted pool members
+   * that are not bond-excluded, more active bonds first then charId, up to the cap, written onto the first slot ids
+   * of that tier. Tier 5 is filled before tier 6. An owned operator is used once; a prototype may fill both tiers.
+   * No randomness. Returns false without changing the roster when this match has no bring limits.
+   * @param {Set<string>} off bonds switched off this match
+   * @param {Record<number, number>|null} limits
+   * @returns {boolean}
+   */
+  synthesizeBotRoster(off, limits) {
+    if (!limits) return false;
+    const data = this.m.gd.raw;
+    const gd = this.m.gd;
+    const kitted = this.m.diyKitted || KITTED_CHARS;
+    const usedOwned = new Set();
+    const picks = {};
+    const slotIds = diySlotIds(data);
+    const tiers = Object.keys(limits).map(Number).filter((n) => Number.isInteger(n)).sort((a, b) => a - b);
+    for (const tier of tiers) {
+      const cap = diyBringCap(limits, tier);
+      if (!(cap > 0)) continue;
+      const slots = slotIds.filter((id) => diySlot(id, data)?.tier === tier);
+      if (!slots.length) continue;
+      const candidates = [];
+      for (const charId of diyPool(tier, { data, kitted })) {
+        const proto = isPrototypePick(data, tier, charId);
+        if (!proto && usedOwned.has(charId)) continue;
+        const probe = proto ? { charId } : ownedPick(data, slots[0], charId);
+        if (!probe) continue;
+        let rec = null;
+        try { rec = diyRecord(slots[0], probe, { data }); } catch { rec = null; }
+        if (!rec || gd.bondsExclude(rec, off)) continue;
+        const bonds = Array.isArray(rec.bonds) ? rec.bonds : [];
+        candidates.push({ charId, proto, count: bonds.filter((b) => !off.has(b)).length });
+      }
+      candidates.sort((a, b) => (b.count - a.count) || (a.charId < b.charId ? -1 : a.charId > b.charId ? 1 : 0));
+      let n = 0;
+      for (const c of candidates) {
+        if (n >= cap) break;
+        const slotId = slots[n];
+        if (!slotId) break;
+        const pick = c.proto ? { charId: c.charId } : ownedPick(data, slotId, c.charId);
+        if (!pick) continue;
+        let rec = null;
+        try { rec = diyRecord(slotId, pick, { data }); } catch { rec = null; }
+        if (!rec || gd.bondsExclude(rec, off)) continue;
+        picks[slotId] = pick;
+        if (!c.proto) usedOwned.add(c.charId);
+        n += 1;
+      }
+    }
+    return this.setDiy(picks, { kitted, allowBot: true });
   }
 
   /** The copy accounting of base chess `baseId` for this player: its own stock for a slotted DIY slot, else the shared pool. */

@@ -49,7 +49,7 @@ export class BattlePlayers {
       layerGains: {}, coins: 0, damageDealt: 0, bossDamage: 0, healingDone: 0, deaths: 0, unitsEnd: [], unitStats: [],
     };
     const late = [];
-    for (const u of p.units ?? []) {
+    for (const u of [...(p.units ?? []), ...(p.commandReserves ?? [])]) {
       try {
         const unit = this._createAllyFromInput(ps, u);
         if (unit && unit.kind === 'token' && !unit.ownerUnit && u.ownerUid != null) late.push([unit, u]);
@@ -61,6 +61,8 @@ export class BattlePlayers {
       const owner = ps.units.find((x) => x.kind === 'op' && x.uid === inp.ownerUid);
       if (!owner) continue;
       t.ownerUnit = owner;
+      // the appearance follows the owner too, now that the owner is known (docs/SKINS.md; display only)
+      t.skin = owner.skin ?? null;
       const def = inp.def ? null : this._tokenDef(inp.tokenId ?? inp.chessId, owner, null);
       if (!def || def === t.def) continue;
       const st = def.stats;
@@ -141,7 +143,8 @@ export class BattlePlayers {
       const owner = inp.ownerUid != null ? ps.units.find((x) => x.uid === inp.ownerUid) : null;
       const def = this._tokenDef(inp.tokenId ?? inp.chessId, owner, inp.def);
       if (!def) { this.log(`unknown token ${inp.tokenId}`); return null; }
-      const u = this._makeAlly(ps, def, 'token', r, c, { uid: inp.uid, ownerUnit: owner, dir });
+      // 召唤物皮肤 (docs/SKINS.md): a summon wears the appearance its owner's outfit brings (Unit.skin, display only).
+      const u = this._makeAlly(ps, def, 'token', r, c, { uid: inp.uid, ownerUnit: owner, dir, skin: owner?.skin ?? null });
       u.carry = inp.carryState ?? null;
       return u;
     }
@@ -160,7 +163,14 @@ export class BattlePlayers {
     // a DIY slot has no body of its own (甄选干员): it fights only as a 自选 piece (its `diy` pick)
     if (def.raw?.isDiy && !def.diyFor) { this.log(`自选 slot ${inp.chessId} without a pick`); return null; }
     const u = this._makeAlly(ps, def, 'op', r, c, { uid: inp.uid, dir, skin: inp.skin });
+    if (inp.commandReserveFor != null) {
+      u.commandReserveFor = inp.commandReserveFor;
+      u.deferDeploy = true;
+      u.respawnAt = Infinity;
+    }
+    if (inp.commandLayerCapBonus > 0) u.commandLayerCapBonus = inp.commandLayerCapBonus;
     u.items = [...(inp.items ?? [])];
+    if (inp.itemProgress) u.itemProgress = inp.itemProgress.map(p => ({ ...p }));
     u.carry = inp.carryState ?? null;
     // 练度 (自持有, 0.2.2): the owned operator's ×ATK / ×DEF / ×max HP (units.js Πmul) — never a 补位 stand-in's nor a
     // prototype 自选 pick's (another character than the one the player owns)
@@ -203,6 +213,32 @@ export class BattlePlayers {
     this.units.push(u);
     this.allyUnits.push(u);
     if (ps) ps.units.push(u);
+    return u;
+  }
+
+  /**
+   * Field an operator that was not on the board (规程 bench switch: 卡西米尔 melee piece, 阿戈尔 any piece).
+   * Field tiles, like spawnToken. Does not spend the match hand. Refuses a tile outside the rect, a living unit
+   * (`unitAt`) or a knocked-out operator (`downOn`). `opts.loadout` is getChess's loadout (null = the record's
+   * default); `opts.stats` overwrite base stats before setup. Returns the operator, or null.
+   */
+  spawnOperator(playerId, chessId, row, col, opts = {}) {
+    if (!Number.isInteger(row) || !Number.isInteger(col) || !this.grid.inRect(row, col)) return null;
+    if (this.unitAt(row, col) || this.downOn(row, col)) return null;
+    const ps = this.getPlayer(playerId);
+    if (!ps) return null;
+    const def = this.data.getChess(chessId, opts.loadout ?? null);
+    if (!def) { this.log(`unknown chess ${chessId}`); return null; }
+    const dir = opts.dir != null ? normDir(opts.dir) : ps.dir;
+    const u = this._makeAlly(ps, def, 'op', row, col, { uid: opts.uid ?? null, dir, skin: opts.skin ?? null });
+    if (opts.stats) for (const [k, v] of Object.entries(opts.stats)) if (Number.isFinite(v)) u.base[k] = v;
+    if (Array.isArray(opts.items)) u.items = opts.items.slice();
+    this._setupUnit(u, opts.kit ?? null);
+    if (!this._deploy(u, { initial: false })) {
+      u.removed = true;
+      this.offOwner(u);
+      return null;
+    }
     return u;
   }
 

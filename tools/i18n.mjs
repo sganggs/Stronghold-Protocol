@@ -178,7 +178,21 @@ function skipReason(node, ancestors, aliases = new Map()) {
     if (a.type === 'CallExpression') {
       if (isConsoleCall(a) || isLogCall(a)) return 'console';
       const name = calleeName(a);
-      if (a.callee.type === 'Identifier' && SKIP_CALLS.has(aliases.get(name) ?? name)) return 'in-call';
+      const kind = a.callee.type === 'Identifier' ? (aliases.get(name) ?? name) : null;
+      if (kind && SKIP_CALLS.has(kind)) {
+        // A msgid call whose msgid is computed — t(flag ? '甲' : '乙'), t(TABLE[k] || '其他'), t(pick()) — or a
+        // template with expressions: extract cannot see a key there, so list the Chinese literals inside that
+        // argument as unwrapped (the guard in test/i18n.test.js) instead of hiding them as consumed by the call.
+        // A params value (`t('…', { m: '单人' })`) is not the msgid and stays in-call.
+        if (kind === 'tc' || MSGID_CALLS.has(kind)) {
+          const arg = a.arguments[kind === 'tc' ? 1 : 0];
+          const computed = arg && (arg === node
+            ? node.type === 'TemplateLiteral' && node.expressions.length > 0
+            : ancestors.includes(arg));
+          if (computed) continue;
+        }
+        return 'in-call';
+      }
     }
     if (a.type === 'NewExpression' && a.callee.type === 'Identifier' && /Error$/.test(a.callee.name)) return 'error';
     if (a.type === 'ThrowStatement') return 'error';

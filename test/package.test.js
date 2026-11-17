@@ -1,3 +1,4 @@
+import { PACKAGE_SERVER } from './helpers/packageServer.js';
 // test/package.test.js — tools/package.mjs, the player release zips (docs/DEPLOY.md §7). No network, no npm install, no
 // zip of the repository: the selection rules on sample paths and on the real `git ls-files`, then the packager itself
 // (--dry-run, the scans and guards, one --no-install build) on a small temporary git checkout with fake art.
@@ -142,7 +143,7 @@ function fakeCheckout() {
     test: 'node --test', golden: 'node tools/golden.mjs', package: 'node tools/package.mjs' };
   put('package.json', JSON.stringify({ name: 'sp-test', version: '9.9.9', main: 'server/index.js', scripts, dependencies: {} }));
   put('package-lock.json', JSON.stringify({ name: 'sp-test', version: '9.9.9', lockfileVersion: 3, packages: { '': { name: 'sp-test' } } }));
-  put('server/index.js', "import './sim/rng.js';\n");
+  put('server/index.js', PACKAGE_SERVER);
   put('server/sim/rng.js');
   put('shared/constants.js');
   put('public/index.html', '<!doctype html>\n');
@@ -189,7 +190,7 @@ const SHIPPED_TRACKED = ['CHANGELOG.md', 'LICENSE', 'NOTICE.md', 'README.md', 'T
   'docs/DEPLOY.md', 'docs/PLAYING.md', ...RUNTIME_RESEARCH, 'package-lock.json', 'package.json', 'public/index.html', 'public/js/main.js',
   'public/js/util.js', 'scripts/launch.mjs', 'scripts/start.sh', 'server/index.js', 'server/sim/rng.js', 'shared/constants.js',
   'tools/assets/network.mjs', 'tools/crop-board-atlas.mjs', 'tools/doctor.mjs', 'tools/fetch-assets.mjs', 'tools/local-extract/extract.py',
-  'tools/setup.mjs', 'tools/vendor.mjs'].sort();
+  'tools/setup.mjs', 'tools/vendor.mjs', 'server/release-without-llm'].sort();
 const ART = ['data/local-assets.json', 'public/assets/char/a.png', 'public/assets/local/g/x.png', 'public/assets/local/g/x.webp',
   'public/assets/local/spine/token/token_x/token_x.skel', 'public/assets/ui/b c.png', 'public/fonts/fonts.css', 'public/fonts/x.woff2'];
 
@@ -206,7 +207,7 @@ test('dry-run on a temporary checkout: the full and the lite file lists, the sum
     assert.match(full.stdout, /^checks: ok$/m);
     const lite = runTool(['--root', dir, '--dry-run', '--list', '--lite', '--allow-dirty']);
     assert.equal(lite.status, 0, lite.stdout + lite.stderr);
-    assert.deepEqual(listed(lite.stdout), SHIPPED_TRACKED, 'lite: the same runtime files, no art, fonts or local manifest');
+    assert.deepEqual(listed(lite.stdout).sort(), SHIPPED_TRACKED, 'lite: the same runtime files, no art, fonts or local manifest');
     assert.match(lite.stdout, /^package: lite \(no game art\)/m);
     assert.deepEqual(fs.readdirSync(dir).sort(), before, 'a dry-run writes nothing');
   } finally {
@@ -261,7 +262,7 @@ test('a --no-install build of the temporary checkout zips exactly the plan in on
     assert.equal(r.status, 0, r.stdout + r.stderr);
     const zip = path.join(out, `${FOLDER}-v9.9.9.zip`);
     assert.ok(fs.statSync(zip).size > 0);
-    assert.deepEqual(fs.readdirSync(out), [path.basename(zip)], 'the stage is removed after zipping');
+    assert.deepEqual(fs.readdirSync(out).sort(), [path.basename(zip), `${path.basename(zip)}.smoke.log`], 'only the archive and smoke log remain');
     if (hasUnzip) {
       const entries = spawnSync('unzip', ['-Z1', zip], { encoding: 'utf8' }).stdout.split('\n').filter((l) => l && !l.endsWith('/'));
       // and MANIFEST.json, written after npm ci (server/update.js; test/update-package.test.js checks its content)
@@ -299,7 +300,7 @@ test('content packs ship: every committed pack of both layouts, never one only o
     const dry = runTool(['--root', dir, '--dry-run', '--list', '--lite', '--allow-dirty']);
     assert.equal(dry.status, 0, dry.stdout + dry.stderr);
     assert.deepEqual(listed(dry.stdout).sort(), [...SHIPPED_TRACKED, ...PACK_FILES, 'packs/index.json'].sort());
-    assert.match(dry.stdout, /^generated: packs\/index\.json \(the pack index of the shipped packs, for a static host\)$/m);
+    assert.match(dry.stdout, /^generated: packs\/index\.json, server\/release-without-llm \(the pack index of the shipped packs, for a static host; the release marker that keeps external AI off the package\)$/m);
     const r = runTool(['--root', dir, '--out', out, '--no-install', '--allow-dirty', '--lite', '--keep-stage']);
     assert.equal(r.status, 0, r.stdout + r.stderr);
     const stage = path.join(out, `${FOLDER}-v9.9.9-lite`, FOLDER);

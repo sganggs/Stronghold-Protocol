@@ -19,6 +19,7 @@
 //   chain {count, falloff, radius, sluggish}              heal {mode:'single'|'multi'|'chain', count, falloff, farMul, elementHealRatio}
 //   priority 'fly'|'lowDef'|'ranged'|'lowestHp'|'highestHp'|'nearest'|'farthest'|'notBurst'|null
 //   noAttack bool (never attacks)   noAttackUnlessSkill bool (attacks only while its skill is active)
+//   selfHealFilter(dmg) → bool optional eligibility filter for native reaper output healing
 //   noHeal bool (cannot be healed by others)   blockFly bool   onHitStatus {key, duration, value}
 //   dmgMul(battle, unit, target) → number      afterHit(battle, unit, target, {dealt,x,y})
 //   funnelMul(battle, unit, target) → number (drone ramp, separate from the caster's attack multiplier)
@@ -27,7 +28,7 @@
 //   canAttack(battle, unit) → bool             afterAttack(battle, unit, targets)
 //   skipEnemy(enemy) → bool (an enemy the unit never selects — targeting.js canTargetEnemy; 嵯峨 "不攻击重伤单位")
 //   healThrough(healer, ally) → bool (a healer that selects and heals that ally through its 禁疗 — Battle
-//                             injuredAlliesInKeys, damage.js heal; 凯尔希 on her Mon3tr)
+//                             injuredAlliesInKeys, attack/heal.js heal; 凯尔希 on her Mon3tr)
 //   hitsFn(battle, unit, info) → n (info: the hit's { isSkill, index, attackId, energy })
 //   hitDmgMul n (伤害倍率 of each of the `hits` instances on the main target: DamageInfo `mul`, applied after DEF / RES
 //                and the damage multipliers, not 攻击倍率 — a 频次 enemy still loses 1 per instance; the instances after
@@ -41,7 +42,7 @@
 // (`dir`, sim/dir.js): offsets are compared in its facing-RIGHT frame.
 
 import { toLocal, frontOf } from './dir.js';
-import { isHpLoss } from './damage.js';
+import { isHpLoss } from './attack.js';
 import { absoluteRangeKeys } from './targeting.js';
 import { bodyKeys, bodyInRange, bodyInRangeTile } from './body.js';
 import { COLS, CHAIN_RADIUS } from './constants.js';
@@ -66,58 +67,65 @@ export const PROFESSION_DEFAULTS = Object.freeze({
 // install helpers (per-unit hooks). All use engine helpers only; tunables come from unit.profile.
 
 /**
- * 武者 (musha) trait "每次攻击到敌人后回复自身N生命" (bb value) with the branch rules of PRTS 分支特性信息 武者: "特性治疗于干员每次
- * 输出伤害时触发（不局限于攻击）" and "常态持有禁疗；通过自身特性/天赋/技能产生的作用于自身的治疗效果会无视自身的禁疗". The official
- * trait buffs (buff_template_data `utage_trait`, `helage_trait`, `zuole_trait`) fire on ON_OUTPUT_DAMAGE: one heal per damage
- * instance the unit deals to an enemy — every hit of a normal attack (the second hit of a double strike, a splash or
- * chain victim) and every skill / item / bond damage instance credited to it; a dodged hit deals none (no `damaged`).
- * Not a 流失 (no damage dealt), not an element 损伤 (a gauge fill, no HP damage — as 咒愈师), not a buff-made damage
- * (talent / DoT tags: attackType BUFF — [ASSUMED] as before; only 隐德来希's template filters it and no 武者 kit deals such
- * damage). The heal ignores 禁疗 (`ignoreHealFree`: an abnormal flag is one switch whoever set it — PRTS 异常效果).
+ * 武者 heals on source ON_OUTPUT_DAMAGE (PRTS branch; native helage/utage/akafyu/zuole_trait).
+ * The output precedes target dodge/barriers. These templates do not filter attackType BUFF; sourced talent,
+ * skill/item/bond damage remains eligible, independently of an attack behavior. Gauges, HP loss and zero
+ * computed values do not trigger this HP-damage output treatment. Healing ignores 禁疗.
+ * [ASSUMED] Retain the prior -10 trait priority relative to the kit's output effects.
  */
 const installMushaHeal = (battle, unit) => {
-  battle.on('damaged', (c) => {
-    if (c.source !== unit || !unit.alive || !c.target || c.target.side !== 'enemy') return;
+  battle.on('damageOutput', (c) => {
+    if (c.source !== unit || !unit.alive || !c.target || c.target.side !== 'enemy' || !(c.amount > 0)) return;
     const dmg = c.dmg;
-    if (!dmg || isHpLoss(dmg) || c.type === 'element') return;
-    const tags = dmg.tags || [];
-    if (tags.includes('talent') || tags.includes('dot') || tags.includes('periodic')) return;
+    if (!dmg || isHpLoss(dmg) || dmg.type === 'element') return;
     battle.heal(unit, unit, unit.profile.selfHeal ?? 50, { self: true, ignoreHealFree: true });
   }, { owner: unit, priority: -10 });
 };
 
 /**
- * 收割者 (reaper) self-heal ("每次攻击到敌人回复自身50生命，最大生效数等于阻挡数"). Normal attacks arrive as one 'attack' event
- * whose `targets` are every enemy hit.
- *
- * The official trait is a buff ON the operator that fires on ON_OUTPUT_DAMAGE — buff_template_data `etlchi_trait`,
- * `excu2_trait` react to any damage the unit outputs, and 隐德来希's filters the attackType BUFF out (damage produced by a
- * buff/talent — e.g. her own 萃血 DoT). So skill damage heals too: 隐德来希's S2 blood sickles restore her life although the
- * skill stops her attacks (`attack: { noAttack: true }`) — the sickle's AOEDamage nodes are attackType NORMAL and PRTS 备注
- * says "伤害来源始终视为隐德来希". Every such hit arrives as one 'damaged' event per enemy, so the reaper cap ("最大生效数") is
- * applied per instant here: the official `[heal_fake]` window is 0.05 s and its stack count is the block number
- * (`SetStackCountViaBlockNum`; PRTS 分支特性信息 收割者 "触发后的0.05s内最多只能累加等于自身阻挡数的治疗次数"). [ASSUMED] the sim uses
- * the same `battle.time` as its window, so simultaneous hits (both 血镰, an AoE) share the block-count cap; a normal attack
- * has its own event and its own cap, as before. Like the 武者's, the heal ignores 禁疗 (PRTS 分支特性信息 收割者 "通过自身特性/
- * 天赋/技能产生的作用于自身的治疗效果会无视自身的禁疗").
+ * Reaper native ON_OUTPUT_DAMAGE: accept at most the initial block count in a 0.05 s window,
+ * then deliver individual heals at 0.12 s intervals. Native heal_fake / heal buffs own this queue.
+ * [ASSUMED] Native waitFirstTriggerInterval=false uses the next sim scheduler phase; later deadlines use 30 Hz ticks.
+ * A kit may restrict its eligible damage classes (Entlechia excludes BUFF); the profession does not.
  */
 const installReaperHeal = (battle, unit) => {
-  const heal = (n) => { if (n > 0 && unit.alive) battle.heal(unit, unit, (unit.profile.selfHeal ?? 50) * n, { self: true, ignoreHealFree: true }); };
-  battle.on('attack', (ctx) => {
-    if (ctx.attacker !== unit || !unit.alive) return;
-    heal(Math.min(ctx.targets.length, Math.max(1, unit.s.blockCnt)));
-  }, { owner: unit, priority: -10 });
-  battle.on('damaged', (c) => {
-    if (c.source !== unit || !unit.alive || !c.target || c.target.side !== 'enemy') return;
-    const dmg = c.dmg;
-    if (!dmg || dmg.isAttack || isHpLoss(dmg)) return; // normal attacks: the 'attack' hook; a 流失 is not damage dealt
-    const tags = dmg.tags || [];
-    if (tags.includes('talent') || tags.includes('dot') || tags.includes('periodic')) return; // attackType BUFF
-    const mem = unit.mem;
-    if (mem.selfHealAt !== battle.time) { mem.selfHealAt = battle.time; mem.selfHealN = 0; }
-    if (mem.selfHealN >= Math.max(1, unit.s.blockCnt)) return;
-    mem.selfHealN++;
-    heal(1);
+  let windowEnd = -Infinity, accepted = 0, limit = 0, nextHealAt = -Infinity, delivery = null;
+  const queue = [];
+  const reset = () => {
+    if (delivery) delivery.cancel();
+    delivery = null;
+    queue.length = 0;
+    windowEnd = nextHealAt = -Infinity;
+    accepted = limit = 0;
+  };
+  const schedule = () => {
+    if (delivery || !queue.length) return;
+    delivery = battle.after(Math.max(0, nextHealAt - battle.time), () => {
+      delivery = null;
+      if (!unit.alive || !unit.deployed) { reset(); return; }
+      const amount = queue.shift();
+      // Reserve the next deadline before healing can trigger nested output callbacks.
+      nextHealAt = battle.time + 0.12;
+      battle.heal(unit, unit, amount, { self: true, ignoreHealFree: true });
+      schedule();
+    }, { owner: unit });
+  };
+  for (const event of ['deploy', 'death']) battle.on(event, c => { if (c.unit === unit) reset(); }, { owner: unit });
+  battle.on('damageOutput', c => {
+    if (c.source !== unit || !unit.alive || !unit.deployed || !c.target || c.target.side !== 'enemy' || !(c.amount > 0)) return;
+    if (!c.dmg || isHpLoss(c.dmg) || c.dmg.type === 'element') return;
+    if (unit.profile.selfHealFilter && !unit.profile.selfHealFilter(c.dmg)) return;
+    if (battle.time + 1e-9 >= windowEnd) {
+      limit = Math.max(0, Math.floor(unit.s.blockCnt));
+      if (!limit) return;
+      windowEnd = battle.time + 0.05;
+      accepted = 0;
+    }
+    if (accepted >= limit) return;
+    accepted++;
+    // [ASSUMED] Snapshot value per output; mixed-value native pending stacks are not established.
+    queue.push(unit.profile.selfHeal ?? 50);
+    schedule();
   }, { owner: unit, priority: -10 });
 };
 
@@ -137,12 +145,10 @@ const installReaperHeal = (battle, unit) => {
  * lowest-HP ally in range.
  */
 const installIncantation = (battle, unit) => {
-  battle.on('damaged', (c) => {
-    const t = c.target;
-    if (c.source !== unit || !unit.alive || !t || t.side !== 'enemy' || !(c.amount > 0)) return;
-    // a gauge fill (元素损伤) removes no HP and is not "伤害" for the heal; a 流失 is not damage dealt either
-    if (c.type === 'element' || c.type === 'elemental') return;
-    const ally = (c.dmg && c.dmg.traitAlly) || battle.lowestHpAllyInRange(unit);
+  battle.on('damageApplied', c => {
+    if (c.source !== unit || !unit.alive || c.target.side !== 'enemy') return;
+    // Native AssignDamageValueToBlackboard has assignRealDelta=false: use damage, not HP removed.
+    const ally = c.dmg.traitAlly || battle.lowestHpAllyInRange(unit);
     if (ally) battle.heal(unit, ally, c.amount * (unit.profile.healRatio ?? 0.5), { tags: ['incantation'] });
   }, { owner: unit });
 };
@@ -168,14 +174,14 @@ const installMerchant = (battle, unit) => {
     const ctx = battle.hasHook('merchantPay') ? battle.emit('merchantPay', { unit, cost, cancel: false }) : null;
     if (!unit.alive || !unit.deployed || (ctx && ctx.cancel)) return;
     const c = ctx && Number.isFinite(ctx.cost) ? Math.max(0, ctx.cost) : cost;
-    if (pl.dp >= c) battle.addDp(unit.ownerId, -c);
+    if (pl.dp >= c) battle.addDp(unit.ownerId, -c, unit);
     else battle.retreat(unit, { reason: 'merchant' });
   }, { owner: unit });
 };
 
 const installCharger = (battle, unit) => {
   battle.on('kill', (ctx) => {
-    if (ctx.killer === unit && ctx.victim.side === 'enemy') battle.addDp(unit.ownerId, unit.profile.dpOnKill ?? 1);
+    if (ctx.killer === unit && ctx.victim.side === 'enemy') battle.addDp(unit.ownerId, unit.profile.dpOnKill ?? 1, unit);
   }, { owner: unit });
 };
 
@@ -234,7 +240,7 @@ const installDollkeeper = (battle, unit) => {
     };
     battle.addBuff(unit, {
       key: 'trait:dollSwitching', duration: DOLL_SWITCH, onExpire: ended, onRemove: done,
-      // noHeal refuses another unit's heal; healFree is 禁疗 (damage.js: a self-heal is 0 too, regen excepted). The
+      // noHeal refuses another unit's heal; healFree is 禁疗 (attack/heal.js: a self-heal is 0 too, regen excepted). The
       // window still ends at full HP — onExpire writes it, it does not heal.
       flags: { invulnerable: true, noSp: true, noHeal: true, healFree: true, isolated: true, disarm: true },
     });
@@ -430,7 +436,7 @@ export const BARD_REGEN_DUR = 0.5;
  * 来增加受益者的“生命回复速度”属性" — an hpRegen buff of `value` (the bard's ATK × ratio) on `ally`, one per bard (two bards
  * add up), which the caller refreshes before it lapses (`duration`, default BARD_REGEN_DUR). No heal: 禁疗 and 无法被友方
  * 治疗 (收割者 / 不屈者 / 武者 noHeal) do not stop it — PRTS 异常效果 禁疗 "增减生命回复速度…的效果不会被识别为治疗类能力"; the
- * regeneration tick is the ally's own (damage.js heal `regen`, no 治疗加成). The `bardRegen` hook { unit (the bard),
+ * regeneration tick is the ally's own (attack/heal.js heal `regen`, no 治疗加成). The `bardRegen` hook { unit (the bard),
  * target, value } may scale one ally's share (魔王's 微尘: "使该干员受到魔王特性效果提升至1.5倍"). Also the 海嗣 range of
  * 浊心斯卡蒂 (content/tokens.js, kits/ops/chess_char_6_04-skadi2.js).
  */

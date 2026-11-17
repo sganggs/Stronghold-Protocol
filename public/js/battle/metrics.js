@@ -4,7 +4,7 @@ const positive = (n) => Number.isFinite(n) && n > 0 ? n : 0;
 
 function operatorOf(source) {
   const seen = new Set();
-  while (source && source.kind === 'token' && source.ownerUnit && !seen.has(source)) {
+  while (source && source.kind === 'token' && source.ownerUnit && !seen.has(source)) { // loop-cap: distinct units in the ownerUnit chain
     seen.add(source);
     source = source.ownerUnit;
   }
@@ -22,6 +22,8 @@ export function trackCombat(battle) {
     const key = JSON.stringify([u.ownerId, u.uid != null ? `uid:${u.uid}` : `unit:${u.id}:${u.defId}`]);
     if (!rows.has(key)) rows.set(key, {
       key, ownerId: u.ownerId, uid: u.uid, defId: u.defId, name: u.name, kind: u.kind,
+      // B6: retain the effective body just like snapshot.unitInfo; defId alone is the original chess / DIY slot.
+      picture: { charId: u.def?.charId, isGolden: !!u.def?.golden, assets: { avatar: u.def?.avatar ?? u.def?.charId } },
       damage: 0, healing: 0, types: Object.fromEntries(DAMAGE_TYPES.map((t) => [t, 0])),
     });
     return rows.get(key);
@@ -89,7 +91,7 @@ export function combineCombat(records, ownerId = null) {
         rows.set(key, row);
       }
       // Use the latest encountered definition for the combined row's portrait.
-      Object.assign(row, { defId: r.defId, name: r.name, kind: r.kind });
+      Object.assign(row, { defId: r.defId, name: r.name, kind: r.kind, picture: r.picture });
       row.damage += r.damage;
       row.healing += r.healing;
       for (const t of DAMAGE_TYPES) row.types[t] += r.types[t] || 0;

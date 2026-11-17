@@ -85,7 +85,7 @@ test('3_02 断崖: 浮游刃 arts hits + blade damage on enemies blocked by adja
     if (tb.atk_scale_m) {
       const m = tagged(h, 'module', u);
       assert.ok(m.length >= 3);
-      approx(m[m.length - 1].amount, u.s.atk * tb.atk_scale_m, 1e-6, 'module arts');
+      approx(m[m.length - 1].amount, u.s.atk * tb.atk_scale_m * bb.atk_scale, 1e-6, 'module arts reads S2 atk_scale');
     } else assert.equal(tagged(h, 'module', u).length, 0);
     done(h);
   }
@@ -858,7 +858,7 @@ test('3_21 空弦: 箭矢·暴风 3 hits × 2 targets, range +1; 铁弦 shield �
 // ---------------------------------------------------------------------------------------------------------------
 // verification pass: text fidelity fixes, board-piece summons, tile hygiene, 精锐 numbers, every variant casts
 
-test('3_02 断崖: 浮游刃 blades hit enemies blocked by the allies around her, never the ones she blocks herself', () => {
+test('3_02 断崖: 浮游刃 blades hit enemies blocked by herself and adjacent allies (PRTS text correction)', () => {
   const id = 'chess_char_3_02_b', bb = BB(id);
   const h = makeBattle({
     defs: { enemies: { enemy_own: dummy('enemy_own'), enemy_ally: dummy('enemy_ally') } }, timeLimit: 60, hooks: ['damaged'], captureNoisy: true,
@@ -874,7 +874,7 @@ test('3_02 断崖: 浮游刃 blades hit enemies blocked by the allies around her
   h.run(4);
   const blades = tagged(h, 'ayerBlade', u);
   assert.ok(blades.length >= 2);
-  assert.ok(blades.every((c) => c.target.defId === 'enemy_ally'), 'only the adjacent ally’s blocked enemy');
+  assert.deepEqual(new Set(blades.map(c => c.target.defId)), new Set(['enemy_own', 'enemy_ally']));
   approx(blades[0].amount, u.s.atk * bb.atk_scale);
   done(h);
 });

@@ -12,7 +12,7 @@ import { createHash } from 'node:crypto';
 import { startServer } from '../../server/index.js';
 import { zipFiles } from '../../server/plugins/zip.js';
 import { ZIP_FETCH_TIMEOUT_MS } from '../../server/plugins/install.js';
-import { PLUGIN_LIMITS } from '../../shared/plugins/manifest.js';
+import { PLUGIN_MAX_BYTES } from '../../shared/plugins/manifest.js';
 
 const sha = (buf) => createHash('sha256').update(buf).digest('hex');
 
@@ -107,7 +107,7 @@ describe('the studio catalogue', () => {
     handler = async (url) => {
       if (String(url).endsWith('/bad.zip')) return new Response(pluginZip('demo-skin', { version: 'nope' }), { status: 200 });
       if (String(url).endsWith('/travel.zip')) return new Response(zipFiles([{ name: '../evil.txt', data: Buffer.from('no') }]), { status: 200 });
-      if (String(url).endsWith('/big.zip')) return new Response(new Uint8Array(4), { status: 200, headers: { 'content-length': String(PLUGIN_LIMITS.pluginBytes + 1) } });
+      if (String(url).endsWith('/big.zip')) return new Response(new Uint8Array(4), { status: 200, headers: { 'content-length': String(PLUGIN_MAX_BYTES + 1) } });
       if (String(url).endsWith('/redir.zip')) return new Response(null, { status: 302, headers: { location: 'http://example.invalid/x.zip' } });
       if (String(url).endsWith('/down.zip')) return new Response('no', { status: 500 });
       return new Response(zip, { status: 200 });

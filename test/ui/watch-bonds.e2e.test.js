@@ -115,8 +115,11 @@ async function chipPopup(c, ownerId) {
     const pop = await c.page.evaluate(() => {
       const el = document.querySelector('.bpop');
       return { owner: el.getAttribute('data-owner'), label: el.getAttribute('aria-label'), tag: el.querySelector('.bpop__owner')?.textContent || '',
-        count: el.querySelector('.bpop__facts b.num')?.textContent ?? null, on: el.querySelectorAll('.bpop__member.is-on').length };
+        // Disabled bonds hide the member count; the remaining mint number is the layer count.
+        count: el.querySelector('.bpop__facts b.num:not(.t-mint)')?.textContent ?? null,
+        offNote: !!el.querySelector('.bpop__off'), on: el.querySelectorAll('.bpop__member.is-on').length };
     });
+    assert.equal(pop.offNote, chip.off, 'the popup and chip agree whether this bond is disabled');
     return { ...pop, bondId: chip.bondId, chipCount: chip.count, off: chip.off, defId: pt.defId };
   }
   return null;
@@ -150,10 +153,7 @@ async function coopMatch(P, base, { bots = 1, prefix }) {
   const guest = new Client(P, base, 'guest', { prefix: `${prefix}-phone`, w: 756, h: 366 });
   await host.open();
   await host.enter('凯尔希');
-  await host.click('.mode-card', '同盟模拟');
-  await host.click('.diff-card', '标准模拟');
-  await host.click('.create-box button', '创建同盟');
-  const room = (await host.waitFor((s) => !!s.room?.code, 'room created')).room;
+  const room = await host.createCoop();
   for (let i = 0; i < bots; i++) {
     await host.click('button', '添加 AI 队友');
     await sleep(600);
@@ -245,10 +245,7 @@ describe('DESIGN §20.15 — the bond strip shows the watched teammate\'s bonds 
     try {
       await host.open();
       await host.enter('凯尔希');
-      await host.click('.mode-card', '同盟模拟');
-      await host.click('.diff-card', '标准模拟');
-      await host.click('.create-box button', '创建同盟');
-      const room = (await host.waitFor((s) => !!s.room?.code, 'room created')).room;
+      const room = await host.createCoop();
       await guest.open(`?room=${room.code}`);
       await guest.enter('阿米娅');
       await guest.waitFor((s) => s.room?.code === room.code, 'guest joined');
@@ -338,9 +335,9 @@ describe('DESIGN §20.15 — the bond strip shows the watched teammate\'s bonds 
       const guestNow = await bondsOf(host, '阿米娅');
       assert.equal(chip.owner, '阿米娅', `全景: the guest's unit chip opens the guest's popup (${JSON.stringify(chip)})`);
       assert.match(chip.tag, /阿米娅.*的盟约/);
-      assert.equal(chip.count, guestNow.counts[chip.bondId] ?? '0', `the guest's member count (${JSON.stringify({ chip, guestNow })})`);
+      assert.equal(chip.count, chip.off ? null : guestNow.counts[chip.bondId] ?? '0', `the guest's member count (${JSON.stringify({ chip, guestNow })})`);
       if (!chip.off) assert.equal(chip.chipCount, chip.count, 'the chip and its popup agree');
-      if (Number(chip.count) > 0) assert.ok(chip.on >= 1, `the guest's operators in play are listed as members (${JSON.stringify(chip)})`);
+      if (Number(guestNow.counts[chip.bondId]) > 0) assert.ok(chip.on >= 1, `the guest's operators in play are listed as members (${JSON.stringify(chip)})`);
       st = await stripOf(host);
       assert.equal(st.owner, null, 'the strip stays the host\'s on 全景');
       await host.shot('fa-chip-partner');
@@ -365,7 +362,7 @@ describe('DESIGN §20.15 — the bond strip shows the watched teammate\'s bonds 
       const hostNow = await bondsOf(host, '凯尔希');
       assert.equal(chip.owner, null, `the partner's half: an own unit's chip opens the host's own popup (${JSON.stringify(chip)})`);
       assert.equal(chip.tag, '');
-      assert.equal(chip.count, hostNow.counts[chip.bondId] ?? '0', `the host's member count (${JSON.stringify({ chip, hostNow })})`);
+      assert.equal(chip.count, chip.off ? null : hostNow.counts[chip.bondId] ?? '0', `the host's member count (${JSON.stringify({ chip, hostNow })})`);
       if (!chip.off) assert.equal(chip.chipCount, chip.count, 'the chip and its popup agree');
       st = await stripOf(host);
       assert.equal(st.owner, '阿米娅', 'the strip stays the guest\'s on that half');
@@ -614,9 +611,9 @@ describe('DESIGN §20.15 — the bond strip shows the watched teammate\'s bonds 
       assert.ok(chip, `spectator: a card of ${second}'s operator and its bond chip`);
       const secondNow = await bondsOf(guest, second);
       assert.equal(chip.owner, second, `全景: ${second}'s unit chip opens ${second}'s popup (${JSON.stringify(chip)})`);
-      assert.equal(chip.count, secondNow.counts[chip.bondId] ?? '0', `${second}'s member count (${JSON.stringify({ chip, secondNow })})`);
+      assert.equal(chip.count, chip.off ? null : secondNow.counts[chip.bondId] ?? '0', `${second}'s member count (${JSON.stringify({ chip, secondNow })})`);
       if (!chip.off) assert.equal(chip.chipCount, chip.count, 'the chip and its popup agree');
-      if (Number(chip.count) > 0) assert.ok(chip.on >= 1, `${second}'s operators in play are listed as members (${JSON.stringify(chip)})`);
+      if (Number(secondNow.counts[chip.bondId]) > 0) assert.ok(chip.on >= 1, `${second}'s operators in play are listed as members (${JSON.stringify(chip)})`);
       assert.equal((await stripOf(guest)).owner, first, 'the strip stays on the first player');
       await guest.shot('chip-second');
       await closeCard(guest);

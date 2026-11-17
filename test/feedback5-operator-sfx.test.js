@@ -42,3 +42,19 @@ test('operators that number their default mode (attack.0 …) keep the earlier r
   assert.deepEqual(op([['ON_ABILITY_START.attack.0', 'p_atk_whtolfdrksl_n'], ['ON_ABILITY_START.attack', 'p_atk_whtolfdrksl_d'], ['ON_ABILITY_ON.attack.2', 'p_atk_whtolfdrksl_h']]),
     { attack: P('p_atk_whtolfdrksl_n') });
 });
+
+// The #848 merge review (DESIGN §35.38): firstMatching orders numbered banks by depth, so 弑君者's S3 `attack.3` impact and S2
+// `attack.4` swing (plain-named) outranked her normal `attack.0.1`; 莱伊's S3 reload `attack.3` outranked `attack.0.3`. The default
+// mode's banks (attack.0, attack.0.N) now come first for an operator, as assignSkillModeSfx already counts them.
+test('弑君者 / 莱伊 / 望: the default mode\'s numbered banks (attack.0 …) beat a shallower skill-mode bank', () => {
+  assert.deepEqual(op([
+    ['ON_ABILITY_START.attack.0.1', 'p_atk_asndgr_n'], ['ON_ABILITY_HIT.attack.0.1', 'p_imp_asndgr_n'],
+    ['ON_ABILITY_START.attack.4', 'p_atk_asndgrbm'], ['ON_ABILITY_HIT.attack.3', 'p_imp_asndgrsmk'],
+  ]), { attack: P('p_atk_asndgr_n'), hit: P('p_imp_asndgr_n') }, '弑君者');
+  assert.deepEqual(op([['ON_ABILITY_START.attack.3', 'p_atk_sndshotgun_sreload'], ['ON_ABILITY_START.attack.0.3', 'p_atk_sndshotgun_nreload']]),
+    { attack: P('p_atk_sndshotgun_nreload') }, '莱伊');
+  assert.deepEqual(op([['ON_ABILITY_START.attack.1', 'p_atk_stwctp_n'], ['ON_ABILITY_ON.attack.0', 'p_atk_stwctp_n']]).attack, P('p_atk_stwctp_n'), '望');
+  // an enemy keeps the old order
+  const enemy = pickUnitSfx(new Map([['ON_ABILITY_HIT.attack.3', P('p_imp_a')], ['ON_ABILITY_HIT.attack.0.1', P('p_imp_b')]]), {});
+  assert.deepEqual(enemy.hit, P('p_imp_a'));
+});

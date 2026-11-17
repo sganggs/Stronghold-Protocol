@@ -41,7 +41,7 @@
 
 import { num, talentBb, moduleBb, traitBb, up, onHitBy, statBuff, toggleBuff, skillRec } from '../shared/tier1.js';
 import { absoluteRangeKeys, sortEnemyTargets } from '../../../targeting.js';
-import { hasHp, isHpLoss } from '../../../damage.js';
+import { hasHp, isHpLoss } from '../../../attack.js';
 
 const S1 = 'skchr_chyue_1';
 const S2 = 'skchr_chyue_2';

@@ -73,13 +73,17 @@ test('the committed manifest: her S3 swing and impact are the `_s` pair, her nor
   assert.equal(u.hits?.['0'], '/assets/audio/sfx/player/p_imp/p_imp_hljdrfswd_d.mp3', '技能1 的命中');
 });
 
-test('every manifest hits entry is a skill-mode file; the slot is not the filename letter (#679)', () => {
+test('every manifest hits entry is a mode impact: a skill-mode file, or the mode\'s own plain `_n` file (#679)', () => {
   const units = manifest.audio.sfx.units;
   let n = 0;
   for (const [id, u] of Object.entries(units)) {
     for (const [i, url] of Object.entries(u?.hits || {})) {
       n++;
-      assert.ok(skillModeLetter(url), `${id}: hits[${i}] is a skill-mode file (${url})`);
+      // The slot is not the filename letter. A plain `_n` impact is the mode's own sound only when the unit's normal
+      // impact is a different file (宴's S2 `p_imp_darksword_n` beside her normal `p_imp_sword_n`); a mode that
+      // merely replays the normal impact carries no entry at all.
+      const own = skillModeLetter(url) !== null || (typeof u?.hit === 'string' && u.hit !== url);
+      assert.ok(own, `${id}: hits[${i}] is the unit's normal impact, not a mode sound (${url})`);
     }
   }
   assert.ok(n >= 10, `some operators carry mode impacts (found ${n})`);

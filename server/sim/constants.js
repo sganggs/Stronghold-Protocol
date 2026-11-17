@@ -80,7 +80,7 @@ export const ELEMENTS = Object.freeze(['burn', 'neural', 'necrosis', 'apoptosis'
  * Burst damage is 无来源 (PRTS 元素): no damage-dealt multiplier or penetration of the unit that filled the gauge.
  * `duration` = the burst's 爆发冷却 (PRTS 元素 table "持续时间": 10 s, 凋亡 15 s, 侵蚀 on enemies 8 s — the operators'
  * 侵蚀 burst has its 10 s cooldown too): while it runs NO element of the unit fills or recovers, and when it ends every
- * gauge of the unit resets (damage.js).
+ * gauge of the unit resets (attack/element.js).
  * `necrosis` keeps the engine's earlier invented burst (no official counterpart) for legacy content.
  */
 export const ELEMENT = Object.freeze({
@@ -107,7 +107,7 @@ export const ELEMENT = Object.freeze({
 });
 /**
  * Official element order (PRTS 元素: SANITY 1 神经, WATER 2 侵蚀, FIRE 3 灼燃, DARK 4 凋亡; the legacy `necrosis` last):
- * the tie-break of the "当前损伤元素" a unit shows — the fullest gauge, then the lower id (damage.js elementView).
+ * the tie-break of the "当前损伤元素" a unit shows — the fullest gauge, then the lower id (attack/element.js elementView).
  */
 export const ELEMENT_ORDER = Object.freeze(['neural', 'erosion', 'burn', 'apoptosis', 'necrosis']);
 /** 麻痹 (ba.palsy): each stack cancels one normal attack of an enemy; at most 3 stacks, lasts until consumed. */
@@ -127,8 +127,9 @@ export const PALSY_MAX = 3;
  * PRTS 推与拉 gives two columns of 理想移动距离: 弹道 (a push carried by a projectile — "温蒂的23技能、阿消的12技能"; equal
  * to the 游戏数据基础 table above) and 特效 (an effect push, one frame less of travel — "食铁兽的12技能、见行者的12技能"):
  * PUSH_TILES_EFFECT, used by the skills in PUSH_EFFECT_SKILLS (见行者 S1 护身射击 / S2 惊爆射击, the only 特效 pushers of
- * the pool PRTS names). [ASSUMED: every other push of the pool (野鬃, 山, 莫斯提马, 琳琅诗怀雅, 圣聆初雪, 薄绿) uses the 弹道
- * column — PRTS does not classify them; the two columns differ by 7–12 %.]
+ * the pool PRTS names). 野鬃 S2 rear hits also use the effect column: #782's official recordings, DESIGN §35.10.
+ * [ASSUMED: all remaining pushes of the pool (including 野鬃's front/side hits, unchanged by #782's scope) use
+ * the 弹道 column — PRTS does not classify them; rear-only classification is not established by the footage.]
  */
 export const PUSH_TILES = Object.freeze({ '-2': 0.12, '-1': 0.44, 0: 1.7, 1: 2.14, 2: 2.96, 3: 3.53 });
 export const PUSH_TILES_EFFECT = Object.freeze({ '-2': 0.085, '-1': 0.374, 0: 1.562, 1: 1.987, 2: 2.773, 3: 3.331 });

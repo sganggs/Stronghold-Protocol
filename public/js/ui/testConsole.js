@@ -121,7 +121,10 @@ export function TestConsole() {
         const host = document.querySelector('.gm') || dock.current;
         if (host) metrics = dockMetricsFromStyle(getComputedStyle(host));
       } catch { metrics = DOCK_REM; }
-      const home = dockHome({ width: vw, height: vh }, metrics);
+      // the real layout root (界面大小's --sp-ui and the 异形屏适配 box included), as fieldHost.js / settle.js read it
+      let rem;
+      try { rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 0; } catch { rem = 0; }
+      const home = dockHome({ width: vw, height: vh, rem }, metrics);
       if (home.sheet) { setSheet(true); setBox(null); return; }
       setSheet(false);
       const stored = readDockPos(globalThis.localStorage);

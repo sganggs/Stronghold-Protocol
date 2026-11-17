@@ -188,6 +188,59 @@ test('T2: the held dodge cancels the next dodgeable physical / arts damage insta
   done(h);
 });
 
+test('T2 held dodge uses -1000 order without a second probability draw; source stays independent of credit', () => {
+  for (const roll of [0.1, 0.9]) {
+    const { h, u } = field();
+    h.run(7.2);
+    const e = h.spawn('enemy_dummy', { pos: [12, 9] });
+    h.b.addBuff(u, { key: 'ordinary-dodge', mods: { dodgePhys: 0.5 } });
+    let draws = 0;
+    h.b.rng = () => { draws++; return roll; };
+    assert.equal(h.b.dealDamage({ source: null, credit: e, target: u, amount: 100, type: 'phys' }), 0);
+    assert.equal(draws, 1);
+    assert.equal(u.mem.chen3T2.evade, roll < 0.5);
+    const event = h.hooksOf('dodge').at(-1);
+    assert.equal(event.source, null);
+    assert.equal(event.credit, e);
+  }
+});
+
+test('T2 held dodge respects ignore/uncancellable, preserves its timer under full absorption and reacquires on move', () => {
+  for (const mode of ['ignore', 'uncancellable']) {
+    const { h, u } = field();
+    h.run(7.2);
+    u.mem.chen3T2.count = 3;
+    u.mem.chen3T2.acc = 0.25;
+    h.b.addBuff(u, { key: 'barrier', shield: 100 });
+    h.b.dealDamage({ target: u, amount: 100, type: 'true' });
+    assert.equal(u.mem.chen3T2.count, 3);
+    assert.equal(u.mem.chen3T2.acc, 0.25);
+    const old = u.findBuff('talent:chen3:evade');
+    assert.ok(h.b.moveRedeploy(u, 10, 4));
+    assert.ok(u.findBuff('talent:chen3:evade').seq > old.seq);
+    let draws = 0;
+    h.b.rng = () => { draws++; return 0; };
+    assert.ok(h.b.dealDamage({ target: u, amount: 100, type: 'arts', dodgeMode: mode }) > 0);
+    assert.equal(draws, 0, 'the held guarantee needs no probability roll');
+    assert.equal(u.mem.chen3T2.evade, mode === 'ignore');
+    assert.equal(u.mem.chen3T2.count, 0, 'the accepted damage restarts the timer');
+  }
+});
+
+test('T2 holding another timer grant does not stack or reorder the dodge; death and ordinary redeploy clear it', () => {
+  const { h, u } = field();
+  h.run(7.2);
+  const buff = u.findBuff('talent:chen3:evade');
+  h.run(7);
+  assert.equal(u.findBuff('talent:chen3:evade'), buff, 'a second timer grant keeps the same single effect');
+  assert.equal(buff.stacks, 1);
+  h.b.kill(u, null);
+  assert.equal(u.mem.chen3T2.evade, false);
+  assert.ok(h.b.redeploy(u));
+  assert.equal(u.mem.chen3T2.evade, false);
+  assert.equal(u.mem.chen3T2.count, 0);
+});
+
 test('S1 赤霄·奔夜 (MANUAL, data DEFAULT): ATK +65 % / +80 % for 18 s, every attack hits twice, 沉默 on its target until the skill ends', () => {
   for (const [tier, elite] of [[5, false], [6, true]]) {
     const sk = skillOf(tier, elite, S1);

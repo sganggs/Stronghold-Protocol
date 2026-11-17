@@ -32,13 +32,20 @@ function soloAt(r, seed) {
   return { h, m: h.m, ps };
 }
 
-/** The player's normal-battle options until the band swapped a `key` into the real wave (the real onBattleStart path). */
+/**
+ * The player's normal-battle options until the band swapped a `key` into the real wave (the real onBattleStart path).
+ * The swaps are one draw per round from the match seed (GitHub #839), so each try reads them under another match seed.
+ */
 function optsWith(m, ps, key, tries = 400) {
-  for (let i = 0; i < tries; i++) {
-    const opts = m._normalOpts(ps);
-    const spec = opts.spawns.find((s) => s.enemyKey === key);
-    if (spec) return { opts, spec };
-  }
+  const seed = m.seed;
+  try {
+    for (let i = 0; i < tries; i++) {
+      m.seed = seed + i;
+      const opts = m._normalOpts(ps);
+      const spec = opts.spawns.find((s) => s.enemyKey === key);
+      if (spec) return { opts, spec };
+    }
+  } finally { m.seed = seed; }
   assert.fail(`no ${key} in ${tries} battles`);
 }
 
@@ -151,7 +158,7 @@ test('#7 the swap still happens in the Final Assault (escorts, never the leader 
 test('#7 pair fields of the Final Assault and the Hidden Core (real match path): each player\'s 0–2 swaps land on their own half', () => {
   const seen = { boss: { L: 0, R: 0 }, hidden: { L: 0, R: 0 } };
   const done = () => Object.values(seen).every((k) => k.L > 0 && k.R > 0);
-  for (let seed = 1; seed <= 8 && !done(); seed++) {
+  for (let seed = 1; seed <= 24 && !done(); seed++) {
     // 2 humans + 2 bots → two pair fields; the bosses fall at once; Σ layers > 1200 opens the Hidden Core
     const h = makeMatch({ mode: 'coop', difficulty: 'NORMAL', humans: 2, bots: 2, seed: 7200 + seed, fake: true, script: (b) => (b.kind === 'boss' || b.kind === 'hidden' ? { bossDps: 1e9 } : {}) }).start();
     const m = h.m;

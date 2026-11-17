@@ -32,8 +32,11 @@
 .uthumb--item .uthumb__art img { object-fit: contain; width: 84%; height: 84%; }
 .uthumb--enemy .uthumb__art { background: linear-gradient(160deg, #3a1c18, #140d0c); border-color: rgba(255, 90, 74, .45); }
 .uthumb__glyph { font-weight: 900; font-size: calc(var(--ut) * .44); color: var(--text-md); }
-.uthumb__tier { position: absolute; left: -.03rem; top: -.03rem; transform: scale(.82); transform-origin: top left; }
-.uthumb--xs .uthumb__tier, .uthumb--sm .uthumb__tier { transform: scale(.66); }
+/* The tier mark readable at every thumbnail size — at least 16 / 15 / 12 px (md / sm / xs), never scaled down: it was
+   .22rem × .66 ≈ 10 px (the owner, 2026-11-14 「看不清该干员所处等级的标识」, §37.201; themed icons: ui-theme.css). */
+.uthumb .uthumb__tier { position: absolute; left: -.04rem; top: -.04rem; --tier-h: max(.26rem, 16px); filter: drop-shadow(0 0 1px rgba(0, 0, 0, .85)); }
+.uthumb--sm .uthumb__tier { --tier-h: max(.24rem, 15px); }
+.uthumb--xs .uthumb__tier { --tier-h: max(.18rem, 12px); left: -.03rem; top: -.03rem; }
 .uthumb.is-golden .uthumb__art { border-color: var(--gold); box-shadow: inset 0 0 calc(var(--ut) * .18) rgba(255, 198, 0, .45); }
 .uthumb.is-golden::after { content: ''; position: absolute; inset: -2px; border: 1px solid rgba(255, 198, 0, .7); pointer-events: none; clip-path: inherit; }
 .uthumb.is-dim .uthumb__art img { filter: grayscale(.85) brightness(.55); }
@@ -45,6 +48,9 @@
 .bglyph { display: inline-grid; place-items: center; width: .24rem; height: .24rem; flex: none; }
 .bglyph img { width: 100%; height: 100%; object-fit: contain; filter: brightness(0) invert(.86) sepia(.4) hue-rotate(110deg) saturate(2.5); }
 .bglyph__txt { font-weight: 900; font-size: calc(.15 * var(--t)); color: var(--mint-400); }
+/* BondGlyph mask: the icon's alpha filled with the text colour (the 规程 card's bond rows) */
+.bglyph--mask { background-color: currentColor; -webkit-mask-size: contain; mask-size: contain; -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center; }
 .bandicon { --bi: .6rem; display: inline-grid; place-items: center; width: var(--bi); height: var(--bi); flex: none; overflow: hidden; background: #111513; }
 .bandicon img { width: 100%; height: 100%; object-fit: cover; }
 .bandicon__txt { font-weight: 900; font-size: calc(var(--bi) * .44); color: var(--mint-400); }
@@ -83,7 +89,7 @@
 .dhead__icon--enemy.is-elite { border-color: var(--gold-2); }
 .dhead__info { display: flex; flex-direction: column; gap: .05rem; min-width: 0; padding-top: .02rem; flex: 1; }
 .dhead__chips { display: flex; align-items: center; gap: .08rem; flex-wrap: wrap; }
-.dhead__name { font-size: calc(.32 * var(--t)); font-weight: 900; letter-spacing: .04em; line-height: 1.2; }
+.dhead__name { font-size: max(calc(.32 * var(--t)), 16px); font-weight: 900; letter-spacing: .04em; line-height: 1.2; }
 .dhead__en { font-family: var(--font-display); font-size: calc(.12 * var(--t)); letter-spacing: .2em; color: var(--text-dim); text-transform: uppercase; }
 /* 0.2.0 补位: the replaced operator under a stand-in's name (「银灰的替补」, ui/detailPanel.js ChessDetail) */
 .dhead__for { display: block; font-size: max(calc(.13 * var(--t)), 9px); letter-spacing: .04em; color: var(--ice); }
@@ -114,10 +120,13 @@
 /* (enemy / token cards: the grid is a direct child of the column-flex scroller — it must not grow to fill the card) */
 .dstats { flex: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
 .dstats-wrap > .dstats { flex: 1; }
-.dstat { display: flex; flex-direction: column; justify-content: center; gap: .01rem; min-width: 0; padding: .04rem .07rem; background: #0f1311; }
-.dstat__k { font-size: calc(.12 * var(--t)); color: var(--text-lo); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dstat__row { display: flex; align-items: baseline; min-width: 0; white-space: nowrap; }
-.dstat__v { font-size: calc(.17 * var(--t)); line-height: 1.15; color: #fff; }
+/* A label wraps instead of 「生命…」 when the column is narrow (1280×720 and below); a value never runs into the next cell. */
+.dstat { display: flex; flex-direction: column; justify-content: center; gap: .01rem; min-width: 0; padding: .04rem .05rem; background: #0f1311; }
+.dstat__k { font-size: max(calc(.13 * var(--t)), 12px); line-height: 1.12; letter-spacing: -.02em; color: var(--text-lo); overflow-wrap: anywhere; }
+.dstat__row { display: flex; align-items: baseline; min-width: 0; white-space: nowrap; overflow: hidden; }
+/* A short landscape phone: four columns are ~33px, so 「1,274」 ran into 「1,133」. Two columns there. */
+@media (max-height: 430px) { .dstats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.dstat__v { font-size: max(calc(.17 * var(--t)), 13px); line-height: 1.15; color: #fff; }
 .dstat small { font-size: calc(.11 * var(--t)); color: var(--text-dim); margin-left: .04rem; }
 /* live stats (user playtest #4 item 7): buffed values green, debuffed red (the official card), the difference beside
    them; a 实时 (battle) / 开战时 (prep preview) tag over the grid's right edge */
@@ -139,8 +148,8 @@
 .rgrid i.self { background: var(--mint-500); border-color: var(--mint-400); }
 .rgrid-all { font-size: calc(.16 * var(--t)); font-weight: 700; color: var(--amber); padding: .02rem .06rem; border: 1px solid var(--amber); background: rgba(246, 163, 41, .25); }
 .dsec { display: flex; flex-direction: column; gap: .08rem; }
-.dsec__title { display: flex; align-items: baseline; gap: .1rem; font-size: calc(.17 * var(--t)); font-weight: 700; color: var(--mint-400); padding-bottom: .04rem; border-bottom: 1px solid var(--line); }
-.dtext { font-size: calc(.15 * var(--t)); line-height: 1.65; color: var(--text-md); }
+.dsec__title { display: flex; align-items: baseline; gap: .1rem; font-size: max(calc(.18 * var(--t)), 13px); font-weight: 700; color: var(--mint-400); padding-bottom: .04rem; border-bottom: 1px solid var(--line); }
+.dtext { font-size: max(calc(.15 * var(--t)), 12px); line-height: 1.65; color: var(--text-md); }
 .dskill { display: flex; gap: .12rem; align-items: center; }
 .dskill__icon { width: .62rem; height: .62rem; flex: none; object-fit: cover; border: 1px solid var(--line-3); background: #0a0d0c; }
 .dskill__icon--empty { display: grid; place-items: center; }
@@ -210,6 +219,8 @@
 .ditem__text { display: flex; flex-direction: column; gap: .02rem; min-width: 0; }
 .ditem__text b { font-size: calc(.15 * var(--t)); }
 .ditem__desc { font-size: calc(.13 * var(--t)); line-height: 1.55; color: var(--text-lo); }
+.ditem__progress { display: flex; gap: .08rem; align-items: baseline; margin: .04rem 0 0; font-size: calc(.13 * var(--t)); color: var(--text-lo); }
+.ditem__progress strong { color: var(--mint-500); font-family: var(--font-num); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .dempty { font-size: calc(.14 * var(--t)); }
 .dhint { display: flex; align-items: flex-start; gap: .06rem; font-size: calc(.14 * var(--t)); color: var(--text-lo); line-height: 1.6; }
 .dhint .icon { width: .16rem; height: .16rem; margin-top: .03rem; flex: none; }
@@ -261,6 +272,19 @@
 .bpop--besideR { left: auto; right: 5.92rem; z-index: 10; }
 .bpop--right { left: auto; right: .9rem; z-index: 10; }
 .bpop.is-over { z-index: 10; background: rgb(11, 15, 13); }
+/* Match information opens the same card above its drawer / dialog, without replacing the parent (#915). */
+.match-bond-modal { padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
+.match-bond-dialog { --match-bond-close: max(.36rem, 32px); display: flex; min-height: 0; width: min(max(5.4rem, calc(320px * var(--sp-ui, 1)), 32px), 100%); max-height: 100%; outline: none; }
+.match-bond-dialog .bpop { position: relative; inset: auto; width: 100%; max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+.match-bond-dialog .bpop__close { width: var(--match-bond-close); height: var(--match-bond-close); }
+.match-bond-dialog .bpop__head { padding-right: var(--match-bond-close); }
+.match-bond-dialog .bpop__name { font-size: max(calc(.32 * var(--t)), 20px); }
+.match-bond-dialog .bpop__facts { flex-wrap: wrap; }
+.match-bond-dialog .bpop__facts b { font-size: max(calc(.18 * var(--t)), 14px); }
+.match-bond-dialog .bpop__sec h4 { font-size: max(calc(.16 * var(--t)), 13px); }
+.match-bond-dialog .bpop__desc, .match-bond-dialog .bpop__facts, .match-bond-dialog .bpop__off { font-size: max(calc(.15 * var(--t)), 12px); }
+.match-bond-dialog .bpop__member { min-width: 0; }
+.match-bond-dialog .bpop__mname { font-size: max(calc(.12 * var(--t)), 10px); }
 .bpop__close { position: absolute; right: .08rem; top: .08rem; width: .36rem; height: .36rem; display: grid; place-items: center; background: none; border: 1px solid var(--line-2); color: var(--text-lo); }
 .bpop__close .icon { width: .18rem; height: .18rem; }
 .bpop__head { display: flex; gap: .16rem; align-items: center; }
@@ -270,28 +294,28 @@
 .bpop__disc.is-active { background: var(--mint-500); border-color: var(--mint-400); box-shadow: 0 0 .24rem rgba(23, 249, 183, .45); }
 .bpop__disc.is-active .bglyph img { filter: brightness(0) opacity(.85); }
 .bpop__titles { display: flex; flex-direction: column; gap: .02rem; min-width: 0; }
-.bpop__name { font-size: calc(.32 * var(--t)); font-weight: 900; letter-spacing: .08em; }
+.bpop__name { font-size: max(calc(.32 * var(--t)), 16px); font-weight: 900; letter-spacing: .08em; }
 .bpop__owner { display: inline-flex; align-items: center; gap: .06rem; font-size: calc(.14 * var(--t)); color: var(--amber); }
 .bpop__owner b { color: #fff; font-weight: 700; max-width: 2.4rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .bpop.is-other .bpop__disc { box-shadow: 0 0 0 1px rgba(246, 163, 41, .55); }
-.bpop__facts { display: flex; gap: .16rem; font-size: calc(.15 * var(--t)); color: var(--text-lo); }
-.bpop__facts b { color: #fff; font-size: calc(.18 * var(--t)); }
-.bpop__facts small { font-size: calc(.12 * var(--t)); }
-.bpop__off { margin: .08rem 0 0; font-size: calc(.14 * var(--t)); color: var(--text-lo); border-left: 2px solid rgba(255, 255, 255, .2); padding-left: .08rem; }
+.bpop__facts { display: flex; gap: .16rem; flex-wrap: wrap; font-size: max(calc(.16 * var(--t)), 12px); color: var(--text-lo); }
+.bpop__facts b { color: #fff; font-size: max(calc(.18 * var(--t)), 13px); }
+.bpop__facts small { font-size: max(calc(.13 * var(--t)), 12px); }
+.bpop__off { margin: .08rem 0 0; font-size: max(calc(.15 * var(--t)), 12px); color: var(--text-lo); border-left: 2px solid rgba(255, 255, 255, .2); padding-left: .08rem; }
 .bpop__tiers { display: flex; gap: .06rem; }
-.bpop__tier { display: flex; align-items: baseline; gap: .02rem; padding: .02rem .12rem; border: 1px solid var(--line-2); color: var(--text-dim); font-size: calc(.13 * var(--t)); }
-.bpop__tier b { font-size: calc(.2 * var(--t)); }
+.bpop__tier { display: flex; align-items: baseline; gap: .02rem; padding: .02rem .12rem; border: 1px solid var(--line-2); color: var(--text-dim); font-size: max(calc(.14 * var(--t)), 12px); }
+.bpop__tier b { font-size: max(calc(.2 * var(--t)), 14px); }
 .bpop__tier.is-on { background: var(--mint-500); color: var(--text-on-mint); border-color: var(--mint-400); }
 .bpop__sec { display: flex; flex-direction: column; gap: .06rem; }
-.bpop__sec h4 { font-size: calc(.16 * var(--t)); color: var(--mint-400); display: flex; align-items: baseline; gap: .08rem; }
+.bpop__sec h4 { font-size: max(calc(.17 * var(--t)), 13px); color: var(--mint-400); display: flex; align-items: baseline; flex-wrap: wrap; gap: .08rem; }
 .bpop__sec h4 small { font-size: calc(.13 * var(--t)); color: var(--text-lo); font-weight: 400; }
 .bpop__sec--now { padding: .1rem .12rem; background: rgba(78, 216, 175, .06); border-left: 3px solid var(--mint-500); }
-.bpop__desc { font-size: calc(.15 * var(--t)); line-height: 1.7; color: var(--text-md); }
+.bpop__desc { font-size: max(calc(.16 * var(--t)), 12px); line-height: 1.7; color: var(--text-md); }
 .bpop__members { display: grid; grid-template-columns: repeat(5, 1fr); gap: .08rem; }
 .bpop__member { position: relative; display: flex; flex-direction: column; align-items: center; gap: .03rem; padding: .04rem 0; background: none; border: 1px solid transparent; }
-.bpop__member:hover { border-color: var(--line-2); background: rgba(255, 255, 255, .03); }
+button.bpop__member:hover { border-color: var(--line-2); background: rgba(255, 255, 255, .03); }
 .bpop__member.is-on .uthumb__art { border-color: var(--mint-400); box-shadow: 0 0 .1rem rgba(23, 249, 183, .45); }
-.bpop__mname { font-size: calc(.12 * var(--t)); color: var(--text-lo); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bpop__mname { font-size: max(calc(.14 * var(--t)), 12px); color: var(--text-lo); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bpop__member.is-on .bpop__mname { color: var(--mint-400); }
 .bpop__member.is-owned .bpop__mname { color: var(--text-hi); }
 .bpop__ban { position: absolute; top: .02rem; right: .1rem; width: .2rem; height: .2rem; display: grid; place-items: center; background: var(--red); color: #fff; border-radius: 50%; }
@@ -323,14 +347,15 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
   animation: drawer-in var(--t-slow) var(--ease-out);
 }
 @keyframes drawer-in { from { opacity: 0; transform: translate(-50%, -.2rem); } }
-.edrawer__top { display: flex; align-items: flex-end; justify-content: space-between; padding: .08rem .12rem 0 .16rem; border-bottom: 1px solid var(--line); }
+.edrawer__top { display: flex; align-items: flex-end; justify-content: space-between; padding: .08rem .12rem 0 .16rem; border-bottom: 1px solid var(--line);
+  background: linear-gradient(90deg, rgba(122, 126, 128, .5), rgba(92, 96, 98, .42) 60%, rgba(80, 84, 86, .36)); }
 .edrawer__top .tabs { border-bottom: 0; }
 .edrawer__close { width: .34rem; height: .34rem; margin-bottom: .06rem; display: grid; place-items: center; background: none; border: 1px solid var(--line-2); color: var(--text-lo); }
 .edrawer__close .icon { width: .18rem; height: .18rem; }
 .edrawer__body { overflow: auto; padding: .14rem .18rem .18rem; display: flex; flex-direction: column; gap: .12rem; }
-.edrawer__sum { display: flex; align-items: center; justify-content: space-between; gap: .12rem; flex-wrap: wrap; font-size: calc(.15 * var(--t)); color: var(--text-md); }
+.edrawer__sum { display: flex; align-items: center; justify-content: space-between; gap: .12rem; flex-wrap: wrap; font-size: max(calc(.16 * var(--t)), 12px); color: var(--text-md); }
 .edrawer__sum b { font-size: calc(.19 * var(--t)); }
-.edrawer__empty { display: flex; align-items: center; gap: .08rem; justify-content: center; padding: .3rem; color: var(--text-dim); font-size: calc(.16 * var(--t)); }
+.edrawer__empty { display: flex; align-items: center; gap: .08rem; justify-content: center; padding: .3rem; color: var(--text-dim); font-size: max(calc(.16 * var(--t)), 12px); }
 .edrawer__empty .icon { width: .24rem; height: .24rem; }
 .fchips { display: flex; gap: .06rem; flex-wrap: wrap; }
 .fchip { display: inline-flex; align-items: center; gap: .04rem; padding: 0 .1rem 0 .02rem; font-size: calc(.13 * var(--t)); color: var(--amber); border: 1px solid rgba(246, 163, 41, .45); background: rgba(246, 163, 41, .06); }
@@ -341,7 +366,7 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .erow--boss { border-color: rgba(255, 110, 40, .6); background: rgba(232, 90, 26, .1); }
 .erow--bounty { border-color: rgba(255, 198, 0, .45); }
 .erow__text { display: flex; flex-direction: column; gap: .03rem; min-width: 0; flex: 1; }
-.erow__name { font-size: calc(.16 * var(--t)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.erow__name { font-size: max(calc(.18 * var(--t)), 14px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .erow__tags { display: flex; gap: .04rem; flex-wrap: wrap; }
 .erow__count { font-size: calc(.26 * var(--t)); color: #fff; }
 .etag { font-size: calc(.11 * var(--t)); line-height: 1.5; padding: 0 .05rem; font-weight: 700; }
@@ -359,18 +384,41 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .iband > div { display: flex; flex-direction: column; gap: .03rem; min-width: 0; }
 .iband b { font-size: calc(.19 * var(--t)); }
 .iband b small { font-size: calc(.14 * var(--t)); font-weight: 400; margin-left: .06rem; }
-.iband__desc { font-size: calc(.14 * var(--t)); line-height: 1.6; color: var(--text-md); }
+.iband__desc { font-size: max(calc(.15 * var(--t)), 12px); line-height: 1.6; color: var(--text-md); }
 .istage { display: flex; align-items: center; gap: .06rem; font-size: calc(.15 * var(--t)); color: var(--text-lo); }
 .istage .icon { width: .18rem; height: .18rem; color: var(--mint-500); }
 .istage b { color: var(--text-hi); }
-.ihead { font-size: calc(.16 * var(--t)); color: var(--mint-400); display: flex; gap: .08rem; align-items: baseline; }
-.ihead small { color: var(--text-lo); font-size: calc(.14 * var(--t)); }
+.ihead { font-size: max(calc(.18 * var(--t)), 13px); color: var(--mint-400); display: flex; gap: .08rem; align-items: baseline; flex-wrap: wrap; }
+.ihead small { color: var(--text-lo); font-size: max(calc(.14 * var(--t)), 12px); }
 .ibonds { display: flex; flex-wrap: wrap; gap: .06rem; }
-.ibond { display: inline-flex; align-items: center; gap: .05rem; padding: .03rem .08rem .03rem .04rem; font-size: calc(.14 * var(--t)); border: 1px solid var(--line-2); color: var(--text-md); }
+.ibond { display: inline-flex; align-items: center; gap: .05rem; min-height: max(.32rem, 28px); padding: .03rem .08rem .03rem .04rem; font-size: max(calc(.16 * var(--t)), 12px); border: 1px solid var(--line-2); background: transparent; color: var(--text-md); text-align: left; }
+.ibond:hover, .ibond:focus-visible { border-color: var(--mint-400); background: rgba(23, 249, 183, .06); }
 .ibond.is-off { color: var(--text-dim); background: rgba(255, 255, 255, .02); text-decoration: line-through; text-decoration-color: rgba(255, 84, 84, .6); }
 .ibond.is-off .bglyph img { filter: grayscale(1) brightness(.5); }
-.ibond__ban { display: inline-flex; align-items: center; gap: .02rem; font-size: calc(.12 * var(--t)); padding: 0 .05rem; background: var(--red); color: #fff; text-decoration: none; }
+.ibond__ban { display: inline-flex; align-items: center; gap: .02rem; font-size: max(calc(.12 * var(--t)), 11px); padding: 0 .05rem; background: var(--red); color: #fff; text-decoration: none; }
 .ibond__ban .icon { width: .12rem; height: .12rem; }
+/* [ASSUMED] 规程 本局信息 draws the same chips as the briefing discs (lit first, grey when off, a red ring when
+   some members are banned). The name span and .ibond__ban stay so the match-info checks still read them. */
+.ibonds--disc { gap: .12rem .1rem; }
+.ibond--disc {
+  position: relative; flex-direction: column; justify-content: flex-start; align-items: center;
+  width: max(1.05rem, calc(52px * var(--sp-ui, 1)), 32px); min-height: max(.44rem, calc(44px * var(--sp-ui, 1)), 32px); padding: .02rem .04rem 0; border: 0; background: none;
+  text-align: center; gap: .04rem;
+}
+.ibond--disc .bglyph {
+  width: max(.62rem, calc(36px * var(--sp-ui, 1)), 32px); height: max(.62rem, calc(36px * var(--sp-ui, 1)), 32px); border-radius: 50%;
+  background: radial-gradient(circle, #f6faf9 0 42%, #d3dddb 64%, #9fb1ae 100%);
+  box-shadow: 0 0 .12rem rgba(220, 240, 236, .35);
+}
+.ibond--disc .bglyph img { filter: brightness(0); opacity: .82; }
+.ibond--disc > span:not([class]) { max-width: 100%; line-height: 1.2; white-space: normal; overflow-wrap: anywhere; text-align: center; }
+.ibond--disc:hover, .ibond--disc:focus-visible { background: none; border-color: transparent; }
+.ibond--disc:hover .bglyph, .ibond--disc:focus-visible .bglyph { box-shadow: 0 0 0 2px var(--mint-400); }
+.ibond--disc.is-off { text-decoration: none; background: none; color: var(--text-dim); }
+.ibond--disc.is-off .bglyph { background: #3a403e; box-shadow: none; }
+.ibond--disc.is-off .bglyph img { filter: grayscale(1) brightness(.55); opacity: .7; }
+.ibond--disc.is-partial .bglyph { box-shadow: 0 0 0 2px rgba(255, 84, 84, .55); }
+.ibond--disc .ibond__ban { position: absolute; top: 0; right: 0; }
 .ibanned { display: flex; flex-wrap: wrap; gap: .06rem; }
 .ibanned__one { padding: 0; background: none; border: 0; }
 /* 0.2.0: the player's own 自选 pieces out of the shop this match (ui/matchInfo.js DiyBannedLine) */
@@ -380,9 +428,29 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 
 /* ---- 机变 overlay ---- */
 .spov { position: absolute; inset: 0 0 0 2.8rem; z-index: 20; }
+/* the corner's buttons stay left of the veil (§35.51: in one row at 1280–1920 px 「玩法说明」 sat half and 「全屏」 wholly under it
+   — the HUD is below the overlay): they wrap upwards within the 2.8rem column, as a phone's always do (devices.css) */
+@media (min-width: 768px) {
+  .gm.has-sp .gm__corner { flex-wrap: wrap-reverse; align-content: flex-start; max-width: calc(2.8rem - .24rem - .1rem); }
+}
 .gm.has-sp .gm__bonds, .gm.has-sp .gm__effects { opacity: 0; pointer-events: none; transition: opacity var(--t-med); }
 .spov__veil { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(8, 10, 10, .58) 0, rgba(8, 10, 10, .8) .5rem, rgba(8, 10, 10, .82)); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); border-left: 1px solid var(--line); }
 .spov__inner { position: absolute; left: .3rem; right: .5rem; top: 1.14rem; bottom: .5rem; display: flex; flex-direction: column; gap: .16rem; animation: screen-in var(--t-slow) var(--ease-out); }
+/* 收起 at the overlay's right edge (official 机密商店) and the collapsed draft's 展开 button in its place */
+/* its width is set from its parts (2 × .12rem padding, the border, 「收起」 at .15 × --t ≈ .3 × --t) so the grid can keep clear of
+   it (spov__grid--collapse): it covered the third column's edge, more with a larger 文字大小 (the owner's 悬赏决策, 2026-11-15) */
+.spov__collapse { position: absolute; right: -.42rem; top: 50%; transform: translateY(-50%); z-index: 2; display: flex; flex-direction: column; align-items: center;
+  box-sizing: border-box; width: calc(.32 * var(--t) + .24rem + 2px);
+  gap: .05rem; padding: .14rem .12rem; border: 1px solid rgba(255, 255, 255, .35); border-radius: .03rem; font: inherit; font-size: calc(.15 * var(--t));
+  font-weight: 700; color: var(--text-hi, #fff); background: rgba(20, 24, 24, .88); cursor: pointer; }
+.spov__collapse .icon { width: calc(.26 * var(--t)); height: calc(.26 * var(--t)); }
+.spov__collapse:hover { border-color: var(--mint-400); }
+.spov-pill { position: absolute; right: .12rem; top: 50%; transform: translateY(-50%); z-index: 20; display: flex; flex-direction: column; align-items: center;
+  gap: .05rem; max-width: 1rem; padding: .14rem .12rem; border: 1px solid rgba(255, 255, 255, .35); border-radius: .03rem; font: inherit;
+  font-size: calc(.15 * var(--t)); color: var(--text-hi, #fff); background: rgba(20, 24, 24, .9); cursor: pointer; }
+.spov-pill .icon { width: calc(.26 * var(--t)); height: calc(.26 * var(--t)); }
+.spov-pill__name { font-size: calc(.12 * var(--t)); color: var(--text-md); text-align: center; }
+.spov-pill.is-turn { border-color: var(--mint-400); box-shadow: 0 0 .12rem rgba(23, 249, 183, .45); }
 .spov__head { display: flex; align-items: center; justify-content: space-between; gap: .3rem; }
 /* 「悬赏决策 |」 then the description over the timing line, beside the bar; a faint bracket behind the title */
 .spov__titles { position: relative; display: grid; grid-template-columns: auto auto minmax(0, 1fr); grid-template-rows: auto auto; column-gap: .16rem; row-gap: .02rem;
@@ -398,6 +466,30 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .spov__desc { grid-row: 1; grid-column: 3; align-self: end; font-size: calc(.26 * var(--t)); font-weight: 700; color: #d6fbef; letter-spacing: .04em; text-shadow: none; }
 .spov__sub { grid-row: 2; grid-column: 3; align-self: start; font-size: calc(.15 * var(--t)); color: #a2aaa8; }
 .spov__turn { display: flex; align-items: center; gap: .24rem; }
+/* the header's text keeps each language's breaking rules, as the room and the hub do (§35.51 review: on phones the
+   narrower column moved Korean 「처|치」 and Japanese 「カ|ード」 breaks around) */
+.spov__head:lang(ko) { word-break: keep-all; overflow-wrap: break-word; }
+.spov__head:lang(ja) { line-break: strict; }
+/* … and so do the cards' texts (§35.56: Korean 「이 존재|할 경우」, 「오퍼레이터|일 경우」 broke inside words on every phone
+   size); a word longer than its line still breaks */
+.spov .rt:lang(ko), .spov .rt-note:lang(ko), .spov .rt-vup:lang(ko) { word-break: keep-all; overflow-wrap: break-word; }
+.spov .rt:lang(ja), .spov .rt-note:lang(ja), .spov .rt-vup:lang(ja) { line-break: strict; }
+/* short landscape phones (≤ 520 px tall): the timing line goes under the title, across the whole title block, and the
+   title is capped, so neither runs under 「当前轮到你决策」 (§35.56: English 「If no choice is made before…」 over 「Your turn to
+   decide」 at 中 – 特大 on phones up to 844×390, both variants; at 特大 「Equipment Supply」 left the description one word a
+   line). Each cap grows a pixel or two a step above 中 (--t-step). [ASSUMED] the caps */
+@media (max-height: 520px) {
+  .spov__titles { flex: 1 1 auto; min-width: 0; }
+  .spov__sub { grid-row: 3; grid-column: 1 / -1; margin-top: .04rem; }
+  .spov__title { font-size: min(calc(.56 * var(--t)), calc(26px + 2 * var(--t-step))); }
+  .spov__desc { font-size: min(calc(.26 * var(--t)), calc(15px + var(--t-step))); }
+  .spov__sub { font-size: min(calc(.15 * var(--t)), calc(10px + var(--t-step) / 2)); }
+  /* at 大 / 特大 the description goes under the name too (beside it, English 「Obtain equipment…」 took one word a line
+     and ran under 「Your turn to decide」) */
+  :root[data-text="lg"] .spov__bar, :root[data-text="xl"] .spov__bar { display: none; }
+  :root[data-text="lg"] .spov__name, :root[data-text="xl"] .spov__name { grid-row: 1; }
+  :root[data-text="lg"] .spov__desc, :root[data-text="xl"] .spov__desc { grid-row: 2; grid-column: 1 / -1; align-self: start; }
+}
 .spov__turntxt { display: flex; align-items: center; gap: .08rem; font-size: calc(.24 * var(--t)); font-weight: 700; color: var(--text-md); }
 .spov__turntxt .icon { width: .26rem; height: .26rem; }
 .spov__turntxt.is-mine { color: var(--mint-400); text-shadow: 0 0 .16rem rgba(23, 249, 183, .45); animation: blink 1.2s ease-in-out infinite; }
@@ -410,6 +502,8 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .spov__tw small { font-size: calc(.17 * var(--t)); font-weight: 400; color: #c2c8c6; }
 .spov__turn .countdown { padding-left: .22rem; border-left: 1px solid rgba(220, 228, 225, .22); }
 .spov__grid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: .2rem; }
+/* the part of 收起 that is not in the .42rem it hangs out, plus a gap */
+.spov__grid.spov__grid--collapse { margin-right: max(0px, calc(.32 * var(--t) + .24rem + 2px - .42rem + .06rem)); }
 /* the shared draft (the official 悬赏决策, the event's video 9:59): the grid keeps clear of the right-hand HUD; the top bar
    stays (the round, the funds and the timer stay readable while the others pick) */
 @media (min-height: 432px) {
@@ -625,6 +719,8 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .tempnote__rule { font-size: .12rem; line-height: 1.45; color: rgba(255, 220, 214, .88); }
 @media (prefers-reduced-motion: reduce) { .tempnote__frame polygon, .tempnote__label { animation: none; } }
 .sp-reduced-motion .tempnote__frame polygon, .sp-reduced-motion .tempnote__label { animation: none; }
+.tempnote--equipment .tempnote__label { border-color: #a7cabd; color: #dceee8; background: rgba(18, 33, 30, .92); }
+.tempnote--equipment .tempnote__rule { color: #dceee8; }
 /* 0.2.0 补位: 「替补：X」 under the player's own prep pieces of a chess they do not own (screens/game/standInTags.js) */
 .sitags { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
 .sitag { position: absolute; transform: translate(-50%, .02rem); pointer-events: none; white-space: nowrap; font-size: max(.12rem, 9px); font-weight: 700;
@@ -636,7 +732,8 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 /* ---- underframe: the selection diamond of a tapped own piece (ui/underframe.js): 撤退 / 出售 +N / 销毁 ----
    It sits above every HUD panel (detail card z 9, bond popup, drawer, shop bar): only its buttons take pointer events,
    so they are never covered (user playtest #2 item 8); overlays that must win (机变, modals, the drag ghost) are higher. */
-.gm__hud > .uframe { position: absolute; transform: translate(-50%, -50%); pointer-events: none; z-index: 12; }
+/* tileScreen returns viewport coordinates, including screen-fit offsets (#889). */
+.gm__hud > .uframe { position: fixed; transform: translate(-50%, -50%); pointer-events: none; z-index: 12; }
 .uframe__dia { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; animation: uframe-in 180ms var(--ease-out); }
 @keyframes uframe-in { from { opacity: 0; transform: scale(.85); } }
 .uframe__outer { fill: rgba(78, 216, 175, .05); stroke: rgba(255, 255, 255, .88); stroke-width: 1.6px; stroke-dasharray: 7 5; vector-effect: non-scaling-stroke; }
@@ -763,3 +860,7 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
   .offerov .spov__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .offerov .spcard__icon { width: .6rem; height: .6rem; }
+
+/* #746: optional selected-unit bond timers; labels wrap at narrow widths and large text sizes. */
+.dbond-times__row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .08rem .2rem; margin: .1rem 0; font-size: calc(.24 * var(--t)); }
+.dbond-times__row > span { min-width: 0; overflow-wrap: anywhere; }

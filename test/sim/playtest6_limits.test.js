@@ -5,7 +5,7 @@
 // (AutoChessBattleConst.MAX_BATTLE_DAMAGE) is cancelled: 0 damage, nothing credited to the shared pool.
 //
 // This file: the switches (shared/constants.js), the in-battle layer copy (Battle.addLayers / support.gainLayers) and
-// the hit limit in the damage pipeline (server/sim/damage.js leaderHitCancelled: dealDamage, Battle.loseHp).
+// the hit limit in the damage pipeline (server/sim/attack/health.js leaderHitCancelled: Battle.dealDamage, Battle.dealHPLose).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -19,8 +19,8 @@ import { buildBossWave, setupMatchWaves } from '../../server/match/waves.js';
 import { createRng } from '../../server/sim/rng.js';
 import { GEO } from '../../shared/constants.js';
 import { getData } from '../../server/data.js';
-import { leaderHitCancelled } from '../../server/sim/damage.js';
-import { abOf } from '../../server/sim/content/enemies.js';
+import { leaderHitCancelled } from '../../server/sim/attack/health.js';
+import { grantHitShield } from '../../server/sim/content/enemies/helpers.js';
 
 const DATA = getData({ log: { warn() {}, error() {}, info() {} } });
 const LIMIT = BOSS_HIT_LIMIT;
@@ -332,7 +332,7 @@ for (const [bossId, hidden] of [['boss_1', false], ['boss_5', false], ['boss_8',
   });
 }
 
-test('限伤 vs the real leader defences [ASSUMED order]: 阿利斯泰尔\'s 5000 vest barrier stays under a cancelled hit; a 再生 block acts first', () => {
+test('限伤 vs the real leader defences [ASSUMED order]: 阿利斯泰尔\'s 5000 vest barrier stays under a cancelled hit; both native barrier and count shield are preserved by the pre-injury cap', () => {
   // boss_6: the kit's own 莫非王土 animates a shield equipment lying on the field → the `boss:vest` HP shield (5000)
   const pool6 = new SharedBossPool(gd.boss('boss_6').bloodPoint.HARD);
   const { b: b6 } = realBossField('boss_6', false, pool6);
@@ -355,20 +355,23 @@ test('限伤 vs the real leader defences [ASSUMED order]: 阿利斯泰尔\'s 500
   assert.equal(pool6.hp, before - 294999);
   assert.equal(lion.findBuff('boss:vest'), null, 'the barrier is spent');
 
-  // boss_10 (hidden): a 假想敌：再生 aura block (`hit` step) negates the hit before the limit sees it
+  // [ASSUMED] Keep the shared pre-injury cap policy for the native ordinary-priority aura shield too.
   const pool10 = new SharedBossPool(gd.boss('boss_10').bloodPoint.HARD);
   const { b: b10 } = realBossField('boss_10', true, pool10);
   const pipe = b10.enemies.find((e) => e.alive && e.isBoss);
-  abOf(b10, pipe).hitShield = 1;
+  grantHitShield(b10, pipe, 1);
   const caps10 = [];
   const fx10 = b10.fx.bind(b10);
   b10.fx = (k, p) => { if (k === 'hitCap') caps10.push(p.id); return fx10(k, p); };
   const before10 = pool10.hp;
   assert.equal(b10.dealDamage(null, pipe, { amount: 2e6, type: 'phys', ignoreSleep: true }), 0);
-  assert.equal(abOf(b10, pipe).hitShield, 0, 'the block is spent');
-  assert.deepEqual(caps10, [], 'the limit never saw the hit');
+  assert.equal(pipe.findBuff('ab:hitShield').shieldHits, 1, 'the cap cancels before consuming an injury shield');
+  assert.deepEqual(caps10, [pipe.id]);
   assert.equal(b10.dealDamage(null, pipe, { amount: 2e6, type: 'phys', ignoreSleep: true }), 0);
-  assert.deepEqual(caps10, [pipe.id], 'the next one is cancelled by the limit');
+  assert.deepEqual(caps10, [pipe.id, pipe.id], 'the next over-limit hit also preserves the layer');
+  assert.equal(pipe.findBuff('ab:hitShield').shieldHits, 1);
+  assert.equal(b10.dealDamage(null, pipe, { amount: 1, type: 'arts', ignoreSleep: true }), 0);
+  assert.equal(pipe.findBuff('ab:hitShield'), null, 'an under-limit hit reaches and consumes the layer');
   assert.equal(pool10.hp, before10);
 });
 

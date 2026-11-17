@@ -7,6 +7,7 @@
 // denied → 未持久保存, and asking shows the refusal with the button still on. 清理旧版本素材, after its confirm, deletes an
 // imported copy that no current manifest names and keeps the current file. No console / page errors.
 
+import { seedReleaseRead } from '../helpers/releaseNotes.js';
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
@@ -43,6 +44,7 @@ describe('设置 → 素材存储', { skip: !ENABLED && 'set SP_E2E=1 (and have 
     page.on('console', (m) => { if (m.type() === 'error') problems.push(`console: ${m.text()}`); });
     page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
     await page.setViewport({ width: 1600, height: 900 });
+    await seedReleaseRead(page);
     await page.goto(`${base}/`, { waitUntil: 'networkidle0', timeout: 60000 });
     await page.waitForSelector('.title-settings', { timeout: 15000 });
     await page.click('.title-settings');
@@ -76,6 +78,7 @@ describe('设置 → 素材存储', { skip: !ENABLED && 'set SP_E2E=1 (and have 
     page.on('console', (m) => { if (m.type() === 'error') problems.push(`console: ${m.text()}`); });
     page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
     await page.setViewport({ width: 1600, height: 900 });
+    await seedReleaseRead(page);
     await page.goto(`${base}/`, { waitUntil: 'networkidle0', timeout: 60000 });
     // a current hashed picture of the served manifest (hashed once the server's asset index is ready, about 1 s in)
     const current = await page.evaluate(async () => {

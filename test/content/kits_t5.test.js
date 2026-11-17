@@ -1044,7 +1044,7 @@ test('圣约送葬人 T1 受选之人: the extra attack consumes no ammo and nev
 });
 
 test('元素伤害 uses the engine elemental type: × elementalTakenMul (元素脆弱), never × trueTakenMul (烛煌 熔点引爆, 妮芙 失魂)', () => {
-  // one battle per burst: after a burst the enemy's gauges stay locked for its 爆发冷却 (damage.js)
+  // one battle per burst: after a burst the enemy's gauges stay locked for its 爆发冷却 (attack/element.js)
   const arena = () => {
     const h = makeBattle({
       defs: { enemies: { enemy_dummy: dummy() } },

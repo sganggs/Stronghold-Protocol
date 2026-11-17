@@ -38,6 +38,10 @@
 // texts (the set's own i18n/<lang>.json: a plugin's operators named in that language); `setContent(null)` gives the
 // server's files back (the entries the set replaced, kept meanwhile — nothing is downloaded again) and its overlays. The
 // subscribers of every file that changed hands are told. One content set at a time: the next one replaces it.
+//
+// Versions (DESIGN §35.22.4): files whose config carries `version` (another official version's, e.g. 上半 as a content set)
+// take only their content set's own game texts, never the language folder's data/i18n overlays, which are keyed by the
+// default data's record ids (versionFiles). `localeName` still maps Chinese names.
 
 import { useEffect, useReducer } from '../vendor/hooks.module.js';
 import { applyFileOverlay } from '../../shared/i18nData.js';
@@ -271,22 +275,38 @@ export function createDataStore(opts = {}) {
   }
 
   /**
+   * Whether the files in effect are another official version's (their config carries `version`, DESIGN §35.22.4). The
+   * language folder's overlays are keyed by the default data's record ids, which a version reuses for other records
+   * (上半's chess_item_2_03_e_b is not 下半's hammer), and the per-text hash cannot tell them apart: such files take
+   * only their content set's own texts (setContent `overlay`; a per-version overlay is M3), the same gate as the
+   * server's (server/ai/knowledge.js). The config arrives with the content set's other files, so the gate is known
+   * when they are localized.
+   */
+  const versionFiles = () => !!entries.get('config')?.value?.version;
+
+  /**
    * The localized copy of a ready file (null in Chinese or without an overlay for the file): the overlays of the chain
    * applied from the last to the first, each text checked against the Chinese file, so the best overlay wins per text.
+   * Another version's files take only their content set's own overlays (versionFiles).
    */
   function localizedEntry(name) {
     if (locale === 'zh' || !chain.length) return null;
     const e = entries.get(name);
     if (!e || e.status !== 'ready') return null;
-    const fileOverlays = chain.flatMap((c) => [overlays.get(c)?.pluginOverlay?.files?.[name], overlays.get(c)?.files?.[name]]).filter(Boolean);
+    const versioned = versionFiles();
+    const fileOverlays = chain.flatMap((c) => {
+      const o = overlays.get(c);
+      if (!o || (versioned && !(content && o.contentId === content.id))) return [];
+      return [o.pluginOverlay?.files?.[name], o.files?.[name]];
+    }).filter(Boolean);
     if (!fileOverlays.length) return null;
     let l = localized.get(name);
-    if (!l || l.lang !== locale || l.base !== e.value) {
+    if (!l || l.lang !== locale || l.base !== e.value || l.versioned !== versioned) {
       let value = e.value;
       for (const fo of fileOverlays.reverse()) {
         try { value = applyFileOverlay(e.value, fo, value).value; } catch (err) { console.warn(`[data] ${name}: overlay not applied`, err); }
       }
-      l = { lang: locale, base: e.value, value, index: null };
+      l = { lang: locale, base: e.value, versioned, value, index: null };
       localized.set(name, l);
     }
     return l;
@@ -317,7 +337,8 @@ export function createDataStore(opts = {}) {
       if (own) {
         let json = null;
         try { json = await own.overlay(lang); } catch (err) { console.warn(`[data] the content set's ${lang} texts are not applied`, err); }
-        if (json && typeof json === 'object' && json.files) { overlays.set(lang, json); return json; }
+        // tagged with the set's id: another version's files take only their own set's texts (versionFiles)
+        if (json && typeof json === 'object' && json.files) { const tagged = { ...json, contentId: own.id }; overlays.set(lang, tagged); return tagged; }
         overlayLoads.delete(key);
         return null;
       }
@@ -388,7 +409,8 @@ export function createDataStore(opts = {}) {
     load,
     /** A content set's files instead of the server's, or the server's again (null) — see the header. */
     setContent,
-    /** The id of the content set the files come from (its cs), or null. */
+    /** The id of the content set the files come from (its cs), or null. The open roster memos key on it
+     *  (loadout.js, ownership.js; PR #852): a room version switch (versions M1) must change it or join their deps. */
     contentId: () => content?.id ?? null,
     /** Load several files; resolves when all settled. */
     loadAll: (...names) => Promise.all(names.flat().map(load)),
@@ -396,7 +418,11 @@ export function createDataStore(opts = {}) {
     get: (name) => {
       const v = localizedEntry(name)?.value ?? entries.get(name)?.value ?? null;
       const view = views.get(name);
-      return view && v != null ? view(v) : v;
+      if (!view) return v;
+      if (v != null) return view(v);
+      // a view marked `withMissing` also stands in for a file the server does not have (the official themes this
+      // browser imported over a host without local art, §37.232) — once it is known missing, never while it loads
+      return view.withMissing === true && entries.get(name)?.status === 'missing' ? view(null) : null;
     },
     /** The file exactly as downloaded (Chinese texts), whatever the locale. */
     getRaw: (name) => entries.get(name)?.value ?? null,
@@ -602,6 +628,9 @@ export function useData(...names) {
     let alive = true;
     const unsub = data.subscribe((n) => { if (alive && names.includes(n)) force(); });
     for (const n of names) data.load(n);
+    // A warm-up can settle between render and this effect's subscription (e.g. a resumed match).
+    // Read the statuses again even when those loads already finished and will send no more notifications.
+    force();
     return () => { alive = false; unsub(); };
   }, [key]);
   return names.every((n) => {

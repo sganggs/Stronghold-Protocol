@@ -42,7 +42,7 @@ describe('an interface plugin in the prep slot', { skip: !ENABLED }, () => {
       const frame = c.page.frames().find((f) => /\/p\/damage-meter\/[0-9a-f]{8}\/ui\/index\.html$/.test(f.url()));
       assert.ok(frame, 'the sandboxed page is the plugin entry');
       await frame.waitForSelector('#n', { timeout: 10000 });
-      // Engine shape from damage.js: ['dmg', unitId, amount, kind]. The widget adds index 2, not the unit id.
+      // Engine shape from server/sim/attack/health.js: ['dmg', unitId, amount, kind]. The widget adds index 2, not the unit id.
       await c.page.evaluate(() => globalThis.__SP_UI_PLUGINS__.debugBattle([['dmg', 7, 4, 'phys']]));
       await frame.waitForFunction(() => document.getElementById('n') && document.getElementById('n').textContent === '4', { timeout: 10000 });
       await frame.evaluate(() => parent.postMessage({ v: 1, t: 'g.buy', slot: 0 }, '*'));

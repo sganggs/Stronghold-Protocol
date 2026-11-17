@@ -116,7 +116,9 @@ export function loadBoardPack(assets) {
     if (!assets || typeof assets.local !== 'function' || typeof assets.localUrl !== 'function' || typeof assets.image !== 'function') return null;
     const manifest = await assets.local().catch(() => null);
     if (!isObj(manifest)) return null;
-    const url = (g, n) => { const u = assets.localUrl(g, n); return typeof u === 'string' && u ? encodeURI(u) : null; };
+    // The manifest's URL as it is: a download or an import stored the file under that path and the worker (public/sw.js)
+    // looks it up unchanged; `[opt]…` sent as `%5Bopt%5D…` found nothing and went to the server (GitHub #725, §37.99).
+    const url = (g, n) => { const u = assets.localUrl(g, n); return typeof u === 'string' && u ? u : null; };
     const dUrl = url(...PACK_IMAGES.D);
     if (!dUrl) return null;
     const images = {};
@@ -166,7 +168,8 @@ export function loadBoardPack(assets) {
   return pending;
 }
 
-/** Manifest group of a stage's official scene, and of the textures the scenes share. */
+/** Manifest group of a stage's official scene (`scene/<stageId>`), 盟约 and 规程 alike.
+ *  loadScenePack returns null when that group has no scene+bin, and the board keeps the metal tiles. */
 export const sceneGroup = (stageId) => `scene/${stageId}`;
 export const SCENE_TEX_GROUP = 'scene/tex';
 export const SCENE_VERSION = 1;
@@ -325,7 +328,7 @@ export function loadScenePack(assets, stageId) {
   if (sceneCache.has(stageId)) return sceneCache.get(stageId);
   const pending = (async () => {
     if (!(await sceneListed(assets, stageId)) || typeof assets.image !== 'function') return null;
-    const url = (g, n) => { const u = assets.localUrl(g, n); return typeof u === 'string' && u ? encodeURI(u) : null; };
+    const url = (g, n) => { const u = assets.localUrl(g, n); return typeof u === 'string' && u ? u : null; }; // as in loadBoardPack
     const group = sceneGroup(stageId);
     const [doc, buf] = await Promise.all([fetchJson(url(group, 'scene')), fetchBuffer(url(group, 'bin'))]);
     if (!isObj(doc) || doc.version !== SCENE_VERSION || !buf) return null;

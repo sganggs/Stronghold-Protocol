@@ -81,7 +81,7 @@ function unload(b, e, a) {
 /**
  * One passenger bus. `camel` selects the 木驮兽 rules (speed, square unload, route replacement).
  * Hiding is the presentation and the untargetable rule (snapshot omits `hidden`; targeting skips it).
- * [ASSUMED] A carried passenger also takes no new damage, because damage.js returns 0 for `hidden` — not only
+ * [ASSUMED] A carried passenger also takes no new damage, because the attack/ pipeline returns 0 for `hidden` — not only
  * because nothing selects it. Identity, bounty and HP already lost stay on the unit.
  */
 export function passengerBus(ab, camel = false) {

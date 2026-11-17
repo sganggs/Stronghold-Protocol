@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { createPluginFiles, StudioError } from './files.js';
+import { createPluginFiles, StudioError, studioByteLimit } from './files.js';
 import { checkCandidate } from './check.js';
 import { WALK_LIMITS } from '../plugins/registry.js';
 import { PLUGIN_LIMITS } from '../../shared/plugins/manifest.js';
@@ -73,7 +73,8 @@ export async function createCandidateAsync(files, id) {
 export function candidateLimits(candidate) {
   const entries = inventory(candidate.dir).filter(f => !f.rel.split('/').some(p => p.startsWith('.')));
   if (entries.length > PLUGIN_LIMITS.files) throw new StudioError('PLUGIN_FILE_SIZE', 413);
-  if (entries.reduce((sum, f) => sum + f.bytes, 0) > PLUGIN_LIMITS.pluginBytes) throw new StudioError('PLUGIN_STUDIO_SIZE', 413);
+  const byteLimit = studioByteLimit(candidate.dir);
+  if (entries.reduce((sum, f) => sum + f.bytes, 0) > byteLimit) throw new StudioError('PLUGIN_STUDIO_SIZE', 413, { max: `${byteLimit / 1048576} MB` });
 }
 
 export function commitCandidate(files, id, candidate, sidecar = null) {

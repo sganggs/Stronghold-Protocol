@@ -37,3 +37,9 @@ Part of [DESIGN.md](../DESIGN.md) (the index; section numbers are global).
 - Snapshots to clients: every **3 ticks** (= 20 Hz real) per watched field.
 
 ---
+
+Historical timing (0.3.2 M2, history §35.22.7): a first-season solo match (`config.version.rules.soloTimed`) has
+300-second preparation and 150-second special drafts. `Match` option `soloUnlimited: true` opts out; false/absent
+keeps those deadlines. The room's 「不限时」 (DESIGN §35.23.10, default off, shown only for a version whose solo is timed)
+is what sets that option. The co-op lone-human unlimited convenience is retained. Default second-season behavior is
+unchanged. First-season bench equipment/full-bench swaps are gated by the version's rules.

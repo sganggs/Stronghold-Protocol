@@ -66,7 +66,7 @@ import { isElite, onElementHit, elementDmg } from '../shared/tier6.js';
 import { releaseSkillSummon, startCountdown } from '../../tokens.js';
 import { absoluteRangeKeys } from '../../../targeting.js';
 import { bodyInRange } from '../../../body.js';
-import { hasHp, burstLocked } from '../../../damage.js';
+import { hasHp, burstLocked } from '../../../attack.js';
 import { MIN_DAMAGE_RATIO } from '../../../constants.js';
 import { hypot } from '../../../detmath.js';
 
@@ -95,7 +95,7 @@ const keysAt = (grid, u) => new Set(absoluteRangeKeys(grid, u.tileR, u.tileC, u.
 
 /**
  * 神经损伤 of a fixed value that ignores the target's 损伤抵抗 (PRTS 群体性谵妄 备注 "不受目标损伤抗性影响": the client's
- * ApplyFixedElementDamage): the share the engine takes off (damage.js elementIntake) is added back first.
+ * ApplyFixedElementDamage): the share the engine takes off (attack/element.js elementIntake) is added back first.
  */
 function fixedNeural(battle, src, e, amount, sourceless = false) {
   if (!(amount > 0) || !hasHp(e)) return 0;

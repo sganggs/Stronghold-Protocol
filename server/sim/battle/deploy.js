@@ -13,9 +13,14 @@ export class BattleDeploy {
    * operator that left the field comes back on its body tile, restTile). `keepSp` = { sp, charges }
    * restored right after the skill reset, before the `deploy` hook fires.
    */
-  _deploy(u, { initial = false, carry = null, tile = null, keepSp = null, preBattleAggroSeq = null } = {}) {
+  _deploy(u, { initial = false, carry = null, tile = null, keepSp = null, preBattleAggroSeq = null, mobilePosition = null } = {}) {
     if ((u.alive && u.deployed) || u._removing) return false;
     const R0 = tile ? tile[0] : u.homeR, C0 = tile ? tile[1] : u.homeC;
+    const mobile = u.kind === 'token' && u.mem?.lethaniaPursuit === true;
+    if (mobile && (!mobilePosition || !Number.isFinite(mobilePosition.x) || !Number.isFinite(mobilePosition.y))) {
+      this.log(`mobile token ${u} needs an explicit position; not deployed`);
+      return false;
+    }
     if (!this.grid.inRect(R0, C0)) {
       this.log(`${u} at ${R0},${C0} is outside the field rect; not deployed`);
       if (!tile) u.removed = true;
@@ -23,9 +28,9 @@ export class BattleDeploy {
     }
     const k = R0 * COLS + C0;
     const occ = this._occ[k];
-    if (occ && occ !== u && occ.alive && occ.deployed) { this.log(`tile ${R0},${C0} occupied; ${u} not deployed`); return false; }
+    if (!mobile && occ && occ !== u && occ.alive && occ.deployed) { this.log(`tile ${R0},${C0} occupied; ${u} not deployed`); return false; }
     // "倒地干员所在地块视为可部署，但所有我方单位在此处的部署行为将被阻止" (PRTS 卫戍协议/帮助 §作战阶段 单位部署)
-    if (this.downOn(R0, C0, u)) { this.log(`a knocked-out operator lies on ${R0},${C0}; ${u} not deployed`); return false; }
+    if (!mobile && this.downOn(R0, C0, u)) { this.log(`a knocked-out operator lies on ${R0},${C0}; ${u} not deployed`); return false; }
     const first = u.deploySeq === 0;
     u.alive = true;
     u.deployed = true;
@@ -34,7 +39,9 @@ export class BattleDeploy {
     u.body = null;
     u.countdown = null; // a countdown summon's content starts its new life in the deploy hook (content/tokens.js startCountdown)
     u.downAtHome = false; // a new deployment: a later knock-out lies where it falls again (Battle._layBody)
-    u.x = C0; u.y = R0; u.tileR = R0; u.tileC = C0;
+    u.x = mobile ? mobilePosition.x : C0;
+    u.y = mobile ? mobilePosition.y : R0;
+    u.tileR = R0; u.tileC = C0;
     u.blocking = [];
     u.deploySeq = ++this._deploySeq;
     // A prepared map character is instantiated after the board deployment but keeps an earlier target order.
@@ -53,7 +60,9 @@ export class BattleDeploy {
     // 联防 reconstructs deployment/battle-start effects first, then restores HP/SP once in Battle.start.
     const restoreLater = this.kind === 'unite' && this._startDeploying;
     if (!restoreLater && cs && u.kind === 'op' && Number.isFinite(cs.hpPct) && cs.hpPct > 0) u.hp = u.s.maxHp * Math.min(1, cs.hpPct);
-    this._occ[k] = u;
+    // The marked Leithania pursuers are continuous entities, not deployment-tile occupants. Their exact death-site
+    // position may overlap a friend, a downed body, another pursuer, or a non-deployable road tile.
+    if (!mobile) this._occ[k] = u;
     this._refreshRange(u); // also rebuilds baseRangeKeys (initial range incl. permanent rangeExtend)
     if (!u.skill) this._setupUnit(u);
     u.skill.reset(restoreLater ? null : cs);
@@ -214,7 +223,7 @@ export class BattleDeploy {
     if (occ && occ.alive && occ !== unit) return false;
     if (at && this.downOn(at[0], at[1], unit)) return false;
     const ps = this.getPlayer(unit.ownerId);
-    const cost = unit.base.cost;
+    const cost = unit.base.cost * unit.s.costMul;
     let paid = 0;
     if (!free) {
       if (!ps || ps.dp + 1e-9 < cost) return false;
@@ -239,7 +248,7 @@ export class BattleDeploy {
       if (this.time + 1e-9 < u.respawnAt) continue;
       // the DP first: an operator past its timer mostly waits for DP, and the tile checks scan every ally
       const ps = this.getPlayer(u.ownerId);
-      const cost = u.base.cost;
+      const cost = u.base.cost * u.s.costMul;
       if (!ps || ps.dp + 1e-9 < cost) continue;
       const [r, c] = this.restTile(u);
       const occ = this._occ[r * COLS + c];

@@ -25,6 +25,12 @@
 //                cached for good — for this server's vanilla `cs` (its first 16 hex digits) and, from P1c (DESIGN §32.6),
 //                a content set with gameplay plugins a room uses or used lately (server/plugins/contentSets.js: the same
 //                shape with `vanilla: false`, its plugins, settings and modes)
+//     /cs/<cs16>/index.json, /cs/<cs16>/bounds/official.json of an official version this server enables (DESIGN §35.23,
+//                server/versions.js file): its manifest (`version`, data URLs under /data/versions/<slug>/) and its
+//                official-bounds snapshot, cached for good
+//     /data/versions/<slug>/<file>.json → another official version's data — only an enabled version's directory
+//                (versions.servedDirs(); the real path decides, in any spelling); `?v=` immutable like /data/. Every other
+//                path under data/versions/ is a 404, as before M1
 //     /cs/<cs16>/data/<file>.json, /cs/<cs16>/i18n/<lang>.json → a data or translation file that content set changed,
 //                its served bytes from memory (cached for good; every other file of the set is named by its plain
 //                /data/…?v=<8 hex> URL in the manifest)
@@ -113,18 +119,20 @@ const CS_FILE = /^\/cs\/([0-9a-f]{16})\/([A-Za-z0-9._\/-]{1,200})$/;
  *   assetIndex?: ReturnType<typeof import('./assetIndex.js').createAssetIndex> | null,
  *   views?: ReturnType<typeof import('./assetViews.js').createManifestViews> | null,
  *   visual?: ReturnType<typeof createVisualSets> | null,
- *   contents?: ReturnType<typeof import('../plugins/contentSets.js').createContentSets> | null }} dirs
+ *   contents?: ReturnType<typeof import('../plugins/contentSets.js').createContentSets> | null,
+ *   versions?: { file: (cs16: string, rel: string) => ({ body: Buffer, sha256: string, type: string } | null), servedDirs: () => string[] } | null }} dirs
  *   packs: the server's plugin registry (default: one over publicDir, dataDir, packsDir and pluginsDir — ROOT/packs, and
  *   the plugins/ folder beside packsDir); content: the vanilla content (default: computed from simDir, sharedDir and
  *   dataDir on first use); assetIndex / views: the content hashes and the served manifests (none: plain URLs,
  *   size-mtime ETags); visual: the visual sets (default: one over the registry — a registry of 0.2.0's shape has none:
  *   /vs/ and /p/ answer 404); contents: the content sets with gameplay plugins (DESIGN §32.6; none: only the vanilla
- *   set's /cs/ manifest)
+ *   set's /cs/ manifest); versions: the official versions this server enables (server/versions.js; none: /data/versions/ is
+ *   never served)
  * @returns {(req: import('node:http').IncomingMessage, res: import('node:http').ServerResponse, rawPath: string, query: string) => Promise<void>}
  */
 export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = path.join(ROOT, 'server', 'sim'), packsDir = path.join(ROOT, 'packs'),
   pluginsDir = path.join(path.dirname(path.resolve(packsDir)), 'plugins'), packs = null, content = null, log = noopLog,
-  assetIndex = null, views = null, visual = null, contents = null }) {
+  assetIndex = null, views = null, visual = null, contents = null, versions = null }) {
   const registry = packs || createPluginRegistry({ publicDir, dataDir, packsDir, pluginsDir }, { log: /** @type {any} */ (log) });
   const sets = visual || (typeof registry.pluginFile === 'function' ? createVisualSets({ registry, log }) : null);
   let vanilla = content;
@@ -143,6 +151,21 @@ export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = pa
     if (studioReal === undefined) studioReal = await fsp.realpath(path.join(path.resolve(publicDir), 'studio')).catch(() => null);
     return studioReal;
   };
+  // another official version's data (data/versions/<slug>/, DESIGN §35.22, §35.23): the release carries every version,
+  // but only the directories of the versions this server enables are served (versions.servedDirs()); the on-disk path
+  // decides (case-insensitive disks, Windows short names), as for the studio below
+  let versionsReal = null;
+  /** @type {string[] | null} the real paths of the served version directories */
+  let servedReal = null;
+  /** Is `abs` another version's data that may not be served (under data/versions/, outside every served directory)? */
+  const isVersionData = async (abs) => {
+    versionsReal ||= await fsp.realpath(path.join(path.resolve(dataDir), 'versions')).catch(() => null);
+    if (!versionsReal) return false;
+    const real = await fsp.realpath(abs).catch(() => null);
+    if (!real || !real.startsWith(versionsReal + path.sep)) return false;
+    servedReal ||= (await Promise.all((versions?.servedDirs() || []).map((d) => fsp.realpath(d).catch(() => null)))).filter((d) => typeof d === 'string');
+    return !servedReal.some((d) => real.startsWith(d + path.sep));
+  };
   const shimBody = Buffer.from(DATA_SHIM_JS);
   const shimTag = `"shim-${shimBody.length.toString(16)}"`;
   const gzipCache = new CompressCache(); // brotli and gzip bodies (files.js)
@@ -152,6 +175,16 @@ export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = pa
     try { decoded = decodeURIComponent(rawPath); } catch { sendError(req, res, 400, '请求地址无效 · Bad request'); return; }
     if (!decoded.startsWith('/') || decoded.includes('\0') || decoded.includes('\\')) {
       sendError(req, res, 400, '请求地址无效 · Bad request');
+      return;
+    }
+    // #603: serve only this root document, including after an update-zip overlay; never mount the repo root.
+    if (decoded === '/CHANGELOG.md') {
+      const abs = path.resolve(publicDir, '..', 'CHANGELOG.md');
+      const st = await fsp.stat(abs).catch(() => null);
+      if (!st?.isFile()) { sendError(req, res, 404, '页面不存在 · Not found'); return; }
+      await serveFile(req, res, abs, st, 'release', ['CHANGELOG.md'], query, gzipCache, log, {
+        cacheControl: 'no-cache', headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      });
       return;
     }
     // the plugin studio's page is never a static file (server/studio/index.js isStudioPath: any spelling of /studio/)
@@ -177,10 +210,12 @@ export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = pa
     if (decoded.startsWith('/cs/')) {
       const c = vanillaContent();
       if (decoded !== `/cs/${csUrlPart(c.cs)}/index.json`) {
-        // a content set with gameplay plugins (DESIGN §32.6, server/plugins/contentSets.js): its manifest and its patched
-        // data files — a URL naming its content, so cached for good; 404 for a set this server does not keep
+        // an official version's manifest and bounds (DESIGN §35.23, server/versions.js), else a content set with gameplay
+        // plugins (DESIGN §32.6, server/plugins/contentSets.js): its manifest and its patched data files — a URL naming
+        // its content, so cached for good; 404 for a set this server does not keep
         const m = CS_FILE.exec(decoded);
-        const f = m && contents && !m[2].split('/').some((s) => s === '' || s === '.' || s === '..' || s.startsWith('.')) ? contents.file(m[1], m[2]) : null;
+        const safe = !!m && !m[2].split('/').some((s) => s === '' || s === '.' || s === '..' || s.startsWith('.'));
+        const f = safe && m ? (versions?.file(m[1], m[2]) || (contents ? contents.file(m[1], m[2]) : null)) : null;
         if (!f) { sendError(req, res, 404, '页面不存在 · Not found', decoded.length <= 200 ? decoded : ''); return; }
         await serveBuffer(req, res, { body: f.body, hash: `cs-${m[1]}-${(f.sha256 || 'index').slice(0, 8)}`, type: f.type || MIME['.json'], cacheControl: IMMUTABLE_JSON, key: `cs:${decoded}`, cache: gzipCache });
         return;
@@ -298,6 +333,9 @@ export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = pa
         // the on-disk name decides (case-insensitive file systems, Windows 8.3 short names like NODEDA~1.JS)
         const real = await fsp.realpath(absPath);
         if (mount.deny.has(path.basename(real).toLowerCase())) throw Object.assign(new Error('private'), { code: 'ENOENT' });
+      }
+      if (mount.name === 'data' && segments.length > 1 && await isVersionData(absPath)) {
+        throw Object.assign(new Error('version data'), { code: 'ENOENT' });
       }
     } catch (e) {
       if (e && e.code === 'ENOENT' && mount.name === 'data' && segments.length === 1 && LOCAL_ART_MANIFESTS.has(segments[0])) {

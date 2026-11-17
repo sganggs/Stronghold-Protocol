@@ -175,7 +175,7 @@ test('B4 玛恩纳 S3 per-kill rule (PRTS 备注): trait ATK bonus −10 % per k
   const weak = (key) => enemyRec({ key, hp: 1, def: 0, speed: 0, atk: 0 });
   const h = makeBattle({
     defs: { enemies: { enemy_weak: weak('enemy_weak'), enemy_foe: weak('enemy_foe') } },
-    units: [{ chessId: MLYNAR, row: 10, col: 4, dir: 'RIGHT' }], hooks: ['damaged'], captureNoisy: true, autoFinish: false, timeLimit: 120,
+    units: [{ chessId: MLYNAR, row: 10, col: 4, dir: 'RIGHT' }], hooks: ['damaged', 'damageOutput'], captureNoisy: true, autoFinish: false, timeLimit: 120,
   });
   const u = h.unit(MLYNAR);
   const bb = u.def.skill.bb;
@@ -190,7 +190,8 @@ test('B4 玛恩纳 S3 per-kill rule (PRTS 备注): trait ATK bonus −10 % per k
   u.skill.gainSp(1000);
   assert.ok(h.runUntil(() => u.skill.active, 2));
   approx(atCast, ramp * bb.trait_up, 1e-9, 'trait ×2 at the cast');
-  const own = () => h.hooksOf('damaged').filter((c) => c.source === u && c.dmg.isAttack);
+  // The injury-stage mark can kill before the parent reaches HP settlement; observe its output instead.
+  const own = () => h.hooksOf('damageOutput').filter((c) => c.source === u && c.dmg.isAttack);
   assert.ok(h.runUntil(() => own().length >= 5, 3));
   const vol = own().filter((c) => c.t === own()[0].t);
   assert.equal(vol.length, 5, '5 targets');
@@ -217,7 +218,7 @@ test('B4 玛恩纳 S3 per-kill rule (PRTS 备注): trait ATK bonus −10 % per k
 test('B4 玛恩纳: a kill by the damage his attack carries (卡西米尔 bond true damage, 天马之枪) is a kill of his own attack — S2 keeps the ramp, S3 lowers the bonus', () => {
   const weak = (key) => enemyRec({ key, hp: 1, def: 0, speed: 0, atk: 0 });
   const KAZ6 = { kazimierzShip: { count: 6, active: true, tier: 2, layers: 0 } };
-  const PEGASUS = ['chess_item_5_09_e_a', 'chess_item_6_01_e_a']; // 天马之盔 + 天马之枪: every damage instance + 30 % ATK true
+  const PEGASUS = ['chess_item_5_09_e_a', 'chess_item_6_01_e_a']; // 天马之盔 + 天马之枪: 30% scaled origin as source-less true addition
   for (const [label, items, bonds, carried] of [['卡西米尔 6', [], KAZ6, 'bond:kazimierz'], ['天马之盔 + 天马之枪', PEGASUS, {}, 'item:pegasus']]) {
     const setup = (skillIndex) => {
       const h = makeBattle({
@@ -227,7 +228,7 @@ test('B4 玛恩纳: a kill by the damage his attack carries (卡西米尔 bond t
       const u = h.unit(MLYNAR);
       // which damage instance of his knocked each victim out (the last one he dealt it before the kill)
       const lastTags = new Map(), killedBy = [];
-      h.b.on('damaged', (c) => { if (c.source === u) lastTags.set(c.target, c.dmg?.tags || []); });
+      h.b.on('damaged', (c) => { if (c.credit === u) lastTags.set(c.target, c.dmg?.tags || []); });
       h.b.on('kill', (c) => { if (c.killer === u) killedBy.push(lastTags.get(c.victim) || []); });
       return { h, u, killedBy };
     };
@@ -341,4 +342,33 @@ test('B4 玛恩纳: a kill outside his attack does not count, even of an enemy h
     assert.ok(u.trait.ramp < 0.05, `S2: the ramp resets at the skill end (${u.trait.ramp})`);
     assert.deepEqual(h.b.errors.map((e) => `${e.label}: ${e.message}`), []);
   }
+});
+
+
+test('Mlynar excludes a nested reflection kill after his attack already produced a Pegasus child', () => {
+  const h = makeBattle({ autoFinish: false, defs: { enemies: {
+    enemy_reflector: enemyRec({ key: 'enemy_reflector', hp: 1000000, def: 0, atk: 0, speed: 0 }),
+  } }, units: [{ chessId: MLYNAR, row: 10, col: 4, skillIndex: 2,
+    items: ['chess_item_5_09_e_a', 'chess_item_6_01_e_a'] }] });
+  h.step();
+  const b = h.b, u = h.unit(MLYNAR), e = h.spawn('enemy_reflector', { pos: [10, 5] });
+  u.skill.gainSp(1000);
+  assert.ok(u.skill.activate('test'));
+  u.atkCd = 999;
+  let reflected = false, children = 0;
+  b.on('damageApplied', c => { if (c.dmg.tags?.includes('item:pegasus')) children++; });
+  b.addBuff(e, { key: 'nested-enemy-attack', observeInjury(c) {
+    if (reflected || c.source !== u || !c.dmg.isAttack) return;
+    reflected = true;
+    e.hp = 1;
+    b.dealDamage({ source: e, target: u, amount: 1, type: 'true', isAttack: true });
+  } });
+  b.dealDamage({ source: u, target: e, amount: 1000, type: 'phys', isAttack: true });
+  assert.ok(children > 0, 'carried child was applied before the nested reflection');
+  assert.ok(reflected);
+  assert.equal(e.alive, false);
+  assert.equal(u.mem.mlyPending || 0, 0, 'reflection queues no own-attack kill');
+  b.emit('attack', { attacker: u, targets: [e] });
+  assert.equal(u.mem.mlyKills, 0, 'reflection is excluded after the attack settles');
+  assert.deepEqual(b.errors, []);
 });

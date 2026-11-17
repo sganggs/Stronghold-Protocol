@@ -55,14 +55,15 @@ function localManifest(ids, drop = null) {
 
 describe('the 自选 summon models from the local client are an optional overlay', () => {
   test('the committed metadata: the TOKEN_SPINES of extract.py, each a skeleton + same-stem atlas + pages, its roles on its own clips', () => {
-    assert.equal(IDS.length, 40);
-    if (TOKEN_SPINES) assert.deepEqual(IDS, [...TOKEN_SPINES].sort(), 'one entry per extract.py TOKEN_SPINES id');
+    assert.equal(IDS.length, 42);
+    if (TOKEN_SPINES) assert.deepEqual(IDS, [...TOKEN_SPINES, 'token_10018_robrta_mach', 'token_10037_mitm_trshrb'].sort(),
+      'the default extraction list plus regulation-only summons');
     for (const id of IDS) {
       const m = COMMITTED[id];
       assert.match(m.skel, /\.skel$/, id);
       assert.equal(m.atlas, m.skel.replace(/\.skel$/, '.atlas'), `${id}: next to the skeleton (pixi-spine finds the atlas by its name)`);
       assert.ok(m.textures.length >= 1 && m.textures.every((t) => t.endsWith('.png')), id);
-      assert.equal(m.pma, true, `${id}: premultiplied pages (extract.py merge_alpha)`);
+      assert.equal(m.pma, false, `${id}: the extraction writes straight pages (no pma), so the metadata must say false`);
       const names = Object.keys(m.animations);
       assert.ok(names.includes(m.anims.idle), `${id} idle ${m.anims.idle}`);
       assert.ok(m.anims.attack && names.includes(m.anims.attack.loop), `${id} attack`);
@@ -165,7 +166,7 @@ describe('client: the official summon model only when data/local-assets.json lis
       assert.equal(e.skel, `/assets/local/spine/token/${id}/${m.skel}`);
       assert.equal(e.atlas, `/assets/local/spine/token/${id}/${m.atlas}`);
       assert.deepEqual(e.textures, m.textures.map((t) => `/assets/local/spine/token/${id}/${t}`));
-      assert.equal(e.pma, true);
+      assert.equal(e.pma, m.pma, 'the committed metadata of the extraction that produced the pages');
       assert.deepEqual(e.anims, m.anims);
       assert.equal(e.local, true);
       assert.equal(e.fallback, MANIFEST.tokens[id].spine || null, 'retain the existing web model as fallback');

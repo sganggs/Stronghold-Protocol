@@ -2,7 +2,7 @@
 
 import { int, isObj } from './shared.js';
 import { diyPicks } from './diy.js';
-import { t } from '../../../../shared/i18n.js';
+import { t, N_ } from '../../../../shared/i18n.js';
 import { grantedBondsByMorph } from '../../../../shared/plugins/rules.js';
 
 
@@ -158,7 +158,9 @@ export function harmonyMembers(priv, getChess = () => null) {
  * Member rows of a bond popup: every visible member with owned / on-board / in-hand / banned state, plus the player's
  * operators that are members through 变形同构体 (grantedBonds; `granted: true` and `items`: the item ids of the copy that
  * wears the pair — the card the row opens shows them; one row per operator — normal and elite copies are one member,
- * like the count's distinct members), so "成员 x/y" agrees with the count the server reports (在场; memberHeadCount).
+ * like the count's distinct members), so "成员 x/y" agrees with the count the server reports (在场; memberHeadCount); a
+ * 自选 piece's granted row carries its operator — `rec` (the normal form) and a teammate's piece's `pick` — like a 自选
+ * member row (#846: it drew the empty 甄选干员 slot).
  * 0.2.0 自选编队: the 自选 pieces of the bond (a DIY slot filled with an operator, whose bonds come from its factions — the
  * own pieces through `getChess` (gameLogic/diy.js diyGetter), a teammate's through `pieceRecord` (its UnitInfo `diy`
  * pick) are rows too (`diy: true`, the operator's name and record `rec`: its normal form, one row per slot like a
@@ -197,24 +199,40 @@ export function bondMembers(bond, priv, banned = [], getChess = () => null, getI
   const diyOfBond = (rec) => isObj(rec) && typeof rec.diyFor === 'string' && Array.isArray(rec.bonds) && rec.bonds.includes(bond?.bondId);
   /** slot base id → { on, hand, owned, rec, pick } — the player's 自选 pieces and picks whose operator carries this bond */
   const diy = new Map();
+  /** a piece's 自选 pick (its UnitInfo `diy`: a teammate's piece) or null */
+  const pickOf = (p) => (isObj(p.diy) && typeof p.diy.charId === 'string' ? p.diy : null);
+  /** the normal form of a composed 自选 record `rec` (an elite copy is the same member, drawn as its normal form) */
+  const normalOf = (rec, pick) => (rec.isGolden ? recOf(pick ? { kind: 'chess', id: rec.diyFor, diy: pick } : { kind: 'chess', id: rec.diyFor }) : rec);
   const diyOf = (p, on, hand) => {
     const rec = recOf(p);
     if (!diyOfBond(rec)) return false;
     const g = diy.get(rec.diyFor);
     if (g) { g.on = g.on || on; g.hand = g.hand || hand; return true; }
     // the row draws the normal form, as a member row its base chess (an elite copy is the same member)
-    const pick = isObj(p.diy) && typeof p.diy.charId === 'string' ? p.diy : null;
-    const normal = rec.isGolden ? recOf(pick ? { kind: 'chess', id: rec.diyFor, diy: pick } : { kind: 'chess', id: rec.diyFor }) : rec;
+    const pick = pickOf(p);
+    const normal = normalOf(rec, pick);
     diy.set(rec.diyFor, { on, hand, owned: true, rec: diyOfBond(normal) && normal.diyFor === rec.diyFor ? normal : rec, pick });
     return true;
   };
+  /**
+   * A row granted through 变形同构体 (#846): a 自选 piece (a composed record, `diyFor`) keeps its operator — the record's
+   * normal form and a teammate's pick — so the row shows that operator, not the empty 甄选干员 slot; null otherwise.
+   */
+  const grantedDiy = (p) => {
+    const rec = recOf(p);
+    if (!isObj(rec) || typeof rec.diyFor !== 'string') return null;
+    const pick = pickOf(p);
+    const normal = normalOf(rec, pick);
+    return { rec: isObj(normal) && normal.diyFor === rec.diyFor ? normal : rec, pick };
+  };
+  const grantOf = (p, on, hand) => ({ on, hand, items: itemIds(p), ...grantedDiy(p) });
   const itemIds = (p) => p.items.map((it) => (typeof it === 'string' ? it : it?.id)).filter((x) => typeof x === 'string');
   for (const p of Array.isArray(priv?.board) ? priv.board : []) {
     if (p?.kind !== 'chess') continue;
     const base = baseOf(p.id);
     onBoard.add(base); owned.add(base);
     if (diyOf(p, true, false)) continue;
-    if (!memberSet.has(base) && !granted.has(base) && grants(p)) granted.set(base, { on: true, hand: false, items: itemIds(p) });
+    if (!memberSet.has(base) && !granted.has(base) && grants(p)) granted.set(base, grantOf(p, true, false));
   }
   for (const [list, hand] of [[priv?.hand, true], [priv?.temp, false]]) {
     for (const p of Array.isArray(list) ? list : []) {
@@ -225,7 +243,7 @@ export function bondMembers(bond, priv, banned = [], getChess = () => null, getI
       if (diyOf(p, false, hand)) continue;
       if (memberSet.has(base) || !grants(p)) continue;
       const g = granted.get(base);
-      if (!g) granted.set(base, { on: false, hand, items: itemIds(p) });
+      if (!g) granted.set(base, grantOf(p, false, hand));
       else if (hand) g.hand = true;
     }
   }
@@ -242,8 +260,9 @@ export function bondMembers(bond, priv, banned = [], getChess = () => null, getI
     return { id, tier: c?.tier ?? 0, name: c?.name ?? id, onBoard: onBoard.has(id), owned: owned.has(id), inHand: inHand.has(id), banned: bannedSet.has(id) };
   });
   for (const [id, g] of granted) {
-    const c = getChess(id);
-    rows.push({ id, tier: c?.tier ?? 0, name: c?.name ?? id, onBoard: g.on, owned: true, inHand: g.hand, banned: false, granted: true, items: g.items });
+    const c = g.rec || getChess(id);
+    rows.push({ id, tier: c?.tier ?? 0, name: c?.name ?? id, onBoard: g.on, owned: true, inHand: g.hand, banned: false, granted: true, items: g.items,
+      ...(g.rec ? { rec: g.rec } : {}), ...(g.pick ? { pick: g.pick } : {}) });
   }
   for (const [id, g] of diy) {
     rows.push({ id, tier: g.rec.tier ?? 0, name: g.rec.name ?? id, onBoard: g.on, owned: g.owned, inHand: g.hand, banned: bannedSet.has(id) || diyBanned.has(id), diy: true, rec: g.rec, ...(g.pick ? { pick: g.pick } : {}) });
@@ -299,13 +318,23 @@ export function disabledBondSets(pub, staticInactive = []) {
   return { drawn, off };
 }
 
+// the official briefing's line under 核心盟约 (2026-11 规程 recordings: 规程等级1, 极速模拟, 规程等级20)
+export const BOND_GROUP_HINT = N_('请选择一组在本次模拟中激活的盟约，未被选择的盟约将不会出现在本次模拟中');
+// Core-priority eligibility (gamedata.bondsExclude); official counterexample BV1hmWL6fEmQ 00:13 / 01:20.
+export const REGULATION_BOND_LEGEND = N_('有核心盟约的干员，仅当其核心盟约全部置灰时无法出现；仅有附加盟约的干员，仅当其附加盟约全部置灰时无法出现');
+// the chip on a 规程 briefing header (2026-11 recordings). The longer sentence stays the chip's title.
+export const REGULATION_LEGEND_CHIP = N_('部分盟约所含干员阵容不完整');
+
 /**
  * Briefing tooltip of a bond disc.
  * @param {string} name
  * @param {'off'|'drawn'|null} state from disabledBondSets
  * @param {number} bannedN banned operators of the bond
+ * @param {boolean} regulationCore whether this is a regulation core bond
  */
-export function briefingBondTip(name, state, bannedN = 0) {
+export function briefingBondTip(name, state, bannedN = 0, regulationCore = false) {
+  // 规程: only another lit core can retain a member of this grey core; a lit add-on cannot.
+  if (state && regulationCore) return t(N_('{name}：该核心盟约的干员无法出现，同属其他亮着的核心盟约的除外'), { name });
   if (state === 'off') return t('{name}：本局禁用（该盟约不会激活）', { name });
   if (state === 'drawn' || bannedN > 0) return bannedN ? t('{name}：部分盟约所含干员阵容不完整（{bannedN} 名干员无法出现）', { name, bannedN }) : t('{name}：部分盟约所含干员阵容不完整', { name });
   return name;

@@ -75,7 +75,10 @@
 //       (4) a cast-flash fx tagged with the skill on the owner while its official skill loops play;
 //       (5) FX_COVER (skills.js): a kind the skill's official effects stand for, while the skill lasts (_lasts: on, its
 //           activation frame, COVER_AFTER_S after its end, or a binding of the owner still held) and its plan's
-//           effects are installed — the client shows the skill's own effects there and no such cue (audit R11);
+//           effects are installed — the client shows the skill's own effects there and no such cue (audit R11); for an
+//           enemy, ENEMY_FX_COVER by unit and prefabKey while that skill's window is open and shows its effects
+//           (_ewinDraws; 盐风主教昆图斯's 【大潮】: its attack's cast / range rows are the wave, no generic 'tide' zone over
+//           them; 0.3.2);
 //       (6) a summon's arrival ('summon' archetypes; a token's arrival burst) on a unit whose official birth effect
 //           FxWiring.deploy drew in that frame (the burst only with the unit's own birth effect): it would repeat it.
 //     FX_BINDINGS entries marked `during` bind only while the skill lasts; an entry with owner 'skill' (the fx names no
@@ -87,7 +90,7 @@
 
 import {
   planFor, skillPlan, attackFx as planAttack, slotKey, planKeys, chargeKeys, chargeStep, skillProjectile, targetsOf, buffDuration,
-  eventNum, FX_BINDINGS, bindingEffects, bindingKeys, lifeOf, COND_BUFFS, condState, BOUND_BY_SKILL, coverOf,
+  eventNum, FX_BINDINGS, bindingEffects, bindingKeys, lifeOf, COND_BUFFS, condState, BOUND_BY_SKILL, coverOf, enemyCoverOf,
   ENEMY_FX_BINDINGS, ENEMY_FX_KINDS, OWNER_NEAR, auraTargets, enemyBindingKeys, modeLoopKeys,
 } from './skills.js';
 import { fxSpec } from '../fx/kinds.js';
@@ -119,6 +122,12 @@ const DIRS = ['UP', 'RIGHT', 'DOWN', 'LEFT'];
 const CAST_START = new Set([0, 2]);
 /** Battle seconds an enemy's skill window outlasts its start before the snapshot's anim may end it (the sim's 0.5 s). */
 const ENEMY_GRACE = 0.3;
+/**
+ * 蕾缪安 S3 lock crosshairs (FX_BINDINGS hold 'lock', as render/fx/locks.js draws its reticles): how long (game s) one
+ * outlives its shooter's skill and her last lock / shell / bombard, how near a shell's spot is to its lock (fx
+ * 'bombardShell'), and the most kept at once.
+ */
+const LOCK_T = 5, LOCK_SHELL_NEAR = 3, MAX_LOCKS = 48;
 /**
  * Battle seconds an aura's looping buff effect stays on a unit after the last tick that hurt it (鼎沸's
  * enemy_cjhot_debuff: the client keeps it while the unit is in the aura — its ticks come every second) [ASSUMED].
@@ -203,6 +212,8 @@ export class SkillFx {
     this.units = new Map();    // battle id → unit record | null (nothing official to play)
     this.tloops = new Map();   // `${target id}|${key}` → { h, until, U, tgt, bySkill } (skills.js targetsOf `hit`)
     this.marks = [];           // FX_BINDINGS reached effects: { owner, r, c, until, h, cover }
+    this.locks = [];           // FX_BINDINGS hold 'lock' crosshairs: { src, tv, x, y, shell, idle, hs } (_lockOn)
+    this.drifts = new Map();   // FX_BINDINGS `drift` areas: zone key → { owner, at, hs, until } (_drift)
     this.born = new Map();     // unit id → { frame, own } of its official birth effect (deployed: FxWiring.deploy's key)
     this.frame = 0;            // FxWiring.tick counts frames: events of one frame share a value
     this.sweep = 0;
@@ -571,7 +582,8 @@ export class SkillFx {
   _lasts(U) {
     if (!U || !U.plan) return false;
     const now = this.w.ofx.time;
-    return this._on(U) || U.startFrame === this.frame || now - U.offAt <= COVER_AFTER_S || this.marks.some((m) => m.owner === U.id && m.until > now);
+    return this._on(U) || U.startFrame === this.frame || now - U.offAt <= COVER_AFTER_S || this.marks.some((m) => m.owner === U.id && m.until > now)
+      || [...this.drifts.values()].some((d) => d.owner === U.id && d.until > now);
   }
 
   /**
@@ -881,6 +893,9 @@ export class SkillFx {
       this.tloops.clear();
       for (const t of this.aloops.values()) t.h.stop();
       this.aloops.clear();
+      // the held crosshairs too (PR #862 review): their handles died with the effects, a later lock starts afresh
+      for (const L of this.locks) this._endLock(L);
+      this.locks.length = 0;
       this.tier = tier;
       this.wasActive = active;
     }
@@ -958,6 +973,7 @@ export class SkillFx {
       if (!tv || tv.destroyed || tv.alive === false || now >= t.until || !t.h.alive) { t.h.stop(); this.aloops.delete(slot); }
     }
     if (this.marks.length) this.marks = this.marks.filter((m) => m.until > now);
+    if (this.locks.length) this._syncLocks(now);
   }
 
   /**
@@ -996,6 +1012,8 @@ export class SkillFx {
     if (extra.charged === true && extra.id != null) { const C = this.units.get(extra.id); if (C) C.charged = true; }
     // (0) an enemy's area: its zone's official prefabs at the fx's point, an aura tick its talent loops stand for
     if (this._enemyFx(kind, x, y, extra)) return true;
+    // a shell of a lock binding's shooter takes its lock; its landing ends it (the kit's fx, drawn as before)
+    if ((kind === 'bombardShell' || kind === 'bombard') && this.locks.length) this._lockShell(kind, x, y, extra);
     // (1) explicit bindings and what they cover
     for (const m of this.marks) {
       if (m.until > now && m.cover.includes(kind) && extra.id === m.owner && Math.round(y) === m.r && Math.round(x) === m.c) return true;
@@ -1049,13 +1067,28 @@ export class SkillFx {
     return drew;
   }
 
-  /** (5) FX_COVER: the fx's owner (`src`, else `id`) has a skill that covers this kind, lasting, with its effects installed. */
+  /**
+   * (5) FX_COVER: the fx's owner (`src`, else `id`) has a skill that covers this kind, lasting, with its effects installed
+   * — or, an enemy, a skill window open that shows its effects (_ewinDraws) and covers it (ENEMY_FX_COVER).
+   */
   _covered(kind, extra) {
     for (const field of ['src', 'id']) {
       const U = extra[field] != null ? this.units.get(extra[field]) : null;
       if (U && U.v && coverOf(U.skillId, kind) && this._lasts(U) && this._planDrawn(U)) return true;
+      if (U && U.v && U.ewin && enemyCoverOf(U.key, U.ewin.plan?.skillId, kind) && this._ewinDraws(U.ewin)) return true;
     }
     return false;
+  }
+
+  /**
+   * An enemy's skill window shows the skill's official effects: its start / range / loop rows drew, or — an
+   * attack-rooted skill (盐风主教昆图斯's 【大潮】 / 【崩坍】) — its attack's cast / range rows are installed: they play at the
+   * next sync (sync: `win.shown`), or with the enemy's attack in the window.
+   */
+  _ewinDraws(win) {
+    if (win.draws) return true;
+    const a = win.plan?.attacks?.[0];
+    return !!a && [...a.cast, ...a.range].some((e) => this.w.ofx.lib.has(e.key));
   }
 
   /**
@@ -1065,6 +1098,7 @@ export class SkillFx {
   _bound(U, bind, x, y, extra) {
     const keys = bindingEffects(this.w.idx, bind).filter((k) => this.w.ofx.lib.has(k));
     if (!keys.length) return false;
+    if (bind.drift) return this._drift(U, bind, keys, x, y, extra);
     if (bind.at === 'target') {
       // once on the unit the fx names (泡泡's attacker, 归溟幽灵鲨 S1's ally), else where it happens; turned by the owner's side
       const tv = this.w.view(extra[bind.target || 'target']) || { id: 'fx:point', x, y, z: 0 };
@@ -1079,6 +1113,7 @@ export class SkillFx {
       for (const k of keys) if (this.w.playOn(k, at, { important: true })) drew = true;
       return drew;
     }
+    if (bind.hold === 'lock') return this._lockOn(U, keys, at, tv, x, y);
     const bb = U.srec?.bb || {};
     const fxS = Number(extra.duration ?? extra.dur ?? extra.hold);
     const holdS = bind.hold === 'fx' ? (fxS > 0 ? fxS : bind.holdS || SKILL_CAST_S)
@@ -1091,8 +1126,147 @@ export class SkillFx {
       later(this.w.ofx, holdS, () => h.stop());
       this.marks.push({ owner: U.id, r: Math.round(y), c: Math.round(x), until: this.w.ofx.time + holdS, h, cover: bind.cover || [] });
     }
-    return drew;
+    if (!drew) return false;
+    // after the marks: a flight that ends in this call still leaves onReached to the area (bindsReached)
+    if (bind.fly) this._flyThrown(U, bind, x, y);
+    if (bind.hits) this._zoneHits(U, bind, at, holdS);
+    return true;
   }
+
+  /**
+   * A drifting area (FX_BINDINGS `drift`: 引星棘刺 S2's alchemy unit, re-sent every second under one `key` as it moves
+   * away from her and grows): its reached effects play once, where it lands, and follow it — each re-send moves their
+   * point (playOn `follow`). The growing ring stays the procedural zone, which the field view updates in place by key:
+   * false, always — our effect layer has no live scale for the official range ring (history §37.207).
+   */
+  _drift(U, bind, keys, x, y, extra) {
+    const key = extra.key;
+    if (key == null || !Number.isFinite(x) || !Number.isFinite(y)) return false;
+    const pt = this._ground(x, y, this.w.view(extra.id));
+    const live = this.drifts.get(key);
+    if (live) {
+      live.at.x = pt.x; live.at.y = pt.y; live.at.z = pt.z;
+      return false;
+    }
+    const fxS = Number(extra.duration ?? extra.dur);
+    const holdS = fxS > 0 ? fxS : bind.holdS || SKILL_CAST_S;
+    const at = { ...pt, id: `drift:${key}` };
+    const hs = [];
+    for (const k of keys) {
+      const h = this.w.playOn(k, at, { loop: true, important: true, follow: true });
+      if (h) hs.push(h);
+    }
+    if (!hs.length) return false;
+    const d = { owner: U.id, at, hs, until: this.w.ofx.time + holdS };
+    this.drifts.set(key, d);
+    later(this.w.ofx, holdS, () => {
+      for (const h of hs) h.stop();
+      if (this.drifts.get(key) === d) this.drifts.delete(key);
+    });
+    return false;
+  }
+
+  /**
+   * Fly a binding's projectile from the caster to the fx's tile (FX_BINDINGS `fly`: 旅骨's 炼金单元,
+   * 承曦格雷伊's ball). The kit emits the zone and no 'atk', so wiring.attack never starts the trail.
+   * Time is distance / the projectile's speed, clamped to 0.04–3 s [ASSUMED: the sim lands the unit at once
+   * and does not wait on this flight]. `followUp` keeps the ground point out of the expected-hit table.
+   */
+  _flyThrown(U, bind, x, y) {
+    const proj = bind.projectile ? this.w.idx?.projectiles?.[lc(bind.projectile)] : null;
+    const src = U.v;
+    if (!proj || !src || !Number.isFinite(x) || !Number.isFinite(y)) return;
+    const speed = Number(proj.movement?.speed);
+    const dist = Math.hypot(x - src.x, y - src.y);
+    const dur = speed > 0 && dist > 0 ? Math.min(3, Math.max(0.04, dist / speed)) : 0.04;
+    const point = { id: `zone:${U.id}:${Math.round(x)}:${Math.round(y)}`, x, y, z: 0, alive: true };
+    this.w._fly(proj, src, point, 'ranged', this.w.ofx.time, { dur, followUp: true });
+  }
+
+  /**
+   * A landed area's tick hits (FX_BINDINGS `hits`: 旅骨's hbound_skillN_hit_01, ON_BUFF_TRIGGER of the projectile's
+   * buff on each enemy in it). makeZone pulses round(duration / interval) times, the first at once (tier1.js). The
+   * sim sends no per-enemy fx — one extra event per pulse would move the goldens — so one oneshot plays at the tile
+   * per pulse [ASSUMED] (history §37.202).
+   */
+  _zoneHits(U, bind, at, holdS) {
+    const keys = bind.hits.map(lc).filter((k) => k && this.w.ofx.lib.has(k));
+    if (!keys.length || !(holdS > 0)) return;
+    const iv = Number(U.srec?.bb?.interval);
+    const every = iv > 0 ? iv : 1;
+    const total = Math.max(1, Math.round(holdS / every));
+    const play = () => { for (const k of keys) this.w.playOn(k, at, { important: true }); };
+    play();
+    let n = 1;
+    const step = () => {
+      if (n >= total) return;
+      play();
+      n += 1;
+      if (n < total) later(this.w.ofx, every, step);
+    };
+    if (total > 1) later(this.w.ofx, every, step);
+  }
+
+  /**
+   * A lock mark's crosshair (hold 'lock': 蕾缪安 S3): it keeps to the locked enemy while it stands and stays
+   * at its last spot once it is gone (the kit's markOf: the shell falls there), until the shell fired at it lands
+   * (_lockShell), else LOCK_T s after her skill and her last lock / shell; her knock-out takes the locks no shell took.
+   */
+  _lockOn(U, keys, at, tv, x, y) {
+    const hs = [];
+    for (const k of keys) {
+      const h = this.w.playOn(k, at, { loop: true, important: true, stick: !!tv });
+      if (h) hs.push(h);
+    }
+    if (!hs.length) return false;
+    const now = this.w.ofx.time;
+    for (const L of this.locks) if (L.src === U.id) L.idle = now;
+    this.locks.push({ src: U.id, tv, x, y, shell: null, idle: now, hs });
+    if (this.locks.length > MAX_LOCKS) this._endLock(this.locks.shift());
+    return true;
+  }
+
+  /**
+   * fx 'bombardShell' / 'bombard' (id = the shooter): a shell takes her free lock nearest its spot (the sim's spot is
+   * the mark ± emit_offset); its landing ends the lock that shell took — the one nearest the spot, else a lock no shell
+   * took within its blast (render/fx/projectiles.js _landed).
+   */
+  _lockShell(kind, x, y, extra) {
+    const src = extra.id ?? extra.src;
+    if (src == null || !Number.isFinite(x) || !Number.isFinite(y)) return;
+    const now = this.w.ofx.time;
+    let best = -1, bd = Infinity;
+    for (let i = 0; i < this.locks.length; i++) {
+      const L = this.locks[i];
+      if (L.src !== src) continue;
+      L.idle = now;
+      if (kind === 'bombardShell' && L.shell) continue;
+      const d = L.shell ? Math.hypot(L.shell.x - x, L.shell.y - y) : Math.hypot(L.x - x, L.y - y) + (kind === 'bombard' ? 0.5 : 0);
+      if (d < bd) { bd = d; best = i; }
+    }
+    if (best < 0) return;
+    if (kind === 'bombardShell') { if (bd <= LOCK_SHELL_NEAR) this.locks[best].shell = { x, y }; return; }
+    const r = Number(extra.r ?? extra.radius);
+    if (bd <= (r > 0 ? r : 1) + 1.5) this._endLock(this.locks.splice(best, 1)[0]);
+  }
+
+  /** Once per frame: the crosshairs follow their standing enemies; those whose shell will not come go. */
+  _syncLocks(now) {
+    let w = 0;
+    for (const L of this.locks) {
+      const tv = L.tv;
+      if (tv && !tv.destroyed && tv.alive !== false) { L.x = tv.x; L.y = tv.y; }
+      const U = this.units.get(L.src);
+      const sv = U?.v;
+      if (U && this._on(U)) L.idle = now;
+      const gone = !L.shell && (!sv || sv.destroyed || sv.alive === false);
+      if (gone || now - L.idle >= LOCK_T || !L.hs.some((h) => h.alive)) { this._endLock(L); continue; }
+      this.locks[w++] = L;
+    }
+    this.locks.length = w;
+  }
+
+  _endLock(L) { for (const h of L.hs) h.stop(); }
 
   /**
    * Whether a skill binding of the shooter's places projectile `proj`'s reached effects (FX_BINDINGS `projectile` at
@@ -1336,6 +1510,10 @@ export class SkillFx {
     this.units.clear();
     this.tloops.clear();
     this.marks = [];
+    for (const L of this.locks) this._endLock(L);
+    this.locks = [];
+    for (const d of this.drifts.values()) for (const h of d.hs) h.stop();
+    this.drifts.clear();
     this.hitLog = [];
     this.windows = [];
     this.born.clear();

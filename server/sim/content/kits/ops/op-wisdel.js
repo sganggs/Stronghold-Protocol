@@ -60,7 +60,7 @@
 import { num, talentBb, traitBb, skillRec, up, batMod } from '../shared/tier1.js';
 import { bbCap } from '../../../../../shared/plugins/officialBounds.js';
 import { absoluteRangeKeys, sortEnemyTargets } from '../../../targeting.js';
-import { hasHp } from '../../../damage.js';
+import { hasHp } from '../../../attack.js';
 import { COLS } from '../../../constants.js';
 import { hypot } from '../../../detmath.js';
 

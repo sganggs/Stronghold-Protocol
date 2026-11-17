@@ -189,14 +189,28 @@ export function activatedLayers(bonds) {
  * An entry whose count includes 调和's +1 carries `harmony: 1` (both views; absent otherwise). `off` (offBondCounts): the
  * mode-off bonds the player has members of follow, in data order, as `{ bondId, count, active: false, tier: 0, layers,
  * off: true }` — the strip's grey 本局禁用 discs; never in computeBonds, so never in the battle input.
+ * `effectOverrides` (commandBondOverrides, effect id → effect id): a listed bond whose own effect is mapped gains
+ * `effectId`. A mapped bond with no members, layers or active tier is included as a zero row so the popup can open it;
+ * the strip hides that row. A bond `off` will claim is not also given a zero row, and an `off` row never gains `effectId`
+ * (it stays the grey 本局禁用 disc). With an empty map the list is unchanged, including on seasons without commands.
  * @param {import('./gamedata.js').GameData} gd
  * @param {ReturnType<typeof computeBonds>} bonds
- * @param {{ full?: boolean, off?: ReturnType<typeof offBondCounts> }} [opts] full → include thresholds/countsHand (m.private)
+ * @param {{ full?: boolean, off?: ReturnType<typeof offBondCounts>, effectOverrides?: Record<string, string> }} [opts] full → include thresholds/countsHand (m.private)
  */
-export function bondList(gd, bonds, { full = false, off = null } = {}) {
+export function bondList(gd, bonds, { full = false, off = null, effectOverrides = null } = {}) {
+  const overrides = effectOverrides && typeof effectOverrides === 'object' ? effectOverrides : {};
   const order = new Map(gd.bondIds.map((id, i) => [id, i]));
   const list = [];
+  const listed = new Set();
+  const mappedTarget = (bondId) => {
+    const target = overrides[gd.bond(bondId)?.effectId];
+    return typeof target === 'string' && target && gd.raw.effects?.[target] ? target : null;
+  };
   const extras = (e) => {
+    if (!e.off) {
+      const target = mappedTarget(e.bondId);
+      if (target) e.effectId = target;
+    }
     if (!full) return e;
     const bond = gd.bond(e.bondId);
     e.thresholds = bond ? thresholdsOf(bond) : [];
@@ -208,6 +222,14 @@ export function bondList(gd, bonds, { full = false, off = null } = {}) {
     const e = { bondId, count: b.count, active: b.active, tier: b.tier, layers: b.layers };
     if (b.harmony > 0) e.harmony = b.harmony;
     list.push(extras(e));
+    listed.add(bondId);
+  }
+  // Zero rows sort with the live list. Off rows are appended after the sort and stay last.
+  if (Object.keys(overrides).length) {
+    for (const bondId of gd.bondIds) {
+      if (listed.has(bondId) || off?.[bondId]?.count > 0 || !mappedTarget(bondId)) continue;
+      list.push(extras({ bondId, count: 0, active: false, tier: 0, layers: 0 }));
+    }
   }
   list.sort((a, b) => (b.active - a.active) || (b.layers - a.layers) || ((order.get(a.bondId) ?? 99) - (order.get(b.bondId) ?? 99)));
   if (off) {

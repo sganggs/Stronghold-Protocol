@@ -2,11 +2,12 @@
 // node tools/plugin.mjs pack --zip). Deterministic: the same files give the same bytes — entries sorted by name, one fixed
 // timestamp (1980-01-01 00:00, the first DOS date), no extra fields — so a zip can be pinned by its SHA-256 (the catalogue
 // and install-by-address of the 0.3.0 plan). Already-compressed media (images, audio, fonts) are stored, everything else
-// deflated. Names are UTF-8 (general purpose flag bit 11). No ZIP64: a plugin is at most 200 MB in 5000 files
-// (shared/plugins/manifest.js PLUGIN_LIMITS), well inside the 4 GB / 65 535-entry format.
+// deflated. Names are UTF-8 (general purpose flag bit 11). No ZIP64: a plugin is at most 512 MB (a cosmetic pack; 200 MB
+// for every other class) in 5000 files (shared/plugins/manifest.js PLUGIN_LIMITS, PLUGIN_MAX_BYTES), well inside the
+// 4 GB / 65 535-entry format.
 
 import zlib from 'node:zlib';
-import { PLUGIN_LIMITS, isPackPath } from '../../shared/plugins/manifest.js';
+import { PLUGIN_LIMITS, PLUGIN_MAX_BYTES, isPackPath } from '../../shared/plugins/manifest.js';
 
 const CRC_TABLE = (() => {
   const t = new Uint32Array(256);
@@ -174,13 +175,14 @@ function zipEntryName(name) {
  * size (one file or the total) over `maxBytes`. The declared uncompressed size is checked before inflate; inflate
  * itself is capped at that size, and the bytes must match it and the CRC. Directory entries are skipped. `unzipFiles`
  * is unchanged (it only reads archives this project wrote).
- * [ASSUMED] per-file and total uncompressed caps both default to PLUGIN_LIMITS.pluginBytes; the file cap is
+ * [ASSUMED] per-file and total uncompressed caps both default to PLUGIN_MAX_BYTES (the largest class ceiling: a zip is
+ * bounded before its class is known, and checkPluginFolder enforces the class's own afterwards); the file cap is
  * PLUGIN_LIMITS.files. A Unix mode of 0 (a DOS zip) is a plain file. Case is Unicode `toLowerCase` of each segment.
  * @param {Buffer | Uint8Array} input
  * @param {{ maxFiles?: number, maxBytes?: number }} [opts]
  * @returns {{ name: string, data: Buffer }[]}
  */
-export function readPluginZip(input, { maxFiles = PLUGIN_LIMITS.files, maxBytes = PLUGIN_LIMITS.pluginBytes } = {}) {
+export function readPluginZip(input, { maxFiles = PLUGIN_LIMITS.files, maxBytes = PLUGIN_MAX_BYTES } = {}) {
   const zip = Buffer.isBuffer(input) ? input : Buffer.from(input);
   const endAt = zip.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
   if (endAt < 0 || endAt + 22 > zip.length || zip.readUInt32LE(endAt) !== EOCD_SIG) throw zipReject('not a zip archive');

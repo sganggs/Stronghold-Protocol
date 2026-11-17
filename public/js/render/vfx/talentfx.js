@@ -10,8 +10,10 @@
 //   t.release(v)             death / leak / retreat: every loop of the unit stops
 //   t.form(v, form, extra)   a sim form fx: a 重生's knock-out ('reborn', 'stone') and stand-up ('form2', 'fly'), a husk's
 //                            revival ('revived')
-//   t.fx(kind, extra)        a kit fx naming the unit (`extra.id`): the nodes a template casts on it (talents.js
-//                            triggerKinds: 'substitute', 'undying', 'swap', 'dollEnd'), a talent's added attack ('extraAttack')
+//   t.fx(kind, extra, x, y)  a kit fx naming the unit (`extra.id`): the nodes a template casts on it (talents.js
+//                            triggerKinds: 'substitute', 'undying', 'swap', 'dollEnd'), a talent's added attack ('extraAttack'),
+//                            and a point strike at the fx's (x, y) (talents.js POINT_TRIGGERS: 新约能天使's 火力电台
+//                            'airstrike' with `talent: true` — PR #861; S3's unmarked 'airstrike' keeps the procedural blast)
 //   t.skill(v, on)           the owner's skill turned on: its ON_SKILL_START triggers
 //   t.sync(views)            once per frame: the loops of every binding in force (passive and deploy ones while the unit
 //                            stands, a mode's copy while that mode is on, toggles while their checkers hold, a 重生's
@@ -26,7 +28,7 @@
 // for SKILL_CAST_S, a loop for TRIGGER_HOLD_S). [ASSUMED] (no client data says): TRIGGER_HOLD_S; a binding with no
 // signal of its own (a template's cast at an event the client never sees, a talent attack no kit fx marks) never plays.
 
-import { talentBindings, toggleOn, triggerKinds, bindable, bindingKeys, nodeUses } from './talents.js';
+import { talentBindings, toggleOn, triggerKinds, pointKinds, bindable, bindingKeys, nodeUses } from './talents.js';
 import { slotKey, lifeOf } from './skills.js';
 import { UF } from '../../../../shared/constants.js';
 
@@ -219,12 +221,12 @@ export class TalentFx {
   }
 
   /**
-   * A kit fx naming the unit (`extra.id`): the nodes its template triggers cast (talents.js triggerKinds), or a talent's
-   * added attack — 'extraAttack' (守林人's 受选之人) plays the talent attack's casts on the owner and its hits on the target
-   * of the attack just made (FxWiring.lastTarget). Returns true when something official drew (the procedural fx is
-   * skipped).
+   * A kit fx naming the unit (`extra.id`) at (x, y): the nodes its template triggers cast (talents.js triggerKinds) — a
+   * talent strike's (pointKinds: 新约能天使's 'airstrike' marked `talent`) hits on the ground at (x, y) —, or a talent's added attack —
+   * 'extraAttack' (守林人's 受选之人) plays the talent attack's casts on the owner and its hits on the target of the attack
+   * just made (FxWiring.lastTarget). Returns true when something official drew (the procedural fx is skipped).
    */
-  fx(kind, extra) {
+  fx(kind, extra, x = NaN, y = NaN) {
     if (!this.active() || !extra || typeof extra !== 'object' || extra.id == null) return false;
     const U = this.units.get(extra.id) ?? (this.w.view(extra.id) ? this.of(this.w.view(extra.id)) : null);
     if (!U || !U.v) return false;
@@ -244,7 +246,21 @@ export class TalentFx {
       }
       return drew;
     }
-    for (const b of U.binds) if (triggerKinds(b).includes(kind) && this._modeOk(U, b, true) && this._fire(U, b, U.v)) drew = true;
+    for (const b of U.binds) {
+      if (!triggerKinds(b).includes(kind) || !this._modeOk(U, b, true)) continue;
+      const point = pointKinds(b).includes(kind);
+      if (point && !extra.talent) continue;   // the same kind of a skill's (新约能天使's S3 delivery)
+      if (point ? this._strike(b, U.v, x, y) : this._fire(U, b, U.v)) drew = true;
+    }
+    return drew;
+  }
+
+  /** A talent strike at (x, y): its attacks' first hit group on the ground there (the struck spot), turned from `src`. */
+  _strike(b, src, x, y) {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+    const at = this.w.skills._ground(x, y);
+    let drew = false;
+    for (const a of b.plan.attacks) for (const e of uniq(a.hit[0] || [])) if (this._play(e, at, { flipFrom: src })) drew = true;
     return drew;
   }
 

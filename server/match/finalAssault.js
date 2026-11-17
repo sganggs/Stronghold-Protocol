@@ -16,9 +16,10 @@
 //     @qingjingshenghuo, which replaces the fixed pool of 「保持固定血量」 (config bossHpScale perPlayer false / solo 0.25
 //     restores it); × the tuning bossHpMul when data/tuning.json still has one (docs/BALANCE.md); bosses are never scaled
 //     by enemyScale and their parts / escorts keep their own HP.
-//   * Overtime: bossTurnHpReduceTime counts REAL seconds like the level's 120 s maxPlayTime (which runs out first; the
-//     battle goes on): from 150 real s (300 game s on the 2× field clock) the team loses bossOvertimeDrainPerSec (1) LP
-//     per real second (gamedata.js bossOvertimeDue); m.public.deadline = the 120 s countdown, m.public.overtimeAt = the
+//   * Overtime: REAL seconds. Without AI teammates (solo bots included), drain starts at the visible 120 s deadline;
+//     teams with AI teammates retain the official bossTurnHpReduceTime grace to 150 s (history §29.1, maintainer
+//     decision). The team loses bossOvertimeDrainPerSec (1) LP per real second (gamedata.js bossOvertimeDue);
+//     m.public.deadline = the 120 s countdown, m.public.overtimeAt = the
 //     drain start. Minion / boss leaks cost their `lpr`; team LP 0 ⇒ defeat (all fields force-ended; PRTS 卫戍协议：盟约 下半
 //     "…使目标生命值扣除至0，则无视倒计时直接失败"); pool 0 ⇒ victory. The first of the two the server registers decides
 //     (Match._finalEnding): a report that arrives after the team LP ran out credits nothing (user playtest #6 item 5).
@@ -57,7 +58,15 @@ export function bossFieldPlacement(side, row, col, dir = 'RIGHT') {
   return side === 'R' ? { row: r, col: COLS - 1 - col, dir: mirrorDir(d) } : { row: r, col, dir: d };
 }
 
-/** Seeded initial pairing; `previous` carries player-id pairs through prep, combat and Hidden Core. */
+/**
+ * The seed salt of a boss round's pairing draw: the Final Assault's 'boss-pairs' (unchanged since 0.2.5), the Hidden
+ * Core its own `boss-pairs:<round>` — it draws pairs and sides anew (GitHub #845, DESIGN §35.27).
+ */
+export function bossPairSalt(gd, round) {
+  return round === gd.hiddenRound && round !== gd.bossRound ? `boss-pairs:${round}` : 'boss-pairs';
+}
+
+/** Seeded pairing; `previous` carries player-id pairs from a round's plan through its prep and combat. */
 export function pairPlayers(alive, rng, previous = null) {
   const sorted = alive.slice().sort((a, b) => a.seat - b.seat);
   const groups = [];
@@ -80,7 +89,9 @@ export function pairPlayers(alive, rng, previous = null) {
 export function bossPoolHp(gd, bossId, aliveCount) {
   const boss = gd.boss(bossId);
   const diff = gd.difficulty;
-  let base = boss && boss.bloodPoint && Number.isFinite(boss.bloodPoint[diff]) ? boss.bloodPoint[diff] : null;
+  // 规程's per-mode pool first (GameData.bossPoolHp)
+  let base = Number.isFinite(boss?.bloodByMode?.[gd.modeId]) ? boss.bloodByMode[gd.modeId] : null;
+  if (base == null && boss && boss.bloodPoint && Number.isFinite(boss.bloodPoint[diff])) base = boss.bloodPoint[diff];
   if (base == null && boss && boss.bloodPoint) base = Object.values(boss.bloodPoint).find((v) => Number.isFinite(v)) ?? null;
   if (base == null) base = 500000;
   const tune = typeof gd.bossHpMul === 'function' ? gd.bossHpMul(bossId) : 1;

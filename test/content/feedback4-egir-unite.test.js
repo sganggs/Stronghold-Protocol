@@ -60,8 +60,11 @@ test('联防: an 阿戈尔 devours a teammate\'s living operator in front — th
     close(ulpia.s.atk, own.unit(1).s.atk, 1e-6, `${tag}: 乌尔比安's ATK`);
     assert.equal(ulpia.s.blockCnt, solo.unit(1).s.blockCnt, `${tag}: the block count`);
     const d = devours(h);
-    assert.deepEqual(d.map((c) => [c.source.uid, c.target.uid]), [[1, 100]], `${tag}: one mark`);
+    assert.deepEqual(d.map((c) => [c.credit.uid, c.target.uid]), [[1, 100]], `${tag}: one mark`);
     close(d[0].amount, devours(solo)[0].amount, 1e-6, `${tag}: the same 物理流失`);
+    assert.equal(d[0].source, t, 'PRTS: physical HP loss comes from the victim itself');
+    assert.equal(d[0].credit, ulpia, 'the devour mark owner receives the kill credit');
+    assert.equal(d[0].dmg.type, 'phys', 'the instance retains its physical HP-loss type');
     assert.ok(!t.alive && h.hooksOf('kill').some((c) => c.victim === t && c.killer === ulpia), `${tag}: knocked out, credited to 乌尔比安`);
     assert.equal(h.b.getPlayer('p1').bonds.egirShip.layers, 10, `${tag}: 联防 adds no layers`);
     assert.equal(h.hooksOf('layerGain').length, 0, `${tag}: no layer gain at all`);
@@ -94,7 +97,7 @@ test('联防: the chain goes on through a teammate\'s 阿戈尔 — the gains eq
   const ref = buffOf(own.unit(1), 'bond:egir:devour');
   close(ref.mods.atkFinal, own.unit(100).base.atk + own.unit(101).base.atk, 1e-9, 'own chain: 幽灵鲨 and, through her, the fodder');
   assert.deepEqual(buffOf(mate.unit(1), 'bond:egir:devour')?.mods, ref.mods, 'the teammate\'s chain gives the same');
-  assert.deepEqual(devours(mate).map((c) => [c.source.uid, c.target.uid]), devours(own).map((c) => [c.source.uid, c.target.uid]));
+  assert.deepEqual(devours(mate).map((c) => [c.credit.uid, c.target.uid]), devours(own).map((c) => [c.credit.uid, c.target.uid]));
   const ghost = mate.unit(100);
   assert.equal(mate.hooksOf('death').filter((c) => c.unit === ghost && c.reason === 'killed').length, 1, '幽灵鲨 knocked out by p1\'s mark');
   assert.ok(ghost.alive && mate.hooksOf('deploy').some((c) => c.unit === ghost && !c.initial), 'p2\'s 5-tier revives her at once');
@@ -117,7 +120,7 @@ test('联防: a member a teammate\'s devour knocks out waits for every devour pa
     kind: 'unite', autoFinish: false, timeLimit: 60, hooks: ['death', 'deploy'],
     players: [player('p1', 0, 0, p1Units(), { egirShip: bondOn(3, 10) }), player('p2', 1, 8, [...lane, ...p2Units], { egirShip: bondOn(5) })],
     setup: (b) => {
-      b.on('damaged', (c) => { if (c.dmg?.tags?.includes('bond:egir:devour')) seq.push(`mark ${c.source.uid}→${c.target.uid}`); }, { priority: -1000 });
+      b.on('damaged', (c) => { if (c.dmg?.tags?.includes('bond:egir:devour')) seq.push(`mark ${c.credit.uid}→${c.target.uid}`); }, { priority: -1000 });
       b.on('deploy', (c) => { if (!c.initial) seq.push(`revive ${c.unit.uid}`); }, { priority: -1000 });
     },
   });

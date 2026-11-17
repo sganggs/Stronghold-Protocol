@@ -5,7 +5,7 @@
 // Usage:
 //   node tools/matchrun.mjs [--mode solo|coop] [--difficulty FUNNY|NORMAL|HARD|ABYSS|ALL] [--players 1..4] [--seed 1]
 //                           [--seeds N] [--lp N] [--humans N] [--content full|generic|none] [--check] [--errors]
-//                           [--odds] [--json] [--quiet] [--rehearsal N]
+//                           [--odds] [--json] [--quiet] [--rehearsal N] [--bot ID]
 //   --players   co-op seats (default 2; solo is always 1)
 //   --humans N  the first N seats are human seats on "AI 托管" (exercises the human views / m.private paths)
 //   --seeds N   run N consecutive seeds and print an aggregate (rounds survived, LP by round, outcomes)
@@ -16,6 +16,8 @@
 //   --content   sim content mode (default full)
 //   --rehearsal N  layouts each bot rehearses per prep with the real sim (default: the Match default, 3; 0 = off,
 //               faster sweeps with the heuristic placement only)
+//   --bot ID    registered strategy ID (docs/BOT_STRATEGIES.md); default legacy (SP_BOT_STRATEGY and
+//               SP_BOT_STRATEGY_SEATS are not read)
 //   --check     audit every match: engine invariants at every phase change + rule checks (server/match/audit.js:
 //               income, upgrade price, freeze, shop odds/bans, temp overflow lifetime (no piece outlives the prep it is
 //               due at), drafts, 联防 helpers, settle LP, final assault pairing/pool, hidden core, titles, deadlines).
@@ -31,6 +33,7 @@
 //   node tools/matchrun.mjs --mode coop --difficulty HARD --players 4 --seeds 20
 //   node tools/matchrun.mjs --mode coop --difficulty ALL --players 4 --humans 2 --seeds 10 --check --errors
 
+import { runMatch, strategyMetrics, aggregateStrategies } from './ai/run-match.mjs';
 import { Match } from '../server/match/Match.js';
 import { VirtualScheduler } from '../server/match/scheduler.js';
 import { attachAudit } from '../server/match/audit.js';
@@ -101,7 +104,7 @@ class CountingBattle extends Battle {
 }
 
 // ---- one match ------------------------------------------------------------------------------------------------
-function runOne(seed, difficulty) {
+async function runOne(seed, difficulty) {
   current = { seed, difficulty, battle: 0 };
   const sched = new VirtualScheduler();
   const errors = [];
@@ -117,6 +120,7 @@ function runOne(seed, difficulty) {
     roomCode: 'RUN', mode, difficulty, seats, seed, data, log, scheduler: sched,
     battleContent: opt.content || 'full',
     botRehearsal: rehearsal,
+    botStrategy: opt.bot || 'legacy', botStrategySeats: {},
     BattleClass: opt.errors && canCount ? CountingBattle : undefined,
     send: () => { frames++; return true; }, broadcast: () => {}, onEnd: (s) => { summary = s; },
   });
@@ -126,7 +130,7 @@ function runOne(seed, difficulty) {
   let last = '';
   const t0 = Date.now();
   m.start();
-  sched.runUntil(() => {
+  await runMatch(m, () => {
     const key = `${m.phase}:${m.round}`;
     if (key !== last) {
       last = key;
@@ -162,6 +166,7 @@ function runOne(seed, difficulty) {
   }
   m.dispose();
   return {
+    strategyMetrics: strategyMetrics(m, summary), external: m.externalAI?.metrics,
     seed, difficulty, summary, rounds, errors, matchErrors: m.errorCount, simErrors: m.simErrors, metaErrors: m.dispatcher.errors,
     ms: Date.now() - t0, stageId: m.stageId, bossId: m.bossId, frames, audit,
   };
@@ -171,7 +176,7 @@ function runOne(seed, difficulty) {
 const results = [];
 for (const difficulty of difficulties) {
   for (let i = 0; i < seeds; i++) {
-    const r = runOne(seed0 + i, difficulty);
+    const r = await runOne(seed0 + i, difficulty);
     results.push(r);
     if (!quiet && !opt.json) {
       const s = r.summary || {};
@@ -194,6 +199,7 @@ if (opt.json) {
   console.log(JSON.stringify(results.map((r) => ({
     seed: r.seed, difficulty: r.difficulty, stageId: r.stageId, bossId: r.bossId, victory: r.summary?.victory, roundsPassed: r.summary?.roundsPassed,
     reason: r.summary?.reason, rounds: r.rounds, errors: r.errors.length + r.matchErrors, simErrors: r.simErrors, metaErrors: r.metaErrors,
+    strategyMetrics: r.strategyMetrics, external: r.external,
     violations: r.audit ? r.audit.violations : undefined,
   })), null, 1));
 } else if (quiet) {
@@ -260,4 +266,6 @@ if (opt.errors) {
   }
 }
 
+if (!opt.json) console.log('strategy outcomes:', JSON.stringify(aggregateStrategies(results)));
+if (results.some(r => !r.summary)) exitCode = 1;
 process.exitCode = exitCode;

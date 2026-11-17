@@ -10,13 +10,14 @@ fails while it is stale).
 downloads failed on this machine unless `--allow-shrink` (or `--prune`) is passed (docs/ASSETS.md, DESIGN §21.25).
 
 ```
-node tools/build-data.mjs              # build (downloads missing official files into .cache/gamedata/)
+node tools/build-data.mjs              # build (downloads missing official files into .cache/gamedata@<commit>/, the profile's pins)
 node tools/build-data.mjs --offline    # never download; fail if a cached file is missing
 node tools/build-data.mjs --refresh    # re-download every official file; fail if any download fails
 node tools/build-data.mjs --no-research --out /tmp/x   # research-free build (fallback defaults), other dir
 node tools/build-data.mjs --cache <dir> --report <file> # other cache dir / report file (tests, CI)
 node tools/build-data.mjs --force      # write data/ even when integrity checks fail (debugging only)
-node --test test/data.test.js          # integrity tests (+ raw-data cross-check and rebuild check when .cache/gamedata exists)
+node tools/build-data.mjs --version act1autochess   # another official version → data/versions/<slug>/ (see "Official versions (M0)")
+node --test test/data.test.js          # integrity tests (+ raw-data cross-check and rebuild check when the pinned official files are cached)
 ```
 Unknown options or a missing option value are errors (exit code 2); `--refresh` and `--offline` are exclusive.
 
@@ -31,12 +32,17 @@ Unknown options or a missing option value are errors (exit code 2); `--refresh` 
   Integrity errors (see §17) make the exit code 1 **and leave the previous output untouched** (unless `--force`);
   warnings never do. Each output file is written atomically (temp file + rename).
 - **Determinism.** Same inputs ⇒ byte-identical outputs (stable key order, no timestamps, no randomness).
-- **Size.** ≈3.7 MB total (limit 6 MB; `chess.json` ≈1.69 MB with the loadout choices, `backups.json` ≈0.17 MB), compact JSON (no indentation).
+- **Size.** ≈5.8 MB for the 15 built files (limit 6 MB; `chess.json` ≈1.88 MB with the loadout choices, `backups.json` ≈2.06 MB), compact JSON (no indentation).
 - **Plugin compositions (0.3.0).** Generated files stay official and unchanged. P1b applies patches and compact records to immutable in-memory copies (PLUGINS.md §10); `shared/plugins/validate.js` checks their references without the official quantity assertions. New modes inherit an official base; mode-level economy, DP, timers and other global keys override those defaults. Plugin translations retain the existing i18n overlay format and receive source hashes (`_h`) from the final merged records. A content selection's `cs` also includes the sha256 of each served `i18n/<lang>.json`; the vanilla P0 hash still excludes `data/i18n/`.
 - **Derived paths.** `stages.json groundPaths*` come from `server/sim/groundPaths.js`, using the sim's own `server/sim/grid.js` pathing: a change there
   needs a rebuild (the offline-rebuild test catches a stale `data/`).
 
 ## 0. Conventions used by every file
+
+Promotion indicators read the resolved record's `status.phase` and `status.level` (chess or a backup form), not
+`isGolden` or tier. `status.phase` is the numeric suffix of official `status.evolvePhase`; the UI uses the matching
+`assets.ui[elite/elite_<phase>]`. The four shipped versions agree: tiers I/II normal E1 Lv.55/60, elite E2 Lv.50/55;
+tiers III–VI normal E2 Lv.1, elite E2 Lv.60. This is a data observation, not a substitute UI lookup (§35.18).
 
 | Convention | Meaning |
 |---|---|
@@ -78,7 +84,7 @@ Top level: `{ season, seasonName, modes, economy, lpCapPerRound, bossOvertimeAft
 | `bossHpScale` | `{"bloodPointKey":"bloodPointAbyss","unaffectedByEnemyScale":true}` | which `bloodPoint` column the mode reads; the pool rule's keys live in the global `bossHpScale` below — one set here would override it for this mode (`gamedata.js bossPoolShareOf`) |
 | `upgradePrices` | `[5,8,11,12,13]` | base price L1→2 … L5→6 (−1 per round start, floor 0, reset after upgrade) |
 | `maxShopLevel` | `6` | |
-| `shopSlots[level]` | `{"1":{"chess":3,"item":1},…}` | operator + item slots per shop level |
+| `shopSlots[level]` | `{"1":{"chess":3,"item":1},…}` | operator + item slots per shop level, from the selected snapshot's `activity.AUTOCHESS_SEASON[season].shopLevelDataDict[modeId][level].charChessCount` / `itemCount`; 第一期: equipment at 5–6, 第二期: 1–6 (lobby modes; §36.1) |
 | `levelTagColors[level]` | `"#434343"` | UI |
 | `stages` | `["act1autochess_m02",…]` | active stages allowed (pick by `stages[id].weight`, 50 each): 标准 FUNNY (and training) = `act1autochess_m01` 战场#01 only; 险境 NORMAL = the 8 active stages; 绝境 HARD / 终极 ABYSS = 7 (no 战场#01) — official mode data |
 | `bossWeights` / `hiddenBossWeights` | `{"boss_1":6,…}` / `{"boss_8":50,…}` | weighted boss picks |
@@ -129,7 +135,7 @@ Top level: `{ season, seasonName, modes, economy, lpCapPerRound, bossOvertimeAft
 | `dp` | `{"init":10,"perSec":1,"max":99}` | |
 | `unite` | `{"maxHelpers":2,"helperOrder":"unitsOnField>activeBond>undownedUnits; pair: unitsOnField>activeBond>activeLayers>undownedUnits, first = right field (PRTS 帮助)","layerGainsEnabled":false,"templates":{"1":"act1autochess_escaped_single","2":"act1autochess_escaped_multi"},…}` | 联防; `helperOrder` documents the rule `server/match/unite.js helperOrder` implements (research 08 §5; ties → seat) |
 | `finalAssault` | `{"pairing":"seatOrderPairs","oddPlayerAlone":true,"movableBossPerAlivePlayerSide":true,"layerGainsEnabled":false}` | |
-| `timers` | `{"infoCheck":25,"infoCheckHint":5,"bandDraft":50,"bandDraftHint":15,"bandTurn":30,"battleCheck":3,"spFirst":30,"spTurn":16,"soloPrepTimeData":300,"soloSpTimeData":150,"chatCd":1,"chatBubble":3,"broadcastDelay":1,"enterSteps":[…]}` | seconds |
+| `timers` | `{"infoCheck":25,"infoCheckHint":5,"bandDraft":50,"bandDraftHint":15,"bandTurn":50,"battleCheck":3,"spFirst":30,"spTurn":16,"soloPrepTimeData":300,"soloSpTimeData":150,"chatCd":1,"chatBubble":3,"broadcastDelay":1,"enterSteps":[…]}` | seconds |
 | `bans[difficulty]` | `{"core":3,"addon":4}` (FUNNY `{0,1}`) + `rule` | per-match disabled-bond draw (research 01 A2) |
 | `bandDraft` | `{"skipsPerPlayer":1,"order":"random","duplicatesAllowed":true,"timeoutBandId":"band_bldsk"}` | |
 | `titles[]` | `{"id":"comment_1","picId":"comment_icon_1","name":"卫戍之星","stat":"bossDamage","rule":"max","onlyOnWin":true,"text":"…"}` | 评语 + [ASSUMED] criteria; `titleRule` explains assignment |
@@ -137,8 +143,13 @@ Top level: `{ season, seasonName, modes, economy, lpCapPerRound, bossOvertimeAft
 | `broadcasts[]` | `{"id":"comment_boss_hit_1","type":"BOSS_HIT","priority":30,"text":"{0}博士对敌方领袖造成的伤害超过20%!","textRaw":"<@ba.vup>{0}博士</>…","params":["0.2"]}` | `{0}` player, `{1}` operator/level, `{2}` amount |
 | `trophies` | `{"byRoundsPassed":[{"maxRound":4,"FUNNY":0,…},…],"hiddenCore":{…},"multiOnly":true,"medals":[{"count":0,"iconId":"trophy_level1_icon"},…]}` | |
 | `roundScores[]` | `{"round":4,"score":50}` | |
-| `rewards` | `{"itemId":"act2autochess_token_chess","baseByRoundsPassed":[{"round":1,"count":10,"dailyPoint":10},…],"formula":"…","difficultyFactor":{…},"modeFactor":{…},"milestones":[{"level":1,"tokens":100},…],"daily":{"name":"每日防卫目标","need":200,"bonus":300,"resetHour":4,"rule":"…"}}` | 卫戍认证; `milestones`: the 60 levels of the settlement's LV (milestoneList, cumulative tokens); `daily`: 每日防卫目标 (constData dailyMission*; the bonus and the reset hour read from its rule text) |
-| `constants` | `{"maxLevelCnt":15,"bossTrailerStartRound":3,"singleReconnectTime":86400,…,"pingConds":[…]}` | misc official constData; `singleReconnectTime` (s) = how long a dropped **solo** run stays resumable (server/lobby.js; co-op keeps the 10-minute window) |
+| `rewards` | `{"itemId":"act2autochess_token_chess","baseByRoundsPassed":[{"round":1,"count":10,"dailyPoint":10},…],"formula":"…","difficultyFactor":{…},"modeFactor":{…},"milestones":[{"level":1,"tokens":100},…],"daily":{"name":"每日防卫目标","need":200,"bonus":300,"resetHour":4,"rule":"…"}}` | 卫戍认证; `milestones`: the 60 levels of the settlement's LV (milestoneList, cumulative tokens; 35 in a version at its launch, "Official versions (M0)"); `daily`: 每日防卫目标 (constData dailyMission*; the bonus and the reset hour read from its rule text) |
+| `constants` | `{"maxLevelCnt":15,"bossTrailerStartRound":3,"singleReconnectTime":86400,…,"pingConds":[…]}` | misc official constData; `singleReconnectTime` (s) = how long a dropped **solo** run stays resumable (server/lobby.js; co-op keeps the 10-minute window; `null` in a version whose constData lacks it, "Official versions (M0)") |
+
+Regulation's profile writes `config.version.rules.bondDraw: 'regulation'`: core counts are half the available cores
+(after mode exclusions), with two groups to choose between in SINGLE. Its `config.bans` add-on counts are editable
+[ASSUMED] defaults: FUNNY/FAST 1, NORMAL/HARD/ABYSS 4, TRAINING 0. A build profile may supply either one
+`bans: { core, addon }` pair or a per-difficulty map. Covenant output remains byte-identical.
 
 ---
 
@@ -292,7 +303,7 @@ full-rank build from the others; the build fails unless `atRank` rebuilds every 
 | `layerMilestones[]` | `[{"layer":25,"mode":"every","effect":"bond_layer_added_reward_equip"}]` | layer-based powers: `reach` (while L ≥ layer), `every` (each multiple), `first` (latched once) |
 | `desc`, `descRaw` | | bond panel text |
 | `effectId`, `effectName`, `effectDesc`, `effectDescRaw` | `"bondeffect_deput"`, …, `"所有干员防御力+{0:0%}（受层数影响）…"` | in-battle text with **positional** placeholders |
-| `effectDescParams[]` | `[{"index":0,"format":"0%","base":"base_def","perStack":"def_per_stack"}]` | `{i:fmt}` = `bb[base] + bb[perStack] × layers` — layers never exceed 999 (the official `MAX_GARRISON_STACK`, not in any table: shared/constants.js `BOND_LAYER_CAP`, research 11) |
+| `effectDescParams[]` | `[{"index":0,"format":"0%","base":"base_def","perStack":"def_per_stack"}]` | `{i:fmt}` = `bb[base] + bb[perStack] × layers` — layers never exceed 999 (the official `MAX_GARRISON_STACK`, not in any table: shared/constants.js `BOND_LAYER_CAP`, research 11). 盟约's bond rows list the keys (`descParamBaseList` / `descParamPerStackList`); 规程 keeps them in `effectDescParamDataDict[effectId].descParamInfos`, whose `descParamMax` becomes `max` (the number never exceeds it: 萨尔贡's slow 60 %, the chances 100 %; §37.208) |
 | `bb`, `bbStr` | `{"base_def":0.15,"def_per_stack":0.012,"respawn_time":-0.3,"layer":2,"count":3,"more_layer":4}` | all buffs merged (first wins) |
 | `buffs[]` | `[{"key":"env_gbuff_new","bb":{…},"bbStr":{"key":"act1autochess_bond_eff_deput"}}, …]` | exact official buffs (e.g. 萨尔贡 has a second buff valid only with `band_narant`) |
 | `baseParams`, `perStackParams` | `["base_def"]`, `["def_per_stack"]` | official descParamBaseList / descParamPerStackList |
@@ -328,11 +339,14 @@ full-rank build from the others; the build fails unless `atRank` rebuilds every 
 | `giveBondId`, `givePowerId`, `canGiveBond` | `"victoriaShip"`, `null`, `false` | 变形同构体 (`canGiveBond`) grants the `giveBondId` of the *other* equipped item |
 | `requiresBondId` | `null` / `"yanShip"` | VI-tier bond signature items (research 04) |
 | `effectId`, `effectName`, `desc`, `descRaw` | `"eff_acarm041"`, …, `"攻击力+15%"` | |
+| `noDiy` | `true` / absent | present only when the official effect text matches 「无法装备给自编干员」 or 「无法装备给自选干员」 (信标, both qualities). The equip path refuses a 自选 carrier. Other items omit the field |
 | `buffs[]`, `params` | `[{"key":"env_gbuff_new_with_verify","countType":"NONE","bb":{"atk":0.15},"bbStr":{"key":"attr_common_global_buff"}}]` | |
 | `category`, `kind`, `family`, `implFormula` | `"STAT"`, `"passive"`, `null`, `"ATK% += atk …"` | research 04 (categories: STAT, ON_HIT, SURVIVAL, SP, ECONOMY, RECRUIT, BOND, BOND_GRANT, SET, BOND_SIGNATURE, MAGIC); `implFormula` is overridden by `tools/build-data.mjs ITEM_RULES` where research 04 was wrong (突变细胞; its research entry carries the correction too) |
 | `note` | `null` / `"生效时原干员销毁，突变细胞与其他装备退回整备区，可再次配发；随后获得一名高一阶的随机初始干员（最高6阶），进入整备区，需要重新部署"` | a rule the official text leaves out (`ITEM_RULES`, sourced; normal and golden), shown under the effect in the item card — 突变细胞 is not consumed (player feedback after 0.1.0: PRTS 下半 记录 备注 "生效时，原干员销毁…", players re-inject it every round) and its new operator joins the 整备区, the carrier's tile left empty (official footage; PR #2) |
 | `rangeGrid` | `[[0,0]]` | Arts area (画卷 `[[0,0],[0,1]]`) |
 | `flavor` | | |
+
+A version build may set `canFuse`, `fuseWith` and `fuseResult` together: acquiring either partner consumes both owned components, including an equipped partner, and stows the result unequipped in the equipment row (规程·序列Ⅰ has five pairs; official playtest reported 2026-11-14). A `deferMerge` gain (prep end, or `skill_copy_char_with_equip`) waits until the next prep's merge pass and does not take an equipped partner off before the fight. No item pool means no combination. This emits one item `onMerge`, including for Mechanist's 精巧设计 reward. It may also set `kind` to `consume_on_equip` on an EQUIP row whose trap duration is 0 and whose research kind was empty. The default `data/items.json` has neither fusion field; its 115 count above is unchanged.
 
 ## 6. `bands.json` — `{ [bandId]: Band }` (40)
 
@@ -344,6 +358,7 @@ full-rank build from the others; the build fails unless `atRank` rebuilds every 
 | `effectId`, `effectName`, `desc`, `descRaw` | `"aceffect_band_21"`, `"重点监护"`, `"【重点监护】开始作战时…"` | |
 | `buffs[]`, `params` | `[{"key":"prep_finish_char_bond_add_layer","bb":{"layer":2},"bbStr":{}}]` | |
 | `victorCount`, `rewardModulus`, `unlockDesc` | `3`, `1`, `null` | |
+| `skills[]` (规程 only) | `effectId`, `type`, `cost`, `availType`, `availCount`, `unlockType`, `unlockParam`, `minorUnlock`, `next`, `targetType`, `targetFilterType`, `targetTip`, `unusableAtSpecialRecruit`, `desc`, `descRaw`, `buffs` | The season's `skillInfoDataDict`, starting at `effectId` and following `unlockEffectId` in order. 61 bands / 74 rows in 序列Ⅰ. `NONE` is locked; the current row's unlock condition replaces it with `next`. Older seasons omit this property. |
 | `bondIds` | `["lateranoShip"]` (潘格尼尼) / `[]` | the bonds the strategy is built around (`shared/bandBonds.js`: the bond names in <…> of its text — the official note "在<X>部分干员缺席时体验可能不完整" among them — and the bond ids / bond pools of its blackboards, `pool` → choices.json `pools[pool].bond`); 9 bands are tied. The bot never picks, and the strategy draft marks 本局禁用, a band whose bond the mode switches off (DESIGN §21.26) |
 
 ## 7. `effects.json` — `{ [effectId]: Effect }` (361: every effect of the season)
@@ -357,8 +372,16 @@ Types: `BAND_INITIAL` 41, `BOND` 23, `EQUIP` 115, `ENEMY_GAIN` 129 (悬赏), `BU
 | `counterType`, `continuedRound`, `decoIconId`, `enemyPrice` | `"NONE"`, `-1`, `null`, `0` | `enemyPrice` = bounty coins |
 | `buffs[]` | `{"key":"…","countType":"NONE","bb":{…},"bbStr":{…}}` | |
 | `params` | `{"layer":2}` | merged convenience view |
+| `effectDescParams[]`, `displayThresholds[]` (规程 `BOND` only) | `{ index, format, base, perStack, max? }`, `[3,6,9]` | Present when `effectDescParamDataDict[effectId].descParamInfos` is non-empty. Same `{i:fmt}` binding as a bond's `effectDescParams` (§3), read from that effect so a strategy's `auto_chess_effect_replace` target formats its own numbers. `displayThresholds` is `bondPhaseCountList` when `phaseType` is `PEOPLE_COUNT`. `max` is omitted unless `descParamMax` > 0. Older seasons omit both. |
 
 ## 8. `choices.json` — 机变 draft data
+
+Regulation's `equipmentPools` in `tools/versions/act3autochess-v3_1.mjs` overrides historical pool names by stable
+equipment effect ID. Catherine's normal pool contains the ordinary hammer and five special hammers; her elite pool
+contains the five specials and the ultimate hammer. Victoria includes the electric hammer, Passenger draws the
+coin/tea/mimic items, and Kjerag grants ice. Members follow the pinned official table `6f63c14e` (`garrison_139`,
+`garrison_161`, `bondeffect_kjerag_2`). Exact weights are server-side: [ASSUMED] small chance = 10% total, common
+group = 90%, equal within groups; Victoria is uniform. The generator rejects missing trait/effect pool references.
 
 | Key | Example | Meaning |
 |---|---|---|
@@ -396,7 +419,7 @@ blackboards (transitively). Level = `randomEnemyAttributeDict[key].level` (0 for
 | `templateSlot` | `"N"` | placeholder slot when the key is a template key |
 | `summons[]`, `inactiveIn[]`, `seasonOverride` | | spawned enemies; modes banning it; overridden fields |
 | `iconId`, `spine` | `"enemy_1422_lrsldr"` | asset ids |
-| `hitArea` | `{"w":4.95,"h":2.95,"dx":0,"dy":1}` (`enemy_9013_acstmk`) | **huge units only** (巨型单位, 7 keys: 假想敌：胄 ×2, 假想敌：管 ×2 — the 隐秘核心 one `dx` 1 —, 盐风主教昆图斯, 阿利斯泰尔，帝国余晖, “萨米的意志”): the hit rectangle, `w` tiles along the columns × `h` along the rows, centred on the unit's position moved `dx` columns right / `dy` rows up (sim/body.js; user playtest #5). Not in the game tables (the collider lives in the prefab): `tools/build-data.mjs HIT_AREAS` by `prefabKey`, from PRTS "巨型单位：受击判定区域为长4.95、宽2.95的长方形，向上偏移1.0" and PRTS盟约记录 (the season's 阿利斯泰尔 / “萨米的意志” versions); absent = a point. All 7 are also 自缚 + 无法被阻挡 (PRTS 天赋 — not a data field either: content/bosses.js `SELF_BOUND`) |
+| `hitArea` | `{"w":4.95,"h":2.95,"dx":0,"dy":1}` (`enemy_9013_acstmk`) | **rectangular hit bodies only**: 假想敌：胄 ×2, 假想敌：管 ×2 (hidden-core `dx=1`), 昆图斯, 阿利斯泰尔, “萨米的意志”, 三期茧 ×2／械 ×2 use 4.95×2.95, up 1; 后兽 uses centred 2.95×2.95. `w/h` are column/row lengths, `dx/dy` right/up offsets from the unit's position. Generated by `tools/build-data.mjs HIT_AREAS` using `prefabKey`; the collider lives in the prefab, not the tables. All 39 Boss prefabs checked against official client `26-11-06-12-42-25-70182449`; measurements and hashes in [audit](research/boss-hit-areas-20261112.md). Absent = regular body. Body size does not change movement, blocking or attack origins; 后兽 still moves, while legacy leaders separately implement 自缚 + 无法被阻挡 (`SELF_BOUND`). |
 | `staticBody` | `true` (`enemy_1005_yokai` 妖怪) | **静态刚体 only** (28 keys: every air unit of the mode except “炎佑” — 妖怪 ×3, 御4, 暴鸰, 法术大师 ×2, 寒霜, 帝国炮火先兆者 ×2, 枯朽之种, 枯朽萃聚使徒, 护障 ×2, 远眺, 愧悔魂灵圣杯, 假想敌：黑云, “斩胄之剑”, “破胄之锤”, 刺胄之弹, 未装配刀片, 防护背心, 冲击式施术单元, 节日气球, “萨科塔之翼 / 之眼 / 昂首” — plus the ground boss 盐风主教昆图斯): pushes and pulls never move it, the skills still hit it (sim `Battle._displaceable`; player report after 0.1.0). PRTS 特殊机制 静态刚体: "该单位的Unity刚体的刚体类型为部分静态（Kinematic）或静态（Static）…无法产生任何速度或移动…※是否为静态刚体与单位的行动方式无关". Not in the game tables (the rigidbody lives in the prefab): `tools/build-data.mjs STATIC_BODIES` by key, from the 天赋 "{{特殊机制|静态刚体}}" of each enemy's PRTS page (every enemy of the file, read 2026-10-03); absent = a dynamic body |
 | `modelScale` | `0.5926` (`enemy_1005_yokai_3` 威龙) | official drawn size of the enemy's Spine model relative to the standard (user playtest #6): the battle prefab's transform scale down to its Spine renderer (Graphic × FaceSwitcher × Spine; SkeletonDataAsset.scale is 0.01 for every enemy skeleton) ÷ 0.27, the standard of 1454 of the client's 2147 enemy prefabs (2080 have exactly one Spine renderer) and of the operators' battle skins. The renderer multiplies `UNIT.modelScale` by it (render/units.js `enemyModelScale`). 125 keys (122 prefabs) carry one, from 0.5926 (威龙 0.16; 妖怪 0.7407, 寒霜 0.6667) to 2.2222 (青铜镜 / 青瓷茶器 0.6); absent = 1. Not in the game tables: `tools/build-data.mjs MODEL_SCALES` by `prefabKey`, read from the local client by `tools/local-extract/enemy_scales.py` |
 | `modelScaleY` | `1.263` (`enemy_1112_emppnt` 帝国炮火先兆者) | **vertically stretched models only** (2 keys, the 先兆者 pair): the official prefab's `Graphic` scale sy ÷ sx — 1.263 because the pair's scale is (0.19, 0.24, 0.24), i.e. the game draws them 26 % taller than `modelScale` (which only carries the horizontal product) implies. The renderer multiplies the skeleton's **Y** scale (and the bar height) by it (render/units.js `enemyModelScaleY`). Not in the game tables: `tools/build-data.mjs MODEL_STRETCH_Y`, read from the local client by `tools/local-extract/enemy_model_offsets.py` (a sweep of all 242 readable enemy prefabs found no other non-uniform one), docs/research/12 §3.1 (PR #211 by @xcdoge; the owner's decision of 2026-10-06) |
@@ -409,15 +432,18 @@ blackboards (transitively). Level = `randomEnemyAttributeDict[key].level` (0 for
 | Key | Example | Meaning |
 |---|---|---|
 | `templateSlots` | `{"N":"enemy_1422_lrsldr","E":"enemy_1427_lrnazg","S":"enemy_1425_lrcmra","NF":"enemy_1005_yokai","EF":"enemy_1042_frostd","SF":"enemy_1040_bombd","T":"enemy_1000_gopro_2","TF":"enemy_1041_lazerd"}` | placeholder keys in wave templates |
-| `types[type]` | `{"type":"FLY","name":"特训敌人·飞行","desc":"…","icon":"fly_icon","sortId":2,"typeIdentifier":2,"involveRandom":true,"count":3,"weight":3,"pool":[…],"entries":[…]}` | 7 types |
+| `types[type]` | `{"type":"FLY","name":"特训敌人·飞行","desc":"…","icon":"fly_icon","sortId":2,"typeIdentifier":2,"involveRandom":true,"count":3,"weight":3,"pool":[…],"entries":[…]}` | 7 types in this file. 规程·序列Ⅰ adds CRITIC (8) and REBORN (9). A positive `countSingle` is that type's solo slot count; `showEnemyId` is the briefing enemy, not the draw |
 | `entries[key]` | `{"key":"enemy_1041_lazerd","type":"FLY","weight":10,"firstHalf":true,"fly":true,"N":[{"key":"enemy_10083_hlbird"}],"E":[{"key":"enemy_1005_yokai_2"}],"inactiveIn":[]}` | 67 entries (`specialEnemyInfoDict`); `fly` = the movement class shared by the special, normal and elite keys; `inactiveIn` = modes whose `inactiveEnemyKey` bans the SPECIAL key (attached keys are never filtered) |
 | `handbookLevels[]` | `{"level":"E","maxHp":[0,1000],"atk":[0,200],"def":[0,100],"res":[0,1],"moveSpeed":[0,0.3],"interval":[6.9,null],"elementRes":[0,1],"elementDmgRes":[0,1]}` | the enemy handbook's 10 letter grades, E … SS weakest first (`enemy_handbook_table.levelInfoList`): per stat the official `[min, max)` band (`null` = open-ended); `interval` is the attack interval in seconds (the table's `attackSpeed`: a shorter interval is the higher grade). Display only: the 敌方图鉴 grades each stat by its band (`screens/sweep.js enemyGrade`) |
-| `generation` | `{"specialEnemyNum":3,"maxLevelCnt":15,"fillType":"SPECIAL","typeSlots":{"FLY":3,…},"firstHalfMaxRound":7,"minReplacedEnemyCount":1,"maxReplacedEnemyCount":5,"minActionIntervalRatio":0.05,"beFactors":{…},"placeholders":{"enemy_1422_lrsldr":{"slot":"N","cls":"normal","fly":false},…},"powerFormula":"…","countFormula":"…","timingFormula":"…","notes":[…]}` | parameters of the **official** generator (client `RandomEnemyGenerater`, research 08 §2 — normative) |
+| `generation` | `{"specialEnemyNum":3,"maxLevelCnt":15,"fillType":"SPECIAL","typeSlots":{"FLY":3,…},"firstHalfMaxRound":7,"minReplacedEnemyCount":1,"maxReplacedEnemyCount":5,"minActionIntervalRatio":0.05,"beFactors":{…},"placeholders":{"enemy_1422_lrsldr":{"slot":"N","cls":"normal","fly":false},…},"powerFormula":"…","countFormula":"…","timingFormula":"…","notes":[…]}` | parameters of the **official** generator (client `RandomEnemyGenerater`, research 08 §2 — normative). This file's `specialEnemyNum` is 3 and it has no `specialEnemyNumSingle`. 规程 generation adds `specialEnemyNumSingle` (2): the solo match's involveRandom count |
 
 The official generator (implemented by `server/match/waves.js`):
-1. **Match:** 3 random types (shuffle the 6 `involveRandom` types, keep 3); each owns `typeSlots[t]` (3) of the 15 round
-   slots, `fillType` (SPECIAL) the other 6; the slots are shuffled → one type per round. All 15 round picks are drawn
-   at match start (weighted entry of that type and half whose SPECIAL key the mode allows; random attached N / E).
+1. **Match:** 3 random types (shuffle the 6 `involveRandom` types, keep `specialEnemyNum`); each owns `typeSlots[t]`
+   (`count`, 3) of the 15 round slots, `fillType` (SPECIAL) the other 6; the slots are shuffled → one type per round.
+   A solo match (`mode.type` SINGLE, or a `mode_single_` id) uses a positive `specialEnemyNumSingle` and, per type, a
+   positive `countSingle` when the row has them (规程: 2 types, 4 slots each). This file has neither, so solo stays 3×3.
+   All 15 round picks are drawn at match start (weighted entry of that type and half whose SPECIAL key the mode
+   allows; random attached N / E). `showEnemyId` is not a draw.
 2. **Round:** every template SPAWN action whose key is a `placeholders` key becomes the pick's normal / elite /
    special key, or is **skipped** when that key's movement class differs from the placeholder's (ground rounds drop
    NF/EF/SF, FLY rounds drop N/E/S). Its count `n' = clamp(roundHalfEven(f32(f32(f32(n·P(tpl))/f(tpl)) /
@@ -525,13 +551,13 @@ Glyph legend (`rows`):
 | `stats`, `rangeGrid`, `dmgType`, `attackKind`, `projectile`, `canHitFly` | first owner's values | defaults |
 | `skill` | `{"skillId":"sktok_vigil_wolf_3","bb":{…}}` | default token skill (same slot as the owner's skill) |
 | `deployLimit`, `count` | `1`, `1` | `deployLimit` = the first owner's `stats.deployLimit`. `count` = copies sent to the hand / spawned (talent/skill `cnt`); `null` ⇒ use `deployLimit` |
-| `abnormal[]` | `["healFree"]` | abnormal effects the summon holds from the start, no official table carries them — `tools/build-data.mjs TOKEN_ABNORMAL` from the PRTS summon pages (user playtest #6 item 18): `healFree` = 禁疗 (“小自在”, “耀阳”, 斯卡蒂的海嗣, 沙之碑, 流形, 狼群, 迷迭香的战术装备, 黄金盟誓, 保护目标（冻结状态）), `isolated` = 孤立 "无法被同阵营选中" (“炎佑”, 从不混淆的方向); `[]` otherwise. The sim sets `noHeal` / `isolated` (docs/SIM.md §3) |
+| `abnormal[]` | `["healFree"]` | abnormal effects the summon holds from the start, no official table carries them — `tools/build-data.mjs TOKEN_ABNORMAL` from the PRTS summon pages (user playtest #6 item 18): `healFree` = 禁疗 (“小自在”, “耀阳”, 斯卡蒂的海嗣, 沙之碑, 流形, 狼群, 迷迭香的战术装备, 黄金盟誓, 保护目标（冻结状态）, 夜莺的幻影 — PRTS 幻影 备注 "持有禁疗。", §37.201), `isolated` = 孤立 "无法被同阵营选中" (“炎佑”, 从不混淆的方向); `[]` otherwise. The sim sets `noHeal` / `isolated` (docs/SIM.md §3) |
 | `variants[ownerChessId]` | `{"phase":2,"level":1,"stats":{…},"immunities":{…},"rangeGrid":…,"trait":{…},"dmgType":…,"skill":{full skill record},"talents":[…],"count":1,"sources":["talent","display"]}` | stats at the owner's phase/level (clamped to the token's max level) — **none of the owner's potential attribute modifiers** (a token has no potential ranks) — + golden module `tokenAttributeBlackboard` + the token's own talent additions to `deployLimit` / `deckStack` (blackboard `max_deploy_count` / `max_deck_stack_cnt` — the hidden "TOKEN数" talent of 麦哲伦's / 令's summons and 白铁's devices, 夜莺's 幻影; a module token part of the same talent replaces it: `tools/build-data.mjs tokenTalentDeckBonus`, 0.2.0 — no tokens.json summon has one; PRTS 幻影 备注 "最大可部署数量为3", the owners' "最多同时部署3个"); its `talents` / `trait` candidates are picked at the **owner's potential** (full; their `requiredPotentialRank` mirrors the owner's 「天赋效果增强」 — 夕's “小自在” 18 层, 凯尔希's Mon3tr, 望's 棋子 +1 持有 / 部署 — and the variant chains the lower ones, §2.3: `atPotential(variant, ownerPotential)`); the owner's module parts flagged `isToken` upgrade the variant's `trait` (+`moduleDesc`) and `talents` (伺夜's wolves, 缪尔赛思's 流形 `scale` 1, 浊心斯卡蒂's 海嗣 30 s, “耀阳” `atk_scale` 1.15). `sources` ⊆ `talent`/`skill`/`display`: how the owner produces it (`display` only = listed on the character but unused by its default skill/talents, e.g. 迷迭香 S2, 凛御银灰 eagle1/3). `count` = copies from a talent `cnt` or the default skill's `cnt` when that skill overrides this token; `null` ⇒ use `deployLimit` |
 | `variants[o].bySkill[i]` | `{"skill":{…},"count":1,"sources":["talent","display"]}` | owner loadout with the non-default skill index `i` (one entry per other selectable owner skill): the token skill of that slot (伺夜's wolves, 缪尔赛思's 流形, 凛御银灰's eagles…), the count and how the chess then produces it (`sources` may be `[]`: 风丸 S1 makes no 纸偶; 赫默 / 巫恋 S1 only `display` ⇒ no hand piece). The sim resolves them for an owner loadout: `simdata getToken(id, ownerChessId, loadout)` → `def.sources` / `def.count` |
 | `variants[o].byModule[m]` | `{"stats":{…},"immunities":{…},"trait":{…},"talents":[…]}` | golden owner with another module `m` or `'none'`: the token as that module makes it (module `tokenAttributeBlackboard`, `isToken` trait/talent parts) |
 | `assets` | `{"avatar":"token_10028_vigil_wolf","spine":"token_10028_vigil_wolf"}` | |
 | mapChar extras | `phase`, `level`, `trait`, `talents`, `positions:[{"alias":"char_613_acmedc#2_multi_only","pos":[10,10],"dir":"RIGHT","multiOnly":true}]`, `source` | |
-| bondSummon extras | `bondId`, `motion`, `skills`, `talents`, `assets.isEnemyModel` | 炎佑 base template (600 ATK / 12000 HP); at battle start 30 % of the 炎 operators' ATK / HP sums are **added** to it (PRTS "（最终加算）", bonds.yanShip; the 9-炎 ATK ×1.5 on the whole ATK [ASSUMED]) |
+| bondSummon extras | `bondId`, `motion`, `skills`, `talents`, `assets.isEnemyModel` | 炎佑 base template (600 ATK / 12000 HP; 第一期上半 V1_1: 300 / 6000, skills' cooldown 25 s instead of 15 s and `2.ep_damage_scale` 1.15 instead of `2.damage_scale` (its 炎 text: 15% 元素脆弱), DESIGN §35.22.5); at battle start 30 % of the 炎 operators' ATK / HP sums are **added** to it (PRTS "（最终加算）", bonds.yanShip; the 9-炎 ATK ×1.5 on the whole ATK [ASSUMED]) |
 
 ---
 
@@ -576,7 +602,8 @@ Glyph legend (`rows`):
 16. Research-only fields (null without `docs/research`): stage `name`, item `category/kind/family/implFormula/
     requiresBondId/rangeGrid/flavor`, bond `spec`, E2 art availability (falls back to "char has an E2 phase").
 17. [ASSUMED] content (flagged in data): 机变 family schedule and server pools, title criteria, income cap 12, per-turn
-    band-draft timer 30 s (`timers.bandTurn`, the step's only countdown — user playtest #4), the shop-only item list
+    band-draft timer 50 s (`timers.bandTurn`, the step's only countdown — user playtest #4; 50 from the owner's
+    official-play report of 2026-10-10), the shop-only item list
     (`SHOP_EXCLUDED_ITEMS`, from play), the alive / 4 proportion of the fixed pool's optional alive scaling
     (`bossHpScale.aliveAssumed`; `aliveScaling` off). The special-enemy generator, the leader table (`bloodPoint`, one
     pool for every field) and the 联防 timing are official; the pool's × players alive is the owner's decision of
@@ -604,9 +631,9 @@ Glyph legend (`rows`):
 
 ## 16. Counts (current build)
 
-`chess 266 (112 visible; 283 selectable skills over the visible chess, 185 module choices over 129 goldens; 74 PRESET / 55 NORMAL / 4 DIY base chess)`, `bonds 23`, `garrisons 249 (43 effect keys)`, `items 115`, `bands 40`, `effects 361`,
-`enemies 249`, `factions 67 entries`, `waves 38`, `stages 11 (8 active)`, `bosses 10`, `tokens 22`, `choice events 109`,
-`bounty cards 129`, `tactic cards 43`, `backups: 89 units (17 stand-ins, 72 owned-6★ picks; 259 forms), 38 自选 summons, 4 DIY slots, 15 / 9 prototype picks (tier 5 / 6), 72 owned-6★ picks (7 collab operators excluded)`, potential (§2.3): `256 chess records, 219 forms / variants with potDown; 442 + 401 + 19 chained talent entries (chess, backups, tokens)`.
+`chess 266 (112 visible; 283 selectable skills over the visible chess, 189 module choices over 129 goldens; 74 PRESET / 55 NORMAL / 4 DIY base chess)`, `bonds 23`, `garrisons 249 (43 effect keys)`, `items 115`, `bands 40`, `effects 361`,
+`enemies 249`, `factions 67 entries`, `waves 38`, `stages 13 (11 battle fields + 2 escaped; 8 active)`, `bosses 10`, `tokens 22`, `choice events 109`,
+`bounty cards 129`, `tactic cards 43`, `backups: 92 units (17 stand-ins, 75 owned-6★ picks; 268 forms), 38 自选 summons, 4 DIY slots, 15 / 9 prototype picks (tier 5 / 6), 75 owned-6★ picks (7 collab operators excluded)`, potential (§2.3): `256 chess records, 219 forms / variants with potDown; 442 + 401 + 19 chained talent entries (chess, backups, tokens)`.
 
 ## 17. Integrity guarantees (checked by the builder and `test/data.test.js`)
 
@@ -662,7 +689,7 @@ server/match/player/diy.js, docs/META.md §3). The rules in the data (activity_t
   even their elite form has none) and the row's potential (`potRank` 0 on all 55) — moot: the 17 原型干员 have no
   potential ranks, and a stand-in takes neither the player's potential nor the 自持有 练度 (0.2.2).
 
-`units[charId]` — first the 17 stand-ins, then the 72 owned-6★ 自选 picks (`diy.ownedPool`); no unit for a PRESET or DIY
+`units[charId]` — first the 17 stand-ins, then the 75 owned-6★ 自选 picks (`diy.ownedPool`); no unit for a PRESET or DIY
 chess:
 
 | Field | Example (`char_611_acnipe`) | Meaning |
@@ -727,7 +754,7 @@ operator (自选)").
 | `slots[slotId]` | `{"tier":5,"goldenId":"chess_char_5_diy1_b","shopLevel":5,"requirement":"TIER_6"}` | the four DIY chess `chess_char_5_diy1/2_a`, `chess_char_6_diy1/2_a` (chess.json: price 4, sell 1, `diyRequirement`, empty `bonds` / `garrisonIds`); `shopLevel` = the 调度中心 level whose `shopLevelDisplayDataDict.charChessDiySlotIdList` lists the slot |
 | `prototypes[tier]` | `{"5":[…15],"6":[…9]}` | the legal prototype picks: the nine 6★ at both tiers, at tier 5 also the six 4★ that are not 先锋 / 特种 ("第5阶可额外从6名四星原型干员（先锋、特种职业除外）中选取"; `DIY_EXTRA_PROTOTYPES`). A prototype may fill a tier-5 and a tier-6 slot ("原型干员可于5、6阶之间重复选取") |
 | `locked[tier][charId]` | `{"skillIndex":2,"uniEquipId":"uniequip_002_acguad","from":["chess_char_5_06_a","chess_char_5_13_a"]}` | the skill and module a prototype carries in a slot of that tier — "技能携带规则与系统补位时一致" (PRTS 卫戍协议), read as [ASSUMED] (the owner's decision of 2026-10-05) the selection of its 补位 rows at that tier (`from`): the eight 6★ elites S3 with their own module, 领主·Sharp S1, the reserves S3 without a module; 预备干员-医疗 has no tier-5 row: S3 by analogy (`from` `[]`, `DIY_PROTOTYPE_FALLBACK_SKILL`) |
-| `ownedPool[]` | 72 charIds | the owned 6★ a player may slot: obtainable, rarity = the requirement, and no chess names it — hidden chess included ("不可甄选加入已在名单中的固定干员"); each at most once per roster ("玩家已拥有干员不可重复选取"). Not the collab operators (`excluded`) |
+| `ownedPool[]` | 75 charIds | the owned 6★ a player may slot: obtainable, rarity = the requirement, and no chess names it — hidden chess included ("不可甄选加入已在名单中的固定干员"); each at most once per roster ("玩家已拥有干员不可重复选取"). Not the collab operators (`excluded`) |
 | `excluded[]` | `["char_456_ash","char_1029_yato2","char_1048_orchd2","char_4123_ela","char_4141_marcil","char_4182_oblvns","char_4217_makoto"]` | the 7 obtainable 6★ outside the pool that come from a 联动寻访 — a collab team in `mainPower` / `subPower` (`DIY_EXCLUDED_TEAMS`: rainbow, action4, mujica, sees, laios — 灰烬, 麒麟R夜刀, 艾拉, 玛露西尔, 丰川祥子, 结城理) or a collab series in `displayNumber` (`DIY_EXCLUDED_NUMBER_PREFIXES` MH / RS / AM / PS / DD — also 焰狐龙梓兰 MH05, whose team reserve6 names no collab): left out of the data and the pool by the owner's decision of 2026-10-05 (copyright); the excel does not exclude them |
 | `operators[charId]` | `{"name":"煌","rarity":6,"profession":"WARRIOR","subProfessionId":"centurion","obtainable":true,"powers":["rhodes","elite","yan","victoria"],"bonds":["yanShip","victoriaShip"]}` | every pick (owned pool + prototypes): `powers` = the `nationId` / `groupId` / `teamId` of `mainPower` and of every `subPower` (隐藏势力); `bonds` = the core bonds whose `powerIdList` meets them — one or several — else `economy.fallbackBondId` 协防干员 ("甄选加入的干员会根据其实际阵营所属分配核心盟约，若没有可匹配的则改为分配协防干员盟约"); every prototype gets `["emptyShip"]` |
 
@@ -738,6 +765,11 @@ fill one slot with different operators. A variant is the token at the owner's st
 `bySkill[i]` the token skill / count / sources under each other skill, `byModule[id]` each module's token attributes,
 trait and talents (`tools/build-data.mjs buildDiyTokens`); simdata `getToken` merges them with the pick as the owner's
 loadout. No id is also a tokens.json record.
+
+规程·序列Ⅰ (`data/versions/act3autochess-v3_1`) lists six slots at tier 5 and six at tier 6. `config.diyBringLimits`
+is `{"5":2,"6":2}` from `constData.diyCharLimitForLevels`, and `timers.enterSteps` includes `CUSTOM_CHECK` (选择自编, 30s).
+The match stocks only the confirmed slots (0–2 per tier). The default bundle and the 盟约 versions have neither and still
+stock every legal lobby slot.
 
 Not in this data: a player's ownership roster and 自选 picks (browser settings sent with `room.ownership` / `room.diy`),
 the DIY stock (per player in the match, `PlayerState.diyStock`: `config.economy.poolCopies` of the slot's tier, doubled in
@@ -769,3 +801,352 @@ without changing these generated files. Membership is rebuilt from chess records
 and existing token ids. `server/plugins/officialUnitBuilder.js` exports the import-only `deriveOfficialUnit` helper; `tools/build-data.mjs` shares its
 normal builder's stat, potential, skill, talent, range and classification paths; loading it performs no CLI I/O.
 See PLUGINS.md for namespaces, limits and the local-table version recorded by Forge imports.
+
+## Official versions (M0)
+
+Presentation is shared across the official builds: `tools/assets/versions.mjs` reads their rosters by charId,
+enemyKey and iconId, including backups/DIY, rather than merging reused chess ids. `fetch-assets` plans the union;
+`local-extract` fills missing official art and effects. See [ASSETS.md](ASSETS.md#id-scope) and §35.109. Gameplay
+data and the default version's existing presentation entries remain unchanged by this asset expansion.
+
+The data side of the official version switch (0.3.2, DESIGN §35.22): besides today's game, 第二期下半, the build produces
+the three earlier versions, named by period as the maintainer named them (2026-10-22): 第一期 is the official
+`act1autochess` (「卫戍协议：盟约」 上半期活动), 第二期 `act2autochess` (下半期活动), and each period's 上半 / 下半 are its
+sub-versions V1_1 / V1_2 and V2_1 / V2_2. (PRTS's 「第一期」 is the 2024 卫戍协议, `act1vautochess`, which is not done.)
+A bare 上半 / 下半 here and in code comments keeps the official activity sense (上半 = 第一期 / `act1autochess`, 下半 =
+第二期 / `act2autochess`); a period's halves are always written with the period (第一期上半 …) or as V1_1 … V2_2.
+**M2 core and kits are in** (DESIGN §35.22.7–§35.22.9): golden and botbench load a selected version, and a version room plays that version's rules and kits. **M1 serves enabled versions** (DESIGN §35.23; "Serving the versions (M1)" below): `server/http/static.js` serves `data/versions/<slug>/` only when the server enables that version. Nothing set enables all four, so those files are served (§35.23.11); a version the server does not enable, and a server narrowed to 第二期下半 alone, still answer 404. `data/versions/` is tracked, so the release zips and Docker carry it (48 files, 15.0 MB on disk, about 1.3 MB zipped). The default version is unchanged — `data/*.json`, `data/i18n/`, the golden corpus, the `cs` formula and a default room's `room.state` are pinned: `test/data.test.js` and `test/golden.test.js` guard the data and the goldens, `test/versions-default-guard.test.js` (G2–G4) the `cs` inputs, the formula, the default room and the welcome's versions list. Its file hashes (G1) were the M0 merge check and were deleted when M1 started (DESIGN §35.22.2, §35.23).
+
+**M2 research and rules:** `docs/research/versions/<slug>/02-bonds.json` and `04-items.json` use each snapshot's own
+text. First-season `01-core-data.json` supplies the 11-18 blackboard multipliers and preserves 300-second solo prep;
+`config.version.rules` is read by the engine/match. Other absent research files still fall back with warnings and are
+[ASSUMED], including unmeasured ban/stock/schedule values. See [history §35.22.7](history/0.3.2.md#35227-historical-core-rules-m2)
+for the complete list and [the exhaustive blackboard review](research/versions/blackboard-review.json). The following
+profile notes describe M0's original fallbacks; the M2 overrides take precedence.
+
+**Registry** (`shared/versions.js`, pure, browser-safe). `DEFAULT_VERSION = 'act2autochess'` is a code constant, never a
+server setting: data, rooms and logs without a version mean 第二期下半 (`act2autochess` V2_2).
+
+| id | what | label (msgid; translations [ASSUMED]) | data directory |
+|---|---|---|---|
+| `act2autochess` | 盟约·下半 V2_2 (2026-03-27 → 04-25), the default | 第二期下半 | `data/` (unchanged) |
+| `act2autochess@V2_1` | 盟约·下半 V2_1 (2026-03-14 16:00 → 03-27 16:00) | 第二期上半 | `data/versions/act2autochess-v2_1/` |
+| `act1autochess` | 盟约·上半 final, V1_2 (2025-11-25 16:00 → 12-12) | 第一期下半 | `data/versions/act1autochess/` |
+| `act1autochess@V1_1` | 盟约·上半 V1_1 with the 11-18 hotfix (2025-11-14 16:00 → 11-25 16:00) | 第一期上半 | `data/versions/act1autochess-v1_1/` |
+
+An id is the official activity id (activity_table `AUTOCHESS_SEASON`), plus `@<versionInfoDict id>` for a sub-version
+(`autoChessData.versionInfoDict`: V1_1 from 2025-11-14 16:00, V1_2 from 2025-11-25 16:00, V2_1 from 2026-03-14 16:00,
+V2_2 from 2026-03-27 16:00); the id without one is the season's final sub-version. Anything that becomes a path or
+a file name uses `versionSlug(entry)` — the last segment of `dir` (lowercase, no `@`), or the id for the default.
+`versionOfData(data)` reads `config.version.id`, else the default. The 2024 卫戍协议 (`act1vautochess`) is not a version
+(the maintainer's decision of 2026-10-22).
+
+Two deliberate differences from the round-50 design draft (local notes, not in the repository): there is no `data/versions/index.json` (the registry is the
+index; M1 reads `shared/versions.js`), and a version's directory is named by its slug, not its id (`@` is not safe in
+every file system and URL).
+
+**Profiles** (`tools/versions/<slug>.mjs`, loaded by `tools/versions/profiles.mjs loadProfile`, which checks `id` and
+`season` against the registry): `{ id, season, section?, source?, layout?, pins, adapters, research, tables, config: { hiddenCore, bans?, rules? }, expect }` (`tools/versions/profiles.mjs` documents each field).
+
+- **`pins`**: the Kengxxiao/ArknightsGameData commit each file group is read from (`pins[group] ?? pins.default`;
+  `null` = master; the default version is pinned too since 2026-11-02, DESIGN §37.91). Groups: `activity` (`excel/activity_table.json`), `character` (character / skill /
+  uniequip / battle_equip tables), `range` (`excel/range_table.json`), `enemy` (`excel/enemy_handbook_table.json`,
+  `levels/enemydata/enemy_database.json`), `levels` (`levels/activities/**`). The master table holds no pure 上半: commit
+  `12e0a020` (2026-03-10) migrated `act1autochess` to the 下半 schema and replaced the shared `autoChessData`.
+
+  | version | default pin | other pins | why |
+  |---|---|---|---|
+  | `act2autochess` (the default) | `17759cc8` (2026-10-08, CN 2.7.81: the build of `data/*.json` since 0.2.3) | `character: 08ba2aea` (2026-11-01, CN 2.7.91: 冻河, 国度, 塔露拉 and the modules of 号角, 凛御银灰, 缪尔赛思, 溯光星源) | master's `activity_table` lost the 盟约 season with CN 2.7.91 (卫戍协议·规程: `activity.AUTOCHESS_SEASON` gone, `autoChessData` empty), so the default reads every other file at the last commit it was built from; only the operator tables move on (DESIGN §37.91) |
+  | `act1autochess` | `21b1f240` (2025-12-05, 上半 final; its autochess sections equal `fdf34ff5` … `3421eaff`, its levels equal the V1_2 update `23c99d5d`, its range table equals `dcc057f6`) | `enemy: ee2cabff` (the last enemy change inside the season, 12-05) | 第一期下半 is V1_2's final state (DESIGN §35.22): V1_2 opened on 11-25 with `23c99d5d`, and the 12-05 commit added 莎草's module `uniequip_002_papyrs` (elite ATK 412 → 450, DEF 150 → 173), 娜斯提 `char_4212_nasti` to the owned 自选 pool (71 → 72, with 3 tokens), the 自选 modules `uniequip_003_ray` and Mon3tr's `uniequip_001_monstr` / `_002_monstr`, and 10 bond texts. The commit also changed three 上半 battle templates, which the build does not read (灵巧's range check `x-1` → `x-4`, 回收利用's 地面 check, 迅捷作战粮's `_forceFlag`). Whether 11-25 → 12-05 is a sub-version of its own is open for the maintainer |
+  | `act1autochess@V1_1` | `8303c922` (2025-11-14, launch: range, enemies, levels) | `activity` and `character: ea164ef7` (the 11-18 hotfix); no enemy pin: `enemy_database` changed again at `23c99d5d`, so V1_2's `ee2cabff` would leak V1_2 enemies | the maintainer's decision of 2026-10-22: V1_1 includes the hotfix (see below). V1_1's levels are the launch's; the V1_2 update `23c99d5d` changed only the three solo hidden-core levels `h08_0X_s`, whose routes end at the 传送 entrance (1,3) instead of the protection point (2,2) (`waves.json` `routes[].end`, 22 values) |
+  | `act3autochess@V3_1` | `6f63c14e` (2026-11-09, CN data 79.2.0, change 127796 of 2026-11-05) | none | until Kengxxiao published this data version the profile read the ArknightsAssets/ArknightsGamedata mirror `b1031d10` (the same data version; `source: 'arknightsassets'`, `.cache/gamedata@aa-<sha>/`, normalised into Kengxxiao's shape by `tools/versions/sources.mjs`); the repin rebuilt every file byte-identically. The season tables are `activity.AUTOCHESS.act3autochess.V3_1` (`section`), and its level pieces become 盟约's 19×21 levels (`layout: 'regulation'`, `tools/versions/layouts.mjs`; DESIGN §37.100). |
+  | `act2autochess@V2_1` | `1457587e` (2026-03-14, the 下半 launch) | none: no file the build reads changed before V2_2 (`86b6e749`; GitHub history per path), the levels changed next at `a24a8ad1` (04-08) | `987b4cd5` (2026-03-17) changed only the battle templates (`battle/buff_template_data.json`, not a build input; among them 精准's ATK, which the sim already gives as the text says), so the directory is the same with or without it: 第二期上半 stands for V2_1 with the 03-17 fix [ASSUMED], as V1_1 includes its hotfix; whether 03-17 is the maintainer's 「第一次改动」 is open (DESIGN §35.22) |
+
+  **The V1_1 hotfix**: `versionInfoDict` counts the 11-18 hotfix (`ea164ef70736ca2d1a356b3bf7b1cd7540960dc1`) as
+  V1_1, and 7 of V1_1's 11 days (11-18 → 11-25 16:00) ran on it, so V1_1 is built with it (the maintainer, 2026-10-22).
+  Every change the build reads is in `activity_table`, among them: leader HP ×0.75 (Funny / Normal pools; −5…−12.5%
+  Hard), `modeFactorInfo.SINGLE` 1.0 → 1.25, `borrowCount` 8 → 20, the enemy effects 攻坚装备II / III
+  (`aceffect_enemy_4` / `_5`), 战场 m06 weight 40 → 60, m07 weight 40 → 5 and Hard modes only (taken out of both Normal
+  modes: their stage pool drops from 6 to 5, as in V1_2), 墨浪 / 枯朽萃聚使徒 special-enemy weight 10 → 0, the leader
+  weight of `boss_2` (假想敌：铳) 5 → 2, 9 more enemies inactive in the Normal modes (one of them, 沉沙 `enemy_1207_sfji`,
+  also in the Funny modes), and 拟态物质's `effectDesc` (`eff_acarm069` and the golden `eff_acgarm069`:
+  "若已拥有至少2名该干员，则再获得1名该干员" became "该初始干员…同盟约初始干员"), carried by `effects.json` and the item
+  descriptions; the 初始干员 wording is a note for 拟态物质's M2 handler. The commit made the same wording change in
+  `skill_table.json`, in the two `sktok_acarm069_1` / `_2` descriptions, so the `character` group is pinned to it as
+  well (rows the build does not read: the output equals a build with the launch's character tables, and character /
+  uniequip / battle_equip are the same at both commits), and added a client Lua fix of a drag state, not a build input.
+- **Cache**: a pinned file is cached in `.cache/gamedata@<sha>/<repo path>` and downloaded from
+  `https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/<sha>/zh_CN/gamedata/<path>` (about 60 MB per version:
+  the 8 tables and the level files; V1_1 over two commits, about 19 MB from `8303c922` (the range table, the 2 enemy
+  tables and the 43 level files) plus about 41 MB from `ea164ef7` (the activity table and the 4 tables of the `character`
+  group), V1_2 over two, `21b1f240` 48 MB with 6 tables and the levels plus
+  `ee2cabff` 13 MB with the 2 enemy tables, V2_1 in one, `1457587e` 65 MB with the 8 tables and the 50 level files of
+  both seasons). `--offline` / `--refresh` keep their per-file meaning; `--cache
+  <dir>` moves every cache (`<dir>` and `<dir>@<sha>`).
+- **`adapters`** (`tools/versions/adapters.mjs`, applied to the season section right after it is loaded, never for the
+  default; each throws on a shape it does not know):
+  - `bondActiveType` — 上半's `bondInfoDict` activates by `activeType` + `isActiveInDeck`; 下半 by `activeCondition` +
+    `activeConditionTemplate` + `activeParamList` + `maxInactiveBondCount`. `ALL` + deck (投资人, 远见, 奇迹) →
+    `BOARD_AND_DECK`; `BATTLE` → `BOARD`; `MANI` (调和) → `BOARD`; each `count_threshold_upward` on `[activeCount]`, −1 —
+    what 下半 writes for the same bonds.
+  - `selfBackupPreset` — a NORMAL shop row that backs itself up becomes a PRESET with its default skill and module as the
+    backup, as 下半 writes it. In 上半 only `chess_char_1_15` (盟约·辅助干员, hidden) qualifies. [ASSUMED]
+  - `launchModes` — the modes open at the season's launch: V2_1's table (`1457587e`) already lists the 终极 modes
+    `mode_single_abyss` / `mode_multi_abyss` with `startTime` 1774598400 (2026-03-27 16:00, V2_2); every mode whose
+    `startTime` is later than the earliest mode's leaves `modeDataDict`, `battleDataDict` and the stages' mode lists.
+    `bosses.json` keeps the ABYSS pools of the table (`boss_1` 2 400 000; V2_2 raised it to 3 600 000), which no mode
+    reads.
+  - `launchMilestones` — the 功勋 levels open at the season's launch (V1_1 and V2_1): both launch tables list all 60
+    levels of `milestoneList`, and levels 36–60 carry the second sub-version's `availableTime` (1764057600 = 2025-11-25
+    16:00 at `8303c922` / `ea164ef7`, 1774598400 = 2026-03-27 16:00 at `1457587e`). Every level whose `availableTime`
+    is later than the earliest level's leaves the list, so `config.rewards.milestones` (the settlement's LV strip) has
+    35 levels; V1_2 keeps 60.
+  - A missing `bloodPointAbyss` (no 终极 in 上半: `bosses.json` omits `ABYSS`) and `enemyDataLevelId` (no season enemy
+    override level) need no adapter.
+- **`research`**: the version's research directory. V2_1 names `docs/research/` itself: the same season, the research
+  applies by id (bondId, trapId, enemy and stage ids) [ASSUMED], written on V2_2. 上半's directories
+  (`docs/research/versions/<slug>/`) are absent in M0; a file missing there falls back to `docs/research/<name>` with a
+  warning — every 上半 field from research is a 下半 value [ASSUMED] until M2 (enemy multipliers, timers, rewards). That includes the descriptive overlays keyed by bondId or trapId:
+  `bonds.json` `spec` (上半's 炎 gets 下半's third tier and "hits up to 3 targets", which 上半 has not), and the items'
+  `implFormula` / `howToPlay` texts. The sim reads none of them, but an M1 screen (S.W.E.E.P., the guide) must not show
+  them as 上半 rules. PRTS (卫戍协议：盟约) dates 上半's solo 70% / co-op 80% enemy multipliers from the 11-18 hotfix,
+  which V1_1 includes; the per-round values (research 01 A3) are still 下半's [ASSUMED]. V2_1's overlays are the default's too, written on V2_2, and several contradict its own
+  blackboard, so the same M1 caution applies: 奥术法阵's `implFormula` names the 失能 (`silence`) V2_1's item lacks; 奇迹's
+  `spec` has p = 0.18 + 0.003·L and 20 funds every 100 layers (V2_1: base 0.25, 10 every 50); 投资人's third tier is at
+  L ≥ 100 (V2_1: 70); 远见's 150-layer tier "replaces the above" (the 3-27 rule); 阿戈尔's algorithm orders 「更靠左和靠上」
+  (V2_1's text: 「靠下和靠左」). M2 adds `docs/research/versions/act2autochess-v2_1/` overrides [ASSUMED].
+- **`tables`**: `'default'` runs the 下半-measured tables of the build. A profile may instead give
+  `{ stock, shopDraft, tacticDraft, bountyDrafts }`, each value `null` (left out), `'default'` (that one 下半 table),
+  a module id (the named export of `tools/versions/tables/<id>.mjs`) or the table object itself. All four `null` is
+  what M2 left out [ASSUMED] —
+  `stock` (only the per-identity overrides `economy.poolCopiesOverrides` / `itemPoolCopiesOverrides` become `{}`: the
+  tier copies `poolCopies` / `itemPoolCopies` stay the literals cited for 下半 in §1, so every 上半 chess and item uses
+  下半's base copies of its tier), `shopDraft`, `tacticDraft` and
+  `bountyDrafts` (the `choices.json` key is omitted, and with `bountyDrafts` the boss-card gating and the draft-set
+  checks are skipped). The match already draws uniformly when a key is absent. Both 上半 profiles leave all four out;
+  V2_1 runs all four (`'default'`) [ASSUMED]: its 机变 events and shop rows are byte-identical to today's, its bounty
+  cards have today's ids and draft data (one text differs, 悬赏·折射II `enemyeffect_15_7`: 卫队 / 卫士, 04-14), and the
+  stock (2026-03-29) and the official drafts (the end of March 2026) name only operators and items V2_1 has.
+  规程 (`act3autochess@V3_1`) leaves `stock` null and names the module `act3autochess-v3_1` for the three draft tables
+  (`tools/versions/tables/act3autochess-v3_1.mjs`; the readings are `test/fixtures/official-regulation-drafts.json`,
+  15 co-op 终极 matches in BV13LWM6BEvY). A boss card is offered only when that version's own R9 groups name it.
+  The bounty cards' own `draft` / `draftPool` classification still runs for 上半 [ASSUMED]: `HIDDEN_BOUNTY_IDS` and the
+  effect-id shapes of `bountyDraftPool` (`enemyeffect_b_*` / `enemyeffect_5_1` → boss, `enemyeffect_1[0-5]_[78]` /
+  `16_*` → hunter, every other kill card → `unseen`, never drafted) come from 下半's PRTS table and screenshots, and the
+  match honours them (`server/match/choices.js`). 上半's 93 bounty cards: excluded perfect 20, unseen 14, hidden 4;
+  drafted boss 19, initial 18, hunter 18. M2's research decides 上半's own pools. Four drafted ids also change meaning in both 上半 builds:
+  `enemyeffect_12_7` and `15_7` are tier II in 下半, I in 上半 (the tier is read from the name, so it comes out right);
+  悬赏·频次III `enemyeffect_11_6` (initial pool) targets 沉沙 `enemy_1207_sfji` in 上半, `enemy_1209_sfden` in 下半; and
+  “鼠王”·悬赏 `enemyeffect_b_11` (boss pool) is tier 3 / 3 coins in 上半, 2 / 2 in 下半.
+  Two more build rules come only from 下半's PRTS record 「卫戍协议：盟约 下半/PRTS盟约记录」 and are carried into 上半
+  [ASSUMED] (DESIGN §35.22.3; M2 checks both against 上半): `DIY_EXTRA_PROTOTYPES`, the tier-5 自选 slots' six extra 4★
+  prototypes (先锋 / 特种 left out: `backups.json` `diy.prototypes` 15 at tier 5, 9 at tier 6, as the default; PRTS's 上半
+  page says nothing of 4★ prototypes in 自选), and `BAND_SWAP_LPR` 1, 鸭爵's swapped-in enemies costing 1 LP
+  (§策略 鸭爵 备注: both 上半 builds' `enemy_2001_duckmi_2` / `enemy_2002_bearmi_2` get `lpr` 1; V1_1's table already
+  carries the 鸭爵 effect, unused there: V1_1 has no 鸭爵 band).
+- **`pools`** (optional): `{ <pool id>: [charId…] }` replaces the operators the build writes for a hand-written chess
+  pool where the version's trait text names others. Both 上半 profiles set `pool_chess_glady` to 斯卡蒂 / 幽灵鲨 / 安哲拉
+  (`garrison_39`: 「斯卡蒂、幽灵鲨或安哲拉」; 下半: 深巡); V2_1 and the default have none.
+- **规程 `config.version.rules.equipHand`**: `true` only in the act3autochess-v3_1 profile. The official season's
+  `maxDeckChessCnt` 10 / `maxDeckEquipmentChessCnt` 5 and separate client hand areas define character and equipment
+  rows. Hidden overflow policy is [ASSUMED] by the owner (2026-11-09); see [META](META.md#regulation-equipment-row-and-overflow).
+- **`config`**: `hiddenCore` single / multi (下半 350 / 1200, V2_1 too; 上半 300 / 1000, PRTS 卫戍协议：盟约); `rules` — V2_1:
+  `{}`, the default's (every 下半 switch dates from 2026-03-14); 上半:
+  `deployOrder 'rowBottomUp'`, `soloTimed true`, `benchEquip false`, `bossMirrorShare false`
+  (PRTS 卫戍协议/帮助; news 5114 describes the later equipment / boss changes). The former `benchFullSwap false`
+  restriction is removed as an **INTENTIONAL DEVIATION (有意偏差)**: after reviewing
+  [official news 5114](https://ak.hypergryph.com/news/5114), the maintainer decided on 2026-10-25 to allow the swap
+  in 第一期上／下半 too. The official first period did not allow it; the second period added it. This convenience
+  applies to all four versions ([§36.2](history/0.3.3.md)). M2 reads `rules` (§35.22.7): a first-season
+  solo is timed unless the room opts into `soloUnlimited` (§35.23.10).
+  `constants.singleReconnectTime` is `null` in a version whose constData lacks it: 上半's has none (the 2026-03-10
+  rewrite `12e0a020` added it), so the build writes no 下半 value as official data. The lobby's own fallback then keeps a
+  dropped solo run resumable for 24 h (`server/lobby.js SOLO_RECONNECT_FALLBACK_SEC`). That 24 h window is a carried-over
+  convenience [ASSUMED], not official 第一期 data: M2 did not add the constant, and the code path is unchanged (§35.23.10).
+  `bans` is 上半's own since §37.205 (tools/versions/act1autochess*.mjs `config.bans`): 2 of its 6 core bonds in 险境 / 绝境 /
+  终极 — a guide written in the season (2025-12-09) says 「核心盟约ban2留4」; until then 下半's 3 of 8 banned half of them — and 4
+  add-ons as on 下半 [ASSUMED]; 标准 0 + 1.
+  **Carried over unreviewed [ASSUMED]**: the rule constants `tools/build-data.mjs` writes as literals (its `buildConfig`
+  return block is the full set; a script comparing `data/config.json` with both 上半 configs finds them equal but for `bans`) go into
+  上半's `config.json` as measured on 下半. Among them: the `hiddenCore` extras (`minTeamLpExclusive`, `checkedAfterRound`, and `difficulties`,
+  which names ABYSS although 上半 and V2_1 have no ABYSS mode — inert, since no mode reads it; so do `trophies.hiddenCore`
+  and `rewards.difficultyFactor`), `trophies`, `bossOvertimeAfter` / `bossOvertimeDrainPerSec` /
+  `bossHpScale`, `unite`, `finalAssault` and `bandDraft`; the economy literals — the tier stock `poolCopies`
+  {12, 14, 18, 16, 8, 5} and `itemPoolCopies` {4, 6, 7, 8, 7, 3} (with `stock` left out every 上半 chess and item uses
+  them), `coopPoolMultiplier` 2, `goldenCopies` 3, `mergeCount` 3 / `itemMergeCount` 2, `rewardOffer`, `freeze`,
+  `tempSize` 5, `equipPerChess` 2, `maxArtsPerRound` 2 and `incomeCapAlternative` / `incomeAssumedAfterRound`; `dp`
+  {10, 1, 99}; the timer literals `timers.spFirst` 30, `bandTurn` 50 (the owner's official-play report of 2026-10-10,
+  下半) and `soloPrepTimeData` 300 (it bears on 上半's timed solo, `rules.soloTimed`); and the title stat rules
+  (`titles[].stat` / `rule`, `titleRule`). They equal the default, so `tools/bb-audit.mjs` cannot list them; `bans` is
+  an M2 item (DESIGN §35.22.5).
+- **`config.version`**: a non-default build appends `version: { id, family, rules }` as the last key of `config.json`;
+  `data/config.json` never has it. A non-default directory also carries `tuning.json`, a byte copy of the hand-maintained
+  `data/tuning.json` (a gameplay file `loadData` and the content hash read) [ASSUMED] the same tuning.
+- **`expect`**: the counts `validateAll` checks, and `triggerDeviations`: `'default'` checks every deliberate trigger
+  deviation; `'present'` (V2_1) those of the operators the version has (雷蛇 joined with V2_2); `'none'` asserts that
+  no chess skill and no backups form has a `TAKE_DAMAGE` row (上半 has no TANK row).
+
+**Tables keyed by stable ids** (so a version that reuses an id for something else is never matched by it: 50 of 上半's
+100 chess ids name another operator in 下半; 72 of its 89 item records carry another effect in 下半 and 6 do not exist
+there):
+
+- `SHOP_EXCLUDED_ITEMS` and `ITEM_RULES` by the NORMAL item's `effectId` (`eff_acarm042`–`045` the four special 维式重锤,
+  `eff_acarm072` 突变细胞; 上半's `chess_item_2_03_e_a` is 灼燃, not 战栗). The default version needs exactly one normal
+  EQUIP item per effect, another at most one.
+- research 04 by the item's trap id (`trapId`), the `choices.json` pools by `effectId` / `charId` (a missing entry is
+  dropped with a warning outside the default [ASSUMED]: 上半 sells none of 野鬃, 灰毫, 远牙 as shop chess (远牙 is a 自选
+  operator there), so `pool_char_pinus` is empty). A profile's `pools` replaces the operators of a hand-written chess pool
+  where the version's trait text names others: both 第一期 builds list 斯卡蒂 / 幽灵鲨 / 安哲拉 in `pool_chess_glady`, as
+  their `garrison_39` says (下半: 深巡, who is shop chess in 第一期 too, so the charId lookup alone kept him; DESIGN
+  §35.22.3).
+- `TRIGGER_DEVIATIONS` (`server/plugins/officialUnitBuilder.js`) by the operator's `charId` and skill id, and like
+  `STANDIN_TRIGGER_DEVIATIONS` applied only over an official `TAKE_DAMAGE` row — the row they override (DESIGN §21.29,
+  §22.10). Every 下半 entry meets one (V2_1: all but 雷蛇's, who joined with V2_2); in 上半 none applies.
+- `TOKEN_ABNORMAL` / `TOKEN_POSITION_CORRECTIONS` stay keyed by token id: a listed token the version does not build is an
+  error in the default only. The enemy, prefab and DIY tables keep their (stable) keys.
+
+**Counts** (this build; warnings in `.cache/build-data-report.<slug>.json`):
+
+| | chess (visible non-DIY, hidden, DIY) | bonds | bands | items | effects | garrisons | enemies | waves | stages | bosses | tokens | bytes |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `act2autochess` | 266 (112, 17, 4) | 23 | 40 | 115 | 361 | 249 | 249 | 38 | 13 | 10 | 22 | 5.81 MB |
+| `act2autochess@V2_1` | 240 (115, 1, 4) | 23 | 36 | 115 | 361 | 229 | 249 | 38 | 13 | 10 | 21 | 5.40 MB |
+| `act1autochess` | 200 (95, 1, 4) | 18 | 30 | 89 | 281 | 174 | 197 | 36 | 9 | 9 | 12 | 4.85 MB |
+| `act1autochess@V1_1` | 200 (95, 1, 4) | 18 | 20 | 89 | 281 | 170 | 197 | 36 | 9 | 9 | 12 | 4.76 MB |
+
+`stages` counts the battle fields plus the 2 escaped levels' maps (default: 11 + 2, §16; 上半: 7 + 2). The 6 MB limit
+applies per version (the 15 built files). V2_1 also differs from today's data under the same ids, and
+the data carries each difference (no code change; DESIGN §35.22.5, pinned by `test/data-versions.test.js`): 节日气球
+`enemy_10040_cnvbln` does not count in the total (no LP for its leak) and 圆仔 `enemy_2085_skzjxd` / `_2` is NORMAL (today
+ELITE; `level_autochess_enemy_data` changed on 04-14, `86da4cfa`); 卢西恩's `act2autochess_h07_05` / `_s` patrol routes
+have 3 checkpoints, not today's 19-checkpoint loops (04-14); 13 elite records lack a module added after 03-14
+(`uniequip_003` / `004`), as do two summons' `byModule` entries and four 自选 forms (菲亚梅塔, 提丰, 黍, 娜仁图亚); 异客
+`chess_char_6_05_b`'s RA-A module `uniequip_004_pasngr` changes 机理分析 to ×1.2 at every potential (the `1457587e`
+battle_equip has only its rank-0 candidate; today ×1.25 from 潜能 5, the base talent's value); the
+自选 operators' powers and bonds are the 03-14 character_table's, so 鸿雪 and 真言 are 盟约·辅助干员 (`emptyShip`), not 萨尔贡
+(`sargonShip`), and seven more 自选 operators have one power fewer; the 9 自选 operators released after 03-14 (予愿安洁莉娜,
+怒潮凛冬, 凯尔希·思衡托, 维伊, 可露希尔, 谬因, 机械师, 克莱门莎, 珊比) are absent, so `diy.ownedPool` holds 67 against 72 (its
+4 V2_1-only picks 银灰, 空弦, 卡涅利安 and 伺夜 are pending, and the kitted gate drops them) and `diy.excluded` 5 against 7
+(焰狐龙梓兰 and 结城理 came later); and a few texts differ (skills, talents, enemy abilities, one bounty card).
+
+V2_1's warnings: the research name annotation dropped from 战场#01 (as the default) and `DIY_EXCLUDED_TEAMS` team `sees` with no owned-6★ pick (as in 上半). The 上半 builds' remaining warnings: research falling back to
+下半 (6 files, [ASSUMED]); `DIY_EXCLUDED_TEAMS` team `sees` has no owned-6★ pick; two `STATIC_BODIES` enemies (`hummbd`,
+`cnvbln`) absent from the 上半 modes; the 6 上半-only enemies whose model `data/assets.json` lacks (墨浪 `enemy_1201_sfzhi`,
+`enemy_1249_lysdb`, `enemy_1254_lypa`, `enemy_1275_dwlock`, `enemy_1373_ltnhor_2`, `enemy_1376_ltndru`: no `attackAnim`,
+one warning each, DESIGN §35.22.5); the research name annotation dropped from 战场#01; the 野鬃 / 灰毫 / 远牙 pool
+entries.
+
+**Build and verify**:
+
+```
+node tools/build-data.mjs --version act1autochess            # 上半 V1_2 → data/versions/act1autochess/
+node tools/build-data.mjs --version act1autochess@V1_1       # 上半 V1_1 → data/versions/act1autochess-v1_1/
+node tools/build-data.mjs --version act2autochess@V2_1       # 下半 V2_1 → data/versions/act2autochess-v2_1/
+node tools/build-data.mjs --version act1autochess --offline  # from .cache/gamedata@<sha>/ only
+node --test test/data-versions.test.js test/versions-default-guard.test.js
+```
+
+`test/data-versions.test.js` rebuilds each version offline and compares all 16 files; without the pinned caches it skips
+and names the missing `.cache/gamedata@<sha>/`. **Hidden inputs**: a version build also reads the committed
+`data/assets.json` (the enemies' attack clips: a manifest of 下半's models, so the 6 上半-only enemies above have no
+`attackAnim` and the sim keeps `ATTACK_PAUSE` for them — 墨浪, 萨卡兹王庭军术师 and 巫王乐团圆号手 are ranged, so their
+attack timing is off — until M2 adds their models; `data/assets.json` is a default data file, so that change rebuilds
+every version directory; G1, which also pinned it, was deleted when M1 started, DESIGN §35.22.2).
+For the regulation family only, a missing web Spine uses the committed `spineLocal` clip metadata for `attackAnim`.
+This supplies the new season's local-client enemy timings without reading extracted files at build/runtime; the four
+盟约 builds keep their existing web-model timing contract and byte-identical output.
+
+Other hidden inputs are `data/tuning.json` (its byte copy; `test/data-versions.test.js` fails
+while a copy differs) and `docs/research/*.json` (the default's research, which V2_1 reads by id and 上半 uses as its fallback) — a default-side change to those makes
+the version directories stale with no version-related cause. Rebuild every version then
+(`--version` for each id). `server/data.js`: `versionDataDir(id)`, `getVersionData(id)` (the default returns `getData()`;
+another version loads its directory once, frozen, with `VERSION_DATA_FILES`, never filling the official-bounds cache),
+`resetVersionData()`; `loadData(DATA_DIR)` reads the top level only.
+
+### Serving the versions (M1)
+
+DESIGN §35.23. A server offers the versions its owner enables; rooms play one of them (server/lobby.js header "Official
+versions"), and their matches run in a match host whose data singleton is that version's.
+
+**Configuration** (`server/http/config.js` versionsFrom): the startServer option `versions: { enabled, default, maxHosts }`
+wins over the environment — `SP_VERSIONS` (`all` or a comma list of registry ids), `SP_VERSION_DEFAULT`,
+`SP_MAX_VERSION_HOSTS`. Nothing set enables every registry id (the lobby switch on; the default version stays
+`act2autochess`, §35.23.11). `SP_VERSIONS=act2autochess`, or `versions.enabled` of that one id, is 第二期下半 alone (the
+switch off). An unknown id is warned about and dropped (none left: `act2autochess`); a default that is not enabled is
+warned about and replaced by the first enabled id in registry order; `maxHosts` defaults to the number of enabled
+non-default versions (at least 1 when there is one). Version match hosts are forked on the first match of a version,
+never at boot. The boot log prints one line, e.g.
+`[versions] enabled: act2autochess (第二期下半, default), act1autochess (第一期下半)`.
+
+**The service** (`server/versions.js` createVersionSets): at boot, each enabled non-default version's `cs` —
+`contentHashOf({ app, sim, data })` over the vanilla code (`app`, `sim`, the same served `/sim/` and `/shared/` files) and
+the sha256 of its directory's gameplay files (`server/plugins/identity.js` versionContentOf; the 16 tables, no art
+manifest; bytes only, no JSON parse) — and its `config.json` modes (the difficulties it offers: 第一期 and 第二期上半 have
+no 终极). A version whose directory is missing a file or unreadable is warned about and stays disabled. Its data
+(`loadData` of its directory, deep-frozen), its official-bounds snapshot (`shared/plugins/officialBounds.js`
+officialBoundsOf: its own maxima — the main process's cache keeps 第二期下半's) and its manifest load on first use. A
+load that fails at run time is logged once and remembered until the server restarts: the version is then unavailable
+(`available(id)` false — `room.create` / `room.proposeVersion` answer `VERSION_UNSUPPORTED`, later welcomes leave it out,
+and when it is the configured default, rooms created without a version and the settings outside a room use 第二期下半,
+else the first enabled version that loads, which the welcome marks the default), while `/healthz` `versions` still lists
+it under `enabled` and keeps the configured `default`. The default version is the vanilla content and the server's data.
+
+**HTTP** (`server/http/static.js`):
+
+| path | answer |
+|---|---|
+| `/data/versions/<slug>/<file>.json` | an enabled version's file; `?v=<sha8>` immutable like `/data/`. Any other path under `data/versions/` (a disabled version, the folder itself, another spelling of one) is a 404: the real path must lie inside an enabled version's real directory |
+| `/cs/<cs16>/index.json` | an enabled version's manifest: `{ v: 1, cs, app, vanilla: true, version, sim, simFiles, data: { <name>: { url: '/data/versions/<slug>/<name>.json?v=<sha8>', sha256, bytes } }, plugins: [], settings: {}, bounds: { official: { url, sha256, bytes } } }`, immutable |
+| `/cs/<cs16>/bounds/official.json` | its official-bounds snapshot, canonical JSON `{ v: 1, bb, fields, bbMin, fieldMin, text }` |
+
+The vanilla `/cs/<cs16>/index.json` is byte-identical (no `version`, no `bounds`, URLs under `/data/`). The build tag
+(`server/http/buildTag.js`) counts the served version directories only, so rebuilding a version the server does not offer
+is no new build. `/healthz` adds `versions: { enabled, default, hosts: { workers, matches, transport } }` only when a
+non-default version is enabled.
+
+**Match hosts**: unmodded rooms of a non-default version start their matches in `server/match/host/` with `kind: 'version'` —
+one child process per version `cs`, at most `maxHosts`, counted apart from the plugin hosts (docs/design/match.md). The
+host checks every data file's sha256 against the version's hash input, installs the data with `setData` and the version's
+bounds snapshot, and refuses a match whose `opts.version` is not its data's version. A test journal of such a match carries
+`init.options.version` and replays in a process whose data singleton is that version's (`server/match/testReplay.js`).
+
+Gameplay plugins that explicitly list a room's official version in `versions` compose over that version's own data and
+`officialBoundsOf` snapshot (PLUGINS §11). Their non-default compositions include `version` in `cs`, use their own `/cs/`
+manifest and changed files, and run in the plugin pool under its existing composition/host limits. Missing `versions`
+means act2autochess only, independently of the lobby default. Official generated data and unmodded version identities
+keep their existing format.
+
+### Per-form equipment capacity and special recruitment
+
+Equipment capacity uses the official `charChessDataDict.equipSlotNum`: regulation Ironhide has 4 normal / 6 elite slots.
+The generator emits only non-default positive counts; other records inherit `economy.equipPerChess` (normally 2).
+`equipmentCapacity` is shared by placement, replacement, AI, invariants and own / spectated UI; morph occupancy remains separate.
+`equipSlotNum` and `recruitTierExempt` are chess identity fields when composing replacement records.
+
+The profile's `recruitTierExempt` explicitly marks only Ironhide. A first-bond communicator used on that special carrier
+can recruit its normal form above shop level without placing it in ordinary stock. Ordinary candidates keep their level,
+stock and ban gates; exact-tier draws and the paging module do not inherit the exception.
+[Official recording BV1FVWN6VEAr](https://www.bilibili.com/video/BV1FVWN6VEAr/?t=74), 01:15–01:19, confirms a normal
+communicator at shop II produces a new normal Ironhide while retaining the carrier. [ASSUMED] Advanced / elite carrier
+cases follow the same handler, and mixed-candidate weights reuse the existing copy model; the recording does not establish those.
+
+### Upgrade reward interpretation
+
+The official pinned regulation activity table (`6f63c14e`) gives Aurora `garrison_50_a/b` count=1, delta_count=1,
+max_count=11; Vulpisfoglia `garrison_74_a/b` count=1, n=2, delta_count=1, max_count=2. `max_count` caps each payout's increase,
+not a lifetime allowance: Aurora pays 1, 2, …, 12, 12, …; Vulpisfoglia 1, 1, 2, 2, 3, 3, … .
+
+Shared pure math lives in `shared/garrisonUpgrades.js`. Progress uses existing player counters keyed by original base chess
+and effect key; ordinary and elite copies, rebuy and later rounds share it, while players and matches are isolated.
+[ASSUMED: fork maintainer confirmation 2026-11-11, pending official recording] These sharing boundaries also include copied
+traits using the copied-from operator and investor repeats advancing once each. No official state-layout claim is made.
+Other garrison counters are unchanged. No persistence or replay infrastructure is introduced by this fix. Runtime text is handled separately by #926, which reads
+shared counters when present and otherwise keeps the legacy display path; this payout fix builds independently.
+
+### Regulation concealment terrain
+
+The generator keeps MAP09's official `w` cells and emits `special.duelGrass` with `groundUnitsGainStealth`,
+`clearedOnLeave:true` and `enemyStealthRestoreSec:0`. The sim reads `enemyStealthRestoreSec` (fallback 0) into the
+terrain stealth buff; the official 0 restores concealment as soon as the block ends. Missing blackboard values do not imply plain ground: these
+rules come from the official tile and buff templates, recorded in
+[the field receipt](research/regulation-map09-20261112.json). No other map record changes.

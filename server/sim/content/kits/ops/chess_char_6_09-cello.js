@@ -2,7 +2,7 @@
 // Conventions of the tier-6 kits: ../shared/tier6.js; kit contract and rules: ../README.md.
 
 import { bodyInRange } from '../../../body.js';
-import { hasHp } from '../../../damage.js';
+import { hasHp } from '../../../attack.js';
 import {
   num, tbb, moduleBb, live, isElite, enemiesIn, selectedSkill, skillGridOf, bstate, onElementHit, elementDmg, aura,
 } from '../shared/tier6.js';

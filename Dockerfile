@@ -42,6 +42,10 @@ RUN node tools/vendor.mjs \
       node tools/fetch-assets.mjs || echo "WARNING: art download incomplete; the image falls back to placeholder art"; \
     fi \
  && rm -rf .cache
+# Maintainer 2026-10-23 (§35.66): this image is a release. Drop the external-AI / LLM files and write
+# server/release-without-llm so the server ignores those settings. The #673 bots stay. Do not import
+# llmGate.js here (it would load the host before the files are gone) or tools/package.mjs.
+RUN node --input-type=module -e "import { omitLlmFromRelease } from './server/match/llmRelease.js'; omitLlmFromRelease('/app');"
 
 # ---- 3. runtime ---------------------------------------------------------------------------------------
 FROM ${NODE_IMAGE}

@@ -416,15 +416,14 @@ test('2_14 调香师 S1 治疗强化·β型: ATK +atk (ASPD unchanged); heals 3 
   }
 });
 
-test('2_16 拉普兰德 S1 日晷: toggle (持续时间无限) ATK +atk; blocks enemy physical damage with `prob`; physical normal attacks', () => {
+test('2_16 拉普兰德 S1 日晷: toggle (持续时间无限) ATK +atk; dodges physical damage with `prob`; physical normal attacks', () => {
   for (const id of both('chess_char_2_16')) {
     const bb = bbAlt(id);
     for (const roll of [true, false]) {
-      const seen = [];
       // 120 hits a minute at bat 0.5, each at the 5 % floor (12.5): 1500 in the 60 s, short of the normal form's 1791 HP
       const h = run({
         defs: { enemies: { e: dummy('e', { atk: 250, bat: 0.5 }) } }, units: [U(id, 9, 5, { carryState: READY })], enemies: [{ key: 'e', pos: [9, 5] }],
-        setup: (b) => { b.rng.chance = (p) => { seen.push(p); return roll; }; },
+        setup: (b) => { b.rng = Object.assign(() => roll ? 0 : 0.999999, b.rng); },
       });
       const u = h.unit(id);
       usesAlt(u, id);
@@ -434,8 +433,8 @@ test('2_16 拉普兰德 S1 日晷: toggle (持续时间无限) ATK +atk; blocks 
       const taken0 = u.stats.taken;
       h.run(60);
       assert.ok(u.skill.active, 'still active after 60 s');
-      assert.ok(seen.includes(bb.prob), 'rolls prob');
-      if (roll) assert.equal(u.stats.taken, taken0, 'every blocked roll negates the physical hit');
+      approx(u.s.dodgePhys, bb.prob, 'skill physical dodge probability');
+      if (roll) assert.equal(u.stats.taken, taken0, 'every successful dodge negates the physical hit');
       else assert.ok(u.stats.taken > taken0, 'a failed roll lands');
       assert.ok(dealt(h, u, (c) => c.dmg.isAttack).every((c) => c.type === 'phys'), 'no 狼魂 arts conversion');
       done(h);
@@ -523,10 +522,10 @@ test('2_19 锡人 S1 “老科利”: alchemy unit — 8 s of weaken −atk and 
     approx(f.s.atk, 100, 'flyers unaffected');
     approx(far.s.atk, 100, 'outside');
     h.run(bb.projectile_delay_time);
-    const zone = dealt(h, u, (c) => c.target === g && (c.dmg.tags || []).includes('zone'));
+    const zone = h.hooksOf('damaged').filter((c) => c.credit === u && c.target === g && (c.dmg.tags || []).includes('zone'));
     assert.equal(zone.length, bb.projectile_delay_time, 'one pulse per second');
     for (const c of zone) { assert.equal(c.type, 'arts'); approx(c.amount, atk0 * bb.atk_scale * wither, `${id} ×${bb.atk_scale}${wither > 1 ? ' ×凋敝魂灵' : ''}`); }
-    assert.equal(dealt(h, u, (c) => (c.target === f || c.target === far) && (c.dmg.tags || []).includes('zone')).length, 0);
+    assert.equal(h.hooksOf('damaged').filter((c) => c.credit === u && (c.target === f || c.target === far) && (c.dmg.tags || []).includes('zone')).length, 0);
     approx(g.s.atk, 100, 'weaken over');
     assert.equal(u.mem.tinZones, 0);
     done(h);

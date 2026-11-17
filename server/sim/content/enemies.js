@@ -7,8 +7,8 @@
 // data are named constants (enemies/helpers.js when several kit families use them, else in the family's file), marked
 // [ASSUMED] or sourced from the official term table (gamedata_const termDescriptionDict) / PRTS.
 //
-// Runtime model: `enemy.mem.ab = { key, t (talent bb), tS (talent bbStr), sk {prefabKey → {cd, icd, sp, bb, bs}},
-//   list [abilities], times, hitShield, atkType, immune, … }`. An ability is a plain object with optional methods
+// Runtime model: `enemy.mem.ab = { key, t (talent bb), tS (talent bbStr), sk {prefabKey → {cd, icd, sp, pr (priority), bb, bs}},
+//   list [abilities], times, atkType, immune, … }`. An ability is a plain object with optional methods
 //   spawn(b,e,a,ab) · dealt(c,…) ('damaged' by one of e's ATTACKS on an ally, non-element) · taken(c,…) ('damaged' on e,
 //   non-element) · hitIn(c,…) ('hit' on e, late: after every other hit handler) · hitOut(c,…) ('hit' from e, early) ·
 //   (`c.source` is null for 无来源 damage — element bursts; target-side reactions that must still fire, e.g. damage
@@ -16,7 +16,10 @@
 //   before(c,…) (beforeAttack of e) · attack(c,…) · blocked(c,…) · killed(c,…) (return true = revived; the kill is then
 //   hidden from later 'kill' handlers) · death(c,…) · status(c,…) (statusApplied on e) · burst(c,…) (elementBurst on e)
 //   · tick(b,e,a,dt) every `iv` s (every tick when iv is 0) · skill: `cd`/`left`(=icd)/`cond`/`fire` (cooldown runs
-//   continuously; fires when ready, the enemy can act and `cond` holds). `sil: true` = the ability's handbook line
+//   continuously; fires when ready, the enemy can act and `cond` holds; `clip` = the skill's clip length in s, its
+//   cooldown then counting from the clip's end — castNow; `atk: true` = an attack-class skill, cast in place of a
+//   normal attack when ready at a swing's damage frame — attackSlotSkill; `own: true` with it = the skill has a trigger
+//   selector of its own (`cond`), so its turn also comes with the attack ready and no swing — onTick). `sil: true` = the ability's handbook line
 //   is flagged SILENCE (沉默 disables it: exactly the data's `format: "SILENCE"` lines). 萨卡兹枯朽战士 / 组长's
 //   【污染秽蚀】 death fog is the one NORMAL line also silenced (archetypes.js kitPolluted, `enemy_1267_nhpbr` and
 //   `_2` only): the owner's official-play recall of 2026-10-12 is that a death while silenced creates no fog, and
@@ -59,7 +62,8 @@
 // Special types (factions.json):
 //   FLY        — engine (FLY motion, ranged-only targeting). Flyer kits in enemies/fly.js (御4, 护障, 寒霜, 萨科塔之翼/眼, 黑云 …).
 //   TIMES 频次 — "需要N次伤害击倒": maxHp := N hits; engine buff flag hitCount — every damage instance (any type, element
-//                bursts included) removes exactly 1 on its own DamageInfo (茶器 hitCountArts: phys removes 0); HP loss
+//                bursts included) removes exactly 1 on its own DamageInfo (茶器 hitCountArts: only arts and true
+//                instances remove 1, phys and 元素伤害 remove 0 — DESIGN §35.32, PRTS 青瓷茶器); HP loss
 //                (loseHp) bypasses the rule. The faction's enemies
 //                create those units (death spawns, embers, blades, 再生).
 //   ELEMENT    — element damage on hit = ATK × ep_damage_ratio into the ally's gauge. 侵蚀 (erosion) is an engine
@@ -99,7 +103,7 @@
 // dispatchers, builds KITS from the kit families and lists STATS_ONLY; the rest lives in server/sim/content/enemies/ —
 //   helpers.js      constants several families use, per-battle state, ability bookkeeping (abOf / attach / dispatch, T,
 //                   canCast …), selection and damage helpers (elem, hurt, areaAllies & friends, zone, spawnChildren,
-//                   setForm, lpLoss, expose, absorbArts …)
+//                   setForm, lpLoss, expose …)
 //   archetypes.js   ability building blocks (stealth, splashAttack, deathBoom, refraction, float, reborn, husk, statue,
 //                   artsBarrier, bleed, pollution, dmgZone, skill(), blinkForward …) and the archetype kits reused by
 //                   several keys (kitEp, kitStealth, kitTimes, kitRefraction, kitPrisoner, kitDeathSpawn, kitStun3 …)
@@ -119,13 +123,14 @@ import { REFLECTION_KITS } from './enemies/reflection.js';
 import { FLY_KITS } from './enemies/fly.js';
 import { SPECIAL_KITS } from './enemies/special.js';
 import { LEADER_KITS } from './enemies/leaders.js';
+import { REGULATION_KITS } from './enemies/regulation.js';
 import { hypot } from '../detmath.js';
 
 export {
   EROSION, EROSION_BURST, HUSK_REBIRTH, nthOf, abOf, attach, T, silenced, canCast, unbalancedNow, elem, hurt, alliesInTiles,
   targetsNear, allTargets, areaAllies, areaAlliesInTiles, fieldAllies, auraAllies, targetAndArea, byPriority, zone,
   remainingRoute, stayRoute, spawnChildren, stepToward, setHits, hitCount, isHitCount, setForm, lpLoss, expose,
-  expectedFinal, absorbArts, castSlot,
+  castSlot,
 } from './enemies/helpers.js';
 export { TRANSLATOR_CHANGE } from './enemies/leaders.js';
 export { BOMBD_RELEASE, BOMBD_POST_DELAY } from './enemies/fly.js';
@@ -173,7 +178,10 @@ export function registerMeta() {}
 // global dispatchers
 
 function onSpawn(b, e) {
-  const kit = KITS[e.def.raw?.effectRef ?? e.defId];
+  // Regulation-only keys stay out of KITS: test/content/enemies_bosses.test.js requires every KITS key in the default
+  // enemies.json. The fallback is the act3 record (absent from the default table).
+  const key = e.def.raw?.effectRef ?? e.defId;
+  const kit = KITS[key] || REGULATION_KITS[key];
   if (typeof kit !== 'function') return;
   const ab = abOf(b, e);
   const list = safe(b, e, () => kit(ab, e, b)) || [];
@@ -191,16 +199,7 @@ function onHitOut(b, c) {
 function onHitIn(b, c) {
   const t = c.target;
   if (!t || t.side !== 'enemy' || !t.mem.ab || c.dmg.cancel) return;
-  const ab = t.mem.ab;
   dispatch(b, t, 'hitIn', c);
-  if (c.dmg.cancel) return;
-  const ty = c.dmg.type;
-  if (ab.hitShield > 0 && (ty === 'phys' || ty === 'arts')) {
-    // "可以抵挡一次物理或法术伤害" / 再生's aura shield: the whole instance is negated
-    c.dmg.cancel = true;
-    ab.hitShield--;
-    if (ab.hitShield <= 0) b.fx('shieldBreak', { x: t.x, y: t.y, id: t.id });
-  }
 }
 
 function onDamaged(b, c) {
@@ -212,7 +211,78 @@ function onDamaged(b, c) {
 
 function onBeforeAttack(b, c) {
   const a = c.attacker;
-  if (a && a.side === 'enemy' && a.mem.ab) dispatch(b, a, 'before', c);
+  if (!a || a.side !== 'enemy' || !a.mem.ab) return;
+  if (!c.isSkill && attackSlotSkill(b, a, c)) return;
+  dispatch(b, a, 'before', c);
+}
+
+/**
+ * An attack-class skill (`atk: true`: its official ability is a MeleeAttack / RangedAttack, the class of the normal
+ * attack — PRTS 「触发索敌和普通攻击相同」) takes the attack's turn instead of running beside it — PRTS 盐风主教昆图斯, the
+ * site's 「关于技能」 rules: 「大多数技能自动触发会占用攻击间隔（即可以攻击时不进行攻击，改为触发技能…）」. When a swing
+ * reaches its damage frame and such a skill is ready (cooldown run out), castable and its `cond` holds, the skill is cast
+ * and the strike is not made, the attack cooldown restarting as after a strike; no target, no swing, no skill. Several
+ * ready: the highest data priority, equal ones at random (`b.rng`) — 「同时存在多个可触发的技能时，优先级最高的技能优先
+ * 触发，优先级相同则随机触发其中之一」. Its cooldown counts from the end of its clip (`clip`, castNow: 「同一技能的冷却时间
+ * 于该技能结束时开始计时」), so 盐风主教昆图斯's third-form 【大潮】 (cooldown 3.5 + its 1.667 s clip, attack interval 3.5)
+ * is not ready at the next turn and alternates with the attack — arknights.wiki.gg: never "Great Tide twice in a row"
+ * (an interval slowed past 5.167 s gives it every turn: the clip is not stretched by a slow, bosses.js QUINTUS_CLIP).
+ * The next swing waits for the skill's clip when that is longer than the attack interval (attackCdAfter: 高准度伦蒂尼姆城防
+ * 自行炮's 10 s Cannon over its 6 s interval, W's 4.8 s C4 over 4: the official unit is held by its ability's clip and
+ * cannot attack inside it; DESIGN §35.54). [ASSUMED] (no source): readiness checked at the damage frame, not when the
+ * swing starts (a skill that becomes ready during the wind-up takes that turn; PRTS 「可以攻击时」 reads as the swing's
+ * start, where the attack would go ahead and the skill wait one turn), the attack cooldown restarting at the skill (a
+ * clip shorter than the interval: the interval as after a strike), the skill's effect at the attack's damage frame (not
+ * its own clip's), no attack-clip stand after it (昆图斯 is 自缚).
+ */
+function attackSlotSkill(b, e, c) {
+  const a = attackTurnSkill(b, e);
+  if (!a) return false;
+  c.targets = [];
+  e.atkCd = attackCdAfter(e, a);
+  return true;
+}
+
+/** The attack cooldown of enemy `e` after it cast attack-class skill `a` in the attack's turn: the interval, or the skill's
+ *  clip when that is longer [ASSUMED: the unit is held by the clip; DESIGN §35.54]. */
+const attackCdAfter = (e, a) => Math.max(e.s.interval, a.clip > 0 ? a.clip : 0);
+
+/**
+ * The attack's turn of enemy `e` has come: cast its ready attack-class skill (`atk`) — the highest priority (`a.pr`, else
+ * the data's `sk.pr`), equal ones at random (`b.rng`) — and return that ability, or return null (the turn goes to the
+ * attack).
+ * The engine's swing calls it at the damage frame (attackSlotSkill); a kit whose leader attacks through its own loop
+ * (假想敌：管 / 弦's strikes on 余音, “萨米的意志”'s 【冰凌】: bosses.js) calls it when that loop's attack is due and has a
+ * target, and skips the attack when it returns true (DESIGN §35.29). `ownOnly`: only the skills with a trigger selector
+ * of their own (`own`) — the turn of an attack that is ready with no swing (onTick).
+ */
+export function attackTurnSkill(b, e, ownOnly = false) {
+  const ab = e.mem.ab;
+  if (!ab) return null;
+  let ready = null, top = -Infinity;
+  for (const a of ab.list) {
+    if (!a || !a.atk || !a.fire || a.cd == null || a.left > 1e-9 || (ownOnly && !a.own)) continue;
+    if (!canCast(e, a.sil, b) || (a.cond && !safe(b, e, () => a.cond(b, e, a)))) continue;
+    const pr = a.pr ?? ((a.sk && a.sk.pr) || 0);
+    if (pr > top) { top = pr; ready = [a]; } else if (pr === top) ready.push(a);
+  }
+  if (!ready) return null;
+  const a = ready.length > 1 ? b.rng.pick(ready) : ready[0];
+  castNow(b, e, a);
+  return a;
+}
+
+/**
+ * Cast content skill `a` of enemy `e` now: its cooldown restarts — counted from the end of its clip when the kit gives
+ * its length (`a.clip`, s: PRTS 「同一技能的冷却时间于该技能结束时开始计时」), else from the cast —, then it fires.
+ */
+function castNow(b, e, a) {
+  a.left = Math.max(TICK, a.cd + (a.clip > 0 ? a.clip : 0));
+  a.casts = (a.casts ?? 0) + 1;
+  e.skillAnimUntil = b.time + 0.5;
+  // display only: the skill slot it uses (render/app.js 'cast'); an attack-class one with its clip (DESIGN §35.57)
+  if (a.sk) castSlot(b, e, a.sk, a.atk ? (a.clip > 0 ? a.clip : 0) : null);
+  safe(b, e, () => a.fire(b, e, a));
 }
 
 function onKill(b, c) {
@@ -263,14 +333,21 @@ function onTick(b, dt) {
       }
       if (a.fire && a.cd != null) {
         a.left -= dt;
-        if (a.left <= 1e-9 && canCast(e, a.sil, b) && (!a.cond || safe(b, e, () => a.cond(b, e, a)))) {
-          a.left = Math.max(TICK, a.cd);
-          a.casts = (a.casts ?? 0) + 1;
-          e.skillAnimUntil = b.time + 0.5;
-          if (a.sk) castSlot(b, e, a.sk);   // display only: the skill slot it uses (render/app.js 'cast')
-          safe(b, e, () => a.fire(b, e, a));
-        }
+        // an attack-class skill (`atk`) waits for the attack's turn instead (attackSlotSkill)
+        if (!a.atk && a.left <= 1e-9 && canCast(e, a.sil, b) && (!a.cond || safe(b, e, () => a.cond(b, e, a)))) castNow(b, e, a);
       }
+    }
+    // An attack-class skill with a trigger selector of its own (`own`: 卢西恩 / 不祥幻影's aoe, 「仅在半径2范围内存在我方单位时
+    // 触发」) also takes a turn when the attack is ready and no swing started this tick — the attack has no target (a melee
+    // enemy nobody blocks: 卢西恩 past his blocker) —, PRTS 「可以攻击时不进行攻击，改为触发技能」 read as the attack's
+    // cooldown being over (DESIGN §35.29). The attack cooldown restarts as after a strike, or at the skill's longer clip
+    // (attackCdAfter, DESIGN §35.54). [ASSUMED] the effect comes at once (no wind-up: no swing), and the refusals of a
+    // normal attack hold (恐惧 / 缴械 / 战栗 while blocked); an enemy that makes no normal attack (`profile.noAttack`) has
+    // none to give up, its cooldown still running out.
+    if (ab.ownTurn && e.alive && !e.swing && !(e.atkCd > 0)
+      && !e.s.flags.fear && !e.s.flags.disarm && !(e.s.flags.tremble && e.blockedBy)) {
+      const a = attackTurnSkill(b, e, true);
+      if (a) e.atkCd = attackCdAfter(e, a);
     }
   }
 }
@@ -300,7 +377,6 @@ export const STATS_ONLY = Object.freeze({
   enemy_1046_agent: 'plain', enemy_1071_dftman: 'plain', enemy_1092_mdgint: 'plain (bounty)',
   enemy_1251_lysyta: 'R-series armour interaction absent', enemy_1251_lysyta_2: 'same',
   enemy_1252_lysytb_2: 'same', enemy_1254_lypa_2: 'no listed ability', enemy_1325_cbgpro: 'plain', enemy_1325_cbgpro_2: 'plain',
-  enemy_1367_dseed: 'altar pulse absent (骸骨拷打者 leaves them inert, uncounted, in place)',
   enemy_1381_winman: 'plain', enemy_1381_winman_2: 'plain', enemy_1387_winshd: '封冻/供暖器 zones absent', enemy_1415_mmkabi_2: 'chains absent',
   enemy_1433_dsbasi: 'plain', enemy_1433_dsbasi_2: 'plain', enemy_1438_dspred: '赘生甲壳 absent',
   enemy_2002_bearmi: 'plain', enemy_2002_bearmi_2: 'plain',
@@ -308,7 +384,11 @@ export const STATS_ONLY = Object.freeze({
   enemy_10073_mpcar: 'plain', enemy_10124_uashld_2: 'taunt is data; 矿工游击队 absent',
 });
 
-// 圣杯 damage sharing: ground enemies near a living chalice pass `share` of the damage they take to it.
+// 圣杯 damage sharing (PRTS 愧悔魂灵圣杯: "令半径1.7范围内…行动方式为地面的敌方单位受到的伤害降低至5%…以此减少的伤害以真实
+// 伤害的形式由自身承受"): a ground enemy near a living chalice keeps `share` (takeDmg.damage_scale 0.05) of the damage, the
+// chalice takes the rest as true damage. Until round 58 it was the other way round (the enemy kept 95 %). [ASSUMED] still:
+// the split happens on the raw amount before DEF / RES (PRTS: priority −3000, after them), 斩杀 is not exempted, and the
+// first chalice in range takes it (no "already shared by another chalice" mark).
 function chaliceShare(b, c) {
   const st = stOf(b);
   if (!(st.chalices > 0)) return;
@@ -318,10 +398,11 @@ function chaliceShare(b, c) {
     if (!o.alive || o === t || o.defId !== 'enemy_1430_lrrook' || !o.mem.ab) continue;
     const a = o.mem.ab.list[0];
     if (!a || !(a.share > 0) || hypot(o.x - t.x, o.y - t.y) > a.r) continue;
-    const part = c.dmg.amount * a.share;
-    c.dmg.amount -= part;
-    // a 无来源 burst's share stays 无来源, credited like the burst (damage.js)
-    b.dealDamage(c.dmg.sourceless ? c.credit : c.source, o, { amount: part, type: c.dmg.type, canDodge: false, sourceless: c.dmg.sourceless, tags: [...(c.dmg.tags || []), 'chalice'] });
+    const kept = c.dmg.amount * a.share;
+    const part = c.dmg.amount - kept;
+    c.dmg.amount = kept;
+    // a 无来源 burst's share stays 无来源, credited like the burst (attack/element.js)
+    b.dealDamage(c.dmg.sourceless ? c.credit : c.source, o, { amount: part, type: 'true', canDodge: false, sourceless: c.dmg.sourceless, tags: [...(c.dmg.tags || []), 'chalice'] });
     break;
   }
 }

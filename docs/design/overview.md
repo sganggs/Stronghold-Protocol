@@ -88,7 +88,7 @@ server/
     grid.js                field grid, tile queries, passability, official 4-direction SPFA flow field + line-of-sight smoothing, road-over-floor preference only where it crosses fewer floor tiles (§21.15); DEPLOY_REFUSED_TILES (深水区, §21.3)
     units.js               Unit / Operator / Enemy / Token classes, stat aggregation
     buffs.js               Buff model, status catalogue (stun, freeze, cold, sleep, slow, fragile, stealth, …)
-    damage.js              damage & heal pipeline, element gauges
+    attack.js              settlement API: damage, HP loss, element damage, healing (attack/: the ordered pipeline, element gauges)
     targeting.js           target selection helpers, range tests, priorities
     body.js                hit areas of huge enemies: the one helper behind every range test on enemies (§3, §19.4)
     projectiles.js         projectile flight/impact
@@ -170,3 +170,12 @@ Ownership rule for parallel agents: **only edit files assigned to you**; if you 
 4. **Integration & QA**: wire everything, bots, E2E, balance pass, bug-hunt workflows until dry, visual polish.
 
 ---
+
+### Release archive smoke (#568)
+
+The package CLI checks every generated runnable ZIP from a fresh temporary extraction: full, lite, and update over
+each declared base. It runs the packaged server entry with packaged dependencies, on loopback port 0, then checks
+`/healthz` (including version), `/`, and `/vendor/pixi.min.js`. No assets are fetched, and asset-only archives have
+no boot check. Failures return nonzero with the stage and persistent ZIP-side log; children and extracted trees are
+cleaned up. [ASSUMED] startup/request deadline 30 s, shutdown grace 2 s. This release gate is outside the CI system
+matrix. Revision: [§37.2](../history/0.4.0.md); commands: [DEPLOY §7](../DEPLOY.md#7-打包发布维护者).

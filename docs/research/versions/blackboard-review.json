@@ -1,0 +1,1100 @@
+{
+  "source": "Pinned activity_table snapshots in tools/versions; docs/history/0.3.2.md sections 35.22.5 and 35.22.7. The strict audit remains diagnostic (exit 1); this is an exhaustive review, not an ignore list.",
+  "reports": [
+    {
+      "dir": "data/versions/act2autochess-v2_1",
+      "findings": [],
+      "missingBuffKeys": [
+        {
+          "key": "bond_multi_layer_char_goods_price_bond_discount",
+          "reason": "visiDiscount normalizes the historical single-stage keys; the V2_2 replacement key is absent by design."
+        },
+        {
+          "key": "SERVER_ADD_MULTIPLE_BOND",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "silence_attachment",
+          "reason": "The historical pocket spell circle has RES only; silence was added on 2026-03-27."
+        }
+      ],
+      "unknownTriggerRules": [],
+      "versionOnlyKeys": [],
+      "versionOnlyFields": []
+    },
+    {
+      "dir": "data/versions/act1autochess",
+      "findings": [
+        {
+          "table": "bonds",
+          "key": "raidShip",
+          "buff": "act1autochess_bond_eff_raid",
+          "field": "no_attack_duration",
+          "reason": "Historical raid uses readiness with an empty range, no idle timer (Infinity); its milestone uses cost/respawn fields instead of ASPD."
+        },
+        {
+          "table": "bonds",
+          "key": "raidShip",
+          "buff": "act1autochess_bond_eff_raid",
+          "field": "power_attack_speed",
+          "reason": "Historical raid uses readiness with an empty range, no idle timer (Infinity); its milestone uses cost/respawn fields instead of ASPD."
+        },
+        {
+          "table": "bonds",
+          "key": "sargonShip",
+          "buff": "act1autochess_bond_eff_sargon",
+          "field": "invalid_in_band",
+          "reason": "The first-season record has no invalid_in_band exception; the optional test remains false, following its text."
+        },
+        {
+          "table": "bonds",
+          "key": "steadShip",
+          "buff": "act1autochess_bond_eff_stead",
+          "field": "base_damage_value",
+          "reason": "Historical Steadfast has HP and sharing only. Missing retaliation fields return before any hit/status; the flagged damage_scale read belongs to other records."
+        },
+        {
+          "table": "bonds",
+          "key": "steadShip",
+          "buff": "act1autochess_bond_eff_stead",
+          "field": "cd_duration",
+          "reason": "Historical Steadfast has HP and sharing only. Missing retaliation fields return before any hit/status; the flagged damage_scale read belongs to other records."
+        },
+        {
+          "table": "bonds",
+          "key": "steadShip",
+          "buff": "act1autochess_bond_eff_stead",
+          "field": "damage_scale",
+          "reason": "Historical Steadfast has HP and sharing only. Missing retaliation fields return before any hit/status; the flagged damage_scale read belongs to other records."
+        },
+        {
+          "table": "bonds",
+          "key": "steadShip",
+          "buff": "act1autochess_bond_eff_stead",
+          "field": "damage_value_per_stack",
+          "reason": "Historical Steadfast has HP and sharing only. Missing retaliation fields return before any hit/status; the flagged damage_scale read belongs to other records."
+        },
+        {
+          "table": "bonds",
+          "key": "victoriaShip",
+          "buff": "act1autochess_bond_eff_victoria",
+          "field": "atk_golden_equip",
+          "reason": "Historical equipped-member bonus uses power_atk once; modern per-item attack fields are deliberately absent."
+        },
+        {
+          "table": "bonds",
+          "key": "victoriaShip",
+          "buff": "act1autochess_bond_eff_victoria",
+          "field": "atk_normal_equip",
+          "reason": "Historical equipped-member bonus uses power_atk once; modern per-item attack fields are deliberately absent."
+        },
+        {
+          "table": "bonds",
+          "key": "yanShip",
+          "buff": "act1autochess_bond_eff_yan",
+          "field": "atk",
+          "reason": "The historical Yan has no nine-member tier. reached() requires a finite threshold, so the extra ATK/damage-reduction branch is unreachable."
+        },
+        {
+          "table": "bonds",
+          "key": "yanShip",
+          "buff": "act1autochess_bond_eff_yan",
+          "field": "damage_resistance",
+          "reason": "The historical Yan has no nine-member tier. reached() requires a finite threshold, so the extra ATK/damage-reduction branch is unreachable."
+        },
+        {
+          "table": "bonds",
+          "key": "yanShip",
+          "buff": "act1autochess_bond_eff_yan",
+          "field": "ex_bond_char_cnt",
+          "reason": "The historical Yan has no nine-member tier. reached() requires a finite threshold, so the extra ATK/damage-reduction branch is unreachable."
+        },
+        {
+          "table": "effects",
+          "key": "aceffect_enemy_2_2",
+          "buff": "enemy_attribute_mul",
+          "field": "enemy_exclude",
+          "reason": "第一期's ENEMY round effects carry no enemy_exclude. The code reads it only to drop the 补给线 share from the 规程 leader tokens' hits (server/sim/content/bosses.js tokenHits, history §37.120); absent means nothing is excluded, which matches this season's data (its rows name no exclusion), so its tokens keep the whole round multiplier."
+        },
+        {
+          "table": "effects",
+          "key": "aceffect_enemy_2",
+          "buff": "enemy_attribute_mul",
+          "field": "enemy_exclude",
+          "reason": "第一期's ENEMY round effects carry no enemy_exclude. The code reads it only to drop the 补给线 share from the 规程 leader tokens' hits (server/sim/content/bosses.js tokenHits, history §37.120); absent means nothing is excluded, which matches this season's data (its rows name no exclusion), so its tokens keep the whole round multiplier."
+        },
+        {
+          "table": "effects",
+          "key": "aceffect_enemy_3",
+          "buff": "enemy_attribute_mul",
+          "field": "enemy_exclude",
+          "reason": "第一期's ENEMY round effects carry no enemy_exclude. The code reads it only to drop the 补给线 share from the 规程 leader tokens' hits (server/sim/content/bosses.js tokenHits, history §37.120); absent means nothing is excluded, which matches this season's data (its rows name no exclusion), so its tokens keep the whole round multiplier."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_raid",
+          "buff": "act1autochess_bond_eff_raid",
+          "field": "no_attack_duration",
+          "reason": "Historical raid uses readiness with an empty range, no idle timer (Infinity); its milestone uses cost/respawn fields instead of ASPD."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_raid",
+          "buff": "act1autochess_bond_eff_raid",
+          "field": "power_attack_speed",
+          "reason": "Historical raid uses readiness with an empty range, no idle timer (Infinity); its milestone uses cost/respawn fields instead of ASPD."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_sargon",
+          "buff": "act1autochess_bond_eff_sargon",
+          "field": "invalid_in_band",
+          "reason": "The first-season record has no invalid_in_band exception; the optional test remains false, following its text."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_stead",
+          "buff": "act1autochess_bond_eff_stead",
+          "field": "base_damage_value",
+          "reason": "Historical Steadfast has HP and sharing only. Missing retaliation fields return before any hit/status; the flagged damage_scale read belongs to other records."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_stead",
+          "buff": "act1autochess_bond_eff_stead",
+          "field": "cd_duration",
+          "reason": "Historical Steadfast has HP and sharing only. Missing retaliation fields return before any hit/status; the flagged damage_scale read belongs to other records."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_stead",
+          "buff": "act1autochess_bond_eff_stead",
+          "field": "damage_scale",
+          "reason": "Historical Steadfast has HP and sharing only. Missing retaliation fields return before any hit/status; the flagged damage_scale read belongs to other records."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_stead",
+          "buff": "act1autochess_bond_eff_stead",
+          "field": "damage_value_per_stack",
+          "reason": "Historical Steadfast has HP and sharing only. Missing retaliation fields return before any hit/status; the flagged damage_scale read belongs to other records."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_victoria",
+          "buff": "act1autochess_bond_eff_victoria",
+          "field": "atk_golden_equip",
+          "reason": "Historical equipped-member bonus uses power_atk once; modern per-item attack fields are deliberately absent."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_victoria",
+          "buff": "act1autochess_bond_eff_victoria",
+          "field": "atk_normal_equip",
+          "reason": "Historical equipped-member bonus uses power_atk once; modern per-item attack fields are deliberately absent."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_yan",
+          "buff": "act1autochess_bond_eff_yan",
+          "field": "atk",
+          "reason": "The historical Yan has no nine-member tier. reached() requires a finite threshold, so the extra ATK/damage-reduction branch is unreachable."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_yan",
+          "buff": "act1autochess_bond_eff_yan",
+          "field": "damage_resistance",
+          "reason": "The historical Yan has no nine-member tier. reached() requires a finite threshold, so the extra ATK/damage-reduction branch is unreachable."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_yan",
+          "buff": "act1autochess_bond_eff_yan",
+          "field": "ex_bond_char_cnt",
+          "reason": "The historical Yan has no nine-member tier. reached() requires a finite threshold, so the extra ATK/damage-reduction branch is unreachable."
+        },
+        {
+          "table": "effects",
+          "key": "eff_acarm057",
+          "buff": "act1autochess_equip_acarm057_global_buff",
+          "field": "max_trigger_cnt",
+          "reason": "The historical bridge clip text has no trigger cap; missing cap uses Infinity. Modern data keeps its explicit cap."
+        },
+        {
+          "table": "effects",
+          "key": "eff_acgarm057",
+          "buff": "act1autochess_equip_acarm057_global_buff",
+          "field": "max_trigger_cnt",
+          "reason": "The historical bridge clip text has no trigger cap; missing cap uses Infinity. Modern data keeps its explicit cap."
+        },
+        {
+          "table": "garrisons",
+          "key": "act1autochess_gar_event_consume_ammo|act1autochess_gar_event_consume_ammo",
+          "buff": "char_dynamic_ability_new",
+          "field": "max_add_count_per_battle",
+          "reason": "The historical trait has no per-battle layer cap. The existing missing/nonpositive-cap path uses Infinity."
+        },
+        {
+          "table": "garrisons",
+          "key": "act1autochess_gar_event_enemy_abflag_inrange|act1autochess_gar_event_enemy_abflag_inrange",
+          "buff": "char_dynamic_ability_new",
+          "field": "max_add_count_per_battle",
+          "reason": "The historical trait has no per-battle layer cap. The existing missing/nonpositive-cap path uses Infinity."
+        },
+        {
+          "table": "garrisons",
+          "key": "act1autochess_gar_event_selfkillenemy|act1autochess_gar_event_selfkillenemy",
+          "buff": "env_gbuff_new_with_verify",
+          "field": "max_add_count_per_battle",
+          "reason": "The historical trait has no per-battle layer cap. The existing missing/nonpositive-cap path uses Infinity."
+        },
+        {
+          "table": "garrisons",
+          "key": "SERVER_TRIGGER_ANOTHER|",
+          "buff": "SERVER_TRIGGER_ANOTHER",
+          "field": "conditionkey",
+          "reason": "These historical re-trigger traits omit the modern board-only condition. The dispatcher applies a condition only when one is present."
+        },
+        {
+          "table": "garrisons",
+          "key": "SERVER_TRIGGER_FRONT_COUNT|",
+          "buff": "SERVER_TRIGGER_FRONT_COUNT",
+          "field": "conditionkey",
+          "reason": "These historical re-trigger traits omit the modern board-only condition. The dispatcher applies a condition only when one is present."
+        },
+        {
+          "table": "items",
+          "key": "eff_acarm057",
+          "buff": "act1autochess_equip_acarm057_global_buff",
+          "field": "max_trigger_cnt",
+          "reason": "The historical bridge clip text has no trigger cap; missing cap uses Infinity. Modern data keeps its explicit cap."
+        }
+      ],
+      "missingBuffKeys": [
+        {
+          "key": "act2autochess_band12_buff",
+          "reason": "The later Dusk dragon grant does not exist in these first-season band records."
+        },
+        {
+          "key": "act2autochess_band3_buff",
+          "reason": "The later band clause does not exist in these first-season band records."
+        },
+        {
+          "key": "act2autochess_bond_eff_kazimierz",
+          "reason": "Kazimierz is not a first-season bond."
+        },
+        {
+          "key": "act2autochess_bond_eff_sargon[share]",
+          "reason": "The later Sargon sharing clause is absent; the historical bond retains its own blackboard."
+        },
+        {
+          "key": "act2autochess_bond_eff_siracusa",
+          "reason": "Siracusa is not a first-season bond."
+        },
+        {
+          "key": "act2autochess_equip_acarm055_global_buff",
+          "reason": "Replaced by the historical deployment-time camouflage handler (act1autochess_equip_acarm055_global_buff)."
+        },
+        {
+          "key": "act2autochess_equip_acarm078_global_buff",
+          "reason": "Historical trench changes Egir devour to four neighbours, handled in bonds/core.js; no modern version of the buff."
+        },
+        {
+          "key": "act2autochess_equip_acarm102_ability",
+          "reason": "Historical Tears applies cold around a killed enemy, handled by its act1autochess key; no periodic damage."
+        },
+        {
+          "key": "act2autochess_equip_acarm117_global_buff",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "act2autochess_equip_acarm118_global_buff",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "act2autochess_equip_acarm119_ability",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "act2autochess_equip_acarm119_global_buff",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "act2autochess_equip_acarm120_global_buff",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "act2autochess_equip_acarm121_ability",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "act2autochess_equip_acarm122_global_buff",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "act2autochess_gar_eff_ab_damageScaleByBond",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "act2autochess_gar_eff_attrByBond_add_onstart",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "act2autochess_gar_event_allyenemy_sleepstun_inrange",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "act2autochess_gar_event_onstart",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "bond_multi_layer_char_goods_price_bond_discount",
+          "reason": "visiDiscount normalizes the historical single-stage keys; the V2_2 replacement key is absent by design."
+        },
+        {
+          "key": "first_sell_char_chess_exchange_char_chess_in_shop",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "gain_coin_when_round_start",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "periodic_damage",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "preparation_start_add_special_goods_every_n_round",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "refresh_shop_count_gain_coin_bond_char_chess",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "round_start_activate_char_chess_effect_in_board",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "round_start_gain_char_chess_in_shop_every_n_round",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "round_start_gain_coin_by_bond_char_chess_buy",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "sell_char_count_gain_equip_owner_bond",
+          "reason": "Historical packaging returns the original carrier (sell_char_count_gain_equip_owner_original), not a bond roll."
+        },
+        {
+          "key": "SERVER_ADD_ACT_BOND_DIFF_LV_MOST_LAYER",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "SERVER_ADD_MULTIPLE_BOND",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "SERVER_ADD_REFRESH_CNT_MULTIPLIER_BOND_LAYER",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "SERVER_GAIN_BOND_LAYER_BY_REFRESH_CNT",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "SERVER_GAIN_FREE_REFRESH_COUNT",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "SERVER_GAIN_RANDOM_EQUIP_CHESS_IN_POOL",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "SERVER_SELL_CHESS_GAIN_SPECIAL_GOODS",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "silence_attachment",
+          "reason": "The historical pocket spell circle has RES only; silence was added on 2026-03-27."
+        },
+        {
+          "key": "use_equip_gain_coin_when_next_round_start",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "use_equip_recruit_new_char_and_give_char_to_player_most_bond",
+          "reason": "Historical beacon destroys and sends the same-quality operator using use_equip_give_char_to_player_most_bond."
+        },
+        {
+          "key": "use_equip_reward_char_chess_bond_layer",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "use_equip_reward_char_chess_with_same_bond",
+          "reason": "Historical pager uses use_equip_add_goods_rule_with_refresh_shop; it refreshes the shop instead of granting an offer."
+        },
+        {
+          "key": "use_equip_reward_random_char_chess_in_shop",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "use_equip_reward_special_goods_char_chess",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        }
+      ],
+      "unknownTriggerRules": [],
+      "versionOnlyKeys": [],
+      "versionOnlyFields": [
+        {
+          "table": "bonds",
+          "key": "preciShip",
+          "buff": "act1autochess_bond_eff_preci",
+          "field": "silence",
+          "reason": "Historical Precision applies silence from its own blackboard to high-ground attackers (attack hook)."
+        },
+        {
+          "table": "bonds",
+          "key": "raidShip",
+          "buff": "act1autochess_bond_eff_raid",
+          "field": "power_cost_scale",
+          "reason": "Applied through costMul to deployment/redeployment DP payments."
+        },
+        {
+          "table": "bonds",
+          "key": "raidShip",
+          "buff": "act1autochess_bond_eff_raid",
+          "field": "power_respawn_time",
+          "reason": "Applied through redeployMul; the official historical value is 1 (neutral)."
+        },
+        {
+          "table": "bonds",
+          "key": "victoriaShip",
+          "buff": "act1autochess_bond_eff_victoria",
+          "field": "power_atk",
+          "reason": "Applied once to equipped Victoria members rather than per equipment."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_preci",
+          "buff": "act1autochess_bond_eff_preci",
+          "field": "silence",
+          "reason": "Historical Precision applies silence from its own blackboard to high-ground attackers (attack hook)."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_raid",
+          "buff": "act1autochess_bond_eff_raid",
+          "field": "power_cost_scale",
+          "reason": "Applied through costMul to deployment/redeployment DP payments."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_raid",
+          "buff": "act1autochess_bond_eff_raid",
+          "field": "power_respawn_time",
+          "reason": "Applied through redeployMul; the official historical value is 1 (neutral)."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_victoria",
+          "buff": "act1autochess_bond_eff_victoria",
+          "field": "power_atk",
+          "reason": "Applied once to equipped Victoria members rather than per equipment."
+        },
+        {
+          "table": "garrisons",
+          "key": "act1autochess_gar_event_useskill|act1autochess_gar_event_useskill",
+          "buff": "env_gbuff_new_with_verify",
+          "field": "check_count",
+          "reason": "Read by rowCondition for SERVER_ADD_BOND; battle conditionMet handles the existing useskill row gate."
+        },
+        {
+          "table": "garrisons",
+          "key": "act1autochess_gar_event_useskill|act1autochess_gar_event_useskill",
+          "buff": "env_gbuff_new_with_verify",
+          "field": "conditionkey",
+          "reason": "The dispatcher checks character_target_inboard; battle conditionMet checks character_same_row."
+        },
+        {
+          "table": "garrisons",
+          "key": "SERVER_ADD_BOND|",
+          "buff": "SERVER_ADD_BOND",
+          "field": "check_count",
+          "reason": "Read by rowCondition for SERVER_ADD_BOND; battle conditionMet handles the existing useskill row gate."
+        },
+        {
+          "table": "garrisons",
+          "key": "SERVER_ONCE_GOLD|",
+          "buff": "SERVER_ONCE_GOLD",
+          "field": "conditionkey",
+          "reason": "The dispatcher checks character_target_inboard; battle conditionMet checks character_same_row."
+        }
+      ]
+    },
+    {
+      "dir": "data/versions/act1autochess-v1_1",
+      "findings": [
+        {
+          "table": "bonds",
+          "key": "emptyShip",
+          "buff": "act1autochess_bond_eff_assis",
+          "field": "damage_scale_extra",
+          "reason": "V1_1 predates the all-operator damage clause; neutral multiplier 1, with damage reduction retained."
+        },
+        {
+          "table": "bonds",
+          "key": "emptyShip",
+          "buff": "act1autochess_bond_eff_assis",
+          "field": "damage_scale_normal",
+          "reason": "V1_1 predates the all-operator damage clause; neutral multiplier 1, with damage reduction retained."
+        },
+        {
+          "table": "bonds",
+          "key": "raidShip",
+          "buff": "act1autochess_bond_eff_raid",
+          "field": "no_attack_duration",
+          "reason": "Historical raid uses readiness with an empty range, no idle timer (Infinity); its milestone uses cost/respawn fields instead of ASPD."
+        },
+        {
+          "table": "bonds",
+          "key": "raidShip",
+          "buff": "act1autochess_bond_eff_raid",
+          "field": "power_attack_speed",
+          "reason": "Historical raid uses readiness with an empty range, no idle timer (Infinity); its milestone uses cost/respawn fields instead of ASPD."
+        },
+        {
+          "table": "bonds",
+          "key": "sargonShip",
+          "buff": "act1autochess_bond_eff_sargon",
+          "field": "invalid_in_band",
+          "reason": "The first-season record has no invalid_in_band exception; the optional test remains false, following its text."
+        },
+        {
+          "table": "bonds",
+          "key": "steadShip",
+          "buff": "act1autochess_bond_eff_stead",
+          "field": "base_damage_value",
+          "reason": "Historical Steadfast has HP and sharing only. Missing retaliation fields return before any hit/status; the flagged damage_scale read belongs to other records."
+        },
+        {
+          "table": "bonds",
+          "key": "steadShip",
+          "buff": "act1autochess_bond_eff_stead",
+          "field": "cd_duration",
+          "reason": "Historical Steadfast has HP and sharing only. Missing retaliation fields return before any hit/status; the flagged damage_scale read belongs to other records."
+        },
+        {
+          "table": "bonds",
+          "key": "steadShip",
+          "buff": "act1autochess_bond_eff_stead",
+          "field": "damage_scale",
+          "reason": "Historical Steadfast has HP and sharing only. Missing retaliation fields return before any hit/status; the flagged damage_scale read belongs to other records."
+        },
+        {
+          "table": "bonds",
+          "key": "steadShip",
+          "buff": "act1autochess_bond_eff_stead",
+          "field": "damage_value_per_stack",
+          "reason": "Historical Steadfast has HP and sharing only. Missing retaliation fields return before any hit/status; the flagged damage_scale read belongs to other records."
+        },
+        {
+          "table": "bonds",
+          "key": "victoriaShip",
+          "buff": "act1autochess_bond_eff_victoria",
+          "field": "atk_golden_equip",
+          "reason": "Historical equipped-member bonus uses power_atk once; modern per-item attack fields are deliberately absent."
+        },
+        {
+          "table": "bonds",
+          "key": "victoriaShip",
+          "buff": "act1autochess_bond_eff_victoria",
+          "field": "atk_normal_equip",
+          "reason": "Historical equipped-member bonus uses power_atk once; modern per-item attack fields are deliberately absent."
+        },
+        {
+          "table": "bonds",
+          "key": "yanShip",
+          "buff": "act1autochess_bond_eff_yan",
+          "field": "atk",
+          "reason": "The historical Yan has no nine-member tier. reached() requires a finite threshold, so the extra ATK/damage-reduction branch is unreachable."
+        },
+        {
+          "table": "bonds",
+          "key": "yanShip",
+          "buff": "act1autochess_bond_eff_yan",
+          "field": "damage_resistance",
+          "reason": "The historical Yan has no nine-member tier. reached() requires a finite threshold, so the extra ATK/damage-reduction branch is unreachable."
+        },
+        {
+          "table": "bonds",
+          "key": "yanShip",
+          "buff": "act1autochess_bond_eff_yan",
+          "field": "ex_bond_char_cnt",
+          "reason": "The historical Yan has no nine-member tier. reached() requires a finite threshold, so the extra ATK/damage-reduction branch is unreachable."
+        },
+        {
+          "table": "effects",
+          "key": "aceffect_enemy_2_2",
+          "buff": "enemy_attribute_mul",
+          "field": "enemy_exclude",
+          "reason": "第一期's ENEMY round effects carry no enemy_exclude. The code reads it only to drop the 补给线 share from the 规程 leader tokens' hits (server/sim/content/bosses.js tokenHits, history §37.120); absent means nothing is excluded, which matches this season's data (its rows name no exclusion), so its tokens keep the whole round multiplier."
+        },
+        {
+          "table": "effects",
+          "key": "aceffect_enemy_2",
+          "buff": "enemy_attribute_mul",
+          "field": "enemy_exclude",
+          "reason": "第一期's ENEMY round effects carry no enemy_exclude. The code reads it only to drop the 补给线 share from the 规程 leader tokens' hits (server/sim/content/bosses.js tokenHits, history §37.120); absent means nothing is excluded, which matches this season's data (its rows name no exclusion), so its tokens keep the whole round multiplier."
+        },
+        {
+          "table": "effects",
+          "key": "aceffect_enemy_3",
+          "buff": "enemy_attribute_mul",
+          "field": "enemy_exclude",
+          "reason": "第一期's ENEMY round effects carry no enemy_exclude. The code reads it only to drop the 补给线 share from the 规程 leader tokens' hits (server/sim/content/bosses.js tokenHits, history §37.120); absent means nothing is excluded, which matches this season's data (its rows name no exclusion), so its tokens keep the whole round multiplier."
+        },
+        {
+          "table": "effects",
+          "key": "aceffect_enemy_4",
+          "buff": "enemy_attribute_mul",
+          "field": "enemy_exclude",
+          "reason": "第一期's ENEMY round effects carry no enemy_exclude. The code reads it only to drop the 补给线 share from the 规程 leader tokens' hits (server/sim/content/bosses.js tokenHits, history §37.120); absent means nothing is excluded, which matches this season's data (its rows name no exclusion), so its tokens keep the whole round multiplier."
+        },
+        {
+          "table": "effects",
+          "key": "aceffect_enemy_5",
+          "buff": "enemy_attribute_mul",
+          "field": "enemy_exclude",
+          "reason": "第一期's ENEMY round effects carry no enemy_exclude. The code reads it only to drop the 补给线 share from the 规程 leader tokens' hits (server/sim/content/bosses.js tokenHits, history §37.120); absent means nothing is excluded, which matches this season's data (its rows name no exclusion), so its tokens keep the whole round multiplier."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_empty",
+          "buff": "act1autochess_bond_eff_assis",
+          "field": "damage_scale_extra",
+          "reason": "V1_1 predates the all-operator damage clause; neutral multiplier 1, with damage reduction retained."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_empty",
+          "buff": "act1autochess_bond_eff_assis",
+          "field": "damage_scale_normal",
+          "reason": "V1_1 predates the all-operator damage clause; neutral multiplier 1, with damage reduction retained."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_raid",
+          "buff": "act1autochess_bond_eff_raid",
+          "field": "no_attack_duration",
+          "reason": "Historical raid uses readiness with an empty range, no idle timer (Infinity); its milestone uses cost/respawn fields instead of ASPD."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_raid",
+          "buff": "act1autochess_bond_eff_raid",
+          "field": "power_attack_speed",
+          "reason": "Historical raid uses readiness with an empty range, no idle timer (Infinity); its milestone uses cost/respawn fields instead of ASPD."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_sargon",
+          "buff": "act1autochess_bond_eff_sargon",
+          "field": "invalid_in_band",
+          "reason": "The first-season record has no invalid_in_band exception; the optional test remains false, following its text."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_stead",
+          "buff": "act1autochess_bond_eff_stead",
+          "field": "base_damage_value",
+          "reason": "Historical Steadfast has HP and sharing only. Missing retaliation fields return before any hit/status; the flagged damage_scale read belongs to other records."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_stead",
+          "buff": "act1autochess_bond_eff_stead",
+          "field": "cd_duration",
+          "reason": "Historical Steadfast has HP and sharing only. Missing retaliation fields return before any hit/status; the flagged damage_scale read belongs to other records."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_stead",
+          "buff": "act1autochess_bond_eff_stead",
+          "field": "damage_scale",
+          "reason": "Historical Steadfast has HP and sharing only. Missing retaliation fields return before any hit/status; the flagged damage_scale read belongs to other records."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_stead",
+          "buff": "act1autochess_bond_eff_stead",
+          "field": "damage_value_per_stack",
+          "reason": "Historical Steadfast has HP and sharing only. Missing retaliation fields return before any hit/status; the flagged damage_scale read belongs to other records."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_victoria",
+          "buff": "act1autochess_bond_eff_victoria",
+          "field": "atk_golden_equip",
+          "reason": "Historical equipped-member bonus uses power_atk once; modern per-item attack fields are deliberately absent."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_victoria",
+          "buff": "act1autochess_bond_eff_victoria",
+          "field": "atk_normal_equip",
+          "reason": "Historical equipped-member bonus uses power_atk once; modern per-item attack fields are deliberately absent."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_yan",
+          "buff": "act1autochess_bond_eff_yan",
+          "field": "atk",
+          "reason": "The historical Yan has no nine-member tier. reached() requires a finite threshold, so the extra ATK/damage-reduction branch is unreachable."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_yan",
+          "buff": "act1autochess_bond_eff_yan",
+          "field": "damage_resistance",
+          "reason": "The historical Yan has no nine-member tier. reached() requires a finite threshold, so the extra ATK/damage-reduction branch is unreachable."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_yan",
+          "buff": "act1autochess_bond_eff_yan",
+          "field": "ex_bond_char_cnt",
+          "reason": "The historical Yan has no nine-member tier. reached() requires a finite threshold, so the extra ATK/damage-reduction branch is unreachable."
+        },
+        {
+          "table": "effects",
+          "key": "eff_acarm057",
+          "buff": "act1autochess_equip_acarm057_global_buff",
+          "field": "max_trigger_cnt",
+          "reason": "The historical bridge clip text has no trigger cap; missing cap uses Infinity. Modern data keeps its explicit cap."
+        },
+        {
+          "table": "effects",
+          "key": "eff_acgarm057",
+          "buff": "act1autochess_equip_acarm057_global_buff",
+          "field": "max_trigger_cnt",
+          "reason": "The historical bridge clip text has no trigger cap; missing cap uses Infinity. Modern data keeps its explicit cap."
+        },
+        {
+          "table": "garrisons",
+          "key": "act1autochess_gar_event_consume_ammo|act1autochess_gar_event_consume_ammo",
+          "buff": "char_dynamic_ability_new",
+          "field": "max_add_count_per_battle",
+          "reason": "The historical trait has no per-battle layer cap. The existing missing/nonpositive-cap path uses Infinity."
+        },
+        {
+          "table": "garrisons",
+          "key": "act1autochess_gar_event_enemy_abflag_inrange|act1autochess_gar_event_enemy_abflag_inrange",
+          "buff": "char_dynamic_ability_new",
+          "field": "max_add_count_per_battle",
+          "reason": "The historical trait has no per-battle layer cap. The existing missing/nonpositive-cap path uses Infinity."
+        },
+        {
+          "table": "garrisons",
+          "key": "act1autochess_gar_event_selfkillenemy|act1autochess_gar_event_selfkillenemy",
+          "buff": "env_gbuff_new_with_verify",
+          "field": "max_add_count_per_battle",
+          "reason": "The historical trait has no per-battle layer cap. The existing missing/nonpositive-cap path uses Infinity."
+        },
+        {
+          "table": "garrisons",
+          "key": "SERVER_TRIGGER_ANOTHER|",
+          "buff": "SERVER_TRIGGER_ANOTHER",
+          "field": "conditionkey",
+          "reason": "These historical re-trigger traits omit the modern board-only condition. The dispatcher applies a condition only when one is present."
+        },
+        {
+          "table": "garrisons",
+          "key": "SERVER_TRIGGER_FRONT_COUNT|",
+          "buff": "SERVER_TRIGGER_FRONT_COUNT",
+          "field": "conditionkey",
+          "reason": "These historical re-trigger traits omit the modern board-only condition. The dispatcher applies a condition only when one is present."
+        },
+        {
+          "table": "items",
+          "key": "eff_acarm057",
+          "buff": "act1autochess_equip_acarm057_global_buff",
+          "field": "max_trigger_cnt",
+          "reason": "The historical bridge clip text has no trigger cap; missing cap uses Infinity. Modern data keeps its explicit cap."
+        }
+      ],
+      "missingBuffKeys": [
+        {
+          "key": "act2autochess_band12_buff",
+          "reason": "The later Dusk dragon grant does not exist in these first-season band records."
+        },
+        {
+          "key": "act2autochess_band3_buff",
+          "reason": "The later band clause does not exist in these first-season band records."
+        },
+        {
+          "key": "act2autochess_bond_eff_kazimierz",
+          "reason": "Kazimierz is not a first-season bond."
+        },
+        {
+          "key": "act2autochess_bond_eff_sargon[share]",
+          "reason": "The later Sargon sharing clause is absent; the historical bond retains its own blackboard."
+        },
+        {
+          "key": "act2autochess_bond_eff_siracusa",
+          "reason": "Siracusa is not a first-season bond."
+        },
+        {
+          "key": "act2autochess_equip_acarm055_global_buff",
+          "reason": "Replaced by the historical deployment-time camouflage handler (act1autochess_equip_acarm055_global_buff)."
+        },
+        {
+          "key": "act2autochess_equip_acarm078_global_buff",
+          "reason": "Historical trench changes Egir devour to four neighbours, handled in bonds/core.js; no modern version of the buff."
+        },
+        {
+          "key": "act2autochess_equip_acarm102_ability",
+          "reason": "Historical Tears applies cold around a killed enemy, handled by its act1autochess key; no periodic damage."
+        },
+        {
+          "key": "act2autochess_equip_acarm117_global_buff",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "act2autochess_equip_acarm118_global_buff",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "act2autochess_equip_acarm119_ability",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "act2autochess_equip_acarm119_global_buff",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "act2autochess_equip_acarm120_global_buff",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "act2autochess_equip_acarm121_ability",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "act2autochess_equip_acarm122_global_buff",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "act2autochess_gar_eff_ab_damageScaleByBond",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "act2autochess_gar_eff_attrByBond_add_onstart",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "act2autochess_gar_event_allyenemy_sleepstun_inrange",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "act2autochess_gar_event_onstart",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "bond_multi_layer_char_goods_price_bond_discount",
+          "reason": "visiDiscount normalizes the historical single-stage keys; the V2_2 replacement key is absent by design."
+        },
+        {
+          "key": "first_sell_char_chess_exchange_char_chess_in_shop",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "gain_coin_when_round_start",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "periodic_damage",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "preparation_start_add_special_goods_every_n_round",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "refresh_shop_count_gain_coin_bond_char_chess",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "round_start_activate_char_chess_effect_in_board",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "round_start_gain_char_chess_in_shop_every_n_round",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "round_start_gain_coin_by_bond_char_chess_buy",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "sell_char_count_gain_equip_owner_bond",
+          "reason": "Historical packaging returns the original carrier (sell_char_count_gain_equip_owner_original), not a bond roll."
+        },
+        {
+          "key": "SERVER_ADD_ACT_BOND_DIFF_LV_MOST_LAYER",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "SERVER_ADD_MULTIPLE_BOND",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "SERVER_ADD_REFRESH_CNT_MULTIPLIER_BOND_LAYER",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "SERVER_FRONT_SAME_EFFECT_PREP_FIN",
+          "reason": "V1_1 predates this V1_2 trait; no record should run it."
+        },
+        {
+          "key": "SERVER_GAIN_BOND_LAYER_BY_REFRESH_CNT",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "SERVER_GAIN_FREE_REFRESH_COUNT",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "SERVER_GAIN_RANDOM_EQUIP_CHESS_IN_POOL",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "SERVER_ONCE_GOLD_WITH_BOND_CONDITION",
+          "reason": "V1_1 predates this V1_2 trait; no record should run it."
+        },
+        {
+          "key": "SERVER_SELL_CHESS_GAIN_SPECIAL_GOODS",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "silence_attachment",
+          "reason": "The historical pocket spell circle has RES only; silence was added on 2026-03-27."
+        },
+        {
+          "key": "use_equip_gain_coin_when_next_round_start",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "use_equip_recruit_new_char_and_give_char_to_player_most_bond",
+          "reason": "Historical beacon destroys and sends the same-quality operator using use_equip_give_char_to_player_most_bond."
+        },
+        {
+          "key": "use_equip_reward_char_chess_bond_layer",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "use_equip_reward_char_chess_with_same_bond",
+          "reason": "Historical pager uses use_equip_add_goods_rule_with_refresh_shop; it refreshes the shop instead of granting an offer."
+        },
+        {
+          "key": "use_equip_reward_random_char_chess_in_shop",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        },
+        {
+          "key": "use_equip_reward_special_goods_char_chess",
+          "reason": "No historical record carries this later effect or trait; its handler is intentionally not dispatched. Pinned activity_table and the version-only replacement inventory are the source."
+        }
+      ],
+      "unknownTriggerRules": [],
+      "versionOnlyKeys": [],
+      "versionOnlyFields": [
+        {
+          "table": "bonds",
+          "key": "preciShip",
+          "buff": "act1autochess_bond_eff_preci",
+          "field": "silence",
+          "reason": "Historical Precision applies silence from its own blackboard to high-ground attackers (attack hook)."
+        },
+        {
+          "table": "bonds",
+          "key": "raidShip",
+          "buff": "act1autochess_bond_eff_raid",
+          "field": "power_cost_scale",
+          "reason": "Applied through costMul to deployment/redeployment DP payments."
+        },
+        {
+          "table": "bonds",
+          "key": "raidShip",
+          "buff": "act1autochess_bond_eff_raid",
+          "field": "power_respawn_time",
+          "reason": "Applied through redeployMul; the official historical value is 1 (neutral)."
+        },
+        {
+          "table": "bonds",
+          "key": "victoriaShip",
+          "buff": "act1autochess_bond_eff_victoria",
+          "field": "power_atk",
+          "reason": "Applied once to equipped Victoria members rather than per equipment."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_preci",
+          "buff": "act1autochess_bond_eff_preci",
+          "field": "silence",
+          "reason": "Historical Precision applies silence from its own blackboard to high-ground attackers (attack hook)."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_raid",
+          "buff": "act1autochess_bond_eff_raid",
+          "field": "power_cost_scale",
+          "reason": "Applied through costMul to deployment/redeployment DP payments."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_raid",
+          "buff": "act1autochess_bond_eff_raid",
+          "field": "power_respawn_time",
+          "reason": "Applied through redeployMul; the official historical value is 1 (neutral)."
+        },
+        {
+          "table": "effects",
+          "key": "bondeffect_victoria",
+          "buff": "act1autochess_bond_eff_victoria",
+          "field": "power_atk",
+          "reason": "Applied once to equipped Victoria members rather than per equipment."
+        },
+        {
+          "table": "garrisons",
+          "key": "act1autochess_gar_event_useskill|act1autochess_gar_event_useskill",
+          "buff": "env_gbuff_new_with_verify",
+          "field": "check_count",
+          "reason": "Read by rowCondition for SERVER_ADD_BOND; battle conditionMet handles the existing useskill row gate."
+        },
+        {
+          "table": "garrisons",
+          "key": "act1autochess_gar_event_useskill|act1autochess_gar_event_useskill",
+          "buff": "env_gbuff_new_with_verify",
+          "field": "conditionkey",
+          "reason": "The dispatcher checks character_target_inboard; battle conditionMet checks character_same_row."
+        },
+        {
+          "table": "garrisons",
+          "key": "SERVER_ADD_BOND|",
+          "buff": "SERVER_ADD_BOND",
+          "field": "check_count",
+          "reason": "Read by rowCondition for SERVER_ADD_BOND; battle conditionMet handles the existing useskill row gate."
+        },
+        {
+          "table": "garrisons",
+          "key": "SERVER_ONCE_GOLD|",
+          "buff": "SERVER_ONCE_GOLD",
+          "field": "conditionkey",
+          "reason": "The dispatcher checks character_target_inboard; battle conditionMet checks character_same_row."
+        }
+      ]
+    }
+  ]
+}

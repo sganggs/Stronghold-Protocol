@@ -3,8 +3,11 @@
    Look: research 06 §12 (near-black green-grey, mint accents, gold prices, bracket frames).
 
    Root scale: 1rem = 100 design px at 1920×1080 and scales with min(vw/1920, vh/1080), so the
-   whole UI is authored in design pixels ÷ 100 (e.g. 24px → .24rem). The root never drops below
+   whole UI is authored in design pixels ÷ 100 (e.g. 24px → .24rem). The rule never drops below
    40px, which keeps it clear of CJK browsers' minimum-font-size clamping. 1px hairlines stay px.
+   设置 → 异形屏适配 →「界面大小」 (ui/screenFit.js, DESIGN §35.43) multiplies the root by --sp-ui
+   (75–100 %, unset = 1: the design itself; only at 文字大小 小); every max(rem, px) floor carries the
+   same factor, a size floor never below min(its px, 32px), the font-size floors never (test/ui/ui-size.test.js).
    ========================================================================================== */
 
 :root {
@@ -115,10 +118,10 @@
 
 /* ---- root scale ----------------------------------------------------------------------------- */
 html {
-  font-size: clamp(40px, min(calc(100vw / 19.2), calc(100vh / 10.8)), 240px);
+  font-size: calc(clamp(40px, min(calc(100vw / 19.2), calc(100vh / 10.8)), 240px) * var(--sp-ui, 1));
   /* mobile browsers: 100vh is the height with the toolbars hidden — the small viewport (svh; Safari 15.4+, Chrome 108+,
      Firefox 101+) is what is really visible while they show; older browsers keep the line above */
-  font-size: clamp(40px, min(calc(100vw / 19.2), calc(100svh / 10.8)), 240px);
+  font-size: calc(clamp(40px, min(calc(100vw / 19.2), calc(100svh / 10.8)), 240px) * var(--sp-ui, 1));
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
   height: 100%;
@@ -135,11 +138,18 @@ html {
    clientHeight (render/app.js), which no font-size can reach.
    小 = 1rem reproduces the design's own sizes exactly, on every device. The other steps keep the
    desktop gentle and lift the phone: 1rem there is clamped at 40 px by the rule above, which is what
-   made the .18rem body text 7.2 CSS px. */
+   made the .18rem body text 7.2 CSS px. 界面大小 (--sp-ui, at most 1) never shrinks these px floors, and
+   it applies at 小 only (ui/screenFit.js effectiveUi): the kept 64 / 76 / 88 px floors of 中 / 大 / 特大
+   outgrew boxes that shrank, so those steps keep 100 %. 小 has no floor and follows the layout, which keeps
+   every label in its box (body text ≈ 5.4 CSS px at 75 % on a phone; DESIGN §35.43, [ASSUMED]). */
 :root { --t: 1rem; }
 :root[data-text="md"] { --t: max(1rem, 64px); }
 :root[data-text="lg"] { --t: max(calc(1rem * 1.15), 76px); }
 :root[data-text="xl"] { --t: max(calc(1rem * 1.3), 88px); }
+/* On a short screen (≤ 520 px tall, where 1rem is 40–48 px) --t is 64 / 76 / 88 px at 中 / 大 / 特大: --t-step is 0 at 中,
+   1 px at 大, 2 px at 特大 (below 0 at 小). A px cap written as calc(N px + var(--t-step)) still grows a pixel a step there,
+   so 文字大小 keeps changing the text above 中 (§35.18 review). Meant for those caps only. */
+:root { --t-step: calc((var(--t) - 64px) / 12); }
 
 *, *::before, *::after { box-sizing: border-box; }
 

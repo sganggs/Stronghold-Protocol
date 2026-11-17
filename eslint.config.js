@@ -99,6 +99,17 @@ export default [
     },
   },
   {
+    // Content callers use one public entry (server/sim/attack.js); the facade, its implementation and the Battle methods
+    // (battle/combat.js) own the deep imports. Tests may import the implementation directly.
+    files: ['server/**/*.js', 'public/js/**/*.js'],
+    ignores: ['server/sim/attack.js', 'server/sim/attack/**', 'server/sim/battle/combat.js'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [
+        { regex: '(^|/)attack/', message: 'Use public exports from attack.js; attack/ is private implementation.' },
+      ] }],
+    },
+  },
+  {
     // Node test runner, plus browser tests whose page.evaluate callbacks use DOM globals.
     // PIXI is the page global those render tests read inside evaluate().
     files: ['test/**/*.js'],

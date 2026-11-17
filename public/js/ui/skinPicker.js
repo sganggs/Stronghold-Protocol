@@ -6,10 +6,10 @@
 //
 // Where the rows come from: ui/skins.js availableSkins, i.e. the COMPOSED asset manifest (`chars[<charId>].skins`,
 // written by a cosmetic plugin's overlay — docs/PLUGINS.md §9). There is no catalogue file and no installer here: a
-// skin either has a model this client resolves (`playable`) or it is art only, and art only rows are not offered.
+// wearable skins have a model or pictures; picture-only outfits keep the default battle model (B6).
 //
 // The section's display rule (docs/SKINS.md) is GLOBAL and comes from ui/skins.js `hasAnySkinChoices`:
-//   * no operator has a wear-able skin (no plugin at all, a plugin that writes only pictures, or only art-only skins) —
+//   * no operator has a wear-able skin (no plugin, no skins records, or only metadata-only skins) —
 //     the section is left out, header included, so an installation without a cosmetic layer looks exactly as before;
 //   * at least one operator has one — EVERY operator shows the section. An operator without a skin of its own gets the
 //     默认 tile alone, with a real picture on it.
@@ -62,6 +62,7 @@ function SkinTile({ row, chosen, onPick, onPreview }) {
     <span class="lo-skin__text">
       <b class="lo-skin__name">${isDefault ? t('默认') : row.name}</b>
       <span class="lo-skin__group">${isDefault ? 'DEFAULT' : row.group || t('时装')}</span>
+      ${row.pictureOnly ? html`<span class="lo-skin__note">${t('仅更换头像与立绘')}</span>` : null}
     </span>
   </button>`;
 }

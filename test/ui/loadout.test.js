@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { checkLoadout, MODULE_NONE } from '../../shared/protocol.js';
 import { PHASE } from '../../shared/constants.js';
 import {
-  parseStored, toStored, chessOptions, effectiveChoice, setChoice, resetChoice, sanitizeEntries, rosterOf, filterRoster,
+  parseStored, parseStoredByChar, toStored, toStoredV1, chessOptions, effectiveChoice, setChoice, resetChoice, sanitizeEntries, rosterOf, filterRoster,
   changedCount, moduleBadge, attrRows, skillTags, skillLabel, selectedSkill, selectedModule, recordsOf,
   exportPayload, serializeExport, parseImport, LOADOUT_EXPORT_KIND, LOADOUT_VERSION, LOADOUT_IMPORT_MAX_BYTES,
 } from '../../public/js/ui/loadoutModel.js';
@@ -36,35 +36,41 @@ test('parseStored: tolerant of junk, keeps structurally valid entries; toStored 
   assert.deepEqual(parseStored({ v: 1, entries: { [INSIDE]: { skill: 0, module: 'none', junk: 1 }, 'bad id': { skill: 1 }, [SWIRE]: { skill: -1 } } }),
     { [INSIDE]: { skill: 0, module: 'none' } });
   assert.deepEqual(parseStored({ [INSIDE]: { skill: 1 } }), { [INSIDE]: { skill: 1 } }, 'bare map (older build)');
-  const e = { [INSIDE]: { skill: 0 } };
-  assert.deepEqual(parseStored(JSON.parse(JSON.stringify(toStored(e)))), e);
+  // v2 (DESIGN §35.23): by operator — parseStoredByChar reads it back; parseStored (by chess id) reads only v1 / bare maps
+  const e = { char_2023_ling: { skill: 0 } };
+  assert.deepEqual(parseStoredByChar(JSON.parse(JSON.stringify(toStored(e)))), e);
+  assert.deepEqual(parseStored(toStored(e)), {}, 'a v2 store has no chess-id entries');
+  assert.deepEqual(parseStored(toStoredV1({ [INSIDE]: { skill: 0 } })), { [INSIDE]: { skill: 0 } }, 'the v1 form a store waiting for its migration writes');
 });
 
-test('exportPayload / serializeExport: versioned envelope, entries copied; parseImport round trip', () => {
-  const entries = { [INSIDE]: { skill: 0 }, [SWIRE]: { module: SWIRE_ALT } };
+test('exportPayload / serializeExport: versioned envelope (v2: by operator), entries copied; parseImport round trip', () => {
+  const entries = { char_101_sora: { skill: 0 }, char_350_surtr: { module: SWIRE_ALT } };
   const p = exportPayload(entries, { now: Date.UTC(2026, 9, 3, 4, 5, 6) });
-  assert.deepEqual(Object.keys(p).sort(), ['count', 'entries', 'exportedAt', 'kind', 'ops', 'v'], 'exactly the envelope (0.2.2: + the 潜能 / 练度 ops), no unused field');
+  assert.deepEqual(Object.keys(p).sort(), ['byChar', 'count', 'exportedAt', 'kind', 'ops', 'v'], 'exactly the envelope (0.2.2: + the 潜能 / 练度 ops; 0.3.2: byChar), no unused field');
   assert.deepEqual(p.ops, {}, 'no settings: an empty map (an import then resets the settings to the defaults)');
   assert.equal(p.kind, LOADOUT_EXPORT_KIND);
   assert.equal(p.v, LOADOUT_VERSION);
   assert.equal(p.count, 2);
   assert.equal(p.exportedAt, '2026-10-03T04:05:06.000Z');
-  assert.deepEqual(p.entries, entries);
-  assert.notEqual(p.entries, entries, 'a copy — later edits must not mutate an already-built payload');
-  assert.notEqual(p.entries[INSIDE], entries[INSIDE]);
+  assert.equal(LOADOUT_VERSION, 2);
+  assert.deepEqual(p.byChar, entries);
+  assert.notEqual(p.byChar, entries, 'a copy — later edits must not mutate an already-built payload');
+  assert.notEqual(p.byChar.char_101_sora, entries.char_101_sora);
   assert.equal(exportPayload(null).count, 0);
 
   const back = parseImport(serializeExport(entries, { now: 0 }));
   assert.equal(back.ok, true);
-  assert.deepEqual(back.entries, entries);
+  assert.deepEqual(back.byChar, entries);
+  assert.equal('entries' in back, false, 'a v2 payload gives byChar (the caller maps it to the data on screen)');
 });
 
 test('parseImport: accepts the envelope, the stored form, a bare map and text; refuses junk, newer data and hostile keys', () => {
   const entries = { [INSIDE]: { skill: 0 } };
-  assert.deepEqual(parseImport(exportPayload(entries)).entries, entries, 'envelope');
-  assert.deepEqual(parseImport(toStored(entries)).entries, entries, 'stored { v, entries }');
+  assert.deepEqual(parseImport({ kind: LOADOUT_EXPORT_KIND, v: 1, entries }).entries, entries, 'a v1 envelope (第二期下半 chess ids)');
+  assert.deepEqual(parseImport(toStoredV1(entries)).entries, entries, 'stored { v: 1, entries }');
+  assert.deepEqual(parseImport(exportPayload({ char_x: { skill: 0 } })).byChar, { char_x: { skill: 0 } }, 'a v2 envelope');
   assert.deepEqual(parseImport(entries).entries, entries, 'bare map (hand-written / older build)');
-  assert.deepEqual(parseImport(JSON.stringify(exportPayload(entries))).entries, entries, 'serialised text');
+  assert.deepEqual(parseImport(JSON.stringify({ kind: LOADOUT_EXPORT_KIND, v: 1, entries })).entries, entries, 'serialised text');
   assert.deepEqual(parseImport(`\n  ${JSON.stringify(entries)}  \n`).entries, entries, 'padded text');
 
   for (const junk of ['', '   ', 'not a payload', '{', 42, null, undefined, [], true]) {
@@ -74,8 +80,10 @@ test('parseImport: accepts the envelope, the stored form, a bare map and text; r
   assert.equal(newer.ok, false, 'a NEWER payload is refused, never mis-read');
   assert.match(newer.error, /请先更新游戏/, 'the player is told to update the game');
   assert.equal(parseImport({ kind: 'some.other.tool', entries }).ok, false, "another tool's payload");
-  assert.equal(parseImport({ v: LOADOUT_VERSION, entries: {} }).ok, false, 'nothing to import');
-  assert.equal(parseImport({ v: LOADOUT_VERSION, entries: { 'bad id': { skill: 0 } } }).ok, false, 'no structurally valid entry');
+  assert.equal(parseImport({ v: 1, entries: {} }).ok, false, 'nothing to import');
+  assert.equal(parseImport({ v: 1, entries: { 'bad id': { skill: 0 } } }).ok, false, 'no structurally valid entry');
+  assert.equal(parseImport({ v: LOADOUT_VERSION, byChar: {} }).ok, false, 'nothing to import (v2)');
+  assert.equal(parseImport({ v: LOADOUT_VERSION, byChar: { 'bad id': { skill: 0 } } }).ok, false, 'no structurally valid entry (v2)');
   assert.equal(parseImport('x'.repeat(LOADOUT_IMPORT_MAX_BYTES + 1)).ok, false, 'an oversized payload is refused before parsing');
 
   // hostile keys: JSON.parse keeps `__proto__` as an own key, and assigning it would rewrite an object's prototype

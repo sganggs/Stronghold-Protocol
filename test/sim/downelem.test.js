@@ -1,5 +1,5 @@
 // test/sim/downelem.test.js — user playtest #4 items 8 and 9, sim side (server/sim/Battle.js snapshot / fieldMeta,
-// damage.js elementView): b.snap `down` lists the knocked-out operators waiting to redeploy on the tile they lie on (the
+// attack/element.js elementView): b.snap `down` lists the knocked-out operators waiting to redeploy on the tile they lie on (the
 // client keeps them there knocked down with a redeploy countdown) and `elem` the element gauge each unit shows
 // (PRTS 元素: the fullest gauge, its 爆发冷却) — entries, states, and what is left out. User playtest #5 item 2: an
 // operator entering a battle knocked out (联防 carryState `down`, constants.js FORCED_EXIT) is down the same way.
@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle, chessRec, enemyRec } from '../helpers/battleHarness.js';
 import { DOWN_STATE, ELEMENT, ELEMENT_ORDER, FORCED_EXIT } from '../../server/sim/constants.js';
-import { elementView } from '../../server/sim/damage.js';
+import { elementView } from '../../server/sim/attack.js';
 import { unitStatsEntry } from '../../shared/protocol.js';
 
 const approx = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) <= eps, `${a} ≈ ${b}`);

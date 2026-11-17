@@ -5,7 +5,7 @@
 // does not carry: PRTS 领主·Sharp, cited where used.
 
 import { num, talentBb, moduleBb, skillRec, statBuff, toggleBuff } from '../shared/tier1.js';
-import { hasHp, isHpLoss } from '../../../damage.js';
+import { hasHp, isHpLoss } from '../../../attack.js';
 
 const S1 = 'skchr_sharp2_1';
 

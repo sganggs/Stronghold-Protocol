@@ -40,8 +40,14 @@ export const EXPECTED_LOCAL_GROUPS = Object.freeze([
   "scene/act2autochess_m03",
   "scene/act2autochess_m04",
   "scene/tex",
+  "spine/enemy/enemy_1201_sfzhi",
+  "spine/enemy/enemy_1249_lysdb",
+  "spine/enemy/enemy_1254_lypa",
+  "spine/enemy/enemy_1275_dwlock",
   "spine/enemy/enemy_1305_mhslim",
   "spine/enemy/enemy_1305_mhslim_2",
+  "spine/enemy/enemy_1373_ltnhor_2",
+  "spine/enemy/enemy_1376_ltndru",
   "spine/token/token_10002_kalts_mon3tr",
   "spine/token/token_10003_cgbird_bird",
   "spine/token/token_10005_mgllan_drone1",
@@ -85,6 +91,8 @@ export const EXPECTED_LOCAL_GROUPS = Object.freeze([
   "ui/battle",
   "ui/common",
   "ui/outer",
+  "ui/season/act3autochess",
+  "ui/season/act3autochess/entry",
 ]);
 
 // Manifest `scene` record version (kind Scene on each scene/<stageId> group). scene.json's mesh version stays 1.

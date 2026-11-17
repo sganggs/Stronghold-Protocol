@@ -296,8 +296,13 @@ function phaseOfModeName(name) {
  * mode, and only onto a skill that itself switches to nothing and whose id is that skill number. A phase name fills
  * a skill whose own mode has no d/h/s bank; a name ending in End does not (that clip is not the attack). A skill
  * that does switch stays quiet rather than borrow a numbered mode's letter — except an unsuffixed bank, which is
- * not numbered to a skill mode, and except the exact `S<n>` case above. Files that are not a uniform `_d` / `_h` /
- * `_s` bank stay out, so a `_n` file on a skill mode (银灰 S3) is not copied onto the skill table.
+ * not numbered to a skill mode, and except the exact `S<n>` case above. A record whose letter is a plain `_n` file
+ * stays out of the skill table, except a numbered mode bank that plays a file the unit's normal attack (the bare
+ * ability bank, or a numbered default `attack.0`) never does — 宴's S2 impact `p_imp_darksword_n` beside her normal
+ * `p_imp_sword_n` is that mode's sound, while 银灰's S3 swing `p_atk_silver_n` (no plain swing bank to compare with)
+ * still stays out. Judged per kind (swing / impact); without the local fx mode links nothing is assigned, as before.
+ * Such a plain bank only fills a skill no lettered bank fills, and only for the skill's own mode, never as a phase
+ * fill (PR #848 review, DESIGN §35.38).
  *
  * @param {Map<string,string[]>|undefined} banks unit bank table (indexAudio().unitBanks)
  * @param {{index:number, skillId?:string|null, mode?:number|null, start?:string|null}[]} skills planned skills
@@ -329,14 +334,26 @@ export function assignSkillModeSfx(banks, skills, modes = null, allLinks = null)
   const collect = (events) => {
     const found = [];
     if (!banks || !banks.size) return found;
+    // The unit's normal-mode files of this kind: the bare ability banks (attack / combat) and a numbered default
+    // (attack.0). They only tell a mode's own plain `_n` sound from the normal attack's same-suffix file.
+    const normalFiles = new Set();
     for (const [name, paths] of banks) {
       const ev = events.find((e) => name.startsWith(e + '.'));
       if (!ev || !Array.isArray(paths) || !paths.length) continue;
       const ability = name.slice(ev.length + 1).split('.')[0];
       if (!/attack|combat/i.test(ability)) continue;
-      const letter = skillModeLetter(paths[0]);
-      if (!letter || paths.some((p) => skillModeLetter(p) !== letter)) continue;
       const rest = name.slice(ev.length + 1 + ability.length);
+      // mode 0's sub-abilities count too (仇白's `combat.0.1` stab plays in her S2 mode as well)
+      if (rest === '' || /^\.0(?:\.\d+)*$/.test(rest)) for (const p of paths) normalFiles.add(p);
+    }
+    for (const [name, paths] of banks) {
+      const ev = events.find((e) => name.startsWith(e + '.'));
+      if (!ev || !Array.isArray(paths) || !paths.length) continue;
+      const ability = name.slice(ev.length + 1).split('.')[0];
+      if (!/attack|combat/i.test(ability)) continue;
+      const rest = name.slice(ev.length + 1 + ability.length);
+      const letter = skillModeLetter(paths[0]);
+      const uniform = !!letter && paths.every((p) => skillModeLetter(p) === letter);
       const numbered = rest ? 1 : 0;
       const rank = `${events.indexOf(ev)}${numbered}`;
       let modeIndex = null;
@@ -345,11 +362,22 @@ export function assignSkillModeSfx(banks, skills, modes = null, allLinks = null)
         const seg = rest.slice(1).split('.')[0];
         if (/^\d+$/.test(seg)) modeIndex = Number(seg);
       }
-      found.push({ rank, rest, paths, letter, modeIndex, bare: rest === '' });
+      // A numbered mode bank of plain `_n` files is that mode's sound when it plays a file the unit's normal attack
+      // never does: 宴's S2 impact `p_imp_darksword_n` beside her normal `p_imp_sword_n`, 银灰's S2/S3 `p_imp_sword_n`
+      // beside the Combat `p_imp_spear_n`. Judged per kind, so his S3 swing (no plain swing bank to compare with) stays
+      // out, and the client's normal-attack gate is untouched.
+      // Every file plain: a mixed bank (a plain first file, a lettered later one) stays skipped, as ASSETS.md says.
+      const ownPlain = !uniform && paths.every((p) => !skillModeLetter(p)) && Number.isInteger(modeIndex) && modeIndex > 0
+        && normalFiles.size > 0 && paths.some((p) => !normalFiles.has(p));
+      if (!uniform && !ownPlain) continue;
+      found.push({ rank, rest, paths, letter, modeIndex, bare: rest === '', plain: ownPlain });
     }
     return found;
   };
-  const best = (cands) => cands.slice().sort((a, b) => (a.rank !== b.rank ? (a.rank < b.rank ? -1 : 1) : abilityOrder(a.rest, b.rest)))[0];
+  // A lettered bank beats a plain one for the same skill: a plain mode bank only fills a skill no `_d` / `_h` / `_s`
+  // bank does (假日威龙陈's START `p_atk_watergun_d_cast` never displaces her ON `p_atk_watergun_d`, PR #848 review).
+  const best = (cands) => cands.slice().sort((a, b) => (a.plain !== b.plain ? (a.plain ? 1 : -1)
+    : a.rank !== b.rank ? (a.rank < b.rank ? -1 : 1) : abilityOrder(a.rest, b.rest)))[0];
   const assignKind = (events) => {
     const bySkill = new Map();
     const phase = new Map();
@@ -368,6 +396,9 @@ export function assignSkillModeSfx(banks, skills, modes = null, allLinks = null)
       const ph = Array.isArray(modes) && Number.isInteger(c.modeIndex) && c.modeIndex >= 0 && c.modeIndex < modes.length
         ? phaseOfModeName(modes[c.modeIndex]?.name) : null;
       if (ph && !ph.end) {
+        // a plain bank speaks only for its own linked mode, never as a phase fill (乌尔比安's S3_Respawn_A swing is not
+        // her S3 mode's sound, which is the normal `_n` file)
+        if (c.plain) continue;
         if (!phase.has(ph.index)) phase.set(ph.index, []);
         phase.get(ph.index).push(c);
       } else unclaimed.push(c);
@@ -402,7 +433,7 @@ export function assignSkillModeSfx(banks, skills, modes = null, allLinks = null)
     }
     const byLetter = new Map();
     for (const c of unclaimed) {
-      if (namedUsed.has(c)) continue;
+      if (namedUsed.has(c) || !c.letter) continue;   // a letterless (plain `_n`) bank belongs to a mode, never a fallback slot
       if (!byLetter.has(c.letter)) byLetter.set(c.letter, []);
       byLetter.get(c.letter).push(c);
     }
@@ -470,13 +501,23 @@ export function pickUnitSfx(banks, opts = {}) {
     if (banks.get('ON_UNIT_BORN')?.length) out.born = banks.get('ON_UNIT_BORN');
     return out;
   }
-  // operators: the plain ability of either event before any numbered variant
+  // operators: the plain ability of either event before any numbered variant, then the default mode's banks (attack.0,
+  // attack.0.1 …) before any other number — firstMatching orders by depth, so 弑君者's S3 `attack.3` (p_imp_asndgrsmk) and S2
+  // `attack.4` (p_atk_asndgrbm) outranked her normal `attack.0.1` / `attack.0.2` (p_*_asndgr_n) and rang on every normal
+  // attack; 望 / 莱伊 / 灰毫 kept a skill's START swing over their mode-0 ON swing (the #848 merge review, DESIGN §35.38;
+  // assignSkillModeSfx already counts every mode 0 bank as the normal attack)
+  const mode0 = (event) => {
+    if (!opts.operator) return null;
+    const keys = [...banks.keys()].filter((k) => new RegExp(`^${event}\\.(attack|combat)\\.0(\\.\\d+)*$`).test(k)).sort(abilityOrder);
+    for (const k of keys) if (banks.get(k)?.length && ok(banks.get(k))) return banks.get(k);
+    return null;
+  };
   const plain = opts.operator ? exact('ON_ABILITY_START') ?? exact('ON_ABILITY_ON') : null;
-  const attack = plain
+  const attack = plain ?? mode0('ON_ABILITY_START') ?? mode0('ON_ABILITY_ON')
     ?? firstMatching(banks, 'ON_ABILITY_START', ['attack', 'combat'], ok)
     ?? firstMatching(banks, 'ON_ABILITY_ON', ['attack', 'combat'], ok)
     ?? own(proj.born) ?? attackLike('ON_ABILITY_START') ?? attackLike('ON_ABILITY_ON');
-  const hit = firstMatching(banks, 'ON_ABILITY_HIT', ['attack', 'combat'], ok) ?? own(proj.hit) ?? attackLike('ON_ABILITY_HIT');
+  const hit = mode0('ON_ABILITY_HIT') ?? firstMatching(banks, 'ON_ABILITY_HIT', ['attack', 'combat'], ok) ?? own(proj.hit) ?? attackLike('ON_ABILITY_HIT');
   if (attack) out.attack = attack;
   if (hit) out.hit = hit;
   if (banks.get('ON_UNIT_DEAD')?.length) out.die = banks.get('ON_UNIT_DEAD');

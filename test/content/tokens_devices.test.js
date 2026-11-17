@@ -1071,7 +1071,7 @@ test('炎佑 details: plain spawnToken works (enemy-shaped record), burn gauge =
   assert.equal(y.motion, 'FLY');
   const e = h.enemy('enemy_dummy');
   assert.ok(h.runUntil(() => y.stats.attacks >= 1 && e.elem.burn > 0, 5));
-  // 元素脆弱 raises 元素伤害 only ("受到的元素伤害提升"), never the gauge fill (damage.js)
+  // 元素脆弱 raises 元素伤害 only ("受到的元素伤害提升"), never the gauge fill (attack/element.js)
   approx(e.elem.burn, 1000 * 0.2, 1e-6, 'gauge per hit');
   assert.ok(h.runUntil(() => h.hooksOf('elementBurst').length > 0, 20), 'burn burst');
   const burst = h.hooksOf('damaged').find((c) => c.type === 'elemental' && c.target === e);

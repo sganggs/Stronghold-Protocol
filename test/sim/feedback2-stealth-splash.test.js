@@ -24,6 +24,9 @@ import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.
 import { hasGeneratedData } from '../../server/sim/simdata.js';
 import { areaSelectable, auraSelectable } from '../../server/sim/targeting.js';
 import { areaAllies } from '../../server/sim/content/enemies.js';
+import fs from 'node:fs';
+
+const WAVES_E = JSON.parse(fs.readFileSync(new URL('../../data/enemies.json', import.meta.url), 'utf8'));
 
 const REAL = { skip: !hasGeneratedData() };
 const JF = 'chess_char_1_02_a';   // 角峰 (重装, blocks 3)
@@ -165,9 +168,13 @@ test('#32.6 “庞贝”\'s self-blast while blocked misses its 隐匿 blocker a
 
 test('#32.6 boss: 卢西恩\'s 【aoe】 is not cast for 隐匿 / 迷彩 operators alone; cast, it hits the 迷彩 and plain ones, not the 隐匿 one', REAL, () => {
   const run = (plain) => {
+    // the aoe takes an attack's turn (DESIGN §35.29): 红豆 stands on 卢西恩's tile and blocks it (its blink kept out of the
+    // way, initial cooldown 9999), so it has turns; alone with 隐匿 / 迷彩 operators it has no target, no turn
     const units = [{ chessId: JF, row: 10, col: 5, dir: 'RIGHT' }, { chessId: GM, row: 11, col: 6, dir: 'RIGHT' }];
-    if (plain) units.push({ chessId: HD, row: 9, col: 6, dir: 'RIGHT' });
-    const h = makeBattle({ seed: 3, timeLimit: 400, autoFinish: false, units, enemies: [{ key: LUCIEN, pos: [10, 6], time: 1, mods: { hpMul: 1e3, speedMul: 0, atkMul: 0.01 } }] });
+    if (plain) units.push({ chessId: HD, row: 10, col: 6, dir: 'RIGHT' });
+    const skills = WAVES_E[LUCIEN].skills.map((x) => (x.prefabKey === 'blink' ? { ...x, initCooldown: 9999 } : x));
+    const h = makeBattle({ seed: 3, timeLimit: 400, autoFinish: false, units, setup(b) { b.enemyOverrides = { [LUCIEN]: { skills } }; },
+      enemies: [{ key: LUCIEN, pos: [10, 6], time: 1, mods: { hpMul: 1e3, speedMul: 0, atkMul: 0.01 } }] });
     h.step(1);
     stealth(h, h.unit(JF)); camou(h, h.unit(GM));
     const log = damageLog(h, LUCIEN), casts = countFx(h, 'crimsonAoe');

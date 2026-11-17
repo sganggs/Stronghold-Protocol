@@ -107,7 +107,7 @@ test('S1 殁亡 (AUTO, data DEFAULT): 74 / 68 SP from 0, cast as he is about to 
   }
 });
 
-test('S1 殁亡 execution: an enemy of his range under 90 % / 120 % of his ATK falls at once (9999999 无来源 true damage, no dodge), then another random enemy of the range takes arts damage equal to the HP it had left; one try only on a survivor; air units too', () => {
+test('S1 殁亡 execution: an enemy of his range under 90 % / 120 % of his ATK falls at once (9999999 无来源 true damage, uncancellable by dodge/block/miss), then another random enemy of the range takes arts damage equal to the HP it had left; one try only on a survivor; air units too', () => {
   for (const [tier, elite] of [[5, false], [6, true]]) {
     const sk = skillOf(tier, elite, S1);
     let guard = null;
@@ -123,12 +123,14 @@ test('S1 殁亡 execution: an enemy of his range under 90 % / 120 % of his ATK f
     h.step();
     assert.ok(!low.alive, `T${tier}: the flyer under the threshold fell`);
     const kill = h.hooksOf('damaged').find((c) => c.target === low && (c.dmg?.tags || []).includes('execute'));
-    assert.ok(kill && kill.source === null && kill.credit === u && kill.type === 'true' && kill.dmg.sourceless && !kill.dmg.canDodge, `T${tier}: 无来源 true, credited to him`);
+    assert.ok(kill && kill.source === null && kill.credit === u && kill.type === 'true' && kill.dmg.sourceless && kill.dmg.ignoreCancelReasons?.join(',') === 'dodge,block,miss', `T${tier}: 无来源 true, credited to him`);
     assert.equal(low.removeReason, 'killed');
     const follow = tagged(h, u, 'logosPerish');
     assert.equal(follow.length, 1, `T${tier}: one follow-up`);
     assert.ok([big, high].includes(follow[0].target) && follow[0].type === 'arts', `T${tier}: on another enemy of his range`);
-    approx(follow[0].amount, hp0, `T${tier}: the HP the fallen one had left`);
+    // Native logos_s_1 FixedValueDamage explicitly enables source calculation, so T2 marks this new target.
+    assert.ok(follow[0].target.findBuff('logos:soulRend'));
+    approx(follow[0].amount, hp0 + talentOf(tier, elite, null, 1).atk_addition, `T${tier}: remaining HP plus T2 before RES`);
     assert.ok(![big, high].some((e) => h.hooksOf('damaged').some((c) => c.target === e && (c.dmg?.tags || []).includes('execute'))), `T${tier}: above the threshold: no execution`);
     // an enemy that falls under the threshold while on his range is executed then (the aura checks every tick)
     high.hp = thr * 0.9;
@@ -143,6 +145,44 @@ test('S1 殁亡 execution: an enemy of his range under 90 % / 120 % of his ATK f
     assert.ok(guard.alive && guard.hp <= 1 + 1e-9, `T${tier}: held at 1 HP`);
     h.run(3);
     assert.equal(tries(), 1, `T${tier}: never again`);
+    done(h);
+  }
+});
+
+for (const outcome of ['killed', 'survived', 'no-follow-up']) test(`S1 native talent trigger order: ${outcome}`, () => {
+  for (const [tier, elite, mod] of [[5, false, null], [6, true, CCRY]]) {
+    let victim;
+    const { h, u } = field({ tier, elite, mod, setup: b => {
+      if (outcome === 'survived') b.on('fatal', c => { if (c.unit === victim) c.prevented = true; });
+    } });
+    cast(u);
+    victim = h.spawn('enemy_low', { pos: [10, 7] });
+    const target = outcome === 'no-follow-up' ? null : h.spawn('enemy_dummy', { pos: [11, 7] });
+    const left = victim.hp, hits = [];
+    let rolls = 0;
+    h.b.rng.chance = () => { rolls++; return true; };
+    h.b.rng.pick = list => list[0];
+    h.b.on('damageApplied', c => {
+      if (c.source === u && c.target === target) hits.push({ tags: c.dmg.tags, amount: c.amount });
+    });
+    // Let the scheduler refresh spatial/range caches, without an ordinary attack supplying extra talent rolls.
+    u.atkCd = 1000;
+    h.step();
+    const count = talentOf(tier, elite, mod, 0).emit_count ?? 1;
+    assert.equal(victim.alive, outcome === 'survived');
+    assert.equal(rolls, outcome === 'survived' ? 0 : count, 'roll on successful execution even without another target');
+    const follow = tagged(h, u, 'logosPerish');
+    assert.equal(follow.length, target ? 1 : 0);
+    if (target) {
+      const extra = outcome === 'survived' ? 0 : count;
+      assert.equal(hits.length, extra + 1);
+      for (let i = 0; i < extra; i++) {
+        assert.ok(hits[i].tags.includes('logosLexicon'), 'talent executes before the S1 follow-up');
+        approx(hits[i].amount, u.s.atk * talentOf(tier, elite, mod, 0).atk_scale, 'precomputed talent does not create a T2 mark');
+      }
+      assert.ok(hits[extra].tags.includes('logosPerish'));
+      approx(hits[extra].amount, left + 165, 'the later source-calculating follow-up applies T2');
+    }
     done(h);
   }
 });
@@ -230,6 +270,26 @@ test('S3 延异视阈 (MANUAL, data ACTIVE_RANGE on its 3-4): cast with an enemy
     assert.deepEqual(u.liveRangeGrid, formOf(tier, elite).rangeGrid, `T${tier}: back to 3-1`);
     done(h);
   }
+});
+
+test('S3 distinguishes projectile speed-change and removal eligibility', () => {
+  const { h, u } = field({ skill: 2 });
+  const e = h.spawn('enemy_dummy', { pos: [12, 9] });
+  cast(u);
+  const make = opts => h.b.addProjectile({ from: { x: 6, y: 10 }, to: { x: 7, y: 10 }, source: e, speed: 1, ...opts });
+  const invisible = make({ visual: 'none' });
+  const slowOnly = make({ speedChangeable: true, removable: false });
+  const clearOnly = make({ speedChangeable: false, removable: true });
+  h.run(0.1);
+  assert.equal(invisible.speed, 1);
+  assert.equal(slowOnly.speed, 0.05);
+  assert.equal(clearOnly.speed, 1);
+  u.skill.end('test');
+  assert.ok(h.b.projectiles.list.includes(invisible));
+  assert.ok(h.b.projectiles.list.includes(slowOnly));
+  assert.equal(slowOnly.speed, 1, 'release a slowed but non-removable projectile');
+  assert.ok(!h.b.projectiles.list.includes(clearOnly));
+  done(h);
 });
 
 test('S3 延异视阈: enemy shots on his range fly at 5 % of their speed (back once they leave it) and are cleared when the skill ends — not when he is disarmed then', () => {
@@ -413,3 +473,51 @@ test('CCR-Y “《语义范式百科》” (stages 1 and 3): +1 SP per normal-at
     }
   }
 });
+
+
+for (const mode of ['loss', 'gauge', 'sourceLess', 'dodge', 'shield', 'partial', 'overkill', 'hitCount']) {
+  test(`Logos CCR-Δ successful arts rider: ${mode}`, () => {
+    const { h, u } = field({ tier: 6, elite: true, mod: CCRD });
+    const b = h.b, e = h.spawn('enemy_elite', { pos: [10, 7] });
+    u.atkCd = 999;
+    if (mode === 'dodge') b.addBuff(e, { key: 'defense', injury(c) { c.dodge(); } });
+    if (mode === 'shield') b.addBuff(e, { key: 'defense', shieldHits: 1 });
+    if (mode === 'partial') b.addBuff(e, { key: 'defense', shield: 40 });
+    if (mode === 'hitCount') b.addBuff(e, { key: 'defense', flags: { hitCount: true } });
+    if (mode === 'overkill') e.hp = 10;
+    const fills = [];
+    b.on('elementApplied', c => { if (c.source === u && c.target === e && c.dmg.tags?.includes('logosCcrd')) fills.push(c); });
+    let removed;
+    if (mode === 'loss') removed = b.dealHPLose({ source: u, target: e, amount: 100, type: 'arts' });
+    else if (mode === 'gauge') b.dealElementDamage({ source: u, target: e, amount: 10, element: 'burn' });
+    else removed = b.dealDamage({ source: mode === 'sourceLess' ? null : u, credit: u, target: e,
+      amount: 100, type: 'arts', calculation: 'resolved', attackType: 'BUFF', isAttack: false });
+    // Gauge riders retain the existing hasHp policy: no gauge fill on a killing blow.
+    const success = ['partial', 'hitCount'].includes(mode);
+    assert.equal(fills.length, success ? 1 : 0);
+    if (success) approx(fills[0].amount, (mode === 'partial' ? 60 : 100) * 0.08, 'damage basis');
+    if (mode === 'overkill') assert.equal(removed, 10);
+    if (mode === 'hitCount') assert.equal(removed, 1);
+    done(h);
+  });
+}
+
+for (const mode of ['attack', 'lexicon', 'skill', 'loss', 'originLoss', 'legacyLoss', 'sourceLess', 'zero', 'shield', 'cancelled']) {
+  test(`Logos CCR-Y trigger boundary (zero/full-shield compatibility remains ASSUMED): ${mode}`, () => {
+    const { h, u } = field({ tier: 6, elite: true, mod: CCRY, skill: 0 });
+    const b = h.b, e = h.spawn('enemy_elite', { pos: [10, 7] });
+    u.atkCd = 999;
+    if (mode === 'shield') b.addBuff(e, { key: 'defense', shieldHits: 1 });
+    if (mode === 'cancelled') b.addBuff(e, { key: 'defense', injury(c) { c.dodge(); } });
+    const before = u.skill.sp;
+    if (mode === 'loss') b.dealHPLose({ source: u, target: e, amount: 100, type: 'arts' });
+    else if (mode === 'originLoss') b.dealHPLose({ source: u, target: e, amount: 100, type: 'arts', origin: { tags: ['logosLexicon'] } });
+    else if (mode === 'legacyLoss') b.dealHPLose(e, 100, { source: u, from: { tags: ['logosLexicon'] } });
+    else b.dealDamage({ source: mode === 'sourceLess' ? null : u, credit: u, target: e,
+      amount: mode === 'zero' ? 0 : 100, type: 'arts', calculation: 'resolved',
+      isAttack: !['lexicon', 'skill'].includes(mode), tags: mode === 'lexicon' ? ['logosLexicon'] : [] });
+    const eligible = ['attack', 'lexicon', 'zero', 'shield'].includes(mode);
+    assert.equal(u.skill.sp - before, eligible ? 1 : 0);
+    done(h);
+  });
+}

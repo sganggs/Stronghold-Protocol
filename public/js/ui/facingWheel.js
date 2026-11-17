@@ -6,7 +6,7 @@
 //     dead-zone, ~0.5 tile) and 4 chevrons (UP / RIGHT / DOWN / LEFT);
 //   * a red "✕ 点击取消" tag on the diamond's upper-left edge;
 //   * press and drag from the centre: past the dead-zone that side's chevron lights and the unit's range grid, rotated
-//     to that direction (DESIGN §3), shows as orange striped tiles (view.highlightTiles group 'facing' under the units
+//     to that direction (DESIGN §3), shows as orange / healing-blue striped tiles (view.highlightTiles group 'facing' under the units
 //     + a striped SVG layer — slotted between the 3D board canvas and the Pixi canvas when the 3D board is on, so the
 //     units stand on the stripes; an overlay otherwise); outside the centre the tooltip "拖回中心区域取消" shows;
 //   * on the mirrored right half of the Final Assault prep a screen direction maps to its board direction (RIGHT ↔
@@ -27,13 +27,14 @@ import { html } from './components.js';
 import { LocalSprite } from './gameComponents.js';
 import { DIRS, DIR_LABEL, DEAD_ZONE_TILES, dirFromDelta, dirFromKey, rangeTiles, normDir, boardDir, viewMirrored } from './facing.js';
 import { facingSwallows, facingEnter } from './gameLogic.js';
+import { rangeStyle } from './rangeStyle.js';
 import { settingsStore } from './settings.js';
 import { t } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 const rawOf = (view) => (view && view.raw) || view || null;
 
-/** Range highlight of the wheel / a selected unit (orange, drawn under the units by the render engine). */
+/** Default attack highlight; healing ranges override its colour, keeping the group. */
 export const FACING_STYLE = Object.freeze({ group: 'facing', color: 0xff9c33, fill: 0.36, line: 1 });
 
 // ---- view bridge ---------------------------------------------------------------------------------------------------
@@ -180,10 +181,10 @@ function Chevron({ dir, on }) {
 
 /**
  * The direction wheel overlay.
- * @param {{ view: any, row: number, col: number, grid: Array<[number, number]>|null, name?: string,
+ * @param {{ view: any, row: number, col: number, grid: Array<[number, number]>|null, healing?: boolean, name?: string,
  *   onPreview?: (dir: string|null) => void, onCommit: (dir: string) => void, onCancel: () => void }} props
  */
-export function FacingWheel({ view, row, col, grid, name = '', onPreview, onCommit, onCancel }) {
+export function FacingWheel({ view, row, col, grid, healing = false, name = '', onPreview, onCommit, onCancel }) {
   const g = useTileScreen(view, row, col);
   const [dir, setDir] = useState(null);
   const [drag, setDrag] = useState(null); // { id } while a pointer is down
@@ -199,7 +200,7 @@ export function FacingWheel({ view, row, col, grid, name = '', onPreview, onComm
   live.current = { g, half, dead, dir, bdir, mirror, onCommit, onCancel, onPreview };
 
   // preview: model / wedge direction and the rotated range under the units
-  const tiles = useRangeHighlight(view, grid, row, col, bdir);
+  const tiles = useRangeHighlight(view, grid, row, col, bdir, healing);
   useEffect(() => { try { onPreview?.(bdir); } catch { /* ignore */ } }, [bdir]);
   useEffect(() => () => { showRange(view, null, row, col, null); }, []);
 
@@ -269,7 +270,7 @@ export function FacingWheel({ view, row, col, grid, name = '', onPreview, onComm
   return html`<div ref=${rootRef} tabIndex="-1" class=${cx('fwheel', drag && 'is-pressed', dir && `is-${dir.toLowerCase()}`)} role="dialog" aria-label=${name ? t('选择「{name}」的朝向', { name }) : t('选择朝向')}
       onPointerDown=${onDown} onPointerMove=${onMove} onPointerUp=${onUp} onPointerCancel=${onPointerCancel}
       onContextMenu=${(e) => { e.preventDefault(); onCancel(); }}>
-    ${g ? html`<${Stripes} tiles=${tiles} view=${view} row=${row} col=${col} />` : null}
+    ${g ? html`<${Stripes} healing=${healing} tiles=${tiles} view=${view} row=${row} col=${col} />` : null}
     ${g ? html`<div class="fwheel__dia" style=${`left:${g.x}px;top:${g.y}px;width:${box}px;height:${box}px`}>
       <svg class="fwheel__svg" viewBox="-110 -110 220 220" aria-hidden="true">
         <path class="fwheel__outer" d="M0 -100 L100 0 L0 100 L-100 0 Z" />
@@ -292,9 +293,9 @@ export function FacingWheel({ view, row, col, grid, name = '', onPreview, onComm
 }
 
 /** Keep the view's 'facing' highlight group on the rotated range; returns the tiles. */
-function useRangeHighlight(view, grid, row, col, dir) {
+function useRangeHighlight(view, grid, row, col, dir, healing) {
   const [tiles, setTiles] = useState([]);
-  useLayoutEffect(() => { setTiles(showRange(view, grid, row, col, dir)); }, [view, grid, row, col, dir]);
+  useLayoutEffect(() => { setTiles(showRange(view, grid, row, col, dir, rangeStyle(FACING_STYLE, healing))); }, [view, grid, row, col, dir, healing]);
   return tiles;
 }
 
@@ -330,10 +331,12 @@ export function stripePolys(view, tiles, ox = 0, oy = 0) {
 }
 
 /**
- * Striped orange range tiles (the official look), re-projected every frame (the camera may still move). The solid
- * orange fill is the render view's highlight group under the units; these are the light stripes on top of it.
+ * Striped attack / healing range tiles, re-projected every frame (the camera may still move). The solid
+ * coloured fill is the render view's highlight group under the units; these are the light stripes on top of it.
  */
-function Stripes({ tiles, view, row, col }) {
+function Stripes({ tiles, view, row, col, healing = false }) {
+  const stripe = healing ? 'rgba(138,229,255,.5)' : 'rgba(255,178,70,.5)';
+  const stroke = healing ? 'rgba(51,207,255,.9)' : 'rgba(255,176,70,.9)';
   const [, setN] = useState(0);
   const mount = stripeMount(view);
   const key = tiles.map((t) => t.join(',')).join(';');
@@ -346,7 +349,7 @@ function Stripes({ tiles, view, row, col }) {
     svg.setAttribute('aria-hidden', 'true');
     Object.assign(svg.style, { position: 'absolute', left: '0', top: '0', width: '100%', height: '100%', zIndex: '0', pointerEvents: 'none', overflow: 'visible' });
     svg.innerHTML = `<defs><pattern id="${id}" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">`
-      + '<rect width="3.5" height="10" fill="rgba(255,178,70,.5)" /></pattern></defs><g></g>';
+      + `<rect width="3.5" height="10" fill="${stripe}" /></pattern></defs><g></g>`;
     const g = svg.lastChild;
     mount.host.insertBefore(svg, mount.before);
     let raf = 0;
@@ -361,7 +364,7 @@ function Stripes({ tiles, view, row, col }) {
           const el = document.createElementNS(SVG_NS, 'polygon');
           el.setAttribute('points', p.pts);
           el.setAttribute('fill', `url(#${id})`);
-          el.setAttribute('stroke', 'rgba(255,176,70,.9)');
+          el.setAttribute('stroke', stroke);
           el.setAttribute('stroke-width', '1.5');
           return el;
         }));
@@ -370,7 +373,7 @@ function Stripes({ tiles, view, row, col }) {
     };
     tick();
     return () => { cancelAnimationFrame(raf); svg.remove(); };
-  }, [key, view, !!mount]);
+  }, [key, view, !!mount, healing]);
   // overlay (2D board / fallback): never over the piece's own tile, so the unit being placed stays visible
   const over = mount ? [] : tiles.filter(([r, c]) => r !== row || c !== col);
   const overKey = over.map((t) => t.join(',')).join(';');
@@ -392,9 +395,9 @@ function Stripes({ tiles, view, row, col }) {
   return html`<svg class="fwheel__stripes" aria-hidden="true">
     <defs>
       <pattern id="fwheel-stripe" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-        <rect width="3.5" height="10" fill="rgba(255,178,70,.42)" />
+        <rect width="3.5" height="10" fill=${healing ? 'rgba(138,229,255,.42)' : 'rgba(255,178,70,.42)'} />
       </pattern>
     </defs>
-    ${polys.map((p) => html`<polygon key=${p.k} points=${p.pts} fill="url(#fwheel-stripe)" stroke="rgba(255,176,70,.9)" stroke-width="1.5" />`)}
+    ${polys.map((p) => html`<polygon key=${p.k} points=${p.pts} fill="url(#fwheel-stripe)" stroke=${stroke} stroke-width="1.5" />`)}
   </svg>`;
 }

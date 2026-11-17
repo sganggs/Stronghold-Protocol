@@ -1,5 +1,5 @@
 // test/sim/playtest6_elemgauge.test.js — user playtest #6 report 11, sim side: "干员血条右边的元素损伤条积累速度不对，损伤条
-// 远远没扣完但是实际已经爆条受到伤害了". The gauge a unit shows (damage.js elementView → b.snap `elem`) must be exactly
+// 远远没扣完但是实际已经爆条受到伤害了". The gauge a unit shows (attack/element.js elementView → b.snap `elem`) must be exactly
 // the gauge that bursts (PRTS 元素: "以白条显示剩余的元素值", the shown element = 当前损伤元素, lowest 元素值 > element id):
 //   · every tick, the shown element is the one with the least 元素值 left, and the shown remainder (1 − fill) is the
 //     sim's remainder rounded UP to 1 % — never less than what is left, so the bar is never empty before the burst;
@@ -10,7 +10,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle } from '../helpers/battleHarness.js';
-import { elementView } from '../../server/sim/damage.js';
+import { elementView } from '../../server/sim/attack.js';
 import { ELEMENT_ORDER } from '../../server/sim/constants.js';
 
 const OP = 'chess_char_1_10_a'; // 古米 (T1 defender, real kit)

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "catalog.schema.json",
   "title": "A community plugin catalogue",
-  "description": "A list of plugins someone else publishes (docs/PLUGINS.md §17, docs/plugin-catalog.example.json). This project does not host the files. Accepted here means shared/plugins/catalog.js readCatalog finds neither a problem nor a warning. uniqueItemProperties is not a stock JSON Schema keyword: this repository's test/helpers/jsonSchema.js enforces it (the same id twice). A stock editor that ignores it will not see a duplicate id; the normative check is that validator plus readCatalog. app is a version range (the same language as isVersionRange). A missing app is compatible; an empty app is not. Addresses are https with a dotted host and no user or password. The download layer, not this schema, refuses a non-public address and a port other than 443. bytes, when present, is at most 200 MB (209715200).",
+  "description": "A list of plugins someone else publishes (docs/PLUGINS.md §17, docs/plugin-catalog.example.json). This project does not host the files. Accepted here means shared/plugins/catalog.js readCatalog finds neither a problem nor a warning. uniqueItemProperties is not a stock JSON Schema keyword: this repository's test/helpers/jsonSchema.js enforces it (the same id twice). A stock editor that ignores it will not see a duplicate id; the normative check is that validator plus readCatalog. app is a version range (the same language as isVersionRange). A missing app is compatible; an empty app is not. Addresses are https with a dotted host and no user or password. The download layer, not this schema, refuses a non-public address and a port other than 443. bytes, when present, is at most the largest class ceiling (536870912): readCatalog and this schema enforce this outer bound. Download and zip checks use the same maximum before the manifest is known; the extracted folder is then checked against its class ceiling — 512 MB for a cosmetic pack, 200 MB otherwise.",
   "type": "object",
   "additionalProperties": false,
   "required": ["catalog", "name", "plugins"],
@@ -41,7 +41,7 @@
         "description": { "type": "string", "minLength": 1, "maxLength": 400 },
         "url": { "$ref": "#/$defs/httpsUrl" },
         "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-        "bytes": { "type": "integer", "minimum": 0, "maximum": 209715200 },
+        "bytes": { "type": "integer", "minimum": 0, "maximum": 536870912 },
         "homepage": { "$ref": "#/$defs/httpsUrl" },
         "license": { "type": "string", "minLength": 1, "maxLength": 80 },
         "authors": {

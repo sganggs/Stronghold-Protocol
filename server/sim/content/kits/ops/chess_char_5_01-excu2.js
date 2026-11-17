@@ -5,14 +5,9 @@ import {
   num, on, talent, batPct, mods, inFaction, isOp, selectedId, lazySkills, skillRange,
 } from '../shared/tier5.js';
 
-const isLaterano = (u) => inFaction(u, 'lateranoShip', ['laterano']);
+import { damageApplyWay } from '../../../attack.js';
 
-/** Enemy `e` attacks `t` in melee (not a ranged shot), mirroring ai.js enemyAttack. */
-function meleeAttacker(e, t) {
-  const melee = e.profile?.melee ?? e.def?.applyWay === 'MELEE';
-  const r = num(e.base?.rangeRadius, 0);
-  return melee || !(r > 0) || (e.blockedBy === t && r < 1);
-}
+const isLaterano = (u) => inFaction(u, 'lateranoShip', ['laterano']);
 
 export default {
   // ---------------------------------------------------------------------------------------------------------------
@@ -60,6 +55,14 @@ export default {
       skill: {
         kind: 'ammo', ammo: num(bb['attack@trigger_time'], 12),
         mods: mods({ atkPct: num(bb.atk), defPct: num(bb.def), blockCnt: num(bb.block_cnt) }),
+        onStart({ battle, unit }) {
+          // PRTS: +2000, enemy-source melee-route damage; all four HP damage types can be dodged.
+          battle.addBuff(unit, { key: 'excu2:meleeDodge', injuryPriority: 2000, tags: ['skill'], injury(c) {
+            if (c.source?.side !== 'enemy' || damageApplyWay(c.dmg) === 'RANGED') return;
+            if (c.dodge(prob)) unit.skill.addAmmo(refill);
+          } });
+        },
+        onEnd({ battle, unit }) { battle.removeBuff(unit, 'excu2:meleeDodge'); },
       },
       // REA-Y: its trait part is DISPLAY-only (official battle_equip_table uniequip_003_excu2: target DISPLAY, the ASPD
       // text "{value}" = 12; the ASPD rider itself is the talent −1 part). data/chess.json merges that display blackboard
@@ -109,17 +112,6 @@ export default {
             battle.addBuff(unit, { key: 'excu2:verdict', refresh: 'stack', maxStacks: Math.max(1, num(bb['attack@max_stack_cnt'], 30)), mods: mods({ atkPct: num(bb['attack@atk']) }) });
           }, { owner: unit });
         }
-        if (sid && sid !== 'skchr_excu2_2') return;
-        // S2: melee attacks dodged with `prob`, each dodge refills ammo
-        battle.on('hit', (c) => {
-          if (c.target !== unit || !unit.skill?.active || !c.source || c.source.side !== 'enemy' || !c.dmg.isAttack) return;
-          if (!meleeAttacker(c.source, unit) || !(prob > 0) || !battle.rng.chance(prob)) return;
-          c.dmg.cancel = true;
-          battle.fx('dodge', { x: unit.x, y: unit.y, id: unit.id });
-          // a dodge like the engine's (listeners of the `dodge` hook — items/bonds — see it too)
-          if (battle.hasHook('dodge')) battle.emit('dodge', { source: c.source, target: unit, dmg: c.dmg });
-          unit.skill.addAmmo(refill);
-        }, { owner: unit });
       },
     };
   },

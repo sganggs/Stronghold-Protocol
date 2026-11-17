@@ -39,16 +39,24 @@
 import { bodyInRange } from '../../../body.js';
 import { absoluteRangeKeys, sortEnemyTargets } from '../../../targeting.js';
 import { hypot } from '../../../detmath.js';
+import { isVersionData } from '../../tokens.js';
 
 // ---- text-only constants (the official blackboards carry no key for these) --------------------------------------
 /** 华法琳 S1 "只当目标生命值不满一半时才会触发"; 塞雷娅 S1 "血量小于等于一半"; 山 module "生命值高于50%时". */
 const HALF_HP = 0.5;
 /**
  * Abyssal Hunters (【深海猎人】 = character_table groupId `abyssal`; data/chess.json has no groupId, the charIds come from
- * docs/research/03-operators.json): 幽灵鲨, 斯卡蒂, 歌蕾蒂娅, 乌尔比安, 归溟幽灵鲨. 浊心斯卡蒂 (char_1012_skadi2) has groupId
- * null in the official data — she is NOT an Abyssal Hunter for these talents.
+ * docs/research/03-operators.json): 幽灵鲨, 斯卡蒂, 歌蕾蒂娅, 乌尔比安, 归溟幽灵鲨, the list of before versions M0, which data
+ * without config.version (the default data and the plugin content sets on it) keeps. On another version's build (support
+ * isVersionData) also 安哲拉, shop chess in 第一期 (DESIGN §35.22.4). 浊心斯卡蒂 (char_1012_skadi2) has groupId null in the
+ * official data — she is NOT an Abyssal Hunter for these talents. The one list of the tier-5 kits, 歌蕾蒂娅 and 浊心斯卡蒂
+ * (abyssalOf); 斯卡蒂's own list (../ops/chess_char_3_05-skadi.js ABYSSAL) stays separate: it named 安哲拉 before M0, on
+ * every data set.
  */
 const ABYSSAL = new Set(['char_143_ghost', 'char_263_skadi', 'char_474_glady', 'char_4145_ulpia', 'char_1023_ghost2']);
+const ABYSSAL_VERSION = new Set([...ABYSSAL, 'char_218_cuttle']);
+/** The 深海猎人 list of `data` (default: the loaded data). */
+const abyssalOf = (data) => (isVersionData(data) ? ABYSSAL_VERSION : ABYSSAL);
 /** Never auto-fires (CUSTOM_RANGE with an empty trigger grid): the kit activates the skill itself. */
 const NEVER = Object.freeze({ rule: 'CUSTOM_RANGE', grid: Object.freeze([]) });
 const AURA_IV = 0.25;
@@ -74,7 +82,7 @@ const mods = (m) => { const o = {}; for (const k of Object.keys(m)) { const v = 
 const dist = (a, b) => hypot(a.x - b.x, a.y - b.y);
 const nationOf = (u) => u?.def?.raw?.nationId ?? null;
 const inFaction = (u, bond, nations) => !!u?.def && ((u.def.bonds || []).includes(bond) || nations.includes(nationOf(u)));
-const isAbyssal = (u) => u?.def?.raw?.groupId === 'abyssal' || ABYSSAL.has(u?.def?.charId);
+const isAbyssal = (u) => u?.def?.raw?.groupId === 'abyssal' || abyssalOf().has(u?.def?.charId);
 const isOp = (u) => u && u.kind === 'op';
 
 // ---- operator loadouts (DESIGN §16) -------------------------------------------------------------------------------
@@ -201,6 +209,6 @@ function enemiesInGrid(battle, unit, grid, n = 0, { ignoreStealth = false } = {}
 
 export {
   HALF_HP, NEVER, AURA_IV, AURA_DUR, RING1, num, on, inRange, talent, talentRec, traitBb, skillGrid, maxCharges, batPct,
-  mods, dist, inFaction, isAbyssal, isOp, selectedId, lazySkills, instantKind, skillRange, burstSpUp,
+  mods, dist, inFaction, abyssalOf, isAbyssal, isOp, selectedId, lazySkills, instantKind, skillRange, burstSpUp,
   leaderOf, elementHit, whileOn, spAura, burstDamageUp, lowHpHealUp, moduleRangeUp, permBuff, enemiesInGrid,
 };

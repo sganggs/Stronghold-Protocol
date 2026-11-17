@@ -6,9 +6,15 @@
 // marks this tab as "entered" (so reloads skip the title) and hands the name to net.js, which
 // sends `hello` (now, or as soon as the socket is open). The router then shows the lobby.
 //
-// Backdrop art: if data/assets.json lists a UI backdrop (`ui.titleBackdrop`, or one of the
-// entry/loading illustration names) it is layered under the CSS art; otherwise the screen is
-// pure CSS/SVG (radar, ridgelines, glow), so it never issues a request that can 404.
+// A 规程 start (versions.js startupVersion: a first start, or a lobby set to 规程) wears 规程: with 规程's opening extracted
+// (ui/regulationFilm.js, §37.147) the backdrop is that film's last frame — the season ground, key art, skyline and the
+// official title art, which stands in for our heading (kept for screen readers) — and the login column starts under it;
+// without it, the 规程 lobby's ground under 卫戍协议：规程 and the season emblem.
+//
+// Backdrop art: the night / dusk lobby once those files have loaded (useLobbyArt). Otherwise, if
+// data/assets.json lists a UI backdrop (`ui.titleBackdrop`, or one of the entry/loading illustration
+// names) it is layered under the CSS art; with neither, the screen is pure CSS/SVG (radar,
+// ridgelines, glow). A listed sprite whose file fails does not replace that.
 //
 // The full art, under the login box: 下载完整素材 (ui/assetDownload.js — its dialog downloads from this server) and
 // 导入素材包 (ui/assetImport.js — the player's own folder or zip, no server download) side by side, so an import never
@@ -19,9 +25,9 @@
 // (ui/pluginPanel.js InstalledPlugins, which fetches the catalogue when it opens); nothing on a server without any, which
 // the page never asks for its catalogue — and the title page loads none of the panel's code.
 
+import { ReleaseNotesButton } from '../ui/releaseNotes.js';
 import { ResumeMatchButton } from '../ui/resumeMatch.js';
-import { AssetDownloadButton } from '../ui/assetDownload.js';
-import { AssetImportButton } from '../ui/assetImport.js';
+import { ResourceManagerButton } from '../ui/resourceManager.js';
 import { useEffect, useMemo, useState } from '../../vendor/hooks.module.js';
 import { NAME_MAX_LEN, APP_VERSION, DEV_BUILD } from '../../../shared/constants.js';
 import { html, Button, Icon, MicroLabel, TextField, PingPill } from '../ui/components.js';
@@ -30,16 +36,21 @@ import { openStats } from './stats.js';
 import { toast } from '../ui/toasts.js';
 import { net, identity } from '../net.js';
 import { store, useStore, shallowEqual } from '../store.js';
-import { data, useData } from '../data.js';
+import { data, useData, localAsset } from '../data.js';
 import { FullscreenButton, PwaInstallButton, detectFeatures } from '../ui/device.js';
 import { LangToggle, useLang } from '../ui/lang.js';
 import { t, N_ } from '../../../shared/i18n.js';
 import { scriptOf } from '../../../shared/i18nPacks.js';
-import { GIcon } from '../ui/gameComponents.js';
+import { GIcon, Img } from '../ui/gameComponents.js';
 import { SettingsModal } from '../ui/settings.js';
 import { installedCount } from '../content.js';
 import { NoticesButton } from '../ui/notices.js';
 import { sanitizeName, isValidName } from '../ui/playerName.js';
+import { AllianceBackdrop, useLobbyArt } from '../ui/allianceScene.js';
+import { RegulationBackdrop, RegulationStill, useRegulationPack, REGULATION, REGULATION_ART } from '../ui/regulationBackdrop.js';
+import { REGULATION_ENTRY } from '../ui/regulationFilm.js';
+import { seasonOf, startupVersion } from '../versions.js';
+import { uiUrl } from '../ui/assetUrls.js';
 
 export { stripLoneSurrogates, sanitizeName, isValidName } from '../ui/playerName.js';
 
@@ -110,7 +121,7 @@ const EMBLEM = [
   'XXXXXXXXXXXXX',
 ];
 
-function Emblem() {
+export function Emblem() {
   const dots = useMemo(() => {
     const out = [];
     EMBLEM.forEach((row, r) => {
@@ -129,6 +140,20 @@ function Emblem() {
       ${dots.map((d, i) => html`<circle key=${i} cx=${d.cx} cy=${d.cy} r=${d.r} class=${d.accent ? 'is-accent' : `d${d.d}`} />`)}
     </svg>
     <span class="emblem__bracket emblem__bracket--r"></span>
+  </div>`;
+}
+
+/**
+ * The event's logo in the emblem's brackets, sized as the entry film leaves it (its 1280×720 stage fitted to the
+ * screen: the logo 144 px wide, the brackets 12 × 129 px, 4 px from it), so the film lands on the title screen.
+ */
+function FilmLogo({ src }) {
+  const k = (px) => `min(${(px / 12.8).toFixed(3)}vw,${(px / 7.2).toFixed(3)}vh)`;
+  const br = `width:${k(12)};height:${k(129)}`;
+  return html`<div class="emblem emblem--logo" aria-hidden="true" style=${`gap:${k(4)}`}>
+    <span class="emblem__bracket emblem__bracket--l" style=${br}></span>
+    <${Img} src=${src} class="emblem__logo" style=${`width:${k(144)};height:auto`} fallback=${html`<${Emblem} />`} />
+    <span class="emblem__bracket emblem__bracket--r" style=${br}></span>
   </div>`;
 }
 
@@ -181,6 +206,21 @@ export function TitleScreen() {
   const assetsSettled = useData('assets');
   const assets = data.get('assets');
   const backdrop = findUiAsset(assets, BACKDROP_KEYS);
+  // the event's night / dusk lobby (ui/allianceScene.js) behind the title, the scene the entry film ends on, and its
+  // logo at the size the film leaves it; the old art above / the dot emblem until those sprites have loaded
+  // the start-up version's look (versions.js startupVersion: the stored lobby version, else 规程): 规程's season ground,
+  // or the event's night / dusk lobby of a 盟约 start
+  const regStart = useStore((s) => seasonOf(startupVersion(s)) === REGULATION);
+  // 规程's opening (ui/regulationFilm.js): its last frame is this screen's ground and title art (RegulationStill);
+  // undefined while it loads, null without the extracted group (the lobby's drawn ground and our own title then). The
+  // still's layout from the first drawing when the local manifest lists the group, so the column does not jump
+  useData('local');
+  const regPack = useRegulationPack(regStart);
+  const regStill = regStart && (regPack ? true : regPack === undefined && !!localAsset(REGULATION_ENTRY, 'prefabs.json'));
+  const regLogo = regStart && !regStill ? localAsset(REGULATION_ART, 'entry_anim_season_logo') : null;
+  const allianceArt = useLobbyArt();
+  const alliance = !regStart && allianceArt;
+  const logo = uiUrl(assets, 'entry/season_logo');
   const ridges = findUiAsset(assets, RIDGE_KEYS);
   // Track load/fail per URL (not as booleans reset in effects: an image can load before an effect runs).
   const [bgLoadedUrl, setBgLoadedUrl] = useState(null);
@@ -206,15 +246,19 @@ export function TitleScreen() {
   // a title in an alphabetic script (English, French …) is the big one in the display face and the wordmark above it
   // hides; a CJK / kana / Hangul title keeps the Chinese layout (shared/i18nPacks.js scriptOf — a pack needs no flag)
   const alphabetic = scriptOf(t('卫戍协议')) === 'alphabetic';
-  return html`<div class="screen title-screen">
-    <div class=${`title-bg${bgLoaded ? ' has-art' : ''}${ridgesLoaded ? ' has-ridges' : ''}`} aria-hidden="true">
-      ${backdrop ? html`<img class="title-bg__art" src=${backdrop} alt="" draggable=${false}
+  return html`<div class=${`screen title-screen${regStill ? ' is-reg-still' : ''}`}>
+    <div class=${`title-bg${bgLoaded || alliance || regStart ? ' has-art' : ''}${alliance ? ' has-alliance' : ''}${regStart ? ' has-reg' : ''}${ridgesLoaded ? ' has-ridges' : ''}`} aria-hidden="true">
+      ${regStart ? html`<div class="title-reg" data-season=${REGULATION}>
+        ${regStill ? html`<${RegulationStill} pack=${regPack} />` : regPack === null ? html`<${RegulationBackdrop} />` : null}
+      </div>` : null}
+      ${alliance ? html`<${AllianceBackdrop} />` : null}
+      ${backdrop && !alliance && !regStart ? html`<img class="title-bg__art" src=${backdrop} alt="" draggable=${false}
         onLoad=${() => setBgLoadedUrl(backdrop)} />` : null}
       <div class="title-bg__glow"></div>
       <div class="title-bg__radar"><div class="title-bg__sweep"></div></div>
       <div class="title-bg__target"></div>
-      ${cssRidges ? html`<${Ridges} />` : null}
-      ${ridges && !ridgesFailed ? html`<div class="title-bg__ridge-art" style=${`background-image:url("${ridges}")`}>
+      ${cssRidges && !alliance && !regStart ? html`<${Ridges} />` : null}
+      ${ridges && !ridgesFailed && !alliance && !regStart ? html`<div class="title-bg__ridge-art" style=${`background-image:url("${ridges}")`}>
         <img src=${ridges} alt="" hidden onLoad=${() => setRidgesLoadedUrl(ridges)} onError=${() => setRidgesFailedUrl(ridges)} />
       </div>` : null}
       <div class="title-bg__haze"></div>
@@ -239,13 +283,14 @@ export function TitleScreen() {
       </div>
     </div>
 
-    <main class="title-main">
-      <${Emblem} />
-      ${alphabetic ? null : html`<div class="title-en">
+    ${regStill ? html`<i class="title-reg-gap" aria-hidden="true"></i>` : null}
+    <main class=${`title-main${regStill ? ' title-main--reg' : ''}`}>
+      ${regStill ? null : regStart ? (regLogo ? html`<${FilmLogo} src=${regLogo} />` : html`<${Emblem} />`) : logo ? html`<${FilmLogo} src=${logo} />` : html`<${Emblem} />`}
+      ${alphabetic || regStill ? null : html`<div class="title-en">
         <span class="title-en__a">STRONGHOLD PROTOCOL</span>
-        <span class="title-en__b">ALLIANCE</span>
+        <span class="title-en__b">${regStart ? 'REGULATION' : 'ALLIANCE'}</span>
       </div>`}
-      <h1 class=${`title-cn${alphabetic ? ' title-cn--latin' : ''}`}>${t('卫戍协议')}<span class="title-cn__colon">${alphabetic ? ': ' : '：'}</span><em>${t('盟约')}</em></h1>
+      <h1 class=${`title-cn${alphabetic ? ' title-cn--latin' : ''}${regStill ? ' sr-only' : ''}`}>${t('卫戍协议')}<span class="title-cn__colon">${alphabetic ? ': ' : '：'}</span><em>${regStart ? t('规程') : t('盟约')}</em></h1>
       <p class="title-tag">${t('调配资金与干员，与同伴协同布防，抵御多波次进攻，直至击败敌方领袖。')}</p>
 
       <div class="title-login">
@@ -268,8 +313,7 @@ export function TitleScreen() {
         </div>
       </div>
       <div class="title-assets">
-        <${AssetDownloadButton} />
-        <${AssetImportButton} />
+        <${ResourceManagerButton} />
       </div>
     </main>
 
@@ -284,6 +328,7 @@ export function TitleScreen() {
         <${Icon} name="info" />${t('本服务器安装了 {n} 个插件', { n: installed })}</button>` : null}
       <span>${t('非官方同人复刻 · 游戏素材版权归 上海鹰角网络 / Yostar 所有')}</span>
       <span class="title-foot__meta">
+        <${ReleaseNotesButton} />
         <a class="title-repo" href="https://github.com/sganggs/Stronghold-Protocol" target="_blank" rel="noopener noreferrer">${t('项目仓库')}</a>
         <${MicroLabel}>v${APP_VERSION} · WEB SIMULATION<//>
         ${DEV_BUILD ? html`<span class="title-dev" role="note">${t('开发版 · 不稳定，请勿用于公开服务器')}</span>` : null}

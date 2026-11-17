@@ -86,6 +86,8 @@ export default withDefaults({
             if (broken <= 0) return;
             unit.mem.layers = left;
             battle.heal(unit, unit, unit.s.maxHp * num(t0.hp_ratio, 0.2) * broken, { self: true });
+            // 第一期精英「沃土予身」returns `sp` per broken layer. Today's record has no such key (num → 0).
+            if (num(t0.sp) > 0) unit.skill?.gainSp(num(t0.sp) * broken, 'talent');
             battle.fx('shieldBreak', { x: unit.x, y: unit.y, id: unit.id });
           }, { owner: unit });
         } },

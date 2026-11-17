@@ -1,7 +1,7 @@
 // test/sim/playtest5_elements.test.js — user playtest #5 report 3 (enemy side): "海嗣敌人元素损伤效率有点低 — check every
 // enemy's element damage and element gauge against the official game". Encodes the official numbers (enemy_database /
 // PRTS 元素 / 游戏数据基础 / the enemies' PRTS pages / gamedata_const termDescriptionDict) for the gauge pipeline
-// (server/sim/damage.js) and the enemies' element abilities (content/enemies.js):
+// (server/sim/attack/element.js) and the enemies' element abilities (content/enemies.js):
 //   · 海嗣 enemies take element damage at the full rate (损伤抵抗 0, 1000 / leader 2000) and deal ATK × ratio per hit;
 //   · 元素损伤倍率 (elemTakenMul) scales the gauge, 元素脆弱 (elementalTakenMul) the 元素伤害 — never each other;
 //   · 损伤抵抗 (epResistance) reduces the gauge, 元素抗性 (epDamageResistance) the 元素伤害 (both with the 5 % floor);
@@ -9,7 +9,7 @@
 //     sees a source — 深巡's 海怪 ×1.5, 精准狙击镜 — while the credit, the kill and damage sharing keep working);
 //   · 麻痹免疫 enemies get no 麻痹 from a 神经 burst;
 //   · 淤困 spreads 1000, 灼藤's first attack covers 3×3, 节日爵士乐手 channels on one locked target;
-//   · target-side 抵挡 (星熊 战术装甲, 拉普兰德 日晷) still negates a 无来源 burst — it has no source condition.
+//   · target-side block/dodge (星熊 战术装甲, 拉普兰德 日晷) still negates a 无来源 burst — it has no source condition.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -146,14 +146,12 @@ test('损伤抵抗 (epResistance) reduces the gauge; 元素抗性 (epDamageResis
   approx(hp1 - x.hp, 50, 1e-9, 'at least 5 %');
   h.b.dealDamage(null, x, { type: 'element', element: 'burn', amount: 100 });
   approx(x.elem.burn, 5, 1e-9, 'the gauge takes at least 5 % too (损伤抵抗 98 → 5, not 2)');
-  // content that predicts the pipeline (enemies.js expectedFinal — 吸收屏障 etc.) uses the same 元素伤害 terms
+  // The actual pipeline combines 元素抗性 and 元素脆弱; no predicted damage is fed back into settlement.
   h.b.addBuff(e, { key: 't:frag', mods: { elementalTakenMul: 1.2 } });
   const d = h.b.makeDamage({ amount: 1000, type: 'elemental' });
   const hp2 = e.hp;
-  const f = enemiesMod.expectedFinal(null, e, d);
-  approx(f, 1000 * 0.7 * 1.2, 1e-9, 'expectedFinal: 元素抗性 30 and 元素脆弱 20 %');
   h.b.dealDamage(null, e, d);
-  approx(hp2 - e.hp, f, 1e-9, '= what the pipeline deals');
+  approx(hp2 - e.hp, 1000 * 0.7 * 1.2, 1e-9, '元素抗性 30 and 元素脆弱 20 %');
 });
 
 test('element bursts deal 无来源 damage: the filler\'s damage-dealt multipliers and penetration never apply; it keeps the credit', () => {
@@ -254,8 +252,8 @@ test('a 无来源 burst still passes on through content that shares damage: 圣�
   const c0 = c.hp, o0 = o.hp;
   h.b.dealDamage(w, o, { type: 'element', element: 'burn', amount: o.gaugeMax });
   const burst = ELEMENT.burn.enemy.elemDamage;
-  approx(c0 - c.hp, Math.min(c0, burst * share), 1e-9, 'the chalice takes its share of 7000 (not ×2)');
-  approx(o0 - o.hp, Math.min(o0, burst * (1 - share)), 1e-9);
+  approx(c0 - c.hp, Math.min(c0, burst * (1 - share)), 1e-9, 'the chalice takes all but 5 % of 7000 (not ×2)');
+  approx(o0 - o.hp, Math.min(o0, burst * share), 1e-9);
   approx(w.stats.dmg, (c0 - c.hp) + (o0 - o.hp), 1e-9, 'both parts credited to the filler');
   // 盲信之誓: a spring passes PART_TRANSFER of what it takes to 假想敌：铳 — a burst too
   const hb = arena({ kind: 'boss', sharedBoss: { hp: 1e6, maxHp: 1e6, damage(pid, a) { this.hp = Math.max(0, this.hp - a); } }, units: [{ chessId: 't_wall', row: 12, col: 3 }] });
@@ -264,6 +262,10 @@ test('a 无来源 burst still passes on through content that shares damage: 圣�
   g.profile.noAttack = true;
   assert.ok(g.bossPool, '铳 on the shared pool');
   const sp = hb.spawn('enemy_9020_actrpc', { pos: [3, 4], routeIndex: 0, mods: { speedMul: 0 }, tag: 'part' });
+  // The native count shield blocks elemental HP damage too. Exercise sharing after spending its charges.
+  const count = sp.findBuff('boss:springShield').shieldHits;
+  for (let i = 0; i < count; i++) hb.b.dealDamage({ target: sp, amount: 1, type: 'true' });
+  assert.equal(sp.findBuff('boss:springShield'), null);
   const pool0 = hb.b.sharedBoss.hp, sp0 = sp.hp;
   hb.b.dealDamage(hb.unit('t_wall'), sp, { type: 'element', element: 'burn', amount: sp.gaugeMax });
   assert.ok(sp0 - sp.hp > 0, 'the spring takes the burst');
@@ -371,7 +373,7 @@ test('节日爵士乐手: channels never overlap (cooldown 10 s < channel 10.6 s
   assert.deepEqual(during, [], 'no normal attack while a channel runs');
 });
 
-test('抵挡 is target-side: 星熊 (战术装甲) and 拉普兰德 S1 日晷 still negate a 无来源 burst on themselves (source null, credit = the enemy)', async () => {
+test('target-side block/dodge: 星熊 armor and 拉普兰德 S1 can negate source-less bursts', async () => {
   const { getDefaultSource } = await import('../../server/sim/simdata.js');
   const ds = getDefaultSource();
   const altIdx = (id) => ds.rawChess(id).skills.find((s) => !s.isDefault).index;
@@ -390,6 +392,8 @@ test('抵挡 is target-side: 星熊 (战术装甲) and 拉普兰德 S1 日晷 st
         h.step();
         const u = h.unit(id), e = h.enemy('enemy_dummy');
         if (extra.skillIndex != null) assert.ok(h.runUntil(() => u.skill.active, 3), `${id}: 日晷 on`);
+        // Both native block/dodge effects draw from rng(), independent of credit.
+        h.b.rng = Object.assign(() => roll ? 0 : 0.999999, h.b.rng);
         const hp0 = u.hp;
         h.b.dealDamage(e, u, { type: 'element', element, amount: u.gaugeMax });
         assert.ok(u.findBuff(`${element}Burst`), `${id} ${element}: bursts`);

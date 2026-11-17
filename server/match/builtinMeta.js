@@ -17,7 +17,8 @@
 //   use_equip_reward_special_goods_char_chess {refresh_cnt} 寻呼模块             offer N same-bond chess (≤ shop level)
 //   use_equip_recruit_new_char_and_give_char_to_player_most_bond {refresh_cnt} 信标 destroy target, offer N same-tier
 //                                                                                chess, gift the original (an elite stays
-//                                                                                elite) next prep, sender eliminated or not
+//                                                                                elite) next prep, sender eliminated or not.
+//                                                                                A 自选 carrier is refused (无法装备给自编干员).
 //   sell_char_count_gain_equip_owner_bond {count}         商业包装方案           every `count` sells → same-bond chess
 //   char_chess_transformation_equip                       突变细胞               after battle: holder destroyed, its equipment
 //                                                                                (the cell included — not consumed) back to
@@ -30,6 +31,7 @@
 import { getData } from '../data.js';
 import { itemKey } from './gamedata.js';
 import { msg, dn } from '../../shared/i18n.js';
+import { chessIsDiy } from '../../shared/itemRules.js';
 
 const int = (v, d = 0) => (Number.isFinite(v) ? Math.trunc(v) : d);
 
@@ -55,7 +57,7 @@ function rollSameBond(ctx, bonds, maxTier, exclude = null) {
 }
 
 /** 信标: the living teammate (not the caller) with the most members of `bonds` ("相应盟约人数最多"), ties at random; null without one. */
-function mostBondMate(ctx, bonds) {
+function mostBondMate(ctx, bonds, minCount = 0) {
   const mates = ctx.teammates();
   if (!mates.length) return null;
   let best = -1;
@@ -64,7 +66,7 @@ function mostBondMate(ctx, bonds) {
     const score = bonds.reduce((s, b) => s + t.bondCount(b), 0);
     if (score > best) { best = score; pick = [t]; } else if (score === best) pick.push(t);
   }
-  return ctx.rng.pick(pick) || null;
+  return best >= minCount ? ctx.rng.pick(pick) || null : null;
 }
 
 const ITEM_HANDLERS = {
@@ -180,6 +182,9 @@ const ITEM_HANDLERS = {
     onEquip(ctx, ev) {
       const target = ctx.piece(ev.target.uid);
       if (!target) return;
+      // Official text ends 「无法装备给自编干员」. Refuse before the carrier is destroyed (the equip gate does this
+      // first; this is the same backstop as the act1 and 规程 beacon keys).
+      if (chessIsDiy(ctx.chessRecord(target.id))) { ev.error = 'BAD_TARGET'; ev.detail = 'diy'; return; }
       const tier = ctx.gd.tierOf(target.id);
       const n = Math.max(1, int(paramsOf(ctx, ev.item).refresh_cnt, 2));
       const bonds = ctx.pieceBonds(target.uid);
@@ -193,10 +198,8 @@ const ITEM_HANDLERS = {
         if (id) ids.push(id);
       }
       if (ids.length) ctx.offerChess(ids, { source: 'item', tier });
-      // co-op: next prep, send the original chess to the teammate with the most members of its bonds — except a 自选
-      // piece (0.2.0): its DIY slot is bound to this player's roster (no teammate's shop or slot can hold that operator),
-      // so nothing is sent [ASSUMED: the official text names no 自选 case]
-      const to = ctx.chessRecord(original)?.diyFor ? null : mostBondMate(ctx, bonds);
+      // co-op: next prep, send the original chess to the teammate with the most members of its bonds
+      const to = mostBondMate(ctx, bonds);
       if (to) ctx.addEffect({ id: `gift:${ev.item.uid}`, key: 'effect:builtin_gift', hidden: true, battle: false, params: { toPlayerId: to.playerId, chessId: original, bonds } });
     },
   },
@@ -210,6 +213,40 @@ const ITEM_HANDLERS = {
         ctx.setCounter(k, 0);
         const id = rollSameBond(ctx, ctx.pieceBonds(holder.uid), ctx.shopLevel());
         if (id) ctx.grantChess(id);
+      }
+    },
+  },
+  sell_char_count_gain_equip_owner_original: {
+    onSold(ctx) {
+      const { piece, holder } = ctx.source;
+      if (!piece || !holder) return;
+      const need = Math.max(1, int(paramsOf(ctx, piece).count, 8));
+      const key = `pack:${piece.uid}`;
+      if (ctx.incCounter(key) >= need) {
+        ctx.setCounter(key, 0);
+        ctx.grantChess(ctx.gd.baseIdOf(holder.id));
+      }
+    },
+  },
+  use_equip_give_char_to_player_most_bond: {
+    onEquip(ctx, ev) {
+      const target = ctx.piece(ev.target.uid);
+      if (!target) return;
+      if (chessIsDiy(ctx.chessRecord(target.id))) { ev.error = 'BAD_TARGET'; ev.detail = 'diy'; return; }
+      const bonds = ctx.pieceBonds(target.uid);
+      const to = mostBondMate(ctx, bonds, 1);
+      ctx.destroyPiece(target.uid);
+      if (to) ctx.addEffect({ id: `gift:${ev.item.uid}`, key: 'effect:builtin_gift', hidden: true, battle: false, params: { toPlayerId: to.playerId, chessId: target.id, bonds } });
+      else ctx.grantChess(target.id);
+    },
+  },
+  use_equip_add_goods_rule_with_refresh_shop: {
+    onEquip(ctx, ev) {
+      const bonds = ctx.pieceBonds(ev.target.uid);
+      // [ASSUMED] Special refresh replaces every slot, including frozen equipment slots; it is not a manual refresh.
+      for (let i = 0; i < ctx.shopSlots().length; i++) {
+        const id = rollSameBond(ctx, bonds, ctx.shopLevel());
+        ctx.setShopSlot(i, id ? { kind: 'chess', id } : null);
       }
     },
   },
@@ -254,6 +291,206 @@ const ITEM_HANDLERS = {
       if (!card) { ev.error = 'BAD_TARGET'; ev.detail = 'no bounty available'; return; }
       ctx.addBounty(card);
     },
+  },
+  // 规程 keys below. The 盟约 handlers above stay on their own buff keys (same sentences, different key names, and a
+  // few of these read a different bond — the first one — or a same-tier roll). Numbers come from the record.
+  // 拟态物质 「若已拥有至少2名该初始干员，则再获得1名；否则随机获得1名同阶干员」. Not the 盟约 same-bond roll.
+  use_equip_reward_same_tier: {
+    onEquip(ctx, ev) {
+      const base = ctx.gd.baseIdOf(ev.target.id);
+      const owned = [...ctx.board(), ...ctx.hand(), ...ctx.temp()].filter((p) => p && p.kind === 'chess' && !p.golden && ctx.gd.baseIdOf(p.id) === base).length;
+      if (owned >= 2) {
+        if (!ctx.grantChess(base, { requirePool: false })) toastNothing(ctx, ev, ctx.gd.chess(base)?.name || null);
+        return;
+      }
+      const tier = ctx.gd.tierOf(ev.target.id);
+      const id = ctx.rollChess({ tier, ignoreCounts: true, filter: (cid) => ctx.gd.tierOf(cid) === tier });
+      if (!id || !ctx.grantChess(id, { requirePool: false })) toastNothing(ctx, ev);
+    },
+  },
+  // 人事部文档: deploy cap becomes `count` (same sentence as equip_destory_deployment_cnt_change).
+  equip_use_deploy: {
+    onEquip(ctx, ev) { ctx.setDeployCapAtLeast(int(paramsOf(ctx, ev.item).count, 9)); },
+  },
+  // 寻呼模块: offer option_count operators of the carrier's FIRST bond, tier ≤ shop level; pick select_count.
+  use_equip_spe_goods_first_bond: {
+    onEquip(ctx, ev) {
+      const p = paramsOf(ctx, ev.item);
+      const n = Math.max(1, int(p.option_count, 3));
+      const picks = Math.max(1, int(p.select_count, 1));
+      const first = ctx.pieceBonds(ev.target.uid)[0];
+      if (!first) { toastNothing(ctx, ev); return; }
+      const ids = [];
+      for (let k = 0; k < n; k++) { const id = rollSameBond(ctx, [first], ctx.shopLevel(), ids); if (id) ids.push(id); }
+      if (ids.length) ctx.offerChess(ids, { source: 'item', picks: Math.min(picks, ids.length) });
+      else toastNothing(ctx, ev);
+    },
+  },
+  // 信标 (规程 key). Same text as the 盟约 beacon: destroy the carrier, offer refresh_cnt same-tier operators (pick
+  // choice_cnt), gift the original next prep. A 自选 carrier is refused — its slot cannot move to a teammate.
+  equip_tier_recr_gift: {
+    onEquip(ctx, ev) {
+      const target = ctx.piece(ev.target.uid);
+      if (!target) return;
+      if (chessIsDiy(ctx.chessRecord(target.id))) { ev.error = 'BAD_TARGET'; ev.detail = 'diy'; return; }
+      const tier = ctx.gd.tierOf(target.id);
+      const p = paramsOf(ctx, ev.item);
+      const n = Math.max(1, int(p.refresh_cnt, 2));
+      const picks = Math.max(1, int(p.choice_cnt, 1));
+      const bonds = ctx.pieceBonds(target.uid);
+      const original = target.id;
+      ctx.destroyPiece(target.uid);
+      const ids = [];
+      for (let k = 0; k < n; k++) {
+        let id = null;
+        for (let t = tier; t >= 1 && !id; t--) id = ctx.rollChess({ tier: t, filter: (x) => !ids.includes(x) });
+        if (id) ids.push(id);
+      }
+      if (ids.length) ctx.offerChess(ids, { source: 'item', tier, picks: Math.min(picks, ids.length) });
+      const to = mostBondMate(ctx, bonds);
+      if (to) ctx.addEffect({ id: `gift:${ev.item.uid}`, key: 'effect:builtin_gift', hidden: true, battle: false, params: { toPlayerId: to.playerId, chessId: original, bonds } });
+    },
+  },
+  // 见钱眼开玩偶 (规程 key): +count funds next round.
+  use_equip_next_gold: {
+    onEquip(ctx, ev) { ctx.addPendingFunds(int(paramsOf(ctx, ev.item).count, 2)); },
+  },
+  // 简易通讯机 (规程): FIRST bond, tier ≤ shop level; an explicitly marked special carrier may recruit its own base form.
+  equip_destory_first_bond_char: {
+    onEquip(ctx, ev) {
+      const n = Math.max(1, int(paramsOf(ctx, ev.item).count, 1));
+      const first = ctx.pieceBonds(ev.target.uid)[0];
+      let got = 0;
+      if (first) {
+        for (let k = 0; k < n; k++) {
+          const id = ctx.rollChess({ bond: first, maxTier: ctx.shopLevel(), tierExemptChess: [ctx.gd.baseIdOf(ev.target.id)] });
+          if (id && ctx.grantChess(id)) got++;
+        }
+      }
+      if (!got) toastNothing(ctx, ev);
+    },
+  },
+  // 紧急调度券 (规程 key): take `count` chess out of the shop.
+  use_equip_take_shop: {
+    onEquip(ctx, ev) {
+      const n = Math.max(1, int(paramsOf(ctx, ev.item).count, 1));
+      for (let k = 0; k < n; k++) {
+        const slots = ctx.shopSlots();
+        const idx = slots.map((s, i) => (s && s.kind === 'chess' && !s.sold ? i : -1)).filter((i) => i >= 0);
+        if (!idx.length) break;
+        const i = ctx.rng.pick(idx);
+        const id = slots[i].id;
+        ctx.setShopSlot(i, null);
+        ctx.grantChess(id);
+      }
+    },
+  },
+  // 随身身份牌 (规程 key): +layer on the carrier's bonds, active or not.
+  use_equip_bond_layer: {
+    onEquip(ctx, ev) {
+      const n = int(paramsOf(ctx, ev.item).layer, 3);
+      for (const b of ctx.pieceBonds(ev.target.uid)) ctx.addLayers(b, n, { requireActive: false, reason: 'item' });
+    },
+  },
+  // 卫戍推荐信: stays equipped. At prep end, +count layers of the carrier's bonds that are already active.
+  prep_end_act_bond: {
+    onPrepEnd(ctx) {
+      const { piece, holder } = ctx.source;
+      if (!piece || !holder) return;
+      const n = Math.max(1, int(paramsOf(ctx, piece).count, 1));
+      for (const b of ctx.pieceBonds(holder.uid)) ctx.addLayers(b, n, { requireActive: true, reason: 'item' });
+    },
+  },
+  // 定期存折: destroy on equip and pay value plus what it grew while held (passbook_hold, +delta×n per round start).
+  // [ASSUMED] growth is counted at each round start while the item sits in the hand or the temp row, and equipping
+  // pays value + that total. Selling pays nothing. `n` scales the per-round step (the shipped blackboard has n = 1).
+  equip_destory_gain_coin: {
+    onEquip(ctx, ev) {
+      const p = paramsOf(ctx, ev.item);
+      const grown = ctx.counter(`passbook:${ev.item.uid}`);
+      const pay = int(p.value, 0) + (Number.isFinite(grown) ? grown : 0);
+      if (pay > 0) ctx.addFunds(pay, 'item');
+    },
+  },
+  // 一次性促销券: offer option_count shop equipment of tier ≤ shop level; the player takes select_count of them.
+  use_equip_spe_goods_equip: {
+    onEquip(ctx, ev) {
+      const p = paramsOf(ctx, ev.item);
+      const n = Math.max(1, int(p.option_count, 3));
+      const picks = Math.max(1, int(p.select_count, 1));
+      const ids = [];
+      for (let k = 0; k < n; k++) {
+        const id = rollShopEquip(ctx, ctx.shopLevel(), ids);
+        if (id) ids.push(id);
+      }
+      if (ids.length) ctx.offerItems(ids, { source: 'item', picks: Math.min(picks, ids.length) });
+      else toastNothing(ctx, ev);
+    },
+  },
+  // 投机骰子: open the 指令 replacement draft named by choice_event (bandCommands.js openSkillChangeDraft, through
+  // ctx). [ASSUMED] a player whose strategy has no 指令 gets no draft; the dice is still consumed.
+  equip_destory_skill_pool: {
+    onEquip(ctx, ev) {
+      const name = paramsOf(ctx, ev.item).choice_event;
+      ctx.openSkillChangeDraft?.(typeof name === 'string' && name ? name : 'skill_change_1');
+    },
+  },
+  // 人事部记录: refresh operators AND equipment (owner verified official footage, 2026-11-11), including frozen
+  // slots. Only operator slots prefer the carrier's first bond, with an ordinary operator fallback.
+  equip_use_main_bond: {
+    onEquip(ctx, ev) {
+      const first = ctx.pieceBonds(ev.target.uid)[0] || null;
+      const maxTier = ctx.shopLevel();
+      const n = ctx.shopSlots().length;
+      const chessCount = ctx.gd.shopSlots(maxTier).chess;
+      const used = [];
+      for (let i = 0; i < n; i++) {
+        if (i >= chessCount) {
+          const id = ctx.rollItem({ maxTier });
+          ctx.setShopSlot(i, id ? { kind: 'item', id } : null);
+          continue;
+        }
+        let id = first ? ctx.rollChess({ maxTier, bond: first, filter: (x) => !used.includes(x) }) : null;
+        if (!id) id = ctx.rollChess({ maxTier, filter: (x) => !used.includes(x) });
+        if (!id) id = ctx.rollChess({ maxTier });
+        if (id) used.push(id);
+        ctx.setShopSlot(i, id ? { kind: 'chess', id } : null);
+      }
+    },
+  },
+};
+
+/** Shop equipment of tier ≤ maxTier that is not already in `exclude` (促销券). */
+function rollShopEquip(ctx, maxTier, exclude) {
+  const table = ctx.gd.shopItemsByTier;
+  if (!table || typeof table !== 'object') return null;
+  const list = [];
+  const cap = Math.max(1, int(maxTier, 1));
+  for (let t = 1; t <= cap; t++) {
+    const row = table[t];
+    if (!row) continue;
+    for (const id of row) if (!exclude.includes(id)) list.push(id);
+  }
+  return list.length ? ctx.rng.pick(list) : null;
+}
+
+/** 定期存折 grows once per round start while it is still in the hand or the temp row. */
+const PASSBOOK_HOLD = {
+  onRoundStart(ctx) {
+    const walk = (list) => {
+      if (!Array.isArray(list)) return;
+      for (const p of list) {
+        if (!p || p.kind !== 'item') continue;
+        const rec = ctx.gd.item(p.id);
+        if (!rec || !Array.isArray(rec.buffs) || !rec.buffs.some((b) => b && b.key === 'equip_destory_gain_coin')) continue;
+        const delta = int(rec.params && rec.params.delta, 1);
+        const n = Math.max(1, int(rec.params && rec.params.n, 1));
+        const step = delta * n;
+        if (step !== 0) ctx.incCounter(`passbook:${p.uid}`, step);
+      }
+    };
+    walk(ctx.hand());
+    walk(ctx.temp());
   },
 };
 
@@ -336,6 +573,13 @@ export function registerBuiltins(reg, data = null) {
     reg.register(`item:${key}`, mergeHandlers(handlers, buffKeys));
   }
   for (const [k, h] of Object.entries(EFFECT_HANDLERS)) reg.register(`effect:${k}`, h);
+  // Only a season that actually has the passbook buff grows held copies. Default data has no such item.
+  for (const rec of Object.values(items)) {
+    if (rec && Array.isArray(rec.buffs) && rec.buffs.some((b) => b && b.key === 'equip_destory_gain_coin')) {
+      reg.global('passbook_hold', PASSBOOK_HOLD);
+      break;
+    }
+  }
   return reg;
 }
 

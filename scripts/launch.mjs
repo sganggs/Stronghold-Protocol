@@ -2,7 +2,7 @@
 // scripts/launch.mjs — cross-platform "prepare + start + open the browser", used by scripts/start-windows.bat,
 // scripts/start-windows.ps1 and scripts/start.sh (docs/DEPLOY.md).
 //
-//   node scripts/launch.mjs [--port 3000] [--host ::] [--no-open] [--no-setup] [--scripts sandbox] [--test-mode 1] [setup options…]
+//   node scripts/launch.mjs [--port 3000] [--host ::] [--no-open] [--no-setup] [--scripts sandbox] [--test-mode 1] [--room-code ARK1] [setup options…]
 //
 //   1. If our server already answers on the port, just open the browser (double-clicking twice is harmless).
 //   2. An update package extracted over the folder (UPDATE.json) is finished (server/update.js; the server does it too,
@@ -17,6 +17,10 @@
 //      bind when every interface address is private. A public address or a wildcard bind on a machine
 //      with a public address is refused with a Chinese hint unless the value is force. An unrecognised
 //      SP_TEST_MODE word stays off and warns.
+//      --room-code ABCD (4 letters or digits) fixes the alliance key of THIS server instance: every room it creates
+//      uses it. It is passed to server/index.js as an argument, not read from the environment and not persisted, so
+//      starting again without it is random again. A fixed key is easier to guess than a random one: keep it to a
+//      private / LAN server.
 //      then — once /healthz answers — prints the addresses to share and opens http://localhost:<port> (not with
 //      --no-open, SP_NO_BROWSER=1, or on a Linux box without a display).
 // Ctrl+C stops the server (it gets the signal from the terminal itself); the exit code is the server's.
@@ -25,6 +29,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
+import { ROOM_CODE_LEN } from '../shared/constants.js';
 // 打开浏览器只有一份实现（走 shell 关联 = 默认浏览器，且不会把浏览器拉成提权）
 import { openBrowser as openInBrowser } from './open-browser.mjs';
 
@@ -45,9 +50,11 @@ const { parseTestModeEnv, testModeGate, unrecognizedTestMode } = await import('.
 export const SCRIPT_MODES = Object.freeze(['off', 'sandbox', 'trusted', 'trusted-force']);
 /** The values --test-mode takes. `1` is the local/LAN switch; `force` is the public-listener override. */
 export const TEST_MODE_FLAGS = Object.freeze(['off', '1', 'force']);
+/** `--room-code` takes exactly four letters or digits (the join field's shape). */
+const ROOM_CODE_RE = new RegExp(`^[A-Z0-9]{${ROOM_CODE_LEN}}$`);
 
 export function parseArgs(argv) {
-  const o = { port: Number(process.env.PORT) || 3000, host: process.env.HOST || '::', open: !/^(1|true|yes)$/i.test(process.env.SP_NO_BROWSER || ''), setup: true, setupArgs: [], help: false, scripts: undefined, testMode: undefined };
+  const o = { port: Number(process.env.PORT) || 3000, host: process.env.HOST || '::', open: !/^(1|true|yes)$/i.test(process.env.SP_NO_BROWSER || ''), setup: true, setupArgs: [], help: false, scripts: undefined, testMode: undefined, roomCode: undefined };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const [k, v] = a.split('=');
@@ -58,6 +65,7 @@ export function parseArgs(argv) {
     else if (a === '--no-setup') o.setup = false;
     else if (k === '--scripts') o.scripts = val() ?? '';
     else if (k === '--test-mode') o.testMode = v !== undefined ? v : argv[i + 1] && !argv[i + 1].startsWith('-') ? argv[++i] : '1';
+    else if (k === '--room-code') o.roomCode = v !== undefined ? v : argv[i + 1] && !argv[i + 1].startsWith('-') ? argv[++i] : '';
     else if (a === '-h' || a === '--help') o.help = true;
     else if (a === '--game') o.setupArgs.push(a, argv[++i] ?? '');
     else o.setupArgs.push(a);
@@ -65,9 +73,12 @@ export function parseArgs(argv) {
   return o;
 }
 
-/** The server's environment: PORT / HOST, SP_PLUGIN_SCRIPTS from --scripts, SP_TEST_MODE from --test-mode (off removes an inherited one). */
+/** The server's environment: PORT / HOST, SP_PLUGIN_SCRIPTS from --scripts, SP_TEST_MODE from --test-mode. The fixed key is an argument in main(), not an env var. */
 export function serverEnv(o, base = process.env) {
   const env = { ...base, PORT: String(o.port), HOST: o.host };
+  // An SP_ROOM_CODE left in the environment by an older build / profile is not a setting any more: this build takes
+  // the fixed key as the --room-code argument only, so the child must not inherit a misleading value.
+  delete env.SP_ROOM_CODE;
   if (o.scripts === 'off') delete env.SP_PLUGIN_SCRIPTS;
   else if (o.scripts) env.SP_PLUGIN_SCRIPTS = o.scripts;
   if (o.testMode === 'off') delete env.SP_TEST_MODE;
@@ -136,6 +147,10 @@ async function main() {
     console.error(`${mark.err} --test-mode 只接受 ${TEST_MODE_FLAGS.join(' / ')}（测试房间，docs/DEPLOY.md） · --test-mode takes ${TEST_MODE_FLAGS.join(' / ')}`);
     return 2;
   }
+  if (o.roomCode !== undefined && !ROOM_CODE_RE.test(String(o.roomCode).trim().toUpperCase())) {
+    console.error(`${mark.err} --room-code 只接受 ${ROOM_CODE_LEN} 位字母或数字（例如 ARK1），不传则随机（固定同盟密钥） · --room-code takes ${ROOM_CODE_LEN} letters or digits; omit it for a random key`);
+    return 2;
+  }
   const localUrl = `http://localhost:${o.port}`;
 
   const before = await probePort(o.port, o.host);
@@ -143,6 +158,7 @@ async function main() {
     console.log(`${mark.ok} 服务器已经在运行（端口 ${o.port}），直接打开浏览器。`);
     if (o.scripts !== undefined) console.log(c.warn(`  --scripts ${o.scripts} 不会改变正在运行的服务器：先停止它（关掉它的窗口），再重新启动。`));
     if (o.testMode !== undefined) console.log(c.warn(`  --test-mode ${o.testMode} 不会改变正在运行的服务器：先停止它（关掉它的窗口），再重新启动。`));
+    if (o.roomCode !== undefined) console.log(c.warn(`  --room-code 不会改变正在运行的服务器：先停止它（关掉它的窗口），再重新启动。`));
     if (fs.existsSync(path.join(ROOT, UPDATE_FILE))) {
       console.log(c.warn(`  解压过的更新包还没有应用：正在运行的仍是旧版本。先停止它（关掉它的窗口；开机自启用 install-service-windows.ps1 -Restart），再重新启动即可。`));
     }
@@ -166,7 +182,10 @@ async function main() {
 
   const env = serverEnv(o);
   warnTestMode(o, env);
-  const child = spawn(process.execPath, [path.join(ROOT, 'server', 'index.js')], { cwd: ROOT, env, stdio: 'inherit' });
+  const serverArgs = [path.join(ROOT, 'server', 'index.js')];
+  // one instance only: the child reads this argument at startup; nothing is written to the environment or to disk
+  if (o.roomCode) serverArgs.push('--room-code', String(o.roomCode).trim().toUpperCase());
+  const child = spawn(process.execPath, serverArgs, { cwd: ROOT, env, stdio: 'inherit' });
   const forward = (sig) => { if (child.exitCode === null) { try { child.kill(sig); } catch { /* gone */ } } };
   // SIGINT reaches the server straight from the terminal (same process group / console); forwarding it too would make
   // the server's second-signal path force-exit. Other signals (service managers, `kill`) are forwarded.

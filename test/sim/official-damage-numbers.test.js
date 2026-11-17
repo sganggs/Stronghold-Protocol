@@ -3,7 +3,7 @@
 // dmg tuple that already fires; a dodge of such a hit sets num:'m' on the dodge fx that already fires. No new event.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { officialDamageMark } from '../../server/sim/damage.js';
+import { officialDamageMark } from '../../server/sim/attack/hit.js';
 import { makeBattle, chessRec, enemyRec } from '../helpers/battleHarness.js';
 
 const approx = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) <= eps, `${a} ≈ ${b}`);
@@ -35,7 +35,7 @@ test('officialDamageMark is the PRTS 1.5× test, including a 0-damage invulnerab
   assert.equal(officialDamageMark(Number.NaN, 10), null);
 });
 
-test('a landed hit is marked only when the pre-shield total reaches 1.5× the penetration-free expected damage', () => {
+test('a landed hit is marked only when the final damage reaches 1.5× the penetration-free expected damage', () => {
   const h = field();
   const e = h.enemy('enemy_dummy');
   const op = h.unit('t_a');
@@ -90,7 +90,7 @@ test('shields, hit-count husks, sub-threshold reds and element fills do not inve
   h.b.addBuff(e, { key: 'hc', flags: { hitCount: true } });
   const husk = added(h, 'dmg', () => h.b.dealDamage(null, e, { amount: 1000, type: 'true' }));
   assert.equal(husk.result, 1);
-  assert.deepEqual(husk.ev[0], ['dmg', e.id, 1, 'true'], 'a hit-count rewrite to 1 is not red against a large expected value');
+  assert.deepEqual(husk.ev[0], ['dmg', e.id, 1000, 'true'], 'special HP changes the HP delta without replacing the damage number');
   h.b.removeBuff(e, 'hc');
 
   h.b.addBuff(e, { key: 'tiny', mods: { dmgTakenMul: 4 } });
@@ -110,7 +110,7 @@ test('shields, hit-count husks, sub-threshold reds and element fills do not inve
   rewritten.b.on('hpDamage', (c) => { c.amount = 1; });
   const cut = added(rewritten, 'dmg', () => rewritten.b.dealDamage(null, t, { amount: 100, type: 'true' }));
   assert.equal(cut.result, 1);
-  assert.deepEqual(cut.ev[0], ['dmg', t.id, 1, 'true', 'r'], 'the 1.5× test uses the pre-rewrite total; the shown integer is what reaches HP');
+  assert.deepEqual(cut.ev[0], ['dmg', t.id, 1, 'true'], 'the final rewrite can lower damage below the red threshold');
 });
 
 test('invulnerable and sleeping hits stay event-free; a dodge marks MISS only for a would-be red hit', () => {
@@ -149,4 +149,36 @@ test('invulnerable and sleeping hits stay event-free; a dodge marks MISS only fo
   const quiet = plain.ev.filter((ev) => ev[1] === 'dodge');
   assert.equal(quiet.length, 1);
   assert.equal(Object.hasOwn(quiet[0][4], 'num'), false);
+});
+
+
+test('red threshold uses actual barrier overflow rather than a multiplier-only estimate', () => {
+  const h = field(), e = h.enemy('enemy_dummy'), u = h.unit('t_a');
+  h.b.addBuff(u, { key: 'source', mods: { dmgDealtMul: 2 } });
+  h.b.addBuff(e, { key: 'fragile', mods: { dmgTakenMul: 2 } });
+  h.b.addBuff(e, { key: 'pool', shield: 300 });
+  const hit = added(h, 'dmg', () => h.b.dealDamage({ source: u, target: e, amount: 100, type: 'true' }));
+  assert.equal(hit.result, 100);
+  assert.deepEqual(hit.ev[0], ['dmg', e.id, 100, 'true']);
+});
+
+for (const first of ['dodge', 'fragile']) test(`MISS uses injury amount at ${first}-first ordered position`, () => {
+  const h = field(), e = h.enemy('enemy_dummy');
+  for (const key of [first, first === 'dodge' ? 'fragile' : 'dodge']) h.b.addBuff(e,
+    key === 'dodge' ? { key, mods: { dodgePhys: 1 } } : { key, mods: { dmgTakenMul: 2 } });
+  let rolls = 0;
+  h.b.rng = () => { rolls++; return 0; };
+  const hit = added(h, 'fx', () => h.b.dealDamage({ target: e, amount: 1000, type: 'phys' }));
+  assert.equal(hit.result, 0);
+  assert.equal(rolls, 1);
+  const fx = hit.ev.find(ev => ev[1] === 'dodge');
+  assert.equal(fx[4].num, first === 'fragile' ? 'm' : undefined);
+});
+
+test('an uncancellable dodge attempt does not display a MISS for damage that lands', () => {
+  const h = field(), e = h.enemy('enemy_dummy');
+  h.b.addBuff(e, { key: 'dodge', mods: { dodgePhys: 1 } });
+  const hit = added(h, 'fx', () => h.b.dealDamage({ target: e, amount: 1000, type: 'phys', defIgnorePct: 1, dodgeMode: 'uncancellable' }));
+  assert.equal(hit.result, 1000);
+  assert.equal(hit.ev.find(ev => ev[1] === 'dodge')[4].num, undefined);
 });

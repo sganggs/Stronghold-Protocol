@@ -43,7 +43,7 @@ test('50: two 空弦 made 阿戈尔 (变形同构体 + 阿戈尔重刃) in a row
       bonds: { egirShip: { count: 3, active: true, tier: 1, layers: 0 } }, timeLimit: 10, seed: 1, autoFinish: false,
     });
     const marks = [];
-    h.b.on('damaged', (c) => { if (c.dmg?.tags?.includes('bond:egir:devour')) marks.push([c.source.tileC, c.target.tileC]); }, { priority: -1000 });
+    h.b.on('damaged', (c) => { if (c.dmg?.tags?.includes('bond:egir:devour')) marks.push([c.credit.tileC, c.target.tileC]); }, { priority: -1000 });
     h.step(2);
     assert.deepEqual(marks, [[3, 4]], `${label}: the back one (col 3) devours the front one (col 4)`);
   }

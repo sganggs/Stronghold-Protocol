@@ -37,6 +37,72 @@ export class MatchPlatform {
   handle(playerId, msg) {
     const ps = this.players.get(playerId) || this.spectators.get(playerId);
     if (!ps || ps.isBot || ps.left) return fail(ERR.NOT_IN_ROOM);
+    return this._handleSeatIntent(ps, msg);
+  }
+
+  /**
+   * What the lobby needs to admit or cancel a spectator AI handover, read in this process or across the
+   * version-host IPC. `funds` and `pieceUids` are observational: the lobby ignores them when it chooses voters.
+   * [ASSUMED] `emergencyFrozen` is reported as the match flag. Nothing sets that flag today, so it stays false
+   * unless a later rule does.
+   * @returns {{ ok: true, phase: string, round: number, ended: boolean, disposed: boolean, emergencyFrozen: boolean,
+   *   players: Array<{ playerId: string, isBot: boolean, left: boolean, alive: boolean, autoplay: boolean, funds: number, pieceUids: string[] }> }}
+   */
+  aiHandoverView() {
+    const players = [];
+    for (const p of this.order) {
+      const pieceUids = [];
+      const pushUid = (piece) => {
+        if (!piece || piece.uid == null || piece.uid === '') return;
+        pieceUids.push(String(piece.uid));
+      };
+      if (Array.isArray(p.hand)) for (const piece of p.hand) pushUid(piece);
+      if (p.board && typeof p.board.values === 'function') for (const piece of p.board.values()) pushUid(piece);
+      pieceUids.sort();
+      players.push({
+        playerId: p.playerId,
+        isBot: p.isBot === true,
+        left: p.left === true,
+        alive: p.alive === true,
+        autoplay: p.autoplay === true,
+        funds: typeof p.funds === 'number' && Number.isFinite(p.funds) ? p.funds : 0,
+        pieceUids,
+      });
+    }
+    return {
+      ok: true,
+      phase: this.phase,
+      round: this.round,
+      ended: !!this.ended,
+      disposed: !!this.disposed,
+      emergencyFrozen: !!this.emergencyFrozen,
+      players,
+    };
+  }
+
+  /**
+   * The match half of a spectator inheriting a bot seat (DESIGN §35.100). The lobby still rebinds the session,
+   * the seat and the reconnect token. Same answer shape as handle.
+   * @param {string} botId @param {string} name the inheriting spectator's name
+   * @returns {{ ok: true } | { error: string, detail?: string }}
+   */
+  acceptAiHandover(botId, name) {
+    const ps = this.players.get(botId);
+    if (typeof name !== 'string' || !ps?.isBot || ps.left || !ps.alive || this.phase !== PHASE.PREP || this.ended || this.disposed || this.emergencyFrozen) {
+      return fail(ERR.BAD_TARGET, 'AI handover unavailable');
+    }
+    ps._botPrepToken = (ps._botPrepToken || 0) + 1;
+    this.cancelSeatRehearsal(botId);
+    Object.assign(ps, { isBot: false, autoplay: false, connected: true, ready: false, name });
+    this.loneHuman = this.order.filter((p) => !p.isBot && !p.left).length === 1;
+    ps.aiTakeoverRound = this.round;
+    this.markPublic();
+    ps.dirty();
+    return OK;
+  }
+
+  /** Shared human / external-AI semantic validation and dispatch. C2S schema: net.js / the adapter. */
+  _handleSeatIntent(ps, msg) {
     // a spectator seat only watches (the platform routes nothing else of it)
     if (ps.spectator && (!msg || msg.t !== 'g.watch')) {
       // g.test shares the host's rate bucket (applyTestCommand audits SPECTATOR after the stamp).
@@ -66,6 +132,11 @@ export class MatchPlatform {
     try { this.flush(); } catch (e) { this.reportError('flush', e); }
     if (res && typeof res === 'object' && res.error) return res;
     return OK;
+  }
+
+  /** Host-only asynchronous input, journalled by testTrace; never a C2S message. */
+  externalReply(id, reply, failed) {
+    this.guard(() => this.externalAI?.receive(id, reply, failed));
   }
 
   /**
@@ -182,6 +253,8 @@ export class MatchPlatform {
     this.guard(() => {
       ps.left = true;
       this.cancelSetupVote();
+      // A seat that is gone for good takes its reroll cooldown with it (it cannot ask again in this match anyway).
+      this._rerollStartAt.delete(playerId);
       ps.connected = false;
       ps.autoplay = false;
       this.watchers.delete(playerId);
@@ -209,14 +282,6 @@ export class MatchPlatform {
     this.maybeEndInfo();
     if (!ps.alive) return;
     const phase = this.phase;
-    const d = this.draft;
-    if (phase === PHASE.BAND_DRAFT && d && !d.picks[ps.playerId]) {
-      // the departed seat passes its turn with the default band (never one a teammate holds — defaultBand)
-      const turn = this.draftTurn() === ps.playerId;
-      d.picks[ps.playerId] = this.defaultBand(ps.playerId);
-      ps.bandId = d.picks[ps.playerId];
-      if (turn) this.startDraftTurn();
-    }
     const passedRound = phase === PHASE.SETTLE ? this.round + 1 : Math.max(1, this.round);
     // its own normal battle has nobody left to fight for
     for (const f of this.fields) {
@@ -249,12 +314,19 @@ export class MatchPlatform {
       return;
     }
     if (phase === PHASE.SP_DRAFT && this.sp && this.spTurn() === ps.playerId) this.startSpTurn();
+    // a seat leaving during the strategy draft keeps its place in the order, like one gone before it: at its turn the AI
+    // drafts for it (botControlled → scheduleBandBot; botPickBand's departedWeight: Touch while nobody else holds it,
+    // never 歌利亚) and it keeps the 0 LP it left with (_applyBand; §37.65)
+    else if (phase === PHASE.BAND_DRAFT && this.draft && this.draftTurn() === ps.playerId) this.startDraftTurn();
+    // 选择自编: the last seat still choosing left — the others need not wait for the deadline
+    else if (phase === PHASE.CUSTOM_CHECK) this.maybeEndCustom();
     else if (phase === PHASE.PREP) this.maybeEndPrep();
   }
 
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
+    this.externalAI?.close();
     if (this.runner) { try { this.runner.stop(); } catch { /* ignore */ } }
     this._stopClientCombat();
     this._cancelRehearsal();

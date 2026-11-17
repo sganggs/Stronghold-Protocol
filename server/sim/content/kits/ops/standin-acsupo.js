@@ -34,6 +34,7 @@
 //   +0.2 whatever the number of enemies); HP / ATK in the stats; T1 changes at level 2 / 3 (composed talents).
 
 import { canTargetEnemy } from '../../../targeting.js';
+import { cancelDamage } from '../../../attack.js';
 import { bodyInRange } from '../../../body.js';
 import { num, talentBb, moduleBb, skillRec, statBuff, spTimeBonus, enemyInRange, up, batMod } from '../shared/tier1.js';
 
@@ -80,8 +81,8 @@ function lureHit(battle, st, ctx) {
     if (d.attackId) st.last.set(e, { id: d.attackId, miss });
   }
   if (!miss) return;
-  d.cancel = true;
-  ctx.stopPropagation = true;
+  const cancelled = cancelDamage(d, 'miss');
+  if (cancelled) ctx.stopPropagation = true;
   if (ctx.target) battle.fx('dodge', { x: ctx.target.x, y: ctx.target.y, id: ctx.target.id });
 }
 

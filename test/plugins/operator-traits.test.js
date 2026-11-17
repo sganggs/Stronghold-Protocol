@@ -17,7 +17,7 @@ import { loadBrowserSim } from '../../public/js/battle/simLoader.js';
 import { makeBattle } from '../helpers/battleHarness.js';
 import { DataSource } from '../../server/sim/simdata.js';
 import { setGameData } from '../../server/sim/content/support/index.js';
-import { elementBurst } from '../../server/sim/damage.js';
+import { elementBurst } from '../../server/sim/attack/element.js';
 import { makeMatch, legalTileFor, DATA } from '../match/harness.js';
 
 const CHAR = 'char_4145_ulpia', ID = 'chess_char_5_05_a', ITEM = 'chess_item_3_07_e_a';

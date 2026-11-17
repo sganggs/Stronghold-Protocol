@@ -1,0 +1,26 @@
+name: Local extractor Python compatibility
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compile:
+    name: local-extract (Python 3.8 syntax)
+    # ubuntu-latest became Ubuntu 26.04 (first seen 2026-11-02); actions/python-versions has no Python 3.8 build for it,
+    # 24.04 has one (history §37.96).
+    runs-on: ubuntu-24.04
+    # [ASSUMED] Five minutes covers interpreter setup and syntax compilation (DESIGN §35.2).
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          # tools/setup.mjs findPython() accepts Python 3.8 and later.
+          python-version: '3.8'
+      - name: Byte-compile the local extractor
+        run: python -m compileall -q -f tools/local-extract

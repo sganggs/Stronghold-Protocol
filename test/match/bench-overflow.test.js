@@ -184,7 +184,7 @@ test('Suzuran, two elite Flametails and 100 Investor layers retain all twelve pr
   // Pinus grants include hidden operators outside the shared stock, whose poolCopies is zero.
   const held = () => ps.allChess().reduce((n, p) => n + (m.gd.isGolden(p.id) ? m.gd.goldenCopies : 1), 0);
   const before = held();
-  m.dispatch(ps, 'onRoundStart', { round: m.round });
+  m.dispatch(ps, 'onPrepStart', { round: m.round });   // the 「进入休整期时」 traits (DESIGN §35.53)
   assert.equal(ps.round.gainedChess - gained, 12);
   assert.equal(held() - before, 12, 'all copies retained even when automatic merges reduce the piece count');
   assert.ok(ps.temp.length > 5);

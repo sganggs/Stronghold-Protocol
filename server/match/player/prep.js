@@ -7,6 +7,7 @@
 import { ERR, PHASE } from '../../../shared/constants.js';
 import { freeSlot } from '../board.js';
 import { OK, fail } from './common.js';
+import { isMutationCell } from '../../sim/content/support/index.js';
 
 export class PlayerPrep {
   _gate({ allowWhenReady = false } = {}) {
@@ -28,14 +29,14 @@ export class PlayerPrep {
     if (!Number.isInteger(idx) || idx < 0 || idx >= offer.slots.length) return fail(ERR.BAD_TARGET);
     const slot = offer.slots[idx];
     if (!slot || slot.sold) return fail(ERR.SOLD_OUT);
-    const handFull = freeSlot(this.hand) < 0;
+    const handFull = this.equipHand ? this.handSlot(slot.kind) < 0 : freeSlot(this.hand) < 0;
     if (slot.kind === 'item') {
       if (!this.gd.item(slot.id)) return fail(ERR.BAD_TARGET);
       // Already displayed equipment rewards survive stock exhaustion (#624, maintainer 2026-10-14).
       if (handFull) return fail(ERR.HAND_FULL);
     } else if (slot.kind === 'chess') {
       const rec = this.gd.chess(slot.id);
-      if (!rec || (rec.isDiy && !rec.diyFor)) return fail(ERR.BAD_TARGET);
+      if (!rec || (rec.isDiy && !rec.diyFor) || this.m.chessExcluded(rec)) return fail(ERR.BAD_TARGET);
       // Owner decision 2026-10-11 (#498): already displayed operator rewards survive stock exhaustion.
       // acquireChess records the deficit. Displayed item rewards do the same (acquireItem displayed).
       if (handFull) return fail(ERR.HAND_FULL);
@@ -43,13 +44,21 @@ export class PlayerPrep {
     const price = Number.isFinite(slot.price) && slot.price > 0 ? Math.trunc(slot.price) : 0;
     if (price > this.funds) return fail(ERR.NO_FUNDS);
     slot.sold = true;
-    this.offers.shift();
+    // A pick-one offer closes immediately (every existing caller). `picks` > 1 (规程 促销券 golden: 2 of 6) stays
+    // until that many slots are taken. Absent `picks` keeps today's shift-before-acquire order.
+    const multi = Number.isInteger(offer.picks) && offer.picks > 1;
+    if (multi) {
+      offer.taken = (offer.taken || 0) + 1;
+      if (offer.taken >= offer.picks || offer.slots.every((s) => s.sold)) this.offers.shift();
+    } else {
+      this.offers.shift();
+    }
     if (price > 0) this.spend(price);
     if (slot.kind === 'item') {
       const gained = this.acquireItem(slot.id, { source: 'reward', displayed: true });
       // #677: maintainer decision 2026-10-17 (official play memory): one Cathy cell per player/match.
       // [ASSUMED] Only a successful pick from this source counts; Quintus's grant is independent.
-      if (gained && offer.source === 'band:band_cathy' && slot.id === 'chess_item_5_08_e_a') {
+      if (gained && offer.source === 'band:band_cathy' && isMutationCell(slot.id, this.gd.raw)) {
         this.counters['band:cathy:cellTaken'] = 1;
         // [ASSUMED] Remove the cell from queued Cathy offers too, retaining their other choices without rerolling.
         for (const pending of this.offers) if (pending.source === 'band:band_cathy') {
@@ -67,11 +76,12 @@ export class PlayerPrep {
     if (!this.alive) return fail(ERR.ELIMINATED);
     if (this.m.phase !== PHASE.PREP) return fail(ERR.WRONG_PHASE);
     if (on && this.personalChoice) return fail(ERR.BAD_TARGET, '请先完成教鞭选择'); // i18n-ignore: developer error detail
+    if (on && this.commandDrafts?.length) return fail(ERR.BAD_TARGET, 'command choice pending');
     if (on && !this.tempEmpty) return fail(ERR.TEMP_NOT_EMPTY);
     if (this.ready === !!on) return OK;
     this.ready = !!on;
     // un-ready: the player can act again, so what overflowed while it was ready is due at this prep's deadline
-    if (!on) for (const p of this.temp) if (p && this.tempDue(p) > this.prepsEnded) this._tempDue.set(p.uid, this.prepsEnded);
+    if (!on) for (const p of this.tempPieces()) if (this.tempDue(p) > this.prepsEnded) this._tempDue.set(p.uid, this.prepsEnded);
     this.dirty();
     this.m.onReadyChanged(this);
     return OK;
@@ -85,6 +95,7 @@ export class PlayerPrep {
    * for the next prep.
    */
   resolveTemp() {
+    if (this.equipHand) return this._resolveStash();
     let changed = false;
     for (let i = 0; i < this.temp.length; i++) {
       const p = this.temp[i];

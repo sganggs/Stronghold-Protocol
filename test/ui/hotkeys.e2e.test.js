@@ -55,11 +55,11 @@ describe('rebindable shortcuts (设置 → 快捷键)', { skip: !ENABLED && 'set
       // Swap retreat onto X (sell's key): sell takes the old Q, and the line under the list says so.
       await page.click('.set-key[data-action="retreat"]');
       await page.waitForSelector('.set-key.is-waiting[data-action="retreat"]');
-      assert.match(await note(page), /请按下「撤退鼠标指向的干员」的新按键（Esc 取消）/);
+      assert.match(await note(page), /请按下「撤退干员（选中优先）」的新按键（Esc 取消）/);
       await page.keyboard.press('KeyX');
       await keyIs(page, 'retreat', 'X');
       assert.equal(await keyOf(page, 'sell'), 'Q');
-      assert.match(await note(page), /「撤退鼠标指向的干员」已改为 X；「出售鼠标指向的干员」原来用 X，已换成 Q/);
+      assert.match(await note(page), /「撤退干员（选中优先）」已改为 X；「出售干员（选中优先）」原来用 X，已换成 Q/);
       await page.click('.set-keys__reset');
       await keyIs(page, 'retreat', 'Q');
       assert.equal(await keyOf(page, 'sell'), 'X');
@@ -73,7 +73,7 @@ describe('rebindable shortcuts (设置 → 快捷键)', { skip: !ENABLED && 'set
       await page.keyboard.press('Escape');
       await page.waitForSelector('.set-key.is-waiting', { hidden: true });
       assert.ok(await page.$('.modal .set-keys'), 'Esc ends the wait, not the dialog');
-      assert.match(await note(page), /已取消，「撤退鼠标指向的干员」仍是 Q/);
+      assert.match(await note(page), /已取消，「撤退干员（选中优先）」仍是 Q/);
       // the focus stayed on the key: Enter waits again; Enter itself is refused and the wait goes on; W is taken
       await page.keyboard.press('Enter');
       await page.waitForSelector('.set-key.is-waiting[data-action="retreat"]');
@@ -84,7 +84,7 @@ describe('rebindable shortcuts (设置 → 快捷键)', { skip: !ENABLED && 'set
       await page.keyboard.press('KeyW');
       await keyIs(page, 'retreat', 'W');
       assert.equal(await keyOf(page, 'buy'), 'Q', 'rebinding onto W swaps the buy key');
-      assert.match(await note(page), /「撤退鼠标指向的干员」已改为 W/);
+      assert.match(await note(page), /「撤退干员（选中优先）」已改为 W/);
       assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('sp.pref.settings')).keys.retreat), 'KeyW', 'saved with the settings');
       await page.keyboard.press('Escape'); // no wait: Esc closes the dialog as before
       await page.waitForSelector('.modal', { hidden: true });

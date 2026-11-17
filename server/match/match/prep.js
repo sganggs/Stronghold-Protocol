@@ -4,9 +4,27 @@
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
 import { PHASE } from '../../../shared/constants.js';
-import { botPrepBeginSteps, botPrepEndSteps } from '../bot.js';
 import { testSlice } from '../testTrace.js';
 import { DELAYS } from './common.js';
+import { beginCommandPrep } from '../bandCommands.js';
+
+/**
+ * §37.72 [ASSUMED] Wall-clock ms the built-in bot's prep may still need once an external plan seat's decision ends (its
+ * plan arrives or its budget runs out): server/match/externalAI.js keeps this much of a timed prep out of the plan's
+ * budget (planReserveMs, never more than half of what is left). Measured in the round-62 coop4 终极 botbench (480
+ * matches, about 9 busy threads; handoff/round65 diag coop-timing §4): 1.5 × the p99 of the four seats' summed prep wall
+ * time — four plans can land together and then share one event loop — is at most 3.9 s in R1–R5, 8.0 s in R6–R8, 10.7 s
+ * in R9–R13, 35.4 s at the Final Assault prep and 23.7 s at the Hidden Core prep. `rounds` lists [last round, ms] (a
+ * later normal round takes the last entry), `boss` / `hidden` are gd.bossRound / gd.hiddenRound, `choice` a band, 机变
+ * or offer decision (a weighted draw or the window's default, far below a millisecond; the second keeps the pick ahead
+ * of the turn timer). Revisit when the prep gets heavier (§37.47 doubled the rehearsal candidates).
+ */
+export const BOT_PREP_RESERVE_MS = Object.freeze({
+  rounds: Object.freeze([Object.freeze([5, 5000]), Object.freeze([8, 9000]), Object.freeze([13, 12000])]),
+  boss: 36000,
+  hidden: 24000,
+  choice: 1000,
+});
 
 export class MatchPrep {
   enterPrep() {
@@ -15,10 +33,12 @@ export class MatchPrep {
     const alive = this.alivePlayers();
     for (const ps of alive) {
       ps.ready = false;
-      // Items gained as the previous prep ended waited unmerged (acquireItem deferMerge). Merge them now, before
-      // this prep's onPrepStart grants and before the player acts — not in endPrep, which runs in the same prep
-      // that granted them and would take an equipped copy off for the fight about to start.
-      ps.checkItemMerges();
+      beginCommandPrep(ps);
+      // Items gained as the previous prep ended waited unmerged (acquireItem deferMerge), including a fusion
+      // component. Merge them now, before this prep's onPrepStart grants and before the player acts — not in
+      // endPrep, which runs in the same prep that granted them and would take an equipped copy off for the fight
+      // about to start. releaseDeferred is this call only: a scroll's equipDirect must still see the mark.
+      ps.checkItemMerges({ releaseDeferred: true });
       ps.recompute();
       this.dispatch(ps, 'onPrepStart', { round: this.round });
       ps.recompute();
@@ -62,6 +82,7 @@ export class MatchPrep {
       try {
         do {
           r = gen.next();
+          if (!r || typeof r.done !== 'boolean') throw new TypeError('Bot prep hooks must return a synchronous iterator');
           if (sliceCtl) sliceCtl.note(1);
         } while (!r.done && !(sliceCtl ? sliceCtl.wall(now() - t0, this.botSliceMs) : (bounded && now() - t0 >= this.botSliceMs))); // loop-cap: generator and the bot time slice
       } catch (e) {
@@ -74,6 +95,7 @@ export class MatchPrep {
     };
     const ready = () => {
       if (!ps.ready) {
+        ps.autoPickCommands();
         this.autoPickPersonalChoice(ps, 'random');
         ps.resolveTemp();
         ps.setReady(true);
@@ -81,7 +103,7 @@ export class MatchPrep {
     };
     const end = (job) => {
       let gen = null;
-      try { gen = botPrepEndSteps(this, ps, job); } catch (e) { this.reportError(`bot ${ps.playerId}`, e); }
+      try { gen = this.botFor(ps).prepEnd(this, ps, job); } catch (e) { this.reportError(`bot ${ps.playerId}`, e); }
       if (!gen) { ready(); return; }
       drive(gen, '', ready);
     };
@@ -103,9 +125,12 @@ export class MatchPrep {
       if (bounded) this.later(0, slice);
       else slice();
     };
-    this.later(this.scaled(DELAYS.BOT_ACTION + i * DELAYS.BOT_STAGGER), () => {
+    const begin = () => {
       if (!valid()) return;
-      drive(botPrepBeginSteps(this, ps, { delegate: this.botRehearsalDelegate }), '', (job) => {
+      let gen;
+      try { gen = this.botFor(ps).prepBegin(this, ps, { delegate: this.botRehearsalDelegate, pooled: !!this.simPool }); }
+      catch (e) { this.reportError(`bot ${ps.playerId}`, e); end(null); return; }
+      drive(gen, '', (job) => {
         if (!job) { end(null); return; }
         // A job is finished when it has nothing left to simulate: the server's own run over the candidates, or — with a
         // delegated one — the host's pick, which MatchRehearsal accepts as soon as it arrives, possibly while the
@@ -127,6 +152,12 @@ export class MatchPrep {
         }
         runJob(job);
       });
+    };
+    this.later(this.scaled(DELAYS.BOT_ACTION + i * DELAYS.BOT_STAGGER), () => {
+      if (!valid()) return;
+      if (this.botFor(ps).decide?.(this, ps, { kind: 'prep', valid, complete: () => ps.ready,
+        fallback: () => this.later(0, begin) })) return;
+      begin();
     });
   }
 
@@ -153,6 +184,7 @@ export class MatchPrep {
     if (this.phase !== PHASE.PREP) return;
     for (const ps of this.alivePlayers()) {
       if (ps.ready) continue;
+      ps.autoPickCommands();
       this.autoPickPersonalChoice(ps, 'random');
       ps.resolveTemp();
       ps.ready = true;

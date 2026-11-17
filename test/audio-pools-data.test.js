@@ -2,9 +2,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { bankPool, indexAudio } from '../tools/assets/audio.mjs';
 import { buildPlan } from '../tools/assets/plan.mjs';
 import { resolveTemplate, collectLeaves } from '../tools/assets/manifest.mjs';
+import { versionAudioData } from '../tools/assets/versions.mjs';
 
 const manifest = JSON.parse(readFileSync(new URL('../data/assets.json', import.meta.url), 'utf8'));
 const official = new URL('../.cache/gamedata/excel/audio_data.json', import.meta.url);
@@ -52,14 +54,19 @@ test('every generated attack/hit reference resolves to a valid pool and its sele
       }
     }
   }
-  assert.equal(refs, 952); // 0.3.1 release fetch-assets: + 琳琅诗怀雅 S3, 刻俄柏, 风丸 attacks and 松果's hit (their official pools)
-  assert.equal(Object.keys(pools).length, 941); // + the four pools above
+  // 0.3.1 release fetch-assets: 952 (+ 琳琅诗怀雅 S3, 刻俄柏, 风丸 attacks and 松果's hit); 0.3.2 (#848, DESIGN §35.38): + the 26
+  // plain mode-bank slots on 19 operators, and 弑君者 / 莱伊 / 望 / 灰毫's normal attack from their mode-0 banks
+  // The four-version art union adds nine references to installed sounds and 46 official pool records; the online
+  // regeneration of 2026-11-03 (DESIGN §37.93) adds the attack / hit files of 16 第一期 operators and 2 enemies (+37).
+  // 规程's local AudioClips and pinned new bank names extend the five-version union.
+  assert.equal(refs, 1275);
+  assert.equal(Object.keys(pools).length, 1262);
   const p = pools[units.char_4064_mlynar.attackPools[2]];
   assert.equal(p.sounds['player/p_imp/p_imp_loyalsword_h.mp3'].delay, 0.1);
 });
 
 test('all exported pools match the cached official bank limits, pitches and delays', { skip: !existsSync(official) }, () => {
-  const raw = JSON.parse(readFileSync(official, 'utf8'));
+  const raw = versionAudioData(fileURLToPath(new URL('..', import.meta.url)), JSON.parse(readFileSync(official, 'utf8')));
   const banks = new Map(raw.soundFXBanks.map(b => [b.name, b]));
   for (const [id, pool] of Object.entries(manifest.audio.sfx.pools)) {
     const bank = banks.get(id);

@@ -1,7 +1,7 @@
 // server/sim/content/kits/ops/chess_char_1_15-pithst.js — 盟约·辅助干员 (char_616_pithst) kit, tier 1 (hidden).
 // Registered with the tier-6 kits, whose conventions are in ../shared/tier6.js; kit contract and rules: ../README.md.
 
-import { hasHp } from '../../../damage.js';
+import { hasHp } from '../../../attack.js';
 import { num, tbb, isElite, elementDmg } from '../shared/tier6.js';
 
 // ------------------------------------------------------------------------------------------------------------------

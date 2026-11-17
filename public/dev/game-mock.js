@@ -15,17 +15,22 @@ import { store, emptyMatch, selectRoute } from '/js/store.js';
 import { net, NetError } from '/js/net.js';
 import { data } from '/js/data.js';
 import { installAudio } from '/js/audio.js';
+import { musicSeason } from '/js/versions.js';
 import { settingsStore } from '/js/ui/settings.js';
 import { awayStore } from '/js/ui/matchChrome.js';
 import { GAME_FILES } from '/js/ui/gameComponents.js';
 import { PHASE, GEO } from '/shared/constants.js';
+import { equippedLineup } from './settle-fixture.js';
 
 const params = new URLSearchParams(location.search);
 const SHOT = params.get('shot') === '1';
 const VARIANTS = new Set((params.get('variant') || '').split(',').filter(Boolean));
+// ?version=regulation (or act3autochess@V3_1) loads that version's config + stages before the first paint,
+// so INFO_CHECK is the 规程 briefing. Anything else keeps the default act2 files.
+const REGULATION = params.get('version') === 'regulation' || params.get('version') === 'act3autochess@V3_1';
 // the match's stage (data/stages.json id): ?stage=act1autochess_m01 boards a stage whose own devices (crates / turrets)
 // stand on the prep field — the default act2autochess_m01 keeps its blowers and turrets off it (rows 6 / 8 / 13)
-const STAGE_ID = params.get('stage') || 'act2autochess_m01';
+const STAGE_ID = params.get('stage') || (REGULATION ? 'act3autochess_m01' : 'act2autochess_m01');
 
 // ---- deterministic rng ----------------------------------------------------------------------------------
 let seed = 20260927;
@@ -206,6 +211,9 @@ function buildState() {
   // I am the second of the first pair → the mirrored right half (server pairPlayers: alive players by seat, in pairs)
   if (VARIANTS.has('bossR')) { players[0].seat = 1; players[1].seat = 0; }
   if (VARIANTS.has('dead')) { players[0].alive = false; players[0].status = 'dead'; players[0].lp = 0; priv.lp = 0; }
+  // 完美连胜 (DESIGN §37.148, server views.js _avatarView): ?variant=badges — you on a 6-round streak (level 2), the
+  // second seat on 3 (level 1); in a leader fight the leader-damage levels too (setPhase)
+  if (VARIANTS.has('badges')) Object.assign(players[0], { winStreak: 6, winStreakLevel: 2 }), Object.assign(players[1], { winStreak: 3, winStreakLevel: 1 });
 
   const pub = {
     phase: PHASE.PREP, round: 6, lastRound: 14, bossRound: 14, hiddenRound: 15, deadline: Date.now() + 74000, serverNow: Date.now(), modeId: 'mode_multi_hard', difficulty: 'HARD',
@@ -358,7 +366,7 @@ function buildResult(victory) {
     players: S.pub.players.map((p, i) => ({
       playerId: p.playerId, seat: p.seat, name: p.name, isBot: p.isBot, left: false, alive: i !== 3, victory, lp: [12, 12, 12, 0][i], bandId: p.bandId,
       roundsPassed: i === 3 ? 9 : victory ? 14 : 11, eliminatedRound: i === 3 ? 10 : null, title: pickTitle(i),
-      lineup: shuffle(S.pool).slice(0, 8 + (i % 2)).map((c, k) => ({ id: k < 3 ? c.goldenId : c.chessId, golden: k < 3, tier: c.tier, row: 9 + (k % 4), col: 2 + k, items: [] })),
+      lineup: VARIANTS.has('equipped') ? equippedLineup() : shuffle(S.pool).slice(0, 8 + (i % 2)).map((c, k) => ({ id: k < 3 ? c.goldenId : c.chessId, golden: k < 3, tier: c.tier, row: 9 + (k % 4), col: 2 + k, items: [] })),
       bonds: shuffle(data.list('bonds')).slice(0, 4).map((b, k) => ({ bondId: b.bondId, count: 3 - (k % 3), layers: [359, 136, 34, 12][k], active: k < 3, tier: k < 3 ? 1 : 0 })),
       stats: {
         dmgDealt: [2310000, 1720000, 980000, 402000][i], kills: [412, 388, 301, 150][i], leaks: [3, 6, 9, 31][i], gold: [188, 164, 231, 90][i],
@@ -420,6 +428,9 @@ function startCombat(phase) {
     if (p && p.uniteLeft > 0) { leftOf(pid, p.uniteLeft - 1); pushPublic(); }
   };
   if (VARIANTS.has('done')) pub.players[0].status = 'done';
+  // ?variant=badges in a leader fight: the leader-damage scan at levels 3 / 2 / 1 on the first three seats (the server
+  // publishes bossDamageLevel only while the pool runs)
+  if (VARIANTS.has('badges')) pub.players.forEach((p, i) => { if (boss && i < 3) p.bossDamageLevel = 3 - i; else delete p.bossDamageLevel; });
   let fields;
   let rect;
   let kind;
@@ -821,6 +832,20 @@ function renderBar() { render(html`<${Switcher} />`, bar); }
 window.addEventListener('keydown', (e) => { if (e.key === '`') bar.classList.toggle('hidden'); });
 if (SHOT) bar.classList.add('hidden');
 
+// 规程 config + stages, so ?version=regulation&phase=INFO_CHECK shows that briefing's map.
+// Chess / bonds / items stay the default files: the mock's shop builder indexes them by position.
+async function loadRegulationContent() {
+  const base = '/data/versions/act3autochess-v3_1/';
+  const names = ['config', 'stages'];
+  const values = {};
+  await Promise.all(names.map(async (name) => {
+    const res = await fetch(base + name + '.json');
+    if (!res.ok) throw new Error(`regulation ${name} HTTP ${res.status}`);
+    values[name] = await res.json();
+  }));
+  data.setContent({ id: 'act3autochess@V3_1', values });
+}
+
 // ---- boot ---------------------------------------------------------------------------------------------------------------------
 async function boot() {
   net.request = mockRequest;
@@ -836,8 +861,9 @@ async function boot() {
     },
   });
   await data.loadAll(GAME_FILES);
+  if (REGULATION) await loadRegulationContent();
   installDeviceSupport();
-  installAudio({ getManifest: () => data.get('assets'), subscribe: store.subscribe, getState: store.get, selectRoute, settings: settingsStore.get() });
+  installAudio({ getManifest: () => data.get('assets'), subscribe: store.subscribe, getState: store.get, selectRoute, seasonOf: musicSeason, settings: settingsStore.get() });
   const phase = params.get('phase') || 'PREP';
   setPhase(PHASE[phase] || PHASE.PREP, params.get('variant') || '');
   render(html`<div class="app-root"><div class="app-bg" aria-hidden="true"></div><${GameScreen} /><${ConnectionBanner} /><${ToastHost} /><${UiHosts} /><${GuideHost} /></div>`, document.getElementById('app'));

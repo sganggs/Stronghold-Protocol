@@ -270,7 +270,8 @@ test('F3 review: the 刺胄之弹 and 斩胄之剑 blasts (flying units — 对�
     });
     h.step();
     h.spawn(LAZERD, { pos: [3, 8.2], routeIndex: 0, mods: { speedMul: 0, hpMul: 1e4, atkMul: 0 } });
-    h.spawn(HELM, { pos: [3, 9], routeIndex: 0, mods: { speedMul: 0 }, tag: 'boss' }).profile.noAttack = true;
+    // 灭顶之灾 takes an attack's turn (DESIGN §35.29): 胄 attacks 角峰 (the ground operator it can pick), harmlessly
+    h.spawn(HELM, { pos: [3, 9], routeIndex: 0, mods: { speedMul: 0, atkMul: 1e-6 }, tag: 'boss' });
     const u = h.unit(TIPPI[0]);
     // the shell lands at ≈ 29 s, S1 ends at ≈ 32 s
     const [up, down] = airborne(h, u, 40);
@@ -434,12 +435,13 @@ test('F3 review 2: a debuff a ground enemy put on 蒂比 before she took off kee
 // range set it off and the blast, which skips her (对地规避), was spent on nobody (6 casts in 60 s, 0 hits). They count
 // only the allies the blast can hurt now. The `liftoff` flag on 角峰 stands for 蒂比's 起飞 (targeting.js evadesGround
 // reads the flag), so no skill of hers takes off or lands in the middle of the count.
-test('F3 QA: 卢西恩\'s 【aoe】 and 锏\'s CircleAttack are not cast for an airborne operator alone in range; they are once it lands', REAL, () => {
-  for (const [key, kind, radius] of [['enemy_2016_csphtm', 'crimsonAoe', 2], ['enemy_1525_blkswb', 'blizzard', 1.5]]) {
+test('F3 QA: 卢西恩\'s 【aoe】 (on 不祥幻影, the same ability without the blink) and 锏\'s CircleAttack are not cast for an airborne operator alone in range; they are once it lands', REAL, () => {
+  for (const [key, kind, radius] of [['enemy_2017_csphts', 'crimsonAoe', 2], ['enemy_1525_blkswb', 'blizzard', 1.5]]) {
     const h = makeBattle({
       stageId: 'flat', seed: 3, autoFinish: false, timeLimit: 400,
       units: [{ chessId: BAIT, row: 10, col: 5 }],
-      enemies: [{ key, pos: [10, 6], mods: { hpMul: 1e3, speedMul: 0, atkMul: 0.01 } }],
+      // the phantom on 角峰's tile: blocked once 角峰 has landed, it has an attack turn (its aoe takes one, DESIGN §35.29)
+      enemies: [{ key, pos: key === 'enemy_2017_csphts' ? [10, 5.2] : [10, 6], mods: { hpMul: 1e3, speedMul: 0, atkMul: 0.01 } }],
     });
     h.step();
     const u = h.unit(BAIT);
@@ -452,8 +454,10 @@ test('F3 QA: 卢西恩\'s 【aoe】 and 锏\'s CircleAttack are not cast for an 
     h.run(40);
     assert.equal(casts, 0, `${key}: no ${kind} while the only ally in range is airborne`);
     h.b.removeBuff(u, 'test:liftoff');
-    h.run(2);
-    assert.equal(casts, 1, `${key}: cast at once when a target it can hurt is there (the skill was ready all along)`);
+    // the aoe is attack-class (DESIGN §35.29): at its first attack turn once 角峰 is there; 锏's CircleAttack at once
+    const atkClass = key === 'enemy_2017_csphts';
+    h.run(atkClass ? e.s.interval + 2 : 2);
+    assert.equal(casts, 1, `${key}: cast ${atkClass ? 'at its next attack turn' : 'at once'} when a target it can hurt is there (the skill was ready all along)`);
     done(h);
   }
 });

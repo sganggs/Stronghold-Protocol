@@ -73,7 +73,7 @@ export function CombatMetricsPanel({ myId, onClose, runner = battleRunner }) {
       <button ref=${closeRef} type="button" class="combat-metrics__close" aria-label=${t('关闭作战统计')} onClick=${onClose}><${Icon} name="close" /></button>
       <div class="combat-metrics__tools">
         <div class="combat-metrics__scopes" role="group" aria-label=${t('统计范围')}>
-          ${[['battle', t('当前战斗')], ['match', t('本局累计')]].map(([id, label]) => html`<button type="button" key=${id}
+          ${[['battle', t('当前战斗')], ['match', t('本局累计')], ['last', t('上一场战斗')]].map(([id, label]) => html`<button type="button" key=${id}
             aria-pressed=${scope === id} onClick=${() => setScope(id)}>${label}</button>`)}
         </div>
       </div>
@@ -91,7 +91,8 @@ export function CombatMetricsPanel({ myId, onClose, runner = battleRunner }) {
         const description = TYPES.map((type) => `${t(type.label)} ${number(r.types[type.id])}`).join('，');
         return html`<li key=${r.key} class="combat-metrics__row">
           <span class="combat-metrics__rank">${String(i + 1).padStart(2, '0')}</span>
-          <${UnitThumb} kind=${r.kind === 'token' ? 'token' : 'chess'} id=${r.defId} showTier=${false} size="sm" />
+          <${UnitThumb} kind=${r.kind === 'token' ? 'token' : 'chess'} id=${r.defId} ownerId=${r.ownerId}
+            rec=${r.picture?.charId ? { ...r.picture, name: r.name } : null} showTier=${false} size="sm" />
           <div class="combat-metrics__unit">
             <div class="combat-metrics__name"><b title=${r.name}>${r.name || r.defId}</b></div>
             <div class="combat-metrics__bar" role="img" aria-label=${description} title=${description}>
@@ -106,7 +107,7 @@ export function CombatMetricsPanel({ myId, onClose, runner = battleRunner }) {
             </div>
           </div>
         </li>`;
-      }) : html`<li class="combat-metrics__empty">${t('暂无本地战斗记录')}<br /><small>${t('开始战斗后实时显示干员数据')}</small></li>`}
+      }) : html`<li class="combat-metrics__empty">${scope === 'last' ? t('暂无上一场战斗记录') : t('暂无本地战斗记录')}<br /><small>${scope === 'last' ? t('打完一场战斗后显示') : t('开始战斗后实时显示干员数据')}</small></li>`}
     </ol>
     <p class="combat-metrics__note">${t('仅统计自己 · 同名干员合并 · 召唤物计入所属干员')}<br />${t('实际扣血 / 有效治疗，DPS / HPS 按自己的战斗秒数计算。刷新后重新累计。')}</p>
     </div>

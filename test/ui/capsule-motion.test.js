@@ -39,7 +39,7 @@ test('the scenes draw the official hudPanel/trans_* sprites, all in the asset li
 
 test('TopBar: the capsule in its scene box, re-keyed per change; the sprites fetched when the match screen opens', () => {
   const js = read('public/js/ui/hud.js');
-  assert.match(js, /const fx = useCapsuleFx\(phase, pub\?\.round\);\n\s+useEffect\(\(\) => \{ preloadCapsuleArt\(\); \}, \[\]\);/);
+  assert.match(js, /const fx = useCapsuleFx\(phase, pub\?\.round, held\);\n\s+useEffect\(\(\) => \{ preloadCapsuleArt\(\); \}, \[\]\);/);
   assert.match(js, /<div class=\$\{cx\('gtop__cap', fx\.kind && `is-fx-\$\{fx\.kind\}`\)\} key=\$\{`cap\$\{fx\.seq\}`\}>\n\s+<\$\{PhaseCapsule\}/);
   assert.match(js, /\$\{fx\.kind && fx\.kind !== 'enter' \? html`<\$\{CapsuleScene\} kind=\$\{fx\.kind\} \/>` : null\}/);
   assert.match(js, /s\.key === null \|\| reducedMotion\(\) \? null/, 'nothing on the first render or with reduced motion');

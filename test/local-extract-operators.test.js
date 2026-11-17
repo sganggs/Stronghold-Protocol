@@ -37,10 +37,12 @@ test('full extraction needs --plugin-art; explicit --only plugin-art also author
   const got = py(`from pathlib import Path
 import contextlib,io
 root=Path(${JSON.stringify(f.root)})
+(root/'ui'/'autochess').mkdir(parents=True)
 ex.export_bundle=lambda *a: 0
 ex.export_enemy_spines=lambda *a: 0
 ex.export_token_spines=lambda *a: 0
 ex.export_scenes=lambda *a: 0
+ex.versions.export=lambda *a: 0
 ex.fx.export_fx=lambda *a,**k: 0
 calls=[]
 op.references=lambda *a: ['char_9001_test']

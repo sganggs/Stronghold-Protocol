@@ -41,11 +41,12 @@ function agoat2(bb, chess, def) {
         const er = num(unit.profile?.heal?.elementHealRatio, num(tb.ep_heal_ratio, 0.5));
         const allies = battle.alliesInGrid(unit);
         for (const a of allies) {
-          if (er > 0) battle.reduceElement(a, unit.s.atk * er);
+          if (er > 0) battle.healElement({ target: a, amount: unit.s.atk * er });
           if (a.hp < a.s.maxHp) battle.heal(unit, a, unit.s.atk, { skillHeal: true });
         }
         const S = bstate(battle);
-        S.agoatVeils ??= [];
+        // PRTS: recasting this source refreshes its shared pool instead of adding another shield.
+    S.agoatVeils = (S.agoatVeils ?? []).filter(v => v.src !== unit);
         S.agoatVeils.push({ keys: new Set(unit.rangeKeys || []), pool: unit.s.atk * bv(bb, 'atk_scale', 5), until: battle.time + num(bb.duration, 12), src: unit });
         battle.fx('shield', { x: unit.x, y: unit.y, id: unit.id, duration: num(bb.duration, 12) });
         if (!S.agoatVeilHook) {
@@ -64,7 +65,7 @@ function agoat2(bb, chess, def) {
               if (take >= eff - 1e-9) { d.cancel = true; return; }
               d.mul *= (eff - take) / eff;
             }
-          }, { priority: -50 });
+          }, { priority: -2000 });
         }
       },
     },

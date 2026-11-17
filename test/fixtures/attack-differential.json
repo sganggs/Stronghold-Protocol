@@ -1,0 +1,3014 @@
+{
+ "about": "Recorded once from the v0.3.1 settlement (server/sim/damage.js as PR #802 restored it, before its removal; DESIGN §35.32): the outcomes test/sim/attack-differential.test.js expects of the current kernel. Damage events keep their first four fields (the red mark is checked separately).",
+ "damage": {
+  "phys/source/0/100": {
+   "result": 7.799999999999272,
+   "hp": 9992.2,
+   "alive": true,
+   "dealt": 7.799999999999272,
+   "taken": 7.799999999999272,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": 1,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 7.800000000000001
+    },
+    {
+     "name": "damaged",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 7.800000000000001
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     8,
+     "phys"
+    ]
+   ]
+  },
+  "phys/source/0/20000": {
+   "result": 10000,
+   "hp": 0,
+   "alive": false,
+   "dealt": 10000,
+   "taken": 10000,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": 1,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 30903.600000000002
+    },
+    {
+     "name": "fatal",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 30903.600000000002
+    },
+    {
+     "name": "damaged",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 30903.600000000002
+    },
+    {
+     "name": "kill",
+     "source": null,
+     "credit": null,
+     "killer": 1
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     30904,
+     "phys"
+    ],
+    [
+     "die",
+     2,
+     "killed"
+    ]
+   ]
+  },
+  "phys/source/100/100": {
+   "result": 0,
+   "hp": 10000,
+   "alive": true,
+   "dealt": 0,
+   "taken": 0,
+   "shield": 92.2,
+   "trace": [
+    {
+     "name": "hit",
+     "source": 1,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "damaged",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 0
+    }
+   ],
+   "events": []
+  },
+  "phys/source/100/20000": {
+   "result": 10000,
+   "hp": 0,
+   "alive": false,
+   "dealt": 10000,
+   "taken": 10000,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": 1,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 30803.600000000002
+    },
+    {
+     "name": "fatal",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 30803.600000000002
+    },
+    {
+     "name": "damaged",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 30803.600000000002
+    },
+    {
+     "name": "kill",
+     "source": null,
+     "credit": null,
+     "killer": 1
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     30804,
+     "phys"
+    ],
+    [
+     "die",
+     2,
+     "killed"
+    ]
+   ]
+  },
+  "phys/source/20000/100": {
+   "result": 0,
+   "hp": 10000,
+   "alive": true,
+   "dealt": 0,
+   "taken": 0,
+   "shield": 19992.2,
+   "trace": [
+    {
+     "name": "hit",
+     "source": 1,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "damaged",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 0
+    }
+   ],
+   "events": []
+  },
+  "phys/source/20000/20000": {
+   "result": 10000,
+   "hp": 0,
+   "alive": false,
+   "dealt": 10000,
+   "taken": 10000,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": 1,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 10903.600000000002
+    },
+    {
+     "name": "fatal",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 10903.600000000002
+    },
+    {
+     "name": "damaged",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 10903.600000000002
+    },
+    {
+     "name": "kill",
+     "source": null,
+     "credit": null,
+     "killer": 1
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     10904,
+     "phys"
+    ],
+    [
+     "die",
+     2,
+     "killed"
+    ]
+   ]
+  },
+  "phys/sourceless/0/100": {
+   "result": 6.5,
+   "hp": 9993.5,
+   "alive": true,
+   "dealt": 6.5,
+   "taken": 6.5,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 6.5
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 6.5
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     7,
+     "phys"
+    ]
+   ]
+  },
+  "phys/sourceless/0/20000": {
+   "result": 10000,
+   "hp": 0,
+   "alive": false,
+   "dealt": 10000,
+   "taken": 10000,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 25740
+    },
+    {
+     "name": "fatal",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 25740
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 25740
+    },
+    {
+     "name": "kill",
+     "source": null,
+     "credit": null,
+     "killer": 1
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     25740,
+     "phys"
+    ],
+    [
+     "die",
+     2,
+     "killed"
+    ]
+   ]
+  },
+  "phys/sourceless/100/100": {
+   "result": 0,
+   "hp": 10000,
+   "alive": true,
+   "dealt": 0,
+   "taken": 0,
+   "shield": 93.5,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 0
+    }
+   ],
+   "events": []
+  },
+  "phys/sourceless/100/20000": {
+   "result": 10000,
+   "hp": 0,
+   "alive": false,
+   "dealt": 10000,
+   "taken": 10000,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 25640
+    },
+    {
+     "name": "fatal",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 25640
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 25640
+    },
+    {
+     "name": "kill",
+     "source": null,
+     "credit": null,
+     "killer": 1
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     25640,
+     "phys"
+    ],
+    [
+     "die",
+     2,
+     "killed"
+    ]
+   ]
+  },
+  "phys/sourceless/20000/100": {
+   "result": 0,
+   "hp": 10000,
+   "alive": true,
+   "dealt": 0,
+   "taken": 0,
+   "shield": 19993.5,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 0
+    }
+   ],
+   "events": []
+  },
+  "phys/sourceless/20000/20000": {
+   "result": 5740,
+   "hp": 4260,
+   "alive": true,
+   "dealt": 5740,
+   "taken": 5740,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 5740
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 5740
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     5740,
+     "phys"
+    ]
+   ]
+  },
+  "phys/ownerless/0/100": {
+   "result": 6.5,
+   "hp": 9993.5,
+   "alive": true,
+   "dealt": 0,
+   "taken": 6.5,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": null,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 6.5
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 6.5
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     7,
+     "phys"
+    ]
+   ]
+  },
+  "phys/ownerless/0/20000": {
+   "result": 10000,
+   "hp": 0,
+   "alive": false,
+   "dealt": 0,
+   "taken": 10000,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": null,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 25740
+    },
+    {
+     "name": "fatal",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 25740
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 25740
+    },
+    {
+     "name": "kill",
+     "source": null,
+     "credit": null,
+     "killer": null
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     25740,
+     "phys"
+    ],
+    [
+     "die",
+     2,
+     "killed"
+    ]
+   ]
+  },
+  "phys/ownerless/100/100": {
+   "result": 0,
+   "hp": 10000,
+   "alive": true,
+   "dealt": 0,
+   "taken": 0,
+   "shield": 93.5,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": null,
+     "killer": null
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 0
+    }
+   ],
+   "events": []
+  },
+  "phys/ownerless/100/20000": {
+   "result": 10000,
+   "hp": 0,
+   "alive": false,
+   "dealt": 0,
+   "taken": 10000,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": null,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 25640
+    },
+    {
+     "name": "fatal",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 25640
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 25640
+    },
+    {
+     "name": "kill",
+     "source": null,
+     "credit": null,
+     "killer": null
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     25640,
+     "phys"
+    ],
+    [
+     "die",
+     2,
+     "killed"
+    ]
+   ]
+  },
+  "phys/ownerless/20000/100": {
+   "result": 0,
+   "hp": 10000,
+   "alive": true,
+   "dealt": 0,
+   "taken": 0,
+   "shield": 19993.5,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": null,
+     "killer": null
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 0
+    }
+   ],
+   "events": []
+  },
+  "phys/ownerless/20000/20000": {
+   "result": 5740,
+   "hp": 4260,
+   "alive": true,
+   "dealt": 0,
+   "taken": 5740,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": null,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 5740
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 5740
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     5740,
+     "phys"
+    ]
+   ]
+  },
+  "arts/source/0/100": {
+   "result": 118.55999999999949,
+   "hp": 9881.44,
+   "alive": true,
+   "dealt": 118.55999999999949,
+   "taken": 118.55999999999949,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": 1,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 118.56
+    },
+    {
+     "name": "damaged",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 118.56
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     119,
+     "arts"
+    ]
+   ]
+  },
+  "arts/source/0/20000": {
+   "result": 10000,
+   "hp": 0,
+   "alive": false,
+   "dealt": 10000,
+   "taken": 10000,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": 1,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 23712
+    },
+    {
+     "name": "fatal",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 23712
+    },
+    {
+     "name": "damaged",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 23712
+    },
+    {
+     "name": "kill",
+     "source": null,
+     "credit": null,
+     "killer": 1
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     23712,
+     "arts"
+    ],
+    [
+     "die",
+     2,
+     "killed"
+    ]
+   ]
+  },
+  "arts/source/100/100": {
+   "result": 18.55999999999949,
+   "hp": 9981.44,
+   "alive": true,
+   "dealt": 18.55999999999949,
+   "taken": 18.55999999999949,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": 1,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 18.560000000000002
+    },
+    {
+     "name": "damaged",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 18.560000000000002
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     19,
+     "arts"
+    ]
+   ]
+  },
+  "arts/source/100/20000": {
+   "result": 10000,
+   "hp": 0,
+   "alive": false,
+   "dealt": 10000,
+   "taken": 10000,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": 1,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 23612
+    },
+    {
+     "name": "fatal",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 23612
+    },
+    {
+     "name": "damaged",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 23612
+    },
+    {
+     "name": "kill",
+     "source": null,
+     "credit": null,
+     "killer": 1
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     23612,
+     "arts"
+    ],
+    [
+     "die",
+     2,
+     "killed"
+    ]
+   ]
+  },
+  "arts/source/20000/100": {
+   "result": 0,
+   "hp": 10000,
+   "alive": true,
+   "dealt": 0,
+   "taken": 0,
+   "shield": 19881.44,
+   "trace": [
+    {
+     "name": "hit",
+     "source": 1,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "damaged",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 0
+    }
+   ],
+   "events": []
+  },
+  "arts/source/20000/20000": {
+   "result": 3712,
+   "hp": 6288,
+   "alive": true,
+   "dealt": 3712,
+   "taken": 3712,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": 1,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 3712
+    },
+    {
+     "name": "damaged",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 3712
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     3712,
+     "arts"
+    ]
+   ]
+  },
+  "arts/sourceless/0/100": {
+   "result": 91,
+   "hp": 9909,
+   "alive": true,
+   "dealt": 91,
+   "taken": 91,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 91
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 91
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     91,
+     "arts"
+    ]
+   ]
+  },
+  "arts/sourceless/0/20000": {
+   "result": 10000,
+   "hp": 0,
+   "alive": false,
+   "dealt": 10000,
+   "taken": 10000,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 18200
+    },
+    {
+     "name": "fatal",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 18200
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 18200
+    },
+    {
+     "name": "kill",
+     "source": null,
+     "credit": null,
+     "killer": 1
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     18200,
+     "arts"
+    ],
+    [
+     "die",
+     2,
+     "killed"
+    ]
+   ]
+  },
+  "arts/sourceless/100/100": {
+   "result": 0,
+   "hp": 10000,
+   "alive": true,
+   "dealt": 0,
+   "taken": 0,
+   "shield": 9,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 0
+    }
+   ],
+   "events": []
+  },
+  "arts/sourceless/100/20000": {
+   "result": 10000,
+   "hp": 0,
+   "alive": false,
+   "dealt": 10000,
+   "taken": 10000,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 18100
+    },
+    {
+     "name": "fatal",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 18100
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 18100
+    },
+    {
+     "name": "kill",
+     "source": null,
+     "credit": null,
+     "killer": 1
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     18100,
+     "arts"
+    ],
+    [
+     "die",
+     2,
+     "killed"
+    ]
+   ]
+  },
+  "arts/sourceless/20000/100": {
+   "result": 0,
+   "hp": 10000,
+   "alive": true,
+   "dealt": 0,
+   "taken": 0,
+   "shield": 19909,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 0
+    }
+   ],
+   "events": []
+  },
+  "arts/sourceless/20000/20000": {
+   "result": 0,
+   "hp": 10000,
+   "alive": true,
+   "dealt": 0,
+   "taken": 0,
+   "shield": 1800,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 0
+    }
+   ],
+   "events": []
+  },
+  "arts/ownerless/0/100": {
+   "result": 91,
+   "hp": 9909,
+   "alive": true,
+   "dealt": 0,
+   "taken": 91,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": null,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 91
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 91
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     91,
+     "arts"
+    ]
+   ]
+  },
+  "arts/ownerless/0/20000": {
+   "result": 10000,
+   "hp": 0,
+   "alive": false,
+   "dealt": 0,
+   "taken": 10000,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": null,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 18200
+    },
+    {
+     "name": "fatal",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 18200
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 18200
+    },
+    {
+     "name": "kill",
+     "source": null,
+     "credit": null,
+     "killer": null
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     18200,
+     "arts"
+    ],
+    [
+     "die",
+     2,
+     "killed"
+    ]
+   ]
+  },
+  "arts/ownerless/100/100": {
+   "result": 0,
+   "hp": 10000,
+   "alive": true,
+   "dealt": 0,
+   "taken": 0,
+   "shield": 9,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": null,
+     "killer": null
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 0
+    }
+   ],
+   "events": []
+  },
+  "arts/ownerless/100/20000": {
+   "result": 10000,
+   "hp": 0,
+   "alive": false,
+   "dealt": 0,
+   "taken": 10000,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": null,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 18100
+    },
+    {
+     "name": "fatal",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 18100
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 18100
+    },
+    {
+     "name": "kill",
+     "source": null,
+     "credit": null,
+     "killer": null
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     18100,
+     "arts"
+    ],
+    [
+     "die",
+     2,
+     "killed"
+    ]
+   ]
+  },
+  "arts/ownerless/20000/100": {
+   "result": 0,
+   "hp": 10000,
+   "alive": true,
+   "dealt": 0,
+   "taken": 0,
+   "shield": 19909,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": null,
+     "killer": null
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 0
+    }
+   ],
+   "events": []
+  },
+  "arts/ownerless/20000/20000": {
+   "result": 0,
+   "hp": 10000,
+   "alive": true,
+   "dealt": 0,
+   "taken": 0,
+   "shield": 1800,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": null,
+     "killer": null
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 0
+    }
+   ],
+   "events": []
+  },
+  "true/source/0/100": {
+   "result": 156,
+   "hp": 9844,
+   "alive": true,
+   "dealt": 156,
+   "taken": 156,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": 1,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 156
+    },
+    {
+     "name": "damaged",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 156
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     156,
+     "true"
+    ]
+   ]
+  },
+  "true/source/0/20000": {
+   "result": 10000,
+   "hp": 0,
+   "alive": false,
+   "dealt": 10000,
+   "taken": 10000,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": 1,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 31200
+    },
+    {
+     "name": "fatal",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 31200
+    },
+    {
+     "name": "damaged",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 31200
+    },
+    {
+     "name": "kill",
+     "source": null,
+     "credit": null,
+     "killer": 1
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     31200,
+     "true"
+    ],
+    [
+     "die",
+     2,
+     "killed"
+    ]
+   ]
+  },
+  "true/source/100/100": {
+   "result": 56,
+   "hp": 9944,
+   "alive": true,
+   "dealt": 56,
+   "taken": 56,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": 1,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 56
+    },
+    {
+     "name": "damaged",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 56
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     56,
+     "true"
+    ]
+   ]
+  },
+  "true/source/100/20000": {
+   "result": 10000,
+   "hp": 0,
+   "alive": false,
+   "dealt": 10000,
+   "taken": 10000,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": 1,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 31100
+    },
+    {
+     "name": "fatal",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 31100
+    },
+    {
+     "name": "damaged",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 31100
+    },
+    {
+     "name": "kill",
+     "source": null,
+     "credit": null,
+     "killer": 1
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     31100,
+     "true"
+    ],
+    [
+     "die",
+     2,
+     "killed"
+    ]
+   ]
+  },
+  "true/source/20000/100": {
+   "result": 0,
+   "hp": 10000,
+   "alive": true,
+   "dealt": 0,
+   "taken": 0,
+   "shield": 19844,
+   "trace": [
+    {
+     "name": "hit",
+     "source": 1,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "damaged",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 0
+    }
+   ],
+   "events": []
+  },
+  "true/source/20000/20000": {
+   "result": 10000,
+   "hp": 0,
+   "alive": false,
+   "dealt": 10000,
+   "taken": 10000,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": 1,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 11200
+    },
+    {
+     "name": "fatal",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 11200
+    },
+    {
+     "name": "damaged",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 11200
+    },
+    {
+     "name": "kill",
+     "source": null,
+     "credit": null,
+     "killer": 1
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     11200,
+     "true"
+    ],
+    [
+     "die",
+     2,
+     "killed"
+    ]
+   ]
+  },
+  "true/sourceless/0/100": {
+   "result": 130,
+   "hp": 9870,
+   "alive": true,
+   "dealt": 130,
+   "taken": 130,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 130
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 130
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     130,
+     "true"
+    ]
+   ]
+  },
+  "true/sourceless/0/20000": {
+   "result": 10000,
+   "hp": 0,
+   "alive": false,
+   "dealt": 10000,
+   "taken": 10000,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 26000
+    },
+    {
+     "name": "fatal",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 26000
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 26000
+    },
+    {
+     "name": "kill",
+     "source": null,
+     "credit": null,
+     "killer": 1
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     26000,
+     "true"
+    ],
+    [
+     "die",
+     2,
+     "killed"
+    ]
+   ]
+  },
+  "true/sourceless/100/100": {
+   "result": 30,
+   "hp": 9970,
+   "alive": true,
+   "dealt": 30,
+   "taken": 30,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 30
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 30
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     30,
+     "true"
+    ]
+   ]
+  },
+  "true/sourceless/100/20000": {
+   "result": 10000,
+   "hp": 0,
+   "alive": false,
+   "dealt": 10000,
+   "taken": 10000,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 25900
+    },
+    {
+     "name": "fatal",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 25900
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 25900
+    },
+    {
+     "name": "kill",
+     "source": null,
+     "credit": null,
+     "killer": 1
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     25900,
+     "true"
+    ],
+    [
+     "die",
+     2,
+     "killed"
+    ]
+   ]
+  },
+  "true/sourceless/20000/100": {
+   "result": 0,
+   "hp": 10000,
+   "alive": true,
+   "dealt": 0,
+   "taken": 0,
+   "shield": 19870,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 0
+    }
+   ],
+   "events": []
+  },
+  "true/sourceless/20000/20000": {
+   "result": 6000,
+   "hp": 4000,
+   "alive": true,
+   "dealt": 6000,
+   "taken": 6000,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 6000
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 6000
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     6000,
+     "true"
+    ]
+   ]
+  },
+  "true/ownerless/0/100": {
+   "result": 130,
+   "hp": 9870,
+   "alive": true,
+   "dealt": 0,
+   "taken": 130,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": null,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 130
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 130
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     130,
+     "true"
+    ]
+   ]
+  },
+  "true/ownerless/0/20000": {
+   "result": 10000,
+   "hp": 0,
+   "alive": false,
+   "dealt": 0,
+   "taken": 10000,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": null,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 26000
+    },
+    {
+     "name": "fatal",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 26000
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 26000
+    },
+    {
+     "name": "kill",
+     "source": null,
+     "credit": null,
+     "killer": null
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     26000,
+     "true"
+    ],
+    [
+     "die",
+     2,
+     "killed"
+    ]
+   ]
+  },
+  "true/ownerless/100/100": {
+   "result": 30,
+   "hp": 9970,
+   "alive": true,
+   "dealt": 0,
+   "taken": 30,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": null,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 30
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 30
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     30,
+     "true"
+    ]
+   ]
+  },
+  "true/ownerless/100/20000": {
+   "result": 10000,
+   "hp": 0,
+   "alive": false,
+   "dealt": 0,
+   "taken": 10000,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": null,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 25900
+    },
+    {
+     "name": "fatal",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 25900
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 25900
+    },
+    {
+     "name": "kill",
+     "source": null,
+     "credit": null,
+     "killer": null
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     25900,
+     "true"
+    ],
+    [
+     "die",
+     2,
+     "killed"
+    ]
+   ]
+  },
+  "true/ownerless/20000/100": {
+   "result": 0,
+   "hp": 10000,
+   "alive": true,
+   "dealt": 0,
+   "taken": 0,
+   "shield": 19870,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": null,
+     "killer": null
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 0
+    }
+   ],
+   "events": []
+  },
+  "true/ownerless/20000/20000": {
+   "result": 6000,
+   "hp": 4000,
+   "alive": true,
+   "dealt": 0,
+   "taken": 6000,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": null,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 6000
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 6000
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     6000,
+     "true"
+    ]
+   ]
+  },
+  "elemental/source/0/100": {
+   "result": 120,
+   "hp": 9880,
+   "alive": true,
+   "dealt": 120,
+   "taken": 120,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": 1,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 120
+    },
+    {
+     "name": "damaged",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 120
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     120,
+     "true"
+    ]
+   ]
+  },
+  "elemental/source/0/20000": {
+   "result": 10000,
+   "hp": 0,
+   "alive": false,
+   "dealt": 10000,
+   "taken": 10000,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": 1,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 24000
+    },
+    {
+     "name": "fatal",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 24000
+    },
+    {
+     "name": "damaged",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 24000
+    },
+    {
+     "name": "kill",
+     "source": null,
+     "credit": null,
+     "killer": 1
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     24000,
+     "true"
+    ],
+    [
+     "die",
+     2,
+     "killed"
+    ]
+   ]
+  },
+  "elemental/source/100/100": {
+   "result": 20,
+   "hp": 9980,
+   "alive": true,
+   "dealt": 20,
+   "taken": 20,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": 1,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 20
+    },
+    {
+     "name": "damaged",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 20
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     20,
+     "true"
+    ]
+   ]
+  },
+  "elemental/source/100/20000": {
+   "result": 10000,
+   "hp": 0,
+   "alive": false,
+   "dealt": 10000,
+   "taken": 10000,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": 1,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 23900
+    },
+    {
+     "name": "fatal",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 23900
+    },
+    {
+     "name": "damaged",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 23900
+    },
+    {
+     "name": "kill",
+     "source": null,
+     "credit": null,
+     "killer": 1
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     23900,
+     "true"
+    ],
+    [
+     "die",
+     2,
+     "killed"
+    ]
+   ]
+  },
+  "elemental/source/20000/100": {
+   "result": 0,
+   "hp": 10000,
+   "alive": true,
+   "dealt": 0,
+   "taken": 0,
+   "shield": 19880,
+   "trace": [
+    {
+     "name": "hit",
+     "source": 1,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "damaged",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 0
+    }
+   ],
+   "events": []
+  },
+  "elemental/source/20000/20000": {
+   "result": 4000,
+   "hp": 6000,
+   "alive": true,
+   "dealt": 4000,
+   "taken": 4000,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": 1,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 4000
+    },
+    {
+     "name": "damaged",
+     "source": 1,
+     "credit": 1,
+     "killer": null,
+     "amount": 4000
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     4000,
+     "true"
+    ]
+   ]
+  },
+  "elemental/sourceless/0/100": {
+   "result": 100,
+   "hp": 9900,
+   "alive": true,
+   "dealt": 100,
+   "taken": 100,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 100
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 100
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     100,
+     "true"
+    ]
+   ]
+  },
+  "elemental/sourceless/0/20000": {
+   "result": 10000,
+   "hp": 0,
+   "alive": false,
+   "dealt": 10000,
+   "taken": 10000,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 20000
+    },
+    {
+     "name": "fatal",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 20000
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 20000
+    },
+    {
+     "name": "kill",
+     "source": null,
+     "credit": null,
+     "killer": 1
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     20000,
+     "true"
+    ],
+    [
+     "die",
+     2,
+     "killed"
+    ]
+   ]
+  },
+  "elemental/sourceless/100/100": {
+   "result": 0,
+   "hp": 10000,
+   "alive": true,
+   "dealt": 0,
+   "taken": 0,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 0
+    }
+   ],
+   "events": []
+  },
+  "elemental/sourceless/100/20000": {
+   "result": 10000,
+   "hp": 0,
+   "alive": false,
+   "dealt": 10000,
+   "taken": 10000,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 19900
+    },
+    {
+     "name": "fatal",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 19900
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 19900
+    },
+    {
+     "name": "kill",
+     "source": null,
+     "credit": null,
+     "killer": 1
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     19900,
+     "true"
+    ],
+    [
+     "die",
+     2,
+     "killed"
+    ]
+   ]
+  },
+  "elemental/sourceless/20000/100": {
+   "result": 0,
+   "hp": 10000,
+   "alive": true,
+   "dealt": 0,
+   "taken": 0,
+   "shield": 19900,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 0
+    }
+   ],
+   "events": []
+  },
+  "elemental/sourceless/20000/20000": {
+   "result": 0,
+   "hp": 10000,
+   "alive": true,
+   "dealt": 0,
+   "taken": 0,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": 1,
+     "killer": null
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": 1,
+     "killer": null,
+     "amount": 0
+    }
+   ],
+   "events": []
+  },
+  "elemental/ownerless/0/100": {
+   "result": 100,
+   "hp": 9900,
+   "alive": true,
+   "dealt": 0,
+   "taken": 100,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": null,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 100
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 100
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     100,
+     "true"
+    ]
+   ]
+  },
+  "elemental/ownerless/0/20000": {
+   "result": 10000,
+   "hp": 0,
+   "alive": false,
+   "dealt": 0,
+   "taken": 10000,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": null,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 20000
+    },
+    {
+     "name": "fatal",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 20000
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 20000
+    },
+    {
+     "name": "kill",
+     "source": null,
+     "credit": null,
+     "killer": null
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     20000,
+     "true"
+    ],
+    [
+     "die",
+     2,
+     "killed"
+    ]
+   ]
+  },
+  "elemental/ownerless/100/100": {
+   "result": 0,
+   "hp": 10000,
+   "alive": true,
+   "dealt": 0,
+   "taken": 0,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": null,
+     "killer": null
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 0
+    }
+   ],
+   "events": []
+  },
+  "elemental/ownerless/100/20000": {
+   "result": 10000,
+   "hp": 0,
+   "alive": false,
+   "dealt": 0,
+   "taken": 10000,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": null,
+     "killer": null
+    },
+    {
+     "name": "hpDamage",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 19900
+    },
+    {
+     "name": "fatal",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 19900
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 19900
+    },
+    {
+     "name": "kill",
+     "source": null,
+     "credit": null,
+     "killer": null
+    }
+   ],
+   "events": [
+    [
+     "dmg",
+     2,
+     19900,
+     "true"
+    ],
+    [
+     "die",
+     2,
+     "killed"
+    ]
+   ]
+  },
+  "elemental/ownerless/20000/100": {
+   "result": 0,
+   "hp": 10000,
+   "alive": true,
+   "dealt": 0,
+   "taken": 0,
+   "shield": 19900,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": null,
+     "killer": null
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 0
+    }
+   ],
+   "events": []
+  },
+  "elemental/ownerless/20000/20000": {
+   "result": 0,
+   "hp": 10000,
+   "alive": true,
+   "dealt": 0,
+   "taken": 0,
+   "shield": 0,
+   "trace": [
+    {
+     "name": "hit",
+     "source": null,
+     "credit": null,
+     "killer": null
+    },
+    {
+     "name": "damaged",
+     "source": null,
+     "credit": null,
+     "killer": null,
+     "amount": 0
+    }
+   ],
+   "events": []
+  }
+ },
+ "element": {
+  "results": [
+   400,
+   600,
+   0,
+   0
+  ],
+  "hp": 3000,
+  "elem": {
+   "burn": 1000,
+   "neural": 0,
+   "necrosis": 0,
+   "apoptosis": 0,
+   "erosion": 0
+  },
+  "dealt": 7000,
+  "taken": 7000,
+  "trace": [
+   {
+    "name": "elementHit",
+    "source": 1,
+    "type": "element"
+   },
+   {
+    "name": "damaged",
+    "source": 1,
+    "amount": 400,
+    "type": "element"
+   },
+   {
+    "name": "elementHit",
+    "source": 1,
+    "type": "element"
+   },
+   {
+    "name": "damaged",
+    "source": 1,
+    "amount": 600,
+    "type": "element"
+   },
+   {
+    "name": "elementBurst",
+    "source": 1
+   },
+   {
+    "name": "hit",
+    "source": null,
+    "type": "elemental"
+   },
+   {
+    "name": "damaged",
+    "source": null,
+    "amount": 7000,
+    "type": "elemental"
+   }
+  ],
+  "events": [
+   [
+    "dmg",
+    2,
+    400,
+    "burn"
+   ],
+   [
+    "dmg",
+    2,
+    600,
+    "burn"
+   ],
+   [
+    "fx",
+    "burst",
+    8,
+    10,
+    {
+     "id": 2,
+     "element": "burn"
+    }
+   ],
+   [
+    "status",
+    2,
+    "burnBurst",
+    1
+   ],
+   [
+    "dmg",
+    2,
+    7000,
+    "burn"
+   ]
+  ]
+ },
+ "heal": {
+  "heal": {
+   "result": 100,
+   "hp": 10000,
+   "heal": 100,
+   "shield": 170,
+   "trace": [
+    135
+   ],
+   "events": [
+    [
+     "heal",
+     1,
+     100
+    ]
+   ]
+  },
+  "regen": {
+   "result": 75,
+   "hp": 9975,
+   "heal": 75,
+   "shield": 0,
+   "trace": [
+    75
+   ],
+   "events": [
+    [
+     "heal",
+     1,
+     75
+    ]
+   ]
+  }
+ }
+}

@@ -1,0 +1,950 @@
+// Regulation in-match shop chrome (卫戍协议终端). Covenant screens never call these.
+// Sprites: ac_n_initial layout.json shop/panel_shop_main and shop/autochess_shop_card_item.
+// [ASSUMED] Positions are the prefab sizes on the rem grid, not Unity anchors.
+// [ASSUMED] The shop group is packed (level, cards, character card) and centred on the
+// bottom edge. It is not a plate stretched across the screen.
+// [ASSUMED] ac_n_iron sprites/bg_close.webp is a 32×25 dump (240 bytes) on the 收起 tip,
+// not the character plate. That plate is sprites/btn_big_close.webp. 可露希尔's plate is
+// sprites/closure_back_active.webp. A missing plate stays a CSS shape.
+
+import { officialAssetUrl, officialThemeById, themeCharacterKey } from '../../../shared/uiTheme.js';
+import { createPose } from './prefab/anim.js';
+import { layoutPrefab } from './prefab/layout.js';
+import { imageStyle } from './prefab/view.js';
+
+const INITIAL_GROUP = 'themes/ac_n_initial';
+
+/** Shop-up robot of the default theme (theme.json character, idle Idle). */
+const SHOP_SPINE = Object.freeze({
+  skel: 'spine/trap_1096_acshopup.json',
+  atlas: 'spine/trap_1096_acshopup.atlas',
+  png: 'spine/trap_1096_acshopup.png',
+  idle: 'Idle',
+});
+
+const ROMAN = Object.freeze(['', 'I', 'II', 'III', 'IV', 'V', 'VI']);
+
+/** [ASSUMED] Stretching these hides the CSS plate. See the file header. */
+const PLACEHOLDER_SPRITES = Object.freeze({
+  'themes/ac_n_iron': Object.freeze(['sprites/bg_close.webp']),
+});
+
+const PLATE_SPRITES = Object.freeze([
+  'sprites/bg_close.webp',
+  'sprites/btn_big_close.webp',
+  'sprites/closure_back_active.webp',
+]);
+
+/**
+ * The backdrop under a cut-out character plate (§37.235). 可露希尔's plate, closure_back_active (the white boxes of its
+ * panel_shop_main state_able / btn_open), is 29 % transparent; the prefab draws bg_open (the navy CLOSURE screens behind a
+ * fence) under it, and our dark green showed through instead. Rects on the 210×210 button, pivot and anchors bottom-right:
+ * bg_open 272×236 at (0, 0), closure_back_active 211×178 at (0, −8). The card's box is the plate's, so the backdrop is
+ * 272/211 × 236/178 of it, right edges aligned, its bottom 8/178 of the box above the box's bottom (the box clips the rest).
+ */
+const CHAR_BACKDROPS = Object.freeze({
+  'sprites/closure_back_active.webp': Object.freeze({ sprite: 'sprites/bg_open.webp', w: 272 / 211, h: 236 / 178, bottom: 8 / 178 }),
+});
+
+/** The plate URL's backdrop, from the same pack, or null. @param {any} groups @param {string|null|undefined} themeId @param {string} plateUrl */
+function charBackdrop(groups, themeId, plateUrl) {
+  if (!plateUrl) return null;
+  const group = chainOf(themeId).find((g) => Object.keys(CHAR_BACKDROPS).some((name) => groupUrl(groups, g, name) === plateUrl));
+  if (!group) return null;
+  const plate = Object.keys(CHAR_BACKDROPS).find((name) => groupUrl(groups, group, name) === plateUrl);
+  const back = CHAR_BACKDROPS[plate];
+  const url = groupUrl(groups, group, back.sprite);
+  return url ? { url, w: back.w, h: back.h, bottom: back.bottom } : null;
+}
+
+// The freeze button's states as the panel_shop_main prefabs switch them: group_lock (the shop is not frozen, it reads
+// 冻结) is frozen_bg_normal; group_unlock (frozen, it reads 解冻) is frozen_bg_unselect (ac_n_initial) or
+// frozen_bg_unlock (乌萨斯齐心团, 可露希尔); group_disable is bg_lock or frozen_bg_disable.
+const CHROME_SPRITES = Object.freeze({
+  refresh: Object.freeze(['sprites/refresh_bg_normal.webp']),
+  refreshLock: Object.freeze(['sprites/bg_lock.webp', 'sprites/refresh_bg_lock.webp', 'sprites/refresh_bg_disable.webp']),
+  frozen: Object.freeze(['sprites/frozen_bg_normal.webp']),
+  frozenOn: Object.freeze(['sprites/frozen_bg_unselect.webp', 'sprites/frozen_bg_unlock.webp']),
+  frozenLock: Object.freeze(['sprites/bg_lock.webp', 'sprites/frozen_bg_disable.webp']),
+  money: Object.freeze(['sprites/bg_money.webp']),
+  costFree: Object.freeze(['sprites/cost_free.webp']),
+});
+// Button icons that are their own prefab images. A pack without them has the icon in the plate (乌萨斯齐心团 both
+// buttons, 可露希尔 freeze), so these never fall back to another pack.
+const ICON_SPRITES = Object.freeze({
+  refreshIcon: 'sprites/refresh_icon.webp',
+  refreshIconBg: 'sprites/refresh_icon_bg.webp',
+  frozenIcon: 'sprites/frozen_icon.webp',
+  frozenIconOn: 'sprites/frozen_icon2.webp',
+});
+
+/** @param {any} config */
+export function regulationFamily(config) {
+  return config?.version?.family === 'regulation';
+}
+
+/**
+ * An official theme whose pack carries the 规程 interface (its prefabs.json: 乌萨斯齐心团 / 可露希尔; ac_n_initial has none
+ * of its own), installed. The same test as ui/prefab/view.js prefabPackUrl, kept here so this module stays pure.
+ * @param {Record<string, any>|null|undefined} groups @param {string|null|undefined} themeId
+ */
+export function prefabTheme(groups, themeId) {
+  const theme = officialThemeById(themeId);
+  return !!(theme?.group && theme.group !== 'themes/ac_n_initial' && groups?.[theme.group]?.['prefabs.json']);
+}
+
+/**
+ * The 规程 look — its shop, top bar, banners and layout: a 规程 version, or any version with such a theme (the owner,
+ * 2026-11-14: 「规程版本官方出的那几个主题全量覆盖到盟约版本」, §37.206). The rules stay with regulationFamily (the commands,
+ * the core groups, the briefing, the sweep's fourth tab).
+ * @param {any} config @param {Record<string, any>|null|undefined} groups @param {string|null|undefined} themeId
+ */
+export function regLook(config, groups, themeId) {
+  return regulationFamily(config) || prefabTheme(groups, themeId);
+}
+
+/**
+ * The regulation card face, or null for every other family (盟约 keeps today's card).
+ * @param {string|null|undefined} family
+ * @param {{ tier?: number, price?: number, free?: boolean, poor?: boolean, name?: string, bonds?: string[] }} card
+ */
+export function regCardModel(family, card) {
+  if (family !== 'regulation') return null;
+  const tier = Math.min(6, Math.max(1, Number(card?.tier) || 1));
+  const price = Number(card?.price) || 0;
+  const free = !!card?.free || price === 0;
+  const bonds = Array.isArray(card?.bonds) ? card.bonds.filter((id) => typeof id === 'string' && id).slice(0, 3) : [];
+  return {
+    tier,
+    numeral: ROMAN[tier],
+    cost: free ? { kind: 'free' } : { kind: 'hex', price, poor: !!card?.poor },
+    name: typeof card?.name === 'string' ? card.name : '',
+    bonds,
+  };
+}
+
+function cloneNode(node) {
+  return node ? { ...node, ...(Array.isArray(node.children) ? { children: node.children.map(cloneNode) } : {}) } : null;
+}
+
+function findNode(root, name) {
+  if (!root) return null;
+  if (root.name === name) return root;
+  for (const child of root.children || []) {
+    const hit = findNode(child, name);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+function layoutBoxes(box) {
+  const out = [];
+  const walk = (node, x, y, path) => {
+    const left = x + node.left;
+    const top = y + node.top;
+    const next = [...path, node.node.name];
+    out.push({ path: next, node: node.node, left, top, w: node.w, h: node.h, pivot: node.pivot });
+    for (const child of node.children || []) walk(child, left, top, next);
+  };
+  walk(box, 0, 0, []);
+  return out;
+}
+
+function boxAt(boxes, suffix, base) {
+  const found = boxes.find((entry) => suffix.every((name, i) => entry.path[entry.path.length - suffix.length + i] === name));
+  if (!found) return null;
+  const baseLeft = base?.globalLeft ?? base?.left ?? 0;
+  const baseTop = base?.globalTop ?? base?.top ?? 0;
+  return {
+    node: found.node,
+    left: found.left - baseLeft,
+    top: found.top - baseTop,
+    globalLeft: found.left,
+    globalTop: found.top,
+    w: found.w,
+    h: found.h,
+    pivot: found.pivot,
+  };
+}
+
+function boxCss(box, parent) {
+  if (!box || !parent?.w || !parent?.h) return null;
+  const pct = (v) => `${Number((v * 100).toFixed(4))}%`;
+  return {
+    left: pct(box.left / parent.w),
+    top: pct(box.top / parent.h),
+    width: pct(box.w / parent.w),
+    height: pct(box.h / parent.h),
+  };
+}
+
+/** Unity rotates counterclockwise on a y-up canvas; CSS positive angles rotate clockwise on a y-down canvas. */
+export function prefabCssRotation(unityDegrees) {
+  return -Number(unityDegrees || 0);
+}
+
+/**
+ * Image layer from an official card prefab. Effect materials use their exported base/mask textures and material UV speed.
+ * The unit-to-rem scale follows the displayed card, so a phone-sized card keeps the same scroll speed in UV space.
+ * @param {any} node
+ * @param {{w:number,h:number}} box
+ * @param {any} pack
+ * @param {{unitRemX?:number,unitRemY?:number,still?:boolean}} [opts]
+ */
+export function regPrefabImageStyle(node, box, pack, { unitRemX = 0.01, unitRemY = 0.01, still = false } = {}) {
+  const image = node?.image;
+  if (!image) return null;
+  if (!image.sprite && image.material?.base) return regMaterialStyle(image, box, pack, { unitRemX, unitRemY, still });
+  const style = imageStyle(image, pack?.sprite, null, null, pack?.texture);
+  if (!style) return null;
+  const material = image.material;
+  const speed = Array.isArray(material?.speed) ? material.speed.map(Number) : null;
+  if (!still && material?.base && speed && (speed[0] || speed[1]) && box?.w > 0 && box?.h > 0) {
+    const tile = Array.isArray(material.tile) ? material.tile.map((v) => Number(v) || 1) : [1, 1];
+    const duration = 1 / Math.max(Math.abs(speed[0]), Math.abs(speed[1]));
+    const dx = -speed[0] * duration * (box.w / tile[0]) * unitRemX;
+    const dy = speed[1] * duration * (box.h / tile[1]) * unitRemY;
+    style['--reg-prefab-scroll-from'] = material.mask ? '0 0, 0 0' : '0 0';
+    style['--reg-prefab-scroll-to'] = `${Number(dx.toFixed(5))}rem ${Number(dy.toFixed(5))}rem${material.mask ? ', 0 0' : ''}`;
+    style.animation = `reg-prefab-uv-scroll ${Number(duration.toFixed(3))}s linear infinite`;
+  }
+  return style;
+}
+
+/**
+ * A Unity layout group's child alignment and padding as flex CSS: `align` is the TextAnchor (0–8: upper / middle / lower ×
+ * left / centre / right), `pad` the RectOffset (left, right, top, bottom), `spacing` the gap, in prefab units (.01rem). The
+ * card's bond_list is a vertical group aligned LowerLeft (6): its rows sit at the bottom of the box, just over the name bar.
+ * @param {any} layout
+ */
+export function layoutGroupCss(layout) {
+  if (!layout || typeof layout !== 'object') return {};
+  const a = Math.min(8, Math.max(0, Math.trunc(Number(layout.align) || 0)));
+  const steps = ['flex-start', 'center', 'flex-end'];
+  const row = steps[Math.floor(a / 3)];
+  const col = steps[a % 3];
+  /** @type {Record<string, string>} */
+  const st = layout.axis === 'h' ? { justifyContent: col, alignItems: row } : { justifyContent: row, alignItems: col };
+  const pad = Array.isArray(layout.pad) ? layout.pad.map((v) => Number(v) || 0) : null;
+  // longhands only: a `padding` shorthand next to a longhand is re-applied by Preact's style diff and wipes the longhand
+  if (pad && pad.some(Boolean)) {
+    st.paddingLeft = `${pad[0] / 100}rem`; st.paddingRight = `${pad[1] / 100}rem`;
+    st.paddingTop = `${pad[2] / 100}rem`; st.paddingBottom = `${pad[3] / 100}rem`;
+  }
+  if (layout.spacing != null && Number.isFinite(Number(layout.spacing))) st.gap = `${Number(layout.spacing) / 100}rem`;
+  return st;
+}
+
+/**
+ * The bond rows' inset from the card's left edge, in prefab units. [ASSUMED] the rows are made at runtime from a template the
+ * theme data does not carry (bond_list holds no children); 8 is the official 乌萨斯齐心团 recording's icon inset (the icon
+ * starts about 5 % into the card). The list box itself starts at the card edge, so without it the icons sat on the frame.
+ */
+const BOND_ROW_INSET = 8;
+
+/** `#RRGGBB[AA]` → [r, g, b, a 0–1] (white when absent or malformed). @param {unknown} hex */
+function hexColor(hex) {
+  const m = /^#?([0-9a-f]{6})([0-9a-f]{2})?$/i.exec(String(hex || ''));
+  if (!m) return [255, 255, 255, 1];
+  const n = parseInt(m[1], 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255, m[2] ? parseInt(m[2], 16) / 255 : 1];
+}
+
+/**
+ * A card material with a base texture (the 规程 card's bottom_grad, the tier-6 VI): the fx_gradcolor_* bases are OPAQUE
+ * colour ramps (alpha 255, pink / orange …), so the colour comes from the texture — tiled by the material's `tile`,
+ * tinted by the Image colour (multiply), cut by the material's `mask` (mask_text_vi: the VI glyph) and scrolled at the
+ * material's UV `speed`. The HUD's glow layers keep prefab/view.js effectStyle (a colour masked by the base, screen),
+ * which painted these as white bars / an invisible glyph.
+ * @param {any} image @param {{w:number,h:number}} box @param {any} pack
+ * @param {{unitRemX?:number,unitRemY?:number,still?:boolean}} [opts]
+ */
+export function regMaterialStyle(image, box, pack, { unitRemX = 0.01, unitRemY = 0.01, still = false } = {}) {
+  const m = image?.material;
+  const base = m?.base && typeof pack?.texture === 'function' ? pack.texture(m.base) : null;
+  if (!base) return null;
+  const [r, g, b, a] = hexColor(image.color);
+  const [tr, tg, tb, ta] = hexColor(m.tint);
+  const alpha = a * ta;
+  if (alpha <= 0) return null;
+  const tile = Array.isArray(m.tile) ? m.tile.map((v) => Number(v) || 1) : [1, 1];
+  /** @type {Record<string, string>} */
+  const style = {
+    backgroundImage: `url("${base}")`,
+    backgroundSize: `${Number((100 / tile[0]).toFixed(3))}% ${Number((100 / tile[1]).toFixed(3))}%`,
+    backgroundRepeat: 'repeat',
+    backgroundPosition: '0 0',
+  };
+  // the material's UV offset: the texture's start phase (one period is box / tile prefab units, .01rem each)
+  const offset = Array.isArray(m.offset) ? m.offset.map((v) => Number(v) || 0) : [0, 0];
+  const per = [(box?.w > 0 ? box.w / tile[0] : 0) * unitRemX, (box?.h > 0 ? box.h / tile[1] : 0) * unitRemY];
+  const start = [-offset[0] * per[0], offset[1] * per[1]];
+  if (start[0] || start[1]) style.backgroundPosition = `${Number(start[0].toFixed(5))}rem ${Number(start[1].toFixed(5))}rem`;
+  const rgb = [r * tr, g * tg, b * tb].map((v) => Math.round(v / 255));
+  if (rgb.some((v) => v !== 255)) { style.backgroundColor = `rgb(${rgb.join(' ')})`; style.backgroundBlendMode = 'multiply'; }
+  const mask = m.mask ? pack.texture(m.mask) : null;
+  if (mask) {
+    style.WebkitMaskImage = `url("${mask}")`; style.maskImage = `url("${mask}")`;
+    style.WebkitMaskSize = '100% 100%'; style.maskSize = '100% 100%';
+    style.WebkitMaskRepeat = 'no-repeat'; style.maskRepeat = 'no-repeat';
+  }
+  if (alpha < 1) style.opacity = String(Number(alpha.toFixed(3)));
+  const speed = Array.isArray(m.speed) ? m.speed.map(Number) : null;
+  if (!still && speed && (speed[0] || speed[1]) && box?.w > 0 && box?.h > 0) {
+    // one texture period is box / tile prefab units (.01rem each); Unity's v runs up, CSS y runs down
+    const duration = 1 / Math.max(Math.abs(speed[0]), Math.abs(speed[1]));
+    const dx = -speed[0] * duration * (box.w / tile[0]) * unitRemX;
+    const dy = speed[1] * duration * (box.h / tile[1]) * unitRemY;
+    style['--reg-prefab-bg-from'] = style.backgroundPosition;
+    style['--reg-prefab-bg-to'] = `${Number((start[0] + dx).toFixed(5))}rem ${Number((start[1] + dy).toFixed(5))}rem`;
+    style.animation = `reg-prefab-bg-scroll ${Number(duration.toFixed(3))}s linear infinite`;
+  }
+  return style;
+}
+
+function layerFrom(box, card, pack, { still = false, unitRemX = 0.01, unitRemY = 0.01 } = {}) {
+  if (!box) return null;
+  const node = box.node;
+  const image = regPrefabImageStyle(node, box, pack, { still, unitRemX, unitRemY });
+  if (!image) return null;
+  const transform = [];
+  if (Number(node.rot)) transform.push(`rotate(${prefabCssRotation(node.rot)}deg)`);
+  if (Array.isArray(node.scale) && (Number(node.scale[0]) !== 1 || Number(node.scale[1]) !== 1)) {
+    transform.push(`scale(${Number(node.scale[0])}, ${Number(node.scale[1])})`);
+  }
+  return {
+    node,
+    box,
+    style: {
+      ...boxCss(box, card),
+      transform: transform.length ? transform.join(' ') : undefined,
+      transformOrigin: `${Number((box.pivot?.[0] ?? 0.5) * 100)}% ${Number((1 - (box.pivot?.[1] ?? 0.5)) * 100)}%`,
+    },
+    image,
+  };
+}
+
+/**
+ * Build the 规程 shop card face from `autochess_shop_card_item` plus that pack's optional frame / tier prefabs. The
+ * image files are read from the same loaded prefab pack; every box and colour comes through layoutPrefab. A level-five /
+ * six frame prefab (可露希尔) adds its own layers: the bottom colour ramp, the TV and its front, the footer text.
+ * @param {any} pack result of usePrefabPack (includeDefault for ac_n_initial)
+ * @param {{tier?:number,kind?:'chess'|'item',still?:boolean,backing?:boolean}} [opts] backing: false leaves out the prefab's
+ *   `bkg` (the pack is only lent: a non-official theme on ac_n_initial's card)
+ */
+export function regShopCardFaceModel(pack, opts = {}) {
+  const doc = pack?.doc;
+  const prefabs = doc?.prefabs;
+  const source = prefabs?.['shop/autochess_shop_card_item'];
+  if (!source) return null;
+  const tier = Math.min(6, Math.max(1, Math.round(Number(opts.tier) || 1)));
+  const kind = opts.kind === 'item' ? 'item' : 'chess';
+  const still = !!opts.still;
+  const cardPrefab = cloneNode(source);
+  const root = findNode(cardPrefab, 'root');
+  const frameContainer = findNode(root, 'frame_obj_container');
+  const tierContainer = findNode(root, 'chess_level_obj_container');
+  const frameKey = tier <= 4 ? 'shop/frame_lv1_obj' : `shop/frame_lv${tier === 5 ? 2 : 3}_obj`;
+  const tierKey = tier >= 5 ? `shop/chess_level_${tier}_obj` : null;
+  const framePrefab = prefabs[frameKey];
+  const tierPrefab = tierKey ? prefabs[tierKey] : null;
+  if (frameContainer && framePrefab) {
+    frameContainer.active = true;
+    frameContainer.children = [...(frameContainer.children || []), cloneNode(framePrefab)];
+  }
+  if (tierContainer && tierPrefab) {
+    tierContainer.active = true;
+    tierContainer.children = [...(tierContainer.children || []), cloneNode(tierPrefab)];
+  }
+  const pose = createPose();
+  const equip = findNode(root, 'group_equip');
+  const character = findNode(root, 'group_char');
+  if (equip) pose.active.set(equip, kind === 'item');
+  if (character) pose.active.set(character, kind !== 'item');
+  const laid = layoutPrefab(cardPrefab, { pose });
+  const boxes = layoutBoxes(laid.box);
+  const card = boxAt(boxes, ['root', 'panel_main', 'btn_card'], { left: 0, top: 0 });
+  if (!card) return null;
+  const rootTier = boxAt(boxes, ['root', 'panel_main', 'btn_card', 'root_tier'], card);
+  const badgeName = findNode(root, 'img_chess_level') ? 'img_chess_level' : 'img_tier';
+  const badge = boxAt(boxes, ['root', 'panel_main', 'btn_card', 'root_tier', badgeName], card);
+  const namePath = kind === 'item'
+    ? ['root', 'panel_main', 'btn_card', 'group_equip', 'root_name']
+    : ['root', 'panel_main', 'btn_card', 'group_char', 'root_name'];
+  const namebar = boxAt(boxes, namePath, card);
+  const costBox = boxAt(boxes, ['root', 'panel_main', 'root_cost'], card);
+  const cost = costBox ? {
+    style: {
+      left: `${Number((((costBox.left + costBox.w / 2) / card.w) * 100).toFixed(4))}%`,
+      top: `${Number((((costBox.top + costBox.h / 2) / card.h) * 100).toFixed(4))}%`,
+    },
+    width: costBox.w,
+    height: costBox.h,
+  } : null;
+  const bonds = kind === 'chess'
+    ? boxAt(boxes, ['root', 'panel_main', 'btn_card', 'group_char', 'bond_list'], card)
+    : null;
+  const part = (path, parent) => boxAt(boxes, path, parent);
+  const nameParts = kind === 'item'
+    ? {
+      icon: part([...namePath, 'icon'], namebar),
+      name: part([...namePath, 'eqiup_name'], namebar),
+    }
+    : {
+      icon: part([...namePath, 'prof_icon'], namebar),
+      name: part([...namePath, 'char_name'], namebar),
+    };
+  const tierBoxStyle = rootTier && boxCss(rootTier, card);
+  const badgeStyle = badge && rootTier && boxCss({ ...badge, left: badge.left - rootTier.left, top: badge.top - rootTier.top }, rootTier);
+  const viBox = tier === 6
+    ? boxAt(boxes, ['root', 'panel_main', 'btn_card', 'root_tier', 'chess_level_obj_container', 'chess_level_6_obj', 'img_lv'], card)
+    : null;
+  const vi = viBox && badge ? {
+    node: viBox.node,
+    box: viBox,
+    style: boxCss({ ...viBox, left: viBox.left - badge.left, top: viBox.top - badge.top }, badge),
+  } : null;
+  // the pack's own look only (§37.237): a theme that borrows ac_n_initial's card prefab keeps our dark face
+  const backing = opts.backing === false ? null : cardBacking(boxAt(boxes, ['root', 'panel_main', 'btn_card', 'bkg'], card), card, pack);
+  const layers = [];
+  const pushLayer = (suffix) => {
+    const box = boxAt(boxes, suffix, card);
+    const layer = layerFrom(box, card, pack, { still, unitRemX: 0.01, unitRemY: 0.01 });
+    if (layer) layers.push(layer);
+  };
+  if (tier <= 4) {
+    pushLayer(['root', 'panel_main', 'btn_card', 'group_frame', 'frame_obj_container', 'frame_lv1_obj', 'outline']);
+    pushLayer(['root', 'panel_main', 'btn_card', 'group_frame', 'frame_obj_container', 'frame_lv1_obj', 'star']);
+  } else if (framePrefab) {
+    // frame_lv2_obj / frame_lv3_obj are separate layers in prefab order: bottom_grad (the colour ramp under the footer),
+    // tv, tv_front and deco_txt (「CLOSURE × RHODES ISLAND」); a sweep / glow without a base texture or a particle node has
+    // no image and is skipped (no animated sweeps — §37.228).
+    for (const child of framePrefab.children || []) {
+      if (child?.active === false) continue;
+      pushLayer(['root', 'panel_main', 'btn_card', 'group_frame', 'frame_obj_container', framePrefab.name, child.name]);
+    }
+  }
+  if (tier >= 5) {
+    const starRoot = tier === 6 ? 'root_star' : null;
+    const prefix = ['root', 'panel_main', 'btn_card', 'root_tier', 'chess_level_obj_container', tierPrefab?.name || ''];
+    pushLayer(starRoot ? [...prefix, starRoot, '1'] : [...prefix, '1']);
+    pushLayer(starRoot ? [...prefix, starRoot, '2'] : [...prefix, '2']);
+  }
+  let item = null;
+  if (kind === 'item') {
+    const watermark = part(['root', 'panel_main', 'btn_card', 'group_equip', 'bg_deco'], card);
+    const icon = part(['root', 'panel_main', 'btn_card', 'group_equip', 'root_equip', 'equip'], card);
+    item = {
+      watermark: layerFrom(watermark, card, pack, { still }),
+      icon: icon && boxCss(icon, card),
+      iconSize: icon ? { width: icon.w, height: icon.h } : null,
+      namebar: namebar && boxCss(namebar, card),
+      categoryIcon: nameParts.icon && boxCss(nameParts.icon, namebar),
+      name: nameParts.name && boxCss(nameParts.name, namebar),
+      nameColor: nameParts.name?.node?.text?.color || '#FFFFFF',
+      nameFontSize: Number(nameParts.name?.node?.text?.fontSize || 16) / 100,
+    };
+  }
+  return {
+    theme: pack.group?.replace(/^themes\//, '') || '',
+    tier,
+    kind,
+    card: { w: card.w, h: card.h },
+    tierBox: tierBoxStyle ? { style: tierBoxStyle, width: rootTier.w, height: rootTier.h } : null,
+    tierBadge: badgeStyle ? { style: badgeStyle, width: badge.w, height: badge.h } : null,
+    cost,
+    vi,
+    namebar: kind === 'chess' && namebar ? boxCss(namebar, card) : null,
+    profession: kind === 'chess' && nameParts.icon ? {
+      style: boxCss(nameParts.icon, namebar),
+      color: nameParts.icon.node.image?.color || '#FFFFFF',
+    } : null,
+    name: kind === 'chess' && nameParts.name ? {
+      style: boxCss(nameParts.name, namebar),
+      color: nameParts.name.node.text?.color || '#FFFFFF',
+      fontSize: Number(nameParts.name.node.text?.fontSize || 16) / 100,
+    } : null,
+    // the box AND its layout group: the rows stack from the bottom-left (LowerLeft), not from the top; the rows' own inset
+    // from the card edge (BOND_ROW_INSET) keeps the icons inside the frame
+    bonds: bonds && { ...boxCss(bonds, card), ...layoutGroupCss(bonds.node?.layout),
+      paddingLeft: `${Math.max(BOND_ROW_INSET, Number(bonds.node?.layout?.pad?.[0]) || 0) / 100}rem` },
+    item,
+    layers,
+    backing,
+  };
+}
+
+/**
+ * The card's `bkg` (§37.235, §37.237): an Image under the frame. 可露希尔's (155×187 on the 157×207 card, centred) has a
+ * sprite the game sets at run time (external, tinted #FFFFFF); its frame sprite's cut corner and side margins are
+ * transparent, so without it they showed our dark green card fill. [ASSUMED] An external or missing sprite is drawn as its
+ * colour, as a sprite-less Image is: the official preview shows a light card there. ac_n_initial's is the sprite bg_black
+ * (155×187, the official dark card with fine lines), drawn as it is (§37.237: taking only its colour painted the 卫戍协议终端
+ * cards white). Custom properties, not a layer: it lies under the frame face, which is the card's own background
+ * (ui-theme.css). Null when the prefab has none (乌萨斯齐心团: our dark face stays) or its sprite file is missing.
+ * @param {{ left: number, top: number, w: number, h: number, node?: any } | null | undefined} box @param {{ w: number, h: number }} card
+ * @param {any} pack
+ */
+function cardBacking(box, card, pack) {
+  const image = box?.node?.image;
+  if (!image || !(box.w > 0) || !(box.h > 0) || !(card?.w > 0) || !(card?.h > 0)) return null;
+  const colour = typeof image.color === 'string' && /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(image.color) ? image.color : '#FFFFFF';
+  // [ASSUMED] the three packs tint their bkg #FFFFFF; a sprite is drawn untinted
+  const sprite = image.sprite && !image.external ? (typeof pack?.sprite === 'function' ? pack.sprite(image.sprite, image.file) : '') : null;
+  if (sprite === '') return null;
+  const pct = (n) => `${Number((n * 100).toFixed(4))}%`;
+  // background-position: p% puts the image's p% point on the box's p% point (p = offset / (box − image))
+  const at = (offset, free) => (Math.abs(free) < 1e-6 ? '50%' : pct(offset / free));
+  return {
+    colour,
+    sprite: sprite || null,
+    style: {
+      '--scard-under': sprite ? `url("${sprite}")` : `linear-gradient(${colour}, ${colour})`,
+      '--scard-under-size': `${pct(box.w / card.w)} ${pct(box.h / card.h)}`,
+      '--scard-under-pos': `${at(box.left, card.w - box.w)} ${at(box.top, card.h - box.h)}`,
+    },
+  };
+}
+
+/**
+ * The 规程 shop's empty slot (§37.236): the card prefab's `state_empty`, the one other state of autochess_shop_card_item —
+ * the official card shows it instead of panel_main when its slot holds no card (ac_n_initial and 可露希尔 bg_empty,
+ * 「NO INFO」; 乌萨斯齐心团 card_empty, its poster). Its box is relative to the card (btn_card), as the face's layers are, and
+ * may reach past it: 乌萨斯齐心团's is 173×200 at (0, −4) on 155×187. Null when the pack has no such image (the lite package
+ * has no official packs: our SOLD OUT card stays).
+ * @param {any} pack result of usePrefabPack @param {{ still?: boolean }} [opts]
+ */
+export function regShopEmptyCardModel(pack, opts = {}) {
+  const source = pack?.doc?.prefabs?.['shop/autochess_shop_card_item'];
+  if (!source) return null;
+  const cardPrefab = cloneNode(source);
+  const empty = findNode(findNode(cardPrefab, 'root'), 'state_empty');
+  if (!empty?.image) return null;
+  const pose = createPose();
+  pose.active.set(empty, true);
+  const boxes = layoutBoxes(layoutPrefab(cardPrefab, { pose }).box);
+  const card = boxAt(boxes, ['root', 'panel_main', 'btn_card'], { left: 0, top: 0 });
+  if (!card) return null;
+  const layer = layerFrom(boxAt(boxes, ['root', 'state_empty'], card), card, pack, { still: !!opts.still });
+  // card: the official card's box, so a 盟约 card (narrower) can lay the empty card out at its own proportions (§37.238)
+  return layer ? { theme: pack.group?.replace(/^themes\//, '') || '', card: { w: card.w, h: card.h }, node: layer.node, style: layer.style, image: layer.image } : null;
+}
+
+/** One official prefab unit in rem: the prefab HUD's OFFICIAL_SCALE / 100 (ui/prefab/hud.js, a component module, so not imported). */
+const OFFICIAL_UNIT_REM = 1.44 / 100;
+
+/** The shop background's nodes in paint order (§37.238): 可露希尔's matte_back under the whole panel, then group_bg's
+ * full-width shadow and the corner decorations. group_bg's character-card layers (bg, char, bg_open, closure_back_active,
+ * the particles) are drawn on the character card instead. */
+const BACKDROP_NODES = Object.freeze(['matte_back', 'bg_shadow', 'deco_left', 'bg_deco']);
+
+/**
+ * The official shop background (§37.238): panel_shop_main's state_unfold/group_bg — the full-width bottom shadow
+ * (bg_shadow: shadow_total 237 high in ac_n_initial and 乌萨斯齐心团, bg_shadow 351 high in 可露希尔) and the corner
+ * decorations (乌萨斯齐心团 deco_left back_left 863×112, 可露希尔 bg_deco 1024×125, both bottom left) — and 可露希尔's
+ * matte_back (414×372 bottom right, tinted #090909). In all three packs these nodes and their parents sit on the bottom
+ * edge, the parents full width, so each node is placed from the screen's bottom-left or bottom-right corner (or stretched
+ * across) at the top bar's scale (one unit = .0144rem). A node anchored elsewhere is left out. Null without such nodes.
+ * @param {any} pack result of usePrefabPack @param {{ still?: boolean }} [opts]
+ */
+export function regShopBackdropModel(pack, opts = {}) {
+  const panel = pack?.doc?.prefabs?.['shop/panel_shop_main'];
+  if (!panel) return null;
+  const groupBg = findNode(findNode(panel, 'state_unfold'), 'group_bg');
+  const rem = (n) => `${Number((n * OFFICIAL_UNIT_REM).toFixed(4))}rem`;
+  const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  const layers = [];
+  for (const name of BACKDROP_NODES) {
+    const parent = name === 'matte_back' ? panel : groupBg;
+    const node = (parent?.children || []).find((c) => c?.name === name);
+    if (!node?.image || node.active === false) continue;
+    const r = node.rect || {};
+    const min = r.anchors?.min || [0.5, 0.5];
+    const max = r.anchors?.max || min;
+    const [w, h] = [num(r.sizeDelta?.[0]), num(r.sizeDelta?.[1])];
+    const [x, y] = [num(r.anchoredPosition?.[0]), num(r.anchoredPosition?.[1])];
+    const [pivotX, pivotY] = [num(r.pivot?.[0] ?? 0.5), num(r.pivot?.[1] ?? 0.5)];
+    if (num(min[1]) !== 0 || num(max[1]) !== 0 || !(h > 0)) continue;
+    /** @type {Record<string, string|undefined>} */
+    const style = { bottom: rem(y - pivotY * h), height: rem(h) };
+    if (num(min[0]) === 0 && num(max[0]) === 1) {
+      style.left = rem(x - pivotX * w);
+      style.right = rem(-(x + (1 - pivotX) * w));
+    } else if (num(min[0]) === num(max[0]) && (num(min[0]) === 0 || num(min[0]) === 1) && w > 0) {
+      if (num(min[0]) === 0) style.left = rem(x - pivotX * w);
+      else style.right = rem(-(x + (1 - pivotX) * w));
+      style.width = rem(w);
+    } else continue;
+    const image = regPrefabImageStyle(node, { w: w || 1, h }, pack, { still: !!opts.still });
+    if (image) layers.push({ name, node, style, image });
+  }
+  return layers.length ? { theme: pack.group?.replace(/^themes\//, '') || '', layers } : null;
+}
+
+/** Relative mask / texture styling for the VI node, with the official speed scaled to the visible tier chip size. */
+export function regTierViImageStyle(model, pack, { unitRemX = 0.01, unitRemY = 0.01, still = false } = {}) {
+  return model?.vi ? regPrefabImageStyle(model.vi.node, model.vi.box, pack, { unitRemX, unitRemY, still }) : null;
+}
+
+function placeholder(group, name) {
+  const list = PLACEHOLDER_SPRITES[group];
+  return !!list && list.includes(name);
+}
+
+/** [ASSUMED] A recorded width or height under 48px is a dump tip, not a plate (iron bg_close is 32×25). */
+function tooSmall(entry) {
+  const w = Number(entry?.w);
+  const h = Number(entry?.h);
+  return Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0 && (w < 48 || h < 48);
+}
+
+function groupUrl(groups, group, name) {
+  if (!group || !name || placeholder(group, name)) return '';
+  const entry = groups && groups[group] ? groups[group][name] : null;
+  if (!entry || tooSmall(entry)) return '';
+  return officialAssetUrl(group, entry) || '';
+}
+
+function chainOf(themeId) {
+  const theme = officialThemeById(themeId);
+  const primary = theme?.group || INITIAL_GROUP;
+  return primary === INITIAL_GROUP ? [INITIAL_GROUP] : [primary, INITIAL_GROUP];
+}
+
+/** Only the active pack (no ac_n_initial fallback). */
+function pickOwn(groups, themeId, name) {
+  return groupUrl(groups, chainOf(themeId)[0], name);
+}
+
+/**
+ * The official pack whose shop chrome is drawn: the selected official theme when installed, else ac_n_initial when
+ * installed, else '' (the CSS shapes). Its prefab decides where the button words and icons sit (css data-reg-theme).
+ * @param {Record<string, Record<string, { path?: string }>>|null|undefined} groups
+ * @param {string|null|undefined} themeId
+ */
+export function regChromeTheme(groups, themeId) {
+  const has = (group) => !!(groups && groups[group] && Object.keys(groups[group]).length);
+  const theme = officialThemeById(themeId);
+  if (theme?.group && has(theme.group)) return theme.group.replace(/^themes\//, '');
+  return has(INITIAL_GROUP) ? INITIAL_GROUP.replace(/^themes\//, '') : '';
+}
+
+function pickSprite(groups, themeId, names) {
+  for (const group of chainOf(themeId)) {
+    for (const name of names) {
+      const url = groupUrl(groups, group, name);
+      if (url) return url;
+    }
+  }
+  return '';
+}
+
+/**
+ * Served chrome URLs for the regulation shop. Empty string: the CSS shape.
+ * The active official pack wins, then ac_n_initial, then nothing (lite zip).
+ * @param {Record<string, Record<string, { path?: string }>>|null|undefined} groups
+ * @param {{ themeId?: string|null }} [opts]
+ */
+export function regChromeUrls(groups, opts = {}) {
+  const themeId = opts?.themeId;
+  return {
+    refresh: pickSprite(groups, themeId, CHROME_SPRITES.refresh),
+    refreshLock: pickSprite(groups, themeId, CHROME_SPRITES.refreshLock),
+    frozen: pickSprite(groups, themeId, CHROME_SPRITES.frozen),
+    frozenOn: pickSprite(groups, themeId, CHROME_SPRITES.frozenOn),
+    frozenLock: pickSprite(groups, themeId, CHROME_SPRITES.frozenLock),
+    refreshIcon: pickOwn(groups, themeId, ICON_SPRITES.refreshIcon),
+    refreshIconBg: pickOwn(groups, themeId, ICON_SPRITES.refreshIconBg),
+    frozenIcon: pickOwn(groups, themeId, ICON_SPRITES.frozenIcon),
+    frozenIconOn: pickOwn(groups, themeId, ICON_SPRITES.frozenIconOn),
+    char: pickSprite(groups, themeId, PLATE_SPRITES),
+    charBack: charBackdrop(groups, themeId, pickSprite(groups, themeId, PLATE_SPRITES)),
+    money: pickSprite(groups, themeId, CHROME_SPRITES.money),
+    costFree: pickSprite(groups, themeId, CHROME_SPRITES.costFree),
+  };
+}
+
+// ---- 升级 (the upgrade button) -----------------------------------------------------------------------------------------
+// Each pack's panel_shop_main group_upgrade, drawn layer by layer. A rect [x, y, w, h] is the prefab's, x right / y up
+// from the centre of the 112×190 group, in prefab units (1rem = 100); in ac_n_initial group_normal sits 1 unit lower and
+// its layers carry that offset. The states are the prefab's groups: `normal` (the upgrade can be bought; `on: 'armed'`
+// layers are its root_double_check, shown after the first tap, `on: 'idle'` the ones they replace), `disable` (funds
+// short, or not the shop phase) and `max` (level 6). The level is ac_n_initial's text_num (a Roman numeral, as the theme
+// previews draw it) or 乌萨斯齐心团's / 可露希尔's upgrade_lv_N image in the prefab's img_num colour. A white sprite under a
+// colour (the prefab's image colour) is that colour through the sprite's mask. The price is the prefab's root_cost.
+// The shop_level_N sprites are not part of it: they are player_detail_shop_level_hub (the player detail panel).
+// [ASSUMED] The prefab's clips (double-check in / out, loop line, level-up fx) are drawn at their end state: the
+// root_double_check layers at full alpha, nothing looping. 可露希尔's inner_flow texture is not in the dump: a gradient
+// stands in for the cloud at the bottom of its screen. 乌萨斯齐心团's double-check arrows (animated inside a 66×68 mask)
+// and 可露希尔's star fill (no sprite) are left out. With no pack installed the same layout is drawn in CSS colours.
+// [ASSUMED] ac_n_initial's numeral font is not ours: Novecento Wide, thickened and spaced (css), at 45 with the rect 1.5
+// units under text_num's matches the theme preview's glyph (34 units tall, bars about 8 wide and 8 apart, centre at y 11.5).
+const UP_INITIAL = Object.freeze({
+  need: ['frame_matte', 'upgrade_disable', 'upgrade_max'],
+  cost: 80,
+  normal: Object.freeze([
+    { fill: '#107463', r: [0, -1, 112, 188] },
+    { s: 'repeat_line', r: [0, -1, 112, 188], tile: 18, a: 0.6 },
+    { s: 'deco_up', r: [0, 64, 49, 6], a: 0.5 },
+    { s: 'deco_down', r: [-1, -84, 95, 10], a: 0.5 },
+    { s: 'stripe_line', r: [0, -1, 112, 188], a: 0.23 },
+    { s: 'frame_matte', r: [0, 9, 101, 85] },
+    { s: 'icon', r: [1, 15.3, 60, 61], tint: 'rgba(2, 5, 5, .3)' },
+    { s: 'frame', r: [0, 14.8, 97, 85.4] },
+    // the 45×10 「LEVEL」 (the dump names it level_2: level.webp is the folded shop's 91×85 plate)
+    { s: 'level_2', r: [1, 40, 45, 10] },
+    { s: 'frame_glow', r: [0, 15, 104, 88], slice: 20 },
+    { s: 'check_grad', r: [0, -27, 111, 136], on: 'armed' },
+    { s: 'check_frame', r: [0, -1, 111, 188], on: 'armed' },
+    { s: 'check_arrow', r: [0, -40, 20, 11], tint: '#4cd4b3', on: 'armed' },
+    { num: 'text', r: [-1, 15.5, 84, 52], size: 45, color: '#57e8cb' },
+    { tip: 'tip', r: [0, -45, 100, 30], size: 20, color: '#6eecd2', on: 'idle' },
+    { tip: 'confirm', r: [0, -58, 100, 30], size: 20, color: '#d6fff6', on: 'armed' },
+  ]),
+  disable: Object.freeze([
+    { s: 'upgrade_disable', r: [0, 0, 112, 189] },
+    { num: 'text', r: [-1, 15.5, 84, 52], size: 45, color: '#a0a0a0' },
+    { tip: 'tip', r: [0, -44, 100, 30], size: 20, color: '#a0a0a0' },
+  ]),
+  max: Object.freeze([
+    { s: 'upgrade_max', r: [0, 0, 111, 189] },
+    { num: 'text', r: [-1, 15.5, 84, 52], size: 45, color: '#679a90' },
+    { tip: 'max', r: [0, -44, 100, 30], size: 20, color: '#679a90' },
+  ]),
+});
+const UP_IRON = Object.freeze({
+  need: ['upgrade_normal', 'upgrade_disable', 'upgrade_max', 'upgrade_lv_1'],
+  cost: 85,
+  normal: Object.freeze([
+    { s: 'upgrade_normal', r: [-6.8, 0, 136, 205] },
+    { s: 'level_normal', r: [0, 68, 85, 25] },
+    { s: 'frame1_normal', r: [0, 19.5, 73, 80] },
+    { s: 'frame2_normal', r: [0, -40.1, 89, 41] },
+    { s: 'glow_certain', r: [0, 9.7, 87, 149], on: 'armed' },
+    { s: 'level_certain', r: [0, 68, 85, 25], on: 'armed' },
+    { s: 'frame1_certain', r: [0, 19.5, 73, 80], on: 'armed' },
+    { s: 'frame2_certain', r: [0, -40.1, 89, 41], on: 'armed' },
+    { num: 'img', s: 'upgrade_lv_', r: [0, 20, 68, 44], color: '#b8e1d6' },
+    { tip: 'tip', r: [0, -40.33, 62, 30], size: 16, color: '#caf7eb', on: 'idle' },
+    { tip: 'confirm', r: [0, -40.33, 62, 30], size: 15, color: '#ffffff', on: 'armed' },
+  ]),
+  disable: Object.freeze([
+    { s: 'upgrade_disable', r: [-6.8, 0, 136, 205] },
+    { num: 'img', s: 'upgrade_lv_', r: [0, 20, 68, 44], color: '#e3e3e3' },
+    { tip: 'tip', r: [0, -40.33, 62, 30], size: 16, color: '#8a8a8a' },
+  ]),
+  max: Object.freeze([
+    { s: 'upgrade_max', r: [-6.8, 0, 136, 205] },
+    { num: 'img', s: 'upgrade_lv_', r: [0, 20, 68, 44], color: '#809e96' },
+    { tip: 'max', r: [0, -40.33, 62, 30], size: 16, color: '#caf7eb' },
+  ]),
+});
+const UP_CLOSURE = Object.freeze({
+  need: ['inner_bg', 'upgrade_disable', 'upgrade_max', 'upgrade_lv_1'],
+  cost: 80,
+  normal: Object.freeze([
+    { s: 'upgrade_deco_top', r: [-36.5, 97.7, 14, 14] },
+    { s: 'upgrade_bg_outline_glow', r: [0.8, -2.96, 128.5, 200.6] },
+    // upgrade_bg is a white 16×16 rounded square sliced 8 px (corner radius 4) under #BFBFBF
+    { fill: '#bfbfbf', radius: 4, r: [-1, -2, 112, 188] },
+    { s: 'upgrade_bg_outline', r: [-1, -2, 112, 188], tint: '#4346b9' },
+    { s: 'upgrade_deco_bar', r: [-2, -42, 91, 27], tint: 'rgba(17, 22, 115, .2)' },
+    { s: 'upgrade_bottom_glow', r: [-1, -63.5, 112, 65] },
+    { s: 'upgrade_deco_bottom', r: [0, -79, 99, 27], on: 'idle' },
+    { s: 'upgrade_bottom_glow2', r: [-1, -35, 112, 122], on: 'armed' },
+    { s: 'upgrade_deco_bottom2', r: [0, -74, 57, 21], on: 'armed' },
+    { s: 'doublecheck_arrow', r: [-1, -27, 14, 7], on: 'armed' },
+    { s: 'inner_bg_glow', r: [-0.3, 27.7, 124, 116], a: 0.25 },
+    { s: 'inner_bg', r: [-0.3, 27.7, 96, 92] },
+    { grad: 'linear-gradient(180deg, transparent 46%, rgba(125, 172, 255, .5) 64%, rgba(247, 247, 247, .92) 84%)', r: [0, 28.85, 93, 89.7] },
+    { num: 'img', s: 'upgrade_lv_', r: [0, 19, 53, 56], color: '#080808' },
+    { s: 'upgrade_level', r: [5.7, 47.7, 64, 32] },
+    { s: 'upgrade_arrow_left', r: [-28.5, 28, 36, 32] },
+    { s: 'upgrade_arrow_left', r: [28.5, 28, 36, 32], flip: 'x' },
+    { s: 'inner_deco', r: [0, -12, 31, 4] },
+    { s: 'img_fx_star_outline', r: [33.8, 61.3, 39.2, 39.2], tint: '#f8b0d1' },
+    { tip: 'tip', r: [-2, -42, 76, 30], size: 19, color: '#ffffff', on: 'idle' },
+    { tip: 'confirm', r: [-2, -42, 76, 27], size: 16, color: '#ffffff', on: 'armed' },
+    { s: 'upgrade_deco_front', r: [-44.3, -76.3, 32, 36] },
+  ]),
+  disable: Object.freeze([
+    { s: 'upgrade_disable', r: [0, 0, 129, 209] },
+    { num: 'img', s: 'upgrade_lv_', r: [0, 19, 53, 56], color: '#080808' },
+    { tip: 'tip', r: [-2, -41, 76, 30], size: 19, color: '#a0a0a0' },
+  ]),
+  max: Object.freeze([
+    { s: 'upgrade_max', r: [0, 0, 129, 209] },
+    { num: 'img', s: 'upgrade_lv_', r: [0, 19, 53, 56], color: '#080808' },
+    { tip: 'max', r: [0, -41, 76, 30], size: 19, color: '#ffffff' },
+  ]),
+});
+/** No pack installed (lite zip): ac_n_initial's layout in CSS colours. */
+const UP_CSS = Object.freeze({
+  need: [],
+  cost: 80,
+  normal: Object.freeze([
+    { fill: '#107463', r: [0, -1, 112, 188] },
+    { grad: 'repeating-linear-gradient(135deg, rgba(255, 255, 255, .06) 0 .02rem, transparent .02rem .06rem)', r: [0, -1, 112, 188] },
+    { fill: '#0d1f1c', r: [0, 9, 101, 85] },
+    { line: 'rgba(87, 232, 203, .9)', r: [0, 15, 100, 84] },
+    { text: 'LEVEL', r: [1, 40, 70, 14], size: 12, color: '#57e8cb' },
+    { line: '#ffffff', r: [0, -1, 111, 188], on: 'armed' },
+    { num: 'text', r: [-1, 15.5, 84, 52], size: 45, color: '#57e8cb' },
+    { tip: 'tip', r: [0, -45, 100, 30], size: 20, color: '#6eecd2', on: 'idle' },
+    { tip: 'confirm', r: [0, -58, 100, 30], size: 20, color: '#d6fff6', on: 'armed' },
+  ]),
+  disable: Object.freeze([
+    { fill: '#4a4f4e', r: [0, 0, 112, 189] },
+    { fill: '#2b2f2e', r: [0, 9, 101, 85] },
+    { line: 'rgba(160, 160, 160, .6)', r: [0, 15, 100, 84] },
+    { text: 'LEVEL', r: [1, 40, 70, 14], size: 12, color: '#a0a0a0' },
+    { num: 'text', r: [-1, 15.5, 84, 52], size: 45, color: '#a0a0a0' },
+    { tip: 'tip', r: [0, -44, 100, 30], size: 20, color: '#a0a0a0' },
+  ]),
+  max: Object.freeze([
+    { fill: '#0f3b35', r: [0, 0, 112, 189] },
+    { fill: '#0b1d1a', r: [0, 9, 101, 85] },
+    { line: 'rgba(103, 154, 144, .8)', r: [0, 15, 100, 84] },
+    { text: 'LEVEL', r: [1, 40, 70, 14], size: 12, color: '#679a90' },
+    { num: 'text', r: [-1, 15.5, 84, 52], size: 45, color: '#679a90' },
+    { tip: 'max', r: [0, -44, 100, 30], size: 20, color: '#679a90' },
+  ]),
+});
+const UPGRADE = Object.freeze({ ac_n_initial: UP_INITIAL, ac_n_iron: UP_IRON, ac_s_closur: UP_CLOSURE });
+
+/** Prefab units → rem (100 units = 1rem). */
+const upRem = (n) => `${Number((n / 100).toFixed(4))}rem`;
+
+/** A prefab rect → its box in the 112×190 group (top-left origin). */
+function upBox([x, y, w, h]) {
+  return { left: upRem(56 + x - w / 2), top: upRem(95 - y - h / 2), width: upRem(w), height: upRem(h) };
+}
+
+/** A white sprite under a colour: the colour through the sprite's mask. */
+function upTint(url, color) {
+  return {
+    backgroundColor: color,
+    WebkitMaskImage: url, maskImage: url,
+    WebkitMaskSize: '100% 100%', maskSize: '100% 100%',
+    WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat',
+  };
+}
+
+/** A sprite of one pack, any size (the upgrade parts are small: no tooSmall filter). */
+function packSprite(groups, packId, name) {
+  if (!packId || !name) return '';
+  const group = `themes/${packId}`;
+  const entry = groups && groups[group] ? groups[group][`sprites/${name}.webp`] : null;
+  return entry ? officialAssetUrl(group, entry) || '' : '';
+}
+
+/**
+ * The 升级 button's parts: ordered layers (sprite, colour or gradient boxes), the level numeral and the caption, each
+ * with its inline style (left / top / width / height in rem inside the 1.12×1.9rem group). Sprites come from the drawn
+ * pack only (regChromeTheme); a pack without its upgrade sprites is drawn in CSS colours like no pack at all.
+ * @param {Record<string, Record<string, { path?: string }>>|null|undefined} groups
+ * @param {string|null|undefined} themeId the selected UI theme (settings.uiTheme)
+ * @param {{ level?: number, state?: string, armed?: boolean }} [opts] state: 'normal' | 'disable' | 'max'
+ * @returns {{ theme: string, cost: string, parts: Array<{ kind: string, style: Record<string, string>, text?: string, tip?: string }> }}
+ */
+export function regUpgradeModel(groups, themeId, opts = {}) {
+  const lv = Math.min(6, Math.max(1, Math.round(Number(opts?.level) || 1)));
+  const state = opts?.state === 'disable' || opts?.state === 'max' ? opts.state : 'normal';
+  const armed = state === 'normal' && !!opts?.armed;
+  const packId = regChromeTheme(groups, themeId);
+  const pack = UPGRADE[packId];
+  const theme = pack && pack.need.every((name) => packSprite(groups, packId, name)) ? packId : 'css';
+  const spec = theme === 'css' ? UP_CSS : pack;
+  const url = (name) => (theme === 'css' ? '' : regCssUrl(packSprite(groups, packId, name)));
+  const parts = [];
+  for (const e of spec[state]) {
+    if ((e.on === 'armed' && !armed) || (e.on === 'idle' && armed)) continue;
+    const box = upBox(e.r);
+    if (e.tip || e.text || e.num === 'text') {
+      const text = e.num ? ROMAN[lv] : e.text;
+      parts.push({ kind: e.tip ? 'tip' : e.num ? 'num' : 'text', ...(e.tip ? { tip: e.tip } : { text }), style: { ...box, color: e.color, fontSize: upRem(e.size) } });
+      continue;
+    }
+    if (e.num === 'img') {
+      const src = url(`${e.s}${lv}`);
+      if (src) parts.push({ kind: 'num', style: { ...box, ...upTint(src, e.color) } });
+      continue;
+    }
+    if (e.fill) { parts.push({ kind: 'layer', style: { ...box, backgroundColor: e.fill, ...(e.radius ? { borderRadius: upRem(e.radius) } : {}) } }); continue; }
+    if (e.grad) { parts.push({ kind: 'layer', style: { ...box, backgroundImage: e.grad } }); continue; }
+    if (e.line) { parts.push({ kind: 'layer', style: { ...box, border: `${upRem(2)} solid ${e.line}` } }); continue; }
+    const src = url(e.s);
+    if (!src) continue;
+    /** @type {Record<string, string>} */
+    const look = e.tint ? upTint(src, e.tint)
+      : e.slice ? { borderStyle: 'solid', borderWidth: upRem(e.slice), borderImage: `${src} ${e.slice} fill / ${upRem(e.slice)} stretch` }
+        : e.tile ? { backgroundImage: src, backgroundRepeat: 'repeat', backgroundSize: `${upRem(e.tile)} ${upRem(e.tile)}` }
+          : { backgroundImage: src };
+    if (e.a != null) look.opacity = String(e.a);
+    if (e.flip === 'x') look.transform = 'scaleX(-1)';
+    parts.push({ kind: 'layer', style: { ...box, ...look } });
+  }
+  return { theme, cost: upRem(95 - spec.cost), parts };
+}
+
+/** A CSS url() value, or '' when the string could break out of the declaration. */
+export function regCssUrl(url) {
+  if (typeof url !== 'string' || !url) return '';
+  if (/["'\\()\s\u0000-\u001f]/.test(url)) return '';
+  return `url("${url}")`;
+}
+
+/** Custom properties for the regulation shop. Never an inline background-image (a theme slot must be able to win). */
+export function regChromeStyle(urls) {
+  const style = {};
+  const put = (name, url) => {
+    const value = regCssUrl(url);
+    if (value) style[name] = value;
+  };
+  if (!urls) return style;
+  put('--reg-refresh', urls.refresh);
+  put('--reg-refresh-lock', urls.refreshLock);
+  put('--reg-frozen', urls.frozen);
+  put('--reg-frozen-on', urls.frozenOn);
+  put('--reg-frozen-lock', urls.frozenLock);
+  put('--reg-refresh-icon', urls.refreshIcon);
+  put('--reg-refresh-icon-bg', urls.refreshIconBg);
+  put('--reg-frozen-icon', urls.frozenIcon);
+  put('--reg-frozen-icon-on', urls.frozenIconOn);
+  // A plate drawn from a sprite has no colour box behind it (pill and shadow edges stay transparent).
+  if (style['--reg-refresh']) style['--reg-refresh-bg'] = 'transparent';
+  if (style['--reg-frozen']) style['--reg-frozen-bg'] = 'transparent';
+  put('--reg-char', urls.char);
+  // a cut-out plate's backdrop (§37.235): sizes as unitless fractions of the card's box (css `--fw` / `--fh` live there)
+  if (style['--reg-char'] && urls.charBack && regCssUrl(urls.charBack.url)) {
+    const n = (v) => String(Number(Number(v).toFixed(5)));
+    style['--reg-char-back'] = regCssUrl(urls.charBack.url);
+    style['--reg-char-back-w'] = n(urls.charBack.w);
+    style['--reg-char-back-h'] = n(urls.charBack.h);
+    style['--reg-char-back-b'] = n(urls.charBack.bottom);
+    style['--reg-char-base'] = 'none';
+    style['--reg-char-bg'] = 'transparent';
+  }
+  put('--reg-money', urls.money);
+  put('--reg-cost-free', urls.costFree);
+  return style;
+}
+
+/**
+ * Character drawn in the regulation funds card.
+ * A selected theme's character wins. Otherwise the default shop-up spine when that
+ * pack is installed. Null keeps the plate without a portrait (lite zip).
+ * @param {Record<string, Record<string, { path?: string }>>|null|undefined} groups
+ * @param {{ imageUrl?: string, spine?: { skel?: string }, key?: string }|null|undefined} themeCharacter
+ */
+export function regulationCharacter(groups, themeCharacter) {
+  if (themeCharacterKey(themeCharacter)) return themeCharacter;
+  const skel = groupUrl(groups, INITIAL_GROUP, SHOP_SPINE.skel);
+  const atlas = groupUrl(groups, INITIAL_GROUP, SHOP_SPINE.atlas);
+  const png = groupUrl(groups, INITIAL_GROUP, SHOP_SPINE.png);
+  if (!skel || !atlas || !png) return null;
+  return {
+    spine: { skel, atlas, textures: [png] },
+    anims: { idle: SHOP_SPINE.idle },
+  };
+}

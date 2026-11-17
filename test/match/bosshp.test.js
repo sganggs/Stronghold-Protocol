@@ -123,10 +123,11 @@ test('终极 Final Assault vs 假想敌：胄 (seeded bot match): both players\'
   // 死亡集群's "最大生命值2%" = the leader's shown max HP, the pool (DRONE_LINK_BASE 'pool' [ASSUMED]): 288 000 at 终极
   // with 4 alive (14 400 000)
   // the bots' boards follow every draw of the match (the elite-to-board merge, DESIGN §20.11, moved seed 7 to 12; the
-  // 战术决策 drawn with replacement moved 12 on): the first of these seeds whose bots pair two 奥术 players
+  // 战术决策 drawn with replacement moved 12 on; #121's teammate-bond yielding of 0.4.0 left 4, 6, 14 and 16 of seeds 1–32
+  // pairing two 奥术 players): the first of these seeds whose bots pair two 奥术 players
   const pairOf = (m) => m.fields.filter((f) => f.battle).find((f) => f.players.length === 2 && f.players.every((pid) => f.battle.getPlayer(pid).bonds.arcaneShip?.active));
   let h = null;
-  for (const seed of [13, 7, 11, 21, 23]) {
+  for (const seed of [4, 6, 14, 16]) {
     h = toFinalAssault({ difficulty: 'ABYSS', seed, bossId: 'boss_1' });
     if (pairOf(h.m)) break;
     h.m.dispose();
@@ -202,13 +203,19 @@ test('绝境 Hidden Core vs 假想敌：铳 (隐秘核心): a 碎铳之簧 passe
   const b = createBattleFromSpec(specs[0], new DataSource(DATA, null), { sharedBoss: pool, recordEvents: false, quiet: true });
   // the springs stand from the start, 铳 enters ≈ 10 game s later
   for (let i = 0; i < 1200 && !b.enemies.some((e) => e.alive && e.isBoss); i++) b.step();
-  const springs = b.enemies.filter((e) => e.alive && /enemy_90(18|19|20)_actrp/.test(e.defId));
+  // an operator's sleep (阿罗玛's bubble: 沉睡 = 无敌) may hold every spring at this moment: wait for one awake
+  const spring = (e) => e.alive && !e.s.flags.sleep && /enemy_90(18|19|20)_actrp/.test(e.defId);
+  for (let i = 0; i < 1200 && !b.enemies.some(spring); i++) b.step();
+  const springs = b.enemies.filter(spring);
   const gun = b.enemies.find((e) => e.alive && e.isBoss);
   const op = b.allyUnits.find((u) => u.kind === 'op' && u.alive);
   assert.ok(springs.length >= 1 && gun && op, 'springs, 铳 and an operator on the field');
   const seen = [];
   b.on('damaged', (c) => { if (c.target === gun) seen.push(c); }, { priority: -1e9 });
   const sp = springs.find((x) => x.defId === 'enemy_9019_actrpb') || springs[0];
+  // a damage-taken debuff applied after the share (an operator's 脆弱, 奥术 …) multiplies after it observes — the injury
+  // chain runs in buff order (attack/effects.js) — so clear those for the hit that measures the 1:1 pass-through
+  for (const x of [...sp.buffs]) if (x.mods && (x.mods.dmgTakenMul != null || x.mods.trueTakenMul != null)) b.removeBuff(sp, x.key);
   const pool0 = pool.hp;
   const dealt = b.dealDamage(op, sp, { amount: 50000, type: 'true', canDodge: false });
   assert.ok(dealt > 0, 'the spring took damage');

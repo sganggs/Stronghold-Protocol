@@ -2,7 +2,7 @@
 // Conventions of the tier-4 kits: ../shared/tier4.js; kit contract and rules: ../README.md.
 
 import { COLS } from '../../../constants.js';
-import { isHpLoss } from '../../../damage.js';
+import { isHpLoss } from '../../../attack.js';
 import { num, tbb, keySet, skillActive, installLowHpHealBonus, withDefaults } from '../shared/tier4.js';
 
 export default withDefaults({

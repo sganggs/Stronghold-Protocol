@@ -1,41 +1,86 @@
-// server/sim/battle/combat.js — Battle methods: damage, heal and HP loss (the guarded entry points of the damage.js
+// server/sim/battle/combat.js — Battle methods: damage, heal and HP loss (the guarded entry points of the attack.js
 // pipeline), projectiles and forced attacks (ai.js performAttack).
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
-import { dealDamage as pipeDamage, heal as pipeHeal, applyHpLoss, makeDamageInfo, reduceElement, leaderHitCancelled } from '../damage.js';
+import * as attack from '../attack.js';
+import { legacyDamage, legacyHeal, legacyHPLose } from '../attack/legacy.js';
 import { effectiveProfile, performAttack, acquireTargets } from '../ai.js';
 
 export class BattleCombat {
-  dealDamage(source, target, dmg) {
-    try { return pipeDamage(this, source, target, dmg); } catch (e) { this._internalError('dealDamage', e); return 0; }
-  }
-
-  heal(source, target, amount, opts = {}) {
-    try { return pipeHeal(this, source, target, amount, opts); } catch (e) { this._internalError('heal', e); return 0; }
-  }
-
-  /**
-   * HP loss that ignores DEF/RES, dodge and shields (流失). May kill. opts: { source, silent, tags, from } — `from` = the
-   * DamageInfo this loss derives from (damage passed on to a leader, split, shared…): its tags are inherited and it is
-   * kept as `dmg.origin`, so `damaged` handlers that skip their own tagged damage also skip what it turned into; a loss
-   * derived from 无来源 damage (`from.sourceless`, element bursts) is 无来源 too (hooks see no source, `source` is credited).
-   * `sourceless: true` makes the loss itself 无来源 ("受到等量的无来源生命流失": hooks see no source; `source` keeps the
-   * credit — the stats and the per-player shared-pool tally).
-   * On a leader in a boss / hidden battle a loss of ≥ BOSS_HIT_LIMIT is cancelled like a hit (damage.js leaderHitCancelled)
-   * — except with `noHitLimit: true`: a share of the leader's pool that is no hit (胄's 死亡集群 drone link, content/bosses.js).
+  /** @overload
+   * @param {import('../../../types/attack.js').DamageRequest} request
+   * @returns {number}
    */
-  loseHp(target, amount, { source = null, silent = false, tags = null, from = null, sourceless = false, noHitLimit = false } = {}) {
-    if (!target || !target.alive || !(amount > 0)) return 0;
-    // 限伤 (shared/constants.js BOSS_HIT_LIMIT): a loss passed on to a leader (the parts' 传递) is one hit too
-    if (!noHitLimit && leaderHitCancelled(this, target, amount)) return 0;
-    const t = ['hpLoss'];
-    for (const list of [from && from.tags, tags]) if (Array.isArray(list)) for (const x of list) if (!t.includes(x)) t.push(x);
-    return applyHpLoss(this, source, target, amount, { type: 'true', tags: t, noSp: true, silent, origin: from ?? null, sourceless: !!sourceless || !!(from && from.sourceless) });
+  /** Legacy positional signature; prefer dealDamage({source, target, amount, type, credit}).
+   * @overload
+   * @param {object|null} source
+   * @param {object} target
+   * @param {object} dmg
+   * @param {object} [opts]
+   * @returns {number}
+   */
+  dealDamage(source, target = undefined, dmg = undefined, opts = {}) {
+    try { return arguments.length === 1 ? attack.dealDamage(this, source) : legacyDamage(this, source, target, dmg, opts); } catch (e) { this._internalError('dealDamage', e); return 0; }
   }
 
-  reduceElement(target, amount, element = null) { return reduceElement(target, amount, element); }
+  /** @overload
+   * @param {import('../../../types/attack.js').HealRequest} request
+   * @returns {number}
+   */
+  /** Legacy positional signature; prefer heal({source, target, amount, mode}).
+   * @overload
+   * @param {object|null} source
+   * @param {object} target
+   * @param {number} amount
+   * @param {object} [opts]
+   * @returns {number}
+   */
+  heal(source, target = undefined, amount = undefined, opts = {}) {
+    try { return arguments.length === 1 ? attack.heal(this, source) : legacyHeal(this, source, target, amount, opts); } catch (e) { this._internalError('heal', e); return 0; }
+  }
 
-  makeDamage(d) { return makeDamageInfo(d); }
+  /** @overload
+   * @param {import('../../../types/attack.js').HPLossRequest} request
+   * @returns {number}
+   */
+  /** Legacy positional signature; prefer dealHPLose({source, credit, target, amount, type}). The same path: `opts.type`
+   * 'phys' / 'arts' takes the target's DEF / RES, 'true' (the default) is an amount the caller already mitigated.
+   * @overload
+   * @param {object} target
+   * @param {number} amount
+   * @param {object} [opts]
+   * @returns {number}
+   */
+  dealHPLose(target, amount = undefined, opts = {}) {
+    try { return arguments.length === 1 ? attack.dealHPLose(this, target) : legacyHPLose(this, target, amount, opts); } catch (e) { this._internalError('dealHPLose', e); return 0; }
+  }
+
+  /** @overload
+   * @param {import('../../../types/attack.js').ElementHealRequest} request
+   * @returns {number}
+   */
+  /** Legacy positional signature; prefer healElement({target, amount, element}).
+   * @overload
+   * @param {object} target
+   * @param {number} amount
+   * @param {string|null} [element]
+   * @returns {number}
+   */
+  healElement(target, amount = undefined, element = null) {
+    try { return attack.healElement(this, arguments.length === 1 ? target : { target, amount, element }); } catch (e) { this._internalError('healElement', e); return 0; }
+  }
+
+  /** @param {import('../../../types/attack.js').ElementDamageRequest} request */
+  dealElementDamage(request) {
+    try { return attack.dealElementDamage(this, request); } catch (e) { this._internalError('dealElementDamage', e); return 0; }
+  }
+
+  /** @deprecated Use dealHPLose. */
+  loseHp(target, amount, opts = {}) { return this.dealHPLose(target, amount, opts); }
+  /** @deprecated Use healElement. */
+  reduceElement(target, amount, element = null) { return this.healElement(target, amount, element); }
+
+  makeDamage(d) { return attack.makeDamageInfo(d); }
 
   addProjectile(p) { return this.projectiles.add(p); }
 

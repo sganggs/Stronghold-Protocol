@@ -21,15 +21,14 @@
 // - T1 律法卫士 (judge_t_1): one barrier buff BARRIER. At every deployment +born_hp_ratio × max HP; every enemy she knocks
 //   out +kill_hp_ratio × max HP; S3 +hp_ratio × max HP — each gain × the shield scale (1, + S2's shield_scale while S2
 //   runs: judge_s_2[shield_scale]) and only while the barrier is below the cap max_hp_ratio × the CURRENT max HP, then
-//   capped there (a max-HP change leaves the barrier as it is). The buff ends when its absorb runs out (the client keeps
-//   an empty buff; nothing else depends on it here). [ASSUMED] it is spent in the engine's oldest-first order among
-//   several barriers (the client's priority −1000 puts it last); damage reductions (庇护, UNY-X) act before it as the
+//   capped there (a max-HP change leaves the barrier as it is). PRTS explicitly retains the single buff while empty,
+//   so refills preserve its acquisition position. Its priority −1000 puts ordinary damage reductions before it as the
 //   client's LOW_PRIORITY. UNY-X stage 3: 75 % / 12 % (module talent change; full potential). higher_effect_hp_ratio only sizes the
 //   barrier's effect (judge_t_1[effect]) — no gameplay.
 // - T2 荆棘环身 (judge_t_2, ON_TAKE_DAMAGE): every damage instance an enemy source deals her while she holds barrier (its
 //   judge_shield[mark]: the absorb before that hit — the hit that breaks it still counts, t_1 runs LOW_PRIORITY) deals
 //   atk_scale × her ATK arts back to that source (a 普通伤害, InverseDamage `attackType` NORMAL; × the 蓄力 攻击力倍率 while S1's
-//   蓄力 attack is out — PRTS 备注), never for a 流失, an element 损伤, a 无来源 hit or reflected damage (tag 'counter'),
+//   蓄力 attack is out — PRTS 备注), never for a 流失, an element 损伤 or a 无来源 hit; descriptive counter/reflect tags do not exclude an enemy source,
 //   undodgeable [ASSUMED like 星熊's counter]. UNY-Y stage 3: 61 % (full potential).
 // - S1 一锤定音 (AUTO, time SP, data DEFAULT): the next attack adds atk_scale_2 × ATK arts (a 普通伤害 skill hit, after the
 //   physical one). 蓄力 (maxChargeTime 2): SP runs on to twice the cost; casting from there (the client's "available count
@@ -47,8 +46,7 @@
 // - S3 披荆斩棘 (MANUAL, hurt SP; data DEFAULT, rawRule TAKE_DAMAGE): at once barrier +hp_ratio × max HP (topping T1's,
 //   capped), then `duration` s ATK +atk, attack interval +base_attack_time s (a flat +0.9 on 1.6 s), taunt +taunt_level.
 
-import { num, traitBb, talentBb, skillRec, toggleBuff, batMod, up, enemiesInGrid, holdProtect, PROTECT } from '../shared/tier1.js';
-import { isHpLoss } from '../../../damage.js';
+import { num, traitBb, talentBb, skillRec, toggleBuff, batMod, up, enemiesInGrid, holdProtect, PROTECT, byEnemyDamage } from '../shared/tier1.js';
 
 const S1 = 'skchr_judge_1';
 const S2 = 'skchr_judge_2';
@@ -62,7 +60,6 @@ const S2_FIRST = 0.9;
 const S2_EVERY = 1;
 
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
-const tagged = (d, tag) => !!(d && Array.isArray(d.tags) && d.tags.includes(tag));
 /** Her barrier left (0 without one). */
 const barrierOf = (u) => u.findBuff(BARRIER)?.shield ?? 0;
 
@@ -88,7 +85,7 @@ export default {
       const have = cur ? cur.shield : 0;
       if (!(cap > have + 1e-9)) return 0;
       const next = Math.min(cap, have + amount);
-      if (cur) { cur.shield = next; unit.markDirty(); } else battle.addBuff(unit, { key: BARRIER, shield: next, visible: true, tags: ['talent'] });
+      if (cur) { cur.shield = next; unit.markDirty(); } else battle.addBuff(unit, { key: BARRIER, shield: next, keepEmptyShield: true, injuryPriority: -1000, visible: true, tags: ['talent'] });
       battle.fx('shield', { x: unit.x, y: unit.y, id: unit.id });
       return next - have;
     };
@@ -155,15 +152,13 @@ export default {
         { install(battle, unit) { // 荆棘环身: while she holds barrier, every damage from an enemy source reflects atk_scale × ATK arts
           const scale = num(t1.atk_scale);
           if (!(scale > 0)) return;
-          const armed = new WeakSet();
-          battle.on('hit', (c) => { if (c.target === unit && c.dmg && barrierOf(unit) > 1e-9) armed.add(c.dmg); }, { owner: unit });
-          battle.on('damaged', (c) => {
-            const d = c.dmg, src = c.source;
-            if (c.target !== unit || !d || !armed.has(d) || !src || src.side !== 'enemy' || !src.alive) return;
-            if (isHpLoss(d) || c.type === 'element' || tagged(d, 'counter')) return;
-            battle.dealDamage(unit, src, { amount: unit.s.atk * scale * unit.s.atkScaleMul, type: 'arts', canDodge: false, tags: ['talent', 'counter', 'judge:thorns'] });
+          battle.addBuff(unit, { key: 'judge:thorns', persist: true, allowDead: true, observeInjury(c) {
+            const src = c.source;
+            // The ordinary observer precedes her -1000 barrier, so the breaking instance still reflects.
+            if (!unit.alive || !(barrierOf(unit) > 1e-9) || !byEnemyDamage(c) || !src.alive) return;
+            battle.dealDamage(unit, src, { amount: unit.s.atk * scale * unit.s.atkScaleMul, type: 'arts', canDodge: false, ignoreSelect: true, tags: ['talent', 'counter', 'judge:thorns'] });
             battle.fx('thorns', { x: unit.x, y: unit.y, id: unit.id });
-          }, { owner: unit });
+          } });
         } },
       ],
       install(battle, unit) {

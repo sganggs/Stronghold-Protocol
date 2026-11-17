@@ -35,7 +35,7 @@
 //   skill ends as soon as no link is left. The binds end with their links.
 
 import { num, talentBb, moduleBb, moduleOn, traitBb, skillRec, statBuff, onHitBy, enemiesInGrid, up } from '../shared/tier1.js';
-import { hasHp } from '../../../damage.js';
+import { hasHp } from '../../../attack.js';
 import { hypot } from '../../../detmath.js';
 
 const S1 = 'skcom_atk_up[3]';

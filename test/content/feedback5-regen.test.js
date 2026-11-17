@@ -1,7 +1,7 @@
 // test/content/feedback5-regen.test.js — 生命回复速度 is not 治疗 (GitHub #96 / #137). Effects PRTS describes as raising the
 // target's 「生命回复速度」 attribute — the 吟游者 trait (分支特性信息 吟游者; 魔王, 浊心斯卡蒂), 调香师's 熏衣草, 瑕光 S2, 铃兰 S3 —
 // are hpRegen buffs: 无法被友方治疗 (隐德来希 收割者, 折桠 不屈者) and 禁疗 do not stop them, 治疗加成 does not scale them
-// (damage.js heal `regen`); a direct heal is still refused / scaled as before.
+// (attack/heal.js heal `regen`); a direct heal is still refused / scaled as before.
 // Run: node --test test/content/feedback5-regen.test.js
 
 import { test } from 'node:test';

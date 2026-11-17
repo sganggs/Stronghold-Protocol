@@ -67,12 +67,10 @@ describe('cosmetic plugins in the browser (P1a)', { skip: !ENABLED && 'set SP_E2
       assert.match(await host.page.$eval('[data-testid="title-plugins"]', (e) => e.textContent), /本服务器安装了 2 个插件/);
       await host.shot('title');
       await host.enter('凯尔希');
-      await host.click('.mode-card', '同盟模拟');
-      await host.click('.diff-card', '标准模拟');
-      await host.click('.create-box button', '创建同盟');
-      const code = (await host.waitFor((s) => !!s.room?.code, 'room created')).room.code;
+      const { code } = await host.createCoop();
       await guest.open();
       await guest.enter('阿米娅');
+      await guest.click('.mode-card', '同盟模拟');
       await guest.click('.join-row input');
       await guest.page.keyboard.type(code);
       await guest.click('.join-row button', '加入同盟');
@@ -166,10 +164,7 @@ describe('cosmetic plugins in the browser (P1a)', { skip: !ENABLED && 'set SP_E2
       assert.ok(loaded('/js/content.js') && loaded('/js/cosmetics.js'), 'the small parts load with the page');
       for (const u of lazy) assert.equal(loaded(u), false, `the title page does not load ${u}`);
       await c.enter('凯尔希');
-      await c.click('.mode-card', '同盟模拟');
-      await c.click('.diff-card', '标准模拟');
-      await c.click('.create-box button', '创建同盟');
-      await c.waitFor((st) => !!st.room?.code, 'room created');
+      await c.createCoop();
       await c.click('[data-testid="plugin-tag"]');
       await c.page.waitForSelector('[data-testid="plugin-panel"]', { timeout: 10000 });
       assert.match(await c.page.$eval('[data-testid="plugin-panel"]', (e) => e.textContent), /本服务器没有可在房间中使用的插件/);

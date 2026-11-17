@@ -30,7 +30,7 @@ describe('ownerBandId — the picked 策略 of a player', () => {
 describe('the drawer shows the watched player\'s 策略 while scouting', () => {
   test('game.js derives the scouted player and hands bandId / bandOwner to the drawer (source)', () => {
     const game = read('public/js/screens/game.js');
-    assert.match(game, /const scoutPid = watchingOther && field\?\.prep && typeof field\.fieldId === 'string' && field\.fieldId\.startsWith\('n:'\) \? field\.fieldId\.slice\(2\) : null/);
+    // chiave-progress.e2e.test.js checks the actual owner in both prep and combat; it is no longer prep-only.
     assert.match(game, /const scoutBandId = scoutPid \? ownerBandId\(pub, scoutPid\) : null/);
     assert.match(game, /bandId=\$\{scoutBandId\} bandOwner=\$\{scoutBandOwner\}/);
   });

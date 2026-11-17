@@ -42,7 +42,7 @@
 import { num, talentBb, traitBb, skillRec, batMod, up, once } from '../shared/tier1.js';
 import { elementDmg } from '../shared/tier6.js';
 import { burstDamageUp } from '../shared/tier5.js';
-import { hasHp } from '../../../damage.js';
+import { hasHp } from '../../../attack.js';
 import { canTargetEnemy, enemyStealthed } from '../../../targeting.js';
 import { bodyInRange } from '../../../body.js';
 import { COLS, PALSY_MAX } from '../../../constants.js';

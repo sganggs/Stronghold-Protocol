@@ -38,6 +38,20 @@ export function normalizeDraft(draft, players = []) {
 }
 
 /**
+ * The draft as it ended, for the draft screen screens/game.js keeps on 已选定策略 a moment after BAND_DRAFT (PR #643):
+ * the last BAND_DRAFT snapshot with every pick filled in from the players' `bandId` (the pick that ended the draft
+ * arrives with the next phase, when m.public.draft is gone) and no turn or countdown left.
+ * @param {any} last the last public state of BAND_DRAFT
+ * @param {any} pub the public state now
+ */
+export function heldDraftPub(last, pub) {
+  const players = Array.isArray(pub?.players) ? pub.players : last.players;
+  const picks = { ...(last.draft?.picks || {}) };
+  for (const p of Array.isArray(players) ? players : []) if (p && p.bandId && !picks[p.playerId]) picks[p.playerId] = p.bandId;
+  return { ...last, players, deadline: 0, draft: { ...last.draft, picks, turn: null, turnDeadline: 0 } };
+}
+
+/**
  * Normalise m.public.sp ({family, cards, turn, picks, order?}).
  * Cards: string ids or objects; picks: {playerId: cardIdx} | [{playerId, idx}] | card.takenBy.
  * @param {any} sp

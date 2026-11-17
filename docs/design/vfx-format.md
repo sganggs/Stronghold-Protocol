@@ -191,7 +191,7 @@ left out), caches the bundles' prefab lists under `.cache/fx/` (per bundle size 
 | `index.json` | §33.12: per unit (operator / enemy / token) the attack modes, skills, talents and common / general abilities (§33.17), projectiles and mount points; the projectiles; the generic keys; one summary per exported prefab |
 | `textures.json` | §33.8: texture key → size, wrap, filter, alpha, files |
 | `prefabs/<file>.json` | §33.4: one descriptor per effect prefab (effect key → file: `fx_file(key)` — the key itself when it is URL-safe (`[A-Za-z0-9_.-]`), else the safe form + `-` + the key's CRC32 in hex, e.g. `buff_ fragile_01` → `buff__fragile_01-9c1f…`) |
-| `tex/<key>.webp`, `tex/half/<key>.webp` | §33.8: every texture (WebP q90, alpha kept), and a half-size copy for the light tier (both sides ≥ 64 px) |
+| `tex/<key>.webp`, `tex/half/<key>.webp` (or `.png`) | §33.8: every texture (WebP q90 by default; optional lossless PNG), and a half-size copy for the light tier (both sides ≥ 64 px) |
 | `mesh/<key>.json` | §33.9: meshes of mesh particles, MeshRenderers, skinned meshes and mesh-shaped emitters |
 
 **The file list: `data/local-fx.json`** (written next to `data/local-assets.json`, `--manifest`; gitignored like it).
@@ -212,7 +212,7 @@ effects out while `tools/package.mjs FULL_ZIP_FX` is off. The runtime takes URLs
 |---|---|
 | `fx` | `index` `{ path, kind: 'FxIndex', version, set, prefabs }`, `textures` `{ path, kind: 'FxTextures', count }` |
 | `fx/prefabs` | effect key → `{ path, kind: 'FxPrefab' }` |
-| `fx/tex` | texture key → `{ path, w, h, kind: 'Texture2D', half? }` (`half`: the half-size copy's URL) |
+| `fx/tex` | texture key → `{ path, w, h, kind: 'Texture2D', encoding?: 'png' \| 'webp', half? }` (`half`: the half-size copy's URL; default WebP entries omit `encoding`) |
 | `fx/mesh` | mesh key → `{ path, kind: 'FxMesh', verts }` |
 
 Each JSON file starts with `format` (`fx-index`, `fx-textures`, `fx-prefab`, `fx-mesh`) and `version` (1; since Phase
@@ -558,7 +558,14 @@ board than the anchor (`pos` z > 0; 50 prefabs of the used set — auras, the `*
 facing up) puts the effect farther from the camera than the unit's tilted body, which lies at its feet's depth, so
 Unity draws it first (0.3.1: 瑕光 S3's horses, wings and halo, z +0.23 and 0.5–1.1 tiles behind her feet, covered her);
 a `static_offset` pulled forward (z < 0) or at 0 keeps the flat rule [ASSUMED: the units' renderers sort at their
-feet's depth; an effect whose depth comes from its children's positions alone is not judged].
+feet's depth; an effect whose depth comes from its children's positions alone is not generally judged].
+The verified exception is 魔王 S3's `cetsyr_skill_03_buff_01` / `beijing_01`: its +0.104 depth belongs to a nested
+`scale` helper while `static_offset` is zero. This standing background must not use the global ground pass: raised
+2D tile rows share the unit layer and would cover it. Only this mesh uses an owner-local `unitBack` draw node at
+the start of `UnitView.root`, sorting after that owner's platform and before its body. Each owner's items are sorted
+and batched independently; finished effects and destroyed owners release the node. Its authored order 0 and its
+siblings' original pass remain unchanged [ASSUMED: a scoped painter-order mapping, not full Unity distance sorting;
+history 0.4.0 §37.106].
 
 ### 33.7 Materials (`descriptor.materials[]`)
 
@@ -601,7 +608,7 @@ Disturb variants offset the main UVs by a scrolled distortion texture.
 
 ```
 { name (the Unity name), w, h, format (the client's encoding: DXT1, DXT5, RGBA32, …), mips, srgb, alpha,
-  file: 'tex/<key>.webp', half: 'tex/half/<key>.webp' | null,
+  encoding?: 'png' | 'webp', file: 'tex/<key>.webp', half: 'tex/half/<key>.webp' | null,
   wrapU, wrapV ('repeat' | 'clamp' | 'mirror' | 'mirrorOnce'), filter ('point' | 'bilinear' | 'trilinear'), aniso }
 ```
 
@@ -609,6 +616,17 @@ A key is the safe Unity name + the first 8 hex digits of the SHA-1 of the decode
 different bundles share one file (`star_02` alone exists ~50 times in the client). `alpha` false = every pixel opaque
 (written as RGB). Textures are straight (not premultiplied) alpha; the half-size copy is resized premultiplied (no dark
 fringes). `srgb` is informational: render in gamma space (§33.2). Built-in textures appear as `builtin:<path id>`.
+
+Optional PNG textures are documented in history §35.96 (PR #806). WebP quality 90, method 4 is the extraction default, with the existing Pillow options, image bytes and
+metadata. `extract.py --only fx --fx-texture-format png` selects lossless PNG when WebP's RGB artefacts matter.
+Both full and half files use the selected encoding; dimensions, keys, sampler settings and effect descriptors stay
+the same. `format` keeps the original texture's GPU encoding. PNG output adds `encoding: 'png'` to this metadata
+and the file list; default WebP output keeps the existing metadata without that optional field. The loader already
+decodes the URL named by the file list, so a set may mix PNG and WebP, including after a `--fx-keys` update. The
+server hashes and serves both suffixes through the existing asset pipeline.
+
+Encoded sizes depend on the texture and selected format: lossless PNG avoids WebP's RGB loss, while the default
+WebP usually reduces transfer bytes. Both formats use the same decoded image dimensions and GPU memory.
 
 ### 33.9 Meshes (`mesh/<key>.json`)
 
@@ -1371,7 +1389,8 @@ index.json — version 1 and the version 2 fields (§33.12, §33.15; Phase 3c) �
   while the unit stands, IMMEDIATELY once), a husk's revival ('revived') its ManualTriggerRebornTalent's `_effects`;
   then `reborn.mode`'s attacks; null — the sim fx its `triggers` name (a fatal blow, ON_BEFORE_TRY_SET_HP_ZERO:
   'substitute' / 'undying'; a stand-in buff's ON_BUFF_FINISH: 'swap' / 'dollEnd'; ON_SKILL_START: the skill's start;
-  ON_OWNER_BORN: the deploy), its rows once (a loop for 3 s [ASSUMED]); `attack` — only where a kit fx marks the
+  ON_OWNER_BORN: the deploy; the one point strike, `talents.js POINT_TRIGGERS`: 新约能天使's `angel2_t_1[target]` → the
+  sim's talent 'airstrike' fx, its attack plan's first hit group at the fx's spot — PR #861, 0.4.0 §37.19), its rows once (a loop for 3 s [ASSUMED]); `attack` — only where a kit fx marks the
   talent's attack ('extraAttack': 守林人's 受选之人 — the attack's casts on the owner, its hits on that attack's target), else
   nothing (8 roster nodes). The forms' modes come from the data (`talents.js formModes`: a RebornTalent's 'form2' →
   `reborn.mode`, a husk's modes, a 傀儡师's 'doll' → the mode its fatal-blow node switches to — 风丸 → Stand, whose attack
@@ -1460,12 +1479,29 @@ index.json — version 1 and the version 2 fields (§33.12, §33.15; Phase 3c) �
     effects at the fx's tile for the area's time (the projectile stays where it lands: AuraHitBehaviour); 异客 S3's
     strikes `pasngr_skill_03_hit`; 溯光星源 S2's links the link projectile's hit on each pulled enemy; 焰影苇草 S2's
     fire strikes `reed2_skill_02_hit`; 蕾缪安 S3's lock the aim projectile's crosshair (`lemuen_skill_03_crosshair_range`
-    / `_02`, 1.5 s without a hold [ASSUMED])
+    / `_02`), held as `hold: 'lock'` since 0.3.2 (PR #862, history §35.39): on the locked enemy, at its last spot once
+    it is gone, until the bombard of the shell that claimed it (a `bombardShell` takes her nearest free lock within
+    `LOCK_SHELL_NEAR` 3); a lock no shell claims ends `LOCK_T` 5 s after the last sign of her S3, locks with no shell
+    end when she is knocked out, at most `MAX_LOCKS` 48, and a tier switch clears them (the 5 s / 48 / 3 are carried
+    over from render/fx/locks.js [ASSUMED]; before, the kit's `hold: 1` flag stopped each crosshair after 1 s)
     and her bombard the attack projectile's reached hit. Since 0.3.1 (history §34.5): 号角 S1's flare (the light
     projectile `projectile_chr_horn_s1_light`'s reached `horn_skill_01_hit_02_buff` / `_02`), and the 自选 pick 琴柳's
     flags — S2 `sleach_skill_02_flag_01` with its ground, S3 `sleach_skill_03_flag_01` with its range loops and its strike
     `sleach_skill_03_range_start_01` / `_02` (the flag model itself — a pole and a skinned cloth of the unported SimSpine
     shader, drawn through the basic fallback — does not show yet [open]).
+    Since 0.4.0 (history §37.202): 旅骨 S1 / S2's alchemy unit and 承曦格雷伊 S2's ball are the same kind of binding. The kit
+    lands the unit at once and emits no attack, so the binding's `fly` draws the projectile from the caster to the tile
+    (`projectile_chr_hbound_s1` / `_s2`, trail `hbound_trail_01`, speed 10; `projectile_chr_greyy2_s2`, trail
+    `greyy2_skill_02_trail`, speed 8). The looping reached effect (`hbound_skill1_range_01` / `hbound_skill2_range_01`,
+    `greyy2_skill_02_range`) is held for the zone's `dur` (`projectile_delay_time`). 旅骨's tick hits
+    (`hbound_skill1_hit_01` / `hbound_skill2_hit_01`, ON_BUFF_TRIGGER, not an onHit) play once per makeZone pulse at the
+    tile [ASSUMED: the client plays them on each enemy in the area; the sim sends no per-enemy fx]. 承曦格雷伊's
+    `greyy2_skill_02_hit_02` plays once when the flight lands; her later zones are the same ball, and the first mark
+    covers them. Since history §37.207 every alchemist's 炼金单元 plays its official effect: 锡人 S1 / S2 add their tick hits
+    (`tinman_skill_01_hit_01` / `tinman_skill_02_hit_01`, `hits`, once a second at the tile), and 引星棘刺 S2's unit — re-sent
+    every second under one zone `key` as it drifts and grows — is a `drift` binding: `thorn2_token_start` and the looping
+    `thorn2_skill_02_token` play once where it lands and follow the zone (playOn `follow` on a moved point); its growing
+    ring stays the procedural zone (the client scales `thorn2_skill_02_range` live; our layer has no live scale).
     A binding at 'point' lies on the field's tile there (OfficialFx ctx.heightAt; before, its owner's height — 锡人's
     flask on the road at his high ground's 0.42), and a flight whose projectile a binding of the shooter's places
     leaves its reached effects to it (SkillFx.bindsReached; before, 锡人's flask also played at the target's HitPoint

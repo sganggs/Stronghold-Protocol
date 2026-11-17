@@ -517,6 +517,8 @@ describe('extract.py: the fx run is opt-in', { skip: !PY && 'no python3' }, () =
     assert.equal(fx.indexVersion, 3);
     assert.equal(fx.meshVersion, 2);
     assert.equal(fx.optIn, true);
+    assert.equal(fx.textureFormat, 'webp');
+    assert.deepEqual(fx.textureFormats, ['webp', 'png']);
     for (const k of ['common_hit_01', 'buff_stun', 'buff_autochess_frozen', 'inside_attack_01_trail_front', 'ifrit_skill_03_buff', 'enemy_tidmag_attack_01_hit']) {
       assert.ok(fx.sample.keys.includes(k), k);
     }
@@ -546,7 +548,7 @@ const rowKeys = (e) => [...e.effects, ...(e.slots || []).filter(Boolean), ...(e.
 describe('extracted effects (when fx was extracted on this machine)', { skip: !fxList?.groups?.fx?.index && 'fx not extracted' }, () => {
   const groups = fxList?.groups || {};
   const onDisk = (p) => path.join(FX_ROOT, 'public', p);
-  const hasFiles = existsSync(path.join(FX_ROOT, 'public/assets/local/fx/index.json'));
+  const hasFiles = !!groups.fx?.index?.path && existsSync(onDisk(groups.fx.index.path));
   const index = hasFiles && groups.fx?.index ? readJson(path.join('public', groups.fx.index.path), FX_ROOT) : null;
 
   test('data/local-fx.json lists the fx files in its groups; data/local-assets.json has none of them', () => {
@@ -666,10 +668,15 @@ describe('extracted effects (when fx was extracted on this machine)', { skip: !f
     const drone = index.units.token_10005_mgllan_drone1;
     if (drone) assert.ok(drone.skills.sktok_mgllan_drone1 && index.skills.sktok_mgllan_drone1, 'token skills');
     assert.ok(Object.values(index.prefabs).some((p) => Number.isInteger(p.spawn)), 'prefab summaries carry their spawn location');
-    // the skins' points are relative to the unit's feet (no prefab-root placement): every HitPoint over the feet
+    // The skins' points exclude prefab-root placement. The November acfnca prefab deliberately lowers Graphic.
     for (const [id, sk] of Object.entries(index.skins)) {
       for (const [face, p] of Object.entries(sk.points.HitPoint || {})) {
         const [x, y, z] = p.pos;
+        if (id === 'enemy_9027_acfnca') {
+          // enm_pfb_36: Graphic y=-1.2, scale=.27, tilt=-30°; HitPoint local y=1.8.
+          assert.deepEqual(p.pos, [0, -0.779112, -0.303]);
+          continue;
+        }
         assert.ok(Math.abs(x) < 0.9 && y > -0.6 && y < 1.6 && z > -1.5 && z < 0.01, `${id} HitPoint (${face}) over the feet: ${p.pos}`);
       }
     }
@@ -811,12 +818,17 @@ describe('extracted effects (when fx was extracted on this machine)', { skip: !f
     for (const f of Object.values(index.skins.char_1038_whitw2?.points?.SpecialPoint0 || {})) assert.equal(f.followRot, true, '荒芜拉普兰德\'s wolves turn with their bones');
   });
 
-  test('projectiles of an index written by the fixed extractor: `main` is the projectile class\'s flying effect, a chain\'s line is `link`', { skip: !Object.values(index?.projectiles || {}).some((p) => p.link) && 'an index written before the fix (the runtime reads the behaviours: flight.js projectileParts)' }, () => {
+  test('projectiles of an index written by the fixed extractor: `main` is the projectile class\'s flying effect, a chain\'s line is `link`', { skip: !Object.values(index?.projectiles || {}).some((p) => p.link) && 'an index written before the fix (the runtime reads the behaviours: flight.js projectileParts)' }, (t) => {
+    let legacy = 0;
     for (const [k, p] of Object.entries(index.projectiles)) {
       const own = (p.behaviours || []).find((b) => /Projectile$/.test(b.class) && b.fields && '_mainEffect' in b.fields);
-      if (own) assert.equal(p.main, (own.fields._mainEffect || '').toLowerCase() || null, `${k}: main`);
       const link = (p.behaviours || []).find((b) => /^(ChainLightningEffectBehaviour|HarpoonRenderer)$/.test(b.class) && b.fields?._mainEffect);
+      // --fx-add-only keeps earlier records byte-identical. A mixed index may contain old line records alongside
+      // newly extracted ones; flight.js reads their behaviours. Do not mistake those old records for new output.
+      if (p.rolesVersion !== 1 && !Object.hasOwn(p, 'link')) { legacy++; continue; }
+      if (own) assert.equal(p.main, (own.fields._mainEffect || '').toLowerCase() || null, `${k}: main`);
       if (link) assert.equal(p.link, link.fields._mainEffect.toLowerCase(), `${k}: link`);
     }
+    if (legacy) t.diagnostic(`${legacy} retained legacy projectile records use the runtime behaviour fallback`);
   });
 });

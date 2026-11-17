@@ -101,6 +101,14 @@ function pathnameOf(url) {
  */
 export const IMPORTED_INDEX_URL = '/sp-imported-index.json';
 
+// CacheStorage is shared by tabs, but its read/merge/put sequence is not atomic. Use one origin-wide lock for
+// both index writers. A browser without Web Locks (navigator.locks), and Node 22's Cache API test adapters, keep the
+// previous sequential behaviour: the same updates, without cross-tab serialization.
+function withImportIndexLock(update) {
+  const locks = globalThis.navigator?.locks;
+  return locks?.request ? locks.request(`${IMPORTED_ASSET_CACHE}:index`, update) : update();
+}
+
 /** The index as a Set, or null without a readable one. */
 async function readImportIndex(cache) {
   try {
@@ -144,6 +152,10 @@ export async function listImportedPaths(cachesApi = globalThis.caches) {
  * @param {Iterable<string>} paths
  */
 export async function addImportedPaths(cache, paths) {
+  return withImportIndexLock(() => addToImportIndex(cache, paths));
+}
+
+async function addToImportIndex(cache, paths) {
   let all = await readImportIndex(cache);
   if (!all) {
     try { all = await keyPaths(cache); } catch { all = new Set(); }
@@ -152,6 +164,40 @@ export async function addImportedPaths(cache, paths) {
   await cache.put(IMPORTED_INDEX_URL, new Response(JSON.stringify([...all].sort()), {
     status: 200, headers: { 'Content-Type': 'application/json' },
   }));
+}
+
+/**
+ * Where 下载完整素材 (assetDownload.js) keeps what it downloads: this cache, which the worker answers from, so a reload
+ * asks the server for nothing — not the browser's HTTP cache alone. Chrome keeps at most 320 MB of HTTP cache on Windows
+ * (1.28 GB elsewhere: Chromium net/disk_cache/cache_util.cc PreferredCacheSize), less than a host's whole art (about
+ * 1 GB), and a queue that walks every file in order then evicts each one before it is asked for again: every reload
+ * downloaded everything (GitHub #725). Null outside a secure context or without the APIs (importSupport): the HTTP cache
+ * is all there is. `put` stores one content-hashed URL (the only ones the worker serves) under its pathname; the
+ * pathnames reach the index in batches (`flush`, one index write at a time).
+ * @returns {Promise<{ put(url: string, bytes: Uint8Array, type?: string): Promise<boolean>, flush(): Promise<void> } | null>}
+ */
+export async function openDownloadStore(cachesApi = globalThis.caches, support = importSupport()) {
+  if (!support?.ok || !cachesApi?.open) return null;
+  const cache = await cachesApi.open(IMPORTED_ASSET_CACHE);
+  let pending = new Set();
+  let writing = Promise.resolve();
+  const store = {
+    async put(url, bytes, type) {
+      const path = pathnameOf(url);
+      if (!IMPORTED_ASSET_PATH.test(path)) return false;
+      await putImportedAsset(cache, [path], bytes, () => type || contentTypeFor(path));
+      pending.add(path);
+      if (pending.size >= 200) await store.flush();
+      return true;
+    },
+    flush() {
+      const paths = pending;
+      pending = new Set();
+      if (paths.size) writing = writing.then(() => addImportedPaths(cache, paths)).catch(() => {});
+      return writing;
+    },
+  };
+  return store;
 }
 
 /** How many imported files are stored, counting /assets/ and /fonts/ only (not the /media/ alias). */
@@ -172,6 +218,10 @@ export async function countImportedFiles(cachesApi = globalThis.caches) {
  * @returns {Promise<{ removed: number, removedFiles: number, kept: number }>}
  */
 export async function pruneImportedPaths(wanted, cachesApi = globalThis.caches) {
+  return withImportIndexLock(() => pruneImportIndex(wanted, cachesApi));
+}
+
+async function pruneImportIndex(wanted, cachesApi) {
   const cache = await cachesApi.open(IMPORTED_ASSET_CACHE);
   // no index yet: the keys, when Cache.keys() still answers (a whole pack always wrote an index)
   const stored = (await readImportIndex(cache)) ?? await keyPaths(cache);

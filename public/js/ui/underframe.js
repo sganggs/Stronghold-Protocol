@@ -11,6 +11,7 @@
 // unit's range tiles (rotated to its facing) and the detail card beside it while it is selected (on the side away
 // from the unit, `underframeRect` / gameLogic `panelSide`), and the underframe sits above every HUD panel, so its
 // buttons are never covered.
+// tileScreen returns client coordinates; the frame's CSS uses fixed positioning so screen-fit offsets apply once.
 //
 // Button look (user playtest #2 item 7): the official sprites icon_sell / icon_destory are WHITE octagon plates with
 // the glyph cut out — tinted in the client. Drawn as is they read as a plain white block, so each button is a coloured
@@ -153,26 +154,27 @@ export function tempRowRule(ready) {
 /**
  * The temp row's notice: dashed red frame + label (count, what to do, what happens at the end of the prep — tempRowRule).
  * `label` false (a piece is being dragged / placed): the frame only, nothing over the pieces the player is moving.
- * @param {{ view: any, count: number, items?: number, label?: boolean, ready?: boolean }} props
+ * @param {{ view: any, count: number, items?: number, label?: boolean, ready?: boolean, equipHand?: boolean }} props
  */
-export function TempRowNotice({ view, count, items = 0, label = true, ready = false }) {
+export function TempRowNotice({ view, count, items = 0, label = true, ready = false, equipHand = false }) {
   const a = useTileScreen(view, GEO.TEMP_ROW, GEO.TEMP_C0);
   const b = useTileScreen(view, GEO.TEMP_ROW, GEO.TEMP_C0 + GEO.TEMP_SIZE - 1);
   let rem = 100;
   try { rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 100; } catch { /* default */ }
   const vw = globalThis.innerWidth || 1920;
-  const f = count > 0 ? tempRowFrame(a, b, { labelW: rem * 2.9, gap: rem * 0.1, vw }) : null;
+  const f = equipHand || count > 0 ? tempRowFrame(a, b, { labelW: rem * 2.9, gap: rem * 0.1, vw }) : null;
   if (!f) return null;
   const pts = f.quad.map((p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
   const pad = rem * 0.1;
   const style = f.side === 'left' ? `left:${(f.left - pad).toFixed(1)}px;top:${f.y.toFixed(1)}px` : `left:${(f.right + pad).toFixed(1)}px;top:${f.y.toFixed(1)}px`;
-  return html`<div class="tempnote" aria-hidden="false" data-testid="temp-notice">
-    <svg class="tempnote__frame" aria-hidden="true"><polygon points=${pts} /></svg>
+  return html`<div class=${equipHand ? 'tempnote tempnote--equipment' : 'tempnote'} aria-hidden="false" data-testid="temp-notice">
+    ${!equipHand ? html`<svg class="tempnote__frame" aria-hidden="true"><polygon points=${pts} /></svg>` : null}
     ${label ? html`<div class=${`tempnote__label is-${f.side}`} style=${style} role="status">
-      <b class="tempnote__title"><${Icon} name="warn" />${items > 0 && items === count
+      <b class="tempnote__title">${equipHand ? t('装备区') : html`<${Icon} name="warn" />`}${equipHand ? null : items > 0 && items === count
         ? tParts('临时整备区 {n} 件道具待处理', { n: html`<span class="num">${count}</span>`, count })
         : tParts('临时整备区 {n} 个单位待处理', { n: html`<span class="num">${count}</span>`, count })}</b>
-      <span class="tempnote__rule">${tempRowRule(ready)}</span>
+      ${equipHand ? (count > 0 ? html`<span class="tempnote__rule">${t('暂存 {count} 个单位：{rule}', { count, rule: t('有空位时自动移入；休整期结束时仍在暂存的单位将被销毁') })}</span>` : null)
+        : html`<span class="tempnote__rule">${tempRowRule(ready)}</span>`}
     </div>` : null}
   </div>`;
 }

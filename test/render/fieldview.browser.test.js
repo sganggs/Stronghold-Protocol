@@ -150,7 +150,7 @@ describe('field view features in headless Chrome', { skip }, () => {
 
   // The maintainer's decision of 2026-10-15 (their recording of the official 休整期; supersedes user playtest #2 item 6):
   // the prep camera shows the pen — the next round's enemies at the top right of the prep view, the pen's gates built
-  // with its block —, a battle start drops it at once (not at the end of the camera flight), the next prep brings it
+  // with its block —, a battle start drops the block and figures at once (not at the end of the camera flight), the next prep brings them
   // back as its flight begins, the pen view and 返回战场 keep it, the Final Assault prep (the boss field) never shows it.
   for (const board of ['3d', '2d']) {
     test(`the pen with the prep camera (${board}): at the top right of the prep view, gone at once with a battle start, back with the next prep`, async () => {
@@ -211,7 +211,9 @@ describe('field view features in headless Chrome', { skip }, () => {
       for (const k of ['battleStart', 'battle']) {
         assert.deepEqual(r[k].band, [6, 13], `${k}: no pen rows`);
         if (r.board3d) assert.equal(r[k].area, FIELD, `${k}: no pen block`);
-        assert.deepEqual(r[k].gates, [], `${k}: no pen gate`);
+        // #595 / §35.69: 3D S/E gates belong to the whole grid even when the pen block is absent.
+        // The 2D fallback still collects boxes only from its drawn rows. Boss isolation is checked below.
+        assert.deepEqual(r[k].gates, r.board3d ? ['15,7', '18,7'] : [], `${k}: gates follow the board renderer`);
         assert.equal(r[k].visible, 0, `${k}: no pen figure`);
         assert.equal(r[k].hidden, true, `${k}: the camera hides the pen`);
       }

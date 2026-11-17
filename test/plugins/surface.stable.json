@@ -180,6 +180,10 @@
     "anchor": "shared/plugins/manifest.js#MANIFEST_FIELDS"
   },
   {
+    "name": "manifest.field.versions",
+    "anchor": "shared/plugins/manifest.js#MANIFEST_FIELDS"
+  },
+  {
     "name": "rule.shopBias",
     "anchor": "shared/plugins/rules.js#RULE_SWITCHES"
   },
@@ -445,6 +449,10 @@
   },
   {
     "name": "overlay.tokens.spine",
+    "anchor": "shared/plugins/visual.js#ASSET_CONTAINERS"
+  },
+  {
+    "name": "overlay.tokens.skins.*",
     "anchor": "shared/plugins/visual.js#ASSET_CONTAINERS"
   },
   {
@@ -1261,6 +1269,10 @@
   },
   {
     "name": "error.PLUGIN_VERSION",
+    "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
+  },
+  {
+    "name": "error.PLUGIN_VERSIONS",
     "anchor": "shared/plugins/errors.js#PLUGIN_ERRORS"
   },
   {

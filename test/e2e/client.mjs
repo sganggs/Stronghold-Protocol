@@ -2,6 +2,8 @@
 // per player that drives the real UI with real mouse clicks, keys and canvas drags (no net.request shortcuts).
 // Used by test/e2e/coop.e2e.mjs. Not a test file itself (it only exports helpers).
 
+import { seedReleaseRead } from '../helpers/releaseNotes.js';
+import { DEFAULT_VERSION } from '../../shared/versions.js';
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
 import net from 'node:net';
@@ -127,6 +129,32 @@ export async function aimedDrag(page, from, to, { steps = 14, lead = 3, pause = 
   return dest;
 }
 
+// ---- the entry film (public/js/ui/entryFilm.js, PR #878) ------------------------------------------------------------
+// A page load whose art loads in time (a local art pack under public/assets; CI has none) plays the event's entry film
+// over the title / lobby: a modal <dialog class="spa-entry"> whose 点击进入 card waits for the tap that unlocks the
+// sound. Until that tap every click target is covered ("nothing clickable for .title-login input").
+
+/**
+ * Get past the entry film as a player does: wait for the film's decision (`__SP__.entryFilm`: no film comes up this page
+ * load after it), tap the 点击进入 card, tap again once the film runs (its stage is mounted; the card's own tap does not
+ * skip) and wait until the overlay is gone. Resolves true when a film was passed, false when none played.
+ * @param {any} page
+ * @param {{ timeout?: number }} [o]
+ */
+export async function passEntryFilm(page, { timeout = 15000 } = {}) {
+  const centre = await page.evaluate(async () => {
+    await Promise.race([globalThis.__SP__?.entryFilm, new Promise((r) => setTimeout(r, 10000))]);
+    return document.querySelector('.spa-entry') ? { x: innerWidth / 2, y: innerHeight / 2 } : null;
+  });
+  if (!centre) return false;
+  const until = (fn, what) => page.waitForFunction(fn, { timeout }).catch((e) => { throw new Error(`entry film: ${what} (${e.message})`); });
+  if (await page.$('.spa-entry__gate')) await page.mouse.click(centre.x, centre.y);
+  await until(() => !document.querySelector('.spa-entry') || !!document.querySelector('.spa-entry .spa-stage'), 'no film after 点击进入');
+  if (await page.$('.spa-entry')) await page.mouse.click(centre.x, centre.y);
+  await until(() => !document.querySelector('.spa-entry'), 'the overlay stayed after the skip');
+  return true;
+}
+
 /** A free TCP port on 127.0.0.1. */
 export function freePort() {
   return new Promise((resolve, reject) => {
@@ -139,13 +167,14 @@ export function freePort() {
 /**
  * Start the real server (`node server/index.js`, or test/e2e/fastServer.mjs with `fast` speed-ups) on a free port (or
  * `port`: e.g. the port of a server just stopped — a server restart the open clients reconnect to).
- * @param {{ port?: number, pluginsDir?: string, fast?: { timerScale?: number, combatSpeed?: number, startRound?: 'boss'|'hidden'|number, kit?: number, chess?: string[],
+ * @param {{ port?: number, pluginsDir?: string, env?: Record<string, string|null>, fast?: { timerScale?: number, combatSpeed?: number, startRound?: 'boss'|'hidden'|number, kit?: number, chess?: string[],
  *   items?: string[], idleBots?: boolean, kits?: string[][], botChess?: string[], autoPlace?: boolean, eliminate?: number[], stage?: string,
  *   finishAfter?: number, slowSpawns?: string } }} [opts]
  *   kits: per-human starter kits (seat order); botChess: the AI seats' kit; autoPlace: the kits go onto the board at the
  *   first prep; eliminate: humans (seat order) eliminated at the jump; stage: the stage of every match; finishAfter: the
  *   match ends (RESULT) once that round has settled; slowSpawns: '<humanIdx>:<factor>' — that human's normal battles
- *   spawn at factor × the scheduled times — fastServer.mjs hooks; pluginsDir (with `fast`): the server's plugin folders
+ *   spawn at factor × the scheduled times — fastServer.mjs hooks; pluginsDir (with `fast`): the server's plugin folders;
+ *   env: more of the server's environment (SP_VERSIONS …; null unsets a variable)
  * @returns {Promise<{ base: string, port: number, logs: string[], stop: (o?: { hard?: boolean }) => Promise<void> }>}
  */
 export async function startRealServer(opts = {}) {
@@ -175,6 +204,14 @@ export async function startRealServer(opts = {}) {
     if (opts.fast.slowSpawns) env.SP_SLOW_SPAWNS = String(opts.fast.slowSpawns);
     if (opts.pluginsDir) env.SP_PLUGINS_DIR = opts.pluginsDir;
   }
+  // the server's default version (the lobby's preselect, what lobby settings are checked against): 第二期下半, the version
+  // the suites were written on (Client's lobbyVersion agrees) — a 盟约 lobby on a 规程-default server keeps its settings
+  // until a room (public/js/ui/loadoutSync.js canSendSettings). { env: { SP_VERSION_DEFAULT: null } } is a stock server
+  // (规程, shared/versions.js LOBBY_DEFAULT_VERSION).
+  env.SP_VERSION_DEFAULT ||= DEFAULT_VERSION;
+  // extra environment for the server. Unset enables every official version; { SP_VERSIONS: 'act2autochess' } hides the
+  // switch (DESIGN §35.23). A null value unsets a variable.
+  if (opts.env && typeof opts.env === 'object') for (const [k, v] of Object.entries(opts.env)) { if (v == null) delete env[k]; else env[k] = String(v); }
   const child = spawn(process.execPath, [entry], { cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'] });
   const logs = [];
   const onData = (buf) => { for (const line of String(buf).split('\n')) if (line.trim()) logs.push(line); if (logs.length > 400) logs.splice(0, logs.length - 400); };
@@ -215,8 +252,14 @@ export async function startRealServer(opts = {}) {
  * hidden — no animation frames, so the Pixi view and visibility checks stall).
  */
 export class Client {
-  constructor(puppeteer, base, label, { w = 1920, h = 1080, prefix = 'coop' } = {}) {
-    Object.assign(this, { puppeteer, base, label, w, h, prefix, problems: [], log: [], shots: [] });
+  /**
+   * `lobbyVersion`: the version this browser's lobby starts on (`sp.pref.lobby.version`, written before the first load
+   * while the browser has none: a version picked in the page survives its reloads). Default: DEFAULT_VERSION, 第二期下半
+   * — the suites were written on 盟约 (its difficulty names, the 4-slot 自选编队, no 选择自编 step); since 2026-11-09 a
+   * fresh browser's lobby starts on 规程 (LOBBY_DEFAULT_VERSION), which `null` keeps (the browser's own choice).
+   */
+  constructor(puppeteer, base, label, { w = 1920, h = 1080, prefix = 'coop', lobbyVersion = DEFAULT_VERSION } = {}) {
+    Object.assign(this, { puppeteer, base, label, w, h, prefix, lobbyVersion, problems: [], log: [], shots: [] });
   }
 
   async open(query = '') {
@@ -239,8 +282,16 @@ export class Client {
     });
     page.on('response', (r) => { if (r.status() >= 400) this.problems.push(`http ${r.status()}: ${r.url()}`); });
     page.on('dialog', (d) => d.dismiss().catch(() => {}));
+    await seedReleaseRead(page, { film: true });
+    if (this.lobbyVersion) {
+      await page.evaluateOnNewDocument((id) => {
+        if (window.top !== window || !/^https?:$/.test(location.protocol)) return;
+        if (localStorage.getItem('sp.pref.lobby.version') == null) localStorage.setItem('sp.pref.lobby.version', JSON.stringify(id));
+      }, this.lobbyVersion);
+    }
     await page.goto(`${this.base}/${query}`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!globalThis.__SP__ && !!document.querySelector('.screen'), { timeout: 30000 });
+    await passEntryFilm(page);
   }
 
   note(msg) { this.log.push(`[${this.label}] ${msg}`); }
@@ -294,6 +345,8 @@ export class Client {
   async click(sel, text = null, { timeout = 15000, optional = false, nth = 0, button = 'left', any = false } = {}) {
     const t0 = Date.now();
     while (Date.now() - t0 < timeout) {
+      // a reload brings the entry film back over the title / lobby
+      if (await this.exists('.spa-entry')) await passEntryFilm(this.page);
       const pt = await this.point(sel, text, nth, any);
       if (pt) {
         await this.page.mouse.click(pt.x, pt.y, { button });
@@ -325,6 +378,8 @@ export class Client {
       for (const el of document.querySelectorAll(sel)) {
         if (text && !(el.textContent || '').includes(text)) continue;
         if (!any && (el.disabled || el.getAttribute('aria-disabled') === 'true')) continue;
+        // The loadout overlay hides the underlying screen until its closing effect restores it.
+        if (getComputedStyle(el).visibility === 'hidden') continue;
         const r = el.getBoundingClientRect();
         if (r.width < 2 || r.height < 2) continue;
         const x = r.left + r.width / 2; const y = r.top + r.height / 2;
@@ -356,9 +411,34 @@ export class Client {
     return file;
   }
 
+  /**
+   * Lobby → a new co-op room: 同盟模拟 → 选择同盟方式 → 创建同盟 creates it at once (the event's 联合模拟; the remembered
+   * difficulty, 标准 in a fresh browser) → with `difficulty` (a difficulty name, e.g. '险境模拟'), the host changes it in the
+   * room: the difficulty pill → 选择模拟协议 → 确认. Resolves with the room state.
+   */
+  async createCoop(difficulty = null) {
+    await this.click('.mode-card', '同盟模拟');
+    await this.click('[data-testid="alliance-create"]');
+    const room = (await this.waitFor((s) => !!s.room?.code, 'room created')).room;
+    if (!difficulty) return room;
+    await this.roomDifficulty(difficulty);
+    return this.page.evaluate(() => globalThis.__SP__.store.get().room); // the room state after the change
+  }
+
+  /** The host changes the room's difficulty in the room (the pill → 选择模拟协议 → 确认; `name` e.g. '绝境模拟'). */
+  async roomDifficulty(name) {
+    await this.click('.rs-pill__diff');
+    await this.click('.modal__box.proto .diff-card', name);
+    await this.click('.modal__box.proto .proto-start', '确认');
+    await this.page.waitForFunction(() => !document.querySelector('.modal__box.proto'), { timeout: 10000 });
+    await this.page.waitForFunction((n) => document.querySelector('.rs-pill__diff')?.textContent.includes(n), { timeout: 10000 }, name);
+  }
+
   /** Title → lobby with a callsign. */
   async enter(name) {
     await this.page.waitForSelector('.title-login input', { timeout: 20000 });
+    // also after a reload: the name is typed only once no film can come up over the field
+    await passEntryFilm(this.page);
     await this.click('.title-login input');
     await this.page.keyboard.type(name);
     await this.click('.title-login button', '开始');

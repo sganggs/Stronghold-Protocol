@@ -9,6 +9,7 @@ import { ruleOption } from '../../../shared/plugins/rules.js';
 import { freeSlot } from '../board.js';
 import { computeBonds } from '../bondsMeta.js';
 import { OK, fail } from './common.js';
+import { syncCommand } from '../bandCommands.js';
 
 export class PlayerEconomy {
   addFunds(n, { reason = '' } = {}) {
@@ -33,6 +34,7 @@ export class PlayerEconomy {
 
   /** onSpend, dispatched once a payment's action is complete (buy / refresh / levelUp / reward / effect). */
   _afterSpend(amount, reason) {
+    syncCommand(this);
     if (!(amount > 0)) return;
     this.m.dispatch(this, 'onSpend', { amount, reason, total: this.stats.gold });
   }
@@ -100,12 +102,57 @@ export class PlayerEconomy {
     const keep = (s, kind) => (keepFrozen && s && s.kind === kind && !s.sold && s.frozen ? { ...s } : null);
     // frozen slots keep their position; sold / empty / unfrozen positions are rerolled
     const slots = [];
-    for (let i = 0; i < nChess; i++) slots.push(keep(oldChess[i], 'chess') ?? this._rollChessSlot());
+    const fresh = new Set();
+    for (let i = 0; i < nChess; i++) {
+      const kept = keep(oldChess[i], 'chess');
+      if (kept) slots.push(kept);
+      else { slots.push(this._rollChessSlot()); fresh.add(i); }
+    }
     for (let i = 0; i < nItem; i++) slots.push(keep(oldItems[i], 'item') ?? this._rollItemSlot());
     this.shop.slots = slots;
     this.shop.layout = { chess: nChess, item: nItem };
+    this._applyBondRefresh(fresh, nChess);
     for (const s of slots) if (s) s.frozen = this.shop.frozen;
     this.dirty();
+  }
+
+  /**
+   * One special-refresh charge (规程 SERVER_GAIN_SPECIAL_REFRESH_BOND_CHAR): the next roll shows `count` chess of that
+   * bond. The charge is consumed even when the filtered roll comes back empty. A queued test shop returns before this
+   * (rollShop), so it does not spend a charge. Frozen kept slots are not replaced.
+   */
+  _applyBondRefresh(fresh, nChess) {
+    const jobs = this.shop.bondRefresh;
+    if (!Array.isArray(jobs) || !jobs.length) return;
+    const job = jobs.shift();
+    if (!jobs.length) delete this.shop.bondRefresh;
+    if (!job || typeof job.bond !== 'string' || !(job.count > 0)) return;
+    const need = Math.floor(job.count);
+    const hasBond = (s) => {
+      if (!s || s.kind !== 'chess' || !s.id) return false;
+      const rec = this.gd.chess(s.id);
+      return !!(rec && Array.isArray(rec.bonds) && rec.bonds.includes(job.bond));
+    };
+    let found = 0;
+    for (let i = 0; i < nChess; i++) if (hasBond(this.shop.slots[i])) found++;
+    if (found >= need) return;
+    for (let i = nChess - 1; i >= 0 && found < need; i--) {
+      if (!fresh.has(i)) continue;
+      const cur = this.shop.slots[i];
+      if (cur && cur.frozen) continue;
+      if (hasBond(cur)) continue;
+      const id = this.m.pool.roll(this.m.rngShop, {
+        maxTier: this.shop.level,
+        filter: (cid) => {
+          const rec = this.gd.chess(cid);
+          return !!(rec && Array.isArray(rec.bonds) && rec.bonds.includes(job.bond));
+        },
+        extra: this.diyRollEntries(),
+      });
+      if (!id) continue;
+      this.shop.slots[i] = { kind: 'chess', id, basePrice: this.gd.chessPrice(id), frozen: false, sold: false };
+      found++;
+    }
   }
 
   /**
@@ -179,12 +226,12 @@ export class PlayerEconomy {
     if (slot.sold) return fail(ERR.SOLD_OUT);
     const price = this.priceOf(slot);
     if (this.funds < price) return fail(ERR.NO_FUNDS);
-    const handFull = freeSlot(this.hand) < 0;
+    const handFull = this.equipHand ? this.handSlot(slot.kind) < 0 : freeSlot(this.hand) < 0;
     let piece;
     if (slot.kind === 'chess') {
       const rec = this.gd.chess(slot.id);
       // a DIY slot sells only as this player's own 自选 piece (a slotted slot's record carries `diyFor`)
-      if (!rec || (rec.isDiy && !rec.diyFor)) return fail(ERR.BAD_TARGET);
+      if (!rec || (rec.isDiy && !rec.diyFor) || this.m.chessExcluded(rec)) return fail(ERR.BAD_TARGET);
       // Already displayed operators stay purchasable after stock runs out (#498; 路标月报#2,
       // BV1eLXXBqEgF 2:50–2:57: nine owned + four shop offers => thirteen owned).
       // acquireChess records every copy, including the deficit; future rolls still exclude empty stock.
@@ -265,7 +312,7 @@ export class PlayerEconomy {
     for (const it of piece.items || []) this.stow(it, { allowTemp: true });
     piece.items = [];
     this.returnCopies(piece);
-    const ev = { piece, gain: this.gd.sellPrice(piece.id) };
+    const ev = { piece, gain: this.sellPriceOf(piece) };
     this.m.dispatch(this, 'onSold', ev);
     const gain = Number.isFinite(ev.gain) ? Math.max(0, Math.trunc(ev.gain)) : 1;
     this.addFunds(gain, { reason: 'sell' });

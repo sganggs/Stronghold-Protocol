@@ -30,7 +30,7 @@
    its own box right of the chevron (x ≥ 57 %), so a font clamped up by a browser minimum font size (CJK Chrome: 12 px)
    or a small root can never run into the icon; the button never shrinks below 72 px (96 px on touch screens). */
 .ewheel__btn.has-sprite {
-  --ewb-w: max(1.51rem, 72px);
+  --ewb-w: max(1.51rem, 32px, calc(72px * var(--sp-ui, 1)));
   width: var(--ewb-w); height: calc(var(--ewb-w) * 55 / 151); min-width: 0; padding: 0; display: block;
   background: var(--ewheel-btn) left bottom / 100% 100% no-repeat; border: 0; border-radius: 0; color: #f2f2f2;
 }
@@ -141,7 +141,7 @@
 @keyframes emo-bubble-out { to { opacity: 0; scale: .92; } }
 
 @media (pointer: coarse) {
-  .ewheel__btn.has-sprite { --ewb-w: max(1.51rem, 96px); }
+  .ewheel__btn.has-sprite { --ewb-w: max(1.51rem, 32px, calc(96px * var(--sp-ui, 1))); }
 }
 
 @media (prefers-reduced-motion: reduce) {

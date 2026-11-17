@@ -216,7 +216,7 @@ test('S3 吞日 (20 s): 3 boomerangs per attack (3 hits of 145 % / 160 %, flying
   }
 });
 
-test('T1 “我见，我得”: every landing attack hit steals 27 ATK / 21 DEF — the enemy loses, she gains, each capped at 270 / 210 (LPS-X stage 3: 324 / 252, twice within one tile); two of her: the larger loss, not the sum; a dodged hit steals nothing; all given back when she leaves', () => {
+test('T1 “我见，我得”: every landing attack hit steals 27 ATK / 21 DEF — the enemy loses, she gains, each capped at 270 / 210 (LPS-X stage 3: 324 / 252, twice within one tile); two of her: the larger loss, not the sum; target dodge does not suppress the earlier steal; all given back when she leaves', () => {
   for (const f of [[5, false, null], [6, true, null], [5, true, LPSX], [6, true, LPSX], [6, true, LPSY]]) {
     const [tier, elite, mod] = f;
     const t0 = formOf(tier, elite).talents.find((t) => t.index === 0).bb;
@@ -253,7 +253,7 @@ test('T1 “我见，我得”: every landing attack hit steals 27 ATK / 21 DEF 
       done(h);
     }
   }
-  // two of her (a T5 and a T6 piece) hitting one enemy: the larger loss, never the sum; a dodged hit steals nothing
+  // two of her (a T5 and a T6 piece) hitting one enemy: the larger loss, never the sum; target dodge does not suppress the earlier steal
   const { h, u } = field({ tier: 5, skill: 2, others: [{ uid: 2, diy: { slot: SLOT[6], charId: NARANT, skillIndex: 2 }, row: 12, col: 3 }] });
   const v = h.unit(2);
   const e = h.spawn('enemy_brute', { pos: [11, 5] });
@@ -266,7 +266,7 @@ test('T1 “我见，我得”: every landing attack hit steals 27 ATK / 21 DEF 
   h.b.addBuff(ghost, { key: 'test:dodge', mods: { dodgePhys: 1 } });
   h.run(4);
   assert.ok(h.hooksOf('damaged').every((c) => c.target !== ghost), 'every hit dodged');
-  assert.equal(ghost.findBuff('narant:stolen'), null, 'a dodged hit steals nothing');
+  assert.ok(ghost.findBuff('narant:stolen'), 'stealing precedes target injury dodge');
   done(h);
 });
 
@@ -374,4 +374,65 @@ test('engine: a profile `boomerangOnward` takes the flight over after the first 
   assert.ok(h.b.errors.some((e) => /boomerang\.onward/.test(e.label ?? e.where ?? JSON.stringify(e))), 'the error is logged');
   assert.equal(u.trait.boomerangsOut <= 1, true);
   checkInvariants(h.b);
+});
+
+
+for (const defense of ['none', 'dodge', 'shield']) test(`Narant steals before target ${defense}, after computing this hit`, () => {
+  const { h, u } = field({ tier: 6, elite: true, skill: 2 });
+  const b = h.b, e = h.spawn('enemy_brute', { pos: [10, 5] });
+  if (defense === 'dodge') b.addBuff(e, { key: 'test:defense', mods: { dodgePhys: 1 } });
+  if (defense === 'shield') b.addBuff(e, { key: 'test:defense', shieldHits: 1 });
+  const before = [];
+  b.on('damageBeforeApply', c => { if (c.source === u) before.push({ amount: c.amount, def: e.s.def, loot: u.mem.narantLoot.a }); }, { priority: -100 });
+  const removed = b.dealDamage({ source: u, target: e, amount: 1000, type: 'phys', isAttack: true });
+  assert.deepEqual(before, [{ amount: 700, def: 279, loot: 27 }]);
+  assert.equal(removed, defense === 'none' ? 700 : 0);
+  assert.deepEqual(e.findBuff('narant:stolen').mods, { atkFlat: -27, defFlat: -21 });
+  if (defense === 'none') assert.equal(b.dealDamage({ source: u, target: e, amount: 1000, type: 'phys', isAttack: true }), 721);
+  done(h);
+});
+
+test('Narant rejects HP loss, gauges, non-attack output and source-less credit before-apply triggers', () => {
+  const { h, u } = field({ tier: 6, elite: true, skill: 2 });
+  const b = h.b, e = h.spawn('enemy_brute', { pos: [10, 5] });
+  let stages = 0;
+  b.on('damageBeforeApply', () => { stages++; });
+  b.dealHPLose({ source: u, target: e, amount: 100 });
+  b.dealElementDamage({ source: u, target: e, amount: 10, element: 'burn' });
+  b.dealDamage({ source: null, credit: u, target: e, amount: 100, type: 'true', isAttack: true });
+  assert.equal(stages, 0);
+  b.dealDamage({ source: u, target: e, amount: 100, type: 'true', isAttack: false });
+  assert.equal(stages, 1);
+  assert.equal(e.findBuff('narant:stolen'), null);
+  assert.deepEqual(u.mem.narantLoot, { a: 0, d: 0 });
+  done(h);
+});
+
+test('Narant steals before the real Rhine count shield; later source-less damage uses the stolen DEF', () => {
+  // enemy_lysdb[damage_block_fixed]: DEFAULT ON_TAKE_DAMAGE, not an early hit cancellation.
+  // narant_t_1[steal]: ON_BEFORE_TARGET_APPLY_MODIFIER, before that shield cancels the damage.
+  for (const [tier, elite] of [[5, false], [6, true]]) {
+    const { h, u } = field({ tier, elite, skill: 2 });
+    const b = h.b, e = h.spawn('enemy_1249_lysdb_2', { pos: [10, 5] });
+    const hp = e.hp, defense = e.s.def, shield = e.findBuff('ab:hitShield');
+    assert.equal(shield.shieldHits, 1);
+    const stages = [], observed = [];
+    let successes = 0;
+    b.on('damageBeforeApply', c => {
+      if (c.source === u) stages.push({ amount: c.amount, defense: e.s.def });
+    }, { priority: -100 });
+    b.addBuff(e, { key: 'test:observe', injuryPriority: -1000,
+      observeInjury(c) { observed.push({ amount: c.amount, cancelled: c.cancelled, loot: u.mem.narantLoot.a }); } });
+    b.on('damageApplied', c => { if (c.target === e) successes++; });
+    assert.equal(b.dealDamage({ source: u, target: e, amount: 1000, type: 'phys',
+      attackType: 'NORMAL', applyWay: 'RANGED', isAttack: true }), 0);
+    assert.deepEqual(stages, [{ amount: 1000 - defense, defense: defense - 21 }]);
+    assert.deepEqual(observed, [{ amount: 0, cancelled: true, loot: 27 }]);
+    assert.equal(e.hp, hp);
+    assert.equal(e.findBuff('ab:hitShield'), null);
+    assert.equal(successes, 0, 'stealing does not turn an absorbed instance into successful damage');
+    approx(b.dealDamage({ source: null, target: e, amount: 1000, type: 'phys' }), 1000 - defense + 21, 'later input uses the debuffed DEF');
+    assert.deepEqual(u.mem.narantLoot, { a: 27, d: 21 }, 'source-less follow-up does not steal again');
+    done(h);
+  }
 });

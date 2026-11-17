@@ -10,6 +10,9 @@ import { DATA, makeMatch, checkInvariants } from './harness.js';
 
 const GAME = Object.keys(C2S).filter((t) => t.startsWith('g.') && t !== 'g.leave');
 const BANDS = Object.keys(DATA.bands);
+const ONLY_SEED = process.env.MATCH_FUZZ_SEED === undefined ? null : Number(process.env.MATCH_FUZZ_SEED);
+assert.ok(ONLY_SEED === null || (Number.isInteger(ONLY_SEED) && ONLY_SEED >= 1 && ONLY_SEED <= 0xffffffff),
+  'MATCH_FUZZ_SEED must be an integer between 1 and 4294967295');
 
 function randomIntent(rng, m, ps) {
   const t = rng.pick(GAME);
@@ -25,9 +28,16 @@ function randomIntent(rng, m, ps) {
   const to = () => (rng() < 0.6 ? { area: 'board', row: rng() < 0.8 ? 9 + rng.int(4) : rng.int(19), col: rng() < 0.8 ? 2 + rng.int(9) : rng.int(21) } : { area: 'hand', idx: rng.int(10) });
   switch (t) {
     case 'g.test': return { t, cmd: 'funds', args: { amount: rng.int(100000) } };
+    case 'g.bondGroup': return { t, idx: rng.int(2), setupRevision: m.setupRevision ?? 0 };
     case 'g.infoReady': return { t, setupRevision: m.setupRevision ?? 0 };
     case 'g.rerollVote': return { t, voteId: m.setupVote?.id ?? 1 + rng.int(10), agree: rng() < 0.5 };
     case 'g.band': return { t, bandId: rng() < 0.8 ? rng.pick(BANDS) : rng.pick(['constructor', '__proto__', 'band_x', 'a'.repeat(64)]) };
+    // 规程 选择自编: the seat's own slots (none on the default data, so the match refuses anything but []) or junk ids
+    case 'g.diyBring': {
+      const own = Object.keys(ps?.diy || {});
+      const pickOne = () => (own.length && rng() < 0.7 ? rng.pick(own) : rng.pick(['diy_x', 'constructor', 'chess_char_5_01_a']));
+      return { t, slots: rng() < 0.3 ? [] : Array.from({ length: 1 + rng.int(4) }, pickOne) };
+    }
     case 'g.buy': return { t, slot: rng.int(16) };
     case 'g.sell': case 'g.destroy': return { t, uid: uid() };
     case 'g.move': return { t, uid: uid(), to: to() };
@@ -43,16 +53,22 @@ function randomIntent(rng, m, ps) {
     // the plugin interaction windows (PLUGIN API v2, docs/PLUGINS.md §10b): random ids and slots — no window of a
     // vanilla match is ever open, so every one of them is a refusal, which is exactly what the fuzz run checks
     case 'g.offer': case 'g.offerRefresh': return { t, pluginId: 'demo', seq: rng.int(1000), offerId: rng.pick(['early-pick', 'x', 'a'.repeat(64)]), idx: rng.int(6) };
+    // 规程's 指令 (server/match/bandCommands.js): every target shape the protocol allows; the default data has no
+    // command, so these are refusals too
+    case 'g.command': return { t, effectId: rng.pick(['aceffect_band_80', 'aceffect_band_1', 'x']),
+      target: rng.pick([{}, { uid: uid() }, { slot: rng.int(16) }, { row: 9 + rng.int(4), col: 2 + rng.int(9) }]) };
+    case 'g.commandChoice': return { t, choiceId: ps?.commandDrafts?.[0]?.id ?? rng.pick(['command.1', 'x']), idx: rng.int(3) };
     default: return { t };
   }
 }
 
-function fuzzOne(seed, { fake, rules }) {
+function fuzzOne(seed, { fake, rules }, context = {}) {
   const rng = createRng(seed * 7919);
   const mode = rng() < 0.3 ? 'solo' : 'coop';
   const difficulty = rng.pick(['FUNNY', 'NORMAL', 'HARD', 'ABYSS']);
   const humans = mode === 'solo' ? 1 : 1 + rng.int(3);
   const bots = mode === 'solo' ? 0 : rng.int(3);
+  Object.assign(context, { mode, difficulty, humans, bots });
   const h = makeMatch({ mode, difficulty, humans, bots, seed, fake, rules, captureFrames: false, checkFrames: true, script: () => ({ duration: 2 + rng.int(6), leaks: {} }) });
   const m = h.m;
   m.start();
@@ -96,14 +112,28 @@ function fuzzOne(seed, { fake, rules }) {
   return intents;
 }
 
-test('fuzz with FakeBattle: 60 matches of random intents / connection churn / time jumps', () => {
+function runFuzz(t, seed, fake, rules) {
+  const context = { seed, fake, ...(rules ? { rules } : {}) };
+  try {
+    return fuzzOne(seed, { fake, rules }, context);
+  } catch (error) {
+    t.diagnostic(`Fuzz failure: ${JSON.stringify(context)}`);
+    const pattern = rules
+      ? `^fuzz with all four rules enabled: ${fake ? 'FakeBattle' : 'real simulation'}$`
+      : `^fuzz with ${fake ? 'FakeBattle' : 'the real simulation'}:`;
+    t.diagnostic(`Reproduce: MATCH_FUZZ_SEED=${seed} node --test --test-name-pattern="${pattern}" test/match/fuzz.test.js`);
+    throw error;
+  }
+}
+
+test(`fuzz with FakeBattle: ${ONLY_SEED === null ? '60 matches' : `seed ${ONLY_SEED}`} of random intents / connection churn / time jumps`, (t) => {
   let n = 0;
-  for (let seed = 1; seed <= 60; seed++) n += fuzzOne(seed, { fake: true });
-  assert.ok(n > 10000, `${n} intents`);
+  for (let seed = ONLY_SEED ?? 1; seed <= (ONLY_SEED ?? 60); seed++) n += runFuzz(t, seed, true);
+  assert.ok(n > (ONLY_SEED === null ? 10000 : 0), `${n} intents`);
 });
 
-test('fuzz with the real simulation: 8 matches', () => {
-  for (let seed = 101; seed <= 108; seed++) fuzzOne(seed, { fake: false });
+test(`fuzz with the real simulation: ${ONLY_SEED === null ? '8 matches' : `seed ${ONLY_SEED}`}`, (t) => {
+  for (let seed = ONLY_SEED ?? 101; seed <= (ONLY_SEED ?? 108); seed++) runFuzz(t, seed, false);
 });
 
 test('every generated game intent has a valid protocol shape, including unequip', () => {
@@ -119,8 +149,9 @@ test('every generated game intent has a valid protocol shape, including unequip'
   }
 });
 
-test('fuzz with all four rules enabled: 12 fake and 4 real matches', () => {
-  const rules = { shopBias: 'bondBias', prepLoadout: 'prep', morphPairing: 'plus', unequip: 'allow' };
-  for (let seed = 201; seed <= 212; seed++) fuzzOne(seed, { fake: true, rules });
-  for (let seed = 301; seed <= 304; seed++) fuzzOne(seed, { fake: false, rules });
-});
+for (const [fake, first, last] of [[true, 201, 212], [false, 301, 304]]) {
+  test(`fuzz with all four rules enabled: ${fake ? 'FakeBattle' : 'real simulation'}`, (t) => {
+    const rules = { shopBias: 'bondBias', prepLoadout: 'prep', morphPairing: 'plus', unequip: 'allow' };
+    for (let seed = ONLY_SEED ?? first; seed <= (ONLY_SEED ?? last); seed++) runFuzz(t, seed, fake, rules);
+  });
+}

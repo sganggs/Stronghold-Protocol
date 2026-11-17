@@ -12,6 +12,15 @@
 // per operator, so the normal, elite and 自选 forms share them; only values that differ from the defaults (潜能 6,
 // 精英2 Lv.60) are kept; stored beside the entries (`sp.pref.loadout` = { v: 1, entries, ops }; an older stored loadout
 // has none = the defaults) and sent with `room.loadout { entries, ops }` (shared/protocol.js checkLoadoutOps).
+// By operator (DESIGN §35.23, M1): official versions reuse chess ids for other operators (第一期's chess_char_1_02_a is
+// 讯使, 第二期's 角峰), so the stored choices are keyed by charId — `sp.pref.loadout` = { v: 2, byChar, ops }, shared by
+// every version — and the screens keep working on chess ids: ui/loadoutSync.js shows `entries` as a view of `byChar`
+// for the data on screen (charKeyMap / entriesView) and writes an edit back through the map of the data the view was
+// built from (rebaseByChar). A stored v1 loadout ({ v: 1, entries } by 第二期下半's chess ids) is migrated through
+// 第二期下半's chess.json (entriesToChar); 导出 writes v2 (byChar), 导入 reads v1 (chess ids of 第二期下半) and v2.
+// A v2 store also carries `entries` — the same choices by 第二期下半's chess ids, when the page has that map — which this
+// build ignores (v === 2) and an older build on the same origin (a rollback, builds side by side) still reads, so its
+// 干员调配 does not look reset.
 
 import { loadoutOptions, checkLoadout, checkLoadoutOps, resolveLoadout, MODULE_NONE, LOADOUT_LIMITS } from '../../../shared/protocol.js';
 import { isPotential, isCultivate, POTENTIAL_DEFAULT, CULTIVATE_DEFAULT } from '../../../shared/potential.js';
@@ -21,7 +30,7 @@ export { MODULE_NONE };
 
 /** localStorage key (store.js loadPref/savePref prefix `sp.pref.`) and format version. */
 export const LOADOUT_PREF = 'loadout';
-export const LOADOUT_VERSION = 1;
+export const LOADOUT_VERSION = 2;
 
 export const PROF_ORDER = ['PIONEER', 'WARRIOR', 'TANK', 'SNIPER', 'CASTER', 'MEDIC', 'SUPPORT', 'SPECIAL'];
 export const PROF_NAME = Object.freeze({ PIONEER: N_('先锋'), WARRIOR: N_('近卫'), TANK: N_('重装'), SNIPER: N_('狙击'), CASTER: N_('术师'), MEDIC: N_('医疗'), SUPPORT: N_('辅助'), SPECIAL: N_('特种') });
@@ -82,8 +91,92 @@ export function parseStoredOps(raw) {
   return out;
 }
 
-/** Serialised form for localStorage (`ops`: the per-operator 潜能 / 练度, 0.2.2). */
-export const toStored = (entries, ops = {}) => ({ v: LOADOUT_VERSION, entries: entries || {}, ops: ops || {} });
+/**
+ * Parse the stored choices by operator (v2: `{ v: 2, byChar, ops }`; any junk → {}): structurally valid entries only.
+ * @param {any} raw
+ * @returns {Record<string, { skill?: number, module?: string }>}
+ */
+export function parseStoredByChar(raw) {
+  return isObj(raw) && raw.v === 2 && isObj(raw.byChar) ? parseStored({ entries: raw.byChar }) : {};
+}
+
+/**
+ * Serialised form for localStorage (v2: the choices by charId; `ops`: the per-operator 潜能 / 练度, 0.2.2; `entries`: the
+ * copy by 第二期下半's chess ids for older builds — omitted when not given; this build never reads it from a v2 store).
+ */
+export const toStored = (byChar, ops = {}, entries = undefined) => ({ v: LOADOUT_VERSION, byChar: byChar || {}, ops: ops || {},
+  ...(isObj(entries) ? { entries } : {}) });
+/** The v1 form (by chess id), written only while a v1 store still waits for its migration (ui/loadoutSync.js). */
+export const toStoredV1 = (entries, ops = {}) => ({ v: 1, entries: entries || {}, ops: ops || {} });
+
+// ---- by operator (DESIGN §35.23) -----------------------------------------------------------------------------------
+
+/**
+ * chess id ↔ charId of a data set's normal chess (see the header): `toChar` every normal chess's operator, `toChess`
+ * each operator's chess — its loadout slot first (a retired hidden chess of the same operator only when it has none).
+ * @param {any[]} list the data's chess records
+ * @returns {{ toChar: Map<string, string>, toChess: Map<string, string> }}
+ */
+export function charKeyMap(list) {
+  const normal = (Array.isArray(list) ? list : []).filter((c) => c && !c.isGolden && !c.isDiy && typeof c.chessId === 'string'
+    && typeof c.charId === 'string' && c.charId && (!c.baseId || c.baseId === c.chessId));
+  const toChar = new Map(normal.map((c) => [c.chessId, c.charId]));
+  const toChess = new Map();
+  for (const c of [...normal.filter(isLoadoutSlot), ...normal.filter((x) => !isLoadoutSlot(x))]) if (!toChess.has(c.charId)) toChess.set(c.charId, c.chessId);
+  return { toChar, toChess };
+}
+
+/**
+ * Choices by chess id → by charId (a v1 store or import: `charOf` of 第二期下半's chess); a chess that maps to no
+ * operator is dropped, and of two chess of one operator the loadout slot's choice wins.
+ * @param {Record<string, any>} entries @param {(chessId: string) => string|null|undefined} charOf
+ * @param {(chessId: string) => boolean} [isSlot]
+ */
+export function entriesToChar(entries, charOf, isSlot = () => true) {
+  const out = {};
+  const ids = Object.keys(entries || {}).sort((a, b) => Number(isSlot(b)) - Number(isSlot(a)));
+  for (const id of ids) {
+    const charId = charOf(id);
+    if (typeof charId !== 'string' || !charId || UNSAFE_IDS.has(charId) || Object.hasOwn(out, charId)) continue;
+    if (isObj(entries[id])) out[charId] = { ...entries[id] };
+  }
+  return out;
+}
+
+/**
+ * The view of the choices by operator for a data set (`map`: charKeyMap): `{ [chessId]: choice }` of every operator the
+ * data has; the others are left out of the view (and kept in `byChar`).
+ * @param {Record<string, any>} byChar @param {{ toChess: Map<string, string> }} map
+ */
+export function entriesView(byChar, map) {
+  const out = {};
+  for (const [charId, e] of Object.entries(byChar || {})) {
+    const id = map?.toChess?.get(charId);
+    if (id && isObj(e)) out[id] = { ...e };
+  }
+  return out;
+}
+
+/**
+ * Write an edit of a view back by operator — only what the edit changed (`prev` → `next`): a chess it removed clears its
+ * operator, a chess it added or changed sets its operator, through `charOf` of the data the view was built from, so an
+ * edit is never filed under another version's operator and an edit made on an older copy of the view never undoes a
+ * newer one; a chess it cannot map is left out. Operators the view did not show stay.
+ * @param {Record<string, any>} byChar @param {Record<string, any>} prev @param {Record<string, any>} next
+ * @param {(chessId: string) => string|null|undefined} charOf
+ * @returns {Record<string, any>} a new map
+ */
+export function rebaseByChar(byChar, prev, next, charOf) {
+  const out = { ...(byChar || {}) };
+  const before = prev || {};
+  for (const id of Object.keys(before)) if (!Object.hasOwn(next || {}, id)) { const c = charOf(id); if (c) delete out[c]; }
+  for (const [id, e] of Object.entries(next || {})) {
+    if (Object.hasOwn(before, id) && JSON.stringify(before[id]) === JSON.stringify(e)) continue;
+    const c = charOf(id);
+    if (typeof c === 'string' && c && !UNSAFE_IDS.has(c) && isObj(e)) out[c] = { ...e };
+  }
+  return out;
+}
 
 // ---- 潜能 / 练度 (0.2.2) ------------------------------------------------------------------------------------------------
 
@@ -167,14 +260,14 @@ export const LOADOUT_EXPORT_KIND = 'stronghold.loadout';
 export const LOADOUT_IMPORT_MAX_BYTES = 256 * 1024;
 
 /**
- * Portable payload of a loadout, as downloaded / copied by 导出 — with the per-operator 潜能 / 练度 (`ops`, 0.2.2; an
- * older build reading it ignores the field).
- * @param {Record<string, any>} entries `room.loadout.entries`
+ * Portable payload of a loadout, as downloaded / copied by 导出 — v2 (DESIGN §35.23): the choices by operator
+ * (`byChar`, every version's), with the per-operator 潜能 / 练度 (`ops`, 0.2.2).
+ * @param {Record<string, any>} byChar the stored choices by charId
  * @param {{ now?: number, ops?: Record<string, any> }} [o]
  */
-export function exportPayload(entries, { now = Date.now(), ops = {} } = {}) {
+export function exportPayload(byChar, { now = Date.now(), ops = {} } = {}) {
   const clean = {};
-  for (const [id, e] of Object.entries(entries || {})) if (isObj(e)) clean[id] = { ...e };
+  for (const [id, e] of Object.entries(byChar || {})) if (isObj(e)) clean[id] = { ...e };
   const cleanOps = {};
   for (const [id, e] of Object.entries(ops || {})) if (isObj(e)) cleanOps[id] = { ...e };
   return {
@@ -182,14 +275,14 @@ export function exportPayload(entries, { now = Date.now(), ops = {} } = {}) {
     v: LOADOUT_VERSION,
     exportedAt: new Date(Number.isFinite(now) ? now : Date.now()).toISOString(),
     count: Object.keys(clean).length,
-    entries: clean,
+    byChar: clean,
     ops: cleanOps,
   };
 }
 
 /** Pretty JSON of `exportPayload` — one preset per file / clipboard payload. */
-export function serializeExport(entries, opts) {
-  return JSON.stringify(exportPayload(entries, opts), null, 2);
+export function serializeExport(byChar, opts) {
+  return JSON.stringify(exportPayload(byChar, opts), null, 2);
 }
 
 /**
@@ -199,8 +292,10 @@ export function serializeExport(entries, opts) {
  * chess / skills / modules this build does not have. `__proto__` / `constructor` keys are skipped (see parseStored).
  * A payload with `ops` (0.2.2) brings the per-operator 潜能 / 练度 too (`ops` in the result — absent when the payload has
  * none: an older export leaves the current settings alone); a payload of settings only imports.
+ * A v2 payload (DESIGN §35.23) gives `byChar` (choices by operator) instead of `entries`; a v1 one gives `entries` by
+ * 第二期下半's chess ids (the caller maps them: ui/loadoutSync.js).
  * @param {any} input payload object or serialised text
- * @returns {{ ok: true, entries: Record<string, any>, ops?: Record<string, any> } | { ok: false, error: string }}
+ * @returns {{ ok: true, entries?: Record<string, any>, byChar?: Record<string, any>, ops?: Record<string, any> } | { ok: false, error: string }}
  */
 export function parseImport(input) {
   let raw = input;
@@ -216,8 +311,13 @@ export function parseImport(input) {
   if (v != null && v > LOADOUT_VERSION) return { ok: false, error: t('这份调配来自更新的版本（v{v}），请先更新游戏', { v }) };
   const kind = typeof raw.kind === 'string' ? raw.kind : null;
   if (kind && kind !== LOADOUT_EXPORT_KIND) return { ok: false, error: t('这不是干员调配的数据') };
-  const entries = parseStored(raw);
   const ops = isObj(raw.ops) ? parseStoredOps(raw) : null;
+  if (v === 2) {
+    const byChar = parseStoredByChar(raw);
+    if (!Object.keys(byChar).length && !(ops && Object.keys(ops).length)) return { ok: false, error: t('里面没有有效的调配条目') };
+    return ops ? { ok: true, byChar, ops } : { ok: true, byChar };
+  }
+  const entries = parseStored(raw);
   if (!Object.keys(entries).length && !(ops && Object.keys(ops).length)) return { ok: false, error: t('里面没有有效的调配条目') };
   return ops ? { ok: true, entries, ops } : { ok: true, entries };
 }

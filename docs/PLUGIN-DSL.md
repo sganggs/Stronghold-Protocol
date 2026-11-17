@@ -212,7 +212,7 @@
 ] }
 ```
 
-`elementBurst` 使用 damage.js 已有爆发事件，携带 `target` 和 `source`；不再造伤害或爆发事件。
+`elementBurst` 使用 attack/element.js 已有爆发事件，携带 `target` 和 `source`；不再造伤害或爆发事件。
 [ASSUMED] `element` 是封闭词表：neural（神经，SANITY/1）、erosion（侵蚀，WATER/2）、burn（灼燃，FIRE/3）、
 apoptosis（凋亡，DARK/4）、necrosis（引擎旧有坏死，无新增官方数字 id）。不得用 WATER 等别名或猜测的新元素。
 `targetOnField`、`selfOnField` 必须为布尔值：在场表示存活、未隐藏／移除，友方还必须已部署。

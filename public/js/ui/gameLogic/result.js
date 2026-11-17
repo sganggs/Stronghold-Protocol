@@ -27,6 +27,7 @@ export function normalizeResult(res, pub) {
       seat: int(p.seat, int(pp.seat, 0)),
       name: p.name || pp.name || t('博士'),
       isBot: !!(p.isBot ?? pp.isBot),
+      ...(Number.isInteger(p.aiTakeoverRound ?? pp.aiTakeoverRound) ? { aiTakeoverRound: p.aiTakeoverRound ?? pp.aiTakeoverRound } : {}),
       alive,
       lp: teamLp != null ? (alive === false ? 0 : Math.max(0, teamLp)) : ownLp,
       lpShared: teamLp != null,

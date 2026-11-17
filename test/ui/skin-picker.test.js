@@ -32,10 +32,12 @@ test('the normative picker order keeps the 0.3.1 cultivation section immediately
   const docs = readFileSync(new URL('../../docs/SKINS.md', import.meta.url), 'utf8');
   assert.match(docs, /潜能与练度 immediately follows 皮肤/);
   assert.doesNotMatch(docs, /with 潜能与练度 last/);
-  for (const [file, next] of [['loadout', '<${CultivationSection}'], ['diy', "${!ch.proto && onOps"]]) {
+  // both screens draw the roster's shared CultivationSection — the 自选编队 picker no longer inlines the 0.3.1 detail
+  // block — so 潜能与练度 immediately follows 皮肤 in each of them
+  for (const file of ['loadout', 'diy']) {
     const src = readFileSync(new URL(`../../public/js/screens/${file}.js`, import.meta.url), 'utf8');
     const skin = src.indexOf('<${SkinSection}');
-    assert.ok(skin >= 0 && src.indexOf(next, skin) > skin);
+    assert.ok(skin >= 0 && src.indexOf('<${CultivationSection}', skin) > skin, `${file}.js: 皮肤 then 潜能与练度`);
   }
 });
 
@@ -58,7 +60,7 @@ const MANIFEST = {
           name: '严冬', group: '',
           spine: { front: { skel: '/s/winter/front.skel', atlas: '/s/winter/front.atlas', textures: ['/s/winter/front.png'], anims: { idle: 'Idle' } } },
         },
-        // art but no model: shown nowhere, offered nowhere
+        // art but no model: wearable with the default battle model
         [ART_ONLY]: { name: '只有画', group: '', avatar: '/a/art.png' },
       },
     },
@@ -103,11 +105,14 @@ describe('皮肤 picker: what one operator offers', () => {
     assert.equal(rows[0].avatar, null, 'nothing invented for a field the plugin did not write');
   });
 
-  test('a skin without a model is listed but NOT wear-able (the renderer would draw the operator\'s own body)', () => {
+  test('a picture-only skin is wearable with a note; model outfits keep their behavior', () => {
     const by = Object.fromEntries(availableSkins(OPERATOR).map((r) => [r.id, r]));
     assert.equal(by[SKIN].playable, true);
     assert.equal(by[SKIN2].playable, true);
-    assert.equal(by[ART_ONLY].playable, false);
+    assert.equal(by[ART_ONLY].playable, true);
+    assert.equal(by[ART_ONLY].pictureOnly, true);
+    assert.equal(by[SKIN].pictureOnly, false);
+    assert.equal(by[SKIN2].pictureOnly, false);
     assert.equal(by[ART_ONLY].avatar, '/a/art.png', 'its art is still worth looking at');
   });
 
@@ -128,9 +133,9 @@ describe('皮肤 picker: what one operator offers', () => {
   test('hasAnySkinChoices is the GLOBAL rule: one operator with a wear-able skin is enough', () => {
     assert.equal(hasAnySkinChoices(), true, 'OPERATOR has two wear-able skins');
     assert.equal(availableSkins(OTHER).some((x) => !x.own && x.playable), false, 'and OTHER has none of its own');
-    // the same manifest without it: nothing anywhere is wear-able, so no section is shown for anyone
+    // A picture-only pack also enables the global picker.
     const artOnly = { chars: { [OPERATOR]: { avatar: '/a.png', skins: { [ART_ONLY]: { name: '画', avatar: '/b.png' } } } } };
-    withManifest(artOnly, () => assert.equal(hasAnySkinChoices(), false, 'a plugin that only adds pictures turns nothing on'));
+    withManifest(artOnly, () => assert.equal(hasAnySkinChoices(), true, 'a picture-only outfit enables the picker'));
     const noSkins = { chars: { [OTHER]: { avatar: '/a/kalts.png', portrait: '/p/kalts_1.png' }, [ILLUSTR_ONLY]: { illust: '/i/pepe.png' } } };
     withManifest(noSkins, () => assert.equal(hasAnySkinChoices(), false, 'no plugin, or 立绘 only: every operator looks untouched'));
     withManifest({ chars: {} }, () => assert.equal(hasAnySkinChoices(), false, 'an empty manifest'));
@@ -142,9 +147,9 @@ describe('皮肤 picker: what one operator offers', () => {
     assert.equal(hasSkinChoices(OTHER), false, 'no skin of its own, whatever the rest of the manifest holds');
     assert.equal(hasSkinChoices('char_002_amiya'), false, 'an operator the manifest does not hold');
     assert.equal(hasSkinChoices(null), false);
-    // art only is not a second choice: 默认 would be the only selectable tile
+    // Picture-only outfits are a second choice.
     const artOnly = { chars: { [OPERATOR]: { avatar: '/a.png', skins: { [ART_ONLY]: { name: '画', avatar: '/b.png' } } } } };
-    withManifest(artOnly, () => assert.equal(hasSkinChoices(OPERATOR), false, 'a plugin that only adds a picture offers no choice'));
+    withManifest(artOnly, () => assert.equal(hasSkinChoices(OPERATOR), true, 'a picture-only outfit is offered'));
   });
 
   test('the section is gated globally, not per operator (the picker must not go back to hasSkinChoices)', () => {
@@ -159,7 +164,7 @@ describe('皮肤 picker: what one operator offers', () => {
 describe('皮肤 picker: the choice', () => {
   test('a stored id that is not one of this operator\'s wear-able skins counts as 默认', () => {
     assert.equal(chosenSkin(OPERATOR, { [OPERATOR]: SKIN }), SKIN);
-    assert.equal(chosenSkin(OPERATOR, { [OPERATOR]: ART_ONLY }), null, 'no model: not a choice');
+    assert.equal(chosenSkin(OPERATOR, { [OPERATOR]: ART_ONLY }), ART_ONLY, 'picture-only is a choice');
     assert.equal(chosenSkin(OPERATOR, { [OPERATOR]: 'char_498_inside@gone#9' }), null, 'the plugin was switched off');
     assert.equal(chosenSkin(OPERATOR, { [OTHER]: SKIN }), null, 'a skin of another operator');
     assert.equal(chosenSkin(OPERATOR, {}), null);

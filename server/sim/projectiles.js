@@ -22,6 +22,8 @@ export class ProjectileSystem {
     // non-finite coordinates would never "arrive" (NaN distance) and leak the projectile for maxAge
     const fx = fin(from.x, 0), fy = fin(from.y, 0);
     const target = p.target && typeof p.target === 'object' ? p.target : null;
+    const visual = p.visual ?? 'arrow';
+    const speedChangeable = p.speedChangeable ?? (visual !== 'none' && visual !== '');
     const proj = {
       id: ++seq,
       x: fx,
@@ -31,9 +33,12 @@ export class ProjectileSystem {
       tseq: target ? target.deploySeq : 0,
       tx: fin(p.to ? p.to.x : (target ? target.x : fx), fx),
       ty: fin(p.to ? p.to.y : (target ? target.y : fy), fy),
-      speed: p.speed > 0 ? p.speed : PROJECTILE_SPEED,
+      speed: Number.isFinite(p.speed) && p.speed >= 0 ? p.speed : PROJECTILE_SPEED,
       onHit: p.onHit ?? null,
-      visual: p.visual ?? 'arrow',
+      visual,
+      speedChangeable,
+      // PRTS 弹道: automatic removal follows speed-change eligibility, normally visible VFX.
+      removable: p.removable ?? speedChangeable,
       source: p.source ?? (p.from && p.from.id != null ? p.from : null),
       hitDead: !!p.hitDead,
       data: p.data ?? null,
@@ -48,7 +53,9 @@ export class ProjectileSystem {
     if (!this.list.length) return;
     const keep = [];
     const arrived = [];
-    for (const p of this.list) {
+    const moving = this.list;
+    this.list = []; // flight hooks may spawn projectiles; those start moving on the next update.
+    for (const p of moving) {
       p.age += dt;
       if (p.target) {
         if (p.target.alive && !p.target.hidden && p.target.deploySeq === p.tseq) { p.tx = fin(p.target.x, p.tx); p.ty = fin(p.target.y, p.ty); }
@@ -58,16 +65,22 @@ export class ProjectileSystem {
       const dx = p.tx - p.x, dy = p.ty - p.y;
       const d = hypot(dx, dy);
       const step = p.speed * dt;
-      if (d <= step || p.age >= p.maxAge) {
+      const lands = d <= step || p.age >= p.maxAge;
+      if (lands) {
         p.x = p.tx; p.y = p.ty;
-        arrived.push(p);
       } else {
         p.x += (dx / d) * step;
         p.y += (dy / d) * step;
-        keep.push(p);
       }
+      if (this.battle._hooks.projectileStep) {
+        const ctx = { projectile: p, cancel: false };
+        this.battle.emit('projectileStep', ctx);
+        if (ctx.cancel) continue;
+      }
+      if (lands) arrived.push(p);
+      else keep.push(p);
     }
-    this.list = keep;
+    this.list = keep.concat(this.list);
     for (const p of arrived) {
       if (!p.onHit) continue;
       const t = p.target && p.target.alive && p.target.deploySeq === p.tseq ? p.target : null;

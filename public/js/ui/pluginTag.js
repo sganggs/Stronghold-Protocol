@@ -7,12 +7,16 @@
 //   * roomPluginFacts — what the room's plugins are for this player; pluginTagText, sizeText, pluginMicro — their words.
 //   * UnofficialMark — the small 「非官方」 / MOD mark of a match with gameplay plugins (the briefing, the HUD corner, the
 //     result; DESIGN §32.6, the design study's §7.4); nothing for the original game (cosmetic plugins only included).
+//   * VersionTag — the name of the official version a room or a record plays when it is not 第二期下半 (DESIGN §35.23:
+//     the room's top bar beside the mode, the briefing, the settlement and the result beside UnofficialMark, a 统计数据
+//     row [ASSUMED placement]); nothing for 第二期下半. Not unofficial: an official version is the original game.
 // Texts go through t() (docs/I18N.md).
 
 import { useState } from '../../vendor/hooks.module.js';
 import { html, Icon } from './components.js';
 import { t } from '../../../shared/i18n.js';
 import { rulePhrases } from '../../../shared/plugins/rules.js';
+import { DEFAULT_VERSION, versionById } from '../../../shared/versions.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -98,4 +102,17 @@ export function PluginTag({ room, myId }) {
     <${Icon} name=${f.count ? 'edit' : 'check'} />${f.count ? t('插件 ×{n}', { n: f.count }) : t('原版')}${f.modded ? html`<b class="plugtag__mod">${t('非官方')}</b>` : null}${rulesText ? html`<span class="plugtag__rules" data-testid="plugin-rules">${rulesText}</span>` : null}
   </button>
   ${Panel ? html`<${Panel} open=${true} room=${room} myId=${myId} onClose=${() => setPanel(null)} />` : null}`;
+}
+
+/**
+ * The official version's tag (see the header): its name, nothing for 第二期下半 or an unknown id.
+ * @param {{ version?: string|null, room?: any, compact?: boolean, class?: string }} props `room` reads room.state.version
+ */
+export function VersionTag({ version = null, room = null, compact = false, class: cls = '' }) {
+  const id = version ?? room?.version ?? null;
+  const v = typeof id === 'string' && id !== DEFAULT_VERSION ? versionById(id) : null;
+  if (!v) return null;
+  const name = t(v.label);
+  return html`<span class=${cx('vertag', compact && 'vertag--compact', cls)} data-testid="version-tag" data-version=${v.id}
+      title=${t('游戏版本：{name}', { name })} aria-label=${t('游戏版本：{name}', { name })}><span class="vertag__label">${name}</span></span>`;
 }

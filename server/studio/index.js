@@ -55,7 +55,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { APP_VERSION, PLUGIN_API } from '../../shared/constants.js';
-import { PLUGIN_MANIFEST, PLUGIN_LIMITS, PLUGIN_IMAGE_EXTS, PLUGIN_AUDIO_EXTS, extOf, isPackPath, isPluginId } from '../../shared/plugins/manifest.js';
+import { PLUGIN_MANIFEST, PLUGIN_LIMITS, PLUGIN_MAX_BYTES, PLUGIN_IMAGE_EXTS, PLUGIN_AUDIO_EXTS, extOf, isPackPath, isPluginId } from '../../shared/plugins/manifest.js';
 import { LOCK_FILE, locateAssetPath, readPluginLock } from '../../shared/plugins/visual.js';
 import { PLUGIN_ERRORS, isPluginErrorCode, issueList } from '../../shared/plugins/errors.js';
 import { CATALOG_FETCH_MAX_BYTES, annotateCatalog, readCatalog } from '../../shared/plugins/catalog.js';
@@ -95,7 +95,7 @@ function forgeUpload(body) {
   if (typeof body.zip === 'string' && body.zip) {
     const buf = Buffer.from(body.zip, 'base64');
     if (!buf.length) throw new StudioError('PLUGIN_FORGE_INPUT', 400, { detail: 'empty zip' }, 'empty zip');
-    if (buf.length > PLUGIN_LIMITS.pluginBytes) throw new StudioError('PLUGIN_FORGE_ZIP', 400, { detail: 'zip is larger than 200 MB' }, 'zip is larger than 200 MB');
+    if (buf.length > PLUGIN_MAX_BYTES) throw new StudioError('PLUGIN_FORGE_ZIP', 400, { detail: `zip is larger than ${PLUGIN_MAX_BYTES / 1048576} MB` }, `zip is larger than ${PLUGIN_MAX_BYTES / 1048576} MB`);
     return { zip: buf };
   }
   if (Array.isArray(body.files)) {
@@ -108,7 +108,7 @@ function forgeUpload(body) {
       if (!name || typeof f?.data !== 'string') throw new StudioError('PLUGIN_FORGE_INPUT', 400, { detail: 'each file needs a name and base64 data' }, 'each file needs a name and base64 data');
       const data = Buffer.from(f.data, 'base64');
       total += data.length;
-      if (data.length > PLUGIN_LIMITS.pluginBytes || total > PLUGIN_LIMITS.pluginBytes) throw new StudioError('PLUGIN_FORGE_ZIP', 400, { detail: 'files are larger than 200 MB' }, 'files are larger than 200 MB');
+      if (data.length > PLUGIN_MAX_BYTES || total > PLUGIN_MAX_BYTES) throw new StudioError('PLUGIN_FORGE_ZIP', 400, { detail: `files are larger than ${PLUGIN_MAX_BYTES / 1048576} MB` }, `files are larger than ${PLUGIN_MAX_BYTES / 1048576} MB`);
       if (map.has(name)) throw new StudioError('PLUGIN_FORGE_ZIP', 400, { detail: `${name.slice(0, 80)}: duplicate name` }, `${name.slice(0, 80)}: duplicate name`);
       map.set(name, data);
     }
@@ -830,7 +830,7 @@ export function createStudio({ publicDir, pluginsDir, dataDir, registry, lobby =
       return json(200, {
         // key: whether this request carried the studio's key ('ok'), another value ('wrong') or none ('missing')
         key: keyed(req) ? 'ok' : req.headers['x-sp-studio'] ? 'wrong' : 'missing',
-        app: APP_VERSION, api: PLUGIN_API, mode, watching: watcher.active, limits: { ...STUDIO_LIMITS, pluginBytes: PLUGIN_LIMITS.pluginBytes, trial: TRIAL_LIMITS, removeMax: REMOVE_MAX },
+        app: APP_VERSION, api: PLUGIN_API, mode, watching: watcher.active, limits: { ...STUDIO_LIMITS, pluginBytes: PLUGIN_LIMITS.pluginBytes, maxPluginBytes: PLUGIN_MAX_BYTES, trial: TRIAL_LIMITS, removeMax: REMOVE_MAX },
         templates: TEMPLATES.map((t) => ({ id: t.id, class: t.class, kinds: t.kinds })), kinds: Object.keys(TARGET_KINDS),
       });
     }

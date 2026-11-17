@@ -40,7 +40,7 @@ function makeData(src) {
     } catch { /* ignore */ }
     return null;
   };
-  // 0.2.0 补位: the composed stand-in record of a chess (shared/standIn.js over data/backups.json), cached per chess
+  // Composed records follow both source files, including a version/content change on a live data store.
   const standIns = new Map();
   const backups = () => {
     try { return (src && typeof src.get === 'function' ? src.get('backups') : src && src.backups) || null; } catch { return null; }
@@ -49,10 +49,11 @@ function makeData(src) {
     const c = look('chess', id);
     const b = backups();
     if (!c || !b) return null;
-    if (standIns.has(c)) return standIns.get(c);
+    const cached = standIns.get(c);
+    if (cached?.backups === b) return cached.rec;
     let rec;
     try { rec = standInRecord(c, b); } catch { rec = null; }
-    standIns.set(c, rec);
+    standIns.set(c, { backups: b, rec });
     return rec;
   };
   // 0.2.0 自选编队: the composed 自选 record of a DIY slot filled with a pick (shared/diy.js over chess.json + backups.json)
@@ -64,12 +65,14 @@ function makeData(src) {
     const c = look('chess', id);
     const b = backups();
     if (!c || !c.isDiy || !b || !pick || typeof pick.charId !== 'string') return null;
+    const chess = chessMap();
     const key = `${id}|${pick.charId}|${pick.skillIndex ?? ''}|${pick.uniEquipId ?? ''}`;
-    if (diys.has(key)) return diys.get(key);
+    const cached = diys.get(key);
+    if (cached?.chess === chess && cached?.backups === b) return cached.rec;
     let rec;
-    try { rec = diyRecordOf(c, pick, { chess: chessMap(), backups: b }); } catch { rec = null; }
+    try { rec = diyRecordOf(c, pick, { chess, backups: b }); } catch { rec = null; }
     if (rec && b.units?.[pick.charId]?.fx) rec = { ...rec, fx: b.units[pick.charId].fx };
-    diys.set(key, rec);
+    diys.set(key, { chess, backups: b, rec });
     return rec;
   };
   return {

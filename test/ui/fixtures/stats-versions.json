@@ -1,0 +1,103 @@
+{
+  "app": "stronghold-protocol",
+  "kind": "local-stats",
+  "v": 3,
+  "exportedAt": "2026-10-21T00:00:00.000Z",
+  "records": [
+    {
+      "id": "r1.3efebf51",
+      "v": 3,
+      "t": 1792497600000,
+      "end": "settled",
+      "victory": true,
+      "roundsPassed": 14,
+      "lastRound": null,
+      "hiddenReached": false,
+      "hiddenCleared": false,
+      "reason": "boss_defeated",
+      "modeId": "mode_multi_normal",
+      "difficulty": "NORMAL",
+      "stageId": "act1autochess_m02",
+      "bossId": null,
+      "hiddenBossId": null,
+      "seed": 11,
+      "durationMs": 1200000,
+      "teamLp": 20,
+      "roomMode": "coop",
+      "selfId": "p_fixture",
+      "vs": null,
+      "content": null,
+      "version": "act1autochess",
+      "players": [
+        {
+          "playerId": "p_fixture",
+          "seat": 0,
+          "name": "可露希尔",
+          "isBot": false,
+          "left": false,
+          "alive": true,
+          "victory": true,
+          "roundsPassed": 14,
+          "eliminatedRound": null,
+          "lp": 20,
+          "bandId": null,
+          "title": null,
+          "trophies": 10,
+          "reward": 60,
+          "lineup": [],
+          "bonds": [],
+          "stats": {
+            "kills": 30
+          }
+        }
+      ]
+    },
+    {
+      "id": "r1.96cc9592",
+      "v": 3,
+      "t": 1792411200000,
+      "end": "settled",
+      "victory": true,
+      "roundsPassed": 9,
+      "lastRound": null,
+      "hiddenReached": false,
+      "hiddenCleared": false,
+      "reason": "boss_defeated",
+      "modeId": "mode_single_funny",
+      "difficulty": "FUNNY",
+      "stageId": "act1autochess_m02",
+      "bossId": null,
+      "hiddenBossId": null,
+      "seed": 12,
+      "durationMs": 1200000,
+      "teamLp": 20,
+      "roomMode": "solo",
+      "selfId": "p_fixture",
+      "vs": null,
+      "content": null,
+      "players": [
+        {
+          "playerId": "p_fixture",
+          "seat": 0,
+          "name": "可露希尔",
+          "isBot": false,
+          "left": false,
+          "alive": true,
+          "victory": true,
+          "roundsPassed": 14,
+          "eliminatedRound": null,
+          "lp": 20,
+          "bandId": null,
+          "title": null,
+          "trophies": 10,
+          "reward": 60,
+          "lineup": [],
+          "bonds": [],
+          "stats": {
+            "kills": 30
+          }
+        }
+      ]
+    }
+  ]
+}

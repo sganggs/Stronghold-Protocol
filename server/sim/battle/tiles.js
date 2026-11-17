@@ -12,6 +12,9 @@ export class BattleTiles {
 
   /** Move an ally to another tile (keeps state); never onto a living unit or a knocked-out operator (downOn). */
   relocate(unit, r, c) {
+    // These content-only pursuers use continuous coordinates and never own an _occ slot; a tile relocation would
+    // silently turn them into ordinary blockers and could overwrite the operator whose death site they share.
+    if (unit?.mem?.lethaniaPursuit) return false;
     // only a living, deployed ally moves, and only onto an integer tile of this field (a dead unit left in _occ
     // would later "block" from a tile it no longer stands on once it redeploys at home)
     if (!unit || unit.side !== 'ally' || !unit.alive || !unit.deployed) return false;
@@ -44,6 +47,11 @@ export class BattleTiles {
    */
   moveRedeploy(unit, r, c, { clearSp = false } = {}) {
     if (!this.relocate(unit, r, c)) return false;
+    // #903: a 【移动】 is a retreat and redeploy (PRTS 术语释义「移动」), so the element gauges reset like a real deployment
+    // (deploy.js) and an element burst's lock goes with them; the other buffs stay (DESIGN §22.3)
+    for (const b of unit.buffs.filter((x) => x.flags && x.flags.burstLock)) this.removeBuff(unit, b);
+    unit.elem.burn = unit.elem.neural = unit.elem.necrosis = unit.elem.apoptosis = unit.elem.erosion = 0;
+    unit.markDirty();
     unit.deploySeq = ++this._deploySeq;
     unit.aggroSeq = unit.deploySeq;
     unit.deployedAt = this.time;

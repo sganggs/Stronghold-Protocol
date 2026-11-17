@@ -58,11 +58,11 @@ export function CardPreview({ target, version }) {
         </div>
       </div>
       <${Pair} label=${t('卡片头像（商店、整备区、干员调配）')} testid="pair-thumb"
-        left=${html`<${UnitThumb} kind="chess" id=${chess.chessId} rec=${chess} size="lg" />`}
-        right=${html`<${UnitThumb} kind="chess" id=${chess.chessId} rec=${plugin} size="lg" />`} />
+        left=${html`<${UnitThumb} kind="chess" ownerId=${null} id=${chess.chessId} rec=${chess} size="lg" />`}
+        right=${html`<${UnitThumb} kind="chess" ownerId=${null} id=${chess.chessId} rec=${plugin} size="lg" />`} />
       <${Pair} label=${t('详情卡（立绘）')} testid="pair-detail"
-        left=${html`<div class="st-dcard dpanel"><div class="dpanel__scroll"><${ChessDetail} chess=${chess} /></div></div>`}
-        right=${html`<div class="st-dcard dpanel"><div class="dpanel__scroll"><${ChessDetail} chess=${plugin} /></div></div>`} />
+        left=${html`<div class="st-dcard dpanel"><div class="dpanel__scroll"><${ChessDetail} ownerId=${null} chess=${chess} /></div></div>`}
+        right=${html`<div class="st-dcard dpanel"><div class="dpanel__scroll"><${ChessDetail} ownerId=${null} chess=${plugin} /></div></div>`} />
     </div>`;
   }
   if (target.kind === 'token') {

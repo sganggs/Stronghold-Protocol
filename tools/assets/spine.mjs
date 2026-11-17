@@ -135,9 +135,73 @@ const PRISONER_GREY_3 = Object.freeze({
  */
 const UTAGE_S1 = Object.freeze({ begin: 'Skill_Start', loop: 'Skill_Loop', end: 'Skill_End', index: 0, idle: null });
 const UTAGE_S2 = Object.freeze({ ...clipOf('Attack', 'attack'), index: 1, idle: null });
+/**
+ * An enemy's skill slots (`anims.skills`: the slot = the skill's index in data/enemies.json `skills[]`, what a sim
+ * ['cast', id, slot] event names) → the clip of that skill's official ability: the prefab's EnemySkill ability
+ * `_animKey` (fx/index.json `units.<key>.skills.<prefabKey>.abilities[].animKey`, read from the same battle prefab). The
+ * resolver pairs the numbered clips with the slots by name (Skill_n = slot n−1), which these prefabs do not follow.
+ */
+const slotClips = (clips) => Object.freeze(Object.fromEntries(clips.map((loop, index) => [index, Object.freeze({ begin: null, loop, end: null, index, idle: null })])));
+// 假想敌：胄 (enm_pfb_28.ab; enemy_9013_acstmk_2 shares the model): skills "1" (灭顶之灾) Skill_1, "2" (死亡集群)
+// Skill_3 — not Skill_2 —, "3" (_2 only) Revive
+const HELM_SKILLS = slotClips(['Skill_1', 'Skill_3', 'Revive']);
+// 盐风主教昆图斯 (enm_pfb_18.ab): Tidewater* (大潮) Skill_02, Rockfall* (崩坍) Skill_01, SummonTentac* (断裂生殖) Skill_03 in
+// every form, Doom (物种爆发) Skill_04 — the slots run Tidewater, Rockfall, SummonTentac, …G1, …G2, Doom
+const QUINTUS_SKILLS = slotClips(['Skill_02', 'Skill_01', 'Skill_03', 'Skill_02', 'Skill_01', 'Skill_03', 'Skill_02', 'Skill_01', 'Skill_03', 'Skill_04']);
+// 阿利斯泰尔 (enm_pfb_29.ab): equip / equipA Skill_1, store / storeA Skill_2, Suicide Skill_3
+const LION_SKILLS = slotClips(['Skill_1', 'Skill_2', 'Skill_2', 'Skill_1', 'Skill_3']);
+/** One skill slot's clip: a clip name or `{ begin, loop, end }`; `extra` adds `via` / `strike`. */
+const slotClip = (index, c, extra = null) => Object.freeze({ ...(typeof c === 'string' ? { begin: null, loop: c, end: null } : c), index, idle: null, ...extra });
+const slotMap = (list) => Object.freeze(Object.fromEntries(list.map((c) => [c.index, c])));
+// 泥岩 (Skills/RefreshShield, Skills/Occupy, AnimatedActionToTargetAbility): RefreshShield Skill_2, occupy Skill_1 — the
+// names run the other way round (until 0.3.2 the 屏障 refresh played the 1.5 s Skill_1 for its 1.333 s Skill_2)
+const MDROCK_SKILLS = slotMap([slotClip(0, 'Skill_2'), slotClip(1, 'Skill_1')]);
+// “自在”: CrossAttack (纬地经天, RangedAttackWithExtraActions, both modes) Skill_01_02 — not Skill_01 —; ShieldBurst /
+// ShieldBurstReborn (破桎而出, MeleeAttack) have an empty _animKey: the skeleton's one Skill_02 set for both [ASSUMED: by the
+// clip names; until 0.3.2 the second form's ShieldBurstReborn, slot 2, had no clip and played the cross's Skill_01]; the
+// two CrossAttackMark* slots are buffs the sim never casts
+const XI_BURST = Object.freeze({ begin: 'Skill_02_Begin', loop: 'Skill_02_Loop', end: 'Skill_02_End' });
+const XI_SKILLS = slotMap([slotClip(0, 'Skill_01_02'), slotClip(1, XI_BURST), slotClip(2, XI_BURST)]);
+// “斩胄之剑” / “破胄之锤” (enm_pfb_28.ab, EmptyAnimatedAbility): skill "1" (掷剑 / 掷锤) Launch_Begin, "2" Back_End — not the
+// name-resolved Skill clip
+const HAND_SKILLS = slotMap([slotClip(0, 'Launch_Begin'), slotClip(1, 'Back_End')]);
+// 锏 (Modes/Default CircleAttack A_Skill2, Modes/Reborn CircleAttack2 B_Skill2): 肆虐风雪 in each form — until 0.3.2 no clip
+// (the attack role); Blink / Blink2 (速杀, ActiveBuffAbility) name no clip and keep that attack role (via 'attack': none)
+const MACE_SKILLS = slotMap([slotClip(0, 'A_Skill2'), slotClip(1, 'A_Attack', { via: 'attack' }), slotClip(2, 'B_Skill2'), slotClip(3, 'B_Attack', { via: 'attack' })]);
+// Attack-class skills the sim casts as one of the enemy's attacks (castSlot in a `before` hook: no skill window) — `strike`:
+// that attack plays the slot's clip in place of the attack clip (render/units.js UnitView.onCast, render/spine.js
+// castStrike). 杰斯顿·威廉姆斯: ironsandstorm (RangedAttack, Modes/Default) C1_Skill, armorpiercing (MultiMeleeAttack,
+// Modes/R) C2_Skill; “碎铳之簧” 元素护盾 / 频次护盾: skill "1" (RangedAttack Skill_b / MultiRangedAttack Skill_c). Until 0.3.2
+// every one of them swung its attack clip.
+const WARDEN_SKILLS = slotMap([slotClip(0, 'C1_Skill', { strike: true }), slotClip(1, 'C2_Skill', { strike: true })]);
+// 后兽 (enemy_2123_dyjsww, the tail 矩兽 summons; fx/index.json units.enemy_2123_dyjsww): the name rule pairs
+// Skill_2_A with slot 1. The abilities name Blink Skill_B, SummonBranchEnemy Skill_B, Punishment Skill_A and
+// GlobalDoom Skill_2_A. kitTail casts Blink, Punishment and GlobalDoom. DyjswwSwitch's animKey Translate is not a
+// clip of the skeleton [ASSUMED: the body keeps Idle_A, the resolved attack, which is the idle]. Skill_2_B is
+// named by no ability. 破城者 (SkyProjectile F_Skill; the attack role is F_Attack) and 神勇的帕拉杜利斯
+// (rushEndNormal Skill_End, rushEndAdvance Stun_Begin) stay resolved: no kit casts those slots.
+const TAIL_SKILLS = slotMap([
+  slotClip(0, 'Idle_A', { via: 'attack' }),
+  slotClip(1, 'Skill_B'),
+  slotClip(2, 'Skill_B'),
+  slotClip(3, 'Skill_A'),
+  slotClip(4, 'Skill_2_A'),
+]);
 export const PREFAB_SPINE_ROLES = Object.freeze({
   enemy_1116_liprr: PRISONER_GREY_3,
   enemy_1116_liprr_2: PRISONER_GREY_3,
+  enemy_9013_acstmk: { skills: HELM_SKILLS },
+  enemy_1521_dslily: { skill: QUINTUS_SKILLS[0], skills: QUINTUS_SKILLS },
+  enemy_9032_aclionk: { skills: LION_SKILLS },
+  enemy_1511_mdrock: { skill: MDROCK_SKILLS[0], skills: MDROCK_SKILLS },
+  enemy_1517_xi: { skill: XI_SKILLS[0], skills: XI_SKILLS },
+  enemy_9014_acstma: { skill: HAND_SKILLS[0], skills: HAND_SKILLS },
+  enemy_9015_acstmb: { skill: HAND_SKILLS[0], skills: HAND_SKILLS },
+  enemy_1525_blkswb: { skills: MACE_SKILLS },
+  enemy_1516_jakill: { skills: WARDEN_SKILLS },
+  enemy_9019_actrpb: { skills: slotMap([slotClip(0, 'Skill_b', { strike: true })]) },
+  enemy_9020_actrpc: { skills: slotMap([slotClip(0, 'Skill_c', { strike: true })]) },
+  enemy_2123_dyjsww: { skill: TAIL_SKILLS[0], skills: TAIL_SKILLS },
   // operators by character id: both the front and the back model
   char_337_utage: { skill: UTAGE_S2, skills: { 0: UTAGE_S1, 1: UTAGE_S2 } },
 });
@@ -155,9 +219,11 @@ export function applyRoleFix(roles, fix, durations) {
   const out = { ...roles };
   const missing = [];
   const has = (n) => n == null || Object.hasOwn(durations || {}, n);
+  const clipOk = (c) => !!c && typeof c === 'object' && [c.begin, c.loop, c.end, c.idle].every(has);
   for (const [role, v] of Object.entries(fix)) {
-    const names = typeof v === 'string' ? [v] : v && typeof v === 'object' ? [v.begin, v.loop, v.end, v.idle] : [null];
-    if (names.every(has)) out[role] = v;
+    // a clip name, a clip, null (no such role) — or for `skills` a map slot → clip, every slot's clips checked
+    const ok = typeof v === 'string' ? has(v) : v == null ? true : role === 'skills' ? Object.values(v).every(clipOk) : clipOk(v);
+    if (ok) out[role] = v;
     else missing.push(role);
   }
   return { roles: out, missing };
@@ -165,7 +231,8 @@ export function applyRoleFix(roles, fix, durations) {
 
 /**
  * Spine metadata of extracted models (findLocalEnemyModels / findLocalTokenModels), parsed like processModels does — but
- * read only: the atlas is sized / pma-normalized in memory (extract.py already writes it so), nothing on disk changes.
+ * read only: the atlas is sized in memory (extract.py already writes it so) and its `pma` line is read as it is
+ * (a straight-page extraction writes none), nothing on disk changes.
  * Roles are resolved for skill index 0 (an enemy also for its numbered skill clips), like the web enemy and token models,
  * then LOCAL_SPINE_ROLES applied.
  * @param {string} root absolute public/assets directory
@@ -186,7 +253,7 @@ export async function localSpineMeta(root, found) {
         if (!sz) throw new Error(`invalid page ${page}`);
         sizes.set(page, sz);
       }
-      const norm = normalizeAtlas(text, { pageSize: (p) => sizes.get(p) || null, pma: true });
+      const norm = normalizeAtlas(text, { pageSize: (p) => sizes.get(p) || null });
       if (norm.missingSize.length) throw new Error(`cannot size pages ${norm.missingSize.join(',')}`);
       const info = atlasInfo(norm.text);
       if (!info.pages.length) throw new Error('atlas without pages');
@@ -196,7 +263,7 @@ export async function localSpineMeta(root, found) {
       const fixed = applyRoleFix(resolveRoles(sk.animations, { skillIndices: [0], numberedSkills: id.startsWith('enemy_'), durations: sk.durations }), LOCAL_SPINE_ROLES[id], sk.durations);
       if (fixed.missing.length) problems.push(`${id}: role fix not applied (clip missing) for ${fixed.missing.join(', ')}`);
       meta[id] = {
-        skel: base(m.skel), atlas: base(m.atlas), textures: info.pages, pma: true,
+        skel: base(m.skel), atlas: base(m.atlas), textures: info.pages, pma: info.hasPma,
         anims: fixed.roles,
         animations: sk.durations, events: sk.events, hits: sk.hits, bounds: sk.bounds,
       };

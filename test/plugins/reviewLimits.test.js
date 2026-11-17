@@ -187,7 +187,7 @@ test('named operator, band, hammer, 黑云 and warden loops stop at the official
       grantChess() { grants++; return true; },
     };
     const tBand = Date.now();
-    bandMetaHandler('band_orchid').onRoundStart(ctx);
+    bandMetaHandler('band_orchid').onPrepStart(ctx); // the prep start since GitHub #851
     assert.equal(grants, countCap);
     assert.ok(Date.now() - tBand < 1000, `orchid ${Date.now() - tBand}ms`);
   } finally {

@@ -27,6 +27,104 @@ function py(code) {
 }
 
 describe('extract.py helpers (no UnityPy needed)', { skip: !PY && 'no python3' }, () => {
+  test('规程 water sheets become one quad and low ground outside a piece is kept', () => {
+    const out = py(`import regulation_scenes as r
+quads = [(1, -3.73, 16.52, -8.50, 4.97), (2, -0.57, 19.67, -8.81, 4.65), (3, 0.46, 20.70, -0.60, 12.86)]
+outside = r.place_floor_triangle(3, [9.8, 10.2, 10.0], [-4.2, -4.2, -3.8], [-1, -1, -1])
+dune = r.place_floor_triangle(3, [9.8, 10.2, 10.0], [-4.2, -4.2, -3.8], [1, 1, 1])
+strict = r.place_triangle(1, [3.8, 4.2, 4.0], [-0.2, -0.2, 0.2])
+print(json.dumps({
+  'water': r.water_sheet_quads(quads),
+  'same': r.place_floor_triangle(1, [3.8, 4.2, 4.0], [-0.2, -0.2, 0.2], [-1, -1, -1]) == tuple(strict),
+  'outside': outside, 'dune': dune,
+  'decal': r._is_water_sheet('platform_water', 'Torappu/Scene/DynamicWaterTile', 20, 0),
+  'sheet': r._is_water_sheet('MT_AutochessSand_water', '', 20, 0),
+  'tess': r._is_water_sheet('MT_church_tower_water', 'Torappu/Scene/StylizedWater', 20, 0, 95),
+  'river': r._is_water_surface('MT_church_tower_water', 'Torappu/Scene/StylizedWater'),
+  'bg': r._is_background_sheet('lit', 20, 30),
+}))`);
+    assert.deepEqual(out.water, [[-3.73, -1.5, 20.7, 19.86]]);
+    assert.equal(out.same, true);
+    assert.deepEqual(out.outside, [0, '']);
+    assert.equal(out.dune, null);
+    assert.equal(out.decal, false);
+    assert.equal(out.sheet, true);
+    assert.equal(out.tess, false);
+    assert.equal(out.river, true);
+    assert.equal(out.bg, true);
+  });
+
+  test('Windows hot updates select installed current bundles, retain base dependencies and exclude stale copies', () => {
+    const out = py(`
+import tempfile
+from pathlib import Path
+from bundles import client_bundles
+with tempfile.TemporaryDirectory() as tmp:
+    data = Path(tmp) / 'Arknights_Data'
+    base = data / 'StreamingAssets/AB/Windows'
+    hot = data / 'PersistentData/Bundles'
+    def put(root, name, value):
+        p = root / name
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(value)
+    def index(root, name, version, records):
+        put(root, name, json.dumps({'versionId': version, 'manifestName': 'current.idx', 'manifestVersion': 'V1',
+                                   'abInfos': [{'name': n, 'hash': h} for n,h in records]}))
+    old = [('ui/shared.ab','old'), ('refs/dependency.ab','same'), ('ui/missing.ab','old'), ('ui/removed.ab','old')]
+    new = [('ui/shared.ab','new'), ('refs/dependency.ab','same'), ('ui/missing.ab','new'), ('ui/new.ab','new')]
+    index(base, 'hot_update_list.json', '26-10-20', old)
+    index(hot, 'hot_update_list.json', '26-11-06', new)
+    index(hot, 'persistent_res_list.json', '26-11-06', [('ui/shared.ab','new'), ('ui/missing.ab','old'), ('ui/new.ab','new')])
+    for n,h in old: put(base, n, h)
+    for n,h in [('ui/shared.ab','new'), ('ui/missing.ab','old'), ('ui/new.ab','new')]: put(hot, n, h)
+    # Filesystem dates do not decide which release a bundle belongs to.
+    import os
+    os.utime(hot/'ui/shared.ab', (1,1))
+    with client_bundles(base, lambda line: None) as active:
+        result = {p.relative_to(active).as_posix(): p.read_text() for p in active.rglob('*.ab')}
+        assert json.loads((active/'hot_update_list.json').read_text())['versionId'] == '26-11-06'
+        temporary = active
+    assert not temporary.exists()
+    assert (base/'ui/shared.ab').read_text() == 'old'
+    assert (hot/'ui/shared.ab').read_text() == 'new'
+    index(base, 'hot_update_list.json', '26-12-01', old)
+    with client_bundles(base) as active: assert active == base.resolve()
+    with client_bundles(Path(tmp)/'archive') as active: assert active == (Path(tmp)/'archive').resolve()
+    print(json.dumps(result))
+`);
+    assert.deepEqual(out, { 'ui/shared.ab': 'new', 'ui/new.ab': 'new', 'refs/dependency.ab': 'same' });
+  });
+
+  test('local audio resolves packed WAV container names and publishes missing MP3s without replacing existing files', () => {
+    const out = py(`
+import tempfile, types
+from pathlib import Path
+from unittest.mock import patch
+import versions
+clip = NS(m_Name='P_Atk_Test', samples={'test.wav': b'decoded wave'})
+obj = NS(type=NS(name='AudioClip'), read=lambda: clip)
+env = NS(container={'dyn/audio/sound_beta_2/player/p_atk/p_atk_test.wav': obj}, objects=[obj])
+sys.modules['UnityPy'] = NS(load=lambda path: env)
+with tempfile.TemporaryDirectory() as tmp:
+    root = Path(tmp); ab = root/'bundles'; stage=root/'stage'; stage.mkdir()
+    pack=ab/'audio/sound_beta_2/player/p_atk_1.ab'; pack.parent.mkdir(parents=True); pack.write_bytes(b'pack')
+    jobs=[{'bundle':'audio/sound_beta_2/player/p_atk/p_atk_test.ab','clip':'p_atk_test',
+           'source':'dyn/audio/sound_beta_2/player/p_atk/p_atk_test.ogg','path':'audio/sfx/test.mp3'}]
+    def encode(args, **kwargs):
+        assert kwargs['input'] == b'decoded wave'
+        Path(args[-1]).write_bytes(b'encoded mp3')
+    with patch.object(versions.shutil,'which',return_value='ffmpeg'), patch.object(versions.subprocess,'run',side_effect=encode):
+        count=versions.export_audio(ab,stage,root/'assets',jobs,lambda line:None)
+        target=root/'assets/audio/sfx/test.mp3'
+        assert target.read_bytes()==b'encoded mp3'
+        target.write_bytes(b'keep earlier audio')
+        assert versions.export_audio(ab,stage,root/'assets',jobs,lambda line:None)==0
+        assert target.read_bytes()==b'keep earlier audio'
+    print(json.dumps({'added':count}))
+`);
+    assert.deepEqual(out, { added: 1 });
+  });
+
   test('job table: map themes export Materials, the board meshes are exported with their prefab', () => {
     const r = spawnSync(PY, [path.join(TOOL, 'extract.py'), '--print-jobs'], { encoding: 'utf8', env: ENV });
     assert.equal(r.status, 0, r.stderr);
@@ -80,12 +178,24 @@ print(json.dumps({
     'dyn/battle/prefabs/skins/character/token_10002_kalts_mon3tr/token_10002_kalts_mon3tr_boc#6.prefab',
     'dyn/battle/prefabs/[uc]tokens/token_10000_silent_healrb.prefab', None]],
   'only': [e.spine_ids(o, 'spine/token', ids) for o in ([], ['spine'], ['spine/token'], ['spine/token/token_b'], ['spine/enemy'], ['map'])],
+  'jobs': {p: [j[1] for j in e.select_jobs([p])] for p in ['enemy', 'token', 'fx', 'common', 'spine/enemy', 'spine/token', 'ui/outer/some_sprite']},
+  'short': [e.spine_ids(o, 'spine/token', ids) for o in (['enemy'], ['token'], ['nope'])],
+  'shortEnemy': [e.spine_ids(o, 'spine/enemy', ['enemy_a']) for o in (['enemy'], ['spine/enemy'])],
   'pick': [e.pick_spine_node(nodes)[0], e.pick_spine_node([('Spine', True, {}), ('X', True, {})])[0],
            e.pick_spine_node([('Front', False, {}), ('Other', True, {})])[0], e.pick_spine_node([('A', False, {})])[0], e.pick_spine_node([])],
   'pages': e.atlas_pages('\\ntoken_x.png\\nsize: 64,64\\nformat: RGBA8888\\nC_Body\\n  rotate: false\\n  xy: 2, 2\\n\\ntoken_x2.png\\nsize: 32,32\\nC_Leg\\n  xy: 0, 0\\n'),
 }))`);
     assert.deepEqual(out.ids, ['token_10009_weedy_cannon', 'token_10002_kalts_mon3tr', null, null, null]);
     assert.deepEqual(out.only, [['token_a', 'token_b'], ['token_a', 'token_b'], ['token_a', 'token_b'], ['token_b'], [], []]);
+    // the short form the usage line documents: `--only enemy` selects the enemy list and `--only token` this one, not
+    // an empty selection (a prefix naming nothing stays empty: neither list nor job)
+    assert.deepEqual(out.short, [[], ['token_a', 'token_b'], []]);
+    assert.deepEqual(out.jobs.enemy, out.jobs['spine/enemy']);
+    assert.deepEqual(out.jobs.token, out.jobs['spine/token']);
+    assert.ok(out.jobs['ui/outer/some_sprite'].includes('ui/outer'));
+    assert.ok(!out.jobs.fx.includes('map/fx'));
+    assert.ok(!out.jobs.common.includes('ui/common') && !out.jobs.common.includes('map/common'));
+    assert.deepEqual(out.shortEnemy, [['enemy_a'], ['enemy_a']]);
     assert.deepEqual(out.pick, ['Front', 'Spine', 'Other', 'A', null]);
     assert.deepEqual(out.pages, ['token_x.png', 'token_x2.png']);
   });
@@ -124,18 +234,17 @@ print(json.dumps({'nodes': [[n, a, r['m_PathID']] for n, a, r in nodes], 'pick':
     assert.equal(out.pick, 41, 'the Front skeleton (the fetched tokens use Front / Spine too)');
   });
 
-  test('merge_alpha: the [alpha] texture as A, else the page\'s own alpha; RGB clamped to A (premultiplied input), multiplied for straight input', { skip: spawnSync(PY, ['-c', 'import PIL']).status !== 0 && 'no Pillow' }, () => {
+  test('merge_alpha: the [alpha] texture as A, else the page\'s own alpha; the main RGB stays straight (never clamped to A)', { skip: spawnSync(PY, ['-c', 'import PIL']).status !== 0 && 'no Pillow' }, () => {
     const out = py(`
 from PIL import Image
 rgb = Image.new('RGB', (2, 1)); rgb.putdata([(200, 100, 50), (90, 90, 90)])
 alpha = Image.new('RGB', (2, 1)); alpha.putdata([(128, 128, 128), (255, 255, 255)])
 rgba = Image.new('RGBA', (2, 1)); rgba.putdata([(60, 200, 10, 100), (0, 0, 0, 0)])
 print(json.dumps({'split': list(e.merge_alpha(rgb, alpha).getdata()), 'own': list(e.merge_alpha(rgba, None).getdata()),
-  'opaque': list(e.merge_alpha(rgb, None).getdata()), 'straight': list(e.merge_alpha(rgba, None, True).getdata())}))`);
-    assert.deepEqual(out.split, [[128, 100, 50, 128], [90, 90, 90, 255]], 'A from the [alpha] texture, RGB ≤ A');
-    assert.deepEqual(out.own, [[60, 100, 10, 100], [0, 0, 0, 0]], 'an RGBA page keeps its alpha (the newer tokens: _UseAlphaTex 0)');
+  'opaque': list(e.merge_alpha(rgb, None).getdata())}))`);
+    assert.deepEqual(out.split, [[200, 100, 50, 128], [90, 90, 90, 255]], 'A from the [alpha] texture, the main RGB as it is');
+    assert.deepEqual(out.own, [[60, 200, 10, 100], [0, 0, 0, 0]], 'an RGBA page keeps its own alpha and RGB (the newer tokens: _UseAlphaTex 0)');
     assert.deepEqual(out.opaque, [[200, 100, 50, 255], [90, 90, 90, 255]], 'no alpha anywhere: opaque');
-    assert.deepEqual(out.straight, [[23, 78, 3, 100], [0, 0, 0, 0]], '_StraightAlphaInput 1: RGB × A / 255 (Pillow truncates)');
   });
 
   test('material_info: textures by name with tiling, floats, colours, sorted keywords; unresolvable refs → null', () => {

@@ -21,8 +21,11 @@ export class BattleLifecycle {
     // boss) the players' fields deploy at the same time (PRTS: one unit after another with a fixed delay, from the battle
     // start), so the i-th operators of all players come in together (in `players` order), then the summons likewise
     const seq0 = this._deploySeq;
-    const lists = this.players.map((ps) => ps.units.filter((u) => u.kind === 'op' || u.kind === 'token').slice().sort((a, b) =>
-      (ps.mirror ? b.homeC - a.homeC : a.homeC - b.homeC) || b.homeR - a.homeR || a.id - b.id));
+    const rowBottomUp = this.data.raw?.config?.version?.rules?.deployOrder === 'rowBottomUp';
+    const lists = this.players.map((ps) => ps.units.filter((u) => u.kind === 'op' || u.kind === 'token').slice().sort((a, b) => {
+      const col = ps.mirror ? b.homeC - a.homeC : a.homeC - b.homeC;
+      return (rowBottomUp ? a.homeR - b.homeR || col : col || b.homeR - a.homeR) || a.id - b.id;
+    }));
     // a summon piece flagged `deferDeploy` by content (one its owner's loadout does not make — 赫默 on S1 with a drone
     // piece —, or a skill's summon when shared/constants.js SKILL_SUMMON_START_DEPLOY is off: content/tokens.js
     // dockSkillSummons) stays off the field, its tile reserved (isReservedTile), until content deploys it
@@ -107,6 +110,10 @@ export class BattleLifecycle {
           } catch (err) { this._internalError('updateAlly', err); }
         }
       });
+      // Emitted AFTER the skill tick and the allies' attacks: a skill that starts (or ends) this tick has already changed
+      // `s.interval`, so the value the client gets is the one the current swing runs on. (The snapshot carries the same
+      // number, and the view adopts that too - see render/units.js sync - so the event is a fast path, not the only one.)
+      this._phase('rate', () => this._emitRateChanges());
       this._phase('projectiles', () => this.projectiles.update(dt));
       this._phase('redeploy', () => this._checkRedeploys());
       this._phase('boss', () => this._bossSync());
@@ -155,7 +162,7 @@ export class BattleLifecycle {
     // §5.5) — never merely because it emptied: the h07_04 pair leader (official route: no wait) can walk into the
     // objective, and the field then idles while another field may still empty the pool or the overtime drain ends it.
     const poolHolds = !!this.sharedBoss && (this.kind === 'boss' || this.kind === 'hidden');
-    if (this.autoFinish && !poolHolds && !this._pending.length && !this.enemies.some((e) => e.alive) && this.started) {
+    if (this.autoFinish && !poolHolds && !this._pending.length && this.started && !this._anyEnemyAlive()) {
       if (!this._hasPendingEnemySchedules()) { this._finish('cleared'); return; }
     }
     if (this.time >= this.timeLimit - 1e-9) { this._timeout(); return; }
@@ -164,6 +171,13 @@ export class BattleLifecycle {
 
   _hasPendingEnemySchedules() {
     for (const s of this._sched) if (!s.cancelled && s.holdsBattle) return true;
+    return false;
+  }
+
+  /** Is any enemy still alive? (Checked every tick; a plain loop instead of a per-tick `some` closure.) */
+  _anyEnemyAlive() {
+    const list = this.enemies;
+    for (let i = 0; i < list.length; i++) if (list[i].alive) return true;
     return false;
   }
 

@@ -1,6 +1,8 @@
+import { seedReleaseRead } from '../helpers/releaseNotes.js';
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync } from 'node:fs';
+import { DEFAULT_VERSION } from '../../shared/versions.js';
 
 const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const enabled = process.env.SP_E2E === '1' && existsSync(CHROME);
@@ -8,7 +10,8 @@ describe('community UI: lobby header and shared DIY details', { skip: !enabled }
   let srv, browser;
   before(async () => {
     const { startServer } = await import('../../server/index.js');
-    srv = await startServer({ port: 0, host: '127.0.0.1', quiet: true });
+    // written on 盟约 (第二期下半): a stock server's lobby starts on 规程 since 2026-11-09
+    srv = await startServer({ port: 0, host: '127.0.0.1', quiet: true, versions: { default: DEFAULT_VERSION } });
     const P = (await import('puppeteer-core')).default;
     browser = await P.launch({ executablePath: CHROME, headless: true, args: ['--no-sandbox'] });
     mkdirSync(new URL('../e2e/out/', import.meta.url), { recursive: true });
@@ -50,6 +53,7 @@ describe('community UI: lobby header and shared DIY details', { skip: !enabled }
       localStorage.setItem('sp.pref.settings', JSON.stringify({ textSize: 'xl' }));
       localStorage.setItem('sp.pref.lang', JSON.stringify(l));
     }, lang);
+    await seedReleaseRead(page);
     await page.goto(`http://127.0.0.1:${srv.port}/`, { waitUntil: 'networkidle0' });
     await page.waitForSelector('.lobby-screen');
     return { context, page };
@@ -85,7 +89,9 @@ describe('community UI: lobby header and shared DIY details', { skip: !enabled }
             `${a.label} overlaps ${b.label}`);
         }
         await page.screenshot({ path: new URL(`../e2e/out/lobby-header-${width}-${lang}.png`, import.meta.url).pathname });
-        await page.click('.stats-entry'); await page.waitForSelector('.st .st-tab');
+        // 统计数据 from the lobby: the 成就统计 card → its window → 查看完整统计 (the top bar has no 统计数据 chip)
+        await page.click(width < 1000 ? '.hub-plate--ach' : '.hub-ach'); await page.waitForSelector('.modal__box.achv .achv__more', { visible: true });
+        await page.click('.modal__box.achv .achv__more'); await page.waitForSelector('.st .st-tab');
         await page.click('.st-back');
         await page.waitForSelector('.st', { hidden: true });
         await page.click('.lobby-screen [data-testid="settings-btn"]'); await page.waitForSelector('.modal');
@@ -99,11 +105,13 @@ describe('community UI: lobby header and shared DIY details', { skip: !enabled }
       await page.click('.diy-slot[data-slot="chess_char_6_diy1_a"] .diy-slot__fill');
       const picker = '[data-testid="diy-picker"]';
       await page.waitForSelector(`${picker} [data-char="char_112_siege"]`);
-      await page.click(`${picker} [data-char="char_112_siege"]`);
+      await page.click(`${picker} .diy-opt[data-char="char_112_siege"] .diy-opt__pick`);
+    // 窄屏是两步（screens/diy.js sel）：第一下只选中该干员，第二下才让详情滑出
+    if (width < 1000) await page.click(`${picker} .diy-opt[data-char="char_112_siege"] .diy-opt__pick`);
       await page.waitForSelector(`${picker} .lo-sec--stats[data-variant="elite"]`);
       const detail = () => page.$eval(`${picker} .diy-pick__detail`, e => ({ stats: [...e.querySelectorAll('.dstat__v')].map(n => n.textContent),
-        skill: [...e.querySelectorAll('.diy-choice__desc')].map(n => n.textContent), talents: e.querySelectorAll('.lo-minfo__row').length,
-        tags: e.querySelector('.diy-choice__tags')?.textContent }));
+        skill: [...e.querySelectorAll('.lo-skill__desc')].map(n => n.textContent), talents: e.querySelectorAll('.lo-minfo__row').length,
+        tags: e.querySelector('.lo-skill__tags')?.textContent }));
       const elite = await detail(); assert.equal(elite.stats.length, 8); assert.ok(elite.talents >= 2); assert.match(elite.tags, /初始|被动/);
       await page.click(`${picker} button[data-variant="normal"]`);
       await page.waitForSelector(`${picker} .lo-sec--stats[data-variant="normal"]`);

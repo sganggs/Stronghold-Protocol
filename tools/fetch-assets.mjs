@@ -65,7 +65,7 @@ import { Downloader } from './assets/downloader.mjs';
 import { restartForEnvProxy } from './assets/env-proxy.mjs';
 import { MirrorPolicy, selectDownloadSource, validateSource } from './assets/network.mjs';
 import { normalizeProxyPrefix } from './assets/sources.mjs';
-import { loadIndexes } from './assets/cache.mjs';
+import { loadIndexes, localFxIndexPath } from './assets/cache.mjs';
 import { indexAudio, VOICE_DIRS } from './assets/audio.mjs';
 import { buildPlan, charModesFromIndex, VOICE_OPTIONAL_TREES } from './assets/plan.mjs';
 import {
@@ -77,6 +77,7 @@ import { fontJobs, buildFonts } from './assets/fonts.mjs';
 import { statsTemplateJobs } from './assets/stats-template.mjs';
 import { skelParserAvailable } from './assets/skel.mjs';
 import { SourceVerifier } from './assets/source-verifier.mjs';
+import { versionAssetData, presentationUnion, addManifestEntries, versionAudioData, seasonMusicSpec, seasonMusicFiles } from './assets/versions.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ASSETS = join(ROOT, 'public', 'assets');
@@ -421,10 +422,11 @@ async function main() {
   const mirrorPolicy = new MirrorPolicy({ source, proxyPrefix, log });
   const network = { source, proxyPrefix, mirrorPolicy, verifier };
   const { audioData, modelsData, charword } = await loadIndexes(ROOT, { refresh: opts.refreshIndex && !opts.offline, offline: opts.offline, log, ...network });
-  const audio = indexAudio(audioData);
+  // Verified runs plan only from their verified index; the optional pinned local cache has no verifier ledger.
+  const audio = indexAudio(opts.sourceSnapshot ? audioData : versionAudioData(ROOT, audioData));
   // Skill attack slots follow each operator's mode list when the local fx index is on disk (#679). It is a client
   // extract (public/assets is not in git); without it the plan keeps the filename-letter fallback.
-  const fxIndexPath = join(ROOT, 'public', 'assets', 'local', 'fx', 'index.json');
+  const fxIndexPath = localFxIndexPath(ROOT);
   let charModes = null;
   if (existsSync(fxIndexPath)) {
     const fxIndex = JSON.parse(await readFile(fxIndexPath, 'utf8'));
@@ -435,11 +437,13 @@ async function main() {
   }
   // The game data built by tools/build-data.mjs (when present) may reference more
   // spawnable enemies/tokens than research lists (e.g. 机变 enemy swaps): cover them too.
-  const [dataEnemies, dataTokens, dataBosses, dataBackups, dataChess] = await Promise.all(
-    ['data/enemies.json', 'data/tokens.json', 'data/bosses.json', 'data/backups.json', 'data/chess.json'].map((f) => readJson(f).catch(() => null)));
-  const extras = dataExtras(dataBackups, dataChess);
+  const versionSets = versionAssetData(ROOT);
+  const all = presentationUnion(versionSets);
+  log(`[versions] planning presentation for ${versionSets.length} official versions`);
   const extraHandbook = {};
-  for (const b of Object.values(dataBosses || {})) if (b?.enemyKey && typeof b.handbookId === 'string') extraHandbook[b.enemyKey] = b.handbookId;
+  for (const d of versionSets) for (const b of Object.values(d.bosses || {})) {
+    if (b?.enemyKey && typeof b.handbookId === 'string') extraHandbook[b.enemyKey] ??= b.handbookId;
+  }
   const localEnemySpines = await syncLocalSpines(opts, 'enemy');
   const localTokenSpines = await syncLocalSpines(opts, 'token');
   const statsTemplate = await statsTemplateJobs(ROOT, { offline: opts.offline || opts.dryRun, log });
@@ -448,15 +452,19 @@ async function main() {
     // default: only the slots a battle can play (plan.mjs VOICE_BATTLE_SLOTS); --voice-all takes the whole official set
     voiceSlots: opts.voiceAll ? null : undefined,
     optionalVoice: opts.optionalVoice,
-    extraEnemyIds: Object.keys(dataEnemies || {}),
-    extraTokenIds: [...Object.keys(dataTokens || {}), ...extras.tokenIds],
+    extraEnemyIds: Object.keys(all.enemies),
+    extraTokenIds: Object.keys(all.tokens),
     extraHandbook,
     localEnemySpines,
     localTokenSpines,
-    extraOperators: extras.extraOperators,
-    moduleTypes: extras.moduleTypes,
+    extraOperators: all.operators,
+    extraBands: all.bands,
+    extraItems: all.items,
+    extraBonds: all.bonds,
+    moduleTypes: all.moduleTypes,
     statsTemplate,
     charModes,
+    seasonMusic: seasonMusicSpec(ROOT),
   });
   const leaves = collectLeaves(plan.template);
   log(`[plan] ${leaves.length} files + ${plan.models.size} Spine models ` +
@@ -468,6 +476,8 @@ async function main() {
     `${Object.keys(plan.template.audio.voiceEn || {}).length} with EN, ` +
     `${Object.keys(plan.template.audio.voiceKr || {}).length} with KR, ` +
     `${Object.keys(plan.template.audio.voiceNative || {}).length} with an own-language dub)`);
+  const seasonFiles = seasonMusicFiles(plan.template.audio.seasons);
+  if (seasonFiles) log(`[plan] audio.seasons ${JSON.stringify(seasonFiles)}`);
   if (opts.dryRun) {
     for (const n of plan.notes) log(`  note: ${n}`);
     return 0;
@@ -513,13 +523,23 @@ async function main() {
     root: ASSETS, spine: spine.entries, sourceOf: (rel) => dl.ledger.files[rel]?.url,
     ...(verifier ? { available: (rel) => dl.accepted.has(rel) } : null),
   });
-  const body = resolved.value;
+  let body = resolved.value;
   tidyManifest(body);
   tidyVoiceTrees(body);
   const fontFaces = {};
   for (const [name, f] of Object.entries(fonts.files)) fontFaces[name] = f;
   body.fonts = opts.addOnly && current?.fonts ? current.fonts
     : (verifier ? fonts.css : existsSync(join(FONTS, 'fonts.css'))) ? { css: '/fonts/fonts.css', faces: fontFaces } : { faces: fontFaces };
+  if (opts.addOnly && current) {
+    const { version, hash, generator, stats, ...previous } = current;
+    body = addManifestEntries(previous, body);
+    // Retained entries still participate in size accounting and orphan detection.
+    const files = (v) => {
+      if (typeof v === 'string' && v.startsWith('/assets/')) resolved.files.add(v.slice('/assets/'.length));
+      else if (v && typeof v === 'object') for (const x of Object.values(v)) files(x);
+    };
+    files(body);
+  }
   const bytes = totalBytes(ASSETS, resolved.files);
   const manifest = {
     version: MANIFEST_VERSION,
@@ -535,7 +555,7 @@ async function main() {
   const orphans = orphanFiles(await listFiles(ASSETS), new Set([...resolved.files, ...dl.preserved]));
   if (opts.prune) for (const r of orphans) { try { await unlink(join(ASSETS, r)); } catch { /* ignore */ } }
 
-  const charIds = Object.keys(assets07.operators || {});
+  const charIds = Object.keys(plan.template.chars);
   const required = requiredMisses(manifest, charIds);
   // Leaves the plan had resolved and the manifest loses here (no alternative of theirs on disk): reported on their own
   // line below and kept in the report, whether or not they shrink the committed manifest.

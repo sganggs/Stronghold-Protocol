@@ -5,7 +5,6 @@
 
 import { ELEMENT } from '../../constants.js';
 import { canTargetAlly, sortAllyTargets, areaSelectable, auraSelectable } from '../../targeting.js';
-import { mitigate } from '../../damage.js';
 import { hypot } from '../../detmath.js';
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -95,22 +94,84 @@ export function abOf(b, e) {
   list.forEach((s, i) => {
     if (!s || s.prefabKey == null) return;
     const at = base.findIndex((x) => x && x.prefabKey === s.prefabKey);
-    sk[s.prefabKey] = { cd: num(s.cooldown, 0), icd: num(s.initCooldown, 0), sp: num(s.spCost, 0), bb: s.bb || {}, bs: s.bbStr || {}, slot: at >= 0 ? at : i };
+    sk[s.prefabKey] = { cd: num(s.cooldown, 0), icd: num(s.initCooldown, 0), sp: num(s.spCost, 0), pr: num(s.priority, 0), bb: s.bb || {}, bs: s.bbStr || {}, slot: at >= 0 ? at : i };
   });
-  e.mem.ab = { key, t, tS, sk, list: [], times: null, hitShield: 0, atkType: null, immune: null, origMaxHp: e.base.maxHp };
+  e.mem.ab = { key, t, tS, sk, list: [], times: null, atkType: null, immune: null, origMaxHp: e.base.maxHp };
   return e.mem.ab;
+}
+
+/** Native ordinary-priority phys/arts count shield; repeated grants keep the held instance and stronger count. */
+export function grantHitShield(battle, enemy, count) {
+  if (!Number.isFinite(count) || !(count > 0)) return null;
+  const key = 'ab:hitShield';
+  const held = enemy.findBuff(key);
+  if (held) {
+    held.shieldHits = Math.max(held.shieldHits, count);
+    enemy.markDirty();
+    return held;
+  }
+  return battle.addBuff(enemy, { key, shieldHits: count, shieldType: ['phys', 'arts'],
+    onRemove({ buff }) {
+      if (!(buff.shieldHits > 0)) battle.fx('shieldBreak', { x: enemy.x, y: enemy.y, id: enemy.id });
+    } });
 }
 
 /**
  * A display-only client event: enemy `e` uses its skill `s` (an `ab.sk` entry) — ['cast', id, slot] with the slot of
  * its data record's skills[] (`s.slot`) and, when the skill's blackboard has one, its `duration` (render/app.js: the
- * slot's skill clip, render/vfx/skillfx.js: that skill's official effects for the window). No gameplay effect: no state,
- * no random draw (DESIGN §8.2; golden counts the event, nothing else moves).
+ * slot's skill clip, render/vfx/skillfx.js: that skill's official effects for the window). `turnClip` (s, ≥ 0): an
+ * attack-class skill cast in the attack's turn (enemies.js attackTurnSkill) — ['cast', id, slot, dur, clip], the
+ * length of its official clip, 0 when its ability names none: the client plays that clip (or the attack clip) in
+ * place of the attack (render/units.js UnitView.onCast; DESIGN §35.57). No gameplay effect: no state, no random draw
+ * (DESIGN §8.2; golden counts the event, nothing else moves).
  */
-export function castSlot(b, e, s) {
+export function castSlot(b, e, s, turnClip = null) {
   if (!b || !e || !s || !Number.isInteger(s.slot)) return;
   const d = s.bb && typeof s.bb.duration === 'number' && s.bb.duration > 0 ? Math.round(s.bb.duration * 100) / 100 : 0;
-  b._ev(d > 0 ? ['cast', e.id, s.slot, d] : ['cast', e.id, s.slot]);
+  if (turnClip != null) b._ev(['cast', e.id, s.slot, d, Math.round(Math.max(0, turnClip) * 1000) / 1000]);
+  else b._ev(d > 0 ? ['cast', e.id, s.slot, d] : ['cast', e.id, s.slot]);
+}
+
+/**
+ * The attack-class skills of the non-leader enemies and bounty leaders that run on a cooldown (the boss records' leaders
+ * and parts: bosses.js ATTACK_SKILL_CLIP; DESIGN §35.29 / §35.52): enemy key → skill prefabKey → the length in s of the
+ * clip its official ability plays (fx/index.json units.<key>.skills.<prefabKey>.abilities[].animKey → data/assets.json
+ * enemies.<key>.spine.animations), 0 when the ability names no clip. The class of each official ability (from the
+ * client's `battle/enm_pfb_*.ab`): 重弩突袭者 `CrossAttack` RangedAttack; 萨卡兹王庭军精锐术师 `DeathEye` an AbilitySequenceGroup
+ * of two RangedAttacks [ASSUMED: a group of attacks counts as one]; 假想敌：黑云 `FireWeapon` an AbilitySequenceGroup with
+ * a MultiRangedAttack (Skill_2); 高准度伦蒂尼姆城防自行炮 `Cannon`, W `C4`, 凋零骑士 `TripleAttack`, 迷路的巨像 `StunAttack`,
+ * 陷落雪祀 `ChainBuff` RangedAttack (Skill); 鼠王 `DriftSand` / `SandStorm` RangedAttack (Skill_1 / Skill_2); 腐败骑士
+ * `ChargeAttack`, “自在” `ShieldBurst` / `ShieldBurstReborn`, 扎罗 `FearCage` MeleeAttack (no clip); “自在” `CrossAttack`
+ * RangedAttackWithExtraActions (Skill_01_02); 锏 `CircleAttack` MeleeAttack (A_Skill2) / `CircleAttack2` MultiMeleeAttack
+ * (B_Skill2); 节日爵士乐手 `fire` RangedAttack (no clip). Each one takes the attack's turn (enemies.js attackTurnSkill —
+ * PRTS 「大多数技能自动触发会占用攻击间隔」) and its cooldown counts from its clip's end. Not here: 暴鸰's `boomb` (its one
+ * bomb is its attack: no normal attack to share a turn with) and the SP attacks (粉碎攻坚手, 澪, 杰斯顿 …: the attack itself).
+ */
+export const ENEMY_ATTACK_SKILL_CLIP = Object.freeze({
+  enemy_1404_msnip: { CrossAttack: 0 },
+  enemy_1275_dwlock_2: { DeathEye: 0 },
+  enemy_9009_acfort: { FireWeapon: 2 },
+  enemy_1273_stmgun_2: { Cannon: 10 },
+  enemy_1504_cqbw: { C4: 4.8 },
+  enemy_1509_mousek: { DriftSand: 2.333, SandStorm: 1.333 },
+  enemy_1513_dekght: { ChargeAttack: 0 },
+  enemy_1513_dekght_2: { TripleAttack: 1.667 },
+  enemy_2003_rockman: { StunAttack: 2.333 },
+  enemy_2050_smsha: { ChainBuff: 1.667 },
+  enemy_1517_xi: { CrossAttack: 1.333, ShieldBurst: 0, ShieldBurstReborn: 0 },
+  enemy_1525_blkswb: { CircleAttack: 2.067, CircleAttack2: 2.067 },
+  enemy_1535_wlfmster: { FearCage: 0 },
+  enemy_10034_cnvsax: { fire: 0 },
+});
+
+/**
+ * The attack-turn fields (`atk`, `clip`, `own`) of skill `prefabKey` of enemy key `key` (ENEMY_ATTACK_SKILL_CLIP), {} when
+ * it is no attack-class skill. `own` (default true): its trigger is a selector of its own (`cond`), so it also takes a
+ * ready attack's turn with no swing (enemies.js onTick); false when the trigger is the attack's target (its blocker).
+ */
+export function attackSkillOf(key, prefabKey, own = true) {
+  const clip = ENEMY_ATTACK_SKILL_CLIP[key]?.[prefabKey];
+  return clip == null ? {} : { atk: true, clip, own };
 }
 
 /** Attach abilities to an enemy (calls their spawn()). */
@@ -119,6 +180,7 @@ export function attach(b, e, list) {
   for (const a of list) {
     if (!a) continue;
     if (a.cd != null) a.left = num(a.left, num(a.icd, 0));
+    if (a.atk && a.own) ab.ownTurn = true;   // enemies.js onTick: a turn without a swing (attackTurnSkill ownOnly)
     ab.list.push(a);
     if (a.spawn) safe(b, e, () => a.spawn(b, e, a, ab));
   }
@@ -172,7 +234,7 @@ export function elem(b, src, tgt, el, amount, { ignoreSelect = false, tags = [] 
 /**
  * Skill / ability damage (no dodge unless asked). `ignoreSelect` = no selection the target's 无法选择 effects stop
  * (abilities that "无视无法选择", direct picks, a flying unit's blast credited to a ground leader): it also reaches an
- * airborne 起飞 ally, which a ground enemy's damage otherwise skips (damage.js, targeting.js evadesGround).
+ * airborne 起飞 ally, which a ground enemy's damage otherwise skips (attack/helpers.js liftoffEvades, targeting.js evadesGround).
  */
 export function hurt(b, src, tgt, amount, type = 'phys', { canDodge = false, tags = [], isSkill = true, ignoreSelect = false } = {}) {
   if (!tgt || !tgt.alive || !(amount > 0)) return 0;
@@ -340,7 +402,7 @@ export function setHits(e, n) {
 
 const HIT_COUNT_KEY = 'ab:hitCount';
 
-/** 频次 on/off: every damage instance removes exactly 1 HP (engine flag; `artsOnly` = 茶器, physical instances remove 0). */
+/** 频次 on/off: every damage instance removes exactly 1 HP (engine flag; `artsOnly` = 茶器: only arts and true instances remove 1, phys and 元素伤害 remove 0 — DESIGN §35.32, PRTS 青瓷茶器). */
 export function hitCount(b, e, on, artsOnly = false) {
   if (!on) { b.removeBuff(e, HIT_COUNT_KEY); return; }
   b.addBuff(e, { key: HIT_COUNT_KEY, persist: true, flags: artsOnly ? { hitCountArts: true } : { hitCount: true } });
@@ -375,38 +437,6 @@ export function expose(b, u, dur, scale) {
   if (!u || !u.alive || !(dur > 0)) return;
   b.addBuff(u, { key: 'ab:exposed', duration: dur, refresh: 'extend', mods: { dmgTakenMul: scale }, visible: true });
   b.fx('expose', { x: u.x, y: u.y, id: u.id });
-}
-
-/**
- * Final HP damage the pipeline would deal for a phys/arts/true/elemental `dmg` before shields (mitigation is linear in
- * the amount) — the same terms as damage.js dealDamage (元素伤害: 元素抗性 + elementalTakenMul, no dmgTakenMul).
- */
-export function expectedFinal(src, tgt, dmg) {
-  const ts = tgt.s, ss = src && src.s && !dmg.sourceless ? src.s : null, ty = dmg.type; // 无来源 (bursts): no source stats
-  const v = mitigate(dmg.amount, ty, ts, {
-    defIgnorePct: (dmg.defIgnorePct || 0) + (ss ? ss.defIgnorePct : 0), defIgnoreFlat: (dmg.defIgnoreFlat || 0) + (ss ? ss.defIgnoreFlat : 0),
-    resIgnorePct: (dmg.resIgnorePct || 0) + (ss ? ss.resIgnorePct : 0), resIgnoreFlat: (dmg.resIgnoreFlat || 0) + (ss ? ss.resIgnoreFlat : 0),
-    elementalRes: ty === 'elemental' ? (tgt.def?.epDamageResistance ?? 0) : 0,
-  });
-  let mul = (dmg.mul ?? 1) * (ty === 'elemental' ? 1 : ts.dmgTakenMul); // 脆弱 skips 元素伤害 (damage.js)
-  if (ss) mul *= ss.dmgDealtMul * (ty === 'phys' ? ss.physDealtMul : ty === 'arts' ? ss.artsDealtMul : 1);
-  mul *= ty === 'phys' ? ts.physTakenMul : ty === 'arts' ? ts.artsTakenMul : ty === 'elemental' ? ts.elementalTakenMul : ts.trueTakenMul;
-  const f = v * mul;
-  return Number.isFinite(f) && f > 0 ? f : 0;
-}
-
-/**
- * "吸收法术伤害的屏障": absorb up to `left` of an arts instance in a `hit` handler (after RES, like a shield) by scaling
- * the instance down (cancelled when fully absorbed). Returns the amount absorbed.
- */
-export function absorbArts(c, left) {
-  if (!c || c.dmg.type !== 'arts' || !(left > 0) || c.dmg.cancel) return 0;
-  const f = expectedFinal(c.source, c.target, c.dmg);
-  if (!(f > 0)) return 0;
-  const take = Math.min(left, f);
-  if (take >= f - 1e-9) c.dmg.cancel = true;
-  else c.dmg.amount *= (f - take) / f;
-  return take;
 }
 
 /** Timed buff on each unit (same key never stacks: aura semantics). */

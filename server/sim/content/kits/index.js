@@ -22,6 +22,18 @@
 // stand-in kit, a 4★ reserve the generic kit (GENERIC_KIT_CHARS). OPERATOR_KITS is merged after the stand-ins.
 // KITTED_CHARS = every character a 自选 pick may field with a faithful kit; an operator outside it is not offered
 // (shared/diy.js diyPool / validateDiyPicks `kitted`).
+//
+// Version kits (第一期 shop operators with no tier file, DESIGN §35.22.9): VERSION_KIT_FILES lists `ops/ver-<codename>.js`,
+// one charId each, merged into KITS after the 自选 operators and NOT added to KITTED_CHARS (they are shop chess). The 35
+// 自选 picks whose hand-written kit is a tier kit (24 in 第一期, 银灰 who is only in V2_1's pool, and 10 in 规程·序列Ⅰ)
+// live in one file, `ops/ver-diy.js` (DIY_BORROW_KIT_FILES): those charIds are in KITTED_CHARS (DIY_BORROW_CHARS, the
+// ones whose file loaded) and are not keys of OPERATOR_KITS. PENDING_DIY_KIT_CHARS is empty. PENDING_KIT_CHARS is the
+// 规程 operators who still have no kit.
+//
+// KIT_CHAR_IDS names the operator (charId) each tier kit was written for. Another official version (docs/SIM.md §7.2)
+// reuses chess ids for other operators (上半's chess_char_1_02_a is 讯使, not 角峰), so content/index.js officialKitKey
+// checks a record's charId against it and otherwise finds the kit by charId (TIER_KIT_KEYS_BY_CHAR). A new tier kit
+// file adds its line here.
 
 export const KIT_FILES = Object.freeze([
   // tier 1
@@ -151,6 +163,9 @@ export const OPERATOR_KIT_FILES = Object.freeze([
   'op-kalts2.js',
   'op-monstr.js',
   'op-clemnt.js',
+  'op-tocka.js',
+  'op-dminon.js',
+  'op-oxi.js',
 ]);
 
 /**
@@ -159,6 +174,276 @@ export const OPERATOR_KIT_FILES = Object.freeze([
  */
 export const GENERIC_KIT_CHARS = Object.freeze(['char_600_cpione', 'char_601_cguard', 'char_602_cdfend', 'char_603_csnipe',
   'char_604_ccast', 'char_605_cmedic', 'char_606_csuppo', 'char_607_cspec']);
+
+/**
+ * The operator each tier kit key was written for: tier kit key → charId, in KIT_FILES order (from data/chess.json; the
+ * first line of each kit file names the same charId). content/index.js officialKitKey uses it so that a chess id another
+ * version gives to another operator never runs this kit (test/versions-keying.test.js).
+ */
+export const KIT_CHAR_IDS = Object.freeze({
+  // tier 1
+  chess_char_1_01_a: 'char_498_inside', // 隐现
+  chess_char_1_02_a: 'char_199_yak', // 角峰
+  chess_char_1_03_a: 'char_306_leizi', // 惊蛰
+  chess_char_1_04_a: 'char_4137_udflow', // 深巡
+  chess_char_1_05_a: 'char_290_vigna', // 红豆
+  chess_char_1_06_a: 'char_494_vendla', // 刺玫
+  chess_char_1_07_a: 'char_145_prove', // 普罗旺斯
+  chess_char_1_08_a: 'char_102_texas', // 德克萨斯
+  chess_char_1_09_a: 'char_4100_caper', // 跃跃
+  chess_char_1_10_a: 'char_196_sunbr', // 古米
+  chess_char_1_11_a: 'char_183_skgoat', // 地灵
+  chess_char_1_12_a: 'char_127_estell', // 艾丝黛尔
+  chess_char_1_13_a: 'char_258_podego', // 波登可
+  chess_char_1_14_a: 'char_253_greyy', // 格雷伊
+  chess_char_1_16_a: 'char_4151_tinman', // 锡人
+  chess_char_1_17_a: 'char_469_indigo', // 深靛
+  chess_char_1_18_a: 'char_337_utage', // 宴
+  chess_char_1_19_a: 'char_496_wildmn', // 野鬃
+  chess_char_1_20_a: 'char_107_liskam', // 雷蛇
+  // tier 2
+  chess_char_2_01_a: 'char_279_excu', // 送葬人
+  chess_char_2_02_a: 'char_108_silent', // 赫默
+  chess_char_2_03_a: 'char_173_slchan', // 崖心
+  chess_char_2_04_a: 'char_4122_grabds', // 小满
+  chess_char_2_05_a: 'char_4114_harold', // 哈洛德
+  chess_char_2_06_a: 'char_4139_papyrs', // 莎草
+  chess_char_2_07_a: 'char_143_ghost', // 幽灵鲨
+  chess_char_2_08_a: 'char_381_bubble', // 泡泡
+  chess_char_2_09_a: 'char_491_humus', // 休谟斯
+  chess_char_2_10_a: 'char_4040_rockr', // 洛洛
+  chess_char_2_11_a: 'char_4016_kazema', // 风丸
+  chess_char_2_12_a: 'char_237_gravel', // 砾
+  chess_char_2_13_a: 'char_4191_tippi', // 蒂比
+  chess_char_2_14_a: 'char_181_flower', // 调香师
+  chess_char_2_15_a: 'char_4051_akkord', // 协律
+  chess_char_2_16_a: 'char_140_whitew', // 拉普兰德
+  chess_char_2_17_a: 'char_4207_branch', // 折桠
+  chess_char_2_18_a: 'char_431_ashlok', // 灰毫
+  chess_char_2_19_a: 'char_4151_tinman', // 锡人
+  // tier 3
+  chess_char_3_01_a: 'char_103_angel', // 能天使
+  chess_char_3_02_a: 'char_294_ayer', // 断崖
+  chess_char_3_03_a: 'char_308_swire', // 诗怀雅
+  chess_char_3_04_a: 'char_1033_swire2', // 琳琅诗怀雅
+  chess_char_3_05_a: 'char_263_skadi', // 斯卡蒂
+  chess_char_3_06_a: 'char_4148_philae', // 菲莱
+  chess_char_3_07_a: 'char_4036_forcer', // 见行者
+  chess_char_3_08_a: 'char_388_mint', // 薄绿
+  chess_char_3_09_a: 'char_4079_haini', // 海霓
+  chess_char_3_10_a: 'char_440_pinecn', // 松果
+  chess_char_3_11_a: 'char_4211_snhunt', // 雪猎
+  chess_char_3_12_a: 'char_423_blemsh', // 瑕光
+  chess_char_3_13_a: 'char_4054_malist', // 至简
+  chess_char_3_14_a: 'char_174_slbell', // 初雪
+  chess_char_3_15_a: 'char_254_vodfox', // 巫恋
+  chess_char_3_16_a: 'char_150_snakek', // 蛇屠箱
+  chess_char_3_17_a: 'char_126_shotst', // 流星
+  chess_char_3_18_a: 'char_4026_vulpis', // 忍冬
+  chess_char_3_19_a: 'char_427_vigil', // 伺夜
+  chess_char_3_20_a: 'char_4013_kjera', // 耶拉
+  chess_char_3_21_a: 'char_332_archet', // 空弦
+  // tier 4
+  chess_char_4_01_a: 'char_4194_rmixer', // 信仰搅拌机
+  chess_char_4_02_a: 'char_213_mostma', // 莫斯提马
+  chess_char_4_03_a: 'char_4013_kjera', // 耶拉
+  chess_char_4_04_a: 'char_4087_ines', // 伊内丝
+  chess_char_4_05_a: 'char_344_beewax', // 蜜蜡
+  chess_char_4_06_a: 'char_1021_kroos2', // 寒芒克洛丝
+  chess_char_4_07_a: 'char_222_bpipe', // 风笛
+  chess_char_4_08_a: 'char_4163_rosesa', // 瑰盐
+  chess_char_4_09_a: 'char_437_mizuki', // 水月
+  chess_char_4_10_a: 'char_446_aroma', // 阿罗玛
+  chess_char_4_11_a: 'char_4162_cathy', // 凯瑟琳
+  chess_char_4_12_a: 'char_474_glady', // 歌蕾蒂娅
+  chess_char_4_13_a: 'char_206_gnosis', // 灵知
+  chess_char_4_14_a: 'char_373_lionhd', // 莱恩哈特
+  chess_char_4_15_a: 'char_4196_reckpr', // 录武官
+  chess_char_4_16_a: 'char_1028_texas2', // 缄默德克萨斯
+  chess_char_4_17_a: 'char_136_hsguma', // 星熊
+  chess_char_4_18_a: 'char_311_mudrok', // 泥岩
+  chess_char_4_19_a: 'char_420_flamtl', // 焰尾
+  chess_char_4_20_a: 'char_430_fartth', // 远牙
+  chess_char_4_21_a: 'char_128_plosis', // 白面鸮
+  chess_char_4_22_a: 'char_172_svrash', // 银灰
+  chess_char_4_23_a: 'char_1026_gvial2', // 百炼嘉维尔
+  chess_char_4_24_a: 'char_426_billro', // 卡涅利安
+  chess_char_4_25_a: 'char_4134_cetsyr', // 魔王
+  chess_char_4_26_a: 'char_171_bldsk', // 华法琳
+  // tier 5
+  chess_char_5_01_a: 'char_1032_excu2', // 圣约送葬人
+  chess_char_5_02_a: 'char_4056_titi', // 缇缇
+  chess_char_5_03_a: 'char_1040_blaze2', // 烛煌
+  chess_char_5_04_a: 'char_171_bldsk', // 华法琳
+  chess_char_5_05_a: 'char_4145_ulpia', // 乌尔比安
+  chess_char_5_06_a: 'char_4010_etlchi', // 隐德来希
+  chess_char_5_07_a: 'char_350_surtr', // 史尔特尔
+  chess_char_5_08_a: 'char_4039_horn', // 号角
+  chess_char_5_09_a: 'char_4134_cetsyr', // 魔王
+  chess_char_5_10_a: 'char_358_lisa', // 铃兰
+  chess_char_5_11_a: 'char_202_demkni', // 塞雷娅
+  chess_char_5_12_a: 'char_2015_dusk', // 夕
+  chess_char_5_13_a: 'char_1023_ghost2', // 归溟幽灵鲨
+  chess_char_5_14_a: 'char_1045_svash2', // 凛御银灰
+  chess_char_5_15_a: 'char_1039_thorn2', // 引星棘刺
+  chess_char_5_16_a: 'char_128_plosis', // 白面鸮
+  chess_char_5_17_a: 'char_264_f12yin', // 山
+  chess_char_5_18_a: 'char_1026_gvial2', // 百炼嘉维尔
+  chess_char_5_19_a: 'char_4064_mlynar', // 玛恩纳
+  chess_char_5_20_a: 'char_291_aglina', // 安洁莉娜
+  chess_char_5_21_a: 'char_341_sntlla', // 寒檀
+  chess_char_5_22_a: 'char_4146_nymph', // 妮芙
+  chess_char_5_23_a: 'char_4196_reckpr', // 录武官
+  // tier 6
+  chess_char_1_15_a: 'char_616_pithst', // 盟约·辅助干员
+  chess_char_6_01_a: 'char_4193_lemuen', // 蕾缪安
+  chess_char_6_02_a: 'char_1046_sbell2', // 圣聆初雪
+  chess_char_6_03_a: 'char_2026_yu', // 余
+  chess_char_6_04_a: 'char_1012_skadi2', // 浊心斯卡蒂
+  chess_char_6_05_a: 'char_472_pasngr', // 异客
+  chess_char_6_06_a: 'char_4058_pepe', // 佩佩
+  chess_char_6_07_a: 'char_1019_siege2', // 维娜·维多利亚
+  chess_char_6_08_a: 'char_1020_reed2', // 焰影苇草
+  chess_char_6_09_a: 'char_245_cello', // 塑心
+  chess_char_6_10_a: 'char_4146_nymph', // 妮芙
+  chess_char_6_11_a: 'char_249_mlyss', // 缪尔赛思
+  chess_char_6_12_a: 'char_391_rosmon', // 迷迭香
+  chess_char_6_13_a: 'char_1041_angel2', // 新约能天使
+  chess_char_6_14_a: 'char_4042_lumen', // 流明
+  chess_char_6_15_a: 'char_4082_qiubai', // 仇白
+  chess_char_6_16_a: 'char_1047_halo2', // 溯光星源
+  chess_char_6_17_a: 'char_1014_nearl2', // 耀骑士临光
+  chess_char_6_18_a: 'char_1038_whitw2', // 荒芜拉普兰德
+  chess_char_6_19_a: 'char_4116_blkkgt', // 锏
+  chess_char_6_20_a: 'char_1016_agoat2', // 纯烬艾雅法拉
+});
+
+/**
+ * 第一期 shop operators whose kit is keyed by charId (`ops/ver-<codename>.js`, DESIGN §35.22.9). Order is the old
+ * pending order. Not shop-chess files: those chess ids belong to other operators today.
+ */
+export const VERSION_KIT_FILES = Object.freeze([
+  'ver-blackd.js', // 讯使
+  'ver-mm.js', // 梅
+  'ver-fmout.js', // 远山
+  'ver-mantic.js', // 狮蝎
+  'ver-savage.js', // 暴行
+  'ver-pudd.js', // 布丁
+  'ver-wanqin.js', // 万顷
+  'ver-zebra.js', // 暴雨
+  'ver-ceylon.js', // 锡兰
+  'ver-spikes.js', // 芳汀
+  'ver-aurora.js', // 极光
+  'ver-waaifu.js', // 槐琥
+  'ver-heidi.js', // 海蒂
+  'ver-glider.js', // 蜜莓
+  'ver-cuttle.js', // 安哲拉
+  'ver-ethan.js', // 伊桑
+  'ver-halo.js', // 星源
+  'ver-mberry.js', // 桑葚
+  'ver-folnic.js', // 亚叶
+  'ver-cammou.js', // 卡达
+  'ver-leto.js', // 烈夏
+  'ver-kaitou.js', // 折光
+  'ver-bluep.js', // 蓝毒
+  'ver-greyy2.js', // 承曦格雷伊
+  'ver-taraxa.js', // 风絮
+  'ver-robrta.js', // 罗比菈塔
+  'ver-nothin.js', // 乌有
+  'ver-buildr.js', // 青枳
+  'ver-jaksel.js', // 杰克
+  'ver-frostl.js', // 霜叶
+  'ver-bison.js', // 拜松
+  'ver-liesel.js', // 复奏
+  'ver-ctrail.js', // 云迹
+  'ver-mitm.js', // 渡桥
+  'ver-sidero.js', // 铸铁
+  'ver-turdus.js', // 乌啾
+  'ver-alga.js', // 奥尔佳
+  'ver-frncat.js', // 慕斯
+  'ver-swllow.js', // 灰喉
+  'ver-aosta.js', // 奥斯塔
+  'ver-christ.js', // Miss.Christine
+  'ver-astesi.js', // 星极
+  'ver-highmo.js', // 海沫
+  'ver-brigid.js', // 水灯心
+  'ver-kichi.js', // 吉星
+  'ver-amiya3.js', // 阿米娅（医疗）
+  'ver-varkis.js', // 摆渡人
+  'ver-quercu.js', // 夏栎
+  'ver-chnut.js', // 褐果
+  'ver-meteo.js', // 陨星
+  'ver-ju.js', // 矩
+  'ver-glassb.js', // 真理
+  'ver-pianst.js', // 车尔尼
+  'ver-hbound.js', // 旅骨
+  'ver-fang2.js', // 历阵锐枪芬
+  'ver-acrbot.js', // “暴躁铁皮”
+]);
+
+/**
+ * The one file of borrowed 自选 kits (`ops/ver-diy.js`): a charId → a tier-kit builder (shared/borrow.js). These are
+ * shop chess today, so they are not `op-*` files and not keys of OPERATOR_KITS.
+ */
+export const DIY_BORROW_KIT_FILES = Object.freeze(['ver-diy.js']);
+
+/**
+ * charIds `ver-diy.js` exports, in that order. The ones whose file loaded join KITTED_CHARS. A 自选 piece looks its kit
+ * up by charId, so this is what lets 第一期, V2_1 and 规程 field them. Shop chess of the same operator still take the tier key.
+ */
+export const DIY_BORROW_CHARS = Object.freeze([
+  'char_136_hsguma', // 星熊
+  'char_172_svrash', // 银灰
+  'char_213_mostma', // 莫斯提马
+  'char_245_cello', // 塑心
+  'char_291_aglina', // 安洁莉娜
+  'char_332_archet', // 空弦
+  'char_391_rosmon', // 迷迭香
+  'char_420_flamtl', // 焰尾
+  'char_423_blemsh', // 瑕光
+  'char_426_billro', // 卡涅利安
+  'char_427_vigil', // 伺夜
+  'char_430_fartth', // 远牙
+  'char_1014_nearl2', // 耀骑士临光
+  'char_1020_reed2', // 焰影苇草
+  'char_1026_gvial2', // 百炼嘉维尔
+  'char_1038_whitw2', // 荒芜拉普兰德
+  'char_1045_svash2', // 凛御银灰
+  'char_1046_sbell2', // 圣聆初雪
+  'char_1047_halo2', // 溯光星源
+  'char_2015_dusk', // 夕
+  'char_4010_etlchi', // 隐德来希
+  'char_4039_horn', // 号角
+  'char_4064_mlynar', // 玛恩纳
+  'char_4082_qiubai', // 仇白
+  'char_4146_nymph', // 妮芙
+  'char_103_angel', // 能天使
+  'char_222_bpipe', // 风笛
+  'char_311_mudrok', // 泥岩
+  'char_1028_texas2', // 缄默德克萨斯
+  'char_1032_excu2', // 圣约送葬人
+  'char_1033_swire2', // 琳琅诗怀雅
+  'char_1041_angel2', // 新约能天使
+  'char_4056_titi', // 缇缇
+  'char_4087_ines', // 伊内丝
+  'char_4194_rmixer', // 信仰搅拌机
+]);
+
+/**
+ * Operators of another official version that have no kit yet — they play the generic kit until their ver-* file lands.
+ * Empty: the 19 第一期 operators became VERSION_KIT_FILES in §35.22.9, 规程·序列Ⅰ's 37 in round 67 (four batches).
+ * test/versions-keying.test.js accepts a chess without a kit only when its charId is listed here, and fails once a listed
+ * operator gets a kit (it then leaves the list).
+ */
+export const PENDING_KIT_CHARS = Object.freeze([]);
+
+/**
+ * 自选 picks of another official version that still have no charId kit. Empty: 第一期 and V2_1's 25, and 规程·序列Ⅰ's
+ * 10 owned-6★ picks whose only hand-written kit is a tier kit, are DIY_BORROW_CHARS. test/versions-keying.test.js
+ * accepts a 自选 pick without a kit only when its charId is a 预备干员 (GENERIC_KIT_CHARS) or listed here, and fails
+ * once a listed operator gets a 自选 kit or loses its tier kit.
+ */
+export const PENDING_DIY_KIT_CHARS = Object.freeze([]);
 
 async function loadKitFile(file) {
   try {
@@ -172,10 +457,26 @@ async function loadKitFile(file) {
 const MODULES = await Promise.all(KIT_FILES.map((group) => Promise.all(group.map(loadKitFile))));
 const STANDIN_MODULES = await Promise.all(STANDIN_KIT_FILES.map(loadKitFile));
 const OPERATOR_MODULES = await Promise.all(OPERATOR_KIT_FILES.map(loadKitFile));
+const VERSION_MODULES = await Promise.all(VERSION_KIT_FILES.map(loadKitFile));
+const DIY_MODULES = await Promise.all(DIY_BORROW_KIT_FILES.map(loadKitFile));
 const registryOf = (m) => (m && m.default && typeof m.default === 'object' ? m.default : {});
 
 /** The registry of each tier group (index 0 = tier 1): baseChessId → kit builder, in KIT_FILES order. */
 export const TIER_KITS = Object.freeze(MODULES.map((group) => Object.assign({}, ...group.map(registryOf))));
+
+/**
+ * charId → the tier kit keys written for it whose file loaded, in KIT_FILES order (the 8 operators V2_2 re-tiered — 锡人,
+ * 耶拉, 录武官, 白面鸮, 百炼嘉维尔, 魔王, 华法琳, 妮芙; DESIGN §35.22.4 — have one kit per tier they appear at).
+ */
+export const TIER_KIT_KEYS_BY_CHAR = (() => {
+  const out = {};
+  for (const reg of TIER_KITS) for (const key of Object.keys(reg)) {
+    const charId = KIT_CHAR_IDS[key];
+    if (charId) (out[charId] ??= []).push(key);
+  }
+  for (const keys of Object.values(out)) Object.freeze(keys);
+  return Object.freeze(out);
+})();
 
 /** The 补位 stand-in kits: stand-in charId → kit builder, in STANDIN_KIT_FILES order. */
 export const STANDIN_KITS = Object.freeze(Object.assign({}, ...STANDIN_MODULES.map(registryOf)));
@@ -183,15 +484,25 @@ export const STANDIN_KITS = Object.freeze(Object.assign({}, ...STANDIN_MODULES.m
 /** The 自选 operator kits: owned-6★ charId → kit builder, in OPERATOR_KIT_FILES order. */
 export const OPERATOR_KITS = Object.freeze(Object.assign({}, ...OPERATOR_MODULES.map(registryOf)));
 
+/** 第一期 charId kits (`ops/ver-*.js` except ver-diy), in VERSION_KIT_FILES order. Not part of KITTED_CHARS. */
+export const VERSION_KITS = Object.freeze(Object.assign({}, ...VERSION_MODULES.map(registryOf)));
+
+/** Borrowed 自选 kits (`ops/ver-diy.js`): charId → builder, in DIY_BORROW_CHARS order. */
+export const DIY_BORROW_KITS = Object.freeze(Object.assign({}, ...DIY_MODULES.map(registryOf)));
+
 /**
  * The merged kit registry: baseChessId → (bb, chess, def) => Kit, tier 1 … tier 6, then the stand-ins' charIds, then
- * the 自选 operators' charIds.
+ * the 自选 operators' charIds, then the version charId kits, then the borrowed 自选 charIds.
  */
-export const KITS = Object.freeze(Object.assign({}, ...TIER_KITS, STANDIN_KITS, OPERATOR_KITS));
+export const KITS = Object.freeze(Object.assign({}, ...TIER_KITS, STANDIN_KITS, OPERATOR_KITS, VERSION_KITS, DIY_BORROW_KITS));
 
 /**
  * Every character a 自选 pick may field with a faithful kit: the 预备干员 (GENERIC_KIT_CHARS), the stand-ins with a kit
- * file and the operators of OPERATOR_KIT_FILES whose file loaded. The `kitted` option of shared/diy.js diyPool /
+ * file, the operators of OPERATOR_KIT_FILES whose file loaded, and the borrowed 自选 charIds whose file loaded
+ * (DIY_BORROW_CHARS). The 19 version shop kits are not here. The `kitted` option of shared/diy.js diyPool /
  * validateDiyPicks.
  */
-export const KITTED_CHARS = Object.freeze([...new Set([...GENERIC_KIT_CHARS, ...Object.keys(STANDIN_KITS), ...Object.keys(OPERATOR_KITS)])]);
+export const KITTED_CHARS = Object.freeze([...new Set([
+  ...GENERIC_KIT_CHARS, ...Object.keys(STANDIN_KITS), ...Object.keys(OPERATOR_KITS),
+  ...DIY_BORROW_CHARS.filter((c) => Object.hasOwn(DIY_BORROW_KITS, c)),
+])]);

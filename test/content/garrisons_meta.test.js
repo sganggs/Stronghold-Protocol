@@ -59,11 +59,11 @@ function setup(seed = 70) {
   const active = (b) => !!(ps.bonds[b] && ps.bonds[b].active);
   const L = (b) => ps.layers[b] || 0;
   const prepEnd = () => m.dispatch(ps, 'onPrepEnd', { round: m.round });
-  const roundStart = () => m.dispatch(ps, 'onRoundStart', { round: m.round });
+  const prepStart = () => m.dispatch(ps, 'onPrepStart', { round: m.round }); // 「进入休整期时」 (DESIGN §35.53)
   const acquire = (id) => ps.acquireChess(id, { source: 'test' });
   const sell = (p) => assert.deepEqual(m.handle('p_0', { t: 'g.sell', uid: p.uid }), { ok: true });
   const gainsNow = () => Object.fromEntries(Object.entries(gains).filter(([, v]) => v > 0));
-  return { h, m, ps, activate, active, L, G, gainsNow, prepEnd, roundStart, acquire, sell };
+  return { h, m, ps, activate, active, L, G, gainsNow, prepEnd, prepStart, acquire, sell };
 }
 const handItems = (ps) => [...ps.hand, ...ps.temp].filter((p) => p && p.kind === 'item').map((p) => p.id);
 const handChess = (ps) => [...ps.hand, ...ps.temp].filter((p) => p && p.kind === 'chess').map((p) => p.id);
@@ -206,7 +206,7 @@ test('SERVER_ADD_BOND_ACTIVATED_MOST_LAYER: 灰毫 105 获得时; 波登可 102 
 // 进入休整期时 / 休整期结束时 layer sources
 
 test('SERVER_ADD_BOND at prep start / end (寒檀 141 / 142, 刺玫 154, 雷蛇 158, 折桠 69): active bond, board only', () => {
-  for (const [ev, run] of [['SERVER_PREP_FIN', 'prepEnd'], ['SERVER_PREP_START', 'roundStart']]) {
+  for (const [ev, run] of [['SERVER_PREP_FIN', 'prepEnd'], ['SERVER_PREP_START', 'prepStart']]) {
     for (const { gid, g, owners } of idsOf(ev, 'SERVER_ADD_BOND')) {
       for (const owner of owners) {
         const bonds = ids(g.bbStr.bond);
@@ -229,7 +229,7 @@ test('SERVER_ADD_BOND at prep start / end (寒檀 141 / 142, 刺玫 154, 雷蛇 
   const w = setup();
   give(w.m, w.ps, 'chess_char_5_21_b', 'board', [10, 4]);             // 寒檀 精锐: +8 at round start and +8 at prep end
   w.activate('visiShip');
-  w.roundStart();
+  w.prepStart();
   w.prepEnd();
   assert.equal(w.G('visiShip'), 16);
   const v = setup();
@@ -241,7 +241,7 @@ test('SERVER_ADD_BOND at prep start / end (寒檀 141 / 142, 刺玫 154, 雷蛇 
 });
 
 test('SERVER_ADD_BOND_CHESS_ALL at prep start / end (赫默 / 蒂比 80, 伊内丝 104, 莱恩哈特 51): own ACTIVE bonds, board only', () => {
-  for (const [ev, run] of [['SERVER_PREP_FIN', 'prepEnd'], ['SERVER_PREP_START', 'roundStart']]) {
+  for (const [ev, run] of [['SERVER_PREP_FIN', 'prepEnd'], ['SERVER_PREP_START', 'prepStart']]) {
     for (const { gid, g, owners } of idsOf(ev, 'SERVER_ADD_BOND_CHESS_ALL')) {
       for (const owner of owners) {
         const bonds = CH(owner).bonds;
@@ -264,7 +264,7 @@ test('SERVER_ADD_BOND_CHESS_ALL at prep start / end (赫默 / 蒂比 80, 伊内�
   give(s.m, s.ps, 'chess_char_2_02_a', 'board', [10, 4]);
   give(s.m, s.ps, 'chess_char_4_14_b', 'board', [11, 4]);
   s.activate(CH('chess_char_2_02_a').bonds[0], CH('chess_char_4_14_b').bonds[0]);
-  s.roundStart();
+  s.prepStart();
   assert.equal(s.G(CH('chess_char_2_02_a').bonds[0]), 2, '赫默 +2 at round start');
   s.prepEnd();
   assert.equal(s.G(CH('chess_char_4_14_b').bonds[0]), 10 + (CH('chess_char_2_02_a').bonds[0] === CH('chess_char_4_14_b').bonds[0] ? 2 : 0), '莱恩哈特 精锐 +10 at prep end');
@@ -400,8 +400,8 @@ test('流明 57: every hand operator adds +N to each of its ACTIVE bonds', () =>
   assert.deepEqual([GR('garrison_57_a').bb.count, GR('garrison_57_b').bb.count], [2, 4]);
 });
 
-test('SERVER_ADD_BOND_POSITION (断崖 / 见行者 47 behind, 引星棘刺 79 front, 空弦 150 front at round start): each target operator', () => {
-  for (const [ev, run] of [['SERVER_PREP_FIN', 'prepEnd'], ['SERVER_PREP_START', 'roundStart']]) {
+test('SERVER_ADD_BOND_POSITION (断崖 / 见行者 47 behind, 引星棘刺 79 front, 空弦 150 front at prep start): each target operator', () => {
+  for (const [ev, run] of [['SERVER_PREP_FIN', 'prepEnd'], ['SERVER_PREP_START', 'prepStart']]) {
     for (const { gid, g, owners } of idsOf(ev, 'SERVER_ADD_BOND_POSITION')) {
       for (const owner of owners) {
         const ob = CH(owner).bonds;
@@ -434,7 +434,7 @@ test('regression: POSITION — a bond shared by 断崖 and the operator behind h
   const t = setup();
   give(t.m, t.ps, 'chess_char_3_21_a', 'board', [10, 5]);             // 空弦 拉特兰/灵巧 +3, nobody in front
   t.activate('lateranoShip', 'skillfulShip');
-  t.roundStart();
+  t.prepStart();
   onlyGains(t, { lateranoShip: 3, skillfulShip: 3 });
 });
 
@@ -565,10 +565,10 @@ test('free refreshes: 普罗旺斯 113 获得时, 德克萨斯 120 / 巫恋 132 
     for (const owner of owners) {
       const s = setup();
       give(s.m, s.ps, owner, 'hand');
-      s.roundStart();
+      s.prepStart();
       assert.equal(s.ps.shop.freeRefreshes, 0, `${gid}: hand`);
       give(s.m, s.ps, owner, 'board', [10, 4]);
-      s.roundStart();
+      s.prepStart();
       assert.equal(s.ps.shop.freeRefreshes, g.bb.count, gid);
     }
     cover(gid);
@@ -577,7 +577,7 @@ test('free refreshes: 普罗旺斯 113 获得时, 德克萨斯 120 / 巫恋 132 
   u.acquire('chess_char_1_07_b');
   u.sell(give(u.m, u.ps, 'chess_char_1_08_a', 'hand'));
   give(u.m, u.ps, 'chess_char_4_16_b', 'board', [10, 4]);
-  u.roundStart();
+  u.prepStart();
   assert.equal(u.ps.shop.freeRefreshes, 2 + 1 + 2);
 });
 
@@ -643,10 +643,10 @@ test('pools: 凯瑟琳 127 odd rounds, 佩佩 94, 洛洛 91, 焰尾 149, 歌蕾�
     for (const owner of owners) {
       const s = setup();
       give(s.m, s.ps, owner, 'board', [10, 4]);
-      s.roundStart();
+      s.prepStart();
       assert.equal(handItems(s.ps).length, g.bb.count, `${gid}: round 1 is odd`);
       s.m.round = 2;
-      s.roundStart();
+      s.prepStart();
       s.m.round = 1;
       assert.equal(handItems(s.ps).length, g.bb.count, `${gid}: round 2 nothing`);
       for (const id of handItems(s.ps)) assert.ok(DATA.items[id].tier <= s.ps.shop.level, id);
@@ -661,7 +661,7 @@ test('pools: 凯瑟琳 127 odd rounds, 佩佩 94, 洛洛 91, 焰尾 149, 歌蕾�
         for (let seed = 1; seed <= 4; seed++) {
           const s = setup(seed);
           if (ev === 'SERVER_GAIN') s.acquire(owner);
-          else { give(s.m, s.ps, owner, 'board', [10, 4]); s.roundStart(); }
+          else { give(s.m, s.ps, owner, 'board', [10, 4]); s.prepStart(); }
           let units = 0;
           for (const id of allowed) units += itemUnits(s.ps, id);
           assert.equal(units, g.bb.count, `${gid} seed ${seed}: ${handItems(s.ps)}`);
@@ -684,10 +684,10 @@ test('pools: 凯瑟琳 127 odd rounds, 佩佩 94, 洛洛 91, 焰尾 149, 歌蕾�
           const row = plain((c) => !allowed.has(c.chessId)).slice(0, 2);
           give(s.m, s.ps, owner, 'board', [10, 4]);
           give(s.m, s.ps, row[0], 'board', [10, 6]);
-          s.roundStart();
+          s.prepStart();
           assert.equal(got().length, 0, `${gid}: 2 in the row`);
           give(s.m, s.ps, row[1], 'board', [10, 8]);
-          s.roundStart();
+          s.prepStart();
           assert.equal(got().length, g.bb.count, `${gid}: 3 in the row`);
         }
       }
@@ -703,7 +703,7 @@ test('歌蕾蒂娅 / 余: granting a chess toasts 「名字：获得X」', () =>
   give(glady.m, glady.ps, row[0], 'board', [10, 6]);
   give(glady.m, glady.ps, row[1], 'board', [10, 8]);
   const n0 = glady.h.allTo('p_0', 'm.toast').length;
-  glady.roundStart();
+  glady.prepStart();
   const lines = glady.h.allTo('p_0', 'm.toast').slice(n0).map((t) => t.text);
   const line = lines.find((t) => t.startsWith('歌蕾蒂娅：获得'));
   assert.ok(line, lines.join(' | '));
@@ -717,32 +717,34 @@ test('歌蕾蒂娅 / 余: granting a chess toasts 「名字：获得X」', () =>
   give(yu.m, yu.ps, fillers[0], 'board', [10, 6]);
   give(yu.m, yu.ps, fillers[1], 'board', [10, 8]);
   const n1 = yu.h.allTo('p_0', 'm.toast').length;
-  yu.roundStart();
+  yu.prepStart();
   const yuLine = yu.h.allTo('p_0', 'm.toast').slice(n1).map((t) => t.text).find((t) => t.startsWith('余：获得'));
   assert.ok(yuLine, yu.h.allTo('p_0', 'm.toast').slice(n1).map((t) => t.text).join(' | '));
   const yuName = yuLine.slice('余：获得'.length);
   assert.ok(handChess(yu.ps).some((id) => CH(id).name === yuName), yuLine);
 });
 
-test('余 37: a chess of the bond with the most members (normal: 3 in the row; 精锐: always)', () => {
+test('余 37: a chess of the bond with the most members (normal: 3 in the row; 精锐: always), at most the shop level (§37.205)', () => {
   for (const { gid, g, owners } of idsOf('SERVER_PREP_START', 'SERVER_MOST_BOND')) {
     for (const owner of owners) {
       const s = setup();
+      s.ps.shop.level = 4; // a tier no higher than this (GitHub #218; the owner, 2026-11-14)
       give(s.m, s.ps, owner, 'board', [10, 4]);
       s.ps.bondCountBonus.egirShip = 9;
       s.ps.recompute();
-      s.roundStart();
+      s.prepStart();
       const rowRule = g.bbStr.conditionkey === 'character_same_row';
       assert.equal(handChess(s.ps).length, rowRule ? 0 : 1, `${gid}: alone in the row`);
       if (rowRule) {
         const row = plain((c) => !c.bonds.includes('egirShip')).slice(0, 2);
         give(s.m, s.ps, row[0], 'board', [10, 6]);
         give(s.m, s.ps, row[1], 'board', [10, 8]);
-        s.roundStart();
+        s.prepStart();
       }
       const got = handChess(s.ps);
       assert.equal(got.length, 1, gid);
       assert.ok(CH(got[0]).bonds.includes('egirShip'), `${gid} ${got[0]}`);
+      assert.ok(CH(got[0]).tier <= 4, `${gid} ${got[0]}: tier ${CH(got[0]).tier} above the shop level`);
     }
     cover(gid);
   }
@@ -760,12 +762,12 @@ test('铃兰 60: front "获得时" traits (精锐: the two tiles in front), ×�
         give(s.m, s.ps, 'chess_char_1_07_a', 'board', [10, 5]);       // 普罗旺斯: 获得时 +1 free refresh
         give(s.m, s.ps, 'chess_char_1_07_b', 'board', [10, 6]);       // +2
         give(s.m, s.ps, 'chess_char_1_07_a', 'board', [10, 7]);       // 3 tiles away: never
-        s.roundStart();
+        s.prepStart();
         assert.equal(s.ps.shop.freeRefreshes, tiles === 1 ? 1 : 3, gid);
         const t = setup();
         give(t.m, t.ps, owner, 'hand');
         give(t.m, t.ps, 'chess_char_1_07_a', 'board', [10, 5]);
-        t.roundStart();
+        t.prepStart();
         assert.equal(t.ps.shop.freeRefreshes, 0, `${gid}: character_target_inboard`);
       }
       assert.equal(g.bbStr.event, 'SERVER_GAIN');
@@ -777,7 +779,7 @@ test('铃兰 60: front "获得时" traits (精锐: the two tiles in front), ×�
   give(t.m, t.ps, 'chess_char_1_07_a', 'board', [10, 5]);
   give(t.m, t.ps, 'chess_char_1_07_b', 'board', [10, 6]);
   t.activate('investShip');
-  t.roundStart();
+  t.prepStart();
   assert.equal(t.ps.shop.freeRefreshes, (1 + 2) * 2, 'both tiles, ×2 under 投资人');
 });
 
@@ -826,7 +828,7 @@ test('塞雷娅 99 / 白面鸮 86: the copier runs the front operator\'s prep-en
       const w = setup();
       give(w.m, w.ps, owner, 'board', [10, 4]);
       give(w.m, w.ps, 'chess_char_4_16_b', 'board', [10, 5]);         // 缄默德克萨斯 精锐 +2 free refreshes
-      w.roundStart();
+      w.prepStart();
       assert.equal(w.ps.shop.freeRefreshes, 4, gid);
     }
     cover(gid);
@@ -835,7 +837,7 @@ test('塞雷娅 99 / 白面鸮 86: the copier runs the front operator\'s prep-en
   give(w.m, w.ps, 'chess_char_4_21_a', 'board', [10, 3]);             // 白面鸮 → 白面鸮 (hidden 5_16) → 缄默德克萨斯
   give(w.m, w.ps, 'chess_char_5_16_a', 'board', [10, 4]);
   give(w.m, w.ps, 'chess_char_4_16_a', 'board', [10, 5]);
-  w.roundStart();
+  w.prepStart();
   assert.equal(w.ps.shop.freeRefreshes, 3);
 });
 
@@ -852,7 +854,7 @@ for (const targetId of ['chess_char_4_12_a', 'chess_char_6_03_a']) {
         give(s.m, s.ps, fillers[filler++], 'board', [r, 5]);
       }
       s.ps.recompute(); const before = s.ps.round.gainedChess;
-      s.roundStart();
+      s.prepStart();
       assert.equal(s.ps.round.gainedChess - before, 1 + (sourceRow ? 1 : 0), 'copier always gives one; original still checks its own row');
       s.h.invariants();
     });

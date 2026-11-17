@@ -11,6 +11,7 @@
 //   toggleOn(binding, v, mem, now)                → whether its toggle checkers hold now (true / false), null when no
 //                                                   client signal shows one of them
 //   triggerKinds(binding)                          → the sim 'fx' kinds that cast a node a buff template action triggers
+//   pointKinds(binding)                            → those of them whose fx (x, y) is the struck spot: its hit rows there
 //   bindingKeys(binding)                           → every key it can play (preloading)
 //
 // Binding = { id, source ('talent' | 'ability'), key (the talent prefab key / the ability's name), kind (an ability's:
@@ -29,7 +30,7 @@
 // — an enemy's 重生: the knock-out's handler rows from the sim's knock-out fx to its stand-up fx, then its end rows and
 // the talent's buffs (the 无敌 loop for its blackboard time); null — the sim fx kinds its template triggers name
 // (triggerKinds: a fatal blow → 'substitute' / 'undying', a stand-in buff's end → 'swap' / 'dollEnd', a skill start, the
-// owner's birth); `attack` — the attack it adds or replaces only where a kit fx marks it ('extraAttack'), else nothing.
+// owner's birth; a point strike — 火力电台's talent 'airstrike' at its spot, POINT_TRIGGERS); `attack` — the attack it adds or replaces only where a kit fx marks it ('extraAttack'), else nothing.
 
 import { planUses, emptyPlan, planKeys, resolveSkill } from './skills.js';
 
@@ -128,12 +129,22 @@ export function talentBindings(idx, unitKey, { info = null, rec = null } = {}) {
 /** Sim fx kinds a template action at a buff event casts through (module header). */
 const FATAL = ['substitute', 'undying'];
 const STAND_IN_END = ['swap', 'dollEnd'];
+/**
+ * Buff templates whose triggered node is a talent's strike the kit draws as an fx at the struck spot: that fx kind, marked
+ * `talent` by the kit (the same kind may be a skill's: 新约能天使's S3 delivery is an 'airstrike' too), casts it, its hit
+ * rows playing there (pointKinds). 新约能天使's 火力电台: an ally's spent bullet may call TalentBomb
+ * (angel2_t_1[target] → MultiRangedAttack, hit angel2_buff_01_trail_01) — the kit's 'airstrike' (before, it drew only
+ * the procedural blast, read as 蕾缪安's).
+ */
+const POINT_TRIGGERS = Object.freeze({ 'angel2_t_1[target]': 'airstrike' });
 
 /**
  * The sim 'fx' kinds (with the unit's id) that cast a node a buff template action triggers (`triggers`): the fatal blow
  * (ON_BEFORE_TRY_SET_HP_ZERO) is a 傀儡师's 'substitute' or a kit's 'undying'; a stand-in buff's end (ON_BUFF_FINISH of a
  * `*standin*` buff) the 'swap' / 'dollEnd' back; 'skill' — the owner's skill start (ON_SKILL_START, the 'skill' event); 'born'
- * — its deploy (ON_OWNER_BORN). Other events have no client signal.
+ * — its deploy (ON_OWNER_BORN). One exception casts on a spot instead of the unit: POINT_TRIGGERS (the ON_BUFF_START of
+ * 新约能天使's `angel2_t_1[target]` → the sim's 'airstrike' fx with `talent: true` and the struck spot, PR #861). Other
+ * events have no client signal.
  */
 export function triggerKinds(b) {
   const out = new Set();
@@ -143,8 +154,16 @@ export function triggerKinds(b) {
     else if (t.event === 'ON_BUFF_FINISH' && /standin/i.test(`${t.template || ''} ${t.buff || ''}`)) for (const k of STAND_IN_END) out.add(k);
     else if (t.event === 'ON_SKILL_START') out.add('skill');
     else if (t.event === 'ON_OWNER_BORN') out.add('born');
+    else if (POINT_TRIGGERS[t.template]) out.add(POINT_TRIGGERS[t.template]);
   }
   return [...out];
+}
+
+/** The trigger kinds of a binding whose fx marks the struck spot (POINT_TRIGGERS): its attacks' hits play there. */
+export function pointKinds(b) {
+  const out = [];
+  for (const t of Array.isArray(b?.triggers) ? b.triggers : []) if (isObj(t) && POINT_TRIGGERS[t.template]) out.push(POINT_TRIGGERS[t.template]);
+  return out;
 }
 
 /**

@@ -1,0 +1,44 @@
+/* 选择自编 — sits on the briefing chrome (briefing.css). Cards wrap on a phone. */
+
+.diy-check__lead, .diy-check__empty, .diy-check__hint {
+  margin: 0;
+  color: #c9d4d2;
+  font-size: calc(.28 * var(--t));
+  line-height: 1.45;
+}
+.diy-check__lead { margin: .2rem .4rem .35rem .78rem; }
+.diy-check__empty { margin: .4rem .78rem; color: #8d9996; }
+.diy-check__tier { margin: 0 .4rem .4rem .78rem; }
+.diy-check__tierhead {
+  display: flex; align-items: center; gap: .16rem;
+  margin: 0 0 .18rem; font-size: calc(.26 * var(--t)); color: #e6eaea;
+}
+.diy-check__count { margin-left: auto; color: var(--mint-400, #59f4ca); font-size: calc(.3 * var(--t)); }
+.diy-check__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 10px;
+}
+.diy-check__card {
+  display: flex; flex-direction: column; align-items: flex-start; gap: .08rem;
+  min-width: 0; padding: .16rem; text-align: left;
+  background: rgba(8, 14, 14, .72);
+  border: 1px solid rgba(255, 255, 255, .14);
+  color: inherit; cursor: pointer;
+}
+.diy-check__card.is-on { outline: 2px solid var(--mint-400, #59f4ca); outline-offset: 1px; }
+.diy-check__card.is-banned {
+  filter: grayscale(1);
+  opacity: .45;
+  pointer-events: none;
+  cursor: default;
+}
+.diy-check__art { width: 100%; aspect-ratio: 1; object-fit: cover; background: rgba(0, 0, 0, .35); }
+.diy-check__name {
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: calc(.26 * var(--t));
+}
+.diy-check__bonds { display: flex; flex-wrap: wrap; gap: .06rem; min-height: .28rem; }
+.diy-check__why { color: #d7c27a; font-size: calc(.2 * var(--t)); line-height: 1.3; }
+.diy-check .brief__foot { flex-wrap: wrap; }
+.diy-check__hint { flex: 1 1 12rem; margin-right: auto; pointer-events: none; }

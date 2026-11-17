@@ -9,10 +9,11 @@ operators, the self-select 6★ operators, contributions from GitHub issue #136 
 
 | path | what |
 |---|---|
-| `index.js` | the registry: `KIT_FILES` lists every kit file, grouped by tier, `STANDIN_KIT_FILES` the 补位 stand-in kits and `OPERATOR_KIT_FILES` the 自选 operator kits; `KITS` (base chess id → kit builder, then stand-in charId → kit builder, then operator charId → kit builder), `TIER_KITS` (one registry per tier group), `STANDIN_KITS`, `OPERATOR_KITS` and `KITTED_CHARS` (who a 自选 slot may field) are built from them |
+| `index.js` | the registry: `KIT_FILES` lists every kit file, grouped by tier, `STANDIN_KIT_FILES` the 补位 stand-in kits, `OPERATOR_KIT_FILES` the 自选 operator kits, `VERSION_KIT_FILES` the 第一期 charId kits and `DIY_BORROW_KIT_FILES` the borrowed 自选 kits (`ops/ver-diy.js`); `KITS` (base chess id → kit builder, then stand-in charId, then operator charId, then version charId, then borrowed 自选 charId), `TIER_KITS`, `STANDIN_KITS`, `OPERATOR_KITS`, `VERSION_KITS`, `DIY_BORROW_KITS` and `KITTED_CHARS` (who a 自选 slot may field) are built from them; `KIT_CHAR_IDS` names the charId each tier kit was written for (`TIER_KIT_KEYS_BY_CHAR` is its reverse). `PENDING_DIY_KIT_CHARS` is empty. `PENDING_KIT_CHARS` names the operators who still have no kit |
 | `ops/<chessId>-<codename>.js` | one kit per file, with the helpers and constants only that kit uses |
 | `ops/standin-<codename>.js` | one 补位 stand-in kit per file (below: "Stand-in kits") |
 | `ops/op-<codename>.js` | one 自选 operator kit per file (below: "How to add an operator (自选)") |
+| `ops/ver-<codename>.js` | one 第一期 charId kit, or `ver-diy.js` for the borrowed 自选 kits (DESIGN §35.22.9) |
 | `shared/tier1.js` | the general kit helpers (blackboard readers, unit predicates, hit hooks, area queries, buffs, zones, free tiles, skill records) and the notes of the tier-1 kits |
 | `shared/tier2.js` … `tier6.js` | helpers two or more kits of that tier use, and that tier's notes (conventions, simplifications, fx kinds) |
 | `shared/summoner.js` | the 召唤师 summon deck the 自选 kits of 麦哲伦 / 令 / 电弧 share (`summonDeck`: the holding, a placed piece's return, recalls, the summons leaving with their owner; `holdBuff`, `tokenStat`) |
@@ -21,6 +22,21 @@ operators, the self-select 6★ operators, contributions from GitHub issue #136 
 id), else the generic kit built from the skill blackboard (`content/generic.js`, docs/SIM.md §7.4). A 补位 stand-in's
 and a 自选 piece's kit is `KITS[def.charId]` and nothing else (`content/index.js kitOf`): it keeps the chess's (the DIY
 slot's) ids, which name the replaced operator's kit (a slot has none).
+On another official version's build the by-id kit is used only when `KIT_CHAR_IDS` names the record's charId (official
+versions M0, 0.3.2, DESIGN §35.22): that version may give chess ids to other operators (第一期, 盟约·上半, does), whose kit
+is then found by charId (`content/index.js officialKitKey`, docs/SIM.md §7.2). The default data keeps the by-id lookup.
+A 自选 piece keeps `KITS[def.charId]` there too. The 35 picks whose hand-written kit is a tier kit (24 in 第一期, plus
+银灰, who is only in 第二期上半's pool, plus 规程·序列Ⅰ's 10 owned-6★ picks, each with one tier file that authors all
+three skills) borrow that kit under the charId (`ops/ver-diy.js`, DESIGN §35.22.9). They are in
+`KITTED_CHARS` and are not keys of `OPERATOR_KITS`. `PENDING_DIY_KIT_CHARS` is empty. A shop chess of the same operator
+still takes the tier key.
+A kit that lists the members of a character_table group by charId (no built record carries `groupId` or `teamId`:
+深海猎人, 莱茵生命, `STUDENTS`, `SUI`) keeps the default list on data without `config.version`. A member that only another
+official version brings in is added behind `isVersionData` (from `../../tokens.js`), as `shared/tier5.js abyssalOf` and
+the 缪尔赛思 kit's `rhineOf` do; a kit shares an existing list rather than copying it. 规程 (`family === 'regulation'`)
+also counts 淬羽赫默 on `rhineOf` [ASSUMED]: she is a shop chess there and stays off the covenant lists. `test/versions-keying.test.js`
+`GROUPS` pins the 深海猎人 and 莱茵生命 members each data directory sees (`STUDENTS` and `SUI` are complete on every build;
+docs/SIM.md §7.2, DESIGN §35.22.4).
 
 ## Naming
 
@@ -82,7 +98,7 @@ export default {
 - **The battle API** documented in docs/SIM.md: units (§2), buffs / mods / statuses (§3), the damage & heal pipeline
   (§4), the hook bus and its re-entrancy rule (§5), the engine helpers content must use (§6), the skill runtime (§7.1);
   engine modules by relative path (`../../../constants.js`, `targeting.js`, `body.js` for huge enemies, `dir.js` for
-  facing, `damage.js` `hasHp` / `isHpLoss` / `mitigate`, `buffs.js`, `simdata.js` `normalizeChess`); content modules
+  facing, `attack.js` `hasHp` / `isHpLoss` / `mitigate`, `buffs.js`, `simdata.js` `normalizeChess`); content modules
   (`../../tokens.js` summons, `../../items/battle.js`).
 - **Never**: Node-only modules (`node:*`, `server/sim/nodeData.js`) or anything of `server/match`, `server/net`,
   `public/` — the sim is served to browsers as-is (`/sim/`, no bundler); `Math.random`, `Date.now`, timers — use
@@ -102,6 +118,10 @@ export default {
 3. Append its file name to its tier's group in `index.js` `KIT_FILES` (never reorder the existing entries). Each file
    is loaded with a guarded dynamic import: a file that fails to load is logged and its chess falls back to the
    generic kit, so check the server log when a kit seems to do nothing.
+   Add its line to `KIT_CHAR_IDS` at the same place (`chess_char_3_04_a: 'char_1033_swire2', // 琳琅诗怀雅` — the
+   charId the file's first line names). A 第一期 shop operator with no tier file is `ops/ver-<codename>.js` in
+   `VERSION_KIT_FILES`, not a `KIT_FILES` entry (DESIGN §35.22.9); `PENDING_KIT_CHARS` is empty. An operator that
+   later gets a kit leaves whichever pending list still names it. `node --test test/versions-keying.test.js` checks both.
 4. `node --test test/content/kits_layout.test.js` checks the name, the registry entry and the imports;
    `node tools/kit-coverage.mjs --missing` lists selectable skills that still fall back to the generic spec.
 
@@ -148,7 +168,7 @@ or a prototype (DATA.md §18, `shared/diy.js`). The prototypes run their stand-i
 an owned 6★ can be picked only once it has a kit of its own: one file per operator, the same rules as every kit above.
 Contributions are welcome — one operator per pull request is easiest to review.
 
-**Who.** The owned-6★ picks are `data/backups.json diy.ownedPool` (72 operators; the collab operators are not included,
+**Who.** The owned-6★ picks are `data/backups.json diy.ownedPool` (75 operators; the collab operators are not included,
 the owner's decision of 2026-10-05). The ones still without a kit:
 
 ```sh
@@ -173,7 +193,9 @@ const b = JSON.parse(readFileSync('data/backups.json', 'utf8')); for (const id o
    `char_112_siege`); the Chinese name in the first line.
 2. The default export has exactly one key, the charId: `export default { char_112_siege: (bb, chess, def) => Kit }`.
 3. Append the file name to `OPERATOR_KIT_FILES` in `index.js`. The operator becomes a legal pick (`KITTED_CHARS`;
-   `shared/diy.js diyPool` / `validateDiyPicks` with `kitted`) — never register it under a chess or slot id.
+   `shared/diy.js diyPool` / `validateDiyPicks` with `kitted`) — never register it under a chess or slot id. A version's
+   自选 pick whose only hand-written kit is a tier kit borrows it (`ops/ver-diy.js`, `DIY_BORROW_CHARS`) instead of an
+   `op-*` file; `PENDING_DIY_KIT_CHARS` is empty after DESIGN §35.22.9 (`node --test test/versions-keying.test.js` checks it).
 4. `node --test test/content/kits_layout.test.js` checks the name, the key (an owned pick), the registry and that every
    skill of every form is authored under `skills`.
 
@@ -334,7 +356,7 @@ Each item is a mistake this project already made once. Tick every one for every 
   every module; the golden files updated in the same pull request (an intended change).
 - [ ] **11. 治疗 or 生命回复速度** — an effect PRTS describes as raising the target's 「生命回复速度」 (a 备注 「增加目标的
   “生命回复速度”属性，不受治疗加成和禁疗影响」; 分支特性信息 吟游者) is an hpRegen / hpRegenRatio buff on the target, never
-  `battle.heal`: 禁疗 and 无法被友方治疗 (`noHeal`) do not stop it and no 治疗加成 scales it (damage.js heal `regen`).
+  `battle.heal`: 禁疗 and 无法被友方治疗 (`noHeal`) do not stop it and no 治疗加成 scales it (attack/heal.js `mode: 'regen'`).
   Examples: 安洁莉娜 兼职工作, the 吟游者 trait (professions.js `bardRegen`), 调香师, 瑕光 S2, 铃兰 S3, 锡人;
   `test/content/feedback5-regen.test.js` (GitHub #96 / #137). A per-second 「恢复…生命」 without such a note stays a heal.
 

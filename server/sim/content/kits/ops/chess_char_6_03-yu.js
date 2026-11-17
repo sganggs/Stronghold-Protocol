@@ -6,7 +6,7 @@ import {
   num, bv, tbb, moduleBb, live, opsOf, ANY, onDefaultSkill, selectedSkill, skillGridOf, AROUND8, onElementHit,
   elementDmg, aura,
 } from '../shared/tier6.js';
-import { holdProtect, byEnemyAttack } from '../shared/tier1.js';
+import { holdProtect, byEnemyDamage } from '../shared/tier1.js';
 
 /**
  * "传送至自身位置": a ground enemy that can reach `unit`'s tile on the ground grid is moved onto it (unblocked, its
@@ -41,8 +41,19 @@ function yu(bb, chess, def) {
   const s3On = (unit) => isDef && !!unit.skill?.active;
   const skills = {
     // S1 今日做东 (TAKE_DAMAGE, hurt SP): passive taunt +taunt_level; active: HP / DEF +, every enemy damage instance taken ⇒
-    // ep_damage_ratio × ATK 灼燃损伤 on its source (install below)
-    skchr_yu_1: { kind: 'duration', mods: { hpPct: num(bb.max_hp), defPct: num(bb.def) } },
+    // ep_damage_ratio × ATK 灼燃损伤 on its source, observed at the skill's acquired injury position.
+    skchr_yu_1: {
+      kind: 'duration', mods: { hpPct: num(bb.max_hp), defPct: num(bb.def) },
+      onStart({ battle, unit }) {
+        battle.addBuff(unit, { key: 'yu:hostCounter', tags: ['skill'], observeInjury(c) {
+          const src = c.source;
+          if (!unit.alive || !byEnemyDamage(c) || !src.alive) return;
+          battle.dealElementDamage({ source: unit, target: src, element: 'burn', amount: unit.s.atk * num(bb.ep_damage_ratio),
+            ignoreSelect: true, tags: ['skill', 'counter'] });
+        } });
+      },
+      onEnd({ battle, unit }) { battle.removeBuff(unit, 'yu:hostCounter'); },
+    },
     // S2 厚礼上宾 (cast with an enemy on its x-1: the data's SKILL_RANGE, a deliberate deviation from the 重装 TAKE_DAMAGE
     // row — tools/build-data.mjs TRIGGER_DEVIATIONS, DESIGN §22.10): atk_scale × ATK arts on every enemy of the skill range
     // + the ground-reachable ones teleported onto his tile (leaders too, unless 自缚: teleportEnemy); block +block_cnt, HP /
@@ -71,23 +82,17 @@ function yu(bb, chess, def) {
       if (sid !== 'skchr_yu_1') return;
       // 被动效果：自身更容易受到敌人攻击 (while this skill is carried)
       battle.addBuff(unit, { key: 'yu:host', mods: { taunt: num(bb.taunt_level, 1) }, persist: true, allowDead: true });
-      battle.on('damaged', (ctx) => {
-        const s = ctx.source;
-        // "每次受到攻击" = the official yu_s_1[inverse_damage]: every enemy damage instance (tier1 byEnemyAttack)
-        if (ctx.target !== unit || !unit.skill?.active || !byEnemyAttack(ctx) || !s.alive) return;
-        elementDmg(battle, unit, s, 'burn', unit.s.atk * num(bb.ep_damage_ratio), ['skill']);
-      }, { owner: unit });
     },
     skill: {
       kind: 'duration',
       mods: { hpPct: num(bb.max_hp), atkPct: num(bb.atk), defPct: num(bb.def) },
       allyTargets: false,   // [ASSUMED] its wall burns enemies crossing it; 白铁's 铁钳号 alone does not open it
-      // the wall runs through his tile perpendicular to his direction (RIGHT / LEFT: his column; UP / DOWN: his row —
-      // it turns with the deploy direction like a range) [ASSUMED orientation for UP / DOWN]
+      // PRTS: perpendicular to facing, half a tile ahead, spanning the field.
       onStart({ battle, unit }) {
         const vertical = unit.fwd[0] === 0;
-        unit.mem.yuWall = vertical ? { axis: 'x', v: unit.tileC } : { axis: 'y', v: unit.tileR };
-        battle.fx('firewall', { x: unit.tileC, y: unit.tileR, id: unit.id, dir: unit.dir, axis: vertical ? 'col' : 'row' });
+        const x = unit.tileC + 0.5 * unit.fwd[1], y = unit.tileR + 0.5 * unit.fwd[0];
+        unit.mem.yuWall = vertical ? { axis: 'x', v: x } : { axis: 'y', v: y };
+        battle.fx('firewall', { x, y, id: unit.id, dir: unit.dir, axis: vertical ? 'col' : 'row' });
       },
       onEnd({ unit }) { unit.mem.yuWall = null; },
     },
@@ -102,8 +107,10 @@ function yu(bb, chess, def) {
         aura(battle, unit, iv, () => {
           for (const e of unit.blocking.slice()) {
             if (!e.alive) continue;
-            if (sc > 0) battle.dealDamage(unit, e, { amount: unit.s.atk * sc, type: 'arts', tags: ['talent'] });
+            // PRTS 礼尚往来: burn gauge first, then the melee-route arts DoT.
             if (er > 0) elementDmg(battle, unit, e, 'burn', unit.s.atk * er, ['talent']);
+            if (sc > 0 && e.alive) battle.dealDamage({ source: unit, target: e, amount: unit.s.atk * sc, type: 'arts',
+              attackType: 'BUFF', applyWay: 'MELEE', calculation: 'precomputed', tags: ['talent', 'dot'] });
           }
         });
       } },
@@ -124,21 +131,26 @@ function yu(bb, chess, def) {
           if (w == null) return false;
           return w.axis === 'y' ? (a.y - w.v) * (b.y - w.v) < 0 : (a.x - w.v) * (b.x - w.v) < 0;
         };
-        battle.on('damaged', (ctx) => {
+        battle.on('damageApplied', (ctx) => {
           const s = ctx.source, t = ctx.target;
-          if (!(wallBurn > 0) || unit.mem.yuWall == null || !live(unit) || ctx.type !== 'arts' || !(ctx.amount > 0)) return;
+          if (!(wallBurn > 0) || unit.mem.yuWall == null || !live(unit) || ctx.dmg.type !== 'arts' || !(ctx.amount > 0)) return;
           if (!s || s === unit || s.side !== 'ally' || !t || t.side !== 'enemy' || !t.alive || !crosses(s, t)) return;
           elementDmg(battle, unit, t, 'burn', unit.s.atk * wallBurn, ['skill', 'firewall']);
         }, { owner: unit });
-        battle.on('hit', (ctx) => {
-          const s = ctx.source, t = ctx.target;
-          if (!(wallProb > 0) || unit.mem.yuWall == null || !live(unit) || !s || s.side !== 'enemy' || !t || t.side !== 'ally') return;
-          if (!ctx.dmg.isAttack || !(s.base.rangeRadius > 0) || s.blockedBy === t || !crosses(s, t)) return;
-          if (battle.rng() < wallProb) {
-            ctx.dmg.cancel = true;
-            const w = unit.mem.yuWall;
-            battle.fx('firewallBlock', w.axis === 'y' ? { x: t.x, y: w.v, id: unit.id } : { x: w.v, y: t.y, id: unit.id });
-          }
+        const touching = new WeakMap();
+        battle.on('projectileStep', ctx => {
+          const p = ctx.projectile, w = unit.mem.yuWall;
+          if (ctx.cancel || !(wallProb > 0) || !w || !live(unit) || p.source?.side !== 'enemy' || !p.removable || !(p.speed > 0)) return;
+          const insideField = w.axis === 'x' ? p.y >= battle.rect.r0 - 0.5 && p.y <= battle.rect.r1 + 0.5
+            : p.x >= battle.rect.c0 - 0.5 && p.x <= battle.rect.c1 + 0.5;
+          // PRTS: width 0.3; fast projectiles can skip the collision strip between simulation frames.
+          // [ASSUMED] Sample the sim tick position; exact Unity physics timing is not reproduced.
+          if (!insideField || Math.abs(p[w.axis] - w.v) > 0.15 + 1e-9) { touching.delete(p); return; }
+          if (touching.get(p) === w) return;
+          touching.set(p, w);
+          if (battle.rng() >= wallProb) return;
+          ctx.cancel = true;
+          battle.fx('firewallBlock', { x: p.x, y: p.y, id: unit.id });
         }, { owner: unit });
       } },
       { install(battle, unit) { // elite: module element ×1.15 while blocking; 闲云隐市 arts ×1.14 vs burning targets (≥4 ops)

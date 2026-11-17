@@ -16,6 +16,8 @@
 // Like the build tag (server/http/buildTag.js) it describes the files at start: a file changed on disk afterwards is
 // not seen before the next start (every update restarts the server, DEPLOY.md). Line endings are part of the bytes;
 // .gitattributes checks code and data out with LF everywhere, so a Windows clone has the same `cs` as Linux.
+// An official version's content (DESIGN §35.23, M1; server/versions.js): versionContentOf — the same code files, the
+// version's own data/versions/<slug>/ files, a `cs` of its own; its manifest names the version and its data URLs.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -130,13 +132,42 @@ export function computeVanillaContent({ simDir, sharedDir, dataDir, shim, app = 
  * contentHashOf over app, sim, data's hashes, plugins, settings, and, for a content selection, the sha256 fields of
  * index.i18n) and to check every data file a browser downloads. Vanilla omits i18n. index.json itself is not an input.
  * A file the set does not change points at its plain URL with `?v=` (the first 8 digits of its hash: immutable there).
+ * An official version's manifest (DESIGN §35.23; server/versions.js) passes `dataUrl` (its data/versions/<slug>/ URL),
+ * `version` (its registry id) and `bounds` (its official-bounds snapshot's { url, sha256, bytes }); neither key is
+ * written without them, so the vanilla manifest is unchanged.
  * @param {VanillaContent} content
+ * @param {{ dataUrl?: string, version?: string | null, bounds?: { url: string, sha256: string, bytes: number } | null }} [opts]
  */
-export function contentIndexOf(content) {
+export function contentIndexOf(content, { dataUrl = '/data/', version = null, bounds = null } = {}) {
   const data = {};
-  for (const [name, f] of Object.entries(content.data)) data[name] = { url: `/data/${encodeURIComponent(f.file)}?v=${f.sha256.slice(0, 8)}`, sha256: f.sha256, bytes: f.bytes };
+  for (const [name, f] of Object.entries(content.data)) data[name] = { url: `${dataUrl}${encodeURIComponent(f.file)}?v=${f.sha256.slice(0, 8)}`, sha256: f.sha256, bytes: f.bytes };
   return {
     v: CONTENT_HASH_VERSION, cs: content.cs, app: content.app, vanilla: true,
+    ...(version ? { version } : {}),
     sim: content.sim, simFiles: { ...content.simFiles }, data, plugins: [], settings: {},
+    ...(bounds ? { bounds: { official: { ...bounds } } } : {}),
   };
+}
+
+/**
+ * The content of an official version (DESIGN §35.23, M1): the vanilla content's code (`app`, `sim`, `simFiles` — the
+ * browser runs the same sim) with the version's own data files (gameplayDataFiles of its directory: the 16 gameplay
+ * tables, no art manifest) and `cs = contentHashOf({ app, sim, data })`. Hashes the bytes only (no JSON parse). No index:
+ * server/versions.js writes it (contentIndexOf with the version's URL and bounds). Null when the directory has no data file.
+ * @param {{ vanilla: VanillaContent, dataDir: string, dataUrl: string, version: string, hash?: (bytes: Buffer) => string,
+ *   log?: { warn: Function } }} opts dataDir: the version's directory; dataUrl: its URL prefix ('/data/versions/<slug>/')
+ * @returns {(Omit<VanillaContent, 'index'> & { version: string, dataUrl: string }) | null}
+ */
+export function versionContentOf({ vanilla, dataDir, dataUrl, version, hash = nodeSha256, log = noopLog }) {
+  /** @type {VanillaContent['data']} */
+  const data = {};
+  for (const f of gameplayDataFiles(dataDir)) {
+    try {
+      const buf = fs.readFileSync(f.abs);
+      data[f.name] = { file: f.file, sha256: hash(buf), bytes: buf.length };
+    } catch (e) { log.warn(`[versions] cannot read ${version} ${f.file}: ${e?.code || e?.message || e}`); }
+  }
+  if (!Object.keys(data).length) return null;
+  const cs = contentHashOf({ app: vanilla.app, sim: vanilla.sim, data: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, v.sha256])) });
+  return { cs, app: vanilla.app, vanilla: true, sim: vanilla.sim, simFiles: { ...vanilla.simFiles }, data, version, dataUrl };
 }

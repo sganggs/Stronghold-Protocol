@@ -47,10 +47,10 @@
 //   at max_scale × max HP at each gain, lasting shield_duration s from the latest gain (PRTS "每次获取屏障时重置剩余持续
 //   时间为15s").
 
-import { num, talentBb, traitBb, up, onHitBy, onHitOn, giveSp, skillRec, holdProtect, PROTECT, PROTECT_TICK_HOLD } from '../shared/tier1.js';
+import { num, talentBb, traitBb, up, onHitOn, giveSp, skillRec, holdProtect, PROTECT, PROTECT_TICK_HOLD } from '../shared/tier1.js';
 import { bbCap } from '../../../../../shared/plugins/officialBounds.js';
 import { absoluteRangeKeys, sortEnemyTargets } from '../../../targeting.js';
-import { isHpLoss } from '../../../damage.js';
+import { isHpLoss } from '../../../attack.js';
 import { holdsUndying } from '../../items/battle.js';
 
 const S1 = 'skchr_zuole_1';
@@ -68,7 +68,6 @@ const BERSERK = 'talent:zuole:berserk';
 
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 /** The barrier of his skill he holds (one skill per pick), or null. */
-const barrierOf = (u) => u.findBuff(S2_BARRIER) || u.findBuff(S3_BARRIER);
 
 export default {
   char_4121_zuole: (bb, chess) => {
@@ -92,8 +91,14 @@ export default {
       const cur = unit.findBuff(S3_BARRIER);
       const val = Math.min(cap, (cur ? cur.shield : 0) + healValue * num(b3.shield_scale));
       if (!(val > 0)) return;
-      battle.addBuff(unit, { key: S3_BARRIER, shield: val, duration: num(b3.shield_duration, 15), refresh: 'replace', visible: true,
-        tags: ['skill'], data: { createdAt: cur?.data?.createdAt ?? battle.time } });
+      const duration = num(b3.shield_duration, 15);
+      if (cur) {
+        // Native EXTEND updates the existing pool and lifetime without reacquiring its injury position.
+        cur.shield = val;
+        cur.timeLeft = cur.duration = duration;
+        unit.markDirty();
+      } else battle.addBuff(unit, { key: S3_BARRIER, shield: val, duration, visible: true,
+        tags: ['skill'], data: { createdAt: battle.time } });
     };
     return {
       skills: {
@@ -189,10 +194,13 @@ export default {
           if (!(sp > 0)) return;
           const roll = () => battle.rng.chance(unit.hpRatio < thr ? p2 : p1);
           if (scale !== 1) {
-            onHitBy(battle, unit, ({ dmg }) => { if (dmg.type !== 'element' && roll()) { giveSp(unit, sp); dmg.amount *= scale; } });
+            battle.on('damageCalculate', ({ source, target, dmg }) => {
+              if (source !== unit || !target || target.side !== 'enemy' || dmg.type === 'element') return;
+              if (roll()) { giveSp(unit, sp); dmg.amount *= scale; }
+            }, { owner: unit });
           } else {
-            battle.on('damaged', (c) => {
-              if (c.source !== unit || !c.target || c.target.side !== 'enemy' || isHpLoss(c.dmg) || c.type === 'element') return;
+            battle.on('damageOutput', (c) => {
+              if (c.source !== unit || !c.target || c.target.side !== 'enemy' || !(c.amount > 0) || isHpLoss(c.dmg) || c.dmg.type === 'element') return;
               if (roll()) giveSp(unit, sp);
             }, { owner: unit });
           }
@@ -204,13 +212,11 @@ export default {
         battle.on('heal', (c) => {
           if (unit.mem.zuoleS3 && c.source === unit && c.target === unit && c.opts && c.opts.self && !c.opts.tags) c.amount = 0;
         }, { owner: unit });
-        battle.on('damaged', (c) => {
-          if (!unit.mem.zuoleS3 || c.source !== unit || !c.target || c.target.side !== 'enemy' || isHpLoss(c.dmg) || c.type === 'element') return;
+        battle.on('damageOutput', (c) => {
+          if (!unit.mem.zuoleS3 || c.source !== unit || !c.target || c.target.side !== 'enemy' || !(c.amount > 0) || isHpLoss(c.dmg) || c.dmg.type === 'element') return;
           gainS3Barrier(battle, unit);
         }, { owner: unit });
-        // SBL-X 庇护: active while HP < protectRatio, judged again PROTECT_RESET s after 行险 — the shared 庇护 (holdProtect: the
-        // strongest of every source holds), refreshed every tick and at each hit on him. When the 庇护 held is his own and his
-        // barrier is older than it, his cut comes after the barrier (the hpDamage hook) instead of before it
+    // Reacquired 庇护 follows the older barrier naturally in the ordered injury pass.
         if (protectCut > 0 && protectCut < 1) {
           const active = () => {
             const now = battle.time;
@@ -220,17 +226,8 @@ export default {
             return false;
           };
           const keep = () => { if (active()) holdProtect(battle, unit, protectCut, PROTECT_TICK_HOLD, unit); };
-          const own = () => { const b = unit.findBuff(PROTECT); return !!b && b.source === unit && b.data?.value === protectCut; };
-          const afterBarrier = new WeakSet();
-          battle.on('tick', keep, { owner: unit });
-          onHitOn(battle, unit, ({ dmg }) => {
-            keep();
-            if ((dmg.type !== 'phys' && dmg.type !== 'arts') || P.since == null || !own()) return;
-            const bar = barrierOf(unit);
-            // (the held buff's mods cut this hit before the barrier: undo that and cut what passes the barrier instead)
-            if (bar && bar.shield > 0 && (bar.data?.createdAt ?? Infinity) < P.since) { dmg.mul /= 1 - protectCut; afterBarrier.add(dmg); }
-          });
-          battle.on('hpDamage', (c) => { if (c.target === unit && afterBarrier.has(c.dmg)) c.amount *= 1 - protectCut; }, { owner: unit });
+      battle.on('tick', keep, { owner: unit });
+      onHitOn(battle, unit, keep);
         }
         // SBL-Y: 被击倒时不撤退且回复30%生命（单次部署只触发1次）
         const revive = num(tb.hp_ratio);

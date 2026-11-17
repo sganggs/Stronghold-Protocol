@@ -97,7 +97,7 @@ for (const quintusFirst of [true, false]) test(`Quintus's R3 grant stays indepen
   const h = fixture(t);
   const quintus = () => {
     h.ps.bandId = 'band_quintus'; h.m.round = 3;
-    h.m.dispatch(h.ps, 'onRoundStart', { round: 3 });
+    h.m.dispatch(h.ps, 'onPrepStart', { round: 3 });
     h.ps.bandId = 'band_cathy';
   };
   if (quintusFirst) { quintus(); assert.equal(cellsOwned(h.ps), 1); }

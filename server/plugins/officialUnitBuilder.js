@@ -248,6 +248,32 @@ function immunitiesOf(attrs) {
 const TRIGGER_RENAME = { ALWAYS: 'SP_FULL', CUSTOM_RANGE_SEARCH_ENEMY: 'CUSTOM_RANGE' };
 
 /**
+ * 规程 (act3autochess, the 11-08 data) lists a row's conditions (`skillTriggerTypes`, sorted here) instead of naming one
+ * strategy (`skillTriggerType`). The engine keeps the 盟约 strategies, so each list reads as the 盟约 row that plays the
+ * same way: the rows both seasons have pair one to one (TANK TAKE_DAMAGE ↔ ON_TAKE_DAMAGE + SKILL_RANGE_ENEMY, so the six
+ * deviations keep applying; 阵法术师 / 解放者 / 安洁莉娜 SEARCH ↔ SKILL_RANGE_ENEMY (+ COMBAT_OR_ATTACK); GDGLOW_SKILL_2 ↔
+ * GLOBAL_RANGE_ENEMY; 黍 S3 TRY_SEARCH_ALLY_SKILL ↔ SKILL_RANGE_ALLY + ON_TAKE_DAMAGE …). null = the list states the
+ * default strategy — an enemy (the healers' row: an ally) in the attack or skill range, the rows 规程 adds for the 狙击 /
+ * 术师 / 医疗 classes — and reads as no row at all. The lists no 盟约 row matches are [ASSUMED].
+ */
+const REGULATION_TRIGGER_TYPES = Object.freeze({
+  ALWAYS: 'ALWAYS',
+  'ON_TAKE_DAMAGE+SKILL_RANGE_ENEMY': 'TAKE_DAMAGE',
+  SKILL_RANGE_ENEMY: 'SEARCH',
+  'COMBAT_OR_ATTACK+SKILL_RANGE_ENEMY': 'SEARCH',
+  MLYSS_S: 'MLYSS_WTRMAN',
+  MARCIL_S2: 'MARCILS2',
+  GLOBAL_RANGE_ENEMY: 'GDGLOW_SKILL_2',
+  CUSTOM_RANGE_ENEMY: 'CUSTOM_RANGE_SEARCH_ENEMY',
+  'ON_TAKE_DAMAGE+SKILL_RANGE_ALLY': 'TRY_SEARCH_ALLY_SKILL',
+  'ATTACK_RANGE_ENEMY+SKILL_RANGE_ENEMY': null,
+  'ATTACK_RANGE_ALLY+SKILL_RANGE_ALLY': null,
+  'SKILL_RANGE_ALLY+SKILL_RANGE_ENEMY': 'SEARCH',                         // 凯尔希·思衡托 S1 [ASSUMED]
+  'ATTACK_RANGE_ENEMY+INVALID_IN_SKILL+SKILL_RANGE_ENEMY': null,         // 结城理 S2 [ASSUMED]
+  'CUSTOM_RANGE_ENEMY+ON_TAKE_DAMAGE': 'CUSTOM_RANGE_SEARCH_ENEMY',      // 史尔特尔 S1 / S2 [ASSUMED]
+});
+
+/**
  * Official rows the engine plays as one of its own rules on an ally condition (`allies: true` — server/sim/skills.js: a
  * healable, injured ally on the trigger grid instead of an enemy): 黍 S3 离离枯荣's TRY_SEARCH_ALLY_SKILL, PRTS 卫戍协议/帮助
  * 特殊策略 "技能范围内存在可治疗的我方单位时释放技能" — SKILL_RANGE on the skill's own range (x-2), checked every tick.
@@ -265,11 +291,13 @@ const ATTACK_RANGE_CHANGE = /攻击(?:范围|距离)(?:与溅射范围)?(?:扩�
  * A deliberate deviation from the official 技能策略 (DESIGN §21.29): the owner's decision of 2026-10-03 after community
  * feedback ("反馈的人太多了"; GitHub issue #4, PR #12). The 下半 data's TANK class row (`TANK | | | 0 | TAKE_DAMAGE`,
  * added with 下半 — 上半 had no TANK row) makes every MANUAL 重装 skill wait for a hit; these six offensive skills cast
- * with an enemy in range instead — the basic strategy, DEFAULT. Keyed by the NORMAL chess id (the elite follows through
- * its baseId) and the skill id, never by the skill id alone: 灰毫 S1 skcom_atk_up[3] is a generic skill other chess
- * carry too (惊蛰, 幽灵鲨, 耶拉, 莫斯提马, 莱恩哈特). The record keeps the official row in `rawRule` (TAKE_DAMAGE) for
- * traceability; validateAll fails the build when an entry no longer meets a TAKE_DAMAGE row or its skill. 深巡 S1
- * 侵袭破坏应对 keeps TAKE_DAMAGE.
+ * with an enemy in range instead — the basic strategy, DEFAULT. Keyed by the operator's charId (the normal and the elite
+ * chess alike) and the skill id; never by the chess id — 上半 (act1autochess) reuses the chess ids for other operators
+ * (docs/DATA.md "Official versions (M0)") — and never by the skill id alone: 灰毫 S1 skcom_atk_up[3] is a generic skill
+ * other chess carry too (惊蛰, 幽灵鲨, 耶拉, 莫斯提马, 莱恩哈特). An entry applies only over an official TAKE_DAMAGE row, the
+ * row it overrides: in a version without the TANK row (上半) the skills keep their own rule. `rawRule` keeps the official
+ * row (TAKE_DAMAGE) for traceability; validateAll fails the build when an entry no longer meets a TAKE_DAMAGE row or its
+ * skill. 深巡 S1 侵袭破坏应对 keeps TAKE_DAMAGE.
  * 余 S2 厚礼上宾 joined on 2026-10-04 (the owner's decision after GitHub issue #32 item 1, DESIGN §22.10: players saw it fire
  * from a ranged hit with nobody to pull). His attack range is his own tile (0-1), so the basic strategy would not see an
  * enemy he could pull: his S2 takes SKILL_RANGE on its own 技能范围 (x-1) — the official strategy of a MANUAL skill with a
@@ -279,11 +307,11 @@ const ATTACK_RANGE_CHANGE = /攻击(?:范围|距离)(?:与溅射范围)?(?:扩�
  * 3-2 (`rule` ACTIVE_RANGE, `rawRule` still TAKE_DAMAGE).
  */
 const TRIGGER_DEVIATIONS = Object.freeze({
-  chess_char_1_04_a: { skchr_udflow_2: 'DEFAULT' },                                // 深巡 S2 行动能力剥夺
-  chess_char_1_20_a: { skchr_liskam_2: 'DEFAULT' },                                // 雷蛇 S2 反击电弧
-  chess_char_2_18_a: { 'skcom_atk_up[3]': 'DEFAULT', skchr_ashlok_2: 'DEFAULT' },  // 灰毫 S1 攻击力强化·γ型, S2 专注轰击
-  chess_char_5_08_a: { skchr_horn_2: 'DEFAULT', skchr_horn_3: 'DEFAULT' },         // 号角 S2 暴风号令, S3 终极防线
-  chess_char_6_03_a: { skchr_yu_2: 'SKILL_RANGE' },                                // 余 S2 厚礼上宾 (its x-1)
+  char_4137_udflow: { skchr_udflow_2: 'DEFAULT' },                                 // 深巡 S2 行动能力剥夺 (下半 chess_char_1_04)
+  char_107_liskam: { skchr_liskam_2: 'DEFAULT' },                                  // 雷蛇 S2 反击电弧 (chess_char_1_20)
+  char_431_ashlok: { 'skcom_atk_up[3]': 'DEFAULT', skchr_ashlok_2: 'DEFAULT' },    // 灰毫 S1 攻击力强化·γ型, S2 专注轰击 (chess_char_2_18)
+  char_4039_horn: { skchr_horn_2: 'DEFAULT', skchr_horn_3: 'DEFAULT' },            // 号角 S2 暴风号令, S3 终极防线 (chess_char_5_08)
+  char_2026_yu: { skchr_yu_2: 'SKILL_RANGE' },                                     // 余 S2 厚礼上宾 (its x-1; chess_char_6_03)
 });
 
 /**
@@ -291,8 +319,8 @@ const TRIGGER_DEVIATIONS = Object.freeze({
  * 2026-10-05 (the approved 补位 plan, handoff 0.2.0-补位方案 §一.5): 预备干员-重装 and Mechanist cast with an enemy in
  * range — DEFAULT — instead of the TANK class row's TAKE_DAMAGE. Keyed by the stand-in's charId (a form belongs to no
  * chess) and the skill id, every skill of both: a stand-in fields the skill its chess names and a prototype in a 自选
- * slot follows the same rule. `rawRule` keeps TAKE_DAMAGE; validateAll fails the build when an entry no longer meets a
- * TAKE_DAMAGE row on every form of its unit.
+ * slot follows the same rule. Like TRIGGER_DEVIATIONS it applies only over an official TAKE_DAMAGE row. `rawRule` keeps
+ * TAKE_DAMAGE; validateAll fails the build when an entry no longer meets a TAKE_DAMAGE row on every form of its unit.
  */
 const STANDIN_TRIGGER_DEVIATIONS = Object.freeze({
   char_602_cdfend: { 'skcom_def_up[1]': 'DEFAULT', 'skcom_def_up[2]': 'DEFAULT', 'skcom_def_up[3]': 'DEFAULT' }, // 预备干员-重装 防御力强化 α/β/γ
@@ -351,9 +379,9 @@ const ACTIVE_RANGE_OVER = new Set(['DEFAULT', 'SEARCH']);
  * - else DEFAULT (the basic strategy: ready + about to attack / heal);
  * - an ally row the engine plays as one of its rules (TRIGGER_ALLY_RULES: 黍 S3's TRY_SEARCH_ALLY_SKILL → SKILL_RANGE on
  *   the skill range with `allies: true` — an injured, healable ally there);
- * - last, the deliberate deviations (TRIGGER_DEVIATIONS, per chess and skill; STANDIN_TRIGGER_DEVIATIONS, per stand-in
- *   unit and skill): `rule` from the table, `rawRule` the official row (a SKILL_RANGE deviation takes the skill's own
- *   range as `customRangeGrid`);
+ * - last, the deliberate deviations (TRIGGER_DEVIATIONS, per operator charId and skill; STANDIN_TRIGGER_DEVIATIONS, per
+ *   stand-in unit and skill), only over an official TAKE_DAMAGE row: `rule` from the table, `rawRule` the official row (a
+ *   SKILL_RANGE deviation takes the skill's own range as `customRangeGrid`);
  * - and the owner's rule of 2026-10-05, a deliberate deviation like §21.29 (community report 「有的干员开技能后的攻击范围比
  *   平时攻击范围大，但是怪走到平时的攻击范围内才会开技能」): an operator's MANUAL skill on the basic strategy (DEFAULT — by
  *   no row, or by a DEFAULT deviation of the tables: 深巡 S2's 3-2 over her 2-2) or on the SEARCH row (解放者 / 阵法术师 /
@@ -364,12 +392,25 @@ const ACTIVE_RANGE_OVER = new Set(['DEFAULT', 'SEARCH']);
  *   SKILL_RANGE / SP_FULL / … have their own range or none).
  * @param {object} skill record from buildSkill (skillId, skillType, desc, rangeGrid, bb)
  * @param {{operator?: boolean, chessId?: string, unitCharId?: string, baseGrid?: number[][]|null}} opts operator = a
- *   chess (the 技能范围 strategy is written for 干员; summons keep DEFAULT); chessId = the chess's NORMAL id
- *   (TRIGGER_DEVIATIONS key); unitCharId = the character of a backups.json unit form (STANDIN_TRIGGER_DEVIATIONS key);
+ *   chess (the 技能范围 strategy is written for 干员; summons keep DEFAULT); chessId = the chess's NORMAL id, set for a
+ *   chess (then `charId` is the TRIGGER_DEVIATIONS key); unitCharId = the character of a backups.json unit form
+ *   (STANDIN_TRIGGER_DEVIATIONS key);
  *   baseGrid = the operator's own range at that status (ACTIVE_RANGE)
  */
+/** A trigger row in the 盟约 shape (`skillTriggerType`), or null for a 规程 list that states the default strategy. */
+function triggerRowOf(row) {
+  if (!Array.isArray(row?.skillTriggerTypes) || row.skillTriggerType !== undefined) return row;
+  const key = [...row.skillTriggerTypes].sort().join('+');
+  if (!Object.hasOwn(REGULATION_TRIGGER_TYPES, key)) {
+    warn(`skill trigger row ${row.charId ?? row.subProfessionId ?? row.profession}[${row.skillIndex}]: unknown conditions ${key}, read as no row [ASSUMED]`);
+    return null;
+  }
+  const type = REGULATION_TRIGGER_TYPES[key];
+  return type === null ? null : { ...row, skillTriggerType: type };
+}
+
 function resolveTrigger(ctx, char, charId, skillIdx, skill, { operator = false, chessId = null, unitCharId = null, baseGrid = null } = {}) {
-  const rows = Object.values(ctx.ac.skillTriggerDataList || {});
+  const rows = Object.values(ctx.ac.skillTriggerDataList || {}).map(triggerRowOf).filter(Boolean);
   const manual = skill.skillType === 'MANUAL';
   const pick =
     rows.find((r) => r.charId === charId && (r.skillIndex === skillIdx || r.skillIndex === -1)) ||
@@ -383,13 +424,17 @@ function resolveTrigger(ctx, char, charId, skillIdx, skill, { operator = false, 
   // a live-client correction is final (no ACTIVE_RANGE upgrade: the text's larger range is gone in the client)
   const correction = unitCharId ? UNIT_TRIGGER_CORRECTIONS[unitCharId]?.[skill.skillId] : null;
   if (correction) return { rule: correction, rawRule, customRangeGrid: null };
-  // the 重装 exception also covers every 自选 重装 (a backups.json unit of the TANK class whose MANUAL skill meets the
-  // class row's TAKE_DAMAGE casts with an enemy in range — the owner's decision of 2026-10-05, as for the stand-ins)
-  const deviation = chessId ? TRIGGER_DEVIATIONS[chessId]?.[skill.skillId]
-    : unitCharId ? STANDIN_TRIGGER_DEVIATIONS[unitCharId]?.[skill.skillId]
-      ?? (char.profession === 'TANK' && manual && rawRule === 'TAKE_DAMAGE' ? 'DEFAULT' : null) : null;
+  // the deviations override the official TAKE_DAMAGE row and nothing else (a version without the TANK row keeps the
+  // skill's own rule). The 重装 exception also covers every 自选 重装 (a backups.json unit of the TANK class whose MANUAL
+  // skill meets the class row's TAKE_DAMAGE casts with an enemy in range — the owner's decision of 2026-10-05, as for
+  // the stand-ins)
+  const overTakeDamage = rawRule === 'TAKE_DAMAGE';
+  const deviation = !overTakeDamage ? null
+    : chessId ? TRIGGER_DEVIATIONS[charId]?.[skill.skillId]
+      : unitCharId ? STANDIN_TRIGGER_DEVIATIONS[unitCharId]?.[skill.skillId]
+        ?? (char.profession === 'TANK' && manual ? 'DEFAULT' : null) : null;
   if (deviation === 'SKILL_RANGE') {
-    if (!skill.rangeGrid) warn(`trigger deviation ${chessId} ${skill.skillId}: SKILL_RANGE without a 技能范围`);
+    if (!skill.rangeGrid) warn(`trigger deviation ${charId} ${skill.skillId}: SKILL_RANGE without a 技能范围`);
     return { rule: deviation, rawRule, customRangeGrid: skill.rangeGrid ? skill.rangeGrid.map((p) => p.slice()) : null };
   }
   if (!deviation && TRIGGER_ALLY_RULES[rawRule]) {
@@ -712,10 +757,10 @@ function buildUnitHead(ctx, charId) {
  * chess record: stats / trait / talents without a module, every skill unlocked at the status at its skill level (the
  * trigger resolved per skill as for a chess), its summons, and at `equipLevel > 0` every ADVANCED module of that level.
  * The helpers and rules of buildChess; checkUnitFormParity proves the two agree on every PRESET chess.
- * @param {{ chessId?: string|null, skillIndex?: number|null }} [opts] `chessId`: the NORMAL chess id of a
- *   TRIGGER_DEVIATIONS entry (parity check only — a stand-in's form belongs to no chess: its deviations are the
- *   unit's, STANDIN_TRIGGER_DEVIATIONS by charId); `skillIndex`: a skill listed even when locked (buildChess always
- *   lists the default)
+ * @param {{ chessId?: string|null, skillIndex?: number|null }} [opts] `chessId`: the NORMAL chess id when the form
+ *   stands for a chess, so the chess's TRIGGER_DEVIATIONS (by charId) apply (parity check only — a stand-in's form
+ *   belongs to no chess: its deviations are the unit's, STANDIN_TRIGGER_DEVIATIONS by charId); `skillIndex`: a skill
+ *   listed even when locked (buildChess always lists the default)
  */
 function buildUnitForm(ctx, charId, status, { chessId = null, skillIndex = null } = {}) {
   const { charTable, uniequip, battleEquip } = ctx;

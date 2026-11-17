@@ -1,12 +1,12 @@
 // Multi-device support and UI-polish units (no browser): ui/device.js (feature detection, <html> classes, zoom-gesture
-// blocking, long-press = detail, fullscreen), ui/compat.js polyfills, the HUD 🔍 buttons (hud.js checkButtons), the
+// blocking, long-press = detail, fullscreen, screen wake lock), ui/compat.js polyfills, the HUD 🔍 buttons (hud.js checkButtons), the
 // enemy preview pen helpers (gameLogic penPlacement / previewEnemyKey), the connection-banner class, the audio unlock on
 // iOS-like contexts, and the title's lone-surrogate scan (no regex lookbehind: a SyntaxError in Safari < 16.4).
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { installCompat } from '../../public/js/ui/compat.js';
-import { detectFeatures, featureClasses, fullscreen, installDeviceSupport, LONG_PRESS_MS, screenLandscape } from '../../public/js/ui/device.js';
+import { detectFeatures, featureClasses, fullscreen, installDeviceSupport, installScreenWakeLock, isIOS, LONG_PRESS_MS, screenLandscape } from '../../public/js/ui/device.js';
 import { checkButtons } from '../../public/js/ui/hud.js';
 import { penPlacement, penZoneTiles, previewEnemyKey, PEN } from '../../public/js/ui/gameLogic.js';
 import { bannerVisible } from '../../public/js/ui/connBanner.js';
@@ -89,6 +89,45 @@ describe('ui/compat.js polyfills (Safari 15.0–15.3 / Firefox ESR)', () => {
 // ---- device.js ---------------------------------------------------------------------------------------------------------
 
 describe('ui/device.js feature detection', () => {
+  test('iOS hint detection includes iPhone, iPad and iPod touch across browsers', () => {
+    for (const userAgent of [
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Version/18.0 Mobile/15E148 Safari/604.1',
+      'Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) Version/18.0 Mobile/15E148 Safari/604.1',
+      'Mozilla/5.0 (iPod touch; CPU iPhone OS 15_0 like Mac OS X) Version/15.0 Mobile/15E148 Safari/604.1',
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) CriOS/129.0.6668.69 Mobile/15E148 Safari/604.1',
+      'Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) FxiOS/131.0 Mobile/15E148 Safari/605.1.15',
+    ]) {
+      const { win } = fakeWindow();
+      win.navigator.userAgent = userAgent;
+      assert.equal(isIOS(win), true, userAgent);
+    }
+  });
+  test('iPadOS desktop mode uses the Mac identity together with multitouch', () => {
+    const { win } = fakeWindow({ touchPoints: 5 });
+    win.navigator.platform = 'MacIntel';
+    assert.equal(isIOS(win), true, 'iPadOS platform with multitouch');
+    win.navigator.platform = '';
+    win.navigator.userAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) Version/18.0 Safari/605.1.15';
+    assert.equal(isIOS(win), true, 'iPadOS desktop user agent with multitouch');
+    win.navigator.maxTouchPoints = 0;
+    assert.equal(isIOS(win), false, 'the same user agent on a desktop Mac');
+    win.navigator.platform = 'MacIntel';
+    win.navigator.maxTouchPoints = 1;
+    assert.equal(isIOS(win), false, 'a Mac identity alone does not identify iPadOS');
+  });
+  test('touch, coarse pointers and narrow windows do not identify iOS', () => {
+    for (const [platform, userAgent] of [
+      ['Linux armv8l', 'Mozilla/5.0 (Linux; Android 15; Pixel 9) Chrome/129.0.0.0 Mobile Safari/537.36'],
+      ['Win32', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/129.0.0.0 Safari/537.36'],
+      ['', ''],
+    ]) {
+      const { win } = fakeWindow({ touchPoints: 10, media: { '(any-pointer: coarse)': true } });
+      Object.assign(win.navigator, { platform, userAgent });
+      win.innerWidth = 390;
+      assert.equal(isIOS(win), false, platform || 'unknown touchscreen');
+    }
+    assert.equal(isIOS({}), false, 'missing navigator');
+  });
   test('touch / coarse / hover / fullscreen / reduced motion from media queries and APIs (no UA sniffing)', () => {
     const phone = detectFeatures(fakeWindow({ media: { '(any-pointer: coarse)': true, '(prefers-reduced-motion: reduce)': true }, touchPoints: 5 }).win);
     assert.equal(phone.touch, true);
@@ -127,6 +166,216 @@ describe('ui/device.js feature detection', () => {
     const none = fakeWindow({ fs: false });
     assert.equal(fullscreen.supported(none.win), false);
     assert.equal(await fullscreen.enter(none.win), false);
+  });
+});
+
+describe('ui/device.js screen wake lock', () => {
+  const flush = () => new Promise((resolve) => setImmediate(resolve));
+  const sentinel = () => ({ releases: 0, async release() { this.releases++; } });
+  function wakeWindow(visibility = 'visible') {
+    const f = fakeWindow();
+    f.doc.visibilityState = visibility;
+    f.requests = [];
+    f.locks = [];
+    f.win.navigator.wakeLock = { async request(type) {
+      f.requests.push(type);
+      const lock = sentinel();
+      f.locks.push(lock);
+      return lock;
+    } };
+    f.visibility = (state) => { f.doc.visibilityState = state; f.doc.dispatch(new FakeEvent('visibilitychange')); };
+    return f;
+  }
+
+  test('unsupported browsers do nothing', () => {
+    const f = fakeWindow();
+    const dispose = installScreenWakeLock(f.win);
+    assert.equal(f.doc.count('visibilitychange'), 0);
+    assert.doesNotThrow(dispose);
+  });
+
+  test('requests a screen lock and releases it when the active lifetime ends', async () => {
+    const f = wakeWindow();
+    const dispose = installScreenWakeLock(f.win);
+    await flush();
+    assert.deepEqual(f.requests, ['screen']);
+    assert.equal(f.locks[0].releases, 0);
+    assert.equal(f.doc.count('visibilitychange'), 1);
+    dispose();
+    await flush();
+    assert.equal(f.locks[0].releases, 1);
+    assert.equal(f.doc.count('visibilitychange'), 0);
+    f.visibility('visible');
+    assert.deepEqual(f.requests, ['screen'], 'cleanup prevents foreground reacquisition');
+  });
+
+  test('waits while hidden and reacquires on returning to the foreground', async () => {
+    const f = wakeWindow('hidden');
+    const dispose = installScreenWakeLock(f.win);
+    assert.deepEqual(f.requests, []);
+    f.visibility('visible');
+    await flush();
+    assert.deepEqual(f.requests, ['screen']);
+    f.visibility('hidden');
+    await flush();
+    assert.equal(f.locks[0].releases, 1);
+    assert.deepEqual(f.requests, ['screen'], 'never requests while hidden');
+    f.visibility('visible');
+    await flush();
+    assert.deepEqual(f.requests, ['screen', 'screen']);
+    assert.equal(f.locks[1].releases, 0);
+    dispose();
+    await flush();
+    assert.equal(f.locks[1].releases, 1);
+  });
+
+  test('request and release rejections stay silent', async () => {
+    const f = wakeWindow();
+    f.win.navigator.wakeLock.request = async () => { throw new Error('denied'); };
+    const dispose = installScreenWakeLock(f.win);
+    await flush();
+    f.win.navigator.wakeLock.request = async () => ({ async release() { throw new Error('release denied'); } });
+    f.visibility('hidden');
+    f.visibility('visible');
+    await flush();
+    dispose();
+    await flush();
+    assert.equal(f.doc.count('visibilitychange'), 0);
+  });
+
+  for (const gesture of ['pointerdown', 'touchstart']) {
+    test(`a rejected request retries once directly on ${gesture}`, async () => {
+      const f = wakeWindow();
+      const lock = sentinel();
+      f.win.navigator.wakeLock.request = (type) => {
+        f.requests.push(type);
+        return f.requests.length === 1 ? Promise.reject(new Error('needs a gesture')) : Promise.resolve(lock);
+      };
+      const dispose = installScreenWakeLock(f.win);
+      await flush();
+      assert.equal(f.doc.count('pointerdown'), 1);
+      assert.equal(f.doc.count('touchstart'), 1);
+      f.doc.dispatch(new FakeEvent(gesture));
+      assert.deepEqual(f.requests, ['screen', 'screen'], 'request starts within the event call stack');
+      f.doc.dispatch(new FakeEvent(gesture === 'pointerdown' ? 'touchstart' : 'pointerdown'));
+      await flush();
+      assert.equal(f.requests.length, 2, 'one touch cannot retry twice');
+      assert.equal(f.doc.count('pointerdown'), 0);
+      assert.equal(f.doc.count('touchstart'), 0);
+      assert.equal(lock.releases, 0);
+      dispose();
+      await flush();
+      assert.equal(lock.releases, 1);
+    });
+  }
+
+  test('a failed gesture retry stops; a new foreground request can retry once again', async () => {
+    const f = wakeWindow();
+    f.win.navigator.wakeLock.request = async (type) => { f.requests.push(type); throw new Error('denied'); };
+    const dispose = installScreenWakeLock(f.win);
+    await flush();
+    f.doc.dispatch(new FakeEvent('pointerdown'));
+    await flush();
+    assert.equal(f.requests.length, 2);
+    assert.equal(f.doc.count('pointerdown'), 0);
+    assert.equal(f.doc.count('touchstart'), 0);
+    f.doc.dispatch(new FakeEvent('touchstart'));
+    f.doc.dispatch(new FakeEvent('pointerdown'));
+    assert.equal(f.requests.length, 2, 'no retry loop');
+    f.visibility('hidden');
+    f.visibility('visible');
+    await flush();
+    assert.equal(f.requests.length, 3);
+    assert.equal(f.doc.count('pointerdown'), 1, 'the new normal request gets its own fallback');
+    f.doc.dispatch(new FakeEvent('touchstart'));
+    await flush();
+    assert.equal(f.requests.length, 4);
+    assert.equal(f.doc.count('touchstart'), 0);
+    dispose();
+  });
+
+  for (const end of ['cleanup', 'hidden']) {
+    test(`${end} cancels a pending gesture retry`, async () => {
+      const f = wakeWindow();
+      f.win.navigator.wakeLock.request = async (type) => { f.requests.push(type); throw new Error('denied'); };
+      const dispose = installScreenWakeLock(f.win);
+      await flush();
+      assert.equal(f.doc.count('pointerdown'), 1);
+      if (end === 'cleanup') dispose(); else f.visibility('hidden');
+      assert.equal(f.doc.count('pointerdown'), 0);
+      assert.equal(f.doc.count('touchstart'), 0);
+      f.doc.dispatch(new FakeEvent('pointerdown'));
+      f.doc.dispatch(new FakeEvent('touchstart'));
+      assert.equal(f.requests.length, 1);
+      dispose();
+    });
+
+    test(`a gesture retry resolving after ${end} releases its lock`, async () => {
+      const f = wakeWindow();
+      let resolveRetry;
+      f.win.navigator.wakeLock.request = (type) => {
+        f.requests.push(type);
+        return f.requests.length === 1 ? Promise.reject(new Error('needs a gesture'))
+          : new Promise((resolve) => { resolveRetry = resolve; });
+      };
+      const dispose = installScreenWakeLock(f.win);
+      await flush();
+      f.doc.dispatch(new FakeEvent('touchstart'));
+      if (end === 'cleanup') dispose(); else f.visibility('hidden');
+      const lock = sentinel();
+      resolveRetry(lock);
+      await flush();
+      assert.equal(lock.releases, 1);
+      assert.equal(f.doc.count('pointerdown'), 0);
+      assert.equal(f.doc.count('touchstart'), 0);
+      dispose();
+    });
+  }
+
+  test('a request rejected after hiding cannot arm a gesture retry', async () => {
+    const f = wakeWindow();
+    let rejectRequest;
+    f.win.navigator.wakeLock.request = () => new Promise((_, reject) => { rejectRequest = reject; });
+    const dispose = installScreenWakeLock(f.win);
+    f.visibility('hidden');
+    rejectRequest(new Error('hidden'));
+    await flush();
+    assert.equal(f.doc.count('pointerdown'), 0);
+    assert.equal(f.doc.count('touchstart'), 0);
+    dispose();
+  });
+
+  test('a request that resolves after cleanup is released', async () => {
+    const f = wakeWindow();
+    let resolveRequest;
+    f.win.navigator.wakeLock.request = () => new Promise((resolve) => { resolveRequest = resolve; });
+    const dispose = installScreenWakeLock(f.win);
+    dispose();
+    const lock = sentinel();
+    resolveRequest(lock);
+    await flush();
+    assert.equal(lock.releases, 1);
+    assert.equal(f.doc.count('visibilitychange'), 0);
+  });
+
+  test('foreground reacquisition supersedes a pending request from before hiding', async () => {
+    const f = wakeWindow();
+    const pending = [];
+    f.win.navigator.wakeLock.request = () => new Promise((resolve) => pending.push(resolve));
+    const dispose = installScreenWakeLock(f.win);
+    f.visibility('hidden');
+    f.visibility('visible');
+    assert.equal(pending.length, 2);
+    const old = sentinel(), current = sentinel();
+    pending[1](current);
+    await flush();
+    pending[0](old);
+    await flush();
+    assert.equal(old.releases, 1);
+    assert.equal(current.releases, 0, 'a stale result does not replace the current lock');
+    dispose();
+    await flush();
+    assert.equal(current.releases, 1);
   });
 });
 

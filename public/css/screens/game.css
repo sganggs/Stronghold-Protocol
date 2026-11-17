@@ -117,6 +117,8 @@
 .gtop__rules { max-width: 3.4rem; font-size: calc(.11 * var(--t)); line-height: 1.4; color: var(--text-md); overflow-wrap: anywhere; }
 /* the latency pill and, beside it, the 观战席 capsule (ui/hud.js SpectatorPill: an eye + how many are watching; opens the roster) */
 .gtop__net { display: flex; align-items: center; gap: .08rem; }
+/* the ping pill as tall as its value at a big 文字大小 (§35.51: cut 1 px at 特大 on the phones), as in the room and the hub */
+.gtop__net .ping { height: auto; min-height: .32rem; padding-top: 1px; padding-bottom: 1px; }
 .specpill { --btn-bg: rgba(0, 0, 0, .5); --btn-bg-hover: rgba(0, 0, 0, .66); --btn-bd: var(--line); height: .32rem; min-width: 0; padding: 0 .12rem; gap: .05rem; border-radius: 99px; }
 .specpill .btn__icon { width: .18rem; height: .18rem; color: var(--mint-500); }
 .specpill__num { font-size: .18rem; font-weight: 700; color: var(--mint-400); }
@@ -131,14 +133,63 @@
 .spec__name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: calc(.19 * var(--t)); color: var(--text-hi); }
 .spec__hint { margin: .04rem 0 0; font-size: calc(.15 * var(--t)); line-height: 1.45; }
 .gtop__exit { box-shadow: 0 .06rem .2rem rgba(0, 0, 0, .5); }
-.gtop__center {
-  --bk-c: var(--mint-700);
-  display: flex; align-items: center; gap: .18rem;
-  height: .78rem; padding: 0 .24rem 0 .14rem; margin-top: .02rem;
-  background: linear-gradient(180deg, rgba(10, 14, 12, .92), rgba(10, 14, 12, .78));
-  border: 1px solid var(--line);
-  box-shadow: 0 .08rem .28rem rgba(0, 0, 0, .45);
-  position: relative;
+/* 顶部中栏 (PR #643 / #827, the event's top bar, video 8:01): [🔍] in a bracket frame · + · one long thin band — 回合 N
+   centred in its left half, the LP tower in its right half, the official deco type above (ui/hud.js DecoType) — with
+   the phase capsule as a bevelled plate in a grey outer frame across the middle · + · [🔍▶▶] in its own bracket frame.
+   Outlines of bevelled shapes are two clipped layers (the line colour, then the fill 1–2 px inside). [ASSUMED] these
+   CSS frames, halves, round chip and plate stand in for the official hudPanel bg_check_btn / frame_mid_normal (a boss
+   round's frame_mid_boss, by its name) / bg_round, which are not painted yet; the colours, read off the footage; the
+   second + mark and the round number's flip, #827's additions (#643 had one + and no flip). */
+.gtop__center { position: relative; display: flex; align-items: center; margin-top: .02rem; }
+.gtop__frame { position: relative; display: flex; align-items: center; justify-content: center; height: .64rem; padding: 0 .17rem; }
+.gtop__frame::before, .gtop__frame::after { content: ''; position: absolute; top: 0; bottom: 0; width: .12rem; border: 2px solid rgba(200, 206, 208, .42); pointer-events: none; }
+.gtop__frame::before { left: 0; border-right: 0; }
+.gtop__frame::after { right: 0; border-left: 0; }
+.gtop__plus { flex: none; width: .2rem; height: .2rem; margin: 0 .05rem; opacity: .45;
+  background: linear-gradient(#c8cecf, #c8cecf) center / 100% 1px no-repeat, linear-gradient(#c8cecf, #c8cecf) center / 1px 100% no-repeat; }
+.gtop__band { position: relative; display: grid; grid-template-columns: minmax(2.3rem, auto) auto minmax(2.3rem, auto); align-items: center;
+  filter: drop-shadow(0 .04rem .1rem rgba(0, 0, 0, .45)); }
+/* the deco type: hudPanel/frame_deco_txt1 / txt3 (RHODES ISLAND TERMINAL SERVICE, 103×6) over the two halves,
+   frame_deco_txt2 (STRONGHOLD PROTOCOL, 53×5) over the plate — [ASSUMED] the placement (txt2 fits the gap in the top
+   edge of frame_mid_normal) —, at the 🔍 buttons' scale (.01586rem a sprite pixel); text of the same size without them */
+.gtop__deco { position: absolute; top: -.16rem; display: block; line-height: 0; pointer-events: none; }
+.gtop__deco--l { left: .24rem; }
+.gtop__deco--r { right: .24rem; }
+.gtop__deco--c { left: 50%; transform: translateX(-50%); }
+.gtop__decoimg { display: block; height: auto; }
+.gtop__decoimg--txt1, .gtop__decoimg--txt3 { width: 1.634rem; }
+.gtop__decoimg--txt2 { width: .841rem; }
+.gtop__decotxt { display: block; font-family: var(--font-num); font-size: .085rem; font-weight: 700; line-height: 1; letter-spacing: .14em;
+  color: rgba(225, 232, 232, .28); white-space: nowrap; }
+.gtop__half { position: relative; display: flex; align-items: center; justify-content: center; height: .42rem; padding: 0 .3rem; }
+.gtop__half::before, .gtop__half::after { content: ''; position: absolute; pointer-events: none; }
+.gtop__half::before { inset: 0; background: rgba(176, 184, 186, .45); }
+.gtop__half::after { inset: 1px; background: linear-gradient(180deg, rgba(14, 18, 18, .86), rgba(9, 12, 12, .8)); box-shadow: inset 0 0 0 calc(.06rem + 1px) rgba(255, 255, 255, .06); }
+.gtop__half--l::before, .gtop__half--l::after { clip-path: polygon(.1rem 0, 100% 0, 100% 100%, .1rem 100%, 0 calc(100% - .1rem), 0 .1rem); }
+.gtop__half--r::before, .gtop__half--r::after { clip-path: polygon(0 0, calc(100% - .1rem) 0, 100% .1rem, 100% calc(100% - .1rem), calc(100% - .1rem) 100%, 0 100%); }
+.gtop__half > * { position: relative; z-index: 1; }
+.gtop__half--l { margin-right: -.06rem; transform-origin: 100% 50%; }
+.gtop__half--r { margin-left: -.06rem; transform-origin: 0 50%; }
+.gtop__half .roundbox { gap: .12rem; }
+/* the round chip and the LP keep plain rem: HUD chrome in boxes the design fixed (test/ui/text-scale.test.js NOT_SCALED) */
+.gtop__half .roundbox__label { font-size: .2rem; color: #d8dcdc; letter-spacing: .1em; }
+.gtop__half .roundbox__num { display: inline-grid; place-items: center; min-width: .48rem; height: .34rem; padding: 0 .07rem; font-size: .28rem; line-height: 1;
+  background: #cfd3d3; color: #121516; border-radius: .03rem; clip-path: none; animation: gtop-flip 260ms var(--ease-out) both; }
+.gtop__half .lp--lg { font-size: .32rem; gap: .03rem; }
+/* a normal round's LP in white (the footage, video 8:01; [ASSUMED] the tint) — never over the pending-leak red
+   (.lp.is-pending, GitHub #479), the low-LP red (.lp--danger) or the boss rounds' team colour (.lp--team) */
+.gtop__half .lp--lg:not(.lp--danger):not(.lp--team):not(.is-pending) .lp__val { color: #eef2f2; }
+.gtop__half .lp--lg .lp__icon { width: .34rem; height: .34rem; }
+@keyframes gtop-flip { from { transform: translateY(-55%); opacity: 0; } }
+/* a narrow screen (phone landscape 640×360 / 667×375: the root at its 40 px floor): the halves shrink to their content,
+   so a boss round's wide capsule leaves room for the corners (the exit, latency and 观战席 pills at the left; the solo
+   clock and pause at the right). The deco type's text stand-in (no art pack) is wider than the sprites it stands in for
+   and ran into itself over the narrowed band (§35.18's leftover): it gives way there — decoration only, aria-hidden; the
+   official sprites fit and stay */
+@media (max-width: 767px) {
+  .gtop__band { grid-template-columns: minmax(1.2rem, auto) auto minmax(1.2rem, auto); }
+  .gtop__half { padding: 0 .14rem; }
+  .gtop__decotxt { display: none; }
 }
 /* the two official 🔍 buttons (ui/hud.js CheckBtn): btn_check_player (mint, left) and btn_check_enemy (amber, right);
    sprites are 35×29 (plain) / 61×29 (with chevrons) → .555rem / .967rem × .46rem */
@@ -169,8 +220,10 @@
 .pausebtn.is-busy { opacity: .6; }
 
 /* boss-round overtime warning (ui/hud.js OvertimeWarning; red DOT look: official icon_warn / blood_icon + bg_lose_hp) */
+/* its own width (no wrap), drawn over the effects column under a tall countdown (可露希尔's TV): the warning is
+   short-lived and its 已流失 tail used to vanish behind the column (§37.201) */
 .otwarn {
-  position: relative; display: flex; align-items: center; gap: .08rem; height: .38rem; padding: 0 .14rem 0 .1rem;
+  position: relative; z-index: 3; display: flex; align-items: center; gap: .08rem; height: .38rem; padding: 0 .14rem 0 .1rem; flex: none; width: max-content;
   background: linear-gradient(90deg, rgba(120, 10, 14, .92), rgba(40, 6, 8, .88)); border: 1px solid rgba(255, 84, 84, .7);
   color: #ffdede; font-size: .16rem; white-space: nowrap; box-shadow: 0 0 .18rem rgba(255, 36, 36, .35);
   animation: ot-in var(--t-slow) var(--ease-out);
@@ -237,12 +290,20 @@
 /* phase capsule scenes (ui/hud.js CapsuleScene, capsuleFxKind): the official hudPanel/trans_* sprites at ×1.3 of their
    pixels over the capsule, which hides or holds its own content meanwhile. Timings from the event's top bar (video
    7:55–7:58 回合开始 → 休整期, 8:32–8:34 作战, 8:38–8:41 联防); [ASSUMED] positions, sizes and timings estimated from it. */
-.gtop__cap { position: relative; display: flex; }
+/* the capsule plate: a grey outer frame around the phase capsule */
+.gtop__cap { position: relative; z-index: 2; display: flex; padding: .08rem .13rem; }
+.gtop__cap::before, .gtop__cap::after { content: ''; position: absolute; pointer-events: none;
+  clip-path: polygon(.2rem 0, calc(100% - .2rem) 0, 100% .2rem, 100% calc(100% - .2rem), calc(100% - .2rem) 100%, .2rem 100%, 0 calc(100% - .2rem), 0 .2rem); }
+.gtop__cap::before { inset: 0; background: rgba(176, 184, 186, .5); }
+.gtop__cap::after { inset: 1px; background: rgba(9, 12, 12, .9); }
+.gtop__cap > .capsule { position: relative; z-index: 1; }
 .gtop__cap[class*="is-fx-"] .capsule { overflow: hidden; }
 .capfx {
   position: absolute; inset: 2px; z-index: 2; display: flex; align-items: center; justify-content: center; gap: .1rem;
   border-radius: .23rem; overflow: hidden; pointer-events: none;
 }
+/* inside the plate's padding: the scene stays on the capsule pill it was sized for, off the plate's frame (PR #827) */
+.gtop__cap > .capfx { inset: calc(.08rem + 2px) calc(.13rem + 2px); }
 .capfx .sprite { display: block; image-rendering: pixelated; }
 .gtop__cap.is-fx-wait .capsule > * { visibility: hidden; }
 .gtop__cap.is-fx-enter .capsule > * { animation: capfx-rise 240ms var(--ease-out) both; }
@@ -377,6 +438,11 @@
 .gtop__iconbtn.has-sprite:hover, .enemybtn.has-sprite:hover:not(.is-grey) { background: var(--chk-sprite) center / 100% 100% no-repeat; filter: brightness(1.2); box-shadow: none; }
 .gtop__iconbtn.has-sprite.is-on { background: var(--chk-sprite) center / 100% 100% no-repeat; }
 
+/* the 准备 question (funds left, an unused command — §37.201): its sentences, then the 「本局不再提醒」 box */
+.ready-ask .modal__text + .modal__text { margin-top: .06rem; }
+.ready-ask__mute { display: flex; align-items: center; gap: .08rem; margin-top: .14rem; color: var(--text-md); font-size: calc(.15 * var(--t)); cursor: pointer; }
+.ready-ask__mute input { flex: none; width: max(.2rem, 18px); height: max(.2rem, 18px); margin: 0; accent-color: var(--mint-400); cursor: pointer; }
+
 /* ready toggle */
 .readywrap { display: flex; flex-direction: column; align-items: flex-end; gap: .05rem; }
 .readywrap__count { font-size: .14rem; color: var(--text-lo); }
@@ -410,7 +476,7 @@
 
 /* ---- bond strip ---------------------------------------------------------------------------------------- */
 .gm__bonds { position: absolute; left: 1.56rem; top: 1.36rem; right: 5.2rem; pointer-events: none;
-  display: flex; align-items: flex-start; gap: max(.1rem, 8px); }
+  display: flex; align-items: flex-start; gap: max(.1rem, calc(8px * var(--sp-ui, 1))); }
 /* Only the bond discs (and the +N chip) take the pointer: the strip's box spans the width under the top bar, where the
    top board row's units stand (row 12 at 16:9 / 21:9 / 720p / phones, the boss field's row 5 in a boss prep) — it used
    to swallow the taps and drags on them (review of user playtest #2 item 8: every own unit reachable). */
@@ -433,12 +499,12 @@
 /* a watched teammate's bonds (DESIGN §20.15): an amber "👁 name" pill in front of the discs, amber rings. Horizontal at
    every width with a pixel floor (a vertical .12rem name was ~6-8 px per glyph on desktop / tablet, ~5 px on phones
    where 1rem is clamped at 40 px); centred on the discs, clear of the team panel below */
-.bstrip__owner { align-self: center; flex: none; display: inline-flex; flex-direction: row; align-items: center; gap: max(.04rem, 3px);
-  padding: max(.03rem, 2px) max(.06rem, 4px); border: 1px solid rgba(246, 163, 41, .5); background: rgba(40, 26, 6, .7); }
-.bstrip__owner .micro { color: var(--amber); font-size: max(.15rem, 10px); letter-spacing: .04em; max-width: max(1.3rem, 72px);
+.bstrip__owner { align-self: center; flex: none; display: inline-flex; flex-direction: row; align-items: center; gap: max(.04rem, calc(3px * var(--sp-ui, 1)));
+  padding: max(.03rem, calc(2px * var(--sp-ui, 1))) max(.06rem, calc(4px * var(--sp-ui, 1))); border: 1px solid rgba(246, 163, 41, .5); background: rgba(40, 26, 6, .7); }
+.bstrip__owner .micro { color: var(--amber); font-size: max(.15rem, 10px); letter-spacing: .04em; max-width: max(1.3rem, calc(72px * var(--sp-ui, 1)));
   overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .bstrip__eye { color: var(--amber); font-size: max(.17rem, 11px); flex: none; }
-.bstrip--empty .bstrip__owner .micro { max-width: max(1.6rem, 80px); }
+.bstrip--empty .bstrip__owner .micro { max-width: max(1.6rem, calc(80px * var(--sp-ui, 1))); }
 .bstrip--empty.is-other { border-color: rgba(246, 163, 41, .5); }
 @media (max-width: 767px) {
   .bstrip__owner .micro { font-size: max(.12rem, 9px); }
@@ -524,6 +590,57 @@
 .team__ob, .team__back { align-self: flex-start; margin-top: .04rem; min-width: 1.1rem; animation: pop-in var(--t-fast) var(--ease-out); }
 .team__ob .btn__label, .team__back .btn__label { letter-spacing: .12em; }
 .team__back { border-color: rgba(255, 255, 255, .7); color: #fff; }
+/* 完美连胜 / 领袖伤害 (ui/avatarBadges.js, §37.148). The streak holder (33.76 units = .338rem) is centred .024rem inside
+   the avatar's right edge and .066rem below its top (recording BV13LWM6BEvY); the leader-damage layers cover the
+   avatar's own .8rem box (the flare, twice as wide, crosses both edges). Neither takes a click. The own row's "you"
+   marker moves to the bottom-left corner while a streak badge holds the top-right one. */
+.abadge { position: absolute; pointer-events: none; }
+.abadge--boss { left: 0; top: 0; width: .8rem; height: .8rem; z-index: 2; }
+.abadge--streak { left: .607rem; top: -.103rem; width: .338rem; height: .338rem; z-index: 3; }
+.team__info { position: relative; z-index: 2; }
+/* The scan layers' textures are an even 70 % (ac_n_initial tex_damage_fx_scan_light, 可露希尔 img_streak_line): the
+   recording (ac_n_initial) shows a band that fades above and below as it sweeps down — [ASSUMED] the shader's falloff,
+   drawn as a mask across the layer's travel: vertical for ac_n_initial's (it moves down), horizontal for 可露希尔's (its
+   clip moves it across, inside the soft group_scan mask; no recording of that skin) */
+.abadge--boss[data-pack="themes/ac_n_initial"] .pf__n[data-n="scan_light"] {
+  -webkit-mask-image: linear-gradient(180deg, transparent 18%, #000 42%, #000 58%, transparent 82%);
+  mask-image: linear-gradient(180deg, transparent 18%, #000 42%, #000 58%, transparent 82%);
+}
+.abadge--boss[data-pack="themes/ac_s_closur"] .pf__n[data-n="scan_light"] {
+  -webkit-mask-image: linear-gradient(90deg, transparent 20%, #000 44%, #000 56%, transparent 80%);
+  mask-image: linear-gradient(90deg, transparent 20%, #000 44%, #000 56%, transparent 80%);
+}
+.team__you.is-low { top: auto; right: auto; bottom: -.08rem; left: -.08rem; }
+/* without the local art: a gold triangle (level 1) / a dark star (level 2) with the count, an amber scan band */
+.abadge--streak.is-css { display: grid; place-items: center; }
+.abadge--streak.is-css .abadge__base { position: absolute; inset: 0; }
+.abadge--streak.is-r1 .abadge__base { clip-path: polygon(50% 2%, 98% 94%, 2% 94%); background: linear-gradient(180deg, #ffe46b, #f5b400); }
+.abadge--streak.is-r2 .abadge__base {
+  inset: -.04rem; background: radial-gradient(circle, #2a1a0f 38%, #f68a25 72%, #ffcf6e);
+  clip-path: polygon(50% 0, 61% 31%, 93% 25%, 71% 50%, 93% 75%, 61% 69%, 50% 100%, 39% 69%, 7% 75%, 29% 50%, 7% 25%, 39% 31%);
+}
+/* the count fits the fixed holder: team-panel chrome, not on the 文字大小 root (test/ui/text-scale.test.js `.team`) */
+.team .abadge--streak.is-css .abadge__n { position: relative; margin-top: .07rem; font-size: .12rem; font-weight: 800; line-height: 1; color: #121212; }
+.team .abadge--streak.is-r2 .abadge__n { margin-top: 0; font-size: .13rem; color: #f68a25; text-shadow: 0 0 .03rem #000; }
+.abadge--boss.is-css { overflow: hidden; }
+.abadge--boss.is-css .abadge__scan {
+  position: absolute; left: 0; right: 0; top: -30%; height: 30%; opacity: 0; mix-blend-mode: screen;
+  background: linear-gradient(180deg, rgba(255, 197, 0, 0), rgba(255, 197, 0, .5) 45%, rgba(255, 236, 170, .75) 50%, rgba(255, 197, 0, .5) 55%, rgba(255, 197, 0, 0));
+  animation: abadge-scan 6s linear infinite;
+}
+.abadge--boss.is-l2 .abadge__scan { filter: saturate(1.3) brightness(1.15); }
+.abadge--boss.is-l3::before {
+  content: ''; position: absolute; inset: .03rem; pointer-events: none;
+  background:
+    linear-gradient(#ff9a5e, #ff9a5e) left top / .12rem 2px no-repeat, linear-gradient(#ff9a5e, #ff9a5e) left top / 2px .12rem no-repeat,
+    linear-gradient(#ff9a5e, #ff9a5e) right top / .12rem 2px no-repeat, linear-gradient(#ff9a5e, #ff9a5e) right top / 2px .12rem no-repeat,
+    linear-gradient(#ff9a5e, #ff9a5e) left bottom / .12rem 2px no-repeat, linear-gradient(#ff9a5e, #ff9a5e) left bottom / 2px .12rem no-repeat,
+    linear-gradient(#ff9a5e, #ff9a5e) right bottom / .12rem 2px no-repeat, linear-gradient(#ff9a5e, #ff9a5e) right bottom / 2px .12rem no-repeat;
+}
+/* the official clip: the scan fades in at the top, sweeps down for 3 s, then rests until the 6 s loop restarts */
+@keyframes abadge-scan { 0% { top: -30%; opacity: 0; } 14% { opacity: 1; } 36% { opacity: 1; } 50% { top: 100%; opacity: 0; } 100% { top: 100%; opacity: 0; } }
+.abadge--boss.is-still .abadge__scan { animation: none; top: 35%; opacity: .7; }
+@media (prefers-reduced-motion: reduce) { .abadge--boss.is-css .abadge__scan { animation: none; top: 35%; opacity: .7; } }
 
 /* player avatar (band icon / glyph) */
 .pavatar {
@@ -545,7 +662,7 @@
 .gm__effects { position: absolute; right: .3rem; top: 2.4rem; }
 /* 准备就绪 refused (the temp row holds pieces): its reason shows under the button and pushes the ready count down —
    the effects column follows, or the count runs into it on phones */
-.gm.has-readywhy .gm__effects { top: calc(2.4rem + max(.3rem, 16px)); }
+.gm.has-readywhy .gm__effects { top: calc(2.4rem + max(.3rem, calc(16px * var(--sp-ui, 1)))); }
 .effects { display: flex; flex-direction: column; align-items: flex-end; gap: .08rem; }
 .effect {
   position: relative; width: .5rem; height: .5rem; display: grid; place-items: center;
@@ -556,6 +673,10 @@
 .effect--band { border-color: var(--mint-800); }
 .effect--team { border-color: rgba(78, 216, 175, .6); }
 .effect__n { position: absolute; right: -.05rem; bottom: -.05rem; min-width: .2rem; font-size: .12rem; line-height: 1.4; text-align: center; background: var(--gold); color: #1d1400; padding: 0 .03rem; }
+.effect__progress { position: absolute; right: calc(100% + .08rem); top: 50%; transform: translateY(-50%); padding: .04rem .08rem; border: 1px solid var(--mint-800); background: rgba(8, 11, 10, .85); color: var(--mint-400); font-size: max(calc(.16 * var(--t)), 10px); line-height: 1.2; white-space: nowrap; pointer-events: none; }
+.strategy-progress { display: flex; flex-direction: column; gap: .03rem; margin-top: .06rem; }
+.strategy-progress p { display: flex; align-items: baseline; gap: .08rem; margin: 0; color: var(--text-lo); font-size: max(calc(.14 * var(--t)), 10px); line-height: 1.5; }
+.strategy-progress strong { color: var(--mint-400); white-space: nowrap; }
 .efftip { display: flex; flex-direction: column; gap: .04rem; max-width: 3.6rem; }
 .efftip b { font-size: .17rem; color: var(--mint-400); }
 .efftip__kind { font-size: .12rem; color: var(--text-dim); }
@@ -575,32 +696,32 @@
 /* Local combat meter, docked above the corner's actual height (including mobile wrapped rows). */
 .combat-metrics {
   --bk-c: var(--mint-500);
-  position: absolute; left: 0; bottom: calc(100% + max(.1rem, 8px)); z-index: 12;
-  width: min(max(5.2rem, 340px), calc(100vw - var(--sa-l, 0px) - var(--sa-r, 0px) - .48rem));
-  max-height: min(max(6.6rem, 280px), calc(100vh - var(--combat-corner-height, 110px) - max(.9rem, 48px) - .34rem - var(--sa-t, 0px) - var(--sa-b, 0px)));
-  max-height: min(max(6.6rem, 280px), calc(100dvh - var(--combat-corner-height, 110px) - max(.9rem, 48px) - .34rem - var(--sa-t, 0px) - var(--sa-b, 0px)));
+  position: absolute; left: 0; bottom: calc(100% + max(.1rem, calc(8px * var(--sp-ui, 1)))); z-index: 12;
+  width: min(max(5.2rem, 32px, calc(340px * var(--sp-ui, 1))), calc(100vw - var(--sa-l, 0px) - var(--sa-r, 0px) - .48rem));
+  max-height: min(max(6.6rem, calc(280px * var(--sp-ui, 1))), calc(100vh - var(--combat-corner-height, 110px) - max(.9rem, calc(48px * var(--sp-ui, 1))) - .34rem - var(--sa-t, 0px) - var(--sa-b, 0px)));
+  max-height: min(max(6.6rem, calc(280px * var(--sp-ui, 1))), calc(100dvh - var(--combat-corner-height, 110px) - max(.9rem, calc(48px * var(--sp-ui, 1))) - .34rem - var(--sa-t, 0px) - var(--sa-b, 0px)));
   display: flex; flex-direction: column; overflow: hidden;
   background: linear-gradient(180deg, rgba(28, 35, 32, .98), rgba(17, 21, 19, .98));
   border: 1px solid var(--line-2); border-top: 2px solid var(--mint-700);
   box-shadow: 0 .12rem .4rem rgba(0, 0, 0, .6); color: var(--text-md);
   font-size: max(calc(.14 * var(--t)), 12px); line-height: 1.35; text-align: left;
 }
-.combat-metrics__head { display: flex; flex: none; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 8px; padding: max(.1rem, 8px) max(.14rem, 10px) 0; }
+.combat-metrics__head { display: flex; flex: none; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 8px; padding: max(.1rem, calc(8px * var(--sp-ui, 1))) max(.14rem, calc(10px * var(--sp-ui, 1))) 0; }
 .combat-metrics__micro { font-family: var(--font-display); font-size: max(calc(.1 * var(--t)), 10px); letter-spacing: .12em; color: var(--mint-500); }
 .combat-metrics__head h2 { margin: 0; font-size: max(calc(.2 * var(--t)), 16px); color: var(--text-hi); }
 .combat-metrics__body { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; overflow: hidden; }
 .combat-metrics__close { display: grid; place-items: center; flex: none; width: max(.36rem, 32px); height: max(.36rem, 32px); color: var(--text-md); border: 1px solid var(--line-2); background: var(--bg-1); }
 .combat-metrics__close .icon { width: max(.18rem, 16px); height: max(.18rem, 16px); }
-.combat-metrics__tools { display: flex; flex: none; gap: 8px; padding: 8px max(.14rem, 10px); }
+.combat-metrics__tools { display: flex; flex: none; gap: 8px; padding: 8px max(.14rem, calc(10px * var(--sp-ui, 1))); }
 .combat-metrics__head > .combat-metrics__tools { flex-basis: 100%; padding-left: 0; padding-right: 0; }
 .combat-metrics__scopes { display: flex; flex: 1; min-width: 0; }
 .combat-metrics__scopes button { flex: 1; min-width: 0; padding: 4px 6px; min-height: 32px; color: var(--text-lo); background: var(--bg-1); border: 1px solid var(--line-2); white-space: nowrap; font-size: inherit; }
 .combat-metrics__scopes button[aria-pressed="true"] { background: var(--mint-900); color: var(--mint-400); border-color: var(--mint-700); }
-.combat-metrics__totals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); flex: none; gap: 8px; padding: 0 max(.14rem, 10px) 8px; }
+.combat-metrics__totals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); flex: none; gap: 8px; padding: 0 max(.14rem, calc(10px * var(--sp-ui, 1))) 8px; }
 .combat-metrics__totals span { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px; color: var(--text-lo); }
 .combat-metrics__totals b { font-family: var(--font-num); color: var(--text-hi); font-size: max(calc(.18 * var(--t)), 14px); overflow-wrap: anywhere; }
 .combat-metrics__totals span:last-child b { color: var(--mint-400); }
-.combat-metrics__legend { display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 0 max(.14rem, 10px) 8px; font-size: max(calc(.12 * var(--t)), 11px); }
+.combat-metrics__legend { display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 0 max(.14rem, calc(10px * var(--sp-ui, 1))) 8px; font-size: max(calc(.12 * var(--t)), 11px); }
 .combat-metrics__type { display: inline-flex; align-items: center; gap: 4px; }
 .combat-metrics__type::before { content: ''; width: 10px; height: 4px; background: var(--damage-color); }
 .combat-metrics__type--phys, .combat-metrics__segment--phys { --damage-color: #f6a329; }
@@ -608,8 +729,8 @@
 .combat-metrics__type--true, .combat-metrics__segment--true { --damage-color: #ff7272; }
 .combat-metrics__type--elemental, .combat-metrics__segment--elemental { --damage-color: #cf9fff; }
 .combat-metrics__sort { margin-left: auto; color: var(--text-lo); }
-.combat-metrics__list { flex: 1 1 auto; min-height: 0; margin: 0; padding: 0 max(.14rem, 10px); list-style: none; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; -webkit-overflow-scrolling: touch; }
-.combat-metrics__row { display: grid; grid-template-columns: max(.2rem, 18px) max(.42rem, 30px) minmax(0, 1fr); gap: max(.08rem, 6px); align-items: center; padding: max(.09rem, 7px) 0; border-top: 1px solid var(--line); }
+.combat-metrics__list { flex: 1 1 auto; min-height: 0; margin: 0; padding: 0 max(.14rem, calc(10px * var(--sp-ui, 1))); list-style: none; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; -webkit-overflow-scrolling: touch; }
+.combat-metrics__row { display: grid; grid-template-columns: max(.2rem, 18px) max(.42rem, 30px) minmax(0, 1fr); gap: max(.08rem, calc(6px * var(--sp-ui, 1))); align-items: center; padding: max(.09rem, calc(7px * var(--sp-ui, 1))) 0; border-top: 1px solid var(--line); }
 .combat-metrics__rank { align-self: start; color: var(--text-lo); font-family: var(--font-num); padding-top: 2px; }
 .combat-metrics__row > .uthumb { width: max(.42rem, 30px); height: max(.42rem, 30px); }
 .combat-metrics__unit { min-width: 0; }
@@ -624,7 +745,7 @@
 .combat-metrics__values .combat-metrics__heal b { color: var(--mint-400); }
 .combat-metrics__empty { padding: 20px 8px; color: var(--text-md); text-align: center; }
 .combat-metrics__empty small { display: inline-block; margin-top: 6px; color: var(--text-lo); }
-.combat-metrics__note { flex: none; margin: 0; padding: 8px max(.14rem, 10px); border-top: 1px solid var(--line); color: var(--text-lo); font-size: max(calc(.1 * var(--t)), 10px); }
+.combat-metrics__note { flex: none; margin: 0; padding: 8px max(.14rem, calc(10px * var(--sp-ui, 1))); border-top: 1px solid var(--line); color: var(--text-lo); font-size: max(calc(.1 * var(--t)), 10px); }
 .combat-metrics button:hover { color: var(--mint-400); border-color: var(--mint-700); }
 .combat-metrics button:focus-visible { outline: 2px solid var(--mint-400); outline-offset: -2px; }
 @media (pointer: coarse), (any-pointer: coarse) {
@@ -640,6 +761,37 @@
   .combat-metrics__totals, .combat-metrics__legend { padding-bottom: 4px; }
   .combat-metrics__note { padding-top: 4px; padding-bottom: 4px; }
   .combat-metrics__note br { display: none; }
+}
+/* Phones in landscape (short touch screens: 1rem is clamped at 40 px by theme.css): the ported desktop card — 12–16 px
+   text, 340 px wide, 30 px thumbs — took 40 % of an 844 × 390 screen, about twice the HUD's own 6–7 px text, and hid
+   the battle behind it. Scale the card by the HUD's proportion instead of the desktop one: 9–12 px text, 24 px thumbs,
+   36 px touch rows, 300 px wide (文字大小 still lifts every size through --t). Desktop/tablet keep the original sizes. */
+@media (max-height: 600px) and (pointer: coarse), (max-height: 600px) and (any-pointer: coarse) {
+  .combat-metrics {
+    width: min(max(5rem, 32px, calc(300px * var(--sp-ui, 1))), calc(100vw - var(--sa-l, 0px) - var(--sa-r, 0px) - .48rem));
+    font-size: max(calc(.2 * var(--t)), 9px);
+    line-height: 1.3;
+  }
+  .combat-metrics__head { padding: max(.06rem, calc(6px * var(--sp-ui, 1))) max(.12rem, calc(8px * var(--sp-ui, 1))) 0; gap: 0 6px; }
+  .combat-metrics__micro { font-size: max(calc(.12 * var(--t)), 8px); }
+  .combat-metrics__head h2 { font-size: max(calc(.3 * var(--t)), 12px); }
+  .combat-metrics__close { width: max(.3rem, 32px, calc(36px * var(--sp-ui, 1))); height: max(.3rem, 32px, calc(36px * var(--sp-ui, 1))); min-width: 36px; min-height: 36px; }
+  .combat-metrics__close .icon { width: max(.16rem, 15px); height: max(.16rem, 15px); }
+  .combat-metrics__tools { padding: max(.06rem, calc(6px * var(--sp-ui, 1))) max(.12rem, calc(8px * var(--sp-ui, 1))); gap: 6px; }
+  .combat-metrics__scopes button { min-height: 36px; padding: 2px 5px; }
+  .combat-metrics__totals { gap: 6px; padding: 0 max(.12rem, calc(8px * var(--sp-ui, 1))) max(.06rem, calc(6px * var(--sp-ui, 1))); }
+  .combat-metrics__totals b { font-size: max(calc(.26 * var(--t)), 11px); }
+  .combat-metrics__legend { gap: 4px 10px; padding: 0 max(.12rem, calc(8px * var(--sp-ui, 1))) max(.06rem, calc(6px * var(--sp-ui, 1))); font-size: max(calc(.16 * var(--t)), 8px); }
+  .combat-metrics__type::before { width: 8px; height: 3px; }
+  .combat-metrics__list { padding: 0 max(.12rem, calc(8px * var(--sp-ui, 1))); }
+  .combat-metrics__row { grid-template-columns: max(.24rem, 14px) max(.5rem, 24px) minmax(0, 1fr); gap: 5px; padding: max(.05rem, calc(4px * var(--sp-ui, 1))) 0; }
+  .combat-metrics__row > .uthumb { width: max(.5rem, 24px); height: max(.5rem, 24px); }
+  .combat-metrics__rank { padding-top: 1px; }
+  .combat-metrics__bar { height: max(.04rem, 4px); margin: 3px 0; }
+  .combat-metrics__values { gap: 4px; }
+  .combat-metrics__values small { font-size: max(calc(.14 * var(--t)), 8px); }
+  .combat-metrics__values b { font-size: max(calc(.18 * var(--t)), 9px); }
+  .combat-metrics__note { padding: max(.06rem, calc(6px * var(--sp-ui, 1))) max(.12rem, calc(8px * var(--sp-ui, 1))); font-size: max(calc(.14 * var(--t)), 8px); }
 }
 
 .ewheel { position: relative; }
@@ -732,6 +884,36 @@
 }
 .dpbox__icon { width: .26rem; height: .26rem; color: var(--mint-500); }
 .dpbox b { font-size: .34rem; line-height: 1; color: #fff; }
+/* The leader ranking (ui/leaderRank.js, every version). .gm__hud is pointer-events: none, so the panel opts back in.
+   Top clears the ticker (bottom 1.3rem) and the overtime-grown top bar (~1.38rem). Right sits just left of the
+   effects column (right .3rem + width .5rem). The bottom stops .7rem above the screen's middle, which clears the
+   DP box (its half-height is under that). Width stays right of the team dock (--dock-team-right: 2.8rem).
+   Three rows plus the toggle have to fit a ~81px band on a 375px-tall phone, so the row and the toggle are
+   smaller than a 44px touch target. [ASSUMED] during a leader fight the plugin slot yields the upper right and
+   sits below the DP box — its max box otherwise reaches this panel on a phone. */
+.ldmg {
+  position: absolute; z-index: 5;
+  right: .92rem;
+  top: 1.95rem;
+  width: min(2.2rem, calc(100vw - 3.4rem - .92rem - .3rem));
+  max-height: calc(50% - 1.95rem - .7rem);
+  display: flex; flex-direction: column; align-items: stretch; gap: .04rem;
+  padding: .04rem; pointer-events: auto; overflow: hidden;
+  background: rgba(8, 11, 10, .85); border: 1px solid var(--line-2);
+}
+.ldmg__toggle {
+  min-height: .32rem; padding: 0 .06rem; align-self: flex-end;
+  background: none; border: 0; color: var(--text-md); font-size: calc(.14 * var(--t)); cursor: pointer;
+}
+.ldmg__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .02rem; min-height: 0; }
+.ldmg__row { min-height: .34rem; display: flex; align-items: center; gap: .04rem; min-width: 0; }
+.ldmg__name {
+  flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: calc(.13 * var(--t)); color: var(--text-hi);
+}
+.ldmg__share { flex: 0 0 auto; display: flex; align-items: center; gap: .02rem; color: var(--gold); font-size: calc(.13 * var(--t)); }
+.ldmg__share .icon { width: .16rem; height: .16rem; }
+.gm.is-boss .gm__ui-slot { bottom: .3rem; max-height: calc(50% - 1.2rem); }
 .chud__bottom { position: absolute; left: 50%; bottom: .3rem; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: .12rem; pointer-events: none; }
 .chud__bottom > * { pointer-events: auto; }
 .chud__msg {
@@ -781,6 +963,9 @@
 .settings-btn.btn--square .btn__icon { width: 62%; height: 62%; } /* the gear glyph is drawn smaller in its box than the book */
 .set-list { display: flex; flex-direction: column; gap: .16rem; padding-top: .06rem; }
 .set-row { display: grid; grid-template-columns: minmax(0, 3.3rem) minmax(0, 1fr) auto; align-items: center; gap: .18rem; min-height: .44rem; }
+/* 语言 sits under its section caption, so the five endonyms use the whole row */
+.set-row--lang > .lang-toggle { grid-column: 1 / -1; justify-self: stretch; max-width: 100%; }
+.set-row--lang .set-seg { width: 100%; }
 /* The label column may shrink (the label wraps) instead of pushing its control out of the modal: at 设置 →「文字大小」
    大 / 特大 a phone's label (a Chinese name plus its Latin micro label) is wider than 3.3rem at 1rem = 40 px. */
 .set-row__label { display: flex; flex-wrap: wrap; align-items: center; gap: .1rem; font-size: calc(.18 * var(--t)); color: var(--text-hi); }
@@ -821,6 +1006,9 @@
 .set-seg button:last-child { border-right: 0; }
 .set-seg button.is-on { background: var(--mint-500); color: var(--text-on-mint); font-weight: 700; }
 .set-hint { margin-top: .06rem; font-size: calc(.14 * var(--t)); color: var(--text-dim); line-height: 1.8; }
+.set-hint__help { display: inline-flex; align-items: center; gap: .03rem; padding: 0; border: 0; background: none; color: var(--text-lo); font: inherit; cursor: help; text-decoration: underline dotted; text-underline-offset: .03rem; }
+.set-hint__help .icon { width: .14rem; height: .14rem; }
+.set-hint__help:hover, .set-hint__help:focus-visible { color: var(--mint-400); }
 .set-hint kbd, .lvcard__key, .toolbtn kbd { font-family: var(--font-num); font-size: .11rem; border: 1px solid var(--line-2); padding: 0 .04rem; color: var(--text-lo); background: rgba(0, 0, 0, .3); }
 /* 快捷键 (ui/settings.js HotkeySection): each shortcut with its key — click the key, press the new one; two columns,
    one under 768 px (phones in landscape) */
@@ -857,8 +1045,8 @@
 .set-diag__url { min-width: 0; font-size: calc(.13 * var(--t)); color: var(--text-dim); overflow-wrap: anywhere; -webkit-user-select: all; user-select: all; }
 .set-diag__battle-hint { margin-top: -.06rem; }
 .set-diag__text {
-  box-sizing: border-box; width: 100%; height: max(2rem, 140px); min-height: 120px; resize: vertical;
-  padding: max(.1rem, 8px) max(.12rem, 10px);
+  box-sizing: border-box; width: 100%; height: max(2rem, 32px, calc(140px * var(--sp-ui, 1))); min-height: 120px; resize: vertical;
+  padding: max(.1rem, calc(8px * var(--sp-ui, 1))) max(.12rem, calc(10px * var(--sp-ui, 1)));
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: max(.13rem, 11px); line-height: 1.5;
   color: var(--text-hi); background: rgba(4, 10, 8, .55); border: 1px solid var(--line-2); border-radius: 2px; outline: none;
   white-space: pre-wrap; overflow-wrap: anywhere; overflow-y: auto;
@@ -869,7 +1057,7 @@
 @media (max-width: 767px) { .set-keys__list { grid-template-columns: minmax(0, 1fr); } }
 @media (max-height: 600px) and (pointer: coarse), (max-height: 600px) and (any-pointer: coarse) {
   .set-key { height: max(.38rem, 30px); }
-  .set-keys__more > summary { padding: max(.06rem, 8px) 0; }
+  .set-keys__more > summary { padding: max(.06rem, calc(8px * var(--sp-ui, 1))) 0; }
 }
 
 /* ---- exit / away ------------------------------------------------------------------------------------------------------ */
@@ -893,11 +1081,12 @@
 .ff-tile--goal { background: radial-gradient(circle, rgba(60, 160, 255, .55), rgba(10, 50, 120, .5)); border: 2px solid #4ab0ff; }
 .ff-tile--mire { background: linear-gradient(180deg, #4a4030, #3c3326); }
 .ff-tile--smog { background: linear-gradient(180deg, #4a4a52, #3a3a42); }
+.ff-tile--duel-grass { background: radial-gradient(circle, #729d9f, #3f626b); box-shadow: inset 0 0 0 1px #a4e2d4; }
 .ff-tile--deep { background: linear-gradient(180deg, #1e3a52, #173045); }
 .ff-tile--infect { background: linear-gradient(180deg, #4a2a3a, #3a2030); }
 .ff-tile.is-legal { box-shadow: inset 0 0 0 2px rgba(89, 244, 202, .8), inset 0 0 calc(var(--tile) * .4) rgba(23, 249, 183, .3); }
 .ff-tile.is-illegal { box-shadow: inset 0 0 0 2px rgba(255, 84, 84, .5); }
-.ff-tile.is-range { box-shadow: inset 0 0 0 2px rgba(246, 163, 41, .7); }
+.ff-tile.is-range { box-shadow: inset 0 0 0 2px var(--ff-range-color, rgba(246, 163, 41, .7)); }
 .ff-tile.is-hover-legal { background: rgba(78, 216, 175, .45); }
 .ff-tile.is-hover-illegal { background: rgba(255, 60, 60, .4); }
 @keyframes gate-pulse { 50% { box-shadow: 0 0 calc(var(--tile) * .4) rgba(255, 60, 40, .8); } }
@@ -925,6 +1114,7 @@
 .ff-piece__items { position: absolute; right: 8%; bottom: 8%; display: flex; gap: 2px; }
 .ff-piece__items i { width: calc(var(--tile) * .12); height: calc(var(--tile) * .12); background: var(--gold); transform: rotate(45deg); box-shadow: 0 0 3px #000; }
 .ff-piece__count { position: absolute; right: 6%; bottom: 4%; font-family: var(--font-num); font-size: calc(var(--tile) * .2); color: #fff; text-shadow: 0 1px 2px #000; }
+.ff-progress { position: absolute; display: grid; top: 100%; left: 50%; transform: translateX(-50%); width: max-content; pointer-events: none; color: var(--mint-500); font: 700 max(10px, calc(var(--tile) * .2)) var(--font-num); text-shadow: 0 1px 2px #000, 0 0 3px #000; white-space: nowrap; }
 /* facing wedge (research 09 §1.2): an orange › on the piece's edge along its direction */
 .ff-piece__dir {
   position: absolute; left: 50%; top: 50%; width: calc(var(--tile) * .2); height: calc(var(--tile) * .26); pointer-events: none;
@@ -957,6 +1147,10 @@
 .ff-float--true { color: #fff; }
 .ff-float--heal { color: #6dff9c; }
 .ff-float--crit { color: #ff2a2a; }
+.ff-float--cost { color: #fff; }
+.ff-float--costLoss { color: #ff4545; }
+.ff-float--sp { color: #6fd3e2; }
+.ff-float--cost, .ff-float--costLoss, .ff-float--sp { white-space: nowrap; font-size: .16rem; }
 .ff-float--miss { color: #ff9000; }
 @keyframes float-up { to { transform: translate(-50%, -.4rem); opacity: 0; } }
 .ff-badge { position: absolute; left: 50%; bottom: .08rem; transform: translateX(-50%); font-family: var(--font-display); font-size: .1rem; letter-spacing: .3em; color: var(--text-dim); opacity: .5; pointer-events: none; }
@@ -973,9 +1167,12 @@
 .ff-board--pen .ff-pen__enemy .ff-unit__art { border-color: rgba(255, 90, 60, .7); }
 .ff-pen__empty { position: absolute; left: 0; right: 0; top: 45%; text-align: center; color: var(--text-lo); font-size: .16rem; }
 
-/* enemy preview pen view (research 09 §2): the bond strip and the effects column step aside for the pen */
-.gm__bonds, .gm__effects { transition: opacity var(--t-med) var(--ease-out); }
-.gm.is-pen .gm__bonds, .gm.is-pen .gm__effects { opacity: 0; pointer-events: none; }
+/* enemy preview pen view (research 09 §2): the bond strip and the effects column step aside for the pen. #892: once
+   faded they are also visibility: hidden (flipped after the fade, back at once on return), so no browser's hit test
+   can reach a hidden disc through the pen's enemies — pointer-events alone let Chrome 155 / Windows open a bond. */
+.gm__bonds, .gm__effects { transition: opacity var(--t-med) var(--ease-out), visibility 0s linear 0s; }
+.gm.is-pen .gm__bonds, .gm.is-pen .gm__effects { opacity: 0; pointer-events: none; visibility: hidden;
+  transition: opacity var(--t-med) var(--ease-out), visibility 0s linear var(--t-med); }
 .gm.is-pen .gm__bonds > *, .gm.is-pen .gm__effects > *, .gm.is-pen .gm__bonds .bslot, .gm.is-pen .gm__bonds .bstrip__more { pointer-events: none; }
 
 /* solo pause overlay (screens/game.js PausedOverlay; m.public.paused): the field dims under an official matte plate */
@@ -993,6 +1190,7 @@
 .pauseov__plate h2 { font-size: calc(.5 * var(--t)); font-weight: 900; letter-spacing: .3em; color: #fff; text-shadow: 0 0 .2rem rgba(0, 0, 0, .8); }
 .pauseov__note { font-size: calc(.17 * var(--t)); color: var(--text-md); text-shadow: 0 1px 2px #000; }
 .pauseov__btns { display: flex; gap: .2rem; }
+
 /* 协议已失效 (ui/downedPlate.js): the project's Modal restyled as the event's panel (video 10:56–10:58) — the official map
    behind, the knocked-out face, the title, and the two buttons under the panel; design px ÷ 100 [ASSUMED: measured from
    that footage]. The face turns from calm to knocked out after .5 s with a shake; with reduced motion it simply shows. */
@@ -1027,3 +1225,84 @@
 @media (prefers-reduced-motion: reduce) {
   .downm__face.is-out, .downm__title { animation: none; }
 }
+
+/* ---- 进场 (PR #827; the maintainer's decision of 2026-10-21): the HUD waits hidden while 协议启动！ shows
+   (screens/game.js `hudIn`: .gm__hud.is-wait) and comes in as soon as it leaves — the event's top bar is up from the end
+   of 协议启动 (video 7:51) through the round-1 kettles and plate (7:55–8:01): the phase plate drops in with a flash, the
+   band opens from it to both sides, the + marks and the 🔍 frames slide out to the ends; the corners, the team column and
+   the shop follow, ~1.2 s in all. [ASSUMED] the order, the timings and the motion, read off the footage by the PR's
+   author. ---- */
+.gm__hud.is-wait > * { visibility: hidden; }
+.gm__hud.is-enter .gtop__cap { animation: gtop-cap-in 420ms cubic-bezier(.2, 1.35, .45, 1) both; }
+.gm__hud.is-enter .gtop__half { animation: gtop-open 380ms cubic-bezier(.16, .84, .3, 1) 150ms both; }
+.gm__hud.is-enter .gtop__deco { animation: gtop-fade 360ms ease-out 480ms both; }
+.gm__hud.is-enter .gtop__plus { animation: gtop-fade 240ms ease-out 400ms both; }
+.gm__hud.is-enter .gtop__frame--l { animation: gtop-out-l 320ms cubic-bezier(.16, .84, .3, 1) 440ms both; }
+.gm__hud.is-enter .gtop__frame--r { animation: gtop-out-r 320ms cubic-bezier(.16, .84, .3, 1) 440ms both; }
+.gm__hud.is-enter .gtop__left { animation: gtop-from-l 420ms cubic-bezier(.16, .84, .3, 1) 260ms both; }
+.gm__hud.is-enter .gtop__right { animation: gtop-from-r 420ms cubic-bezier(.16, .84, .3, 1) 260ms both; }
+.gm__hud.is-enter .team { animation: gtop-from-l 460ms cubic-bezier(.16, .84, .3, 1) 380ms both; }
+/* the shop keeps its own shop-up in the list, so it does not start again when .is-enter goes */
+.gm__hud.is-enter .shopbar { animation: shop-up var(--t-slow) var(--ease-out), gtop-rise 460ms cubic-bezier(.16, .84, .3, 1) 460ms both; }
+/* the shop's background (§37.238) fades in as the shop rises, not before it */
+.gm__hud.is-enter > .shopbg { animation: shopbg-in var(--t-slow) var(--ease-out), gtop-fade 460ms ease-out 460ms both; }
+@keyframes gtop-cap-in { 0% { opacity: 0; transform: translateY(-.5rem) scale(.92); filter: brightness(2.2); } 60% { opacity: 1; } 100% { filter: none; } }
+@keyframes gtop-open { from { opacity: 0; transform: scaleX(.05); } }
+@keyframes gtop-fade { from { opacity: 0; } }
+@keyframes gtop-out-l { from { opacity: 0; transform: translateX(.6rem); } }
+@keyframes gtop-out-r { from { opacity: 0; transform: translateX(-.6rem); } }
+@keyframes gtop-from-l { from { opacity: 0; transform: translateX(-.4rem); } }
+@keyframes gtop-from-r { from { opacity: 0; transform: translateX(.4rem); } }
+@keyframes gtop-rise { from { opacity: 0; transform: translateY(.4rem); } }
+@media (prefers-reduced-motion: reduce) {
+  .gtop__half .roundbox__num, .gm__hud.is-enter .gtop__cap, .gm__hud.is-enter .gtop__half, .gm__hud.is-enter .gtop__deco,
+  .gm__hud.is-enter .gtop__plus, .gm__hud.is-enter .gtop__frame--l, .gm__hud.is-enter .gtop__frame--r, .gm__hud.is-enter .gtop__left, .gm__hud.is-enter .gtop__right,
+  .gm__hud.is-enter .team { animation: none; }
+  .gm__hud.is-enter .shopbar { animation: shop-up var(--t-slow) var(--ease-out); }
+  .gm__hud.is-enter > .shopbg { animation: shopbg-in var(--t-slow) var(--ease-out); }
+}
+
+/* Keep every bond reachable without shrinking its disc or extending over the right HUD. */
+.gm__bond-list { flex: 1; }
+.bstrip-scroll { display: flex; align-items: center; min-width: 0; gap: .04rem; }
+/* Let the padding protect rings/counts from clipping without lowering the discs and names into the board. */
+.gm__bonds .bstrip-scroll .bstrip { min-width: 0; overflow-x: auto; overflow-y: hidden; padding: .08rem 0; margin: -.08rem 0;
+  pointer-events: auto; touch-action: pan-x; scrollbar-width: none; }
+.gm__bonds .bstrip-scroll .bstrip::-webkit-scrollbar { display: none; }
+.bstrip-scroll .bslot { flex: none; }
+/* No arrows (§37.201): drag / swipe / wheel (ui/bondStrip.js BondScroller); a fading edge says more bonds wait that way. */
+.bstrip-scroll.is-l .bstrip { -webkit-mask-image: linear-gradient(90deg, transparent, #000 .36rem); mask-image: linear-gradient(90deg, transparent, #000 .36rem); }
+.bstrip-scroll.is-r .bstrip { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - .36rem), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - .36rem), transparent); }
+.bstrip-scroll.is-l.is-r .bstrip { -webkit-mask-image: linear-gradient(90deg, transparent, #000 .36rem, #000 calc(100% - .36rem), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 .36rem, #000 calc(100% - .36rem), transparent); }
+.bstrip-scroll.can-drag .bstrip { cursor: grab; }
+.bstrip-scroll.is-dragging .bstrip, .bstrip-scroll.is-dragging .bslot { cursor: grabbing; user-select: none; }
+.gm.is-pen .gm__bonds .bstrip-scroll *, .gm.has-sp .gm__bonds .bstrip-scroll * { pointer-events: none; }
+
+.gm__bond-list > .tt-anchor { display: block; max-width: 100%; }
+
+.ai-vote { display:flex; flex-wrap:wrap; gap:.12rem; align-items:center; margin:.15rem 0; padding:.1rem; border:1px solid #426055; }
+.ai-participation-entry { flex:none; }
+
+/* 规程 command: the strategy badge remains the anchor for click and drag interactions. */
+.effects__row { display: flex; align-items: center; gap: .12rem; }
+.band-command { display: flex; align-items: center; gap: .08rem; padding: .06rem .1rem; max-width: 2.4rem; min-height: .5rem;
+  color: var(--mint-400); background: #122722ed; border: 1px solid #7fffc988; border-radius: .04rem; text-align: left; touch-action: none; cursor: grab; }
+.band-command > .bandicon { width: .34rem; height: .34rem; }
+.band-command b, .band-command small { display: block; font-size: calc(.11 * var(--t)); line-height: 1.35; }
+.band-command small { color: var(--text-lo); font-size: calc(.1 * var(--t)); }
+.band-command.is-unavailable { opacity: .65; cursor: default; }
+.band-command.is-dragging { box-shadow: 0 0 .12rem #7fffc9; }
+[data-shop-slot].is-command-target { outline: 2px solid #7fffc9; outline-offset: -2px; }
+/* the target under the dragged command turns orange, as its board square does (ui/bandCommand.js HOVER, §37.201) */
+[data-shop-slot].is-command-target.is-command-hover { outline: 3px solid #ff9a3c; }
+/* the aiming arrow from the command to the pointer (ui/bandCommand.js aimLayer): the client's chevron (ui/battle fx_arrow)
+   as a mask in mint, orange over a valid target; a clipped chevron without the art */
+.cmd-aim { position: fixed; inset: 0; z-index: 60; pointer-events: none; --cmd-aim-c: #7fffc9; }
+.cmd-aim.is-on { --cmd-aim-c: #ff9a3c; }
+.cmd-aim__c { position: absolute; left: 0; top: 0; width: 22px; height: 14px; margin: -7px 0 0 -11px; opacity: .85;
+  background: var(--cmd-aim-c); -webkit-mask: var(--cmd-aim-art) center / contain no-repeat; mask: var(--cmd-aim-art) center / contain no-repeat; }
+.cmd-aim__c.is-tip { width: 30px; height: 20px; margin: -10px 0 0 -15px; opacity: 1; }
+.cmd-aim.is-plain .cmd-aim__c { -webkit-mask: none; mask: none; clip-path: polygon(50% 0, 100% 72%, 100% 100%, 50% 32%, 0 100%, 0 72%); }
+.command-draft { display: flex; gap: .16rem; flex-wrap: wrap; }
+.command-draft__card { flex: 1 1 1.8rem; padding: .16rem; border: 1px solid #7fffc966; }

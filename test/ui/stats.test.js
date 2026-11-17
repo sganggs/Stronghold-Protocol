@@ -15,7 +15,7 @@ import {
   loadStats, saveStats, migrateStats, normalizeRecord, importStats, exportStats, aggregateStats, selfRowOf, roomModeOf,
   recordToResult, compactRecord, fitToBudget, countsTowardStats, roundsOf, clearedRounds, createLiveMatch, observeMatch,
   buildQuitRecord, installStatsRecorder, liveMatch, MIGRATIONS,
-  trophyMedalOf,
+  trophyMedalOf, peekStatsRecords,
 } from '../../public/js/ui/stats.js';
 import { createStore, emptyMatch } from '../../public/js/store.js';
 import { normalizeResult } from '../../public/js/ui/gameLogic.js';
@@ -448,6 +448,25 @@ describe('local stats: bounded storage', () => {
     assert.deepEqual(loadStats().records, []);
   });
 
+  test('peekStatsRecords (the 成就统计 card of the lobby) reads without writing: a damaged or newer value stays for the page', () => {
+    withStorage((ls) => {
+      assert.deepEqual(peekStatsRecords(), []);
+      const bad = '{"v":1,"records":[{"players":[';
+      ls.setItem('sp.pref.stats', bad);
+      assert.deepEqual(peekStatsRecords(), []);
+      assert.equal(ls.raw, bad, 'not moved to the backup');
+      assert.equal(ls.damaged, null);
+      const newer = JSON.stringify({ v: STATS_VERSION + 3, records: [{ players: [{ playerId: 'x' }] }] });
+      ls.setItem('sp.pref.stats', newer);
+      assert.deepEqual(peekStatsRecords(), []);
+      assert.equal(ls.raw, newer);
+      const stored = JSON.stringify({ v: STATS_VERSION, records: [buildRecord(baseResult(), { myId: 'p1', now: 1 })] });
+      ls.setItem('sp.pref.stats', stored);
+      assert.equal(peekStatsRecords().length, 1);
+      assert.equal(ls.raw, stored);
+    });
+  });
+
   test('every string and list of an (imported) record is bounded', () => {
     const rec = normalizeRecord({
       players: Array.from({ length: 30 }, (_, i) => ({
@@ -832,5 +851,54 @@ describe('local stats: recordToResult (history row → settlement re-view)', () 
     assert.equal('lastRound' in recordToResult(rec), false);
     assert.equal(recordToResult(null), null);
     assert.equal(recordToResult({ players: [] }), null);
+  });
+});
+
+describe('local stats: official versions (DESIGN §35.23, format v3)', () => {
+  test('a record names another version (only a non-default one); its id does not include it; an unknown id is dropped', () => {
+    const plain = buildRecord(baseResult(), { myId: 'p1', now: 1 });
+    const v1 = buildRecord(baseResult(), { myId: 'p1', now: 1, version: 'act1autochess' });
+    assert.equal('version' in plain, false, '第二期下半: no field');
+    assert.equal(v1.version, 'act1autochess');
+    assert.equal(v1.id, plain.id, 'the id stays what it was');
+    assert.equal('version' in buildRecord(baseResult(), { myId: 'p1', now: 1, version: 'act2autochess' }), false);
+    assert.equal('version' in normalizeRecord({ ...v1, version: 'act9autochess' }), false, 'not a registry id');
+    assert.equal(compactRecord(v1).version, 'act1autochess', 'kept in the compact form');
+    // an id-less record's content id leaves the version out too
+    const { id, ...anon } = v1;
+    assert.equal(normalizeRecord(anon).id, normalizeRecord({ ...anon, version: undefined }).id);
+  });
+
+  test('v2 → v3: nothing rewritten (a record without a version played 第二期下半); a quit record names the room\'s version', () => {
+    assert.equal(STATS_VERSION, 3);
+    assert.equal(typeof MIGRATIONS[2], 'function');
+    const v2 = { v: 2, records: [buildRecord(baseResult(), { myId: 'p1', now: 5 })] };
+    const { stats, changed } = migrateStats(v2);
+    assert.equal(changed, true);
+    assert.equal(stats.v, 3);
+    assert.equal('version' in stats.records[0], false);
+    const live = createLiveMatch();
+    const state = { me: { playerId: 'p1' }, room: { code: 'A', mode: 'solo', version: 'act1autochess@V1_1' },
+      match: { ...emptyMatch(), public: { phase: PHASE.PREP, round: 3, modeId: 'mode_single_funny', players: [{ playerId: 'p1', seat: 0, alive: true }] } } };
+    observeMatch(live, state, 10);
+    assert.equal(buildQuitRecord(state, { live, now: 20 }).version, 'act1autochess@V1_1');
+  });
+
+  test('per version and per season: recordsOfVersion / recordsOfSeason; the levels count one season', async () => {
+    const { recordsOfVersion, recordsOfSeason, recordVersion } = await import('../../public/js/ui/stats.js');
+    const { levelProgress } = await import('../../public/js/screens/settle.js');
+    const mk = (t, version) => buildRecord(baseResult({ players: [{ ...baseResult().players[0], reward: 100 }] }), { myId: 'p1', now: t, version });
+    const recs = [mk(1, null), mk(2, 'act1autochess'), mk(3, 'act1autochess@V1_1'), mk(4, 'act2autochess@V2_1')].map((r, i) => ({ ...r, id: `r${i}` }));
+    assert.deepEqual(recs.map(recordVersion), ['act2autochess', 'act1autochess', 'act1autochess@V1_1', 'act2autochess@V2_1']);
+    assert.deepEqual(recordsOfVersion(recs, 'act1autochess').map((r) => r.id), ['r1']);
+    assert.deepEqual(recordsOfVersion(recs, 'act2autochess').map((r) => r.id), ['r0']);
+    assert.equal(recordsOfVersion(recs, 'all').length, 4);
+    assert.deepEqual(recordsOfSeason(recs, 'act1autochess').map((r) => r.id), ['r1', 'r2'], '第一期: both sub-versions');
+    assert.deepEqual(recordsOfSeason(recs, 'act2autochess').map((r) => r.id), ['r0', 'r3']);
+    assert.equal(aggregateStats(recordsOfVersion(recs, 'act1autochess')).count, 1);
+    const at = 10;
+    assert.equal(levelProgress(recs, { counted: false, at }).before, 400, 'no season: every record');
+    assert.equal(levelProgress(recs, { counted: false, at, season: 'act1autochess' }).before, 200, '第一期\'s levels');
+    assert.equal(levelProgress(recs, { counted: false, at, season: 'act2autochess' }).before, 200);
   });
 });

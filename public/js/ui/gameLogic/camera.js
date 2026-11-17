@@ -84,14 +84,14 @@ export function prepCameraFor(pub, myId, folded = false) {
  * (`busy`: the drop target and the wheel sit on tiles of the camera in use — the caller asks again once that ends), and
  * nothing when the current request (`current` { kind, opts }) already has that shop state.
  * @param {{ pub: any, myId: string|null, ownPrep: boolean, folded: boolean, pen?: boolean, busy?: boolean,
- *   current?: { kind: string, opts?: { shop?: boolean } }|null }} s
+ *   current?: { kind: string, opts?: { shop?: boolean|'partial' } }|null }} s
  * @returns {{ kind: 'prep'|'bossPrep', opts: object }|null}
  */
 export function foldCamera(s) {
   if (!s || !s.ownPrep || s.pen || s.busy) return null;
   const want = prepCameraFor(s.pub, s.myId, !!s.folded);
   const cur = s.current;
-  if (cur && cur.kind === want.kind && (cur.opts?.shop !== false) === want.opts.shop) return null;
+  if (cur && cur.kind === want.kind && (cur.opts?.shop ?? true) === want.opts.shop) return null;
   return want;
 }
 
@@ -149,17 +149,19 @@ export function deployZoomRemember(step, frame) {
  * (`foldCamera`). `releaseDeploy` skips the busy deferral for the one frame a deploy zoom is given back, so turning
  * the setting off mid-drag cannot leave the camera zoomed. A hand-made fold while the setting is off and no deploy
  * zoom is in effect still defers (`busy`).
- * @param {{ pub: any, myId: string|null, deployFold?: boolean, releaseDeploy?: boolean, folded: boolean,
+ * @param {{ pub: any, myId: string|null, deployFold?: boolean, partial?: boolean, releaseDeploy?: boolean, folded: boolean,
  *   ownPrep: boolean, pen?: boolean, busy?: boolean,
- *   current?: { kind: string, opts?: { shop?: boolean } }|null }|null|undefined} s
+ *   current?: { kind: string, opts?: { shop?: boolean|'partial' } }|null }|null|undefined} s
  * @returns {{ kind: 'prep'|'bossPrep', opts: object }|null}
  */
 export function prepDeployCamera(s) {
   if (!s) return null;
   if (s.deployFold) {
-    const want = prepCameraFor(s.pub, s.myId, true);
+    const full = prepCameraFor(s.pub, s.myId, true);
+    // [ASSUMED] #692: a middle deploy level keeps a reduced shop, only when it was open before the drag.
+    const want = { ...full, opts: { ...full.opts, shop: s.partial ? 'partial' : false } };
     const cur = s.current;
-    if (cur && cur.kind === want.kind && cur.opts?.shop === false) return null;
+    if (cur && cur.kind === want.kind && cur.opts?.shop === want.opts.shop) return null;
     return want;
   }
   return foldCamera({

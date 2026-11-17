@@ -1,5 +1,5 @@
 // Multi-device support (desktop Chrome / Edge / Firefox / Safari, iPad and Android tablets in landscape, phones in
-// landscape ≥ 640×360 CSS px). Everything is feature-detected — never UA-sniffed:
+// landscape ≥ 640×360 CSS px). Capabilities are feature-detected; isIOS only selects explanatory copy:
 //
 //   detectFeatures()        { touch, coarse, hover, fullscreen, standalone, reducedMotion, importMaps, … } of this browser
 //   installDeviceSupport()  once at boot (main.js): <html> classes (sp-touch / sp-coarse / sp-hover / sp-fs /
@@ -13,6 +13,7 @@
 //                           variant (iPadOS / older Safari); iPhone Safari has no element fullscreen → unsupported and the
 //                           button hides. Android: after entering, the orientation is locked to landscape when allowed.
 //   FullscreenButton        HUD / title button (hidden where unsupported), follows fullscreenchange.
+//   useScreenWakeLock(active) screen wake lock while active and visible, restored on foreground and released on cleanup.
 //   long-press              a still touch of LONG_PRESS_MS on a DOM control → a synthetic `contextmenu` (= detail) when
 //                           the browser sends none (iOS Safari); when a handler took it (preventDefault: detail card,
 //                           tooltip) the click of the release is swallowed — otherwise the slow tap stays a tap.
@@ -29,6 +30,14 @@ export const LONG_PRESS_MS = 520;
 const LONG_PRESS_SLOP = 10;
 
 const mq = (win, q) => { try { return !!win.matchMedia?.(q)?.matches; } catch { return false; } };
+
+/** iOS/iPadOS hint copy only; never a browser-capability gate. */
+export function isIOS(win = globalThis) {
+  const nav = win.navigator || {};
+  const ua = nav.userAgent || '';
+  return /iPad|iPhone|iPod/.test(ua)
+    || ((nav.platform === 'MacIntel' || /Macintosh/.test(ua)) && nav.maxTouchPoints > 1);
+}
 
 /**
  * Whether the SCREEN (not the viewport) is in landscape: a split-view iPad or a narrow desktop window has a portrait
@@ -99,6 +108,30 @@ export function featureClasses(f) {
 /** prefers-reduced-motion: reduce */
 export function reducedMotion(win = globalThis) { return mq(win, '(prefers-reduced-motion: reduce)'); }
 
+/** The short-screen block of the stylesheets (css/screens/lobby.css: landscape phones), for text CSS cannot swap. */
+export const SHORT_SCREEN_QUERY = '(max-height: 520px)';
+
+/**
+ * Whether a media query matches, kept current through its change events (a rotation, a resized window); false where
+ * matchMedia is missing. The lobby passes SHORT_SCREEN_QUERY's answer to 选择同盟方式 (its key field's placeholder).
+ * @param {string} query
+ * @param {any} [win]
+ */
+export function useMediaQuery(query, win = globalThis) {
+  const [on, setOn] = useState(() => mq(win, query));
+  useEffect(() => {
+    let m = null;
+    try { m = win.matchMedia?.(query); } catch { m = null; }
+    if (!m) return undefined;
+    const sync = () => setOn(!!m.matches);
+    sync();
+    if (typeof m.addEventListener === 'function') { m.addEventListener('change', sync); return () => m.removeEventListener('change', sync); }
+    if (typeof m.addListener === 'function') { m.addListener(sync); return () => m.removeListener(sync); } // Safari < 14
+    return undefined;
+  }, [query]);
+  return on;
+}
+
 /**
  * Keep a class on <html> while a component is mounted and `on` holds (replaces CSS :has(), which Firefox ESR 115 and
  * Safari < 15.4 lack): the match screen sets sp-in-match, the connection banner sp-conn.
@@ -112,6 +145,57 @@ export function useDocClass(name, on = true) {
     el.classList.add(name);
     return () => el.classList.remove(name);
   }, [name, !!on]);
+}
+
+/** Hold a screen wake lock while visible; the disposer releases it. */
+export function installScreenWakeLock(win = globalThis) {
+  const doc = win.document;
+  const wakeLock = win.navigator?.wakeLock;
+  if (!doc || !wakeLock) return () => {};
+  let sentinel = null;
+  let generation = 0;
+  const release = async (lock) => { try { await lock?.release(); } catch { /* best effort */ } };
+  const cancelRetry = () => {
+    doc.removeEventListener('pointerdown', onGesture, true);
+    doc.removeEventListener('touchstart', onGesture, true);
+  };
+  const onGesture = () => {
+    cancelRetry(); // a touch can also send a pointer event
+    if (doc.visibilityState === 'visible') void acquire(generation, false);
+  };
+  const acquire = async (request, retry = true) => {
+    try {
+      const lock = await wakeLock.request('screen');
+      // A visibility change or cleanup can finish before the request.
+      if (request !== generation || doc.visibilityState !== 'visible') void release(lock);
+      else sentinel = lock;
+    } catch {
+      if (retry && request === generation && doc.visibilityState === 'visible') {
+        doc.addEventListener('pointerdown', onGesture, true);
+        doc.addEventListener('touchstart', onGesture, { capture: true, passive: true });
+      }
+    }
+  };
+  const update = () => {
+    const request = ++generation;
+    cancelRetry();
+    void release(sentinel);
+    sentinel = null;
+    if (doc.visibilityState === 'visible') void acquire(request);
+  };
+  doc.addEventListener('visibilitychange', update);
+  void update();
+  return () => {
+    ++generation;
+    cancelRetry();
+    doc.removeEventListener('visibilitychange', update);
+    void release(sentinel);
+    sentinel = null;
+  };
+}
+
+export function useScreenWakeLock(active) {
+  useEffect(() => active ? installScreenWakeLock() : undefined, [!!active]);
 }
 
 // ---- fullscreen ----------------------------------------------------------------------------------------------------
@@ -143,18 +227,24 @@ export const fullscreen = {
   toggle(win = globalThis) { return this.active(win) ? this.exit(win) : this.enter(win); },
 };
 
-/** Fullscreen toggle (hidden where the browser has no element fullscreen, e.g. iPhone Safari). */
-export function FullscreenButton({ class: cls = '' }) {
+export function useFullscreen() {
   const [on, setOn] = useState(() => fullscreen.active());
-  const [ok] = useState(() => fullscreen.supported());
   useEffect(() => {
     const d = globalThis.document;
     if (!d) return undefined;
     const upd = () => setOn(fullscreen.active());
     d.addEventListener('fullscreenchange', upd);
     d.addEventListener('webkitfullscreenchange', upd);
+    upd();
     return () => { d.removeEventListener('fullscreenchange', upd); d.removeEventListener('webkitfullscreenchange', upd); };
   }, []);
+  return on;
+}
+
+/** Fullscreen toggle (hidden where the browser has no element fullscreen, e.g. iPhone Safari). */
+export function FullscreenButton({ class: cls = '' }) {
+  const on = useFullscreen();
+  const [ok] = useState(() => fullscreen.supported());
   if (!ok) return null;
   const label = on ? t('退出全屏') : t('全屏');
   return html`<button type="button" class=${`fsbtn tapx ${cls}`} aria-label=${label} title=${label} aria-pressed=${on ? 'true' : 'false'}

@@ -12,6 +12,7 @@ import { msg, dn } from '../../../shared/i18n.js';
 import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, resolveLoadout, charPotentialChanges, checkSkinSelection, operatorCharIds } from '../../../shared/protocol.js';
 import { cultivationOf } from '../../../shared/potential.js';
 import { tileKey, boardOrder } from '../board.js';
+import { TEMP_SIZE } from './common.js';
 
 /** The charIds a player may set a potential / 练度 for, per game-data object (shared/protocol.js cultivationCharIds). */
 const OPS_IDS = new WeakMap();
@@ -29,13 +30,15 @@ export class PlayerBasics {
 
   get deployCap() { return Math.max(1, this.gd.deployCap + this.deployCapBonus, this.deployCapMin); }
   get deployCount() { let n = 0; for (const p of this.board.values()) if (p.kind === 'chess') n++; return n; }
-  get tempEmpty() { return this.temp.every((x) => x == null); }
+  get equipHand() { return this.gd.config.version?.rules?.equipHand === true; }
+  get tempEmpty() { return this.temp.every((x, i) => (this.equipHand && i < TEMP_SIZE) || x == null); }
 
   /**
    * Index of the prep whose deadline resolves a temp piece (compare with `prepsEnded`): recorded when the piece entered
    * temp (_putTemp); a piece put there by other means counts as due at the current (or next) prep.
    */
   tempDue(piece) {
+    if (piece && this.equipHand && this.temp.slice(0, TEMP_SIZE).includes(piece)) return Infinity;
     const due = piece ? this._tempDue.get(piece.uid) : undefined;
     return Number.isInteger(due) ? due : this.prepsEnded;
   }
@@ -52,7 +55,12 @@ export class PlayerBasics {
   /** Every write of a piece into a temp slot goes through here (records its due prep). */
   _putTemp(i, piece) {
     this.temp[i] = piece;
+    if (this.equipHand && i < TEMP_SIZE) {
+      this._tempDue.delete(piece.uid);
+      return;
+    }
     this._tempDue.set(piece.uid, this._tempDueNow());
+    if (this.equipHand) this._noticeStash(piece);
   }
 
   /**

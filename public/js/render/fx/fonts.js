@@ -14,7 +14,7 @@ export function ensureDamageFonts() {
         fontFamily: ['Bender', 'Oxanium', 'Rajdhani', 'Arial Black', 'sans-serif'], fontSize: 44, fontWeight: '700',
         fill: st.fill, fillGradientStops: [0.25, 1], stroke: st.stroke, strokeThickness: 7,
         dropShadow: true, dropShadowColor: '#000000', dropShadowAlpha: 0.45, dropShadowDistance: 2, dropShadowBlur: 2,
-      }, { chars: st.font === 'sp-dmg-miss' ? [['0', '9'], '+-×!', 'MISS'] : [['0', '9'], '+-×!'], resolution: 2, padding: 6 });
+      }, { chars: [['0', '9'], '+-−×!. COSTPMI'], resolution: 2, padding: 6 });
     } catch (err) { console.warn('[fx] bitmap font', st.font, err?.message || err); }
   }
   fontsReady = true;

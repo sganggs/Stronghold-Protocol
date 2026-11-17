@@ -40,7 +40,7 @@
 import { num, up, traitBb, moduleOn, skillRec, batMod } from '../shared/tier1.js';
 import { bodyKeys } from '../../../body.js';
 import { toLocal } from '../../../dir.js';
-import { hasHp } from '../../../damage.js';
+import { hasHp } from '../../../attack.js';
 import { COLS } from '../../../constants.js';
 
 const S1 = 'skchr_shwaz_1';

@@ -18,9 +18,13 @@ rooms) and a deterministic battle sim shared by the server and the browser. It a
 3. The reference for the part you touch: [docs/SIM.md](docs/SIM.md) (battle engine API, hooks, test harness),
    [docs/META.md](docs/META.md) (match flow, shop, protocol), [docs/DATA.md](docs/DATA.md) (generated data),
    [docs/I18N.md](docs/I18N.md) (interface strings), `server/sim/content/kits/README.md` (operator kits).
+4. Before editing battle simulation code, read [server/sim/AGENTS.md](server/sim/AGENTS.md) for a short settlement API usage guide.
+5. [docs/CI.md](docs/CI.md) — the CI jobs, the test-sharding contract (`ci-shards.json`), how to re-weigh it, the
+   timeout policy, and the ways a CI measurement lies.
 
 ## Hard rules
 
+- **Formatting.** Use two spaces for JavaScript indentation; do not introduce Tab indentation.
 - **Official first.** Rules come from the official data tables (`.cache/gamedata/excel/` after setup) and
   [PRTS](https://prts.wiki/). A detail no source settles is implemented the simplest way and marked `[ASSUMED]` in the
   code and the PR. Deliberate deviations from the official mode are the maintainer's decision only.

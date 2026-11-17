@@ -2,7 +2,7 @@
 // difficulty | "1/2 确认本局信息" | countdown) and the exit flow (confirm with 暂离 / 放弃, AI 托管 overlay).
 //
 // 暂离 (co-op): turns on AI 托管 (g.autoplay on) so the seat keeps playing; the overlay's 返回模拟 turns it
-// off. 放弃模拟: g.leave then room.leave (the platform treats it as a quit), back to the lobby.
+// off. 放弃模拟: g.leave (room.leave when no match remains), back to the lobby.
 
 import { useState } from '../../vendor/hooks.module.js';
 import { html, Button, Modal, PingPill, DifficultyTag, Countdown, MicroLabel } from './components.js';
@@ -15,9 +15,10 @@ import { GuideButton } from './guide.js';
 import { recordQuit } from './stats.js';
 import { t, tParts, N_ } from '../../../shared/i18n.js';
 import { TestMark } from './testConsole.js';
+import { ladderName } from './hud.js';
 
 /**
- * Exit dialog lines. 放弃模拟 (g.leave → room.leave) ends the run on the server as 'abandoned' and returns to the
+ * Exit dialog lines. 放弃模拟 ends the run on the server as 'abandoned' and returns to the
  * lobby straight away — no settlement screen follows, so the solo text must not promise one.
  */
 export const EXIT_TEXT = Object.freeze({
@@ -39,7 +40,7 @@ export const awayEnds = (s, prev) => (!!prev?.match?.public && !s?.match?.public
 store.subscribe((s, prev) => { if (awayStore.get().away && awayEnds(s, prev)) awayStore.set({ away: false }); });
 
 /**
- * Leave the match for good (g.leave → room.leave), then drop local room/match state. The server sends a leaver no
+ * Leave the match for good (g.leave, room.leave if it has already ended), then drop local room/match state. The server sends a leaver no
  * settlement, so the page records the match itself before it is cleared (本机统计, ui/stats.js recordQuit: a 中途退出
  * entry of the history; it counts only when a round had been cleared) — once the leave went through.
  * @returns {Promise<void>}
@@ -48,11 +49,16 @@ export async function quitMatch() {
   const before = store.get();
   let left = false;
   try {
-    try { await net.request('g.leave', {}); } catch (err) {
-      if (err?.code !== 'NOT_IN_ROOM' && err?.code !== 'WRONG_PHASE' && err?.code !== 'OFFLINE') throw err;
+    try { await net.request('g.leave', {}); left = true; } catch (err) {
+      if (err?.code === 'NOT_IN_ROOM') left = true;
+      else if (err?.code !== 'WRONG_PHASE') throw err;
     }
-    try { await net.request('room.leave', {}); } catch (err) { if (err?.code !== 'NOT_IN_ROOM' && err?.code !== 'OFFLINE') throw err; }
-    left = true;
+    // g.leave already removes the member and clears session.roomCode. Only a room without a running match
+    // (WRONG_PHASE) needs the room.leave fallback; a redundant request cannot revoke an acknowledged departure.
+    if (!left) {
+      try { await net.request('room.leave', {}); } catch (err) { if (err?.code !== 'NOT_IN_ROOM') throw err; }
+      left = true;
+    }
   } catch (err) {
     toastError(err);
   } finally {
@@ -60,7 +66,9 @@ export async function quitMatch() {
     if (left && !store.get().match.result) {
       try { recordQuit(before); } catch (err) { console.warn('[stats] quit record failed', err); }
     }
-    store.set({ room: null, match: emptyMatch() });
+    // A failed request does not establish that the server released the seat. Keep the latest view for a retry
+    // (or a reconnect), including a waiting-room update received after the match ended.
+    if (left) store.set({ room: null, match: emptyMatch() });
   }
 }
 
@@ -121,25 +129,31 @@ export function AwayOverlay({ onBack = () => {} }) {
 }
 
 /**
- * Pre-game step header.
- * @param {{ step: number, of: number, title: string, micro: string, pub: any, total?: number|null, onExit: Function }} props
+ * Pre-game step header (PR #643, the event's pre-game, video 6:29–7:51): exit over the ping | the difficulty, with
+ * `extra` beside it in one capsule (the draft's 本局信息) | "1/2 确认本局信息" ……… `status` (the draft's turn: 请选择策略 /
+ * X 正在选择策略… / 策略选择完成) | 玩法说明 and the countdown.
+ * @param {{ step: number, of: number, title: string, micro: string, pub: any, total?: number|null, onExit: Function,
+ *   extra?: any, status?: any }} props
  */
-export function StepHeader({ step, of, title, micro, pub, total, onExit }) {
+export function StepHeader({ step, of, title, micro, pub, total, onExit, extra = null, status = null }) {
   const conn = useStore((s) => s.connection, shallowEqual);
   return html`<header class="stephead">
     <div class="stephead__left">
-      <${Button} variant="danger" size="lg" square=${true} icon="exit" onClick=${onExit} aria-label=${t('离开')} title=${t('离开')} />
-      <div class="stephead__meta">
+      <div class="stephead__exit">
+        <${Button} variant="danger" size="lg" square=${true} icon="exit" onClick=${onExit} aria-label=${t('离开')} title=${t('离开')} />
         <${PingPill} ms=${conn.ping} online=${conn.status === 'online'} />
-        ${pub?.difficulty ? html`<${DifficultyTag} difficulty=${pub.difficulty} />` : null}
-        ${pub?.test ? html`<${TestMark} />` : null}
       </div>
-    </div>
-    <div class="stephead__center">
-      <${MicroLabel} tone="mint">${micro}</${MicroLabel}>
-      <h1 class="stephead__title"><b class="num">${step}</b><span class="num stephead__of">/${of}</span>${title}</h1>
+      <div class=${`stephead__mode${extra ? ' has-extra' : ''}`}>
+        ${pub?.difficulty ? html`<${DifficultyTag} difficulty=${pub.difficulty} name=${ladderName(pub)} />` : null}
+        ${pub?.test ? html`<${TestMark} />` : null}
+        ${extra}
+      </div>
+      <i class="stephead__sep" aria-hidden="true"></i>
+      <h1 class="stephead__title"><b class="num">${step}</b><span class="num stephead__of">/${of}</span><span class="stephead__name">${title}</span></h1>
+      <${MicroLabel} tone="mint" class="stephead__micro">${micro}</${MicroLabel}>
     </div>
     <div class="stephead__right">
+      ${status ? html`<div class="stephead__status">${status}</div><i class="stephead__sep" aria-hidden="true"></i>` : null}
       <${GuideButton} class="stephead__guide" variant="secondary" />
       <${Countdown} deadline=${pub?.deadline} total=${total ?? undefined} size="md" />
     </div>

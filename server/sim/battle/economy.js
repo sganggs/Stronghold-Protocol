@@ -5,11 +5,23 @@
 import { layerGainRoom } from '../../../shared/constants.js';
 
 export class BattleEconomy {
-  addDp(playerId, n) {
+  // Optional source is presentation attribution; the return value and DP arithmetic stay unchanged.
+  addDp(playerId, n, source = null) {
     const ps = this.getPlayer(playerId);
     if (!ps || !Number.isFinite(n)) return 0;
+    const before = ps.dp;
     ps.dp = Math.max(0, Math.min(this.flags.dpMax, ps.dp + n));
+    const reason = source?.def?.subProf;
+    if ((n > 0 && ['agent', 'charger', 'pioneer'].includes(reason)) || (n < 0 && reason === 'merchant')) {
+      this.resourceNumber(source, 'cost', ps.dp - before, reason);
+    }
     return ps.dp;
+  }
+
+  /** Settled display-only resource receipt. Live render hosts opt in; headless/golden runs need no extra events. */
+  resourceNumber(unit, resource, amount, reason) {
+    if (!this.opts.resourceNumbers || !unit?.alive || !unit.deployed || unit.hidden || !Number.isFinite(amount) || amount === 0) return;
+    this._ev(['resource', unit.id, resource, amount, reason]);
   }
 
   /**
@@ -34,6 +46,23 @@ export class BattleEconomy {
     pp.layerGains[bondId] = (pp.layerGains[bondId] ?? 0) + add;
     if (ps && ps.bonds[bondId]) ps.bonds[bondId].layers = (ps.bonds[bondId].layers ?? 0) + add;
     this._ev(['layer', playerId, bondId, add]);
+    return add;
+  }
+
+  /**
+   * Temporary bond layers (规程). Not written into layerGains and not announced on `layerGain`, so a garrison extra
+   * does not recurse. The field is created only when a positive amount is stored. No-op when gains are disabled
+   * (联防 / boss / hidden) and when the amount is not a positive finite number.
+   */
+  addTempLayers(playerId, bondId, n) {
+    if (!this.flags.layerGainsEnabled || !(n > 0) || !Number.isFinite(n) || playerId == null) return 0;
+    if (typeof bondId !== 'string' || !bondId) return 0;
+    const pp = this._pp(playerId);
+    if (!pp) return 0;
+    const add = Math.min(1e4, Math.floor(n));
+    if (!(add > 0)) return 0;
+    if (!pp.tempLayerGains) pp.tempLayerGains = {};
+    pp.tempLayerGains[bondId] = Math.min(1e4, (pp.tempLayerGains[bondId] ?? 0) + add);
     return add;
   }
 

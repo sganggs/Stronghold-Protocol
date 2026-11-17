@@ -33,7 +33,7 @@ export class MatchReports {
     if (Number.isInteger(msg.resolved)) p.resolved = Math.max(0, Math.min(1e5, msg.resolved));
     f.lastProgressAt = this.sched.now();
     if (f.kind === 'boss' || f.kind === 'hidden') {
-      this._creditBoss(f, msg.bossDmg, msg.by);
+      this._creditBoss(f, msg.bossDmg, msg.by, msg.ops);
       this._creditLp(f, msg.leaks, true);
       this._noteLeaksBy(f, msg.leaksBy);
       this._checkFinalEnd();

@@ -38,6 +38,17 @@
 //     its seat shows it not ready — a reconnect); a check that fails is said once (a toast) and told too ({ ok: false }).
 //     Leaving the room, or a room back on the original content, gives data.js the server's files again. One content set
 //     at a time (contentSet: its state for the screens — loading with its progress, ready, failed).
+//   * Official versions (DESIGN §35.23, M1; versions.js): the version the page shows — the lobby's choice, a room's
+//     version — when it is not 第二期下半 is loaded the same way (loadVersionSet): the version's /cs/<cs16>/index.json
+//     (`vanilla: true`, its `version` the id expected, no plugins, no settings), every data file it lists — under
+//     /data/versions/<slug>/ only — and its official-bounds snapshot, each file's bytes against its entry, the manifest's
+//     composition against the cs (the room's room.state.content.cs in a room, welcome.versions' entry in the lobby). Then
+//     data.js shows those files, the battle runner simulates on them (simContent / contentFor: the page's own Battle,
+//     not the plugin Worker — a version set runs no script) and, in a room, the page tells the room (room.contentReady,
+//     exactly as for a content set — never from the lobby). The set on screen stays until the next one is checked (going
+//     from one version to another never shows 第二期下半 in between); gameplay compositions also retain their version.
+//     The last two checked version sets are kept, so a lobby ⇄ room round trip checks nothing twice.
+//     A version set that fails is said once per set (a toast) and told to the room ({ ok: false }).
 //   * The catalogue is fetched only on a server that has plugins — `content.plugins` > 0 in /healthz (the build guard's
 //     first check, before any hello) or welcome (main.js keeps it as the store's `installedPlugins`: installedCount; a
 //     server without any sends none, and its page never asks for /plugins/index.json) — and only when something needs
@@ -55,6 +66,8 @@ import { applyThemeProperties } from './themeVars.js';
 import { sha256Hex } from '../../shared/sha256.js';
 import { getLang, langChain, t, N_ } from '../../shared/i18n.js';
 import { DEV_BUILD } from '../../shared/constants.js';
+import { DEFAULT_VERSION, versionById, versionSlug } from '../../shared/versions.js';
+import { shownVersion, welcomeVersion } from './versions.js';
 
 /** The localStorage preference (`sp.pref.<key>`) of the personal cosmetic plugins: their ids. */
 export const PERSONAL_PREF = 'cosmetics';
@@ -386,16 +399,25 @@ export const CONTENT_TIMEOUT_MS = 60000;
 const CONTENT_PARALLEL = 4;
 /** What the page says (once) when the room's content set will not load or check. */
 const CONTENT_FAILED = N_('房间的插件内容未能通过校验，请刷新页面重试');
+/** What the page says (once per set) when an official version's data will not load or check (DESIGN §35.23). */
+const VERSION_FAILED = N_('版本数据未能通过校验，请刷新页面重试');
+/** Checked version sets kept for a lobby ⇄ room round trip (header "Official versions"). */
+export const VERSION_CACHE = 2;
 
 /**
- * The room's content set as this page has it (header "The room's content set"): `cs` (null: the original content),
+ * The content set as this page has it (header "The room's content set", "Official versions"): `cs` (null: the original
+ * content), `kind` 'plugins' (a room's gameplay plugins) | 'version' (another official version, `version` its id) | null,
  * `status` 'idle' | 'loading' | 'ready' | 'failed', `loaded` / `total` bytes of its files, `error` (why it failed),
  * `kitted` (the operators its plugins add to a 自选 slot's list — room.state.content.kittedExtra; null: none, the server's
  * list alone).
  */
-export const contentSet = createStore({ cs: null, status: 'idle', loaded: 0, total: 0, error: null, kitted: null });
-/** The checked set the page holds: { cs, index, values: Map<name, JSON>, bounds } (the runner's data), or null. */
+export const contentSet = createStore({ cs: null, kind: null, version: null, status: 'idle', loaded: 0, total: 0, error: null, kitted: null });
+/** The checked set the page holds: { cs, index, values: Map<name, JSON>, bounds, version? } (the runner's data), or null. */
 let held = null;
+/** The checked version sets kept (cs → set, the newest last; at most VERSION_CACHE). */
+const versionCache = new Map();
+/** Retry the failed set on screen (the version switch's 重试): set by installContentSet. */
+let retryHook = null;
 /** Pages waiting for a content set (contentFor): cs → resolvers. */
 const waiting = new Map();
 
@@ -457,7 +479,7 @@ export async function loadContentSet(cs, { fetch: doFetch = defaultFetch, retryD
   const i18n = Object.fromEntries(langs.map(([lang, f]) => [lang, f.sha256]));
   let again;
   try {
-    again = contentHashOf({ app: index.app, sim: index.sim, data: hashes, plugins: index.plugins, settings: index.settings, ...(langs.length ? { i18n } : {}), ...(isObj(index.rules) ? { rules: index.rules } : {}) });
+    again = contentHashOf({ app: index.app, sim: index.sim, data: hashes, ...(index.version ? { version: index.version } : {}), plugins: index.plugins, settings: index.settings, ...(langs.length ? { i18n } : {}), ...(isObj(index.rules) ? { rules: index.rules } : {}) });
   } catch { again = null; }
   if (again !== cs) throw new Error('the manifest does not hash to the room\'s cs');
   // the URLs a manifest may name: this server's data files and this set's own files
@@ -494,15 +516,69 @@ export async function loadContentSet(cs, { fetch: doFetch = defaultFetch, retryD
     if (scriptExecution(scripts) !== (sandbox ? 'sandbox' : 'trusted')) throw new Error('script execution mode mismatch');
     if (!sandbox) { await checkBrowserScripts(scripts,cs,doFetch); nativeVerified = true; }
   }
-  return { cs, index, values, bounds, scripts, nativeVerified, canSim: !listed(index.scripts).length || consent || sandbox };
+  return { cs, index, values, bounds, ...(index.version ? { version: index.version } : {}), scripts, nativeVerified, canSim: !listed(index.scripts).length || consent || sandbox };
 }
+
+/**
+ * Download and check an official version's set (header "Official versions"; protocol §3): its manifest (`vanilla: true`,
+ * `version` the id expected, no plugins and no settings, its composition hashing to `cs`), every data file it lists —
+ * each under /data/versions/<slug>/ of that version — and its official-bounds snapshot (under /cs/<cs16>/), each by its
+ * bytes and size.
+ * @param {string} cs @param {string} id the version expected (a registry id, not the default)
+ * @param {{ fetch?: typeof fetch, retryDelays?: readonly number[], wait?: (ms: number) => Promise<void>, timeoutMs?: number,
+ *   onProgress?: (loaded: number, total: number) => void }} [opts]
+ * @returns {Promise<{ cs: string, index: any, values: Map<string, any>, bounds: any, version: string, scripts: [],
+ *   canSim: true, nativeVerified: false }>} (rejects with the reason)
+ */
+export async function loadVersionSet(cs, id, { fetch: doFetch = defaultFetch, retryDelays = CONTENT_RETRY_MS, wait = sleep, timeoutMs = CONTENT_TIMEOUT_MS, onProgress = null } = {}) {
+  if (!isContentHash(cs)) throw new Error('no content hash');
+  const entry = versionById(id);
+  if (!entry || entry.id === DEFAULT_VERSION) throw new Error(`not another official version: ${String(id)}`);
+  const own = `/cs/${csUrlPart(cs)}/`;
+  const index = await fetchChecked(`${own}index.json`, null, { fetch: doFetch, retryDelays, wait, timeoutMs });
+  if (!isObj(index) || index.cs !== cs || index.vanilla !== true || index.version !== id || !isObj(index.data)) throw new Error('the manifest is not that version\'s set');
+  if (!Array.isArray(index.plugins) || index.plugins.length || !isObj(index.settings) || Object.keys(index.settings).length) throw new Error('a version set names plugins or settings');
+  const entries = Object.entries(index.data);
+  if (!entries.length || entries.some(([, f]) => !isObj(f) || typeof f.url !== 'string' || !isContentHash(f.sha256) || !Number.isInteger(f.bytes))) throw new Error('a data entry is malformed');
+  const prefix = `/data/versions/${versionSlug(entry)}/`;
+  for (const [name, f] of entries) if (!f.url.startsWith(prefix) || f.url.includes('..')) throw new Error(`${name}: an address outside the version's data`);
+  const official = isObj(index.bounds) && isObj(index.bounds.official) ? index.bounds.official : null;
+  if (!official || typeof official.url !== 'string' || !isContentHash(official.sha256) || !official.url.startsWith(own) || official.url.includes('..')) throw new Error('bounds: missing, or an address outside this set');
+  let again;
+  try { again = contentHashOf({ app: index.app, sim: index.sim, data: Object.fromEntries(entries.map(([name, f]) => [name, f.sha256])) }); } catch { again = null; }
+  if (again !== cs) throw new Error('the manifest does not hash to the version\'s cs');
+  const total = entries.reduce((n, [, f]) => n + f.bytes, 0);
+  let loaded = 0;
+  onProgress?.(0, total);
+  const values = new Map();
+  let next = 0;
+  const worker = async () => {
+    while (next < entries.length) {
+      const [name, f] = entries[next++];
+      values.set(name, await fetchChecked(f.url, f, { fetch: doFetch, retryDelays, wait, timeoutMs, onBytes: (n) => { loaded += n; onProgress?.(loaded, total); } }));
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(CONTENT_PARALLEL, entries.length) }, worker));
+  const bounds = await fetchChecked(official.url, official, { fetch: doFetch, retryDelays, wait, timeoutMs });
+  if (!isObj(bounds) || bounds.v !== 1) throw new Error('bounds: not an official-bounds snapshot');
+  return { cs, index, values, bounds, version: id, scripts: [], canSim: true, nativeVerified: false };
+}
+
+/**
+ * The official version of the data the page shows now (header "Official versions"): the version set it holds, else
+ * 第二期下半 (the server's files or a legacy plugin room's set).
+ */
+export const pageVersion = () => (held && typeof held.version === 'string' ? held.version : DEFAULT_VERSION);
+
+/** Load the failed set on screen again (the lobby version switch's 重试). */
+export const retryContentSet = () => { retryHook?.(); };
 
 /**
  * The content set the battle runner simulates on now (public/js/battle/runner.js): `{ cs, data, bounds }` of the checked
  * set the page holds, or null (the original content: the runner loads /data/ itself).
  */
 export const simContent = () => (held && held.canSim !== false ? { scripts:held.scripts || [], hashInput:held.index, nativeVerified:held.nativeVerified,
-  cs: held.cs, data: Object.fromEntries(held.values), bounds: held.bounds ?? null } : null);
+  cs: held.cs, data: Object.fromEntries(held.values), bounds: held.bounds ?? null, ...(held.version ? { version: held.version } : {}) } : null);
 
 /**
  * The content set `cs` once this page holds it — at once when it does, when its download is done when it is the one
@@ -528,7 +604,8 @@ function settleWaiting(cs) {
 }
 
 /**
- * Keep the page's data in step with the room's content set (header "The room's content set"). Returns the uninstall.
+ * Keep the page's data in step with the room's content set and the official version it shows (header "The room's
+ * content set", "Official versions"). Returns the uninstall.
  * @param {{ store?: typeof appStore, data?: typeof dataStore, net?: { request: Function } | null, fetch?: typeof fetch,
  *   toast?: ((text: string, kind?: string) => void) | null, retryDelays?: readonly number[], wait?: (ms: number) => Promise<void> }} [opts]
  */
@@ -536,9 +613,23 @@ export function installContentSet({ store = appStore, data = dataStore, net = ap
   retryDelays = CONTENT_RETRY_MS, wait = sleep } = {}) {
   let req = 0;
   let told = false;
+  /** the version sets whose failure the page said already (once per set) */
+  const toldVersion = new Set();
   /** room.contentReady on its way (one at a time) and the cs it named */
   let telling = null;
   const roomCs = (s) => (s?.room?.content && s.room.content.vanilla === false && isContentHash(s.room.content.cs) ? s.room.content.cs : null);
+  /**
+   * The version set the page should show (header "Official versions"): `{ version, cs }` — cs null while a room's
+   * content does not name the room's version yet (keep what is there) — or null: the server's files.
+   */
+  const versionWanted = (s) => {
+    const version = shownVersion(s);
+    if (!version || version === DEFAULT_VERSION || !versionById(version)) return null;
+    const c = s?.room?.content;
+    if (s?.room) return { version, cs: c && c.version === version && isContentHash(c.cs) ? c.cs : null };
+    const entry = welcomeVersion(s, version);
+    return { version, cs: entry && isContentHash(entry.cs) ? entry.cs : null };
+  };
   const mySeat = (s) => {
     const id = s?.me?.playerId;
     const room = s?.room;
@@ -546,25 +637,63 @@ export function installContentSet({ store = appStore, data = dataStore, net = ap
     return (Array.isArray(room.seats) ? room.seats : []).find((x) => x && x.playerId === id)
       || (Array.isArray(room.spectators) ? room.spectators : []).find((x) => x && x.playerId === id) || null;
   };
-  /** Tell the room what this page made of its content set — again when its seat does not show it (a reconnect). */
+  /**
+   * Tell the room what this page made of its content set — again when its seat does not show it (a reconnect). Only for
+   * the room's own content (never from the lobby: a lobby version set is nobody's business).
+   */
   const tell = (cs, ok) => {
-    if (!net || telling === cs) return;
+    if (!net || telling === cs || store.get()?.room?.content?.cs !== cs) return;
     telling = cs;
     Promise.resolve().then(() => net.request('room.contentReady', ok ? { cs } : { cs, ok: false }))
       .catch((err) => console.warn('[content] room.contentReady', err?.code || err))
       .finally(() => { if (telling === cs) telling = null; });
   };
+  const idle = { cs: null, kind: null, version: null, status: 'idle', loaded: 0, total: 0, error: null, kitted: null };
   const drop = () => {
     req++;
     if (held) { held = null; data.setContent(null); }
     settleWaiting(null);
-    if (contentSet.get().cs !== null || contentSet.get().status !== 'idle') contentSet.set({ cs: null, status: 'idle', loaded: 0, total: 0, error: null, kitted: null });
+    const cur = contentSet.get();
+    if (cur.cs !== null || cur.status !== 'idle' || cur.kind !== null) contentSet.set(idle);
+  };
+  /** Show a checked version set (from the download or the cache) and tell the room when it is the room's. */
+  const showVersion = (set) => {
+    held = set;
+    versionCache.delete(set.cs);
+    versionCache.set(set.cs, set);
+    while (versionCache.size > VERSION_CACHE) versionCache.delete(versionCache.keys().next().value);
+    // (a version's index carries no translations: its files take only the Chinese texts until M3 — data.js versionFiles)
+    data.setContent({ id: set.cs, values: set.values, overlay: null, langs: [] });
+    contentSet.set({ cs: set.cs, kind: 'version', version: set.version, status: 'ready', error: null, kitted: null });
+    settleWaiting(set.cs);
+    tell(set.cs, true);
+  };
+  const loadVersion = (cs, version) => {
+    const mine = ++req;
+    // the set on screen stays until this one is checked (header "Official versions")
+    settleWaiting(null);
+    const cached = versionCache.get(cs);
+    if (cached && cached.version === version) { showVersion(cached); return; }
+    contentSet.set({ cs, kind: 'version', version, status: 'loading', loaded: 0, total: 0, error: null, kitted: null });
+    loadVersionSet(cs, version, { fetch: doFetch, retryDelays, wait, onProgress: (loaded, total) => { if (mine === req) contentSet.set({ loaded, total }); } })
+      .then((set) => { if (mine === req) showVersion(set); })
+      .catch((err) => {
+        if (mine !== req) return;
+        console.warn(`[content] the version set ${version} ${cs.slice(0, 8)} did not load or check: ${err?.message || err}`);
+        // the server's files again (the status says it failed): a set that did not check never leaves another version's
+        // operators on screen under this one's name
+        if (held) { held = null; data.setContent(null); }
+        contentSet.set({ status: 'failed', error: String(err?.message || err).slice(0, 200) });
+        settleWaiting(cs);
+        if (!toldVersion.has(cs) && toast) { toldVersion.add(cs); toast(t(VERSION_FAILED), 'error'); }
+        tell(cs, false);
+      });
   };
   const load = (cs, consent = false) => {
     const mine = ++req;
     if (held) { held = null; data.setContent(null); }
     settleWaiting(null);
-    contentSet.set({ cs, status: 'loading', loaded: 0, total: 0, error: null, kitted: null });
+    contentSet.set({ cs, kind: 'plugins', version: null, status: 'loading', loaded: 0, total: 0, error: null, kitted: null });
     loadContentSet(cs, { consent, fetch: doFetch, retryDelays, wait, onProgress: (loaded, total) => { if (mine === req) contentSet.set({ loaded, total }); } })
       .then(async (set) => {
         if (mine !== req) return;
@@ -587,7 +716,7 @@ export function installContentSet({ store = appStore, data = dataStore, net = ap
         const overlay = (lang) => (isObj(i18n[lang]) ? fetchChecked(i18n[lang].url, i18n[lang], { fetch: doFetch, retryDelays, wait }) : Promise.resolve(null));
         data.setContent({ id: cs, values: set.values, overlay, langs: Object.keys(i18n) });
         const extra = store.get()?.room?.content?.kittedExtra;
-        contentSet.set({ status: 'ready', error: null, kitted: Array.isArray(extra) ? extra.filter((x) => typeof x === 'string').slice(0, 200) : null });
+        contentSet.set({ status: 'ready', version: set.version || null, error: null, kitted: Array.isArray(extra) ? extra.filter((x) => typeof x === 'string').slice(0, 200) : null });
         settleWaiting(cs);
         if (set.canSim || !store.get()?.room?.seats?.some(s => s?.playerId === store.get()?.me?.playerId)) tell(cs, true);
       }).catch((err) => {
@@ -599,21 +728,40 @@ export function installContentSet({ store = appStore, data = dataStore, net = ap
         tell(cs, false);
       });
   };
+  /** The page holds the room's set, its seat does not show it (the room changed its set and back, a reconnect): again. */
+  const retell = (s, cs, trustedOk = true) => {
+    const seat = mySeat(s);
+    const cur = contentSet.get();
+    if (!seat || cur.cs !== cs) return;
+    if (cur.status === 'ready' && seat.content !== 'ready' && trustedOk) tell(cs, true);
+    else if (cur.status === 'failed' && seat.content !== 'failed') tell(cs, false);
+  };
   const sync = (s) => {
     const cs = roomCs(s);
     const cur = contentSet.get();
-    if (!cs) { if (cur.cs || held) drop(); return; }
-    const consent = !!s.room.content.trusted && hasScriptConsent(cs);
-    if (cur.cs !== cs || (held?.cs === cs && held.canSim === false && consent)) { load(cs,consent); return; }
-    // the page holds the room's set, its seat does not show it (the room changed its set and back, a reconnect): again
-    const seat = mySeat(s);
-    if (seat && cur.status === 'ready' && seat.content !== 'ready' && (!s.room.content.trusted || consent || !s.room.seats?.includes(seat))) tell(cs, true);
-    else if (seat && cur.status === 'failed' && seat.content !== 'failed') tell(cs, false);
+    if (cs) {
+      // a room with gameplay plugins: its content set (unchanged since 0.3.0)
+      const consent = !!s.room.content.trusted && hasScriptConsent(cs);
+      if (cur.cs !== cs || cur.kind !== 'plugins' || (held?.cs === cs && held.canSim === false && consent)) { load(cs,consent); return; }
+      retell(s, cs, !s.room.content.trusted || consent || !s.room.seats?.includes(mySeat(s)));
+      return;
+    }
+    const want = versionWanted(s);
+    if (!want) { if (cur.cs || held || cur.kind) drop(); return; }
+    // a room whose content does not name its version yet: keep what is there
+    if (!want.cs) return;
+    if (cur.cs !== want.cs || cur.kind !== 'version') { loadVersion(want.cs, want.version); return; }
+    retell(s, want.cs);
+  };
+  retryHook = () => {
+    const cur = contentSet.get();
+    if (cur.status !== 'failed' || !cur.cs) return;
+    if (cur.kind === 'version') { toldVersion.delete(cur.cs); loadVersion(cur.cs, cur.version); } else load(cur.cs, hasScriptConsent(cur.cs));
   };
   const off = store.subscribe((s) => sync(s));
   sync(store.get());
   if (typeof window !== 'undefined') globalThis.__SP_CONTENT__ = contentHooks();
-  return () => { off(); drop(); };
+  return () => { off(); drop(); retryHook = null; };
 }
 
 /**

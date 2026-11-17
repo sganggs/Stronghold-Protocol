@@ -1,0 +1,64 @@
+{
+  "spTheme": 1,
+  "id": "neon-dusk-demo",
+  "name": "霓虹黄昏（示例）",
+  "author": "卫戍协议：盟约",
+  "version": "1.0.0",
+  "description": "主题制作指南的示例包：颜色、几张界面贴图、九宫格、动态横幅和一个 Spine 小角色。全部是原创图形。",
+  "thumbnail": "thumb.png",
+  "colors": {
+    "skinLightColor": "#FF8A3D",
+    "skinDarkColor": "#3B1F5C",
+    "bondColor": "#FFD6A5",
+    "chessNameColor": "#FFFFFF",
+    "countdownHintColor": "#FF3D6E",
+    "obIconColor": "#FF8A3D"
+  },
+  "images": {
+    "hud_player_info": "ui/band.png",
+    "shop_main": "ui/shop.png",
+    "prep_ready": {
+      "src": "ui/ready.png",
+      "slice": [
+        16,
+        16,
+        16,
+        16
+      ]
+    },
+    "chess_frame_normal": {
+      "src": "ui/frame.png",
+      "slice": [
+        14,
+        14,
+        14,
+        14
+      ]
+    },
+    "countdown": "ui/countdown.png"
+  },
+  "banners": {
+    "coop": "banners/coop.webp",
+    "battleEnd": {
+      "src": "banners/result.png",
+      "slice": [
+        24,
+        24,
+        24,
+        24
+      ]
+    }
+  },
+  "character": {
+    "spine": {
+      "skel": "character/neon.json",
+      "atlas": "character/neon.atlas",
+      "textures": [
+        "character/neon.png"
+      ]
+    },
+    "anims": {
+      "idle": "Idle"
+    }
+  }
+}

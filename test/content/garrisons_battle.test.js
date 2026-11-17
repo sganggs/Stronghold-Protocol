@@ -724,3 +724,38 @@ test('coverage: every IN_BATTLE garrison id of a visible chess (and every id the
   assert.deepEqual(missing, []);
   assert.ok(VISIBLE_IDS.size >= 100, `${VISIBLE_IDS.size} ids`);
 });
+
+test('weakness conversion follows source calculation modifiers and is omitted by precomputed/resolved damage', () => {
+  const h = battle({ units: [{ id: 'op', g: ['garrison_01_a'], row: 11, col: 4 }],
+    edefs: { e_mix: dummy({ key: 'e_mix', def: 150, res: 50 }) }, enemies: [{ key: 'e_mix', pos: [11, 9] }] });
+  const b = h.b, u = h.unit('op'), e = h.enemies()[0], types = [];
+  b.on('damageCalculate', c => { if (c.source === u) c.dmg.amount *= 2; });
+  b.on('damageOutput', c => { if (c.source === u) types.push(c.dmg.type); });
+  // At 200 the types tie; source calculation first raises it to 400, where physical wins 250 over 200.
+  approx(b.dealDamage({ source: u, target: e, amount: 200, type: 'arts' }), 250);
+  assert.deepEqual(types.splice(0), ['phys']);
+  approx(b.dealDamage({ source: u, target: e, amount: 200, type: 'arts', calculation: 'precomputed' }), 100);
+  assert.deepEqual(types.splice(0), ['arts']);
+  approx(b.dealDamage({ source: u, target: e, amount: 200, type: 'arts', calculation: 'resolved' }), 200);
+  assert.deepEqual(types.splice(0), ['arts']);
+  checkInvariants(b);
+  assert.deepEqual(b.errors, []);
+});
+
+test('weakness theory excludes dealt/taken multipliers, instance damage scale, flat reduction and barriers', () => {
+  const h = battle({ units: [{ id: 'op', g: ['garrison_01_a'], row: 11, col: 4 }],
+    edefs: { e_mix: dummy({ key: 'e_mix', def: 10, res: 50 }) }, enemies: [{ key: 'e_mix', pos: [11, 9] }] });
+  const b = h.b, u = h.unit('op'), e = h.enemies()[0], types = [];
+  b.addBuff(u, { key: 'dealt', mods: { physDealtMul: 0.1, artsDealtMul: 10, dmgDealtMul: 5 } });
+  b.addBuff(e, { key: 'taken', mods: { physTakenMul: 1, artsTakenMul: 10, dmgTakenMul: 2 } });
+  b.on('damageOutput', c => { if (c.source === u) types.push(c.dmg.type); });
+  // Theoretical 100-10=90 > 100*0.5=50, even though actual arts multipliers would produce much more damage.
+  approx(b.dealDamage({ source: u, target: e, amount: 100, type: 'arts', mul: 20 }), 1800);
+  assert.deepEqual(types.splice(0), ['phys']);
+  b.addBuff(e, { key: 'flat', damageReduction: { phys: 1000 } });
+  b.addBuff(e, { key: 'barrier', shield: 100000, shieldType: 'phys' });
+  approx(b.dealDamage({ source: u, target: e, amount: 100, type: 'arts' }), 0);
+  assert.deepEqual(types.splice(0), ['phys'], 'target injury effects cannot alter the theoretical choice');
+  checkInvariants(b);
+  assert.deepEqual(b.errors, []);
+});

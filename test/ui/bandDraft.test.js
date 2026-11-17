@@ -1,9 +1,9 @@
 // Strategy draft 队友已选 (research 09 §5 / §7, DESIGN §14 corrections): a strategy a teammate already picked cannot be
 // chosen again — the server refuses it (server/match/match/phases.js pickBand → BAD_TARGET '队友已选'), bots re-draw, and the
-// UI marks it (screens/bandDraft.js teammateBands). Automatic assignments (a turn that runs out, a departing seat) give
-// the official default 「华法琳」 only while no teammate holds it, else the first free strategy (match/phases.js defaultBand; the
-// UI names it: bandDraft.js timeoutBand) — a timed-out turn takes the highlighted band first (g.bandFocus, match/phases.js
-// timeoutBand; user playtest #4 item 4: one countdown, BAND_TURN_SECONDS per turn, no separate step cap).
+// UI marks it (screens/bandDraft.js teammateBands). A turn that runs out gives the official default 「华法琳」 only while no
+// teammate holds it, else the first free strategy (match/phases.js defaultBand; the UI names it: bandDraft.js timeoutBand)
+// — it takes the highlighted band first (g.bandFocus, match/phases.js timeoutBand; user playtest #4 item 4: one countdown,
+// BAND_TURN_SECONDS per turn, no separate step cap). A departing seat's turn is the AI's, which re-draws a taken strategy.
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
@@ -223,14 +223,17 @@ describe('server: automatic assignments never duplicate a teammate\'s strategy',
     m.dispose();
   });
 
-  test('a departing seat passes with a free strategy; mixed with bots nobody shares one', () => {
+  test('a departing seat: the AI drafts a free strategy for it at its turn; mixed with bots nobody shares one', () => {
     const h = draftOf({ humans: 3, seed: 5 });
     const m = h.m;
     const [first, second] = m.draft.order;
-    assert.deepEqual(m.handle(first, { t: 'g.band', bandId: 'band_bldsk' }), { ok: true });
+    // with Touch taken the AI draws any strategy but 歌利亚 alike for the leaver (§37.65) and re-draws a taken one
+    assert.deepEqual(m.handle(first, { t: 'g.band', bandId: 'band_amedic' }), { ok: true });
     m.onLeave(second);
-    assert.notEqual(m.draft.picks[second], 'band_bldsk', 'the leaver does not duplicate 华法琳');
-    assert.ok(DATA.bands[m.draft.picks[second]]);
+    h.sched.advance(1);
+    assert.ok(DATA.bands[m.draft.picks[second]], 'drafted at its turn');
+    assert.notEqual(m.draft.picks[second], 'band_amedic', 'the leaver does not duplicate Touch');
+    assert.notEqual(m.draftTurn(), second);
     m.dispose();
     for (const seed of [1, 2, 3, 4]) {
       const h2 = draftOf({ humans: 2, bots: 2, seed });

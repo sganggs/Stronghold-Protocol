@@ -6,7 +6,7 @@ import { pairPlayers, bossPoolHp, SharedBossPool, hiddenEligible } from '../../s
 import { GameData } from '../../server/match/gamedata.js';
 import { FakeBattle } from './fakeBattle.js';
 import { DATA, makeMatch, checkInvariants } from './harness.js';
-import { createRng } from '../../server/sim/rng.js';
+import { createRng, deriveSeed } from '../../server/sim/rng.js';
 
 const bossFields = () => FakeBattle.instances.filter((b) => b.kind === 'boss' || b.kind === 'hidden');
 
@@ -35,25 +35,70 @@ test('previous boss partners and sides persist; only orphaned survivors form a n
   assert.deepEqual(ids(pairPlayers(all.filter(p => p.seat > 1), createRng(99), previous)), [['s3', 's2']]);
 });
 
-test('boss preview, actual fields and Hidden Core retain one per-match draw', () => {
-  const h = makeMatch({ mode: 'coop', difficulty: 'HARD', humans: 4, seed: 31, fake: true,
-    script: b => ['boss', 'hidden'].includes(b.kind) ? { bossDps: 1e9 } : {} }).start();
-  try {
-    h.drive(() => h.m.phase === PHASE.PREP && h.m.round === 14);
-    const pairs = structuredClone(h.m.bossPairs);
-    assert.deepEqual(h.m.bossWaves.map(w => w.players), pairs);
-    for (const p of h.m.order) {
-      p.bondCountBonus.yanShip = 3; p.layers.yanShip = 400; p.recompute();
-      const group = h.m.bossGroupOf(p);
-      assert.equal(group.side, pairs.find(g => g.includes(p.playerId)).indexOf(p.playerId) === 0 ? 'L' : 'R');
-    }
-    h.drive(() => h.m.phase === PHASE.FINAL_ASSAULT);
-    assert.deepEqual(h.m.fields.map(f => f.players), pairs);
-    h.drive(() => h.m.phase === PHASE.PREP && h.m.round === 15);
-    assert.deepEqual(h.m.bossWaves.map(w => w.players), pairs);
-    h.drive(() => h.m.phase === PHASE.HIDDEN_CORE);
-    assert.deepEqual(h.m.fields.map(f => f.players), pairs);
-  } finally { h.m.dispose(); }
+// GitHub #845 (DESIGN §35.27, superseding §30.12's kept partners): the official R15 of BV1VCXyBjEN1 p1 pairs 1-2 / 3-4
+// after an R14 of 1-4 / 2-3 — the Hidden Core draws pairs and sides anew, from a stream of its own (the Final Assault's
+// draw unchanged). Each round's plan drives its prep preview, side checks and fields.
+test('boss preview and actual fields share each round\'s draw; the Hidden Core draws pairs and sides anew (#845)', () => {
+  const ids = (groups) => groups.map((g) => g.map((p) => p.playerId));
+  let changed = 0;
+  for (const seed of [31, 32, 33, 34, 35, 36]) {
+    const h = makeMatch({ mode: 'coop', difficulty: 'HARD', humans: 4, seed, fake: true,
+      script: b => ['boss', 'hidden'].includes(b.kind) ? { bossDps: 1e9 } : {} }).start();
+    try {
+      h.drive(() => h.m.phase === PHASE.PREP && h.m.round === 14);
+      const m = h.m;
+      const pairs = structuredClone(m.bossPairs);
+      // the Final Assault's draw is the one of before (seed salt 'boss-pairs', no previous)
+      assert.deepEqual(pairs, ids(pairPlayers(m.alivePlayers(), createRng(deriveSeed(m.seed, 'boss-pairs')))));
+      assert.deepEqual(m.bossWaves.map(w => w.players), pairs);
+      for (const p of m.order) {
+        p.bondCountBonus.yanShip = 3; p.layers.yanShip = 400; p.recompute();
+        const group = m.bossGroupOf(p);
+        assert.equal(group.side, pairs.find(g => g.includes(p.playerId)).indexOf(p.playerId) === 0 ? 'L' : 'R');
+      }
+      h.drive(() => m.phase === PHASE.FINAL_ASSAULT);
+      assert.deepEqual(m.fields.map(f => f.players), pairs);
+      const boards = new Map(m.order.map((p) => [p.playerId, p.board.size]));
+      h.drive(() => m.phase === PHASE.PREP && m.round === 15);
+      const hidden = structuredClone(m.bossPairs);
+      assert.deepEqual(hidden, ids(pairPlayers(m.alivePlayers(), createRng(deriveSeed(m.seed, 'boss-pairs:15')))), 'the Hidden Core\'s own draw');
+      assert.deepEqual(m.bossWaves.map(w => w.players), hidden, 'the R15 prep preview uses it');
+      if (JSON.stringify(hidden) !== JSON.stringify(pairs)) changed++;
+      // a player who changed half keeps the whole board: the halves' deploy maps are mirror images
+      for (const p of m.order) {
+        assert.equal(m.bossGroupOf(p).side, hidden.find(g => g.includes(p.playerId)).indexOf(p.playerId) === 0 ? 'L' : 'R');
+        p.recompute();
+        assert.equal(p.board.size, boards.get(p.playerId), `${p.playerId} keeps its board on its R15 half`);
+      }
+      h.drive(() => m.phase === PHASE.HIDDEN_CORE);
+      assert.deepEqual(m.fields.map(f => f.players), hidden);
+    } finally { h.m.dispose(); }
+  }
+  assert.ok(changed > 0, 'some Hidden Core pairs or sides differ from the Final Assault\'s');
+});
+
+// A departure during the Hidden Core's round start / prep re-plans the pairs (platform.js _quit); only the round's first
+// plan draws anew, so the pair the departed player was not in stays whole, as in the Final Assault (DESIGN §35.27).
+test('a departure in the Hidden Core prep keeps the intact pair and re-pairs only the orphan (#845)', () => {
+  for (const seed of [31, 32, 33, 34, 35, 36, 37, 38]) {
+    const h = makeMatch({ mode: 'coop', difficulty: 'HARD', humans: 4, seed, fake: true,
+      script: b => ['boss', 'hidden'].includes(b.kind) ? { bossDps: 1e9 } : {} }).start();
+    try {
+      h.drive(() => h.m.phase === PHASE.PREP && h.m.round === 14);
+      const m = h.m;
+      for (const p of m.order) { p.bondCountBonus.yanShip = 3; p.layers.yanShip = 400; p.recompute(); }
+      h.drive(() => m.phase === PHASE.PREP && m.round === 15);
+      const before = structuredClone(m.bossPairs);
+      assert.equal(before.length, 2);
+      const [gone, orphan] = before[0];
+      m.onLeave(gone);
+      assert.equal(m.players.get(gone).alive, false);
+      assert.deepEqual(m.bossPairs, [before[1], [orphan]], `seed ${seed}: the whole pair stays, the orphan alone`);
+      assert.deepEqual(m.bossWaves.map(w => w.players), m.bossPairs, 'the prep preview follows the re-plan');
+      h.drive(() => m.phase === PHASE.HIDDEN_CORE);
+      assert.deepEqual(m.fields.map(f => f.players), m.bossPairs);
+    } finally { h.m.dispose(); }
+  }
 });
 
 test('boss pool = bloodPoint[difficulty] × the players alive at the fight\'s start (solo × 1) × tuning; config restores the fixed pool; shared and never negative', () => {

@@ -40,19 +40,21 @@ test('a double strike heals twice: one heal of the trait value per damage instan
   done(h);
 });
 
-test('every damage instance it outputs heals, not only attacks; a dodged hit, a 流失, an element 损伤 and a talent / DoT damage do not', () => {
+test('source output heals before dodge and includes BUFF damage; HP loss and element gauges remain excluded', () => {
   const { h, u, e } = field({ dodge: 1 });
   h.run(2.05);
   assert.ok(h.hooksOf('dodge').some((c) => c.source === u), 'its hits were dodged');
-  assert.equal(traitHeals(h, u).length, 0, 'a dodged hit deals no damage: no heal');
+  assert.equal(traitHeals(h, u).length, h.hooksOf('dodge').filter(c => c.source === u).length,
+    'one source-output heal before each target dodge');
   const n0 = traitHeals(h, u).length;
   h.b.dealDamage(u, e, { amount: 100, type: 'arts', isSkill: true, canDodge: false, tags: ['skill'] });
   h.b.dealDamage(u, e, { amount: 100, type: 'true', canDodge: false, tags: ['item', 'item:test'] });
   assert.equal(traitHeals(h, u).length - n0, 2, 'skill and item damage heal');
   h.b.loseHp(e, 100, { source: u });
   h.b.dealDamage(u, e, { type: 'element', element: 'burn', amount: 100 });
+  assert.equal(traitHeals(h, u).length - n0, 2, 'no source output for HP loss or an element gauge');
   h.b.dealDamage(u, e, { amount: 100, type: 'arts', canDodge: false, tags: ['talent', 'dot'] });
-  assert.equal(traitHeals(h, u).length - n0, 2, 'no heal for a 流失, an element 损伤 or a DoT');
+  assert.equal(traitHeals(h, u).length - n0, 3, 'native Musha templates do not exclude BUFF damage');
   done(h);
 });
 

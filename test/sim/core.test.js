@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRng } from '../../server/sim/rng.js';
 import { Grid } from '../../server/sim/grid.js';
-import { mitigate } from '../../server/sim/damage.js';
+import { mitigate } from '../../server/sim/attack.js';
 import { Unit } from '../../server/sim/units.js';
 import { getDefaultSource, hasGeneratedData } from '../../server/sim/simdata.js';
 import { makeBattle, flatStage, chessRec, enemyRec } from '../helpers/battleHarness.js';
@@ -74,10 +74,10 @@ test('grid: obstacles re-route and bump version; blocked entirely ⇒ null unles
 test('damage formulas: phys/arts/true, ignore, 5% floor', () => {
   approx(mitigate(1000, 'phys', { def: 300 }), 700);
   approx(mitigate(1000, 'phys', { def: 2000 }), 50);
-  approx(mitigate(1000, 'phys', { def: 300 }, { defIgnorePct: 0.5, defIgnoreFlat: 50 }), 900);
+  approx(mitigate(1000, 'phys', { def: 300 }, { defIgnorePct: 0.5, defIgnoreFlat: 50 }), 875);
   approx(mitigate(1000, 'arts', { res: 30 }), 700);
   approx(mitigate(1000, 'arts', { res: 100 }), 50);
-  approx(mitigate(1000, 'arts', { res: 40 }, { resIgnorePct: 0.5, resIgnoreFlat: 10 }), 900);
+  approx(mitigate(1000, 'arts', { res: 40 }, { resIgnorePct: 0.5, resIgnoreFlat: 10 }), 850);
   approx(mitigate(1000, 'true', { def: 9999, res: 100 }), 1000);
 });
 

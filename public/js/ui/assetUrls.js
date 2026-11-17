@@ -1,10 +1,24 @@
 // Asset URL resolution against data/assets.json (docs/ASSETS.md). Pure: every function takes the
 // manifest object (or null) and returns a URL string or null — callers draw their own fallback
 // (glyph, CSS shape) when null. Only URLs present in the manifest are ever returned, so the client
-// never requests files the asset pipeline did not produce (no 404 noise in the console).
+// never requests files the asset pipeline did not produce (no 404 noise in the console). The 特训敌人 type,
+// 评语 and medal icons also read the local client's extraction (data/local-assets.json ui/outer, the same rule:
+// listed files only) for the ones no mirror carries — 规程's critic_icon / reborn_icon, its eighteen
+// comment_icon_N_M titles and trophy_level6–8 (the owner's report of 2026-11-14, §37.201).
+
+import { localAsset } from '../data.js';
 
 const str = (v) => (typeof v === 'string' && v ? v : null);
 const obj = (v) => (v && typeof v === 'object' ? v : null);
+
+/** Skin pictures belong to the effective operator, never the original chess of a stand-in / DIY slot. */
+function skinPicture(m, chess, skinId, field) {
+  if (!skinId) return null;
+  const id = chess?.charId || str(chess?.assets?.[field])?.replace(/_[12]$/, '');
+  const skin = m?.chars?.[id]?.skins?.[skinId];
+  const elite = chess?.isGolden || /_2$/.test(chess?.assets?.[field] || '');
+  return str(elite && skin?.[`${field}E2`]) || str(skin?.[field]) || (field === 'portrait' ? str(skin?.illust) : null);
+}
 
 /** @param {any} m manifest @param {string} key 'group/key' */
 export function uiUrl(m, key) {
@@ -16,7 +30,9 @@ export function uiUrl(m, key) {
  * @param {any} m manifest
  * @param {any} chess chess.json record (or { assets: { avatar } })
  */
-export function chessAvatarUrl(m, chess) {
+export function chessAvatarUrl(m, chess, { skin = null } = {}) {
+  const picture = skinPicture(m, chess, skin, 'avatar');
+  if (picture) return picture;
   const chars = obj(obj(m)?.chars);
   const id = str(chess?.assets?.avatar) || str(chess?.charId);
   if (!chars || !id) return null;
@@ -37,7 +53,9 @@ export function chessAvatarUrl(m, chess) {
  * @param {any} m
  * @param {any} chess
  */
-export function chessPortraitUrl(m, chess) {
+export function chessPortraitUrl(m, chess, { skin = null } = {}) {
+  const picture = skinPicture(m, chess, skin, 'portrait');
+  if (picture) return picture;
   const chars = obj(obj(m)?.chars);
   const id = str(chess?.assets?.portrait);
   if (!chars) return null;
@@ -96,6 +114,18 @@ export function profIconUrl(m, profession) {
   return k ? str(obj(obj(obj(m)?.prof)?.icon)?.[k]) : null;
 }
 
+/** White-on-transparent profession sign used by the regulation shop prefab (asset plan `prof.mark`). */
+export function profMarkUrl(m, profession) {
+  const v = obj(obj(obj(m)?.prof)?.mark)?.[String(profession || '').toLowerCase()];
+  return str(v) || profIconUrl(m, profession);
+}
+
+/** Square profession glyph (manifest `prof.large`: a black glyph on white, drawn as a white one by loadout.css). */
+export function profGlyphUrl(m, profession) {
+  const v = obj(obj(obj(m)?.prof)?.large)?.[String(profession || '').toLowerCase()];
+  return str(v);
+}
+
 /** Sub-profession icon from a chess record (`assets.subProfIcon` = 'sub_<id>_icon'). */
 export function subProfIconUrl(m, chess) {
   const sub = obj(obj(obj(m)?.prof)?.sub);
@@ -132,23 +162,35 @@ export function enemyIconUrl(m, enemyKey) {
   return base && base !== enemyKey ? str(obj(obj(obj(m)?.enemies)?.[base])?.icon) : null;
 }
 
-/** Token avatar, falling back to its owner operator's avatar. */
-export function tokenAvatarUrl(m, tokenId) {
-  const tokens = obj(obj(m)?.tokens);
-  const t = tokenId ? obj(tokens?.[tokenId]) : null;
+/** Token avatar: `tokens[id].skins[opts.skin]`, else the token's avatar, else its owner's (docs/SKINS.md). */
+export function tokenAvatarUrl(m, tokenId, opts) {
+  if (typeof tokenId !== 'string' || !tokenId) return null;
+  const t = obj(obj(obj(m)?.tokens)?.[tokenId]);
+  const skin = t && opts?.skin ? obj(obj(t.skins)?.[String(opts.skin)]) : null;
+  if (skin?.avatar) return str(skin.avatar);
   if (t?.avatar) return str(t.avatar);
   if (t?.owner) return str(obj(obj(obj(m)?.chars)?.[t.owner])?.avatar);
+  // a map character or an enemy fielded as a summon (预备干员-医疗 char_605_cmedic, Touch char_613_acmedc, “炎佑”
+  // enemy_9012_acloon) has no token picture: its own avatar / enemy icon, as the board draws it (assets.js
+  // unitPictureUrl) — the detail card and the thumbnails showed none (§37.201, tools/ui-asset-refs.mjs)
+  if (tokenId.startsWith('char_')) return str(obj(obj(obj(m)?.chars)?.[tokenId])?.avatar);
+  if (tokenId.startsWith('enemy_')) return str(obj(obj(obj(m)?.enemies)?.[tokenId])?.icon);
   return null;
 }
 
-/** Faction (特训敌人 type) icon: `enemyTypeIcon/<icon>`. */
+/** Faction (特训敌人 type) icon: `enemyTypeIcon/<icon>`, else the local extraction's ui/outer sprite. */
 export function factionIconUrl(m, iconId) {
-  return iconId ? uiUrl(m, `enemyTypeIcon/${iconId}`) : null;
+  return iconId ? uiUrl(m, `enemyTypeIcon/${iconId}`) || localAsset('ui/outer', iconId) : null;
 }
 
-/** Title (评语) icon: `titleIcon/<picId>`. */
+/** Title (评语) icon: `titleIcon/<picId>`, else the local extraction's ui/outer sprite. */
 export function titleIconUrl(m, picId) {
-  return picId ? uiUrl(m, `titleIcon/${picId}`) : null;
+  return picId ? uiUrl(m, `titleIcon/${picId}`) || localAsset('ui/outer', picId) : null;
+}
+
+/** Medal (trophy count) icon: `medalIcon/<iconId>`, else the local extraction's ui/outer sprite. */
+export function medalIconUrl(m, iconId) {
+  return iconId ? uiUrl(m, `medalIcon/${iconId}`) || localAsset('ui/outer', iconId) : null;
 }
 
 /** Greek type letters of some modules (ISW-α, …) → the Latin letter of the client's icon file names (isw-a). */

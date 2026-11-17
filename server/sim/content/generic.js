@@ -311,7 +311,7 @@ export function genericSkillSpec(sk, bb = sk?.bb ?? {}, def = null) {
   const ends = [];
   if (gainsDp) {
     starts.push(({ battle, unit }) => {
-      battle.addDp(unit.ownerId, dpGain);
+      battle.addDp(unit.ownerId, dpGain, unit);
       battle.fx('dp', { x: unit.x, y: unit.y, n: dpGain, id: unit.id });
     });
   }

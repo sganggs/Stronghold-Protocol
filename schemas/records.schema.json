@@ -397,6 +397,7 @@
                               "SEARCH",
                               "MLYSS_WTRMAN",
                               "GDGLOW_SKILL_2",
+                              "AUTO_STOP",
                               "NEVER",
                               "MANUAL"
                             ]
@@ -416,6 +417,7 @@
                                   "SEARCH",
                                   "MLYSS_WTRMAN",
                                   "GDGLOW_SKILL_2",
+                                  "AUTO_STOP",
                                   "NEVER",
                                   "MANUAL"
                                 ]
@@ -665,6 +667,11 @@
                             "maximum": 1000000000
                           },
                           "spRecoveryMul": {
+                            "type": "number",
+                            "minimum": -1000000000,
+                            "maximum": 1000000000
+                          },
+                          "costMul": {
                             "type": "number",
                             "minimum": -1000000000,
                             "maximum": 1000000000
@@ -1194,6 +1201,7 @@
                                     "SEARCH",
                                     "MLYSS_WTRMAN",
                                     "GDGLOW_SKILL_2",
+                                    "AUTO_STOP",
                                     "NEVER",
                                     "MANUAL"
                                   ]
@@ -1213,6 +1221,7 @@
                                         "SEARCH",
                                         "MLYSS_WTRMAN",
                                         "GDGLOW_SKILL_2",
+                                        "AUTO_STOP",
                                         "NEVER",
                                         "MANUAL"
                                       ]
@@ -1462,6 +1471,11 @@
                                   "maximum": 1000000000
                                 },
                                 "spRecoveryMul": {
+                                  "type": "number",
+                                  "minimum": -1000000000,
+                                  "maximum": 1000000000
+                                },
+                                "costMul": {
                                   "type": "number",
                                   "minimum": -1000000000,
                                   "maximum": 1000000000
@@ -2134,6 +2148,11 @@
                   "maximum": 1000000000
                 },
                 "spRecoveryMul": {
+                  "type": "number",
+                  "minimum": -1000000000,
+                  "maximum": 1000000000
+                },
+                "costMul": {
                   "type": "number",
                   "minimum": -1000000000,
                   "maximum": 1000000000
@@ -3181,6 +3200,7 @@
                                 "SEARCH",
                                 "MLYSS_WTRMAN",
                                 "GDGLOW_SKILL_2",
+                                "AUTO_STOP",
                                 "NEVER",
                                 "MANUAL"
                               ]
@@ -3200,6 +3220,7 @@
                                     "SEARCH",
                                     "MLYSS_WTRMAN",
                                     "GDGLOW_SKILL_2",
+                                    "AUTO_STOP",
                                     "NEVER",
                                     "MANUAL"
                                   ]
@@ -3449,6 +3470,11 @@
                               "maximum": 1000000000
                             },
                             "spRecoveryMul": {
+                              "type": "number",
+                              "minimum": -1000000000,
+                              "maximum": 1000000000
+                            },
+                            "costMul": {
                               "type": "number",
                               "minimum": -1000000000,
                               "maximum": 1000000000
@@ -3978,6 +4004,7 @@
                                       "SEARCH",
                                       "MLYSS_WTRMAN",
                                       "GDGLOW_SKILL_2",
+                                      "AUTO_STOP",
                                       "NEVER",
                                       "MANUAL"
                                     ]
@@ -3997,6 +4024,7 @@
                                           "SEARCH",
                                           "MLYSS_WTRMAN",
                                           "GDGLOW_SKILL_2",
+                                          "AUTO_STOP",
                                           "NEVER",
                                           "MANUAL"
                                         ]
@@ -4246,6 +4274,11 @@
                                     "maximum": 1000000000
                                   },
                                   "spRecoveryMul": {
+                                    "type": "number",
+                                    "minimum": -1000000000,
+                                    "maximum": 1000000000
+                                  },
+                                  "costMul": {
                                     "type": "number",
                                     "minimum": -1000000000,
                                     "maximum": 1000000000
@@ -4918,6 +4951,11 @@
                     "maximum": 1000000000
                   },
                   "spRecoveryMul": {
+                    "type": "number",
+                    "minimum": -1000000000,
+                    "maximum": 1000000000
+                  },
+                  "costMul": {
                     "type": "number",
                     "minimum": -1000000000,
                     "maximum": 1000000000
@@ -5979,6 +6017,7 @@
                                     "SEARCH",
                                     "MLYSS_WTRMAN",
                                     "GDGLOW_SKILL_2",
+                                    "AUTO_STOP",
                                     "NEVER",
                                     "MANUAL"
                                   ]
@@ -5998,6 +6037,7 @@
                                         "SEARCH",
                                         "MLYSS_WTRMAN",
                                         "GDGLOW_SKILL_2",
+                                        "AUTO_STOP",
                                         "NEVER",
                                         "MANUAL"
                                       ]
@@ -6247,6 +6287,11 @@
                                   "maximum": 1000000000
                                 },
                                 "spRecoveryMul": {
+                                  "type": "number",
+                                  "minimum": -1000000000,
+                                  "maximum": 1000000000
+                                },
+                                "costMul": {
                                   "type": "number",
                                   "minimum": -1000000000,
                                   "maximum": 1000000000
@@ -6776,6 +6821,7 @@
                                           "SEARCH",
                                           "MLYSS_WTRMAN",
                                           "GDGLOW_SKILL_2",
+                                          "AUTO_STOP",
                                           "NEVER",
                                           "MANUAL"
                                         ]
@@ -6795,6 +6841,7 @@
                                               "SEARCH",
                                               "MLYSS_WTRMAN",
                                               "GDGLOW_SKILL_2",
+                                              "AUTO_STOP",
                                               "NEVER",
                                               "MANUAL"
                                             ]
@@ -7044,6 +7091,11 @@
                                         "maximum": 1000000000
                                       },
                                       "spRecoveryMul": {
+                                        "type": "number",
+                                        "minimum": -1000000000,
+                                        "maximum": 1000000000
+                                      },
+                                      "costMul": {
                                         "type": "number",
                                         "minimum": -1000000000,
                                         "maximum": 1000000000
@@ -7716,6 +7768,11 @@
                         "maximum": 1000000000
                       },
                       "spRecoveryMul": {
+                        "type": "number",
+                        "minimum": -1000000000,
+                        "maximum": 1000000000
+                      },
+                      "costMul": {
                         "type": "number",
                         "minimum": -1000000000,
                         "maximum": 1000000000

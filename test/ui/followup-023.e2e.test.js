@@ -1,7 +1,9 @@
 // Real browser / server checks for local identity recovery, per-operator voice, install offers and large text.
+import { seedReleaseRead } from '../helpers/releaseNotes.js';
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
+import { DEFAULT_VERSION } from '../../shared/versions.js';
 const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const ENABLED = process.env.SP_E2E === '1' && existsSync(CHROME);
 describe('0.2.3 follow-up client features', { skip: !ENABLED }, () => {
@@ -9,7 +11,9 @@ describe('0.2.3 follow-up client features', { skip: !ENABLED }, () => {
   before(async () => {
     const { startServer } = await import('../../server/index.js');
     const puppeteer = (await import('puppeteer-core')).default;
-    server = await startServer({ port: 0, host: '127.0.0.1', quiet: true });
+    // written on 盟约 (第二期下半): a room created without a version is the server default's — on a stock server 规程,
+    // whose content the page must load before room.start (CONTENT_NOT_READY)
+    server = await startServer({ port: 0, host: '127.0.0.1', quiet: true, versions: { default: DEFAULT_VERSION } });
     base = `http://127.0.0.1:${server.port}`;
     browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--no-sandbox'] });
   });
@@ -19,6 +23,7 @@ describe('0.2.3 follow-up client features', { skip: !ENABLED }, () => {
     await page.setViewport({ width: phone ? 844 : 1440, height: phone ? 390 : 900 });
     if (random != null) await page.evaluateOnNewDocument((value) => { Math.random = () => value; }, random);
     await page.evaluateOnNewDocument(() => { localStorage.setItem('sp.name', 'Recovery Test'); sessionStorage.setItem('sp.entered', '1'); });
+    await seedReleaseRead(page);
     await page.goto(base, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => globalThis.__SP__?.store.get().connection.status === 'online' && document.querySelector('.lobby-screen'));
     return page;
@@ -108,7 +113,7 @@ describe('0.2.3 follow-up client features', { skip: !ENABLED }, () => {
       }
     } finally { await ctx.close(); }
   });
-  test('co-op opening reroll shows a unanimous vote, clears stale readiness and can be rejected', { timeout: 45000 }, async () => {
+  test('co-op opening reroll shows a unanimous vote, clears stale readiness, lets another seat start one and a rejection cancels it', { timeout: 45000 }, async () => {
     const ctx = await browser.createBrowserContext();
     try {
       const host = await pageIn(ctx), guest = await pageIn(ctx);
@@ -142,13 +147,14 @@ describe('0.2.3 follow-up client features', { skip: !ENABLED }, () => {
       assert.ok(state.players.filter((p) => !p.isBot).every((p) => !p.ready));
       await host.bringToFront();
       await host.waitForFunction(() => !!document.querySelector('.brief-reroll button:not(:disabled)'));
-      // Wait out the documented server anti-burst interval before a second request.
-      await new Promise((resolve) => setTimeout(resolve, 350));
-      await host.click('.brief-reroll button');
-      await guest.waitForSelector('.brief-reroll .btn--danger');
+      // The seat that started the first vote is still on its 30 s cooldown, so another seat starts the next vote.
       await guest.bringToFront();
-      await guest.click('.brief-reroll .btn--danger');
-      await host.waitForFunction(() => !globalThis.__SP__.store.get().match.public.rerollVote, { polling: 50 });
+      await guest.waitForFunction(() => !!document.querySelector('.brief-reroll button:not(:disabled)'));
+      await guest.click('.brief-reroll button');
+      await host.waitForSelector('.brief-reroll .btn--danger');
+      await host.bringToFront();
+      await host.click('.brief-reroll .btn--danger');
+      await guest.waitForFunction(() => !globalThis.__SP__.store.get().match.public.rerollVote, { polling: 50 });
       assert.equal(await host.evaluate(() => globalThis.__SP__.store.get().match.public.setupRevision), 1);
     } finally { await ctx.close(); }
   });
@@ -156,16 +162,21 @@ describe('0.2.3 follow-up client features', { skip: !ENABLED }, () => {
     const ctx = await browser.createBrowserContext();
     try {
       const page = await pageIn(ctx, true);
-      const open = async () => { await page.evaluate(async () => (await import('/js/ui/loadoutSync.js')).openLoadout()); await page.waitForSelector('.lo-card__pick'); await page.click('.lo-card__pick'); await page.waitForSelector('[data-voice-char] select', { visible: true }); };
+      const open = async () => { await page.evaluate(async () => (await import('/js/ui/loadoutSync.js')).openLoadout()); await page.waitForSelector('.lo-card__pick'); await page.click('.lo-card__pick'); await page.waitForSelector('[data-voice-char] [role="combobox"]', { visible: true }); };
+      const chooseVoice = async (value) => {
+        await page.click('[data-voice-char] [role="combobox"]');
+        await page.waitForSelector(`[data-voice-char] [role="option"][data-value="${value}"]`, { visible: true });
+        await page.click(`[data-voice-char] [role="option"][data-value="${value}"]`);
+      };
       await open();
       const id = await page.$eval('[data-voice-char]', (e) => e.dataset.voiceChar);
-      await page.select('[data-voice-char] select', 'jp');
+      await chooseVoice('jp');
       assert.equal(await page.evaluate(async (id) => (await import('/js/audio.js')).audio.voiceOverrides[id], id), 'jp');
       await page.reload({ waitUntil: 'domcontentloaded' });
       await page.waitForFunction(() => globalThis.__SP__?.store.get().connection.status === 'online');
       await open();
-      assert.equal(await page.$eval('[data-voice-char] select', (e) => e.value), 'jp');
-      await page.select('[data-voice-char] select', '');
+      assert.equal(await page.$eval('[data-voice-char] [role="combobox"]', (e) => e.dataset.value), 'jp');
+      await chooseVoice('');
       assert.equal(await page.evaluate((id) => JSON.parse(localStorage.getItem('sp.pref.settings')).voiceOverrides[id], id), undefined);
     } finally { await ctx.close(); }
   });

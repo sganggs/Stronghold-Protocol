@@ -106,17 +106,18 @@ test('#15 an attack-range change ("攻击范围扩大") is officially the basic 
   done(h);
 });
 
-test('#15 重装 "不受技能范围影响，受到伤害时释放技能": 瑕光 S3 ignores enemies in its skill range until she is hit', () => {
-  const id = 'chess_char_3_12_a';
+test('#15 重装 "不受技能范围影响，受到伤害时释放技能": 折桠 S2 ignores enemies in its skill range until she is hit', () => {
+  const id = 'chess_char_2_17_a';
   const h = run({ defs: { enemies: { enemy_d: dummy('enemy_d'), enemy_hit: dummy('enemy_hit', { atk: 200, bat: 1 }) }, chess: noGarrison(id) }, units: [{ chessId: id, row: 10, col: 4 }] });
   const u = h.unit(id);
-  assert.equal(u.skill.id, 'skchr_blemsh_3');
+  assert.equal(u.skill.id, 'skchr_branch_2');
   assert.equal(u.skill.rule, 'TAKE_DAMAGE');
   h.step();
   fill(u);
+  // (10,5): one tile ahead — inside 生存决心's x-4 skill range, outside her own-tile attack range
   h.spawn('enemy_d', { pos: [10, 5] });
   h.run(2);
-  assert.equal(u.skill.activations, 0, 'enemies in range, attacked by her, but she is not hit');
+  assert.equal(u.skill.activations, 0, 'enemies in the skill range, but she is not hit');
   h.spawn('enemy_hit', { pos: [10, 4] });
   assert.ok(h.runUntil(() => u.skill.activations === 1, 3), 'the first hit casts it');
   assert.equal(starts(h, u)[0].reason, 'TAKE_DAMAGE');

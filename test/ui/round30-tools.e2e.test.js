@@ -69,6 +69,21 @@ describe('round30 tool and compound-tooltip browser boundaries', { skip: !(proce
     await page.waitForFunction(() => document.querySelector('.tooltip')?.scrollTop > 0);
     await page.touchscreen.tap(2, 2); await page.waitForSelector('.tooltip', { hidden: true });
   });
+  test('ordinary tooltips still hide on mouse click and do not open on a short touch tap', async () => {
+    await tooltip(800, 600);
+    await page.evaluate(() => window.changeTip('A', false));
+    await page.waitForSelector('.tooltip--aside', { hidden: true });
+    await page.click('#anchor');
+    await page.waitForSelector('.tooltip', { hidden: true });
+    await tooltip(390, 600, '40%', true);
+    await page.evaluate(() => window.changeTip('A', false));
+    await page.waitForSelector('.tooltip--aside', { hidden: true });
+    await page.keyboard.press('Escape'); await page.$eval('#anchor', e => e.blur());
+    const rect = await page.$eval('#anchor', e => { const r = e.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
+    await page.touchscreen.tap(rect.x, rect.y);
+    await new Promise(r => setTimeout(r, 1100));
+    assert.equal(await page.$('.tooltip'), null, 'the opt-in tap behavior does not change existing tooltip calls');
+  });
 
   const toolHtml = readFileSync(new URL('../../public/dev/sim-check.html', import.meta.url), 'utf8').replace(/<script[\s\S]*?<\/script>/g, '');
   async function tool({ mode = '', query = '', count = 1 } = {}) {

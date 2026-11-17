@@ -37,7 +37,7 @@
 //   −one_minus_status_resistance), refreshed every AURA s while the skill runs; two 年 of a shared field keep the stronger
 //   (installAura's rule). The DEF / block buff ends with the skill, the 抵抗 within AURA_DUR.
 
-import { num, talentBb, traitBb, skillRec, statBuff, toggleBuff, up, giveSp, byEnemyAttack } from '../shared/tier1.js';
+import { num, talentBb, traitBb, skillRec, statBuff, toggleBuff, up, giveSp, byEnemyDamage } from '../shared/tier1.js';
 import { absoluteRangeKeys } from '../../../targeting.js';
 import { COLS } from '../../../constants.js';
 
@@ -84,7 +84,20 @@ export default {
     return {
       skills: {
         [S1]: { kind: 'duration', mods: nz({ defPct: num(b1.def), atkPct: num(b1.atk) }), attack: { dmgType: 'arts' } },
-        [S2]: { kind: 'duration', mods: nz({ defPct: num(b2.def), blockCnt: num(b2.block_cnt) }), attack: { noAttack: true } },
+        [S2]: {
+          kind: 'duration', mods: nz({ defPct: num(b2.def), blockCnt: num(b2.block_cnt) }), attack: { noAttack: true },
+          onStart({ battle, unit }) {
+            battle.addBuff(unit, { key: 'nian:copperSeal', tags: ['skill'], observeInjury(c) {
+              const src = c.source;
+              if (!unit.alive || !byEnemyDamage(c) || !src.alive) return;
+              const scale = num(b2.atk_scale), sil = num(b2.silence);
+              if (scale > 0) battle.dealDamage(unit, src, { amount: unit.s.atk * scale, type: 'arts', canDodge: false, isSkill: true, ignoreSelect: true, tags: ['skill', 'counter'] });
+              if (sil > 0 && src.alive) battle.applyStatus(src, 'silence', { duration: sil, source: unit });
+              battle.fx('counter', { x: src.x, y: src.y, id: unit.id });
+            } });
+          },
+          onEnd({ battle, unit }) { battle.removeBuff(unit, 'nian:copperSeal'); },
+        },
         [S3]: {
           kind: 'duration',
           mods: nz({ atkPct: num(b3['nian_s_3[self].atk']), blockCnt: num(b3['nian_s_3[self].block_cnt']) }),
@@ -124,7 +137,7 @@ export default {
             battle.fx('shield', { x: unit.x, y: unit.y, id: unit.id, n: times });
           }, { owner: unit });
           if (!(atk || def || sp)) return;
-          battle.on('damaged', (c) => {
+          battle.on('block', (c) => {
             if (c.target !== unit || !unit.alive) return;
             const left = unit.findBuff(SHIELD)?.shieldHits ?? 0;
             const broken = (unit.mem.nianLayers ?? 0) - left;
@@ -154,17 +167,7 @@ export default {
             battle.addBuff(unit, { key: FORT, mods: nz({ hpPct: perHp * n, healingTakenMul: Math.min(healMax, healBase + healAdd * n) }), data: { n }, tags: ['trait'] });
           }, { owner: unit });
         }
-        // S2 铜印: every enemy damage instance she takes (the official inverse_damage[magic] + nian_s_2 on ON_TAKE_DAMAGE, not
-        // its attacks only: tier1 byEnemyAttack) ⇒ atk_scale × ATK arts back to its source + silence `silence` s
-        const scale = num(b2.atk_scale), sil = num(b2.silence);
-        battle.on('damaged', (c) => {
-          const src = c.source;
-          if (c.target !== unit || !unit.alive || unit.skill?.id !== S2 || !unit.skill.active) return;
-          if (!byEnemyAttack(c) || !src.alive) return;
-          if (scale > 0) battle.dealDamage(unit, src, { amount: unit.s.atk * scale, type: 'arts', canDodge: false, isSkill: true, ignoreSelect: true, tags: ['skill', 'counter'] });
-          if (sil > 0 && src.alive) battle.applyStatus(src, 'silence', { duration: sil, source: unit });
-          battle.fx('counter', { x: src.x, y: src.y, id: unit.id });
-        }, { owner: unit });
+
       },
     };
   },

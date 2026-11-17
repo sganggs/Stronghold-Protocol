@@ -375,6 +375,7 @@ export class MatchTestCommands {
     if (this.phase === PHASE.BAND_DRAFT) return this.pickBand(ps, id);
     if (this.bandTaken(id, ps.playerId)) return fail(ERR.BAD_TARGET);
     ps.bandId = id;
+    if (this.gd.band(id)?.skills) ps.recompute();
     if (this.draft) this.draft.picks[ps.playerId] = id;
     if (resetLp) ps.lp = this.gd.startLp(id);
     ps.dirty();

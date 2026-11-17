@@ -710,7 +710,7 @@ test('星熊 S2 (passive): DEF +13 % and 65 % ATK thorns; 战术装甲 negates ~
   const swings = noisy(h, 'attack').filter((c) => c.attacker === e).length;
   const landed = noisy(h, 'damaged').filter((c) => c.source === e && c.target === u).length;
   const thorns = dmgBy(h, u, (c) => c.dmg?.tags?.includes('counter'));
-  assert.equal(thorns.length, landed, 'one thorn per landed attack');
+  assert.equal(thorns.length, swings, 'one thorn per damage instance, including blocked instances');
   approx(thorns[0].amount, u.s.atk * bb.atk_scale, 1e-6);
   const blockRate = 1 - landed / swings;
   assert.ok(Math.abs(blockRate - t0.prob) < 0.08, `block rate ${blockRate}`);
@@ -752,7 +752,7 @@ test('焰尾 S3: +8 DP over the skill, 60 % dodge, block +1; 前锋剑术 ripost
   approx(ft.s.dodgePhys, t1.prob, 1e-9, '远牙 is 卡西米尔');
   h.spawn('enemy_hitter', { pos: [10, 5] });
   assert.ok(h.runUntil(() => u.skill.active, 60));
-  approx(u.s.dodgePhys, t1.prob, 1e-9, 'talent aura on herself (the S3 dodge is an independent roll)');
+  approx(u.s.dodgePhys, 1 - (1 - t1.prob) * (1 - bb.prob), 1e-9, 'summary includes both independent dodge buffs');
   assert.equal(u.s.blockCnt, u.base.blockCnt + bb.block_cnt);
   approx(u.s.interval, u.base.bat * bb.base_attack_time * 100 / u.s.aspd, 1e-9, '×0.7 attack interval');
   const dp0 = h.b.players[0].dp;
@@ -1064,18 +1064,47 @@ test('寒芒克洛丝: dodged shots neither count towards the 40 hits nor stun',
   assert.equal(h.hooksOf('statusApplied').filter((c) => c.status === 'stun').length, 0);
 });
 
-test('星熊 战术装甲: blocks only physical/arts damage (true damage always lands)', () => {
+// PRTS 星熊: 战术装甲 is an unqualified block, not restricted to physical/arts damage.
+// PRTS 伤判效果: inverse damage still observes blocked/dodged instances.
+test('星熊 战术装甲 blocks true damage; thorns observes cancelled damage but not HP loss or source-less credit', () => {
   const id = 'chess_char_4_17_a';
-  const h = makeBattle({ defs: { enemies: { enemy_dummy: dummy() } }, units: [{ chessId: id, row: 9, col: 5 }], timeLimit: 60, hooks: ['damaged'], captureNoisy: true, seed: 4 });
+  const h = makeBattle({ defs: { enemies: { enemy_dummy: dummy() } }, units: [{ chessId: id, row: 9, col: 5 }],
+    timeLimit: 60, hooks: ['damaged', 'block'], captureNoisy: true, seed: 4 });
   h.step();
-  const u = h.unit(id);
-  const e = h.spawn('enemy_dummy', { pos: [12, 9] });
-  const n0 = noisy(h, 'damaged').filter((c) => c.target === u).length;
-  for (let i = 0; i < 40; i++) h.b.dealDamage(e, u, { amount: 1, type: 'true' });
-  assert.equal(noisy(h, 'damaged').filter((c) => c.target === u).length - n0, 40);
-  for (let i = 0; i < 80; i++) h.b.dealDamage(e, u, { amount: 1, type: 'arts' });
-  const arts = noisy(h, 'damaged').filter((c) => c.target === u).length - n0 - 40;
-  assert.ok(arts < 75 && arts > 45, `arts blocked ~25 %: ${arts}/80 landed`);
+  const u = h.unit(id), e = h.spawn('enemy_dummy', { pos: [12, 9] });
+  h.b.rng = () => 0;
+  let hp = e.hp;
+  for (const type of ['phys', 'arts', 'true', 'elemental']) {
+    assert.equal(h.b.dealDamage({ source: e, target: u, amount: 1, type }), 0);
+    assert.ok(e.hp < hp, `${type}: thorns still fires after block`);
+    hp = e.hp;
+  }
+  assert.equal(h.hooksOf('block').filter(c => c.target === u).length, 4);
+  h.b.dealDamage({ source: null, credit: e, target: u, amount: 1, type: 'true' });
+  h.b.dealHPLose({ source: e, target: u, amount: 1 });
+  assert.equal(e.hp, hp, 'neither credit nor HP loss produces a counter');
+  h.b.removeBuff(u, 'hsguma:armor');
+  h.b.addBuff(u, { key: 'first-dodge', injuryPriority: 1000, mods: { dodgePhys: 1 } });
+  assert.equal(h.b.dealDamage({ source: e, target: u, amount: 1 }), 0);
+  assert.ok(e.hp < hp, 'thorns also observes a prior dodge');
+});
+
+test('星熊 thorns resolves before incoming fatal damage, even if the counter kills the attacker', () => {
+  const id = 'chess_char_4_17_a';
+  const h = makeBattle({ defs: { enemies: { enemy_dummy: dummy() } }, units: [{ chessId: id, row: 9, col: 5 }], autoFinish: false });
+  h.step();
+  const u = h.unit(id), e = h.spawn('enemy_dummy', { pos: [12, 9] });
+  u.hp = e.hp = 1;
+  h.b.rng = () => 0.999999;
+  let incomingFatal = false;
+  h.b.on('fatal', c => {
+    if (c.unit !== u) return;
+    incomingFatal = true;
+    assert.equal(e.alive, false, 'the counter has already killed the attacker');
+  });
+  assert.equal(h.b.dealDamage({ source: e, target: u, amount: 100, type: 'true' }), 1);
+  assert.ok(incomingFatal);
+  assert.equal(u.alive, false, 'killing the attacker does not erase its incoming damage');
 });
 
 test('华法琳 血液样本回收: the random SP gift skips allies whose timed skill is running', () => {

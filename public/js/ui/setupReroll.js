@@ -7,12 +7,10 @@ import { t } from '../../../shared/i18n.js';
 
 export function SetupReroll({ pub }) {
   const myId = useStore((s) => s.me.playerId);
-  const hostId = useStore((s) => s.room?.hostId);
   const online = useStore((s) => s.connection.status === 'online');
   const [busy, setBusy] = useState(false);
   const pending = useRef(false);
   const vote = pub.rerollVote;
-  const host = myId === hostId;
   const players = pub.players || [];
   const me = players.find((p) => p.playerId === myId && p.status !== 'left');
   const allConnected = players.every((p) => p.isBot || p.status === 'left' || p.connected);
@@ -24,7 +22,9 @@ export function SetupReroll({ pub }) {
     setBusy(true);
     try { await fn(); } finally { pending.current = false; setBusy(false); }
   };
-  if (!vote && (!host || !me)) return null;
+  // Any seated player may open or cancel the vote; without a seat (a spectator) there is nothing to reroll, while a
+  // running vote stays read-only for them.
+  if (!vote && !me) return null;
   return html`<section class="brief-reroll" aria-label=${t('重刷本局')} aria-live="polite">
     <div class="brief-reroll__text">
       <strong>${vote ? t('重刷本局投票：{agreed}/{total}', { agreed: vote.agreed.length, total: vote.voters.length }) : t('重刷本局')}</strong>
@@ -42,7 +42,7 @@ export function SetupReroll({ pub }) {
         onClick=${() => send(() => actions.rerollVote(vote.id, true))}>${agreed ? t('已同意') : t('同意重刷')}<//>
         <${Button} variant="danger" disabled=${busy || !online}
           onClick=${() => send(() => actions.rerollVote(vote.id, false))}>${t('拒绝重刷')}<//>` : null}
-      ${vote && host && me ? html`<${Button} disabled=${busy || !online}
+      ${vote && me ? html`<${Button} disabled=${busy || !online}
         onClick=${() => send(() => actions.cancelReroll(vote.id))}>${t('取消投票')}<//>` : null}
     </div>
   </section>`;

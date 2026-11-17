@@ -138,10 +138,10 @@ test('娜仁图亚 偷取触发 1e16 次 finishes', async () => {
   const unit = { id: 'u', alive: true, deployed: true, x: 3, y: 4, mem: {} };
   const enemy = { id: 'e', alive: true, side: 'enemy', x: 3, y: 4 };
   kit.talents[0].install(battle, unit);
-  const damaged = hooks.find((h) => h.name === 'damaged');
-  assert.ok(damaged);
+  const beforeApply = hooks.find((h) => h.name === 'damageBeforeApply');
+  assert.ok(beforeApply);
   const t0 = Date.now();
-  damaged.fn({ source: unit, target: enemy, dmg: { isAttack: true } });
+  beforeApply.fn({ source: unit, target: enemy, dmg: { isAttack: true } });
   const times = dataBound(officialTextMax('steal'));
   const sa = form.talents[0].bb['attack@steal_atk'];
   assert.equal(unit.mem.narantLoot.a, sa * times);

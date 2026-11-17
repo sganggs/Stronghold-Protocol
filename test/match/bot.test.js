@@ -601,6 +601,8 @@ for (const plugin of [false, true]) test(`rehearsal capabilities: ${plugin ? 'pl
     ps.temp[0] = temp;
     ps._tempDue.set(temp.uid, ps.prepsEnded);
     ps.effects.push({ id: 'preview-state', key: 'effect:preview-state', battle: true, data: { value: 1 }, params: { value: 1 } });
+    // 鸭爵's swaps are one draw per round from the match seed (GitHub #839): take a match seed whose R7 draw swaps
+    for (let k = 0; k < 50 && !m._normalOpts(ps, { preview: true }).spawns.some((s) => s.tag === 'duck'); k++) m.seed++;
     let calls = 0;
     const draws = [];
     const handler = { onBattleStart(ctx, ev) {

@@ -460,6 +460,10 @@ function fxScene(view, stageId) {
       case 'blink': return { ...base, id: 21, fx: 9, fy: 11 };
       case 'move': return { ...base, id: 20, fromX: 9, fromY: 9 };
       case 'zone': case 'telegraph': return { ...base, r: 1.5, dur: 2, tiles: k === 'telegraph' ? 'box' : undefined };
+      case 'domain': {   // 国度: a keyed tile field, the 3×3 around the unit
+        const u = unitAt(base.id), r0 = Math.round(u.y), c0 = Math.round(u.x);
+        return { ...base, key: 'demo', dur: 2, tiles: [-1, 0, 1].flatMap((dr) => [-1, 0, 1].map((dc) => [r0 + dr, c0 + dc])) };
+      }
       case 'dp': return { ...base, id: 3, n: 10 };
       case 'element': return { ...base, id: 21, element: ['burn', 'neural', 'apoptosis'][i % 3] };
       case 'shell': return { id: 2, r: 1.5, t: 0.3, i: 0 };                  // 蕾缪安 (id = the shooter) shelling an enemy

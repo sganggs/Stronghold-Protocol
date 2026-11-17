@@ -18,6 +18,7 @@ import assert from 'node:assert/strict';
 import { createBattleFromSpec, compactResult, battleProgress, attachLpMeter } from '../../server/sim/spec.js';
 import { RehearsalRun } from '../../server/sim/rehearsal.js';
 import { validateC2S } from '../../shared/protocol.js';
+import { leaderOpsFromBattle } from '../../shared/leaderOps.js';
 import { TICK } from '../../server/sim/constants.js';
 
 const SLICE_MS = 250;
@@ -141,6 +142,8 @@ export class SimClient {
       if (p.leaksBy) msg.leaksBy = p.leaksBy; // like public/js/battle/runner.js
       msg.bossDmg = pool && Number.isFinite(pool.cum) ? pool.cum : 0;
       if (pool && pool.byPlayer) msg.by = { ...pool.byPlayer };
+      const ops = leaderOpsFromBattle(e.battle);
+      if (ops) msg.ops = ops;
     } else {
       msg.leaks = p.leaks;
       // 联防: the leakers' enemies still standing (like public/js/battle/runner.js)
@@ -230,12 +233,12 @@ export function attachWsSimClient(tc, opts = {}) {
  * build every candidate with the shared sim (a factory per candidate, so the run builds them as it reaches them — what
  * the server's own job does too), run them with the shared comparison (server/sim/rehearsal.js) and return the winning
  * index.
- * @param {{ playerId: string, cap: number, specs: object[] }} task
+ * @param {{ playerId: string, cap: number, limits?: { stage: number, tickBudget: number }, specs: object[] }} task
  * @param {any} ds DataSource of the match (the same data the server simulates with)
  * @param {{ BattleClass?: Function }} [opts]
  */
 export function simulateRehearsal(task, ds, { BattleClass } = {}) {
-  const run = new RehearsalRun(task.specs.map((spec) => () => createBattleFromSpec(spec, ds, { BattleClass, quiet: true, recordEvents: false })), task.playerId, task.cap);
+  const run = new RehearsalRun(task.specs.map((spec) => () => createBattleFromSpec(spec, ds, { BattleClass, quiet: true, recordEvents: false })), task.playerId, task.cap, task.limits || {});
   run.run();
   return run.score.index;
 }

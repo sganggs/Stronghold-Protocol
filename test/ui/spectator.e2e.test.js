@@ -40,23 +40,21 @@ describe('spectator seats (community report #26, real server)', { skip: !ENABLED
     try {
       await host.open();
       await host.enter('凯尔希');
-      await host.click('.mode-card', '同盟模拟');
-      await host.click('.diff-card', '标准模拟');
-      await host.click('.create-box button', '创建同盟');
-      const room = (await host.waitFor((s) => !!s.room?.code, 'room created')).room;
+      const room = await host.createCoop();
       await host.click('.seat--empty button', '添加 AI 队友');
 
       // the lobby's 观战 entry
       await spec.open();
       await spec.hookRequests();
       await spec.enter('阿米娅');
+      await spec.click('.mode-card', '同盟模拟');
       await spec.click('.join-row input');
       await spec.page.keyboard.type(room.code);
       await spec.click('.join-row button', '观战');
       await spec.page.waitForSelector('.room-screen .specbar__who.is-me', { timeout: 10000 });
       const roomView = await spec.page.evaluate(() => ({
-        bar: document.querySelector('.room-bar__right .btn--xl')?.textContent || '',
-        barDisabled: !!document.querySelector('.room-bar__right .btn--xl')?.disabled,
+        bar: document.querySelector('.room-bar__right .rs-go')?.textContent || '',
+        barDisabled: !!document.querySelector('.room-bar__right .rs-go')?.disabled,
         status: document.querySelector('.room-bar__status')?.textContent || '',
         seats: [...document.querySelectorAll('.seat__name')].map((e) => e.textContent),
       }));

@@ -31,10 +31,9 @@
 //   "※自身未存在本天赋的护盾时，每对符合条件的目标造成一次伤害判定一次本天赋"): one roll per damage instance she outputs on an elite /
 //   leader (any damage — the AFT-D rider too — at the output, before the target's dodge / cancel). vvana_t_2[block_melee]:
 //   ON_TAKE_DAMAGE from an ENEMY source with apply way MELEE → BlockDamage, one layer spent (ba.shield "每层护盾可以抵挡一次伤害";
-//   PRTS "※仅来源于敌方单位的近战途径伤害可触发本天赋的护盾"): an enemy's damage that did not fly as a projectile (DamageInfo
-//   `isProjectile`, ai.js enemyAttack) is negated whole in a late `hit` handler (cancel, as the enemies' 护盾 layers in
-//   content/enemies.js); 无来源 damage has no enemy source. The enemy content's own projectiles (invisible / leaders / fly kits)
-//   are not marked and count as melee [ASSUMED].
+//   PRTS "※仅来源于敌方单位的近战途径伤害可触发本天赋的护盾"): an ordinary ordered injury effect. Its
+//   instance route is explicit, with compatibility inference from projectile/attack metadata; source-less credit
+//   cannot supply an enemy source. Adding a layer retains the shield buff's acquisition position.
 // - S1 光影迅捷剑 (AUTO, 2 charges, data DEFAULT — a "next attack" waits for her attack): the next attack at atk_scale × ATK,
 //   S1_HITS hits (S1_Attack2, `_additionalTimes` 1). 蓄力 (ba.charged "回复至上限2倍时进入蓄力状态…任何时候开启均消耗全部技力"; PRTS
 //   备注 "未满足蓄力所需技力时…仅消耗技能最低所需技力" / "“蓄力”模式将在下一次技能结束时结束" / "“蓄力”模式期间…攻击范围变为3-2";
@@ -62,7 +61,7 @@
 
 import { num, talentBb, traitBb, skillRec, up, batMod } from '../shared/tier1.js';
 import { isElite, elementDmg, enemiesIn } from '../shared/tier6.js';
-import { hasHp } from '../../../damage.js';
+import { hasHp, damageApplyWay } from '../../../attack.js';
 
 const S1 = 'skchr_vvana_1';
 const S2 = 'skchr_vvana_2';
@@ -78,9 +77,8 @@ const CANDLE_KEY = 'talent:vvana:candle';
 const SHIELD_KEY = 'talent:vvana:shield';
 const LOOT_KEY = 'skill:vvana:loot';
 const STOLEN_KEY = 'skill:vvana:stolen';
-/** `hit` order: 燃烛施明 re-reads its factor first; the output effects (AFT-D, 散华's roll) come before the target-side
- *  handlers (priority 0: the enemies' own 护盾, guards); 散华's 护盾 itself last (a guard that cancelled first spends none). */
-const CANDLE_PRIORITY = 100, OUTPUT_PRIORITY = 50, SHIELD_PRIORITY = -500;
+/** Pre-formula source effects stay on hit; the acquired shield participates in ordinary ordered injury effects. */
+const CANDLE_PRIORITY = 100, OUTPUT_PRIORITY = 50;
 
 const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 const tagged = (d, tag) => !!d && Array.isArray(d.tags) && d.tags.includes(tag);
@@ -208,9 +206,16 @@ export default {
           const p = num(t1.prob), max = Math.max(1, Math.floor(num(t1.max_stack_cnt, 1)));
           const s3Scale = num(b3.talent_scale, 1);
           const layers = () => unit.findBuff(SHIELD_KEY)?.data?.n ?? 0;
-          const setLayers = (n) => {
-            if (n > 0) battle.addBuff(unit, { key: SHIELD_KEY, data: { n }, visible: true, tags: ['talent'] });
-            else battle.removeBuff(unit, SHIELD_KEY);
+          const setLayers = n => {
+            if (!(n > 0)) { battle.removeBuff(unit, SHIELD_KEY); return; }
+            const held = unit.findBuff(SHIELD_KEY);
+            if (held) { held.data.n = n; return; }
+            battle.addBuff(unit, { key: SHIELD_KEY, data: { n }, visible: true, tags: ['talent'], injury(c) {
+              if (c.source?.side !== 'enemy' || damageApplyWay(c.dmg) === 'RANGED' || !(c.buff.data.n > 0)) return;
+              if (!c.block()) return;
+              setLayers(c.buff.data.n - 1);
+              battle.fx('shieldBreak', { x: unit.x, y: unit.y, id: unit.id });
+            } });
           };
           battle.on('hit', (c) => {
             if (c.source !== unit || !isElite(c.target) || !up(unit)) return;
@@ -221,16 +226,7 @@ export default {
             setLayers(have + 1);
             battle.fx('shield', { x: unit.x, y: unit.y, id: unit.id });
           }, { owner: unit, priority: OUTPUT_PRIORITY });
-          battle.on('hit', (c) => {
-            if (c.target !== unit || c.dmg.cancel) return;
-            const s = c.source;
-            if (!s || s.side !== 'enemy' || c.dmg.isProjectile) return;
-            const have = layers();
-            if (!(have > 0)) return;
-            c.dmg.cancel = true;
-            setLayers(have - 1);
-            battle.fx('shieldBreak', { x: unit.x, y: unit.y, id: unit.id });
-          }, { owner: unit, priority: SHIELD_PRIORITY });
+
         } },
       ],
       install(battle, unit) {

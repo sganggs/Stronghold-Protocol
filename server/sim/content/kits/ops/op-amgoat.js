@@ -42,7 +42,7 @@
 // - No summon (the forms list no token).
 
 import { num, talentBb, traitBb, skillRec, statBuff, installAura, batMod, giveSp, onHitBy } from '../shared/tier1.js';
-import { hasHp } from '../../../damage.js';
+import { hasHp } from '../../../attack.js';
 import { canTargetEnemy } from '../../../targeting.js';
 import { bodyInRange } from '../../../body.js';
 

@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { unscaled } from '../helpers/uiSize.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const read = (p) => readFileSync(path.join(ROOT, p), 'utf8');
@@ -249,12 +250,18 @@ test('the 普通 / 精锐 toggle: 精锐 is the shown variant, the tabs say so, 
 
 test('place in the detail: after the skills, before the modules; the first .lo-seg stays the skill level toggle (e2e selector)', () => {
   const src = read('public/js/screens/loadout.js');
+  const sections = read('public/js/screens/loadoutSections.js');
   const detail = src.slice(src.indexOf('function Detail('), src.indexOf('// ---- filters'));
-  const toggle = detail.indexOf("aria-label=${t('技能等级')}");
-  const skills = detail.indexOf("aria-label=${t('选择技能')}");
+  const skills = detail.indexOf('<${SkillSection}');
   const stats = detail.indexOf('<${LoadoutStats} base=${chess}');
-  const mods = detail.indexOf('<section class="lo-sec lo-sec--mod">');
-  assert.ok(toggle > 0 && skills > toggle && stats > skills && mods > stats, 'skills (and their level toggle) → 局内数值 → modules');
+  const mods = detail.indexOf('<${ModuleSection}');
+  assert.ok(skills > 0 && stats > skills && mods > stats, 'skills (and their level toggle) → 局内数值 → modules');
+  // the toggle and the cards render inside the 技能 section (its own module since the 自选编队 picker draws the same one);
+  // the toggle comes first there, so it is still the screen's first .lo-seg (the e2e clicks `.lo-seg button:nth-child(2)`)
+  const skillSection = sections.slice(sections.indexOf('export function SkillSection('), sections.indexOf('export function ModuleSection('));
+  const toggle = skillSection.indexOf("aria-label=${t('技能等级')}");
+  const cards = skillSection.indexOf("aria-label=${t('选择技能')}");
+  assert.ok(toggle > 0 && cards > toggle, 'the skill level toggle and the skill cards, in that order, in SkillSection');
   // one record resolution, shared with the card: chessLoadout, the card's block, trait and talent helpers — no stat arithmetic of its own
   const shared = read('public/js/ui/loadoutStats.js');
   assert.match(src, /import \{ LoadoutStats \} from '\.\.\/ui\/loadoutStats\.js';/);
@@ -267,7 +274,7 @@ test('place in the detail: after the skills, before the modules; the first .lo-s
 });
 
 test('css: the section reuses the card\'s .dstats / .drange / .rgrid, sized for the overlay with px floors (readable at 1 rem = 40 px), the range box may wrap under the numbers', () => {
-  const css = read('public/css/screens/loadout.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  const css = unscaled(read('public/css/screens/loadout.css')).replace(/\/\*[\s\S]*?\*\//g, '');
   const rules = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].map((m) => ({ sel: m[1].trim(), body: m[2] }));
   const mine = rules.filter((r) => /\.lo-sec--stats|\.lo-stats__cap|\.lo-minfo--kit/.test(r.sel));
   assert.ok(mine.length >= 8, 'the stats rules exist');

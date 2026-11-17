@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 
 import { cultivationCharIds } from '../../shared/protocol.js';
 import {
-  parseStored, parseStoredOps, toStored, opsOf, setOps, resetOps, sanitizeOps, exportPayload, parseImport, changedCount,
+  parseStoredOps, toStored, opsOf, setOps, resetOps, sanitizeOps, exportPayload, parseImport, changedCount,
   rosterOf, filterRoster,
 } from '../../public/js/ui/loadoutModel.js';
 import { installLoadoutSync, SYNC_DEBOUNCE_MS, applyLoadoutEntries, loadoutStore, setEntries, setOpsMap } from '../../public/js/ui/loadoutSync.js';
@@ -38,8 +38,9 @@ test('storage: ops beside the entries; junk / defaults dropped; an older stored 
   assert.deepEqual(parseStoredOps(null), {});
   const raw = { v: 1, entries: {}, ops: { [V]: { potential: 1, cultivate: 0 }, [KALTS]: { potential: 6, cultivate: 3 }, x: 'junk', 'a b': { potential: 1 }, char_y: { potential: 9 }, __proto__: { potential: 1 } } };
   assert.deepEqual(parseStoredOps(raw), { [V]: { potential: 1, cultivate: 0 } });
-  assert.deepEqual(toStored({ [VENDLA]: { skill: 0 } }, { [V]: { potential: 2 } }), { v: 1, entries: { [VENDLA]: { skill: 0 } }, ops: { [V]: { potential: 2 } } });
-  assert.deepEqual(parseStored(toStored({ [VENDLA]: { skill: 0 } }, { [V]: { potential: 2 } })), { [VENDLA]: { skill: 0 } }, 'the entries read as before');
+  // v2 (DESIGN §35.23): the choices by operator beside the ops
+  assert.deepEqual(toStored({ [V]: { skill: 0 } }, { [V]: { potential: 2 } }), { v: 2, byChar: { [V]: { skill: 0 } }, ops: { [V]: { potential: 2 } } });
+  assert.deepEqual(parseStoredOps(toStored({ [V]: { skill: 0 } }, { [V]: { potential: 2 } })), { [V]: { potential: 2 } }, 'the ops read as before');
 });
 
 test('helpers: opsOf / setOps / resetOps keep only non-default values; sanitizeOps keeps what the server would', () => {
@@ -60,10 +61,10 @@ test('helpers: opsOf / setOps / resetOps keep only non-default values; sanitizeO
 });
 
 test('导出 / 导入: the envelope carries ops; an older export keeps the current settings; settings alone import', () => {
-  const p = exportPayload({ [VENDLA]: { skill: 0 } }, { ops: { [V]: { potential: 2 } } });
+  const p = exportPayload({ [V]: { skill: 0 } }, { ops: { [V]: { potential: 2 } } });
   assert.deepEqual(p.ops, { [V]: { potential: 2 } });
   const back = parseImport(JSON.stringify(p));
-  assert.deepEqual([back.ok, back.entries, back.ops], [true, { [VENDLA]: { skill: 0 } }, { [V]: { potential: 2 } }]);
+  assert.deepEqual([back.ok, back.byChar, back.ops], [true, { [V]: { skill: 0 } }, { [V]: { potential: 2 } }]);
   const old = parseImport({ kind: 'stronghold.loadout', v: 1, entries: { [VENDLA]: { skill: 0 } } });
   assert.equal('ops' in old, false, 'an older export: no ops');
   assert.equal(parseImport({ v: 1, entries: {}, ops: { [V]: { cultivate: 1 } } }).ok, true, 'settings only');

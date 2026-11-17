@@ -1,7 +1,7 @@
 // server/sim/content/kits/ops/chess_char_6_13-angel2.js — 新约能天使 (char_1041_angel2) kit, tier 6.
 // Conventions of the tier-6 kits: ../shared/tier6.js; kit contract and rules: ../README.md.
 
-import { sortEnemyTargets, aggroCmp } from '../../../targeting.js';
+import { sortEnemyTargets, aggroCmp, absoluteRangeKeys } from '../../../targeting.js';
 import { summonToken, TOKEN_IDS } from '../../tokens.js';
 import { num, bv, tbb, live, hasBond, ANY, isTok, selectedSkill, batOf, aura } from '../shared/tier6.js';
 
@@ -24,7 +24,11 @@ function decayingShield(battle, u, key, total, dur) {
 // initial/shield_max_duration per second ("屏障每秒衰减量为：初始屏障量/30"); a new one replaces the old one ("重复获得此
 // 屏障时，重置屏障量与衰减速度").
 
-const AIRSTRIKE_RADIUS = 1; // [ASSUMED] bombardment splash radius (not in data)
+/** S3's 投递坐标 splash radius [ASSUMED: not in data]. */
+const AIRSTRIKE_RADIUS = 1;
+/** 火力电台's bombing: PRTS 新约能天使 天赋 备注 「轰炸半径1.3，单轮多次轰炸之间间隔0.1s」 (fx TalentBomb additionalTimes /
+ * triggerDelta 0.1). */
+const BOMB_RADIUS = 1.3, BOMB_GAP = 0.1;
 
 function angel2(bb, chess, def) {
   const t0 = tbb(def, 0), t1 = tbb(def, 1), tb = def?.traitBb || {};
@@ -141,19 +145,44 @@ function angel2(bb, chess, def) {
     },
     talents: [
       { install(battle, unit) { // 火力电台
+        // PRTS 备注: one round per consumption (the bullets one action spends: the engine's 1st and a kit's further ones
+        // in the same tick); each bullet heals and rolls the chance, and each success adds a bombing to the round; the
+        // target is chosen once per round, by her (her default targeting, 「始终使用默认索敌逻辑」) among the enemies of the
+        // consumer's range (its own grid, 「不受对方的攻击距离增减」: no 攻击距离 change counts, nor the permanent 攻击距离 +N
+        // extension of talents, modules and bonds — `s.baseRangeExtend`, baseRangeKeys' [ASSUMED: the note names no
+        // exception]; a grid the unit's module or kit replaces, `u.rangeGrid` — tier4 applyModuleRange, op-aphris's path
+        // —, is its own grid and counts; tier5 moduleRangeUp's no-grid fallback is a rangeExtend buff and is excluded);
+        // the bombings land BOMB_GAP apart,
+        // radius BOMB_RADIUS around the target (附着型弹道: it follows the target), with the damage computed when the round
+        // is made (「预计算的物理普通伤害」). Until 0.3.2 every success chose its own target with the consumer's sort and hit
+        // radius 1 at once (DESIGN §35.28).
+        // [ASSUMED] a bombing whose target has died lands where it last stood; her 视野遮挡 rule is not modelled.
         const hr = num(t0.hp_ratio), prob = num(t0.prob), sc = num(t0.aoe_atk_scale, num(t0.damage_scale));
+        const rounds = new Map(); // consumer → { t, target, n, amount }
+        const bomb = (r) => {
+          if (!live(unit)) return;
+          const t = r.target;
+          if (t.alive) { r.x = t.x; r.y = t.y; }
+          battle.fx('airstrike', { x: r.x, y: r.y, id: unit.id, r: BOMB_RADIUS, talent: true });
+          for (const e of battle.foesInRadius(r.x, r.y, BOMB_RADIUS, true)) { // splash around the target: 中点判定
+            if (e.alive && !e.s.flags.untargetable) battle.dealDamage(unit, e, { amount: r.amount, type: 'phys', isSkill: true, isSplash: true, tags: ['talent', 'airstrike'] });
+          }
+        };
         battle.on('ammoUsed', ({ unit: u }) => {
           if (!live(unit) || !u || u.side !== 'ally') return;
           if (hr > 0) battle.heal(unit, unit, unit.s.maxHp * hr, { self: true, silent: true });
           if (!(prob > 0) || !(sc > 0) || battle.rng() >= prob) return;
-          const cands = battle.enemiesInKeys(u.rangeKeys || [], u, ANY);
-          if (!cands.length) return;
-          sortEnemyTargets(battle, u, cands, null);
-          const c = cands[0];
-          battle.fx('airstrike', { x: c.x, y: c.y, id: unit.id, r: AIRSTRIKE_RADIUS });
-          for (const e of battle.foesInRadius(c.x, c.y, AIRSTRIKE_RADIUS, true)) { // splash around the target: 中点判定
-            if (e.alive && !e.s.flags.untargetable) battle.dealDamage(unit, e, { amount: unit.s.atk * sc, type: 'phys', isSkill: true, isSplash: true, tags: ['talent', 'airstrike'] });
+          let r = rounds.get(u);
+          if (!r || r.t !== battle.time) {
+            const cands = battle.enemiesInKeys(absoluteRangeKeys(u.rangeGrid || [[0, 0]], u.tileR, u.tileC, u.dir, 0), unit, ANY);
+            if (!cands.length) { rounds.delete(u); return; }
+            sortEnemyTargets(battle, unit, cands, null);
+            r = { t: battle.time, target: cands[0], x: cands[0].x, y: cands[0].y, n: 0, amount: unit.s.atk * sc };
+            rounds.set(u, r);
           }
+          const k = r.n++;
+          if (k === 0) bomb(r);
+          else battle.after(k * BOMB_GAP, () => bomb(r), { owner: unit });
         }, { owner: unit });
       } },
       { install(battle, unit) { // 铳弹协约

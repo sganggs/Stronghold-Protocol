@@ -60,7 +60,7 @@
 import { num, traitBb, skillRec, up, statBuff } from '../shared/tier1.js';
 import { sortEnemyTargets, canTargetEnemy } from '../../../targeting.js';
 import { bodyInRange } from '../../../body.js';
-import { hasHp, isHpLoss } from '../../../damage.js';
+import { hasHp, isHpLoss } from '../../../attack.js';
 import { COLS, PROJECTILE_SPEEDS } from '../../../constants.js';
 import { hypot } from '../../../detmath.js';
 

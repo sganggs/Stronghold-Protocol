@@ -1,7 +1,7 @@
 // server/sim/content/kits/ops/chess_char_5_22-nymph.js — 妮芙 (char_4146_nymph) kit, tier 5.
 // Conventions of the tier-5 kits: ../shared/tier5.js; kit contract and rules: ../README.md.
 
-import { hasHp } from '../../../damage.js';
+import { hasHp } from '../../../attack.js';
 import {
   num, on, inRange, talent, traitBb, maxCharges, mods, selectedId, lazySkills, skillRange, burstSpUp, elementHit,
   burstDamageUp,

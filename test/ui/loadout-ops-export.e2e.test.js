@@ -33,26 +33,32 @@ describe('loadout export includes DIY-only cultivation (real server, headless Ch
   const disabled = (c, id) => c.page.$eval(`[data-testid="${id}"]`, e => e.disabled);
   const saved = (c) => c.page.evaluate(() => {
     const p = JSON.parse(localStorage.getItem('sp.pref.loadout') || '{}');
-    return { entries: p.entries || {}, ops: p.ops || {} };
+    return { byChar: p.byChar || {}, ops: p.ops || {} }; // (sp.pref.loadout v2: by operator, DESIGN §35.23)
   });
   async function chooseKalts(c) {
     await tab(c, 'diy');
     await c.click(`${slot} :is(.diy-slot__fill, [data-testid="diy-change"])`);
     await c.page.waitForSelector(picker);
-    await c.click(`${picker} input[type="search"]`);
+    await c.click(`${picker} .lo-search input`);
     await c.page.keyboard.type('凯尔希');
-    await c.click(`${picker} .diy-opt[data-char="${KALTS}"]`);
+    await c.click(`${picker} .diy-opt[data-char="${KALTS}"] .diy-opt__pick`);
     await c.click('[data-testid="diy-confirm"]');
     await c.page.waitForSelector(picker, { hidden: true });
   }
   async function setKalts(c, patch) {
     await tab(c, 'diy');
-    for (const [key, value] of Object.entries(patch)) await c.page.select(`${slot} select[data-cult="${key}"]`, String(value));
+    for (const [key, value] of Object.entries(patch)) {
+      const root = `${slot} [data-cult="${key}"]`;
+      await c.page.click(`${root} [role="combobox"]`);
+      await c.page.waitForSelector(`${root} [role="option"][data-value="${value}"]`, { visible: true });
+      await c.page.click(`${root} [role="option"][data-value="${value}"]`);
+    }
   }
   async function changeNormal(c) {
     await tab(c, 'loadout');
     await c.click(`.lo-card[data-chess="${INSIDE}"] .lo-q--skill[data-skill="0"]`);
-    await c.page.select(`.lo-card[data-chess="${INSIDE}"] select[data-cult="potential"]`, '2');
+    await c.page.click(`.lo-card[data-chess="${INSIDE}"] [data-cult="potential"] [role="combobox"]`);
+    await c.page.click(`.lo-card[data-chess="${INSIDE}"] [data-cult="potential"] [role="option"][data-value="2"]`);
   }
   async function exportText(c, id = 'loadout-export') {
     assert.equal(await disabled(c, id), false, `${id} must allow the saved settings to be exported`);
@@ -98,7 +104,7 @@ describe('loadout export includes DIY-only cultivation (real server, headless Ch
         const expected = await saved(c);
         if (patch) assert.deepEqual(expected.ops[KALTS], patch);
         if (!normal) {
-          assert.deepEqual(expected.entries, {});
+          assert.deepEqual(expected.byChar, {});
           assert.match(await c.page.$eval('.lo-top__right', e => e.textContent), /已调整\s*0/);
           assert.equal(await c.page.$eval('.lo-top__right button:last-child', e => e.disabled), true,
             'normal reset still covers only its roster');
@@ -108,9 +114,9 @@ describe('loadout export includes DIY-only cultivation (real server, headless Ch
         const text = await exportText(c);
         const payload = JSON.parse(text);
         assert.equal(payload.kind, 'stronghold.loadout');
-        assert.equal(payload.v, 1);
+        assert.equal(payload.v, 2);
         assert.equal(payload.count, normal ? 1 : 0, 'count retains its existing entry semantics');
-        assert.deepEqual({ entries: payload.entries, ops: payload.ops }, expected);
+        assert.deepEqual({ byChar: payload.byChar, ops: payload.ops }, expected);
         await c.shot(`${name.replaceAll(' ', '-')}-exported`);
         target = await open(`${name} import`);
         if (diyText) {
@@ -127,8 +133,8 @@ describe('loadout export includes DIY-only cultivation (real server, headless Ch
           assert.deepEqual(await target.page.evaluate(() => JSON.parse(localStorage.getItem('sp.pref.diy')).picks), JSON.parse(diyText).picks);
           await target.click('.lobby-screen [data-testid="loadout-open"]');
           await tab(target, 'diy');
-          await target.page.waitForSelector(`${slot} select[data-cult]`);
-          assert.deepEqual(await target.page.$$eval(`${slot} select[data-cult]`, els => Object.fromEntries(els.map(e => [e.dataset.cult, Number(e.value)]))),
+          await target.page.waitForSelector(`${slot} [data-cult] [role="combobox"]`);
+          assert.deepEqual(await target.page.$$eval(`${slot} [data-cult]`, els => Object.fromEntries(els.map(e => [e.dataset.cult, Number(e.querySelector('[role="combobox"]').dataset.value)]))),
             { potential: patch.potential ?? 6, cultivate: patch.cultivate ?? 3 }, 'the restored pick displays its restored settings');
           await target.shot(`${name.replaceAll(' ', '-')}-imported`);
         }
@@ -151,7 +157,7 @@ describe('loadout export includes DIY-only cultivation (real server, headless Ch
       await c.click('.lo-top__right button', '全部恢复默认');
       await c.click('.modal button', '恢复默认');
       await c.page.waitForSelector('.modal', { hidden: true });
-      assert.deepEqual(await saved(c), { entries: {}, ops: { [KALTS]: { potential: 1, cultivate: 0 } } });
+      assert.deepEqual(await saved(c), { byChar: {}, ops: { [KALTS]: { potential: 1, cultivate: 0 } } });
       assert.equal(await disabled(c, 'loadout-export'), false, 'normal reset retains exportable DIY settings');
       await tab(c, 'diy');
       await c.click(`${slot} [data-testid="diy-clear"]`);
@@ -160,7 +166,7 @@ describe('loadout export includes DIY-only cultivation (real server, headless Ch
       await chooseKalts(c);
       await setKalts(c, { potential: 6, cultivate: 3 });
       await tab(c, 'loadout');
-      assert.deepEqual(await saved(c), { entries: {}, ops: {} });
+      assert.deepEqual(await saved(c), { byChar: {}, ops: {} });
       assert.equal(await disabled(c, 'loadout-export'), true, 'back to defaults: nothing to export');
       assert.deepEqual(c.problems.filter(p => p.startsWith('pageerror:')), []);
     } finally { await c?.close(); }

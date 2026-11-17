@@ -25,7 +25,7 @@ const approx = (a, b, msg = '', rel = 1e-6) => assert.ok(Math.abs(a - b) <= rel 
 const within = (a, b, tol = 0.05, msg = '') => assert.ok(Math.abs(a - b) <= tol, `${msg} ${a} ≈ ${b} ± ${tol}`);
 const dummy = (key, o = {}) => enemyRec({ key, hp: 1e7, speed: 0, ...o });
 const READY = { sp: 999 };
-const HOOKS = ['damaged', 'heal', 'hit', 'skillStart', 'skillEnd', 'statusApplied', 'ammoUsed', 'attack', 'death', 'deploy'];
+const HOOKS = ['damaged', 'heal', 'hit', 'block', 'skillStart', 'skillEnd', 'statusApplied', 'ammoUsed', 'attack', 'death', 'deploy'];
 const run = (o) => makeBattle({ seed: 7, autoFinish: false, timeLimit: 400, hooks: HOOKS, captureNoisy: true, ...o });
 /** defs.chess: the chess without its 特质 (garrisons have their own tests) — isolates kit numbers. */
 const noGarrison = (...ids) => Object.fromEntries(ids.map((id) => [id, { ...raw(id), garrisonIds: [] }]));
@@ -554,12 +554,12 @@ test('1_20 雷蛇 S1 充能防御: 自动触发 "技能自动开启" (SP_FULL, n
     h.step();
     const blocked = h.hooksOf('hit').filter((c) => c.target === u && c.t > st);
     assert.equal(blocked.length, 1);
-    assert.equal(blocked[0].dmg.cancel, true, 'the next hit is blocked');
+    assert.equal(h.hooksOf('block').filter(c => c.target === u && c.t > st).length, 1, 'the next hit is blocked');
     assert.equal(u.hp, hp, 'no HP lost');
     assert.equal(m.skill.sp, sp, 'a blocked hit gives no 战术防御 SP');
     h.runUntil(() => h.hooksOf('hit').filter((c) => c.target === u && c.t > st).length >= 2, 5);
     h.step();
-    assert.equal(h.hooksOf('hit').filter((c) => c.target === u && c.t > st)[1].dmg.cancel, false, 'only one hit blocked');
+    assert.equal(h.hooksOf('block').filter(c => c.target === u && c.t > st).length, 1, 'only one hit blocked');
     assert.ok(u.hp < hp);
     approx(m.skill.sp, sp + t.sp, 'the following hit feeds the talent again');
     h.runUntil(() => !u.skill.active, 20);

@@ -7,10 +7,10 @@
 //   prep_finish_char_bond_add_layer {layer}            华法琳   prep end: per distinct board tier, 1 random op → its bonds +layer (无需激活)
 //   band_first_self_refresh_present_char {count,bond}  杜遥夜   first 2 manual refreshes/round: ≥count <bond> chess (tier ≤ shop level)
 //   band_shop_refresh_copy_max_lv_char {count}         梓兰     every manual refresh: highest-tier shop chess copied into another slot, copy frozen
-//   preparation_start_gain_chess_from_round {round}    梓兰/小贾斯汀/昆图斯/马克维茨/变形者集群/Pith/夕/杰西卡/缪尔赛思/芬  round start of `round`: bbStr.chess
-//   preparation_start_gain_chess_every_n_round {round} 杜宾     every `round` rounds (round % n = 0): bbStr.chess
+//   preparation_start_gain_chess_from_round {round}    梓兰/小贾斯汀/昆图斯/马克维茨/变形者集群/Pith/夕/杰西卡/缪尔赛思/芬  prep start of `round`: bbStr.chess
+//   preparation_start_gain_chess_every_n_round {round} 杜宾     prep start, every `round` rounds (round % n = 0): bbStr.chess
 //   give_coin_in_round {round,coin}                    老鲤     income of round `round` = coin (R1/R2 0, R3 15)
-//   prep_start_gain_chess_from_pool_in_round {round}   老鲤     round start of `round`: 1 chess of pool
+//   prep_start_gain_chess_from_pool_in_round {round}   老鲤     prep start of `round`: 1 chess of pool
 //   band_coin_cost_gain_random_char_by_shop_level      绮良     every coin_cnt funds spent → count random chess ≤ shop level
 //   up_shop_next_refresh_must_present_bond_char        佩佩     level-up to a level of lvlist → the next manual refresh (its usual
 //                                                               price) prefers <bond>
@@ -27,16 +27,25 @@
 //                                                                pair field): 0–2 ground enemies → enemylist
 //   round_start_activate_char_chess_effect_in_board    铃兰     round start: 获得时 traits of the right-most (then bottom-most) board op with one
 //   first_sell_char_chess_exchange_char_chess_in_shop  巫恋     first sale of a normal op per round: swapped with a random shop chess (no funds)
-//   round_start_gain_char_chess_in_shop_every_n_round  松桐     round % n = 0: a random shop chess for free (its slot empties)
+//   round_start_gain_char_chess_in_shop_every_n_round  松桐     prep start, round % n = 0: a random shop chess for free (its slot empties)
 //   round_start_gain_coin_by_bond_char_chess_buy       玛恩纳   each <bond> chess bought → +count funds next round (≤ max_count / round)
 //   refresh_shop_count_gain_coin_bond_char_chess       贾维     every refresh_count manual refreshes (match total) → <bond> chess ≤ shop level (≤ max_count / round)
-//   preparation_start_add_special_goods_every_n_round  娜仁图亚 round % n = 0: pick choice_cnt of refresh_cnt items of pool (free)
-// "进入休整期时" / "回合开始时" = onRoundStart (research 01 §5 step 6).
+//   preparation_start_add_special_goods_every_n_round  娜仁图亚 prep start, round % n = 0: pick choice_cnt of refresh_cnt items of pool (free)
+// "进入休整期时" / "休整期开始时" = onPrepStart: after the round's 机变 phase (research 01 §4.1: the 机变 choice is step 4, the
+// 「进入休整期时」 effects step 6; official 「进入此阶段时，触发<进入休整期时>的效果」 of the 休整期). The five keys above whose text or key
+// says so (老鲤 「第3回合进入休整期时」, 松桐 「偶数回合的休整期开始时」, 娜仁图亚 / 小贾斯汀 / 杰西卡 「进入休整期时」, the
+// preparation_start_* keys of the rest) run there — GitHub #851: 老鲤's R3 operators showed before the R3 draft. The whole key
+// moves, so 缪尔赛思's 「在第1回合开始时」 and the texts with no time (「第3回合获得」, 「每5回合获得」) follow their key [ASSUMED]. A
+// 机变 round (config spRounds) meets 老鲤 / 昆图斯 at R3 and the even-round ones (杜宾, 松桐, 娜仁图亚) at R6 of NORMAL; elsewhere
+// only the order around the round start changes. "回合开始时" (余, 铃兰) and 哈洛德's gain_bond_char_per_round stay onRoundStart.
+// The operators' 「<进入休整期时>」 traits (SERVER_PREP_START garrisons) run on onPrepStart too (effectsMeta.js GARRISON_HOOK,
+// DESIGN §35.53), after the strategy's grants of that dispatch (global → band → bonds → garrisons).
 
-import { GEO } from '../../../../shared/constants.js';
+import { GEO, gateOf } from '../../../../shared/constants.js';
 import { bbCap } from '../../../../shared/plugins/officialBounds.js';
 import { burstLimit } from '../../../../shared/plugins/steps.js';
-import { buffsOf, num, bandRecord, bandEffectId, gameData } from '../support/index.js';
+import { createRng } from '../../rng.js';
+import { buffsOf, num, bandRecord, bandEffectId, gameData, mutationCellIds } from '../support/index.js';
 import { metaBonds } from '../support/meta.js';
 import * as garrisons from '../garrisons.js';
 
@@ -108,7 +117,7 @@ K.prep_finish_char_bond_add_layer = (ps) => ({
     }
     for (const t of [...byTier.keys()].sort((a, b) => a - b)) {
       const p = ctx.rng.pick(byTier.get(t));
-      for (const b of metaBonds(ctx, p)) ctx.addLayers(b, n, { requireActive: false, reason: 'band' });
+      for (const b of metaBonds(ctx, p)) ctx.addLayers(b, n, { requireActive: ctx.data?.config?.version?.family === 'regulation', reason: 'band' });
     }
   },
 });
@@ -146,7 +155,7 @@ K.band_shop_refresh_copy_max_lv_char = () => ({
 });
 
 K.preparation_start_gain_chess_from_round = (ps) => ({
-  onRoundStart(ctx) {
+  onPrepStart(ctx) {
     for (const p of ps) {
       const id = p.chess ?? p.chess_id;
       if (ctx.round !== int(p.round, -1) || !id) continue;
@@ -156,7 +165,7 @@ K.preparation_start_gain_chess_from_round = (ps) => ({
 });
 
 K.preparation_start_gain_chess_every_n_round = (ps) => ({
-  onRoundStart(ctx) {
+  onPrepStart(ctx) {
     for (const p of ps) {
       const n = int(p.round, 0);
       const id = p.chess ?? p.chess_id;
@@ -173,7 +182,7 @@ K.give_coin_in_round = (ps) => ({
 });
 
 K.prep_start_gain_chess_from_pool_in_round = (ps) => ({
-  onRoundStart(ctx) {
+  onPrepStart(ctx) {
     for (const p of ps) {
       if (ctx.round !== int(p.round, -1)) continue;
       for (let k = 0; k < timesOf(p.count, 1); k++) {
@@ -232,7 +241,7 @@ K.gain_bond_char_per_round = (ps) => ({
     const r0 = int(p.round, 1), every = Math.max(1, int(p.preround, 1));
     if (ctx.round < r0 || (ctx.round - r0) % every !== 0) return;
     for (let k = 0; k < timesOf(p.count, 1); k++) {
-      const id = rollBond(ctx, p.bond, { anyTier: true });
+      const id = rollBond(ctx, p.bond, { anyTier: ctx.data?.config?.version?.family !== 'regulation' });
       if (id) ctx.grantChess(id, { source: 'band' });
     }
   },
@@ -289,7 +298,9 @@ K.up_shop_add_special_goods = (ps, bandId) => ({
     const p = ps[0];
     // effectRef inherits the behaviour (DESIGN §32.5); concrete parameters still come from this band's buffs.
     const cathy = bandEffectId(bandId) === 'band_cathy';
-    const exclude = cathy && ctx.counter('band:cathy:cellTaken') ? ['chess_item_5_08_e_a'] : [];
+    // the cell of the match's data (support mutationCellIds): chess_item_5_08_e_a, or on another version's build the
+    // records of its effect (上半 gives it another id and tier)
+    const exclude = cathy && ctx.counter('band:cathy:cellTaken') ? mutationCellIds(ctx.data ?? gameData()) : [];
     const ids = rollItems(ctx, p.pool, timesOf(p.count, 3), exclude);
     if (ids.length) ctx.offerItems(ids, { source: cathy ? 'band:band_cathy' : 'band' });
   },
@@ -337,7 +348,7 @@ K.first_sell_char_chess_exchange_char_chess_in_shop = (ps) => ({
 });
 
 K.round_start_gain_char_chess_in_shop_every_n_round = (ps) => ({
-  onRoundStart(ctx) {
+  onPrepStart(ctx) {
     const p = ps[0];
     const n = int(p.round, 0);
     if (n <= 0 || ctx.round % n !== 0) return;
@@ -368,7 +379,9 @@ K.refresh_shop_count_gain_coin_bond_char_chess = (ps) => ({
     const p = ps[0];
     const every = int(p.refresh_count, 0);
     if (every <= 0) return;
-    if (ctx.incCounter('band:chiave:refreshes', 1) % every !== 0) return;
+    const refreshes = ctx.data?.config?.version?.family === 'regulation'
+      ? ctx.roundStats().refreshes : ctx.incCounter('band:chiave:refreshes', 1);
+    if (refreshes % every !== 0) return;
     if (roundCounter(ctx, 'band:chiave') >= int(p.max_count, Infinity)) return;
     const id = rollBond(ctx, p.bond);
     if (id && ctx.grantChess(id, { source: 'band' })) bumpRound(ctx, 'band:chiave');
@@ -376,7 +389,7 @@ K.refresh_shop_count_gain_coin_bond_char_chess = (ps) => ({
 });
 
 K.preparation_start_add_special_goods_every_n_round = (ps) => ({
-  onRoundStart(ctx) {
+  onPrepStart(ctx) {
     const p = ps[0];
     const n = int(p.round, 0);
     if (n <= 0 || ctx.round % n !== 0) return;
@@ -386,14 +399,28 @@ K.preparation_start_add_special_goods_every_n_round = (ps) => ({
   },
 });
 
+K.shop_up_bond_refresh_once = K.up_shop_next_refresh_must_present_bond_char;
+K.buy_bond_char_gain_coin = K.round_start_gain_coin_by_bond_char_chess_buy;
+K.round_buy_bond_char_price = K.first_buy_in_round_char_price_change;
+
 // ---------------------------------------------------------------------------------------------------------------
 // 鸭爵 “神秘顾客”: "从第5回合起，你和队友遭遇的部分敌人可能会替换为<鸭爵><高普尼克><流泪小子><圆仔>，击倒这些敌人者获得1资金奖励
 // （包括联防阶段）". A global handler rewrites the battle spawn list of every alive player while the band is held by that
 // player or a teammate: from round `round`, in the normal battle, the Final Assault and the Hidden Core (PRTS 卫戍协议：盟约
 // 下半/PRTS盟约记录 鸭爵 备注 "每回合将有0~2名敌人被替换为上述敌人之一…且在最终回合和隐秘核心回合中仍然生效"; the 联防 phase
-// replaces nothing: its enemies are leaks, which keep their bounty). min..max (0–2, uniform [ASSUMED]) of the player's
-// ground enemies from the `minweight`–`maxweight` share of the player's enemies (time order) [ASSUMED reading of the two
-// weights] — any wave enemy but the leader, its parts, bounties, earlier swaps and uncounted units. Elites are eligible
+// replaces nothing: its enemies are leaks, which keep their bounty). One draw per round for every player (GitHub #839:
+// 「每回合…被替换」, the key's `all_player`): min..max (0–2, uniform [ASSUMED]) ground enemies of the round's own wave
+// (`ev.waveSpawns`: before the player's bounty units, which differ per player) from the `minweight`–`maxweight` share of
+// that wave's units in time order, the leader and its parts left out of the share [ASSUMED reading of the two weights] —
+// any wave enemy but the leader, its parts and uncounted units —, with a stream of its own from the match seed
+// (`ctx.seedFor('duck:<round>')`: no player's meta stream, the same in the previews), so every player has the same count
+// and the same units [ASSUMED: the same units]; each player's list swaps the k-th own unit of the picked action at its own
+// (bounty-re-timed) time and route. Only units of the lower lane are drawn: a route starting at the lower gate
+// (shared/constants.js gateOf — normal fields (9,10), not (12,10)). The swapped-in kind is drawn per player, one per round
+// (a stream of its own, `duck:<round>:<playerId>`), so a player's two swaps are the same kind while players can differ.
+// All three from the reporter's recordings of the official game (GitHub #839, 2026-10-23: four players 2鼠 / 2狗 / 2鼠 /
+// 2鸭 in one wave, all on the lower lane; a 联防 of 6熊 = three teammates' 2熊 each; the maintainer's decision of
+// 2026-11-01). Elites are eligible
 // too [ASSUMED: the text names no rank; one rule for every battle; about two thirds of the leader rounds' escorts in that
 // share are elites, so a NORMAL-only rule would leave most Final Assault halves without a candidate — ≈ 80 % instead of
 // ≈ 36 % of the R14 pair-field halves over 40 seeds]. Flyers are never swapped [ASSUMED: the four are ground units and a
@@ -402,7 +429,9 @@ K.preparation_start_add_special_goods_every_n_round = (ps) => ({
 // list that its two players' handlers edit in turn; each player's 0–2 come from the enemies whose route ends on that
 // player's half (`ev.side` + `ev.routes`, the half rule of the field's bounties, server/match/waves.js routeByMotion), the
 // share taken over that half [ASSUMED: "你和队友遭遇的敌人" — the enemies heading for the player's own protection point;
-// each official client simulates its own battle, docs/research/08 appendix A]. The originals never exist, so none of
+// each official client simulates its own battle, docs/research/08 appendix A], with the same round stream on both halves
+// (no side salt [ASSUMED]): halves that line up pick mirrored units; a half of three or fewer units has none in the share.
+// The originals never exist, so none of
 // their death / kill / leak effects happen. Reaching the protection point costs 1 LP ("但进入保护目标点将减少1点目标生命值":
 // the enemies' data lpr, tools/build-data.mjs). The swaps carry the spawn tag 'duck': their 隐匿 (流泪小子) comes back no
 // sooner than 1 s after a block ends, not the official 0 s (content/enemies/helpers.js DUCK_STEALTH_RESTORE — the owner's
@@ -416,21 +445,30 @@ const DUCK_KINDS = new Set(['normal', 'boss', 'hidden']);
 /** Boss-field column between the left ('L') and the right ('R') player's half (the goals are at cols 2–3 / 17). */
 const BOSS_MID_COL = (GEO.BOSS_RECT.c0 + GEO.BOSS_RECT.c1) / 2;
 
-function duckParams(bandId = DUCK_BAND) {
-  for (const b of buffsOf(bandRecord(bandId))) if (b.key === 'round_start_all_player_change_enemy_2') return b.p;
+function duckParams(bandId = DUCK_BAND, commandEffectId = null) {
+  const record = commandEffectId ? gameData().effects?.[commandEffectId] : bandRecord(bandId);
+  for (const b of buffsOf(record)) if (b.key === 'round_start_all_player_change_enemy_2') return b.p;
   return null;
 }
 
+/** The identity of a wave unit: its action (`actionIndex`), else the spec's place among the list's own specs. */
+const unitAction = (s, pos) => (Number.isInteger(s.actionIndex) ? s.actionIndex : `#${pos}`);
+/** A spawn the swap never counts as the wave's own: bounty units (per player) and earlier swaps. */
+const notOwn = (s) => !s || s.tag === 'bounty' || s.tag === 'duck';
+
 /**
- * Rewrite `spawns` in place (exported for tests). Returns the replaced spawn specs. `side` ('L' | 'R', a pair boss
- * field) limits the swap to the spawns whose route (`routes[routeIndex]`) ends on that half of the field.
+ * The round's swaps (exported for tests): `{ action, k, enemyKey }` — the k-th unit of a wave action becomes enemyKey.
+ * Drawn from `base`, the round's own wave (no bounty units: they differ per player), so every player who uses the same
+ * `rng` stream on the same wave gets the same count and the same units (GitHub #839); only units whose route
+ * (`routes[routeIndex]`) starts at the lower gate (gateOf; `leader`: a boss / hidden field's rows). The 鸭爵 enemy is one
+ * per call, drawn with `typeRng` (the player's own stream; default `rng`). `side` ('L' | 'R', a pair boss field) limits
+ * the draw to the units whose route ends on that half.
  */
-export function duckReplace(ctx, spawns, p, ownerPlayerId, { routes = null, side = null } = {}) {
-  const gd = ctx.gd;
+export function duckPicks(gd, rng, base, p, { routes = null, side = null, leader = false, typeRng = rng } = {}) {
   const ducks = list(p.enemylist).filter((k) => gd.enemy(k));
-  if (!ducks.length || !Array.isArray(spawns)) return [];
+  if (!ducks.length || !Array.isArray(base)) return [];
   const lo = Math.max(0, int(p.min, 0)), hi = Math.max(lo, int(p.max, lo));
-  const want = lo + ctx.rng.int(hi - lo + 1);
+  const want = lo + rng.int(hi - lo + 1);
   if (want <= 0) return [];
   const half = side === 'L' || side === 'R';
   const onHalf = (s) => {
@@ -439,66 +477,101 @@ export function duckReplace(ctx, spawns, p, ownerPlayerId, { routes = null, side
     const c = r && Array.isArray(r.end) ? Number(r.end[1]) : NaN;
     return side === 'R' ? c > BOSS_MID_COL : c < BOSS_MID_COL;
   };
-  // one entry per enemy of the player (split multi-count specs), in spawn-time order
+  // one entry per enemy of the wave (split multi-count specs), in spawn-time order
   const flat = [];
-  for (let i = 0; i < spawns.length; i++) {
-    const s = spawns[i];
-    if (!s || !onHalf(s)) continue;
+  const seen = new Map();
+  let pos = -1;
+  for (let i = 0; i < base.length; i++) {
+    const s = base[i];
+    if (notOwn(s)) continue;
+    pos++;
+    const action = unitAction(s, pos);
     const cnt = Math.max(1, int(s.count, 1));
-    for (let k = 0; k < cnt; k++) flat.push({ i, k, t: num(s.time, 0) + k * num(s.interval, 0) });
+    const k0 = seen.get(action) ?? 0;
+    seen.set(action, k0 + cnt);
+    // the leader and its parts are not in the share either [ASSUMED: the client never sends the leader's action to the
+    // server (ShouldActionUpToServer, waves.js templateSpawns), so a draw for every player sees the escorts only; it
+    // also keeps a pair field's two halves alike — the leader's route ends on one of them]
+    if (!onHalf(s) || s.tag === 'boss' || s.tag === 'part') continue;
+    for (let k = 0; k < cnt; k++) flat.push({ i, action, k: k0 + k, t: num(s.time, 0) + k * num(s.interval, 0) });
   }
   flat.sort((a, b) => a.t - b.t || a.i - b.i || a.k - b.k);
   const w0 = num(p.minweight, 0), w1 = num(p.maxweight, 1);
   const n = flat.length;
   const ok = flat.filter((f, j) => {
-    const s = spawns[f.i];
+    const s = base[f.i];
     const e = gd.enemy(s.enemyKey);
     const frac = n > 1 ? j / (n - 1) : 0;
+    const route = Array.isArray(routes) ? routes[s.routeIndex] : null;
     return !s.tag && s.countInTotal !== false && e && e.rank !== 'BOSS' && !e.notCountInTotal && e.stats?.motion !== 'FLY'
-      && frac >= w0 - 1e-9 && frac <= w1 + 1e-9;
+      && frac >= w0 - 1e-9 && frac <= w1 + 1e-9 && gateOf(route?.start, leader) === 'lower';
   });
-  const picked = ctx.rng.shuffle(ok).slice(0, want);
+  const picked = rng.shuffle(ok).slice(0, want);
   if (!picked.length) return [];
-  const byIdx = new Map();
-  for (const f of picked) { if (!byIdx.has(f.i)) byIdx.set(f.i, new Set()); byIdx.get(f.i).add(f.k); }
+  const enemyKey = typeRng.pick(ducks);
+  return picked.map((f) => ({ action: f.action, k: f.k, enemyKey }));
+}
+
+/**
+ * Apply the round's swaps to a player's spawn list in place (exported for tests): the k-th own unit of each picked
+ * action — counted over the list's own specs of that action in list order, so a run re-timed around bounty units
+ * (waves.js withBounties) still finds it — becomes the swap at that player's own time and route. Returns the swaps.
+ */
+export function applyDuckPicks(spawns, picks, ownerPlayerId) {
+  if (!Array.isArray(spawns) || !picks.length) return [];
+  const byAction = new Map();
+  for (const pk of picks) { if (!byAction.has(pk.action)) byAction.set(pk.action, new Map()); byAction.get(pk.action).set(pk.k, pk.enemyKey); }
+  const seen = new Map();
   const out = [];
-  const add = [];
-  for (const [i, ks] of byIdx) {
-    const s = spawns[i];
+  const next = [];
+  let pos = -1;
+  for (const s of spawns) {
+    if (notOwn(s)) { if (s) next.push(s); continue; }
+    pos++;
+    const action = unitAction(s, pos);
     const cnt = Math.max(1, int(s.count, 1));
-    const keep = cnt - ks.size;
-    for (const k of ks) {
-      const d = {
-        ...s, mods: s.mods ? { ...s.mods } : undefined, count: 1, interval: 0,
-        time: num(s.time, 0) + k * num(s.interval, 0), enemyKey: ctx.rng.pick(ducks), tag: 'duck',
-        bounty: { coins: DUCK_COINS, ownerPlayerId },
-      };
+    const k0 = seen.get(action) ?? 0;
+    seen.set(action, k0 + cnt);
+    const ks = byAction.get(action);
+    if (!ks || ![...ks.keys()].some((k) => k >= k0 && k < k0 + cnt)) { next.push(s); continue; }
+    const one = (j) => ({ ...s, mods: s.mods ? { ...s.mods } : undefined, count: 1, interval: 0, time: num(s.time, 0) + j * num(s.interval, 0) });
+    for (let j = 0; j < cnt; j++) {
+      const key = ks.get(k0 + j);
+      if (key == null) { next.push(one(j)); continue; } // the unreplaced copies of a multi-count spec, at their own times
+      const d = { ...one(j), enemyKey: key, tag: 'duck', bounty: { coins: DUCK_COINS, ownerPlayerId } };
       if (d.mods) delete d.mods.slot;
-      add.push(d);
       out.push(d);
     }
-    if (keep <= 0) spawns[i] = null;
-    else if (ks.size) {
-      // keep the unreplaced copies of a multi-count spec as single specs at their original times
-      const rest = [];
-      for (let k = 0; k < cnt; k++) if (!ks.has(k)) rest.push({ ...s, mods: s.mods ? { ...s.mods } : undefined, count: 1, interval: 0, time: num(s.time, 0) + k * num(s.interval, 0) });
-      spawns[i] = null;
-      add.push(...rest);
-    }
   }
-  for (let i = spawns.length - 1; i >= 0; i--) if (spawns[i] == null) spawns.splice(i, 1);
-  spawns.push(...add);
+  spawns.length = 0;
+  spawns.push(...next, ...out);
   return out;
+}
+
+/**
+ * Rewrite `spawns` in place (exported for tests): draw the swaps from `base` (default: `spawns` without its bounty
+ * units) with `rng` (default ctx.rng) and apply them. Returns the replaced spawn specs.
+ */
+export function duckReplace(ctx, spawns, p, ownerPlayerId, { routes = null, side = null, leader = false, base = null, rng = ctx.rng, typeRng = rng } = {}) {
+  if (!Array.isArray(spawns)) return [];
+  const picks = duckPicks(ctx.gd, rng, Array.isArray(base) ? base : spawns.filter((s) => !notOwn(s)), p, { routes, side, leader, typeRng });
+  return applyDuckPicks(spawns, picks, ownerPlayerId);
 }
 
 const duckGlobal = {
   onBattleStart(ctx, ev) {
     if (!ev || !DUCK_KINDS.has(ev.kind) || !Array.isArray(ev.spawns)) return;
-    const holder = [ctx, ...ctx.teammates()].find(t => (t.gd.band(t.bandId())?.effectRef ?? t.bandId()) === DUCK_BAND);
+    const holder = [ctx, ...ctx.teammates()].find(t => duckParams(t.bandId(), t.commandEffectId));
     if (!holder) return;
-    const p = duckParams(holder.bandId());
+    const p = duckParams(holder.bandId(), holder.commandEffectId);
     if (!p || ctx.round < int(p.round, 1)) return;
-    duckReplace(ctx, ev.spawns, p, ctx.playerId, { routes: ev.routes, side: ev.side });
+    // one draw per round for every player (GitHub #839): its own stream from the match seed — no player's meta stream,
+    // the same in the stats preview and the bot rehearsals — on the wave before the player's bounties (ev.waveSpawns);
+    // the kind from the player's own stream
+    const seeded = typeof ctx.seedFor === 'function';
+    const rng = seeded ? createRng(ctx.seedFor(`duck:${ctx.round}`)) : ctx.rng;
+    const typeRng = seeded ? createRng(ctx.seedFor(`duck:${ctx.round}:${ctx.playerId}`)) : rng;
+    duckReplace(ctx, ev.spawns, p, ctx.playerId, { routes: ev.routes, side: ev.side, leader: ev.kind !== 'normal', base: ev.waveSpawns, rng, typeRng });
   },
 };
 
@@ -518,9 +591,9 @@ function merge(parts) {
 }
 
 /** Hooks of one band (null when it has no prep effect). */
-export function bandMetaHandler(bandId) {
+export function bandMetaHandler(bandId, record = bandRecord(bandId)) {
   const groups = new Map();
-  for (const b of buffsOf(bandRecord(bandId))) {
+  for (const b of buffsOf(record)) {
     if (!b.key || !K[b.key]) continue;
     if (!groups.has(b.key)) groups.set(b.key, []);
     groups.get(b.key).push(b.p);
@@ -535,4 +608,14 @@ export function registerMeta(registry) {
     if (h) registry.band(id, h);
   }
   registry.global('bands_ducklord', duckGlobal);
+  registry.global('bands_devices', {
+    onRoundStart(ctx) {
+      for (const holder of [ctx, ...ctx.teammates()]) {
+        for (const b of buffsOf(bandRecord(holder.bandId()))) {
+          if (b.key !== 'auto_chess_change_map') continue;
+          for (const [alias, on] of Object.entries(b.p)) if (alias.startsWith('trap_') && alias.includes('#')) ctx.setDeviceActive(alias, !!on);
+        }
+      }
+    },
+  });
 }

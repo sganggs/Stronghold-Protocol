@@ -21,7 +21,7 @@ import { createStudio } from '../../server/studio/index.js';
 import { createPluginRegistry, readVanillaAssets } from '../../server/plugins/registry.js';
 import { createVisualSets } from '../../server/plugins/visualSet.js';
 import { buildContentSet, contentSetFiles } from '../../server/plugins/contentSet.js';
-import { PLUGIN_LIMITS } from '../../shared/plugins/manifest.js';
+import { PLUGIN_LIMITS, PLUGIN_MAX_BYTES } from '../../shared/plugins/manifest.js';
 import { skel, atlas, png } from '../helpers/pluginFixtures.js';
 import { canonicalJson } from '../../shared/plugins/identity.js';
 import { bundleForgeKits, FORGE_IMPORT_MAP, KIT_BUNDLE_BYTES, KIT_MODULES_MAX, SDK_KIT_NAMES } from '../../server/plugins/forgeKits.js';
@@ -379,7 +379,7 @@ test('malicious zip and directory input is refused and a script in the pack is n
     assert.equal(link.issues[0].code, 'PLUGIN_FORGE_ZIP');
     assert.match(link.issues[0].detail, /symbolic link/);
 
-    const huge = await importForge({ zip: zipOf([{ name: 'pack.json', data: Buffer.from('{"id":"rose-huge","name":"x","version":"1.0.0"}'), rawSize: PLUGIN_LIMITS.pluginBytes + 1 }]) }, opts);
+    const huge = await importForge({ zip: zipOf([{ name: 'pack.json', data: Buffer.from('{"id":"rose-huge","name":"x","version":"1.0.0"}'), rawSize: PLUGIN_MAX_BYTES + 1 }]) }, opts);
     assert.equal(huge.issues[0].code, 'PLUGIN_FORGE_ZIP');
     assert.match(huge.issues[0].detail, /larger than/);
 
@@ -882,7 +882,7 @@ test('a sparse zip over the raw cap is refused before it is read', async () => {
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-forge-sparse-'));
   const zipPath = path.join(parent, 'big.zip');
   const fd = fs.openSync(zipPath, 'w');
-  fs.ftruncateSync(fd, 201 * 1024 * 1024);
+  fs.ftruncateSync(fd, PLUGIN_MAX_BYTES + 1024 * 1024);
   fs.closeSync(fd);
   const real = fs.readFileSync;
   let reads = 0;
@@ -1279,6 +1279,7 @@ test('the imported script plugin runs in our own sandbox: the kit\'s talent rais
   const { loadContentSet } = await import('../../public/js/content.js');
   const { WorkerSimHost } = await import('../../public/js/battle/simHost.js');
   const { Worker } = await import('node:worker_threads');
+  const { WORKER_LOAD_MS } = await import('../helpers/simHostFixture.js');
   const served = contentSetFiles(built);
   const fetch = async (url) => {
     const body = url.startsWith('/cs/') ? served.get(url.split('/').slice(3).join('/'))?.body : fs.readFileSync(path.join(ROOT, url.split('?')[0]));
@@ -1286,7 +1287,7 @@ test('the imported script plugin runs in our own sandbox: the kit\'s talent rais
   };
   const loaded = await loadContentSet(built.cs, { fetch, retryDelays: [] });
   assert.equal(loaded.canSim, true);
-  const host = new WorkerSimHost({ workerFactory: () => {
+  const host = new WorkerSimHost({ loadTimeoutMs: WORKER_LOAD_MS, workerFactory: () => {
     const worker = new Worker(new URL('../helpers/simWorkerNode.mjs', import.meta.url));
     const port = { postMessage: (m) => worker.postMessage(m), terminate: () => worker.terminate() };
     worker.on('message', (data) => port.onmessage?.({ data }));

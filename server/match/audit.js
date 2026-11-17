@@ -41,6 +41,7 @@
 //                 silent (deadline 0)
 // Checks never throw into the match: an exception inside a check is itself recorded as a violation.
 
+import { keepsFunds } from './bandCommands.js';
 import { PHASE } from '../../shared/constants.js';
 import { collectViolations } from './invariants.js';
 import { mergeTile, pieceDir, canPlace, placeClass } from './board.js';
@@ -67,7 +68,7 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
     audit.checks++;
     try { fn(); } catch (e) { fail(`audit ${label} threw: ${e && e.message}`); }
   };
-  const carries = (ps) => gd.leftoverKeptBands.includes(ps.bandId);
+  const carries = (ps) => keepsFunds(ps);
   const wrap = (obj, name, around) => {
     const orig = obj[name];
     if (typeof orig !== 'function') return;
@@ -98,7 +99,7 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
   const dueOf = (ps) => { let d = tempDue.get(ps); if (!d) tempDue.set(ps, (d = new Map())); return d; };
   const overdue = (ps, label) => {
     const d = dueOf(ps);
-    for (const p of ps.temp) {
+    for (const p of ps.tempPieces()) {
       if (!p) continue;
       const due = d.get(p.uid);
       if (due != null && due < endedOf(ps)) fail(`${ps.playerId}: temp piece ${p.id} (due at prep ${due}) survived ${label} (${endedOf(ps)} preps ended)`);
@@ -108,14 +109,14 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
     wrap(ps, '_putTemp', function (orig, i, piece) {
       const res = orig(i, piece);
       // after Ready / at the prep end the player cannot act on it any more: due at the next prep
-      if (piece) dueOf(ps).set(piece.uid, endedOf(ps) + (m.phase === PHASE.PREP && ps.ready ? 1 : 0));
+      if (piece && (!ps.equipHand || i >= gd.tempSize)) dueOf(ps).set(piece.uid, endedOf(ps) + (m.phase === PHASE.PREP && ps.ready ? 1 : 0));
       return res;
     });
     wrap(ps, 'setReady', function (orig, on) {
       const was = ps.ready;
       const res = orig(on);
       // un-ready: the player can act on what arrived while it was ready — due at this prep again
-      if (res && res.ok && was && !on) for (const p of ps.temp) if (p && (dueOf(ps).get(p.uid) ?? 0) > endedOf(ps)) dueOf(ps).set(p.uid, endedOf(ps));
+      if (res && res.ok && was && !on) for (const p of ps.tempPieces()) if (p && (dueOf(ps).get(p.uid) ?? 0) > endedOf(ps)) dueOf(ps).set(p.uid, endedOf(ps));
       if (res && res.ok && on) check('ready', () => { if (!ps.tempEmpty) fail(`${ps.playerId}: ready with a non-empty temp`); });
       return res;
     });
@@ -194,7 +195,7 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
     });
     wrap(ps, 'sell', function (orig, uid) {
       const loc = ps.find(uid);
-      const gain = loc && loc.piece.kind === 'chess' ? gd.sellPrice(loc.piece.id) : null;
+      const gain = loc && loc.piece.kind === 'chess' ? ps.sellPriceOf(loc.piece) : null;
       const f0 = ps.funds;
       const fx = hasSpendEffects(m, ps);
       const res = orig(uid);
@@ -272,7 +273,7 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
     });
     wrap(ps, 'endPrep', function (orig) {
       // a temp piece that got there by other means (not _putTemp) was in temp during this prep: due now
-      for (const p of ps.temp) if (p && !dueOf(ps).has(p.uid)) dueOf(ps).set(p.uid, endedOf(ps));
+      for (const p of ps.tempPieces()) if (p && !dueOf(ps).has(p.uid)) dueOf(ps).set(p.uid, endedOf(ps));
       const res = orig();
       prepsEnded.set(ps, endedOf(ps) + 1);
       check('prep end', () => {
@@ -308,12 +309,25 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
     });
     return r;
   });
+  wrap(m, 'enterCustomCheck', function (orig) {
+    const r = orig();
+    runInvariants();
+    // everyone already confirmed (bots): maybeEnd cleared the deadline while the phase is still CUSTOM_CHECK
+    if (m.phase === PHASE.CUSTOM_CHECK && m.soloUntimed) {
+      check('diy bring', () => { if (m.deadline) fail('untimed 选择自编 is timed'); });
+    } else if (m.phase === PHASE.CUSTOM_CHECK && m.deadline) {
+      expectDeadline(gd.customCheckSeconds(), 'CUSTOM_CHECK');
+    }
+    return r;
+  });
   wrap(m, 'enterBattleCheck', function (orig) {
     const r = orig();
     runInvariants();
     check('bands', () => {
       for (const ps of m.order) {
         if (!ps.bandId || !gd.bandAllowed(ps.bandId)) fail(`${ps.playerId}: band ${ps.bandId} not allowed`);
+        // a seat gone before its pick keeps the 0 LP it left with (§37.65)
+        if (!ps.alive) { if (ps.lp !== 0) fail(`${ps.playerId}: LP ${ps.lp} of a departed seat`); continue; }
         if (ps.lp !== gd.startLp(ps.bandId)) fail(`${ps.playerId}: LP ${ps.lp} != totalHp ${gd.startLp(ps.bandId)} of ${ps.bandId}`);
       }
       expectDeadline(gd.timer('battleCheck'), 'BATTLE_CHECK', { silentSolo: true });

@@ -16,10 +16,17 @@ import { isShopItem } from '../sim/simdata.js';
 import { mergeData } from '../../shared/plugins/dataUtils.js';
 import { standInRecord } from '../../shared/standIn.js';
 import { MAX_OFFER_SLOTS } from './player/common.js';
+import { diyBringLimitsOf } from '../../shared/diyBring.js';
+import { equipmentCapacity } from '../../shared/itemRules.js';
 
 const own = (map, id) => (map && typeof map === 'object' && typeof id === 'string' && Object.hasOwn(map, id) && map[id] && typeof map[id] === 'object' ? map[id] : null);
 const numOr = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 const posIntOr = (v, d) => (Number.isInteger(v) && v > 0 ? v : d);
+/** 规程's avatar thresholds (activity_table autoChessData.constData), for data without them. */
+export const AVATAR_WIN_STREAK = Object.freeze([3, 5]);
+export const AVATAR_BOSS_DAMAGE = Object.freeze([0.2, 0.5, 0.8]);
+/** An ascending list of positive numbers, else the fallback. @param {any} v @param {readonly number[]} d */
+const thresholdsOr = (v, d) => (Array.isArray(v) && v.length && v.every((x, i) => typeof x === 'number' && x > 0 && (i === 0 || x > v[i - 1])) ? v : d);
 
 export const DEFAULTS = Object.freeze({
   income: [0, 4, 5, 6, 7, 8, 9, 10, 11, 12, 12, 12, 12, 12, 12, 12],
@@ -161,7 +168,9 @@ export class GameData {
   bossPoolHp(bossId, aliveCount) {
     const boss = this.boss(bossId);
     const diff = this.difficulty;
-    let base = boss && boss.bloodPoint && Number.isFinite(boss.bloodPoint[diff]) ? boss.bloodPoint[diff] : null;
+    // 规程 lists the pool per mode (bloodByMode: 规程等级 1–20 share a difficulty, not a pool); 盟约 per difficulty
+    let base = Number.isFinite(boss?.bloodByMode?.[this.modeId]) ? boss.bloodByMode[this.modeId] : null;
+    if (base == null && boss && boss.bloodPoint && Number.isFinite(boss.bloodPoint[diff])) base = boss.bloodPoint[diff];
     if (base == null && boss && boss.bloodPoint) base = Object.values(boss.bloodPoint).find((v) => Number.isFinite(v)) ?? null;
     if (base == null) base = 500000;
     return Math.max(1, Math.round(base * this.bossPoolShare(aliveCount)));
@@ -289,10 +298,13 @@ export class GameData {
   get tempSize() { return posIntOr(this.economy.tempSize, DEFAULTS.tempSize); }
   get deployCap() { return posIntOr(this.economy.deployCap, DEFAULTS.deployCap); }
   get equipPerChess() { return posIntOr(this.economy.equipPerChess, DEFAULTS.equipPerChess); }
+  equipSlots(id) { return equipmentCapacity(this.chess(id), this.equipPerChess); }
   get maxArtsPerRound() { return posIntOr(this.economy.maxArtsPerRound, DEFAULTS.maxArtsPerRound); }
   get goldenCopies() { return posIntOr(this.economy.goldenCopies, DEFAULTS.goldenCopies); }
   get itemMergeCount() { return posIntOr(this.economy.itemMergeCount, DEFAULTS.itemMergeCount); }
   get leftoverKeptBands() {
+    if (this.raw.config?.version) return Object.values(this.raw.bands || {})
+      .filter(b => b.buffs?.some(buff => buff.key === 'coin_carry_over')).map(b => b.bandId);
     const ids = Array.isArray(this.economy.leftoverFundsKeptByBands) ? this.economy.leftoverFundsKeptByBands : DEFAULTS.leftoverFundsKeptByBands;
     const extra = Object.values(this.raw.bands || {}).filter(b => b.effectRef && ids.includes(b.effectRef)).map(b => b.bandId);
     return extra.length ? [...ids, ...extra] : ids;
@@ -435,7 +447,8 @@ export class GameData {
   }
 
   /**
-   * Official enemy multipliers of round r (config enemyScale: the PRTS table + 终极 speed ×1.15 from R3). `supplyHpMul`
+   * Official enemy multipliers of round r (config enemyScale: the PRTS stack table × the season's effect values, 终极 急行军
+   * from R3 — ×1.15 on 下半, ×1.30 on 规程; tools/build-data.mjs enemyStepsOf). `supplyHpMul`
    * (only when ≠ 1: co-op 终极 R5–R15) = the share of hpMul from 补给线 / 补给线II (config `supplyHp`), effects whose
    * `enemy_exclude` leaves out the 14 器物 hit-count keys — they take hpMul / supplyHpMul (archetypes.js `times`).
    */
@@ -462,6 +475,17 @@ export class GameData {
   }
 
   get lpCapPerRound() { return posIntOr(this.config.lpCapPerRound, DEFAULTS.lpCapPerRound); }
+  /**
+   * The avatar's 完美连胜 levels (§37.148): the streak lengths — rounds in a row without an LP loss — where level 1 and 2
+   * start. 规程's constData playerAvatarWinStreakThresholds ([3, 5]); a version without it takes 规程's values (the owner
+   * asked for the badge in every version).
+   */
+  get winStreakThresholds() { return thresholdsOr(this.config.constants?.playerAvatarWinStreakThresholds, AVATAR_WIN_STREAK); }
+  /**
+   * The avatar's 领袖伤害 levels (§37.148): the player's share of the round's leader pool where levels 1–3 start. 规程's
+   * constData playerAvatarBossDamageThresholds ([0.2, 0.5, 0.8], the BOSS_HIT tickers' steps); other versions likewise.
+   */
+  get bossDamageThresholds() { return thresholdsOr(this.config.constants?.playerAvatarBossDamageThresholds, AVATAR_BOSS_DAMAGE); }
   /**
    * Boss overtime (`bossTurnHpReduceTime` 150 / 1 LP per second): a server turn timer of turnInfoDataDict like
    * prepPhaseTime, so REAL seconds on the same clock as the boss level's 120 s maxPlayTime (combat limits are real
@@ -504,6 +528,32 @@ export class GameData {
       difficulties: Array.isArray(h.difficulties) ? h.difficulties : DEFAULTS.hiddenCore.difficulties,
     };
   }
+  get regulationBondDraw() { return this.config.version?.rules?.bondDraw === 'regulation'; }
+
+  /** Per-tier 选择自编 caps, or null when this data has no CUSTOM_CHECK step and limit map. */
+  get diyBringLimits() { return diyBringLimitsOf(this.config); }
+
+  /** Official seconds of 选择自编 (enterSteps CUSTOM_CHECK `time`; 30 on 规程). */
+  customCheckSeconds() {
+    const steps = this.config?.timers?.enterSteps;
+    const step = Array.isArray(steps) ? steps.find((s) => s && s.step === 'CUSTOM_CHECK') : null;
+    const t = step && Number(step.time);
+    return Number.isFinite(t) && t > 0 ? t : 30;
+  }
+
+  /**
+   * Regulation: core bonds decide when present; otherwise all add-ons must be grey to exclude the operator.
+   * Official multiplayer recording BV1hmWL6fEmQ (00:13 / 01:20): 初雪 is banned with 谢拉格 grey and 协防 lit.
+   * Multiple cores retain the operator while any core is lit. Covenant keeps its original joint every-bond rule.
+   */
+  bondsExclude(rec, off) {
+    const bonds = Array.isArray(rec?.bonds) ? rec.bonds : [];
+    if (!this.regulationBondDraw) return bonds.length > 0 && bonds.every(b => off.has(b));
+    const core = bonds.filter(b => this.bond(b)?.isCore);
+    const relevant = core.length ? core : bonds;
+    return relevant.length > 0 && relevant.every(b => off.has(b));
+  }
+
   bans(difficulty) {
     const b = this.config.bans && this.config.bans[difficulty];
     const d = DEFAULTS.bans[difficulty] || { core: 0, addon: 0 };
@@ -528,6 +578,8 @@ export class GameData {
   bandAllowed(bandId) {
     const b = this.band(bandId);
     if (!b) return false;
+    // 规程 turns a band off per mode (bands.json inactiveModeIds: 30 strategies are not offered in 极速模拟)
+    if (Array.isArray(b.inactiveModeIds) && b.inactiveModeIds.includes(this.modeId)) return false;
     const list = Array.isArray(b.modeTypeList) ? b.modeTypeList : null;
     if (!list) return true;
     return list.includes(this.isSolo ? 'SINGLE' : 'MULTI');

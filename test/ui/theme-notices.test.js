@@ -148,6 +148,8 @@ test('settings renders a dependent theme as active while keeping its notice-only
     useStore: (select, _equal, store) => select(store ? store.get() : { installedPlugins: 2 }), useEffect() {},
     loadCatalog() {}, cosmeticPlugins, isPersonalCosmetic, personalSet, resolveThemeVars, themeVarsOf, installedCount, pluginName,
     pluginMicro: (p) => p.id, MicroLabel: 'span',
+    // the section caption (settings.js SetHead, round 72's new look): an inert tag here
+    SetHead: 'div',
     // the 显示其他玩家的皮肤 row (PR #686) sits in the same section: inert here
     useSettings: () => ({ otherSkins: true }), updateSettings() {}, OtherSkinsRow: 'span', hasAnySkinChoices: () => false,
     html: (strings, ...values) => strings.reduce((out, text, i) => out + text + (values[i] ?? ''), ''),

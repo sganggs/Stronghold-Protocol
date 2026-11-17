@@ -3,7 +3,9 @@
 // TAKE_DAMAGE. A deliberate, documented deviation (DESIGN §21.29): 深巡 S2 行动能力剥夺, 雷蛇 S2 反击电弧, 号角 S2 暴风号令
 // and S3 终极防线, 灰毫 S1 攻击力强化·γ型 and S2 专注轰击. It lives in the data (tools/build-data.mjs TRIGGER_DEVIATIONS,
 // keyed per chess: 灰毫 S1 is the generic skcom_atk_up[3] other chess carry too), `rawRule` keeps the official TAKE_DAMAGE.
-// Every other MANUAL 重装 skill — 深巡 S1 侵袭破坏应对 among them — still waits for a hit.
+// Every other MANUAL 重装 skill — 深巡 S1 侵袭破坏应对 among them — still waits for a hit. One kit carries its own
+// DEFAULT line since 2026-10-18 (the owner's decision, KIT_DEFAULT below): 瑕光 S3 先贤化身 opens with an attackable
+// target in range, at full HP too — "能攻击到人时就会开技能"; the data keeps the official row in `rawRule`.
 // One more since 2026-10-04 (the owner's decision after GitHub issue #32 item 1, DESIGN §22.10): 余 S2 厚礼上宾 casts with an
 // enemy on its own 技能范围 x-1 — SKILL_RANGE, customRangeGrid its range (his attack range is his own tile, so the basic
 // strategy could not see an enemy he can pull); `rawRule` keeps TAKE_DAMAGE.
@@ -39,6 +41,14 @@ const DEVIATED = [
 const ACTIVE = new Set(['skchr_udflow_2']);
 /** 余 S2 厚礼上宾: SKILL_RANGE on its own x-1 (DESIGN §22.10). */
 const SKILL_RANGE_DEVIATED = [['chess_char_6_03_a', 'skchr_yu_2']];
+/**
+ * A kit's own deviation, not a data one (the owner's decision of 2026-10-18): 瑕光 S3 先贤化身 opens with an attackable
+ * target in range — the basic strategy DEFAULT — at full HP too ("能攻击到人时就会开技能"), not only after a hit. It is
+ * `trigger: 'DEFAULT'` in `kits/ops/chess_char_3_12-blemsh.js`, so the data keeps the official 重装 row (TAKE_DAMAGE)
+ * for traceability and the kit's spec overrides it. Cases: test/sim/blemsh-s3-trigger.test.js.
+ */
+const KIT_DEFAULT = [['chess_char_3_12_a', 'skchr_blemsh_3']];
+const isKitDefault = (c, skillId) => KIT_DEFAULT.some(([id, s]) => id === c.baseId && s === skillId);
 const both = (normalId) => [normalId, CHESS[normalId].goldenId];
 const isDeviated = (c, skillId) => [...DEVIATED, ...SKILL_RANGE_DEVIATED].some(([id, s]) => id === c.baseId && s === skillId);
 const ENEMY = 'enemy_1422_lrsldr';
@@ -167,12 +177,13 @@ test('real battle: 余 S2 casts once the walker steps onto its x-1, before anyth
   }
 });
 
-test('real battle: 深巡 S1 and every other MANUAL 重装 skill still wait for a hit (TAKE_DAMAGE)', () => {
+test('real battle: 深巡 S1 and every other MANUAL 重装 skill still wait for a hit (TAKE_DAMAGE); 瑕光 S3 is the kit\'s DEFAULT', () => {
   let n = 0;
   for (const c of Object.values(CHESS)) {
     if (c.profession !== 'TANK' || c.isDiy) continue;
     for (const s of c.skills) {
       if (s.skillType !== 'MANUAL' || s.trigger.rule !== 'TAKE_DAMAGE') continue;
+      if (isKitDefault(c, s.skillId)) continue; // 瑕光 S3: the kit's trigger: 'DEFAULT' (KIT_DEFAULT above)
       const r = firstCast(c.chessId, s.skillId);
       const where = `${c.chessId} ${c.name} ${s.skillId}: ${JSON.stringify(r)}`;
       assert.equal(r.rule, 'TAKE_DAMAGE', where);
@@ -182,7 +193,20 @@ test('real battle: 深巡 S1 and every other MANUAL 重装 skill still wait for 
       n++;
     }
   }
-  assert.ok(n >= 40, `${n} TAKE_DAMAGE records checked`);
+  assert.ok(n >= 38, `${n} TAKE_DAMAGE records checked`);
+  // the kit's deviation: she casts with an enemy in range at full HP, before anything hits her
+  for (const [normalId, skillId] of KIT_DEFAULT) {
+    for (const id of both(normalId)) {
+      const r = firstCast(id, skillId, { spawnAt: 3 });
+      const where = `${id} ${skillId}: ${JSON.stringify(r)}`;
+      assert.equal(r.rule, 'DEFAULT', where);
+      assert.ok(r.cast != null && r.cast >= 3, `cast with an enemy in range — ${where}`);
+      assert.equal(r.reason, 'DEFAULT', where);
+      // an attackable target: an enemy on her range tiles, or the enemy she blocks (its block radius is off her 1-1 tile)
+      assert.ok(r.enemyInRange || r.blocking, `an attackable target at the cast — ${where}`);
+      assert.ok(r.hurt == null || r.hurt > r.cast, `cast before the first hit — ${where}`);
+    }
+  }
   const udflowS1 = firstCast('chess_char_1_04_a', 'skchr_udflow_1');
   assert.ok(udflowS1.cast > 10, `深巡 S1 waits for the enemy to reach and hit her: ${JSON.stringify(udflowS1)}`);
 });

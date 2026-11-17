@@ -1,0 +1,287 @@
+{
+  "about": "Versions M0 keying baseline, frozen from the untouched 0.3.2 integration head db8e226d (default data) before item behaviour was keyed by effectId: the item handler keys (battle.byItem), each item id → its handler key (battle.dispatch), the items with a battle part (battle.battleEffect), the items/meta.js overrides (meta.wraps) and the item: entries of the default meta registry with their hooks (registry.itemHooks). test/versions-keying.test.js checks the default data against it. It is not regenerated: an intended change of an item handler, an item override or a built-in item hook edits the affected entry by hand and says why in the commit (band:, choice:, garrison: and other registry entries are not pinned).",
+  "battle": {
+    "byItem": [
+      "chess_item_3_02_e",
+      "chess_item_3_04_e",
+      "chess_item_3_05_e",
+      "chess_item_3_06_e",
+      "chess_item_3_11_e",
+      "chess_item_4_03_e",
+      "chess_item_4_04_e",
+      "chess_item_4_05_e",
+      "chess_item_4_06_e",
+      "chess_item_4_07_e",
+      "chess_item_4_08_e",
+      "chess_item_4_10_e",
+      "chess_item_4_11_e",
+      "chess_item_4_12_e",
+      "chess_item_5_01_e",
+      "chess_item_5_02_e",
+      "chess_item_5_03_e",
+      "chess_item_5_09_e",
+      "chess_item_6_01_e",
+      "chess_item_6_02_e",
+      "chess_item_6_03_e",
+      "chess_item_6_04_e",
+      "chess_item_6_05_e",
+      "chess_item_6_06_e",
+      "chess_item_6_07_e",
+      "chess_item_6_10_e",
+      "chess_item_6_11_e"
+    ],
+    "dispatch": {
+      "chess_item_3_02_e_a": "chess_item_3_02_e",
+      "chess_item_3_02_e_b": "chess_item_3_02_e",
+      "chess_item_3_04_e_a": "chess_item_3_04_e",
+      "chess_item_3_04_e_b": "chess_item_3_04_e",
+      "chess_item_3_05_e_a": "chess_item_3_05_e",
+      "chess_item_3_05_e_b": "chess_item_3_05_e",
+      "chess_item_3_06_e_a": "chess_item_3_06_e",
+      "chess_item_3_06_e_b": "chess_item_3_06_e",
+      "chess_item_3_11_e_a": "chess_item_3_11_e",
+      "chess_item_3_11_e_b": "chess_item_3_11_e",
+      "chess_item_4_03_e_a": "chess_item_4_03_e",
+      "chess_item_4_03_e_b": "chess_item_4_03_e",
+      "chess_item_4_04_e_a": "chess_item_4_04_e",
+      "chess_item_4_04_e_b": "chess_item_4_04_e",
+      "chess_item_4_05_e_a": "chess_item_4_05_e",
+      "chess_item_4_05_e_b": "chess_item_4_05_e",
+      "chess_item_4_06_e_a": "chess_item_4_06_e",
+      "chess_item_4_06_e_b": "chess_item_4_06_e",
+      "chess_item_4_07_e_a": "chess_item_4_07_e",
+      "chess_item_4_07_e_b": "chess_item_4_07_e",
+      "chess_item_4_08_e_a": "chess_item_4_08_e",
+      "chess_item_4_08_e_b": "chess_item_4_08_e",
+      "chess_item_4_10_e_a": "chess_item_4_10_e",
+      "chess_item_4_10_e_b": "chess_item_4_10_e",
+      "chess_item_4_11_e_a": "chess_item_4_11_e",
+      "chess_item_4_11_e_b": "chess_item_4_11_e",
+      "chess_item_4_12_e_a": "chess_item_4_12_e",
+      "chess_item_4_12_e_b": "chess_item_4_12_e",
+      "chess_item_5_01_e_a": "chess_item_5_01_e",
+      "chess_item_5_01_e_b": "chess_item_5_01_e",
+      "chess_item_5_02_e_a": "chess_item_5_02_e",
+      "chess_item_5_02_e_b": "chess_item_5_02_e",
+      "chess_item_5_03_e_a": "chess_item_5_03_e",
+      "chess_item_5_03_e_b": "chess_item_5_03_e",
+      "chess_item_5_09_e_a": "chess_item_5_09_e",
+      "chess_item_5_09_e_b": "chess_item_5_09_e",
+      "chess_item_6_01_e_a": "chess_item_6_01_e",
+      "chess_item_6_01_e_b": "chess_item_6_01_e",
+      "chess_item_6_02_e_a": "chess_item_6_02_e",
+      "chess_item_6_02_e_b": "chess_item_6_02_e",
+      "chess_item_6_03_e_a": "chess_item_6_03_e",
+      "chess_item_6_03_e_b": "chess_item_6_03_e",
+      "chess_item_6_04_e_a": "chess_item_6_04_e",
+      "chess_item_6_04_e_b": "chess_item_6_04_e",
+      "chess_item_6_05_e_a": "chess_item_6_05_e",
+      "chess_item_6_05_e_b": "chess_item_6_05_e",
+      "chess_item_6_06_e_a": "chess_item_6_06_e",
+      "chess_item_6_06_e_b": "chess_item_6_06_e",
+      "chess_item_6_07_e_a": "chess_item_6_07_e",
+      "chess_item_6_07_e_b": "chess_item_6_07_e",
+      "chess_item_6_10_e_a": "chess_item_6_10_e",
+      "chess_item_6_10_e_b": "chess_item_6_10_e",
+      "chess_item_6_11_e_a": "chess_item_6_11_e",
+      "chess_item_6_11_e_b": "chess_item_6_11_e"
+    },
+    "battleEffect": [
+      "chess_item_1_01_e_a",
+      "chess_item_1_01_e_b",
+      "chess_item_1_02_e_a",
+      "chess_item_1_02_e_b",
+      "chess_item_1_05_e_a",
+      "chess_item_1_05_e_b",
+      "chess_item_2_01_e_a",
+      "chess_item_2_01_e_b",
+      "chess_item_2_03_e_a",
+      "chess_item_2_03_e_b",
+      "chess_item_2_04_e_a",
+      "chess_item_2_04_e_b",
+      "chess_item_3_01_e_a",
+      "chess_item_3_01_e_b",
+      "chess_item_3_02_e_a",
+      "chess_item_3_02_e_b",
+      "chess_item_3_03_e_a",
+      "chess_item_3_03_e_b",
+      "chess_item_3_04_e_a",
+      "chess_item_3_04_e_b",
+      "chess_item_3_05_e_a",
+      "chess_item_3_05_e_b",
+      "chess_item_3_06_e_a",
+      "chess_item_3_06_e_b",
+      "chess_item_3_07_e_a",
+      "chess_item_3_07_e_b",
+      "chess_item_3_08_e_a",
+      "chess_item_3_08_e_b",
+      "chess_item_3_09_e_a",
+      "chess_item_3_09_e_b",
+      "chess_item_3_10_e_a",
+      "chess_item_3_10_e_b",
+      "chess_item_3_11_e_a",
+      "chess_item_3_11_e_b",
+      "chess_item_4_02_e_a",
+      "chess_item_4_02_e_b",
+      "chess_item_4_03_e_a",
+      "chess_item_4_03_e_b",
+      "chess_item_4_04_e_a",
+      "chess_item_4_04_e_b",
+      "chess_item_4_05_e_a",
+      "chess_item_4_05_e_b",
+      "chess_item_4_06_e_a",
+      "chess_item_4_06_e_b",
+      "chess_item_4_07_e_a",
+      "chess_item_4_07_e_b",
+      "chess_item_4_08_e_a",
+      "chess_item_4_08_e_b",
+      "chess_item_4_09_e_a",
+      "chess_item_4_09_e_b",
+      "chess_item_4_10_e_a",
+      "chess_item_4_10_e_b",
+      "chess_item_4_11_e_a",
+      "chess_item_4_11_e_b",
+      "chess_item_4_12_e_a",
+      "chess_item_4_12_e_b",
+      "chess_item_5_01_e_a",
+      "chess_item_5_01_e_b",
+      "chess_item_5_02_e_a",
+      "chess_item_5_02_e_b",
+      "chess_item_5_03_e_a",
+      "chess_item_5_03_e_b",
+      "chess_item_5_09_e_a",
+      "chess_item_5_09_e_b",
+      "chess_item_6_01_e_a",
+      "chess_item_6_01_e_b",
+      "chess_item_6_02_e_a",
+      "chess_item_6_02_e_b",
+      "chess_item_6_03_e_a",
+      "chess_item_6_03_e_b",
+      "chess_item_6_04_e_a",
+      "chess_item_6_04_e_b",
+      "chess_item_6_05_e_a",
+      "chess_item_6_05_e_b",
+      "chess_item_6_06_e_a",
+      "chess_item_6_06_e_b",
+      "chess_item_6_07_e_a",
+      "chess_item_6_07_e_b",
+      "chess_item_6_10_e_a",
+      "chess_item_6_10_e_b",
+      "chess_item_6_11_e_a",
+      "chess_item_6_11_e_b"
+    ]
+  },
+  "meta": {
+    "wraps": [
+      {
+        "key": "chess_item_2_02_e",
+        "name": "紧急调度券",
+        "hooks": [
+          "onEquip"
+        ]
+      },
+      {
+        "key": "chess_item_4_01_e",
+        "name": "寻呼模块",
+        "hooks": [
+          "onEquip"
+        ]
+      },
+      {
+        "key": "chess_item_6_03_m",
+        "name": "教鞭",
+        "hooks": [
+          "onArt"
+        ]
+      },
+      {
+        "key": "chess_item_6_01_m",
+        "name": "“神秘顾客”",
+        "hooks": [
+          "onArt"
+        ]
+      },
+      {
+        "key": "chess_item_6_02_m",
+        "name": "画卷",
+        "hooks": [
+          "onArt"
+        ]
+      },
+      {
+        "key": "chess_item_6_01_m",
+        "name": "“神秘顾客”",
+        "hooks": [
+          "onDestroy"
+        ]
+      },
+      {
+        "key": "chess_item_6_03_e",
+        "name": "天师古鼎",
+        "hooks": [
+          "onGain"
+        ]
+      }
+    ]
+  },
+  "registry": {
+    "itemHooks": {
+      "item:chess_item_1_03_e": [
+        "onEquip"
+      ],
+      "item:chess_item_1_04_e": [
+        "onEquip"
+      ],
+      "item:chess_item_2_02_e": [
+        "onEquip"
+      ],
+      "item:chess_item_2_05_e": [
+        "onEquip"
+      ],
+      "item:chess_item_2_06_e": [
+        "onEquip"
+      ],
+      "item:chess_item_2_07_e": [
+        "onEquip"
+      ],
+      "item:chess_item_3_12_e": [
+        "onEquip"
+      ],
+      "item:chess_item_4_01_e": [
+        "onEquip"
+      ],
+      "item:chess_item_5_04_e": [
+        "onEquip"
+      ],
+      "item:chess_item_5_05_e": [
+        "onEquip"
+      ],
+      "item:chess_item_5_06_e": [
+        "onEquip",
+        "onRoundStart"
+      ],
+      "item:chess_item_5_07_e": [
+        "onSold"
+      ],
+      "item:chess_item_5_08_e": [
+        "onBattleResult"
+      ],
+      "item:chess_item_6_01_m": [
+        "onArt",
+        "onDestroy"
+      ],
+      "item:chess_item_6_02_m": [
+        "onArt"
+      ],
+      "item:chess_item_6_03_e": [
+        "onGain"
+      ],
+      "item:chess_item_6_03_m": [
+        "onArt"
+      ],
+      "item:chess_item_6_08_e": [
+        "onEquip"
+      ]
+    }
+  }
+}

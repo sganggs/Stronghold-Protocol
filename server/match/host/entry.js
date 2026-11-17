@@ -22,7 +22,9 @@
 // Messages (from index.js / proxy.js; queued until booted, then handled in order):
 //   { type: 'create', matchId, opts }       new Match({ ...options.matchOptions, ...opts, data, log, now, send, broadcast,
 //                                           onEnd }) and start() — send / broadcast / onEnd post 'send' / 'broadcast' /
-//                                           'end' back; a match that cannot be created posts 'failed'
+//                                           'end' back; a match that cannot be created posts 'failed', and so does one whose
+//                                           opts.version (absent: act2autochess) is not the installed data's version
+//                                           (shared/versions.js versionOfData; DESIGN §35.23 — an official version's host)
 //   { type: 'call', matchId, method, args, id? }   one MATCH INTERFACE call; with `id` its answer is posted as 'reply'
 //   { type: 'dispose', matchId }            the match is disposed and forgotten
 // Logs go to the main process ('log': its logger prefixes them with the set's `[cs:<8 hex>]`).
@@ -35,6 +37,7 @@ import { pathToFileURL } from 'node:url';
 import { getData, setData } from '../../data.js';
 import { installOfficialBounds } from '../../../shared/plugins/officialBounds.js';
 import { contentHashOf } from '../../../shared/plugins/identity.js';
+import { DEFAULT_VERSION, versionOfData } from '../../../shared/versions.js';
 
 /** A worker thread (parentPort), else a child process (its IPC channel). */
 const viaWorker = !!parentPort;
@@ -201,6 +204,7 @@ function plain(r) {
 function diag(match) {
   return {
     phase: match.phase ?? null, round: match.round ?? null, ended: !!match.ended, cs: match.cs ?? null, modeId: match.modeId ?? null,
+    version: versionOfData(installed),
     errorCount: match.errorCount ?? 0, errors: (match.errors || []).slice(0, 3).map((e) => String(e?.label || e?.message || e).slice(0, 200)),
     verifyStats: match.verifyStats ? { ...match.verifyStats } : null, simErrors: match.simErrors ?? 0,
     fields: Array.isArray(match.fields) ? match.fields.map((f) => ({ fieldId: f.fieldId, kind: f.kind, players: Array.isArray(f.players) ? [...f.players] : [], mode: f.mode ?? null,
@@ -209,6 +213,13 @@ function diag(match) {
 }
 
 function create(matchId, opts) {
+  // an official version's match runs on that version's data only (DESIGN §35.23): never another version's data set
+  const want = typeof opts.version === 'string' ? opts.version : DEFAULT_VERSION;
+  if (want !== versionOfData(installed)) {
+    log.error(`[host] match ${matchId} asks for version ${want}, this host runs ${versionOfData(installed)}`);
+    post({ type: 'failed', matchId, error: `version ${want} is not this host's (${versionOfData(installed)})` });
+    return;
+  }
   const sched = options.virtualTime && VirtualScheduler ? new VirtualScheduler({ start: Date.now() }) : null;
   let match;
   try {
@@ -270,6 +281,8 @@ function handle(m) {
     else if (m.method === 'diag') result = diag(match);
     else {
       try {
+        // aiHandoverView / acceptAiHandover are ordinary match calls. Their reply is { ok } | { error, detail },
+        // the same frame as handle (aiHandoverView also carries the eligibility snapshot).
         const fn = match[m.method];
         result = typeof fn === 'function' ? fn.apply(match, Array.isArray(m.args) ? m.args : []) : fallback(match, m.method, m.args || []);
       } catch (e) {

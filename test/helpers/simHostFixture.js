@@ -16,6 +16,10 @@ export function scriptSet(source, execution = 'sandbox', data = getData()) {
     plugins:[{id:p.id,version:p.version,files:{'@script':sha256Hex(JSON.stringify(p)), 'plugin.json':sha256Hex(p.manifestSource),'main.js':sha256Hex(source)}}],settings:{}};
   return {...fixtureSet(),data,hashInput,scripts:[p],cs:contentHashOf(hashInput)};
 }
+/** Load timeout of the tests' node Worker / child hosts. WORKER_LOAD_TIMEOUT_MS (15 s) is the browser's [ASSUMED] cold load; a
+ * stalled Windows CI runner once took longer (11-02, where the two bond-timers Worker tests take 1.4-2.9 s in all; history
+ * §37.98). The tests check what the host computes, not how fast it loads. */
+export const WORKER_LOAD_MS = 60_000;
 export const fixtureSet = () => ({ cs: 'a'.repeat(64), data: getData(), bounds: { v: 1, bb: { times: 12 }, fields: {}, bbMin: {}, fieldMin: {}, text: {} } });
 export const fixtureSpec = () => ({ v: 1, kind: 'normal', fieldId: 'n:p1', battleId: 'probe', seed: 73,
   stageId: 'act1autochess_m01', rect: { r0: 9, r1: 12, c0: 0, c1: 10 }, timeLimit: 8,

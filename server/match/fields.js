@@ -611,20 +611,20 @@ function layerAllowanceOf(p, gd) {
   const lineup = new Set(Object.keys(p.bonds && typeof p.bonds === 'object' ? p.bonds : {}));
   for (const u of units) for (const b of gd.chess(u.chessId)?.bonds || []) lineup.add(b);
   let extra = false;
-  const credit = (g, times) => {
+  const credit = (g, times, bonus = 0) => {
     const bb = g.bb || {};
     if (Number.isFinite(bb.extra_cnt)) { extra = true; return; }
     if (!Number.isFinite(bb.bond_add_count) && !Number.isFinite(bb.bond_add_count_multi)) return;
     const s = g.bbStr || {};
     const bonds = s.bond_type === 'bond_by_id' ? String(s.bond_id ?? '').split(',').map((x) => x.trim()).filter((x) => gd.bond(x)) : [...lineup];
-    const cap = Number(bb.max_add_count_per_battle) > 0 ? Number(bb.max_add_count_per_battle) : Infinity;
+    const cap = Number(bb.max_add_count_per_battle) > 0 ? Number(bb.max_add_count_per_battle) + bonus : Infinity;
     for (const b of bonds) out.set(b, (out.get(b) || 0) + cap * times);
   };
   for (const u of units) {
     for (const gid of gd.chess(u.chessId)?.garrisonIds || []) {
       const g = gd.garrison(gid);
       if (!g || g.eventType !== 'IN_BATTLE') continue;
-      if (g.effectKey !== 'ADD_BOND') { credit(g, 1); continue; }
+      if (g.effectKey !== 'ADD_BOND') { credit(g, 1, u.commandLayerCapBonus || 0); continue; }
       const given = gd.garrison(g.bbStr?.give_garrison_id);
       if (given && given.eventType === 'IN_BATTLE') credit(given, units.length);
     }
@@ -681,6 +681,8 @@ export function specBounds(spec, gd = null) {
   const players = new Map();
   for (const p of Array.isArray(spec && spec.players) ? spec.players : []) {
     if (!p || typeof p.playerId !== 'string') continue;
+    const commandChests = (p.commandMarks || []).filter(m => m.persistent && m.enemyId);
+    bountyCoins += commandChests.reduce((sum, m) => sum + Math.max(0, m.coin || 0), 0);
     const chess = new Map();
     const all = new Map();
     const names = new Map();
@@ -709,8 +711,13 @@ export function specBounds(spec, gd = null) {
       const v = Number(b && b.layers);
       if (Number.isFinite(v) && v > 0) startLayers.set(id, v);
     }
-    const bonds = gd ? layerBondsOf(p, gd) : null, layerAllow = gd ? layerAllowanceOf(p, gd) : new Map();
-    players.set(p.playerId, { chess, all, names, defIds, bonds, startLayers, layerAllow });
+    const withReserves = p.commandReserves?.length ? { ...p, units: [...(p.units || []), ...p.commandReserves] } : p;
+    const bonds = gd ? layerBondsOf(withReserves, gd) : null, layerAllow = gd ? layerAllowanceOf(withReserves, gd) : new Map();
+    for (const reserve of p.commandReserves || []) {
+      defIds.add(reserve.chessId);
+      if (gd) for (const id of summonsOf(gd, reserve.chessId)) defIds.add(id);
+    }
+    players.set(p.playerId, { chess, all, names, defIds, bonds, startLayers, layerAllow, commandChests });
   }
   const round = Number(spec && spec.round) || 0;
   return {
@@ -878,6 +885,18 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
         if (n > 0 && own.bonds && !own.bonds.has(bondId)) return bad('layer bond');
         if (n > 0) layerGains[bondId] = n;
       }
+      // 规程 temporary layers: not the permanent allowance, and not required to be a bond the player started with.
+      // The bond must exist. A positive amount is refused when the field disabled layer gains (联防 / boss).
+      const tempLayerGains = {};
+      if (p.tempLayerGains && typeof p.tempLayerGains === 'object') {
+        for (const [bondId, rawN] of Object.entries(p.tempLayerGains)) {
+          const n = Math.floor(Number(rawN));
+          if (!finiteIn(n, 0, 1e4)) return bad('temp layers');
+          if (n > 0 && spec.flags && spec.flags.layerGainsEnabled === false) return bad('layers disabled');
+          if (gd && typeof gd.bond === 'function' && !gd.bond(bondId)) return bad('temp bond');
+          if (n > 0) tempLayerGains[bondId] = n;
+        }
+      }
       const coins = Number(p.coins) || 0;
       if (!finiteIn(coins, 0, B.bountyCoins + 1e-6)) return bad('coins');
       coinsSum += coins;
@@ -914,6 +933,14 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
         unitsEnd, unitStats,
         creditedKills: Number.isInteger(p.creditedKills) ? p.creditedKills : unitStats.reduce((n, u) => n + u.kills, 0),
       };
+      if (own.commandChests.length || p.commandChests) {
+        const chests = p.commandChests;
+        if (!Array.isArray(chests) || chests.length !== own.commandChests.length
+          || new Set(chests.map(c => c.id)).size !== chests.length
+          || chests.some(c => typeof c.alive !== 'boolean' || !own.commandChests.some(m => m.id === c.id))) return bad('command chests');
+        perPlayer[pid].commandChests = chests.map(c => ({ id: c.id, alive: c.alive }));
+      }
+      if (Object.keys(tempLayerGains).length) perPlayer[pid].tempLayerGains = tempLayerGains;
       // the HUD capsule's numerator: kept only when the client reported one (an absent value must stay absent — the
       // teammate UI then falls back to `killed`, never to a fabricated 0); clamped to the denominator
       if (Number.isInteger(p.resolved) && p.resolved >= 0) perPlayer[pid].resolved = Math.min(p.total, p.resolved);

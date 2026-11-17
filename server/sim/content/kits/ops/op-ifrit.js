@@ -52,7 +52,7 @@
 import { num, talentBb, moduleBb, traitBb, skillRec, up, giveSp } from '../shared/tier1.js';
 import { stepOf, STEP_PER_TICK } from '../../../../../shared/plugins/steps.js';
 import { bodyInRange } from '../../../body.js';
-import { hasHp } from '../../../damage.js';
+import { hasHp } from '../../../attack.js';
 import { hypot } from '../../../detmath.js';
 
 const S1 = 'skchr_ifrit_1';

@@ -2,7 +2,7 @@
 // Conventions of the tier-2 kits: ../shared/tier2.js; kit contract and rules: ../README.md.
 
 import { num, talentBb, enemiesInGrid, instantKind } from '../shared/tier1.js';
-import { tinmanKit } from './chess_char_1_16-tinman.js';
+import { tinmanKit, startTinmanCoverage } from './chess_char_1_16-tinman.js';
 
 export default {
   // ---------------------------------------------------------------------------------------------------------------
@@ -16,7 +16,7 @@ export default {
     const dur = num(bb.projectile_delay_time, 8), radius = num(bb.projectile_range, 1), dmgScale = num(bb.atk_scale);
     const weak = Math.min(1, Math.max(0, -num(bb.atk)));
     const wither = num(talentBb(chess, 1)['skill@damage_scale'], 1);
-    const STEP = 0.25; // weaken refresh cadence (damage every 1 s)
+    const STEP = 0.25; // [ASSUMED] Existing weaken refresh cadence; damage every 1 s.
     return {
       ...k,
       skills: {
@@ -28,18 +28,20 @@ export default {
             const x = tgt ? tgt.x : unit.x + unit.fwd[1], y = tgt ? tgt.y : unit.y + unit.fwd[0];
             const atk = unit.s.atk;
             const n = Math.max(1, Math.round(dur / STEP)), per = Math.max(1, Math.round(1 / STEP));
+            const zoneKey = `tinman:zone:${unit.id}:${unit.mem.tinZoneSeq = (unit.mem.tinZoneSeq ?? 0) + 1}`;
             let i = 0;
-            unit.mem.tinZones = (unit.mem.tinZones ?? 0) + 1;
+            const sync = startTinmanCoverage(battle, unit, { key: zoneKey, x, y, radius, duration: dur, mul: wither });
             battle.fx('zone', { x, y, radius, dur, id: unit.id, skill: 'tinman1' });
             battle.every(STEP, (b, sc) => {
+              sync();
               const pulse = i % per === 0;
               for (const e of b.foesInRadius(x, y, radius)) {
                 if (e.isFlying || e.s.flags.untargetable) continue;
                 if (weak > 0) b.applyStatus(e, 'weaken', { duration: STEP + 0.05, value: weak, source: unit });
-                if (wither > 1) b.addBuff(e, { key: 'tinman:wither', duration: STEP + 0.05, data: { mul: wither }, source: unit });
-                if (pulse && dmgScale > 0) b.dealDamage(unit, e, { amount: atk * dmgScale, type: 'arts', isSkill: true, canDodge: false, tags: ['dot', 'zone'] });
+                if (pulse && dmgScale > 0) b.dealDamage({ source: null, credit: unit, target: e, amount: atk * dmgScale, type: 'arts',
+                  attackType: 'BUFF', calculation: 'precomputed', isSkill: true, tags: ['dot', 'zone'] });
               }
-              if (++i >= n) { sc.cancel(); unit.mem.tinZones = Math.max(0, (unit.mem.tinZones ?? 1) - 1); }
+              if (++i >= n) sc.cancel();
             }, { immediate: true });
           },
         },

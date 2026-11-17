@@ -378,6 +378,19 @@
   box-shadow: 0 0 4px rgba(0, 0, 0, .6);
 }
 .bond__ban .icon { width: 80%; height: 80%; }
+/* a corner mark in the ✕'s place (BondDisc `tag`): the briefing's official 阵容不完整 fold (ui/outer img_bond_banned,
+   ui/matchInfo.js BondLackTag), ≈ .54 of the ring, centred on the disc box's top-right corner (recording BV13LWM6BEvY
+   0:12); without the art a dark fold with a person glyph */
+.bond__tag {
+  position: absolute; top: calc(var(--disc) * -.27); right: calc(var(--disc) * -.27);
+  width: calc(var(--disc) * .54); height: calc(var(--disc) * .54); pointer-events: none;
+  background: var(--tag) center / 100% 100% no-repeat;
+}
+.bond__tag.is-plain {
+  display: grid; place-items: start end; color: #e3e7e6;
+  background: linear-gradient(225deg, rgba(18, 22, 21, .94) 50%, transparent 50%);
+}
+.bond__tag.is-plain .icon { width: 46%; height: 46%; margin: 6% 6% 0 0; }
 .bond.is-frozen { opacity: .5; }
 .bond.is-clickable { cursor: pointer; }
 .bond.is-clickable:hover .bond__core { transform: scale(1.07); }
@@ -460,6 +473,9 @@
   box-shadow: 0 .3rem .9rem rgba(0, 0, 0, .65), 0 0 .4rem rgba(23, 249, 183, .06);
   animation: modal-in var(--t-slow) var(--ease-out);
 }
+/* Japanese never starts a line with a small kana or ー in a dialog, as in the room and on the hub (§35.18 review of the
+   text-fit fixes: 选择模拟协议's 「シミュレーシ|ョン」 on a phone at 特大 once its paragraph wraps `pretty`, lobby.css) */
+.modal__box:lang(ja) { line-break: strict; }
 .modal__box--red { --bk-c: var(--red-premium); --mstripe: var(--red); }
 .modal__box--amber { --bk-c: var(--amber); --mstripe: var(--amber); }
 .modal__box--orange { --bk-c: var(--orange-hi); --mstripe: var(--orange); }
@@ -1043,8 +1059,8 @@
    a 10 px gap, so their 44 px hit areas (css/devices.css) never overlap and a tap lands on the intended one */
 .topbar__tools { display: flex; align-items: center; gap: .14rem; }
 .topbar__tools .btn--square.btn--sm { --sq: .46rem; height: var(--sq); min-width: var(--sq); }
-.sp-coarse .topbar__tools { gap: max(.16rem, 10px); }
-.sp-coarse .topbar__tools .btn--square.btn--sm { --sq: max(.56rem, 40px); }
+.sp-coarse .topbar__tools { gap: max(.16rem, calc(10px * var(--sp-ui, 1))); }
+.sp-coarse .topbar__tools .btn--square.btn--sm { --sq: max(.56rem, 32px, calc(40px * var(--sp-ui, 1))); }
 .topbar__right { justify-self: end; display: flex; align-items: center; gap: .16rem; min-width: 0; }
 
 /* Optional resume/install controls and translated XL titles must share actual space instead of overlapping the
@@ -1058,24 +1074,10 @@
   .lobby-screen .topbar__center { grid-column: 1 / -1; grid-row: 2; }
   .lobby-screen .topbar__center .micro { display: none; }
   .lobby-screen .topbar__right { grid-column: 2; grid-row: 1; }
-  .lobby-screen .me-chip__name { max-width: 1.5rem; }
 }
 
 .section-label { display: flex; align-items: baseline; gap: .12rem; margin: 0 0 .14rem; font-size: calc(.2 * var(--t)); font-weight: 700; letter-spacing: .08em; }
 .section-label__idx { font-size: calc(.15 * var(--t)); color: var(--mint-500); padding: 0 .06rem; border: 1px solid var(--mint-800); line-height: 1.35; letter-spacing: .06em; }
-
-.me-chip { display: flex; align-items: center; gap: .12rem; padding: .06rem .18rem .06rem .06rem; border: 1px solid var(--line); background: rgba(0, 0, 0, .35); }
-.me-chip__text { display: flex; flex-direction: column; line-height: 1.3; min-width: 0; }
-.me-chip__name { font-weight: 700; font-size: calc(.18 * var(--t)); max-width: 2.4rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* the lobby's chip doubles as the 统计数据 entry */
-.me-chip--btn {
-  font: inherit; color: inherit; text-align: left; cursor: pointer;
-  transition: border-color var(--t-fast) var(--ease-out), background-color var(--t-fast) var(--ease-out);
-}
-.me-chip--btn:hover { border-color: var(--mint-700); background: rgba(34, 42, 38, .6); }
-.me-chip--btn:active { transform: translateY(1px); }
-.me-chip__stats { flex: none; width: .2rem; height: .2rem; margin-left: .04rem; color: var(--mint-500); opacity: .7; }
-.me-chip--btn:hover .me-chip__stats { opacity: 1; }
 
 .crash { align-items: center; justify-content: center; }
 .crash__box {
@@ -1092,8 +1094,9 @@
 .crash__box h2 { font-size: calc(.3 * var(--t)); }
 
 /* ---- plugins (DESIGN §32 P1a): the room's tag 原版 / 插件 ×N (ui/pluginTag.js), its 插件 panel and the title's list (ui/pluginPanel.js) ---- */
+/* (min-height: the tag grows when 大 / 特大 outgrows its .3rem — §35.18 review) */
 .plugtag {
-  display: inline-flex; align-items: center; gap: .06rem; height: .3rem; padding: 0 .12rem;
+  display: inline-flex; align-items: center; gap: .06rem; min-height: .3rem; padding: 1px .12rem;
   border: 1px solid var(--line-2); background: rgba(0, 0, 0, .3); color: var(--text-lo);
   font-size: calc(.13 * var(--t)); letter-spacing: .06em;
 }
@@ -1161,5 +1164,169 @@
 
 .plugin-settings { display: grid; gap: .06rem; margin-top: .08rem; }
 .plugin-settings__row { display: flex; gap: .1rem; align-items: center; justify-content: space-between; }
-.plugin-settings input, .plugin-settings select { color: var(--text-hi); background: var(--bg-2); border: 1px solid var(--line-2); padding: .03rem .06rem; max-width: 2rem; }
+.plugin-settings input, .plugin-settings select, .plugin-settings .combo { color: var(--text-hi); background: var(--bg-2); border: 1px solid var(--line-2); padding: .03rem .06rem; max-width: 2.4rem; }
+.plugin-settings .combo { padding: 0; border: 0; background: none; }
+.plugin-settings .combo__btn { min-height: max(.36rem, 32px); }
 .plugin-settings input[aria-invalid="true"] { border-color: var(--orange); }
+
+/* ---- official versions (DESIGN §35.23): the tag (ui/pluginTag.js VersionTag), the lobby chip and the picker
+   (ui/versionPicker.js), the vote strip (ui/versionVote.js). Names may be long in English: the chip and the tag end in
+   an ellipsis, the strip and the picker wrap. ---- */
+.vertag {
+  display: inline-flex; align-items: center; max-width: 3.2rem; height: .26rem; padding: 0 .1rem; overflow: hidden;
+  border: 1px solid rgba(120, 196, 255, .65); background: rgba(120, 196, 255, .12); color: #9fd3ff;
+  font-size: calc(.13 * var(--t)); font-weight: 700; letter-spacing: .04em; white-space: nowrap; text-overflow: ellipsis;
+  vertical-align: middle;
+}
+/* (the label is its own box: a bare text in an inline-flex box is cut without the ellipsis) */
+.vertag__label { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.vertag--compact { height: .2rem; padding: 0 .06rem; font-size: calc(.11 * var(--t)); }
+.verchip-wrap { display: inline-flex; align-items: center; gap: .06rem; min-width: 0; }
+/* [ASSUMED] Keep the season and part whole as 文字大小 grows (§35.23.11): a rem cap cut the part in English and
+   Japanese. The top bar reserves the chip's natural width beside its tools. */
+.verchip {
+  display: inline-flex; align-items: center; gap: .06rem; min-width: 0; height: max(.42rem, 28px); padding: 0 .14rem;
+  border: 1px solid var(--line-2); background: rgba(0, 0, 0, .45); color: var(--text-md);
+  font: inherit; font-size: calc(.14 * var(--t)); font-weight: 700; white-space: nowrap;
+}
+.verchip .icon { flex: none; width: 1.1em; height: 1.1em; color: #9fd3ff; }
+.verchip__k { flex: none; color: var(--text-lo); font-weight: 400; }
+.verchip__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.verchip__state { flex: none; color: var(--text-lo); font-size: calc(.12 * var(--t)); font-weight: 400; }
+.verchip.is-other { border-color: rgba(120, 196, 255, .6); color: #cfe9ff; }
+.verchip.is-failed { border-color: rgba(255, 106, 61, .7); }
+.verchip.is-failed .verchip__state { color: #ff8a5c; }
+.verchip:hover:not(.verchip--ro), .verchip:focus-visible { filter: brightness(1.2); }
+.verchip--ro { cursor: default; }
+.verchip__retry { flex: none; height: max(.42rem, 28px); padding: 0 .12rem; border: 1px solid rgba(255, 106, 61, .7); background: rgba(255, 106, 61, .14); color: #ffb39a; font: inherit; font-size: calc(.13 * var(--t)); }
+.sp-coarse .verchip, .sp-coarse .verchip__retry { min-height: max(32px, calc(40px * var(--sp-ui, 1))); }
+.verpick__lead { margin: 0 0 .12rem; color: var(--text-md); font-size: max(calc(.16 * var(--t)), 12px); line-height: 1.6; }
+/* Two cards across on a wide screen. One column on a phone and on a short landscape (844×390). */
+.verpick__list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .1rem; max-height: min(6.4rem, 62svh); overflow: auto; align-items: stretch; }
+.verpick__row { min-width: 0; border: 1px solid var(--line); background: rgba(0, 0, 0, .25); }
+/* [ASSUMED] The card reuses the 规程 lobby red / cream and the 盟约 mint. Not a new palette. */
+.verpick__row.is-reg {
+  --reg-red: #e2412c; --reg-red-hi: #ff5b41; --reg-cream: #e8dfc4; --reg-ink: #0d0b0a;
+  border-color: var(--reg-red); border-top: 3px solid var(--reg-red-hi); color: var(--reg-cream);
+  background: linear-gradient(165deg, rgba(143, 33, 23, .72), rgba(13, 11, 10, .92));
+}
+.verpick__row.is-covenant { border-color: rgba(78, 216, 175, .45); border-top: 3px solid var(--mint-500);
+  background: linear-gradient(165deg, rgba(18, 52, 44, .78), rgba(8, 14, 13, .92)); }
+.verpick__row.is-on { box-shadow: inset 0 0 0 2px currentColor; }
+.verpick__pick {
+  display: flex; flex-direction: column; align-items: flex-start; gap: .06rem; width: 100%; min-height: max(.44rem, calc(44px * var(--sp-ui, 1)), 32px);
+  padding: .12rem .14rem; border: 0; background: none; color: inherit; font: inherit; text-align: left;
+}
+.verpick__pick:disabled { cursor: default; }
+.verpick__pick:hover:not(:disabled), .verpick__pick:focus-visible { background: rgba(255, 255, 255, .04); }
+.verpick__name { font-size: max(calc(.22 * var(--t)), 14px); font-weight: 800; overflow-wrap: anywhere; }
+.verpick__badges { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: .06rem; }
+.verpick__badge { padding: 0 .06rem; border: 1px solid var(--line-2); color: var(--text-lo); font-size: max(calc(.13 * var(--t)), 11px); white-space: nowrap; }
+.verpick__row.is-reg .verpick__badge { color: var(--reg-cream); border-color: rgba(232, 223, 196, .35); }
+.verpick__badge.is-current { color: #9fd3ff; border-color: rgba(120, 196, 255, .6); }
+.verpick__row.is-reg .verpick__badge.is-current { color: var(--reg-red-hi); border-color: var(--reg-red-hi); }
+.verpick__badge.is-preview { color: #ffb066; border-color: rgba(255, 159, 67, .5); }
+.verpick__period, .verpick__note { font-size: max(calc(.15 * var(--t)), 12px); line-height: 1.5; overflow-wrap: anywhere; }
+.verpick__note.is-warn { color: #ffb066; }
+.verpick__hint { display: flex; align-items: center; gap: .08rem; margin: .1rem 0 0; color: var(--text-lo); font-size: max(calc(.15 * var(--t)), 12px); }
+.verpick__hint .icon { flex: none; width: 1.1em; height: 1.1em; color: var(--mint-500); }
+.vervote {
+  position: relative; z-index: 3; flex: none;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .14rem .2rem;
+  margin: 0 .6rem .12rem; padding: .12rem .2rem;
+  background: rgba(12, 15, 14, .92); border: 1px solid rgba(120, 196, 255, .6);
+}
+.vervote__text { display: flex; flex-direction: column; gap: .04rem; min-width: 0; flex: 1 1 4rem; font-size: calc(.15 * var(--t)); }
+.vervote__text strong { color: #9fd3ff; font-size: calc(.19 * var(--t)); overflow-wrap: anywhere; }
+.vervote__time { display: inline-flex; align-items: center; gap: .04rem; color: var(--text-md); }
+.vervote__time .icon { width: 1em; height: 1em; }
+.vervote__hint { overflow-wrap: anywhere; }
+.vervote__players { display: flex; flex-wrap: wrap; gap: .06rem .18rem; color: var(--text-dim); }
+.vervote__players .is-agreed { color: var(--mint-400); }
+.vervote__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .1rem; flex-shrink: 0; }
+/* on the settlement screen: over the page's bottom edge (the vote must stay in view); never taller than the screen — a
+   long language at 特大 on a short phone scrolls inside it instead of losing its title off the top (like the room's) */
+.vervote--float {
+  position: fixed; left: 50%; bottom: max(.2rem, env(safe-area-inset-bottom)); z-index: 40; width: min(9rem, calc(100vw - 32px)); margin: 0;
+  max-height: calc(100svh - .2rem - max(.2rem, env(safe-area-inset-bottom))); overflow-y: auto; transform: translateX(-50%);
+}
+/* (it takes the focus as an alertdialog — ui/versionVote.js —: the strip's own border marks it) */
+.vervote--float:focus { outline: none; }
+/* above 干员调配 / 统计数据 (.lo / .st, 55), below the connection banner (75), modals and toasts */
+.vervote--covered { z-index: 56; box-shadow: 0 .06rem .3rem rgba(0, 0, 0, .55); }
+@media (max-width: 900px), (max-height: 520px) {
+  .vervote { margin-inline: .2rem; padding: .08rem .12rem; }
+  .vervote__actions .btn { min-height: 40px; padding-inline: .12rem; }
+}
+/* short landscape phones (1rem is ~40 px: the text gets its own sizes, like the room's — css/screens/room.css) */
+@media (max-height: 520px) {
+  .vervote__text { font-size: calc(.22 * var(--t)); }
+  .vervote__text strong { font-size: calc(.26 * var(--t)); }
+  /* a floating strip too tall for the screen scrolls its text, the buttons stay in view below it */
+  .vervote--float { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
+  .vervote--float .vervote__text { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
+  .vervote--float .vervote__actions { flex: none; }
+  /* the whole name, on two lines if it must (English 'Season 1 · Part 2' at 特大): the part is what tells two halves apart */
+  .vertag { max-width: 3.4rem; height: auto; padding: 1px 5px; font-size: calc(.2 * var(--t)); line-height: 1.2; white-space: normal; }
+  .vertag__label { white-space: normal; }
+  /* the label is what tells the versions apart: the 版本 key word gives its room (the hourglass and the title say it) */
+  .verchip { font-size: calc(.22 * var(--t)); }
+  .verchip__k { display: none; }
+  .verchip__state, .verchip__retry { font-size: calc(.2 * var(--t)); }
+  .verpick__lead, .verpick__hint { font-size: calc(.22 * var(--t)); }
+  .verpick__list { grid-template-columns: minmax(0, 1fr); max-height: 60svh; }
+  .verpick__pick { padding: 6px 10px; }
+  .verpick__name { font-size: max(calc(.28 * var(--t)), 14px); }
+  .verpick__badge { font-size: max(calc(.2 * var(--t)), 12px); }
+  .verpick__period, .verpick__note { font-size: max(calc(.21 * var(--t)), 12px); }
+}
+@media (max-width: 700px) {
+  .verpick__list { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Custom listbox (ui/comboBox.js). The open list is position:fixed from the component. */
+.combo { position: relative; min-width: 0; max-width: 100%; }
+.combo__btn {
+  display: inline-flex; align-items: center; justify-content: space-between; gap: .08rem; width: 100%;
+  min-height: max(.44rem, calc(44px * var(--sp-ui, 1)), 32px); padding: 0 .1rem; border: 1px solid var(--line-2); background: #0a0d0c;
+  color: var(--text-hi); font: inherit; font-size: max(calc(.16 * var(--t)), 12px); text-align: left; cursor: pointer;
+}
+.combo__btn:focus-visible, .combo__btn[aria-expanded="true"] { border-color: var(--mint-500); }
+.combo__btn:disabled { cursor: default; opacity: .6; }
+.combo__val { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.combo__chev { flex: none; width: .18rem; height: .18rem; color: var(--text-lo); transform: rotate(90deg); }
+.combo__list {
+  position: fixed; z-index: calc(var(--z-modal) + 2); margin: 0; padding: .04rem 0; overflow: auto; list-style: none;
+  background: #121816; border: 1px solid var(--mint-700); box-shadow: 0 .12rem .32rem rgba(0, 0, 0, .55);
+}
+.combo__list[hidden] { display: none; }
+.combo__opt { padding: .08rem .12rem; font-size: max(calc(.16 * var(--t)), 12px); color: var(--text-hi); cursor: pointer; }
+.combo__opt.is-active, .combo__opt:hover { background: rgba(78, 216, 175, .16); }
+.combo__opt.is-on { color: var(--mint-400); }
+.combo__opt.is-off { color: var(--text-dim); }
+/* 设置 and 游戏版本: the briefing's grey header bar and the result screen's button plate. */
+.modal__box.setdlg .modal__head, .modal__box.verpick .modal__head {
+  background: linear-gradient(90deg, rgba(122, 126, 128, .5), rgba(92, 96, 98, .42) 60%, rgba(80, 84, 86, .36));
+}
+.modal__box.setdlg .modal__title, .modal__box.verpick .modal__title { font-size: max(calc(.28 * var(--t)), 16px); letter-spacing: .06em; }
+.modal__box.setdlg .modal__actions .btn, .modal__box.verpick .modal__actions .btn { min-height: max(.5rem, calc(44px * var(--sp-ui, 1)), 32px); }
+.modal__box.setdlg .set-keys__head.sw-sec__head, .modal__box.setdlg .sw-sec__head {
+  display: flex; align-items: center; justify-content: flex-start; gap: .1rem; height: auto;
+  min-height: max(.62rem, calc(44px * var(--sp-ui, 1)), 32px); padding: 0 .08rem 0 .04rem;
+  background: linear-gradient(rgba(24, 29, 28, .74), rgba(24, 29, 28, .74));
+}
+.modal__box.setdlg .sw-sec__glyph { position: static; transform: none; flex: none; }
+.modal__box.setdlg .sw-sec__glyph .icon { color: #1d2322; }
+.modal__box.setdlg .sw-sec__name { min-width: 0; }
+.modal__box.setdlg .set-keys__head > .btn,
+.modal__box.setdlg .set-keys__head > .set-storage__actions,
+.modal__box.setdlg .set-keys__head > .theme-page__actions { margin-left: auto; }
+
+/* #603: release notes keep the shared Modal's focus/scroll behaviour. */
+.release-notes-entry { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
+.release-notes-body { font-size: var(--fs-body); line-height: 1.7; overflow-wrap: anywhere; }
+.release-notes-body p, .release-notes-body ul { margin: .12rem 0; }
+.release-notes-body ul { padding-left: .24rem; }
+.release-notes-body h3, .release-notes-body h4 { margin: .18rem 0 .08rem; }
+.release-notes-body code { white-space: pre-wrap; }
+.release-notes-body a { color: var(--mint); text-decoration: underline; }

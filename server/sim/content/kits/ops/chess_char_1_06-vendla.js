@@ -1,7 +1,7 @@
 // server/sim/content/kits/ops/chess_char_1_06-vendla.js — 刺玫 (char_494_vendla) kit, tier 1.
 // Conventions of the tier-1 kits: ../shared/tier1.js; kit contract and rules: ../README.md.
 
-import { num, talentBb, up, byEnemyAttack, alliesInGridOf, skillBbOf } from '../shared/tier1.js';
+import { num, talentBb, up, alliesInGridOf, skillBbOf } from '../shared/tier1.js';
 
 export default {
   // ---------------------------------------------------------------------------------------------------------------
@@ -20,24 +20,12 @@ export default {
   chess_char_1_06_a: (bb, chess) => {
     const hs = num(talentBb(chess, 0).heal_scale, 1);
     const tauntKey = 'vendla:taunt';
+    const counterKey = unit => `vendla:counter:${unit.id}`;
     // the protégé only exists while 荆藤庇荫 runs (mem.protege is set by its onStart only)
     const protege = (u) => (u.skill?.active && up(u.mem.protege) ? u.mem.protege : null);
     return {
       skills: { 'skcom_magic_rage[3]': { kind: 'duration', mods: { aspd: num(skillBbOf(chess, 'skcom_magic_rage[3]').attack_speed) } } },
-      trait: {
-        // 咒愈师 trait: EVERY damage she deals heals an ally for 50 % of it (professions.js `installIncantation`,
-        // buff_template_data `vendla_tr` = ON_AFTER_OUTPUT_DAMAGE): the lowest-HP ally in range (herself included) — the
-        // S2 counter's damage names her protégé instead (`traitAlly`, talent install below), skill running or not
-        install(battle, u) {
-          battle.on('damaged', (c) => {
-            const t = c.target;
-            if (c.source !== u || !u.alive || !t || t.side !== 'enemy' || !(c.amount > 0)) return;
-            if (c.type === 'element' || c.type === 'elemental') return;
-            const ally = (c.dmg && c.dmg.traitAlly) || battle.lowestHpAllyInRange(u);
-            if (ally) battle.heal(u, ally, c.amount * (u.profile.healRatio ?? 0.5), { tags: ['incantation'] });
-          }, { owner: u });
-        },
-      },
+    // The shared incantation trait honors traitAlly on S2 counter damage.
       skill: {
         kind: 'duration', mods: { atkPct: num(bb.atk) },
         onStart({ battle, unit, skill }) {
@@ -46,22 +34,26 @@ export default {
           unit.mem.protege = p;
           if (!p) return;
           battle.addBuff(p, { key: tauntKey, duration: skill.duration + 0.1, mods: { taunt: num(bb.taunt_level, 1) }, visible: true, source: unit });
+          battle.addBuff(p, { key: counterKey(unit), source: unit, duration: skill.duration + 0.1, tags: ['skill'], observeInjury(ctx) {
+            // Native vendla_s_2 filters only the enemy source; neither damage tags nor the provider's action state.
+            if (protege(unit) !== p || ctx.source?.side !== 'enemy' || !ctx.source.alive) return;
+            battle.dealDamage({ source: unit, target: ctx.source, amount: unit.s.atk * num(bb.atk_scale), type: 'arts',
+              isSkill: true, attackType: 'NORMAL', applyWay: 'RANGED', calculation: 'precomputed',
+              ignoreSelect: true, tags: ['counter'], traitAlly: p });
+            battle.fx('counter', { x: ctx.source.x, y: ctx.source.y, id: unit.id });
+          } });
           battle.fx('taunt', { x: p.x, y: p.y, id: p.id });
         },
         onEnd({ battle, unit }) {
-          if (unit.mem.protege) battle.removeBuff(unit.mem.protege, tauntKey);
+          if (unit.mem.protege) {
+            const taunt = unit.mem.protege.findBuff(tauntKey);
+            if (taunt?.source === unit) battle.removeBuff(unit.mem.protege, taunt);
+            battle.removeBuff(unit.mem.protege, counterKey(unit));
+          }
           unit.mem.protege = null;
         },
       },
       talents: [{ install(battle, unit) {
-        battle.on('damaged', (ctx) => {
-          const p = protege(unit);
-          if (!p || ctx.target !== p || !byEnemyAttack(ctx) || !ctx.source.alive || !unit.canAct) return;
-          // "并仅对该角色触发刺玫特性": this counter damage is healed by the trait (install above) for the protégé — the
-          // damage instance names her, so no separate heal here (it would double)
-          battle.dealDamage(unit, ctx.source, { amount: unit.s.atk * num(bb.atk_scale), type: 'arts', isSkill: true, canDodge: false, tags: ['counter'], traitAlly: p });
-          battle.fx('counter', { x: ctx.source.x, y: ctx.source.y, id: unit.id });
-        }, { owner: unit });
         if (hs !== 1) {
           let cacheT = -1, top = null;
           battle.on('heal', (ctx) => {

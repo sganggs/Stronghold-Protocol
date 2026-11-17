@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { buildPluginLock, checkPluginFolder } from '../plugins/pack.js';
+import { DEFAULT_VERSION } from '../../shared/versions.js';
 import { buildContentSet } from '../plugins/contentSet.js';
 import { DATA_DIR } from '../data.js';
 import { writeTrialDraftFile } from './trialDraft.js';
@@ -72,7 +73,7 @@ export function checkGameplayFolder(dir, { dataDir = DATA_DIR, pluginsDir = null
     const key = p => JSON.stringify([p.code, p.path || p.params?.where || p.file || p.at?.join('.') || '', p.message ?? p.text ?? p.params?.detail ?? '']);
     const reported = new Map();
     for (const p of problems) reported.set(key(p), (reported.get(key(p)) || 0) + 1);
-    for (const p of buildContentSet({ registry, ids: [id], checkDataOnly: true }).problems) {
+    for (const version of content.manifest.versions ?? [DEFAULT_VERSION]) for (const p of buildContentSet({ registry, ids: [id], version, checkDataOnly: true }).problems) {
       const n = reported.get(key(p)) || 0;
       if (n) reported.set(key(p), n - 1); else problems.push(p);
     }

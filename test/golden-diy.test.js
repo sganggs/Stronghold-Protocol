@@ -25,7 +25,8 @@ test('matches: the 自选 match\'s human seat draws its 自选 pieces in its sho
   for (const [r, , f] of dg.diy.rounds) {
     for (const x of f ? f.split(' ') : []) {
       const [slot, charId] = x.split('→');
-      assert.equal(dg.diy.picks[`chess_char_${slot}`].charId, charId, `round ${r}: ${x} fights as its pick`);
+      // an elite (`_b`, merged from three copies; §35.63 bots merge 推进之王) fights as its slot's pick
+      assert.equal(dg.diy.picks[`chess_char_${slot.replace(/_b$/, '_a')}`].charId, charId, `round ${r}: ${x} fights as its pick`);
     }
   }
   // the stock: never above its cap (8 at tier 5, 5 at tier 6 — doubled in co-op like the shared pool, GitHub #650)

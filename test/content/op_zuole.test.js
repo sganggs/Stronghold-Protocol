@@ -373,3 +373,102 @@ test('SBL-Y (stages 1 and 3): knocked out ⇒ he stays and heals 30 % max HP, on
     done(h);
   }
 });
+
+for (const enhanced of [false, true]) for (const defense of ['none', 'dodge', 'count', 'full', 'partial']) {
+  test(`native output timing: ${enhanced ? 'SBL-Y stage 3 calculation' : 'base T2 output'} and Musha heal precede ${defense}`, () => {
+    const { h, u } = field({ tier: 6, elite: enhanced, mod: enhanced ? SBLY : null, skill: 1 });
+    const b = h.b, e = h.spawn('enemy_dummy', { pos: [10, 6] });
+    u.skill.spCostMul = 1e6;
+    u.skill.sp = 0;
+    u.hp = u.s.maxHp * 0.5 - 10;
+    const hp = u.hp;
+    let draws = 0;
+    b.rng = Object.assign(() => { draws++; return 0.5; }, b.rng);
+    b.rng.chance = p => b.rng() < p;
+    if (defense === 'dodge') b.addBuff(e, { key: 'defense', injury(c) { c.dodge(); } });
+    if (defense === 'count') b.addBuff(e, { key: 'defense', shieldHits: 1 });
+    if (defense === 'full' || defense === 'partial') b.addBuff(e, { key: 'defense', shield: defense === 'full' ? 1000 : 40 });
+    const seen = [];
+    b.addBuff(e, { key: 'output-observer', observeInjury() { seen.push([u.hp, u.skill.sp]); } });
+    const raw = enhanced ? 120 : 100;
+    approx(b.dealDamage({ source: u, target: e, amount: 100, type: 'phys' }),
+      ['dodge', 'count', 'full'].includes(defense) ? 0 : raw - (defense === 'partial' ? 40 : 0), 'remaining damage');
+    assert.equal(draws, 1, 'one talent roll before target defenses');
+    assert.equal(u.skill.sp, 1, 'the low-HP chance was read before the trait heal crosses half HP');
+    approx(u.hp, hp + 70, 'output heals even when target injury cancels');
+    assert.deepEqual(seen, [[hp + 70, 1]], 'source effects precede target injury');
+    done(h);
+  });
+}
+
+for (const calculation of ['precomputed', 'resolved']) test(`SBL-Y stage 3 ${calculation} damage omits calculation-only chance but still heals on output`, () => {
+  const { h, u } = field({ tier: 6, elite: true, mod: SBLY, skill: 1 });
+  const b = h.b, e = h.spawn('enemy_dummy', { pos: [10, 6] });
+  u.skill.spCostMul = 1e6;
+  u.skill.sp = 0;
+  u.hp = u.s.maxHp * 0.3;
+  const hp = u.hp;
+  let draws = 0;
+  b.rng = Object.assign(() => { draws++; return 0; }, b.rng);
+  b.rng.chance = p => b.rng() < p;
+  approx(b.dealDamage({ source: u, target: e, amount: 100, type: 'phys', calculation }), 100, 'not boosted');
+  assert.equal(draws, 0);
+  assert.equal(u.skill.sp, 0);
+  approx(u.hp, hp + 70, 'output trait remains eligible');
+  done(h);
+});
+
+test('Musha source output accepts BUFF damage; source-less credit, gauges, loss and early refusal trigger neither heal nor base T2', () => {
+  const { h, u } = field({ skill: 1 });
+  const b = h.b, e = h.spawn('enemy_dummy', { pos: [10, 6] });
+  u.skill.spCostMul = 1e6;
+  u.skill.sp = 0;
+  u.hp = u.s.maxHp * 0.3;
+  const hp = u.hp;
+  let draws = 0;
+  b.rng = Object.assign(() => { draws++; return 0; }, b.rng);
+  b.rng.chance = p => b.rng() < p;
+  b.dealDamage({ source: null, credit: u, target: e, amount: 100, type: 'phys' });
+  b.dealDamage({ source: u, target: e, amount: 0, type: 'true' });
+  b.dealElementDamage({ source: u, target: e, amount: 1, element: 'burn' });
+  b.dealHPLose({ source: u, target: e, amount: 100 });
+  b.addBuff(e, { key: 'invulnerability', flags: { invulnerable: true } });
+  b.dealDamage({ source: u, target: e, amount: 100, type: 'true' });
+  assert.equal(draws, 0);
+  approx(u.hp, hp, 'no source output');
+  assert.equal(u.skill.sp, 0);
+  b.removeBuff(e, 'invulnerability');
+  b.dealDamage({ source: u, target: e, amount: 100, type: 'true', attackType: 'BUFF', tags: ['talent', 'dot'] });
+  assert.equal(draws, 1);
+  assert.equal(u.skill.sp, 1);
+  approx(u.hp, hp + 70, 'native trait has no BUFF exclusion');
+  done(h);
+});
+
+test('S3 obtains and extends the same barrier before every dodged slash, without trait healing', () => {
+  const { h, u } = field({ tier: 6, skill: 2 });
+  const b = h.b, e = h.spawn('enemy_dummy', { pos: [10, 6] });
+  u.atkCd = 999;
+  u.skill.charges = 0;
+  u.skill.sp = 0;
+  h.step(); // Build the normal enemy range index before invoking the real S3 selector.
+  u.hp = u.s.maxHp * 0.3;
+  const hp = u.hp, add = 70 * u.skill.bb.shield_scale, pools = [];
+  b.rng = Object.assign(() => 0.99, b.rng);
+  b.rng.chance = p => b.rng() < p;
+  b.addBuff(e, { key: 'guaranteed-dodge', injury(c) { c.dodge(); } });
+  b.addBuff(e, { key: 'barrier-observer', observeInjury() {
+    const barrier = u.findBuff('skill:zuole:barrier3');
+    pools.push({ barrier, seq: barrier?.seq, amount: barrier?.shield });
+  } });
+  assert.ok(u.skill.activate('test', { free: true }));
+  assert.equal(pools.length, 7, JSON.stringify(b.errors));
+  for (const [i, pool] of pools.entries()) {
+    assert.equal(pool.barrier, pools[0].barrier);
+    assert.equal(pool.seq, pools[0].seq);
+    approx(pool.amount, add * (i + 1), 'one barrier gain per output');
+  }
+  approx(u.hp, hp, 'S3 suppresses the trait heal');
+  approx(e.hp, e.s.maxHp, 'every slash was dodged');
+  done(h);
+});

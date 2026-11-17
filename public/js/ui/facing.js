@@ -141,7 +141,7 @@ export const pieceDir = (piece) => normDir(isObj(piece) ? piece.dir : null);
  * to show.
  * @param {{ getChess:(id:string)=>any, getToken:(id:string)=>any, getItem:(id:string)=>any, chessRecord?:(rec:any)=>any }} lookups
  */
-export function previewGrid(lookups, piece) {
+export function previewRecord(lookups, piece) {
   if (!isObj(piece) || !lookups) return null;
   let rec = null;
   if (piece.kind === 'chess') {
@@ -149,6 +149,12 @@ export function previewGrid(lookups, piece) {
     if (rec && typeof lookups.chessRecord === 'function') { try { rec = lookups.chessRecord(rec) || rec; } catch { /* the data record */ } }
   } else if (piece.kind === 'token') rec = lookups.getToken?.(piece.id);
   else if (piece.kind === 'item') { rec = lookups.getItem?.(piece.id); if (rec?.itemType !== 'MAGIC') return null; }
+  return rec;
+}
+
+/** The resolved placement record supplies both the grid and its healing colour. */
+export function previewGrid(lookups, piece) {
+  const rec = previewRecord(lookups, piece);
   const grid = !rec ? null : piece.kind === 'chess' ? attackRangeGrid(rec) : (Array.isArray(rec.rangeGrid) ? rec.rangeGrid : null);
   return grid && grid.length ? grid : null;
 }
@@ -222,8 +228,8 @@ export function underframeActions(ctx, uid) {
   if (p.kind === 'item') return itemDestroyable(ctx, uid) ? { retreat: false, sell: null, destroy: true } : null;
   if (p.kind === 'token') return onBoard ? { retreat: true, sell: null, destroy: false } : null;
   if (p.kind !== 'chess') return null;
-  const price = ctx.getChess?.(p.id)?.sellPrice;
-  return { retreat: onBoard, sell: Number.isFinite(price) ? price : 1, destroy: false };
+  const override = Number.isFinite(p.sellPrice) ? p.sellPrice : ctx.getChess?.(p.id)?.sellPrice;
+  return { retreat: onBoard, sell: Number.isFinite(override) ? override : 1, destroy: false };
 }
 
 /**

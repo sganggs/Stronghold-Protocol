@@ -16,7 +16,10 @@ export function createSimWorker({ loadSim, prepareScripts = browserScripts } = {
         // A length marker, not enemy objects; runner's uniteLeftMark uses it.
         enemies: Array(b.enemies?.length || 0).fill(null),
         allyUnits: (b.allyUnits || []).map(u => ({ id: u.id, uid: u.uid, ownerId: u.ownerId })),
-        sharedBoss: b.sharedBoss ? { cum: b.sharedBoss.cum, byPlayer: { ...b.sharedBoss.byPlayer } } : null },
+        sharedBoss: b.sharedBoss ? { cum: b.sharedBoss.cum, byPlayer: { ...b.sharedBoss.byPlayer } } : null,
+        // An array, never the method: WorkerSimHost.battle is a plain object and Object.assign would overwrite a function.
+        // null outside a leader fight so a later packet cannot leave the previous fight's rows in place.
+        leaderHits: (b.kind === 'boss' || b.kind === 'hidden') && typeof b.leaderHits === 'function' ? b.leaderHits() : null },
       meta: b.fieldMeta(), players: Object.fromEntries(pids.map(id => [id, { bonds: b.getPlayer(id)?.bonds }])),
       ops: Object.fromEntries(pids.map(id => [id, host.ownerOps(id)])), meter: { lp: host.meter.lp },
       progress: host.progress(), left: host.spec.kind === 'unite' ? host.uniteLeft() : null,
