@@ -281,7 +281,7 @@ test('Hidden Core is skipped at Σ layers ≤ threshold, on FUNNY, or with team 
   m.dispose();
 });
 
-test('Final Assault: a fighting player may only watch its own boss field; eliminated players spectate any field', () => {
+test('Final Assault: fighting and eliminated players can view either group and return to their own field', () => {
   const h = makeMatch({ mode: 'coop', difficulty: 'FUNNY', humans: 4, seed: 54, fake: true, instant: false, script: (b) => (b.kind === 'boss' ? { bossDps: 1 } : {}) }).start();
   const m = h.m;
   h.drive(() => m.phase === PHASE.PREP && m.round === 14);
@@ -290,21 +290,23 @@ test('Final Assault: a fighting player may only watch its own boss field; elimin
   const pair = m.fields.find(f => f.players.length === 2), lone = m.fields.find(f => f.players.length === 1);
   assert.deepEqual(m.fields.flatMap(f => f.players).sort(), ['p_0', 'p_1', 'p_2']);
   const [first, second] = pair.players, third = lone.players[0];
-  assert.equal(m.handle(first, { t: 'g.watch', fieldId: lone.fieldId }).error, 'BAD_TARGET', 'the other group is hidden');
-  assert.equal(m.handle(third, { t: 'g.watch', fieldId: pair.fieldId }).error, 'BAD_TARGET');
+  assert.deepEqual(m.handle(first, { t: 'g.watch', fieldId: lone.fieldId }), { ok: true });
+  assert.deepEqual(m.handle(third, { t: 'g.watch', fieldId: pair.fieldId }), { ok: true });
   assert.deepEqual(m.handle(second, { t: 'g.watch', fieldId: pair.fieldId }), { ok: true });
   assert.deepEqual(m.handle('p_3', { t: 'g.watch', fieldId: 'b2' }), { ok: true }, 'an eliminated player spectates freely');
   assert.deepEqual(m.handle('p_3', { t: 'g.watch', fieldId: 'b1' }), { ok: true });
-  assert.equal(m.watchers.get(first), pair.fieldId, 'the refused watch keeps the default (own) field');
-  // the prep-scouting id of a player of the other group is no way around the rule, and never detaches the viewer
+  assert.equal(m.watchers.get(first), lone.fieldId);
+  // A nonexistent preparation field still cannot replace the watched battle stream.
   const scouted = h.allTo(first, 'm.field').length;
   assert.deepEqual(m.handle(first, { t: 'g.watch', fieldId: `n:${third}` }), { error: 'BAD_TARGET', detail: 'no such field' });
   assert.deepEqual(m.handle(first, { t: 'g.watch', fieldId: `n:${second}` }), { error: 'BAD_TARGET', detail: 'no such field' });
   assert.equal(h.allTo(first, 'm.field').length, scouted, 'no board of the other group was sent');
-  assert.equal(m.watchers.get(first), pair.fieldId, 'still streaming the own boss field');
+  assert.equal(m.watchers.get(first), lone.fieldId, 'a refused target retains the watched group');
   const snaps = h.allTo(first, 'b.snap').length;
   h.sched.advance(500);
-  assert.ok(h.allTo(first, 'b.snap').length > snaps, 'snapshots of the own field keep coming');
+  assert.ok(h.allTo(first, 'b.snap').length > snaps, 'snapshots of the other group keep coming');
+  assert.deepEqual(m.handle(first, { t: 'g.watch', fieldId: pair.fieldId }), { ok: true });
+  assert.equal(m.watchers.get(first), pair.fieldId, 'return to the own field');
   m.dispose();
 });
 

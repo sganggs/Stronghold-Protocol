@@ -1,5 +1,5 @@
 // server/match/match/watch.js — Match methods: watching (research 09 §3.1 / §6.3) — spectator seats (community report
-// #26: stand-ins shown fields like an eliminated player), g.watch in both combat modes (the boss-group rule, prep
+// #26: stand-ins shown fields like an eliminated player), g.watch in both combat modes (cross-group boss viewing, prep
 // scouting of a teammate's board), who is shown which field (the default watch, the boss fields, the resend on a
 // reconnect, the spectator's spec without the funds), a field's m.field + b.snap (server-run mode) and the prep-scout
 // pushes (GitHub #87). Eliminated humans and spectator seats follow a player through every phase reset (community
@@ -54,10 +54,6 @@ export class MatchWatch {
     if (this.clientCombat && this.fields.length && this.fields.some((x) => x.cc)) return this._watchClient(ps, fieldId, playerId);
     const f = this.fields.find((x) => x.fieldId === fieldId);
     if (f) {
-      // 最终攻势 / 隐秘核心: "两名参与者会处于同一个战场，但无法查看另一组队友的战场情况" — a fighting player sees its own
-      // boss field only (eliminated / departed players spectate freely)
-      const own = this.fieldOf(ps);
-      if ((f.kind === 'boss' || f.kind === 'hidden') && own && own !== f.fieldId) return fail(ERR.BAD_TARGET, 'other group hidden');
       this.watchers.set(ps.playerId, fieldId);
       this._watchPrefSet(ps, f, playerId);
       this._sendField(ps.playerId, fieldId);
@@ -65,8 +61,8 @@ export class MatchWatch {
     }
     if (fieldId.startsWith('n:')) {
       // prep scouting, only while no battle field is up: during 各自行动 / 联防 / 最终攻势 / 隐秘核心 an 'n:<pid>' id
-      // must name a live field (else the boss-group rule above could be bypassed, and the viewer would stop receiving
-      // its own field's snapshots). The scout stays in `watchers` so a later board change pushes prepFieldMeta again
+      // must name an existing field, so the viewer cannot switch to a prep board and lose the battle stream.
+      // The scout stays in `watchers` so a later board change pushes prepFieldMeta again
       // (GitHub #87); combat start clears the map and reassigns live fields, spectators included.
       if (this.fields.length) return fail(ERR.BAD_TARGET, 'no such field');
       const target = this.players.get(fieldId.slice(2));
@@ -130,17 +126,12 @@ export class MatchWatch {
 
   /**
    * g.watch under client-side combat: the watcher gets the field's spec (b.start, display only) and runs a local
-   * replica fast-forwarded to the field's clock. No watching while the own normal battle runs; the other pair's boss
-   * field is never shown to a fighting player; eliminated players may watch anything.
+   * replica fast-forwarded to the field's clock. Normal, boss and hidden fields can all be watched while the own
+   * battle continues independently; changing the display never transfers simulation authority.
    */
   _watchClient(ps, fieldId, playerId = null) {
     const f = this.fields.find((x) => x.fieldId === fieldId) || null;
     if (!f) return fail(ERR.BAD_TARGET, 'no such field');
-    const own = this.fields.find((x) => x.players.includes(ps.playerId)) || null;
-    if (ps.alive) {
-      if ((f.kind === 'boss' || f.kind === 'hidden') && own && own !== f) return fail(ERR.BAD_TARGET, 'other group hidden');
-      if (f.kind === 'normal' && own && own !== f && own.live) return fail(ERR.WRONG_PHASE, 'own battle running');
-    }
     this.watchers.set(ps.playerId, f.fieldId);
     this._watchPrefSet(ps, f, playerId);
     this.sendTo(ps.playerId, this._startMsg(f, ps.playerId, { watch: !f.players.includes(ps.playerId) }));

@@ -735,11 +735,8 @@ async function mockRequest(t, f = {}) {
       return {};
     }
     case 'g.watch': {
-      // server Match.watch rules: the other pair's boss field is hidden from a fighting player; no dead targets
+      // Match.watch also permits the other boss pair's live field; no dead prep targets
       const target = (pub.fields || []).find((x) => x.fieldId === f.fieldId);
-      const mine = (pub.fields || []).find((x) => x.players.includes(ME));
-      const meAlive = pub.players.find((x) => x.playerId === ME)?.alive !== false;
-      if (target && (target.kind === 'boss' || target.kind === 'hidden') && meAlive && mine && mine.fieldId !== target.fieldId) fail('BAD_TARGET');
       if (!target && String(f.fieldId).startsWith('n:') && pub.players.find((x) => x.playerId === f.fieldId.slice(2))?.alive === false) fail('BAD_TARGET');
       if ([PHASE.COMBAT, PHASE.UNITE, PHASE.FINAL_ASSAULT, PHASE.HIDDEN_CORE, PHASE.SETTLE].includes(pub.phase)) {
         const cur = store.get().match.field;

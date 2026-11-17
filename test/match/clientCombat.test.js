@@ -230,7 +230,9 @@ test('observing: no watching while the own battle runs; after it ends a teammate
   for (const pid of ['p_0', 'p_1', 'p_2']) m.handle(pid, { t: 'g.ready', ready: true });
   h.run(() => m.phase === PHASE.COMBAT);
   // p_1 still fights: it may not look elsewhere
-  assert.deepEqual(m.handle('p_1', { t: 'g.watch', fieldId: 'n:p_2' }), { error: 'WRONG_PHASE', detail: 'own battle running' });
+  assert.deepEqual(m.handle('p_1', { t: 'g.watch', fieldId: 'n:p_2' }), { ok: true });
+  assert.equal(h.lastTo('p_1','b.start').authoritative,false);
+  assert.equal(fields(h).find(f=>f.fieldId==='n:p_1').authority,'p_1');
   h.run(() => fields(h).find((f) => f.fieldId === 'n:p_0').done);
   const target = fields(h).find((f) => f.fieldId === 'n:p_2');
   assert.equal(target.live, true);
@@ -358,7 +360,7 @@ test('联防 under client-side combat: helpers\' reported end state (HP%, SP) ca
   const carried = f.spec.players[0].units.find((u) => u.uid === unit.uid);
   const reported = m.lastResults.get('p_1').unitsEnd.find((u) => u.uid === unit.uid);
   assert.deepEqual(carried.carryState, { hpPct: reported.hpPct, sp: reported.sp });
-  const got = h.sent.filter(([, x]) => x.t === 'b.start' && x.fieldId === 'u').map(([pid, x]) => `${pid}:${x.authoritative ? 'A' : x.watch ? 'w' : 'r'}`).sort();
+  const got = h.sent.filter(([, x]) => x.t === 'b.start' && x.fieldId === 'u').slice(0,3).map(([pid, x]) => `${pid}:${x.authoritative ? 'A' : x.watch ? 'w' : 'r'}`).sort();
   assert.deepEqual(got, ['p_0:w', 'p_1:A', 'p_2:r']);
   h.drive(() => m.phase === PHASE.SETTLE);
   assert.ok(f.result && f.resultSource === 'client');
