@@ -707,7 +707,7 @@ test('settings expose 作战统计 off by default and the match hides the button
   assert.equal(line({ quality: 'high', damageNumbers: true, combatMetrics: false }), 'settings: quality high | damage numbers');
 });
 
-test('temporary bond display reads recorded gains, preserves permanent layers, and clears at battle end', async () => {
+test('temporary bond display reads recorded gains, preserves permanent layers and keeps the completed own-battle pool', async () => {
   const start = realStart();
   const r = rig();
   try {
@@ -728,7 +728,7 @@ test('temporary bond display reads recorded gains, preserves permanent layers, a
     assert.equal(ps.bonds[id].layers, 12);
     e.battle._pp = read;
     e.battle.forceEnd('timeout');
-    assert.deepEqual(r.runner.state().bondTempLayers, {});
+    assert.equal(r.runner.state().bondTempLayers[pid][id], 100, 'own combat ending does not expire the round pool');
     assert.equal(r.runner.state().bondLayers[pid][id], 12);
   } finally { r.runner.dispose(); }
 });

@@ -147,14 +147,16 @@ function onLayers(battle, pid, bondId, fn) {
   st.refreshers.get(k).push(fn);
   if (st.hooked.has('layerGain')) return;
   st.hooked.add('layerGain');
-  battle.on('layerGain', (c) => {
+  const refresh = (c) => {
     const key = `${c.playerId}|${c.bondId}`;
     const list = st.refreshers.get(key);
     if (!list || st.pending.has(key)) return;
     st.pending.add(key);
     // the gain is recorded after the hook: re-read the live layers next tick
     battle.after(0, () => { st.pending.delete(key); for (const f of list) f(); });
-  }, { priority: -100 });
+  };
+  battle.on('layerGain', refresh, { priority: -100 });
+  battle.on('tempLayerChange', refresh, { priority: -100 });
 }
 
 function onUnitHit(battle, unit, fn) {

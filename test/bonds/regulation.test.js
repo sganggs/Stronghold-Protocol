@@ -93,6 +93,7 @@ function fight(t, spec) {
   t.after(() => setGameData(null));
   return makeBattle({
     seed: spec.seed ?? 1,
+    kind: spec.kind, flags: spec.flags,
     data,
     timeLimit: spec.timeLimit ?? 90,
     autoFinish: false,
@@ -101,6 +102,7 @@ function fight(t, spec) {
       playerId: 'p1', seat: 0, side: 'L', colOffset: 0,
       units: units.map((u, i) => ({ uid: u.uid ?? i + 1, kind: 'chess', ...u })),
       bonds: spec.bonds,
+      tempLayers: spec.tempLayers,
       contentInfo: spec.contentInfo,
     }],
   });
@@ -606,6 +608,78 @@ describe('规程·序列Ⅰ bonds', { concurrency: 1 }, () => {
     const food = tank(h6, [9, 16]);
     h6.b.dealDamage({ source: m, target: food, amount: 1e9, type: 'true' });
     assert.equal(tempBondLayers(h6.b, 'p1', 'ursusShip'), 4);
+  });
+
+  // Regression coverage from bmryggdrasil's PR #962, extended by the shared ledger below.
+  test('乌萨斯: temp layers boost ATK/HP, cut/bleed, and block arts without raising permanent layers', (t) => {
+    const h = fight(t, {
+      bonds: { ursusShip: bond(1, 1, 1) },
+      pieces: [piece('reg_ur_t', ['ursusShip'])],
+    });
+    h.step();
+    const u = h.unit('reg_ur_t');
+    const kill = () => h.b.dealDamage({ source: u, target: tank(h, [9, 16]), amount: 1e9, type: 'true' });
+    kill();
+    assert.equal(tempBondLayers(h.b, 'p1', 'ursusShip'), 2);
+    assert.equal(h.b.getPlayer('p1').bonds.ursusShip.layers, 1);
+    assert.equal(h.b.result().perPlayer.p1.tempLayerGains.ursusShip, 2);
+    assert.equal(h.b.result().perPlayer.p1.layerGains.ursusShip, undefined);
+    h.step();
+    close(u.s.atk, 500 * (1 + 0.35 + 0.0075 * 3), 'atk includes L=1 perm + 2 temp');
+    close(u.s.maxHp, 2000 * (1 + 0.1 + 0.003 * 3), 'maxHp includes L=1 perm + 2 temp');
+
+    const h6 = fight(t, {
+      bonds: { ursusShip: bond(6, 0) },
+      pieces: [piece('reg_ur6_t', ['ursusShip'])],
+    });
+    h6.step();
+    const m = h6.unit('reg_ur6_t');
+    for (let i = 0; i < 5; i++) {
+      h6.b.dealDamage({ source: m, target: tank(h6, [9, 16]), amount: 1e9, type: 'true' });
+    }
+    assert.equal(tempBondLayers(h6.b, 'p1', 'ursusShip'), 20);
+    h6.step();
+    close(m.s.atk, 500 * (1 + 0.35 + 0.0075 * 20), '6-ursus atk includes 20 temp');
+
+    const foe = tank(h6, [9, 9]);
+    const hpBefore = m.hp;
+    h6.b.dealDamage({ source: foe, target: m, amount: 1000, type: 'phys' });
+    close(hpBefore - m.hp, 840, '16% cut (15% + 20 * 0.05%)');
+    h6.step();
+    close(hpBefore - m.hp, 856, 'bleed deals 16% / 10 = 16 on first pulse');
+
+    const blk = tank(h6, [9, 8]);
+    h6.b.on('tick', () => { m.blocking = [blk]; });
+    const blkHp = blk.hp;
+    h6.run(1.1);
+    close(blkHp - blk.hp, (0.5 + 0.0025 * 20) * m.s.atk, 'block arts scales with temp layers');
+
+    const off = fight(t, {
+      bonds: { ursusShip: bond(1, 0, 0) },
+      pieces: [piece('reg_ur_off', ['ursusShip'])],
+      flags: { layerGainsEnabled: false },
+    });
+    off.step();
+    const uo = off.unit('reg_ur_off');
+    off.b.dealDamage({ source: uo, target: tank(off, [9, 16]), amount: 1e9, type: 'true' });
+    assert.equal(tempBondLayers(off.b, 'p1', 'ursusShip'), 2, 'combat-local temp layers still apply when gains are disabled');
+    assert.equal(off.b.result().perPlayer.p1.tempLayerGains.ursusShip, 2, 'temporary receipts are independent of permanent gain flags');
+    off.step();
+    close(uo.s.atk, 500 * (1 + 0.35 + 0.0075 * 2), 'combat-local temp layers boost atk');
+  });
+
+
+  test('联防: inherited temporary layers apply immediately but kills and equipment cannot add more', t => {
+    const h = fight(t, { kind: 'unite', flags: { layerGainsEnabled: false }, tempLayers: { ursusShip: 20 },
+      bonds: { ursusShip: bond(3, 1) },
+      pieces: [piece('unite_ursus', ['ursusShip'], { items: ['chess_item_3_13_e_a'] })] });
+    h.step();
+    const u = h.unit('unite_ursus');
+    close(u.s.atk, 500 * (1 + .35 + .0075 * 21), 'inherited temp layers refresh standing ATK at construction');
+    h.b.dealDamage({ source: u, target: tank(h, [9, 16]), amount: 1e9, type: 'true' });
+    h.step();
+    assert.equal(h.b.tempLayers('p1', 'ursusShip'), 20, 'kill and supplement cannot change the inherited pool');
+    assert.equal(h.b.result().perPlayer.p1.tempLayerGains, undefined);
   });
 
   test('伊比利亚: slow, DoT, per-source interval, splash', (t) => {

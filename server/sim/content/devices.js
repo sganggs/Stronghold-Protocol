@@ -162,7 +162,7 @@ export function kjeragColdWind(battle, playerId, bb = {}, { bondId = 'kjeragShip
   const interval = num(bb['bond_eff_kjerag[storm].interval'], 0);
   const base = num(bb['bond_eff_kjerag[storm].base_time'], 0);
   const per = num(bb['bond_eff_kjerag[storm].time_per_stack'], 0);
-  const layers = () => num(battle.getPlayer(playerId)?.bonds?.[bondId]?.layers, 0);
+  const layers = () => battle.effectiveBondLayers(playerId, bondId);
   return startColdWind(battle, { playerId, interval, duration: () => base + per * layers() });
 }
 
@@ -173,7 +173,7 @@ export function kjeragColdWind(battle, playerId, bb = {}, { bondId = 'kjeragShip
 function topLayers(battle, playerId) {
   const bonds = battle.getPlayer(playerId)?.bonds;
   let L = 0;
-  if (bonds && typeof bonds === 'object') for (const b of Object.values(bonds)) L = Math.max(L, num(b?.layers, 0));
+  if (bonds && typeof bonds === 'object') for (const id of Object.keys(bonds)) L = Math.max(L, battle.effectiveBondLayers(playerId, id));
   return L;
 }
 

@@ -622,10 +622,10 @@ H.SERVER_ADD_ACTIVATED_BOND_BY_ALIVE_CHAR = {
   },
 };
 
-// [ASSUMED] SERVER_BATTLE_FIN is the 进入休整期 conversion. Temp layers need not be on an active bond.
-// Several converters in one settle share the pool; each consumes what it takes.
+// Maintainer confirmed: convert on entering the next prep, after any unite. Each converter consumes the shared pool.
 H.SERVER_CONVERT_TEMP_BOND = {
-  onBattleResult(ctx) {
+  garrisonHooks: () => ['onPrepStart'],
+  onPrepStart(ctx) {
     const bond = ctx.source.bbStr.bond;
     const n = num(ctx.source.bb.count, 0);
     if (!bond || !(n > 0)) return;
@@ -636,7 +636,8 @@ H.SERVER_CONVERT_TEMP_BOND = {
 
 // bond is the temp pool. bond2 filters on-board operators (a member of that bond). count per such operator.
 H.SERVER_CONVERT_TEMP_BOND_BY_BOND_CHAR = {
-  onBattleResult(ctx) {
+  garrisonHooks: () => ['onPrepStart'],
+  onPrepStart(ctx) {
     const { bb, bbStr } = ctx.source;
     const pool = bbStr.bond;
     const filter = bbStr.bond2 || pool;

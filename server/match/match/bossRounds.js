@@ -535,6 +535,10 @@ export class MatchBoss {
         const ps = this.players.get(pid);
         if (pp) this.lastResults.set(pid, pp);
         if (pp && ps) {
+          if (pp.tempLayerGains && Object.keys(pp.tempLayerGains).length) ps.tempLayers = { ...pp.tempLayerGains };
+          else delete ps.tempLayers;
+        }
+        if (pp && ps) {
           ps.stats.dmgDealt += Number(pp.damageDealt) || 0;
           ps.stats.kills += Number(pp.killed) || 0;
           ps.creditedKills += creditedKillsOf(pp);

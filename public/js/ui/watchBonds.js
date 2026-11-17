@@ -148,10 +148,21 @@ export function withLiveLayers(bonds, live) {
 }
 
 /** Temporary layers are displayed separately and never written into the permanent count. */
-function withTemporaryLayers(bonds, temporary, ownerId) {
+function withTemporaryLayers(bonds, temporary, ownerId, live) {
   const layers = temporary?.[ownerId];
   if (!layers) return bonds;
-  return bonds.map(b => ({ ...b, tempLayers: Math.max(0, Number(layers[b.bondId]) || 0) }));
+  const list = bonds.slice();
+  for (const [bondId, n] of Object.entries(layers)) {
+    if (Number.isFinite(n) && n > 0 && !list.some(b => b.bondId === bondId)) {
+      list.push({ bondId, count: 0, active: false, tier: 0, layers: 0 });
+    }
+  }
+  return list.map(b => {
+    const amount = Number(layers[b.bondId]);
+    const tempLayers = Number.isFinite(amount) ? Math.max(0, amount) : 0;
+    const base = live?.[ownerId]?.[b.bondId];
+    return { ...b, ...(tempLayers > 0 && Number.isFinite(base) ? { layers: Math.max(0, Math.min(BOND_LAYER_CAP > 0 ? BOND_LAYER_CAP : Infinity, base)) } : {}), tempLayers };
+  });
 }
 
 /**
@@ -194,7 +205,7 @@ export function ownerBoard(field, ownerId, extra = null) {
 export function stripView({ pub, priv = null, myId, fieldId = null, field = null, layer = 'ALL', halves = false, watched = null, live = null, temporary = null }) {
   const ownerId = bondOwnerId({ pub, myId, fieldId, field, layer, halves, watched });
   const self = ownerId === myId;
-  const bonds = withTemporaryLayers(withLiveLayers(ownerBonds({ pub, priv, myId, ownerId }), isObj(live) ? live[ownerId] : null), temporary, ownerId);
+  const bonds = withTemporaryLayers(withLiveLayers(ownerBonds({ pub, priv, myId, ownerId }), isObj(live) ? live[ownerId] : null), temporary, ownerId, live);
   return { ownerId, self, name: self ? null : nameOf(pub, ownerId), bonds };
 }
 
@@ -214,7 +225,7 @@ export function screenStrip({ pub, priv = null, myId, combat = false, settle = f
   const halves = Array.isArray(layers) && layers.length > 0 && isObj(field) && field.fieldId === fieldId;
   const live = (combat || settle) && isObj(bondLayers) ? bondLayers : null;
   const watched = watchingOther ? watchedPlayer(who, watching) : null;
-  return { fieldId, ...stripView({ pub, priv, myId, fieldId, field, layer, halves, watched, live, temporary: combat ? bondTempLayers : null }) };
+  return { fieldId, ...stripView({ pub, priv, myId, fieldId, field, layer, halves, watched, live, temporary: (combat || settle) && fieldId === battleFieldId ? bondTempLayers : null }) };
 }
 
 /**
@@ -222,7 +233,7 @@ export function screenStrip({ pub, priv = null, myId, combat = false, settle = f
  * @param {{ pub: any, priv?: any, myId: string, ownerId: string, temporary?: Record<string, Record<string, number>>|null, live?: Record<string, Record<string, number>>|null }} o
  */
 export function playerBonds({ pub, priv = null, myId, ownerId, live = null, temporary = null }) {
-  return withTemporaryLayers(withLiveLayers(ownerBonds({ pub, priv, myId, ownerId }), isObj(live) ? live[ownerId] : null), temporary, ownerId);
+  return withTemporaryLayers(withLiveLayers(ownerBonds({ pub, priv, myId, ownerId }), isObj(live) ? live[ownerId] : null), temporary, ownerId, live);
 }
 
 /**

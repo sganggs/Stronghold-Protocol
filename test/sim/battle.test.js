@@ -557,3 +557,65 @@ test('content modules: a throwing install() is logged and skipped; units outside
   assert.equal(r.reason, 'cleared');
   checkInvariants(h.b);
 });
+
+test('temporary layer ledger: actual gains/removals, independent caps, hooks, snapshots and expiry', () => {
+  const h = makeBattle({ content: 'none', bonds: { yanShip: { layers: 998, active: true, tier: 1, count: 3 } }, autoFinish: false });
+  const b = h.b, receipts = [], changes = [], permanent = [];
+  b.on('tempLayerGain', c => receipts.push(c.n));
+  b.on('tempLayerChange', c => changes.push([c.n, c.total]));
+  b.on('layerGain', c => permanent.push(c.n));
+  for (const n of [0, -1, NaN, Infinity, .1]) assert.equal(b.addTempLayers('p1', 'yanShip', n), 0);
+  assert.equal(b.addTempLayers('absent', 'yanShip', 3), 0);
+  assert.equal(b.addTempLayers('p1', '', 3), 0);
+  assert.equal(b.addTempLayers('p1', 'yanShip', 9999), 9999);
+  const snapshot = b.tempLayersSnapshot();
+  assert.equal(b.addTempLayers('p1', 'yanShip', 5), 1);
+  assert.equal(b.addTempLayers('p1', 'yanShip', 1), 0);
+  assert.deepEqual(receipts, [9999, 1]);
+  assert.equal(snapshot.p1.yanShip, 9999, 'published snapshots cannot change later');
+  snapshot.p1.yanShip = 0;
+  assert.equal(b.tempLayers('p1', 'yanShip'), 10000);
+  assert.equal(b.addLayers('p1', 'yanShip', 5), 1, 'temporary layers do not consume the permanent cap');
+  assert.equal(b.effectiveBondLayers('p1', 'yanShip'), 10999);
+  assert.deepEqual(permanent, [5], 'temporary gains never trigger permanent modifiers');
+  assert.equal(b.removeTempLayers('p1', 'yanShip', 2), 2);
+  assert.equal(b.result().perPlayer.p1.tempLayerGains.yanShip, 9998);
+  assert.equal(b.removeTempLayers('p1', 'yanShip', 20000), 9998);
+  assert.equal(b.result().perPlayer.p1.tempLayerGains, undefined);
+  assert.deepEqual(changes, [[9999, 9999], [1, 10000], [-2, 9998], [-9998, 0]]);
+  b.forceEnd('forced');
+  assert.equal(b.addTempLayers('p1', 'yanShip', 2), 0);
+  const next = makeBattle({ content: 'none', autoFinish: false }).b;
+  assert.deepEqual(next.tempLayersSnapshot(), {});
+});
+
+test('boss temporary gains survive as receipts; unite inherits a frozen own-battle pool', () => {
+  for (const kind of ['boss', 'hidden']) {
+    const b = makeBattle({ content: 'none', kind, flags: { layerGainsEnabled: false }, autoFinish: false }).b;
+    assert.equal(b.addTempLayers('p1', 'yanShip', 7), 7);
+    assert.equal(b.effectiveBondLayers('p1', 'yanShip'), 7);
+    assert.equal(b.result().perPlayer.p1.tempLayerGains.yanShip, 7);
+  }
+  const b = makeBattle({ content: 'none', kind: 'unite', autoFinish: false, players: [
+    { playerId: 'p1', units: [], bonds: { yanShip: { layers: 100 } }, tempLayers: { yanShip: 20 } },
+  ] }).b;
+  assert.equal(b.tempLayers('p1', 'yanShip'), 20);
+  assert.equal(b.effectiveBondLayers('p1', 'yanShip'), 120);
+  assert.equal(b.addTempLayers('p1', 'yanShip', 7), 0);
+  assert.equal(b.removeTempLayers('p1', 'yanShip', 7), 0);
+  assert.equal(b.tempLayers('p1', 'yanShip'), 20);
+  assert.equal(b.result().perPlayer.p1.tempLayerGains, undefined, 'carried layers are not paid a second time');
+});
+
+test('temporary layer ledgers isolate players with the same bond id', () => {
+  const h = makeBattle({ content: 'none', autoFinish: false, players: [
+    { playerId: 'p1', seat: 0, units: [], bonds: {} },
+    { playerId: 'p2', seat: 1, units: [], bonds: {} },
+  ] });
+  assert.equal(h.b.addTempLayers('p1', 'yanShip', 12), 12);
+  assert.equal(h.b.addTempLayers('p2', 'yanShip', 24), 24);
+  h.b.removeTempLayers('p1', 'yanShip', 5);
+  assert.deepEqual(h.b.tempLayersSnapshot(), { p1: { yanShip: 7 }, p2: { yanShip: 24 } });
+  assert.equal(h.b.result().perPlayer.p1.tempLayerGains.yanShip, 7);
+  assert.equal(h.b.result().perPlayer.p2.tempLayerGains.yanShip, 24);
+});

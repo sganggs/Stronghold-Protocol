@@ -1388,3 +1388,9 @@ Commercial Packaging includes both `sell_char_count_gain_equip_owner_bond` (seco
 `sell_char_count_gain_equip_owner_original` (first period), using the same `pack:<uid>` counter and each record's
 `params.count`. The watched field's effects feed both the sidebar and 本局信息 during prep and combat; fields with
 multiple owners carry no inferred strategy progress. See [0.3.4 §37.13](history/0.3.4.md).
+
+临时盟约层数结算（维护者 2026-11-18 确认）：休整期结束到下一次进入休整期共用一个临时池。
+装备、盟约与驻守的普通／Boss 战斗通过 `tempLayerGains` 保存余额；本人战斗结束及 SETTLE 都不转换。
+联防输入 `tempLayers` 继承本人余额并冻结，不再叠加，也不重新记为收益；Boss 本身没有联防。
+下一次进入休整期时由 `onPrepStart` 转换器读取、消耗，然后清除余额，多功能补剂同样适用。
+完整 API 和来源见 [临时层数约定](design/engine.md#temporary-bond-layers)。

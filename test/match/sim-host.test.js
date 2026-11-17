@@ -329,13 +329,25 @@ test('Worker packets carry the same temporary layer display data as the in-page 
   try {
     worker.accept(packet);
     assert.equal(worker.battle._pp, undefined);
-    assert.deepEqual(worker.temporaryLayers(), page.temporaryLayers());
-    assert.equal(worker.temporaryLayers().p1.display_probe, 100);
+    assert.deepEqual(worker.tempLayersSnapshot(), page.tempLayersSnapshot());
+    assert.equal(worker.tempLayersSnapshot().p1.display_probe, 100);
+    const shown = worker.tempLayersSnapshot();
+    shown.p1.display_probe = 0;
+    assert.equal(worker.tempLayersSnapshot().p1.display_probe, 100, 'callers cannot mutate Worker display state');
     assert.equal(worker.battle.getPlayer('p1').bonds.display_probe.layers, 10);
     await dispatch('step', [1, {}]);
+    const inherited = fixtureSpec();
+    inherited.kind = 'unite';
+    inherited.players[0].tempLayers = { display_probe: 20 };
+    page.start(inherited);
+    worker.accept(structuredClone(await dispatch('start', [inherited])));
+    assert.deepEqual(worker.tempLayersSnapshot(), page.tempLayersSnapshot());
+    assert.equal(worker.tempLayersSnapshot().p1.display_probe, 20, 'Worker restores unite input and rejects startup gains');
     temporary = 0;
     const next = structuredClone(await dispatch('start', [fixtureSpec()]));
     worker.accept(next);
-    assert.deepEqual(worker.temporaryLayers().p1, {}, 'next battle starts without the previous temporary gain');
+    assert.deepEqual(worker.tempLayersSnapshot(), {}, 'next battle starts without the previous temporary gain');
+    worker.stop();
+    assert.deepEqual(worker.tempLayersSnapshot(), {}, 'stopped hosts expose no stale temporary display');
   } finally { worker.stop(); page.stop(); }
 });

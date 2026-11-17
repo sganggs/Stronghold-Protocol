@@ -558,11 +558,13 @@ function installReaders(battle, by) {
   const recompute = () => { for (const it of list) applyReader(battle, it); };
   recompute();
   let pending = false;
-  battle.on('layerGain', () => {
+  const refresh = () => {
     if (pending) return;
     pending = true;
     battle.after(0, () => { pending = false; recompute(); });
-  });
+  };
+  battle.on('layerGain', refresh);
+  battle.on('tempLayerChange', refresh);
   const onstart = by.get('act2autochess_gar_eff_attrByBond_add_onstart');
   if (onstart) {
     const m = byUnit(onstart);

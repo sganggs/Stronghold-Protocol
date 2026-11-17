@@ -9,6 +9,7 @@
 // threshold is not reached on version data, same rule as core.reached.
 
 import * as S from '../support/index.js';
+import { ursusTempExtra } from '../garrisons.js';
 import { lendItemEffects } from '../items.js';
 import { damageAttackType, isHpLoss } from '../../attack.js';
 import { msg } from '../../../../shared/i18n.js';
@@ -98,25 +99,23 @@ function onLayers(battle, pid, bondId, fn) {
   st.map.get(k).push(fn);
   if (st.hooked) return;
   st.hooked = true;
-  battle.on('layerGain', (c) => {
+  const refresh = (c) => {
     const key = `${c.playerId}|${c.bondId}`;
     const list = st.map.get(key);
     if (!list || st.pending.has(key)) return;
     st.pending.add(key);
     battle.after(0, () => { st.pending.delete(key); for (const f of list) f(); });
-  }, { priority: -100 });
+  };
+  battle.on('layerGain', refresh, { priority: -100 });
+  battle.on('tempLayerChange', refresh, { priority: -100 });
 }
 
-/** Temp layers (乌萨斯 kill node `_isTemp`). Not normal layers; a garrison may convert them later. */
+/** Compatibility reader: every temporary source now uses the battle's ledger. */
 export function tempBondLayers(battle, pid, bondId) {
-  const st = S.battleStore(battle, 'bonds:reg:temp', () => ({}));
-  return num(st[`${pid}|${bondId}`]);
+  return battle.tempLayers(pid, bondId);
 }
 function addTemp(battle, pid, bondId, n) {
-  if (!(n > 0)) return;
-  const st = S.battleStore(battle, 'bonds:reg:temp', () => ({}));
-  const k = `${pid}|${bondId}`;
-  st[k] = num(st[k]) + n;
+  return battle.addTempLayers(pid, bondId, n);
 }
 
 function enemyRaw(battle, id) {
@@ -457,7 +456,7 @@ function installUrsus(battle, pid, effectId, members) {
     const who = killer && killer.kind === 'token' ? killer.ownerUnit : killer;
     if (!set.has(who)) return;
     const n = six ? num(bb['temp_bond_stack_cnt[power]'], 4) : num(bb.temp_bond_stack_cnt, 2);
-    const extra = num(bb.extra_bond_stack_cnt, 0);
+    const extra = ursusTempExtra(battle, pid);
     addTemp(battle, pid, 'ursusShip', n + (extra > 0 ? extra : 0));
   });
   battle.on('hit', (c) => {

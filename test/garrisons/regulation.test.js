@@ -1,6 +1,7 @@
 // 规程·序列Ⅰ (act3autochess@V3_1) garrison types and in-battle events.
 // Prep uses the match's own data. Battle garrison records come from the process gameData() singleton, so this file
 // loads the regulation tables and restores them afterwards. Behaviour is keyed by effect / blackboard key.
+import { installItem } from '../../server/sim/content/items/battle.js';
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeMatch, give } from '../match/harness.js';
@@ -227,12 +228,14 @@ test('SERVER_ADD_ACTIVATED_BOND_BY_ALIVE_CHAR: living chess, the per-trigger cap
   assert.equal(hand.L('iberiaShip'), 0);
 });
 
-test('SERVER_CONVERT_TEMP_BOND: converters share one pool, a replay consumes it, settle drops it', () => {
+test('SERVER_CONVERT_TEMP_BOND: share one pool and convert only on entering prep', () => {
   const one = setup();
   const piece = give(one.m, one.ps, 'chess_char_1_01_a', 'board', [10, 4]);
   one.activate('ursusShip');
   one.ps.tempLayers = { ursusShip: 1 };
   one.m.dispatcher.triggerGarrisons(one.ps, piece, 'SERVER_BATTLE_FIN');
+  assert.equal(one.L('ursusShip'), 0, 'battle-end dispatch cannot convert before prep');
+  one.prepStart();
   assert.equal(one.L('ursusShip'), 1, 'a pool of 1 cannot pay the whole count of 2');
   assert.equal(one.ps.tempLayers.ursusShip, undefined);
 
@@ -250,7 +253,10 @@ test('SERVER_CONVERT_TEMP_BOND: converters share one pool, a replay consumes it,
     tempLayerGains: { ursusShip: 10 }, unitsEnd: [],
   });
   both.m.settle(null, null);
-  assert.equal(both.ps.tempLayers, undefined, 'settle deletes the bag after the dispatch');
+  assert.deepEqual(both.ps.tempLayers, { ursusShip: 10 }, 'SETTLE preserves the pool');
+  assert.equal(both.L('ursusShip'), 0, 'no conversion before the next prep');
+  both.m.enterPrep();
+  assert.equal(both.ps.tempLayers, undefined, 'entering prep discards the unconverted remainder');
   assert.equal(both.L('ursusShip'), 4, '184 takes 2 and 21 takes one per on-board 乌萨斯 member');
 });
 
@@ -444,7 +450,7 @@ test('switchhand: both bonds are required, and the carrier plus the summon each 
   assert.equal(lg(h, 'raidShip'), 12);
 });
 
-test('battlestart temporary layers are omitted when gains are disabled', () => {
+test('boss retains battle-start temporary receipts; unite cannot gain new layers', () => {
   const h = battle(
     [{ id: 'op', g: ['garrison_13_a'], row: 10, col: 4, bonds: ['ursusShip'] }],
     { ursusShip: B(0) },
@@ -454,9 +460,9 @@ test('battlestart temporary layers are omitted when gains are disabled', () => {
   const off = battle(
     [{ id: 'op', g: ['garrison_13_a'], row: 10, col: 4, bonds: ['ursusShip'] }],
     { ursusShip: B(0) },
-    { flags: { layerGainsEnabled: false } },
+    { kind: 'boss', flags: { layerGainsEnabled: false } },
   );
-  assert.equal(off.b._perPlayer.p1.tempLayerGains, undefined);
+  assert.equal(off.b._perPlayer.p1.tempLayerGains.ursusShip, 4);
   const unite = battle(
     [{ id: 'op', g: ['garrison_13_a'], row: 10, col: 4, bonds: ['ursusShip'] }],
     { ursusShip: B(0) },
@@ -697,6 +703,11 @@ test('tempLayerGains is optional on the result wire and rejected when it is not 
   assert.equal(validateClientResult(spec, huge, { gd }).reason, 'temp layers');
   const unite = buildBattleSpec({ ...spec, kind: 'unite', flags: { layerGainsEnabled: false } });
   assert.equal(validateClientResult(unite, withTemp, { gd }).reason, 'layers disabled');
+  const onlyTemp = structuredClone(withTemp);
+  onlyTemp.perPlayer.p.layerGains = {};
+  assert.equal(validateClientResult(unite, onlyTemp, { gd }).reason, 'layers disabled', 'no new temporary receipts in unite');
+  const boss = buildBattleSpec({ ...spec, kind: 'boss', flags: { layerGainsEnabled: false } });
+  assert.equal(validateClientResult(boss, onlyTemp, { gd }).ok, true, 'boss can report temporary layers for next-prep conversion');
 
   const compact = compactResult({ reason: 'timeout', time: 1, perPlayer: { p: { tempLayerGains: { ursusShip: 3.2 } } } });
   assert.equal(compact.perPlayer.p.tempLayerGains.ursusShip, 3);
@@ -713,4 +724,110 @@ test('tempLayerGains is optional on the result wire and rejected when it is not 
   assert.equal(isBattleResult(filled), true);
   filled.perPlayer.p.tempLayerGains = { ursusShip: 10001 };
   assert.equal(isBattleResult(filled), false);
+});
+
+// Regression coverage from bmryggdrasil's PR #962.
+
+test('garrison_13 (battlestart) and garrison_23 (ursus temp extra) boost live 乌萨斯 stats', () => {
+  const hStart = battle(
+    [{ id: 'op', g: ['garrison_13_a'], row: 10, col: 4, bonds: ['ursusShip'] }],
+    { ursusShip: B(0) },
+  );
+  const us = hStart.unit('op');
+  assert.equal(hStart.b.tempLayers('p1', 'ursusShip'), 4);
+  near(us.s.atk, us.base.atk * (1 + 0.35 + 0.0075 * 4), 'garrison_13_a boosts live atk');
+  near(us.s.maxHp, us.base.maxHp * (1 + 0.1 + 0.003 * 4), 'garrison_13_a boosts live maxHp');
+
+  const hLow = battle(
+    [{ id: 'op', g: ['garrison_23_a'], row: 10, col: 4, bonds: ['ursusShip'] }],
+    { ursusShip: B(0) },
+  );
+  const ul = hLow.unit('op');
+  hLow.b.dealDamage(ul, hLow.spawn('e_dummy', { pos: [11, 8] }), { amount: 1e9, type: 'true' });
+  assert.equal(hLow.b.tempLayers('p1', 'ursusShip'), 4, 'garrison_23_a raises kill temp gain from 2 to 4');
+  hLow.step(1);
+  near(ul.s.atk, ul.base.atk * (1 + 0.35 + 0.0075 * 4), 'garrison_23_a temp gain applies to live atk');
+
+  const six = Array.from({ length: 6 }, (_, i) => ({
+    id: `op_${i}`, g: i === 0 ? ['garrison_23_b'] : [], row: 10, col: 1 + i, bonds: ['ursusShip'],
+  }));
+  const hHigh = battle(six, { ursusShip: { count: 6, active: true, tier: 2, layers: 0 } });
+  const uh = hHigh.unit('op_0');
+  hHigh.b.dealDamage(uh, hHigh.spawn('e_dummy', { pos: [11, 8] }), { amount: 1e9, type: 'true' });
+  assert.equal(hHigh.b.tempLayers('p1', 'ursusShip'), 8, '6-ursus + garrison_23_b grants 8 temp layers per kill');
+  hHigh.step(1);
+  near(uh.s.atk, uh.base.atk * (1 + 0.35 + 0.0075 * 8));
+});
+
+test('乌萨斯 kill temp layers flow into result.tempLayerGains and convert to permanent layers at next prep', (t) => {
+  const s = setup(71);
+  t.after(() => { assert.equal(s.m.errorCount, 0); s.m.dispose(); });
+  give(s.m, s.ps, 'chess_char_1_01_a', 'board', [10, 4]);
+  give(s.m, s.ps, 'chess_char_3_03_a', 'board', [10, 5]);
+  s.activate('ursusShip');
+
+  const h = battle(
+    [{ id: 'killer', row: 10, col: 4, bonds: ['ursusShip'] }],
+    { ursusShip: B(0) },
+  );
+  const u = h.unit('killer');
+  h.b.dealDamage(u, h.spawn('e_dummy', { pos: [11, 8] }), { amount: 1e9, type: 'true' });
+  h.b.dealDamage(u, h.spawn('e_dummy', { pos: [11, 9] }), { amount: 1e9, type: 'true' });
+  const r = h.b.result().perPlayer.p1;
+  assert.equal(r.tempLayerGains.ursusShip, 4);
+  assert.equal(r.layerGains.ursusShip, undefined);
+
+  s.ps.tempLayers = { ...r.tempLayerGains };
+  s.fin({ ...r, unitsEnd: living(2).unitsEnd });
+  assert.equal(s.L('ursusShip'), 0, 'own battle end must not convert yet');
+  s.m.enterPrep();
+  assert.equal(s.L('ursusShip'), 4, 'garrison_184_a (2) + garrison_21_a (2 on-board 乌萨斯) convert all 4 kill temp layers');
+});
+
+test('多功能补剂 temporary receipts use the same settlement converters as bond and garrison gains', t => {
+  const s = setup(71);
+  t.after(() => { assert.equal(s.m.errorCount, 0); s.m.dispose(); });
+  give(s.m, s.ps, 'chess_char_1_01_a', 'board', [10, 4]);
+  give(s.m, s.ps, 'chess_char_3_03_a', 'board', [10, 5]);
+  s.activate('ursusShip');
+  const h = battle([{ id: 'carrier', row: 10, col: 4, bonds: ['ursusShip'] }], { ursusShip: B(0) });
+  const u = h.unit('carrier');
+  installItem(h.b, u, 'chess_item_3_13_e_a');
+  const foe = h.spawn('e_dummy', { pos: [11, 8] });
+  for (let i = 0; i < 4; i++) h.b.dealDamage(u, foe, { amount: 1, type: 'true' });
+  const r = h.b.result().perPlayer.p1;
+  assert.equal(r.tempLayerGains.ursusShip, 4);
+  assert.equal(h.b.getPlayer('p1').bonds.ursusShip.layers, 0);
+  s.ps.tempLayers = { ...r.tempLayerGains };
+  s.fin({ ...r, unitsEnd: living(2).unitsEnd });
+  assert.equal(s.L('ursusShip'), 0, 'own battle end must not convert yet');
+  s.m.enterPrep();
+  assert.equal(s.L('ursusShip'), 4, 'both existing converters consume the shared equipment pool');
+});
+
+test('own combat end and SETTLE retain temporary layers in public/private views; next prep converts once', t => {
+  const s = setup(71);
+  t.after(() => s.m.dispose());
+  give(s.m, s.ps, 'chess_char_1_01_a', 'board', [10, 4]);
+  give(s.m, s.ps, 'chess_char_3_03_a', 'board', [10, 5]);
+  s.activate('ursusShip');
+  const pid = s.ps.playerId;
+  const result = { leaked: [], perfect: true, coins: 0, layerGains: {}, killed: 0, damageDealt: 0,
+    tempLayerGains: { ursusShip: 10 }, unitsEnd: [] };
+  s.m.phase = 'COMBAT';
+  s.m.fields = [{ fieldId: `n:${pid}`, players: [pid], kind: 'normal', live: true }];
+  s.m._finishCombat(() => ({ perPlayer: { [pid]: result }, errors: 0 }));
+  assert.deepEqual(s.ps.tempLayers, { ursusShip: 10 });
+  assert.equal(s.L('ursusShip'), 0);
+  assert.equal(s.ps.privateView().bonds.find(b => b.bondId === 'ursusShip').tempLayers, 10);
+  assert.equal(s.m.publicView().players.find(p => p.playerId === pid).bonds.find(b => b.bondId === 'ursusShip').tempLayers, 10);
+  s.m.settle(null, null);
+  assert.equal(s.L('ursusShip'), 0, 'SETTLE is not entering prep');
+  assert.deepEqual(s.ps.tempLayers, { ursusShip: 10 });
+  s.m.enterPrep();
+  assert.equal(s.L('ursusShip'), 4);
+  assert.equal(s.ps.tempLayers, undefined);
+  assert.equal(s.ps.privateView().bonds.find(b => b.bondId === 'ursusShip').tempLayers, undefined);
+  s.m.enterPrep();
+  assert.equal(s.L('ursusShip'), 4, 're-entering prep cannot convert a stale pool again');
 });

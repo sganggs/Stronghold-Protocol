@@ -383,7 +383,7 @@ test('§20.15 wiring: the game screen feeds the strip, the popup and the detail 
   assert.match(src, /const strip = screenStrip\(\{[^}]*field, layers, layer, who: watchWho, bondLayers:/, 'the field on screen, the ‹ › layers, the picked teammate');
   assert.match(src, /<\$\{BondStrip\} bonds=\$\{stripBonds\}[^>]*owner=\$\{strip\.name\}/);
   // the popup carries the player it was opened for: the strip's owner from the strip, the unit owner from a card's chip
-  assert.match(src, /const bondPop = popupView\(\{ open: bondOpen, pub, priv, myId, field, units: popOps, live: liveLayers, temporary: combat \? battleState\?\.bondTempLayers : null \}\)/);
+  assert.match(src, /const bondPop = popupView\(\{ open: bondOpen, pub, priv, myId, field, units: popOps, live: liveLayers, temporary: tempLayersSnapshot \}\)/);
   assert.match(src, /battleRunner\.ownerOps\(bondOpen\.ownerId, field\.fieldId\)/, 'a teammate\'s members in play: the battle on screen\'s operators');
   assert.match(src, /bondId=\$\{bondPop\.bondId\} entry=\$\{bondPop\.entry\} priv=\$\{bondPop\.priv\}[^>]*owner=\$\{bondPop\.name\}/);
   assert.match(src, /onOpen=\$\{\(id\) => openBond\(id, strip\.ownerId, 'strip'\)\}/, 'the strip opens its owner\'s bond');
@@ -469,7 +469,7 @@ describe('§20.15 the popup of a card\'s bond chip: the UNIT owner\'s bond (a sh
   });
 });
 
-test('temporary layers render separately in the card, as a gold total in the strip, and disappear after battle', () => {
+test('temporary layers render separately in the card, as a gold total in the strip, and disappear when prep clears the pool', () => {
   const records = data.get('bonds');
   const id = Object.keys(records).find(id => !records[id].noStack);
   const noStack = Object.keys(records).find(id => records[id].noStack);
@@ -494,4 +494,31 @@ test('temporary layers render separately in the card, as a gold total in the str
 
 test('disabled bond discs grey both the inner plate and the outer ring', () => {
   assert.match(read('public/css/screens/bond.css'), /\.bond\.is-disabled \.bond__disc::before,\s*\.bond\.is-disabled \.bond__core\s*\{\s*filter: grayscale\(1\) brightness\(\.55\)/);
+});
+
+test('temporary display anchors permanent base to the battle and follows only the field on screen', () => {
+  const pub = PUB(), priv = { ...PRIV, bonds: [bond('yanShip', 3, 120)] };
+  const live = { p1: { yanShip: 100 }, p2: { sargonShip: 40 } };
+  const temporary = { p1: { yanShip: 20 }, p2: { sargonShip: 7 } };
+  const opts = { pub, priv, myId: ME, combat: true, battleFieldId: 'n:p1', bondLayers: live, bondTempLayers: temporary };
+  const own = screenStrip(opts).bonds.find(b => b.bondId === 'yanShip');
+  assert.deepEqual([own.layers, own.tempLayers], [100, 20], 'newer converted view does not add the same temporary gain twice');
+  assert.equal(priv.bonds[0].layers, 120, 'input view is immutable');
+  const capped = playerBonds({ pub, priv, myId: ME, ownerId: ME, live: { p1: { yanShip: 1000 } }, temporary });
+  assert.deepEqual([capped[0].layers, capped[0].tempLayers], [BOND_LAYER_CAP, 20], 'cap only the permanent base');
+  const watched = screenStrip({ ...opts, watchingOther: true, watching: 'n:p2', battleFieldId: 'n:p2' }).bonds.find(b => b.bondId === 'sargonShip');
+  assert.deepEqual([watched.layers, watched.tempLayers], [40, 7]);
+  const settled = screenStrip({ ...opts, combat: false, settle: true });
+  assert.equal(settled.bonds.find(b => b.bondId === 'yanShip').tempLayers, 20, 'SETTLE retains temporary layers until prep');
+  const mismatched = screenStrip({ ...opts, watchingOther: true, watching: 'n:p2' });
+  assert.ok(mismatched.bonds.every(b => !b.tempLayers));
+  for (const patch of [{ combat: false }]) {
+    assert.ok(screenStrip({ ...opts, ...patch }).bonds.every(b => !b.tempLayers));
+  }
+});
+
+test('a temporary-only bond joins the display even without permanent layers or members', () => {
+  const list = playerBonds({ pub: PUB(), priv: { ...PRIV, bonds: [] }, myId: ME, ownerId: ME,
+    live: { p1: { yanShip: 0 } }, temporary: { p1: { yanShip: 5 } } });
+  assert.deepEqual(list, [{ bondId: 'yanShip', count: 0, active: false, tier: 0, layers: 0, tempLayers: 5 }]);
 });

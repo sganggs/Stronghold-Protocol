@@ -191,12 +191,13 @@ export function activatedLayers(bonds) {
  * off: true }` — the strip's grey 本局禁用 discs; never in computeBonds, so never in the battle input.
  * @param {import('./gamedata.js').GameData} gd
  * @param {ReturnType<typeof computeBonds>} bonds
- * @param {{ full?: boolean, off?: ReturnType<typeof offBondCounts> }} [opts] full → include thresholds/countsHand (m.private)
+ * @param {{ full?: boolean, tempLayers?: Record<string, number>, off?: ReturnType<typeof offBondCounts> }} [opts] full → include thresholds/countsHand (m.private)
  */
-export function bondList(gd, bonds, { full = false, off = null } = {}) {
+export function bondList(gd, bonds, { full = false, off = null, tempLayers = {} } = {}) {
   const order = new Map(gd.bondIds.map((id, i) => [id, i]));
   const list = [];
   const extras = (e) => {
+    if (tempLayers[e.bondId] > 0) e.tempLayers = tempLayers[e.bondId];
     if (!full) return e;
     const bond = gd.bond(e.bondId);
     e.thresholds = bond ? thresholdsOf(bond) : [];
@@ -204,7 +205,7 @@ export function bondList(gd, bonds, { full = false, off = null } = {}) {
     return e;
   };
   for (const [bondId, b] of Object.entries(bonds || {})) {
-    if (!(b.count > 0 || b.layers > 0 || b.active)) continue;
+    if (!(b.count > 0 || b.layers > 0 || b.active || tempLayers[bondId] > 0)) continue;
     const e = { bondId, count: b.count, active: b.active, tier: b.tier, layers: b.layers };
     if (b.harmony > 0) e.harmony = b.harmony;
     list.push(extras(e));

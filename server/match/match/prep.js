@@ -39,7 +39,11 @@ export class MatchPrep {
       // that granted them and would take an equipped copy off for the fight about to start.
       ps.checkItemMerges();
       ps.recompute();
-      this.dispatch(ps, 'onPrepStart', { round: this.round });
+      try {
+        this.dispatch(ps, 'onPrepStart', { round: this.round });
+      } finally {
+        delete ps.tempLayers;
+      }
       ps.recompute();
     }
     // solo / single-human matches: untimed (soloUntimed); co-op: the round's prepTime

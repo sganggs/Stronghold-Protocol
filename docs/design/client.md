@@ -1163,7 +1163,7 @@ Covenant rendering and controls retain the mixed hand and visible temporary row.
 
 未激活盟约的人数和「尚未激活」状态合并显示在 `bondDetail/bond_inactive_bg` 红色背景上；已激活时显示勾选和当前阶段。
 
-临时层数的显示按维护者提供的官方机制：卡片内普通层数下方，以金黄色显示「+临时层数」；卡片外顶部盟约栏在有临时层数时，以金色显示普通与临时层数的合计。该场战斗结束后隐藏临时加值，恢复白色普通层数。临时显示数据与普通层数分别传递，按盟约所属玩家读取，不能叠层的盟约继续隐藏数字。
+临时层数的显示按维护者提供的官方机制：卡片内普通层数下方，以金黄色显示「+临时层数」；卡片外顶部盟约栏在有临时层数时，以金色显示普通与临时层数的合计。本人战斗结束后保留临时加值，联防原样继承且不再叠加，下一次进入休整期转换后恢复白色普通层数。临时显示数据与普通层数分别传递，按盟约所属玩家读取，不能叠层的盟约继续隐藏数字。
 
 盟约卡片的标题、层数与右上角背景固定，下方描述和干员头像共用独立的纵向滚动区，滚动时不移动顶部内容。
 
@@ -1199,3 +1199,7 @@ or an unverifiable file cannot satisfy a requirement. Only manifests may use the
 files and operators; cancellation or invalid manifests cannot report completeness. `public/js/resourceCheck.js`
 exposes the checker and pure planning/summary functions for downstream deployments. 下载素材 uses the multi-language
 selections from 干员语音.
+
+临时层显示统一读取 Battle 临时账本的 detached snapshot，经 InPageSimHost／Worker／runner 传递，包含 Boss 新增和联防继承的临时层。
+卡片保留普通层数与金色 `+N`，顶部条显示金色合计。只展示当前战场所属玩家的临时值，本人战斗结束和 SETTLE 保留，下一次进入休整期才清除；切换战场时读取对应玩家的池；
+有临时值时普通基数取该场战斗的普通副本，避免较新的结算视图把已转换收益重复加入合计。

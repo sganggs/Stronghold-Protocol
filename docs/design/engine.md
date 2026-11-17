@@ -58,6 +58,7 @@ b.on(event, fn, { priority=0, owner } ) / b.off(...)   // hook bus (§5.4)
              items: [itemId...],                  // equipped items (golden ids when merged)
              carryState?: { hpPct, sp } | { sp } | { down: true } } ],   // unite: an operator keeps its end-of-combat HP ratio + SP, a summon its SP (no running skill);
                                                   // { down: true } = knocked out at its end: deployed, then forced out (§19.3)
+  tempLayers?: { [bondId]: n }, // unite only: frozen balance inherited from own combat
   bonds: { [bondId]: { count, active, tier, layers } },   // snapshot from bondsMeta at combat start (联防: with the layers the
                                                           // helper's own combat reached, PlayerState.bondsView — §20.15)
   bandId, playerEffects: [ EffectRef ],                   // active band/choice/team effects with battle parts
@@ -428,3 +429,29 @@ until the cast clip ends too. `attackTurnSkill` returns the selected ability or 
 瑕光 S3 先贤化身 is a sourced guardian exception (§35.91, #789): DEFAULT activates with an attackable enemy in her
 attack range, even at full HP. The official TAKE_DAMAGE row remains rawRule for provenance. The maintainer accepted
 the author video BV1UdAHzNEVj and their recall on 2026-10-24; other guardian skills keep their class rule.
+
+### Temporary bond layers
+
+Battle owns a temporary-layer ledger keyed by player and bond, separate from the permanent count in
+`getPlayer(pid).bonds[id].layers`. Permanent layers retain their 999 cap; temporary layers have a separate
+10000 cap per player/bond. Bond, garrison and equipment sources use the same ledger. Each equipment effect tracks
+its own contribution and data-defined limit, so disposing it removes only its contribution.
+
+`addTempLayers` and `removeTempLayers` return the actual positive amount added or removed. `tempLayers` reads one
+temporary count; `tempLayersSnapshot()` returns a detached copy of the whole ledger for hosts and Workers.
+`effectiveBondLayers` and the content helper `bondLayers` read permanent + temporary layers. A committed gain emits
+`tempLayerGain`; gains and removals emit `tempLayerChange`. Standing bond and garrison modifiers coalesce refreshes
+after these changes; periodic effects, equipment and devices read the effective count. Temporary changes neither
+consume permanent cap room nor invoke permanent `layerGain` modifiers.
+
+The ledger lasts from the end of prep until entry into the next prep. Normal, boss and hidden-core battles may gain
+temporary layers and report their remaining balance through `tempLayerGains`. Ending the player's own battle or
+entering SETTLE preserves that balance. Boss and hidden-core battles do not enter unite.
+
+Unite copies each helper's own-battle balance into `PlayerBattleInput.tempLayers` and restores it before content
+installation. This carried ledger is frozen: kills, garrisons, equipment and effect disposal cannot change it.
+Unite results do not report the inherited balance as a new gain.
+
+At the next `enterPrep`, `onPrepStart` converters consume a shared pool containing all temporary sources; any
+unconverted remainder is then discarded. Each new personal battle starts with an empty ledger. Only unite restores
+a carried ledger.

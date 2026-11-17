@@ -334,16 +334,20 @@ export function createBattleRunner(deps) {
       if (!e.live) continue;
       for (const [pid, m] of Object.entries(e.live)) out[pid] = { ...(out[pid] || {}), ...m };
     }
+    // Temporary totals use this battle's permanent base, never a newer converted settlement view.
+    if (!loading && cur) {
+      for (const [pid, own] of Object.entries(cur.tempLive || {})) {
+        for (const id of Object.keys(own)) {
+          (out[pid] ||= {})[id] = Number(cur.battle.getPlayer(pid)?.bonds?.[id]?.layers) || 0;
+        }
+      }
+    }
     return out;
   }
 
   function tempLayerMap() {
-    const out = {};
-    for (const e of entries.values()) {
-      if (e.done || e.battle?.finished || !e.tempLive) continue;
-      for (const [pid, layers] of Object.entries(e.tempLive)) out[pid] = { ...(out[pid] || {}), ...layers };
-    }
-    return out;
+    if (loading || !cur || !cur.tempLive) return {};
+    return Object.fromEntries(Object.entries(cur.tempLive).map(([pid, layers]) => [pid, { ...layers }]));
   }
 
   /**
@@ -408,11 +412,11 @@ export function createBattleRunner(deps) {
    */
   function noteLayers(e) {
     const b = e.battle;
-    if (!b || (b.flags && b.flags.layerGainsEnabled === false) || typeof b.getPlayer !== 'function') return;
+    if (!b || typeof b.getPlayer !== 'function') return;
     let sum = 0;
     let live = null;
     const temporary = {};
-    const tempGains = b.finished || e.done ? {} : e.host?.temporaryLayers?.() || {};
+    const tempGains = e.host?.tempLayersSnapshot?.() || {};
     for (const sp of Array.isArray(e.spec.players) ? e.spec.players : []) {
       const ps = sp?.playerId != null ? b.getPlayer(sp.playerId) : null;
       if (!ps?.bonds) continue;

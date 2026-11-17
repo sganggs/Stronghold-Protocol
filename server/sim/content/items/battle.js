@@ -618,7 +618,7 @@ const BY_BUFF = {
     S.on('deploy', (c) => { if (c.unit === u) add(u.deploySeq); });
   },
   // 多功能补剂: each non-proc damage adds temp_stack_count_add layers to each of the carrier's own active bonds, capped
-  // per bond at temp_stack_count_max. Live battle layers only — not gainLayers, so the match does not keep them.
+  // per carrier/bond at temp_stack_count_max. The shared temporary ledger owns gameplay, display and conversion.
   act3autochess_equip_acarm131_global_buff(battle, u, p, S) {
     const add = Math.floor(num(p.temp_stack_count_add));
     const cap = Math.floor(num(p.temp_stack_count_max));
@@ -636,16 +636,15 @@ const BY_BUFF = {
         const have = got.get(id) || 0;
         const n = Math.min(add, cap - have);
         if (n <= 0) continue;
-        b.layers = num(b.layers) + n;
-        got.set(id, have + n);
+        const actual = battle.addTempLayers(u.ownerId, id, n);
+        got.set(id, have + actual);
       }
     });
     S.onDispose(() => {
       const ps = player();
       if (!ps || !ps.bonds) return;
       for (const [id, n] of got) {
-        const b = ps.bonds[id];
-        if (b) b.layers = Math.max(0, num(b.layers) - n);
+        battle.removeTempLayers(u.ownerId, id, n);
       }
       got.clear();
     });
