@@ -261,7 +261,13 @@ export function create(canvas, card, view, options = {}) {
   // context that may already be gone. The host falls back to the old shop bar when `lost` turns true.
   let lost = false;
   let destroyed = false;
-  const onContextLost = () => { lost = true; };
+  // The only whole-canvas upload this stage does is the spine compose canvas (drawExternalQuad): it is cached
+  // so a paint that sees the same source frame reuses the GPU copy instead of re-uploading a full canvas.
+  // Declared with the stage's other lifetime state because a lost context invalidates the texture it names.
+  let externalUploaded = null;
+  let externalSkipped = 0;
+  const forgetExternalUpload = () => { externalUploaded = null; };
+  const onContextLost = () => { lost = true; forgetExternalUpload(); };
   if (canvas && typeof canvas.addEventListener === 'function') canvas.addEventListener('webglcontextlost', onContextLost);
   let program = null;
   const shaders = [];
@@ -296,6 +302,13 @@ export function create(canvas, card, view, options = {}) {
   for (const sh of shaders) { gl.detachShader(program, sh); gl.deleteShader(sh); }
   shaders.length = 0;
   gl.useProgram(program);
+  // UNPACK_PREMULTIPLY_ALPHA_WEBGL / UNPACK_FLIP_Y_WEBGL are context state, not per-texture state. This stage
+  // owns the context: the only other module given this canvas is the particle renderer below, which never
+  // calls pixelStorei (the spine's PIXI app renders into its own canvas with its own context). Setting both
+  // to false once here -- the WebGL defaults, i.e. what every upload in this file already used -- is what
+  // lets the external upload skip the per-draw getParameter save/restore.
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
 
   const U = {};
   for (const name of ['uRect', 'uView', 'uBase', 'uMask', 'uDiss', 'uSoft', 'uSoftWeights', 'uSoftRect', 'uSoftMix', 'uAngle', 'uPivot', 'uScale', 'uFlipV', 'uFlipDiss', 'uRawUv', 'uRawFlipV', 'uBaseChannel',
@@ -477,6 +490,9 @@ export function create(canvas, card, view, options = {}) {
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.useProgram(program);
     gl.uniform2f(U.uView, canvas.width, canvas.height);
+    // A resize does not touch the spine canvas, but it is the cheapest place to guarantee the next paint
+    // re-reads the external source instead of trusting a box/version pair from before the stage changed size.
+    forgetExternalUpload();
   };
 
   const mat = (key) => {
@@ -524,26 +540,37 @@ export function create(canvas, card, view, options = {}) {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, externalTex);
 
-    const prevPremul = gl.getParameter(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL);
-    const prevFlipY = gl.getParameter(gl.UNPACK_FLIP_Y_WEBGL);
-    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-    const uploadStart = performance.now();
-    try {
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
-    } catch {
-      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, prevPremul);
-      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, prevFlipY);
-      return false;
-    } finally {
-      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, prevPremul);
-      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, prevFlipY);
+    // The spine compose canvas is uploaded whole from a 2D canvas, so a paint whose source frame did not
+    // change would pay that copy again. `entry.version` is ShopSpineView's render count (quad().version),
+    // bumped by every PIXI app.render(): the texture, the source object, the source size and the version all
+    // matching means the GPU already holds exactly these pixels, so only the quad is redrawn (the pixelStore
+    // flags are context state, set once at stage init -- see the note there).
+    const rawVersion = entry.version == null ? NaN : Number(entry.version);
+    const version = Number.isFinite(rawVersion) ? rawVersion : null;
+    const reuse = version != null
+      && externalUploaded != null
+      && externalUploaded.tex === externalTex
+      && externalUploaded.source === source
+      && externalUploaded.w === sw0
+      && externalUploaded.h === sh0
+      && externalUploaded.version === version;
+    if (reuse) {
+      externalSkipped += 1;
+    } else {
+      const uploadStart = performance.now();
+      try {
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+      } catch {
+        forgetExternalUpload();
+        return false;
+      }
+      externalUploaded = { tex: externalTex, source, w: sw0, h: sh0, version };
+      externalSkipped = 0;
+      const uploadCost = performance.now() - uploadStart;
+      externalUploadMs = externalUploadMs ? externalUploadMs * 0.8 + uploadCost * 0.2 : uploadCost;
+      externalUploadSamples.push(uploadCost);
+      if (externalUploadSamples.length > 30) externalUploadSamples.shift();
     }
-    const uploadCost = performance.now() - uploadStart;
-
-    externalUploadMs = externalUploadMs ? externalUploadMs * 0.8 + uploadCost * 0.2 : uploadCost;
-    externalUploadSamples.push(uploadCost);
-    if (externalUploadSamples.length > 30) externalUploadSamples.shift();
     const premultiplied = entry.premultiplied !== false;
     gl.enable(gl.BLEND);
     if (premultiplied) gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
@@ -615,6 +642,11 @@ export function create(canvas, card, view, options = {}) {
       box: { x: box.x, y: box.y, w: box.w, h: box.h },
       source: [source.width, source.height],
       premultiplied,
+      // `uploadMs`/`uploadMeanMs`/`uploadSamples` only ever measured real texImage2D uploads, and a reused
+      // frame adds nothing to them. `uploaded` says whether this paint paid the upload; `skipped` counts the
+      // paints that reused the current GPU copy since the last one (0 = this paint uploaded).
+      uploaded: !reuse,
+      skipped: externalSkipped,
       uploadMs: Math.round(externalUploadMs * 1000) / 1000,
       uploadMeanMs: externalUploadSamples.length
         ? Math.round((externalUploadSamples.reduce((a, b) => a + b, 0) / externalUploadSamples.length) * 1000) / 1000
@@ -1112,6 +1144,8 @@ export function create(canvas, card, view, options = {}) {
     whiteEntry = null;
     if (externalTex) gl.deleteTexture(externalTex);
     externalTex = null;
+    forgetExternalUpload();
+    externalSkipped = 0;
     externalUploadSamples.length = 0;
     gl.deleteBuffer(quad);
     if (program) gl.deleteProgram(program);

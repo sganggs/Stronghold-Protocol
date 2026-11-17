@@ -141,6 +141,8 @@ export class ShopSpineView {
       texture: null,
       insertOrder: null,
       uploadMs: null,
+      uploaded: null,
+      uploadSkipped: null,
       renderMs: null,
       error: null,
     };
@@ -548,6 +550,10 @@ export class ShopSpineView {
       dbg.insertOrder = ext && ext.orderIndex != null ? ext.orderIndex : dbg.insertOrder;
       dbg.uploadMs = ext ? ext.uploadMs : dbg.uploadMs;
       dbg.uploadMeanMs = ext ? ext.uploadMeanMs : dbg.uploadMeanMs;
+      // Whether the previous paint re-uploaded this canvas and how many paints have reused it since
+      // (render/shop/cardStage.js stats.external): an idle/paused shop should show repeated skips.
+      dbg.uploaded = ext ? !!ext.uploaded : dbg.uploaded;
+      dbg.uploadSkipped = ext && ext.skipped != null ? ext.skipped : dbg.uploadSkipped;
       dbg.texture = this.buffer ? { w: this.buffer.w, h: this.buffer.h, source: 'canvas' } : null;
       this.quadCache = this.quad(geo, holder);
     }
@@ -637,6 +643,10 @@ export class ShopSpineView {
       path: SPINE_PATHS.holder,
       name: 'closure_spine_holder',
       orderIndex: null,
+      // The compose canvas only changes when tick() actually renders the PIXI app, so the render count is a
+      // per-frame version: the shop stage (render/shop/cardStage.js) re-uploads the canvas only when it moves
+      // and reuses the GPU copy otherwise. A resize resets canvasReady, which forces a render and bumps it.
+      version: this.renders || 0,
     };
   }
 
