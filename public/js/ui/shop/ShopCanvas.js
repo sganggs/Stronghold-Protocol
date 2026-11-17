@@ -27,6 +27,66 @@ const KEEP_ARMED = '[data-shop-webgl], .dpanel, .modal';
 /** Game-data files whose localized copies feed the card model. */
 const LOCALE_FILES = Object.freeze(['chess', 'items', 'bonds', 'garrisons', 'assets']);
 
+/** The promotion/reward offer renders as the last three slots of the normal chess row. */
+export const REWARD_SLOT_COUNT = 3;
+
+/**
+ * The shop row the renderer should draw. With a rewardOffer the official UI keeps the normal shop frame but
+ * shows the normal chess-slot count: the first N-3 slots are empty and the last three are the offer's cards at
+ * price 0; the item slot is not shown. Without an offer the original private is used unchanged.
+ * @param {any} priv
+ * @returns {{ slots: any[]|null, start: number, count: number, offer: any }|null}
+ */
+export function shopRewardRow(priv) {
+  const offer = priv && priv.shop && priv.shop.rewardOffer;
+  if (!offer || !Array.isArray(offer.slots) || !offer.slots.length) return null;
+  const shop = priv.shop || {};
+  const normal = Array.isArray(shop.slots) ? shop.slots : [];
+  const layoutChess = Number(shop.layout && shop.layout.chess);
+  const chessCount = Number.isInteger(layoutChess) && layoutChess > 0
+    ? layoutChess
+    : normal.filter((slot) => slot && slot.kind !== 'item').length;
+  const count = Math.min(REWARD_SLOT_COUNT, offer.slots.length);
+  const total = Math.max(chessCount, count);
+  const start = total - count;
+  const slots = Array.from({ length: total }, () => null);
+  for (let i = 0; i < count; i += 1) {
+    const slot = offer.slots[i];
+    if (!slot || typeof slot.id !== 'string') continue;
+    slots[start + i] = { ...slot, price: 0, basePrice: 0 };
+  }
+  return { slots, start, count, offer };
+}
+
+/** A copy of private with the reward row synthesised into shop.slots (no item slot, no FREE flag). */
+export function shopDisplayPrivate(priv) {
+  const row = shopRewardRow(priv);
+  if (!row) return priv;
+  return {
+    ...priv,
+    shop: {
+      ...(priv.shop || {}),
+      slots: row.slots,
+      layout: { ...((priv.shop || {}).layout || {}), chess: row.slots.length, item: 0 },
+    },
+  };
+}
+
+/** The display slot at a host index (empty reward fronts are null). */
+export function shopDisplaySlot(priv, index) {
+  const row = shopRewardRow(priv);
+  if (row) return row.slots[index] || null;
+  const slots = priv && priv.shop && Array.isArray(priv.shop.slots) ? priv.shop.slots : [];
+  return slots[index] || null;
+}
+
+/** The reward.slots index a display index selects, or -1 when it is an empty front slot. */
+export function shopRewardIndex(priv, index) {
+  const row = shopRewardRow(priv);
+  if (!row) return -1;
+  return index >= row.start && index < row.start + row.count ? index - row.start : -1;
+}
+
 /**
  * The renderer's per-slot merge flags. Only chess cards participate; items/empty slots are false for now
  * (the item merge path is not guessed here). The view is rebuilt on every priv/data update and language remount.
@@ -111,6 +171,7 @@ export function shopMountKey(lang) {
  *   onBuy: (i: number) => any, onLevel: () => any, onRefresh: () => any, onFreeze: () => any,
  *   onCollapse: (folded: boolean) => void,
  *   onDetail?: (id: string, kind: 'chess'|'item', hint: string|null) => void,
+ *   onReward?: (i: number) => any,
  *   onDetailClose?: () => void, onRefuse?: (reason: string) => void, onArm?: (card: any) => void,
  *   onFail?: (err?: any) => void,
  * }} props
@@ -151,6 +212,7 @@ export function ShopCanvas(props) {
   const viewOf = () => {
     const p = propsRef.current;
     const a = armedRef.current;
+    const displayPriv = shopDisplayPrivate(p.priv);
     const selectSlot = levelArmedRef.current ? { isUpgrade: true }
       : (a ? { slotId: a.index + 1, isGoods: true } : null);
     return {
@@ -159,7 +221,7 @@ export function ShopCanvas(props) {
       selectSlot,
       armedSlotId: a ? a.index + 1 : null,
       armedAt: a ? armedAtRef.current : 0,
-      cardFlags: shopCardFlagsWithHand(p.priv, (kind, id) => data.lookup(kind, id), p.config),
+      cardFlags: shopCardFlagsWithHand(displayPriv, (kind, id) => data.lookup(kind, id), p.config),
       controls: controlReasons(),
     };
   };
@@ -182,7 +244,7 @@ export function ShopCanvas(props) {
     const host = hostApi.current;
     if (!host || failedRef.current) return;
     try {
-      host.update(propsRef.current.priv, viewOf());
+      host.update(shopDisplayPrivate(propsRef.current.priv), viewOf());
     } catch (err) {
       failHost(err);
     }
@@ -196,7 +258,7 @@ export function ShopCanvas(props) {
     let host = null;
     createShopHost({
       container: el,
-      priv: propsRef.current.priv,
+      priv: shopDisplayPrivate(propsRef.current.priv),
       view: viewOf(),
       options: { runtime },
       callbacks: {
@@ -240,7 +302,7 @@ export function ShopCanvas(props) {
     }
     const a = armedRef.current;
     if (a) {
-      const slot = p.priv?.shop?.slots?.[a.index];
+      const slot = shopDisplaySlot(p.priv, a.index);
       if (!slot || slot.id !== a.id) {
         armCard(null);
         p.onArm?.(null);
@@ -288,22 +350,27 @@ export function ShopCanvas(props) {
   function tapCard(index) {
     const p = propsRef.current;
     if (!p.editable) return;
-    const slot = p.priv?.shop?.slots?.[index];
+    const slot = shopDisplaySlot(p.priv, index);
     if (!slot || slot.sold) return;
     const kind = slot.kind === 'item' ? 'item' : 'chess';
-    const key = `${kind}:${slot.id}`;
+    const rewardIndex = shopRewardIndex(p.priv, index);
+    const key = `${rewardIndex >= 0 ? 'r' : kind}:${kind === 'chess' ? slot.id : String(index)}:${slot.id}`;
     const current = armedRef.current;
-    if (current && current.index === index && current.key === key) {
-      const reason = shopBlockReason('buy', { config: p.config, priv: p.priv, editable: p.editable, slot });
+    const armedHere = current && current.index === index && current.key === key;
+    if (armedHere) {
+      const reason = shopBlockReason(rewardIndex >= 0 ? 'reward' : 'buy', { config: p.config, priv: p.priv, editable: p.editable, slot });
       if (reason) { p.onRefuse?.(reason); return; }
       armCard(null);
       pushView();
       p.onArm?.(null);
       p.onDetailClose?.();
-      p.onBuy(index);
+      // A reward pick is g.reward, never actions.buy; the server clears rewardOffer and the normal row
+      // reappears through the same mounted host (no remount).
+      if (rewardIndex >= 0) p.onReward?.(rewardIndex);
+      else p.onBuy(index);
       return;
     }
-    armCard({ kind, key, index, id: slot.id });
+    armCard({ kind, key, index, id: slot.id, reward: rewardIndex >= 0 });
     pushView();
     p.onArm?.({ kind, id: slot.id });
     p.onDetail?.(slot.id, kind, kind === 'chess' ? mergeHint(p.priv, slot.id) : null);
@@ -313,7 +380,7 @@ export function ShopCanvas(props) {
    * onContextMenu). An empty or sold slot has nothing to show. */
   function detailCard(index) {
     const p = propsRef.current;
-    const slot = p.priv?.shop?.slots?.[index];
+    const slot = shopDisplaySlot(p.priv, index);
     if (!slot || slot.sold) return;
     const kind = slot.kind === 'item' ? 'item' : 'chess';
     p.onDetail?.(slot.id, kind, kind === 'chess' ? mergeHint(p.priv, slot.id) : null);

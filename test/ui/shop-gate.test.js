@@ -76,16 +76,16 @@ test('runtime: idle/loading/failed keep the old bar', () => {
   assert.deepEqual(shopWebglGate({ ...ok, runtime: undefined }), { on: false, reason: 'loading' });
 });
 
-test('spectator / reward / stand-in / DIY keep the old bar', () => {
+test('spectator / stand-in / DIY keep the old bar; a rewardOffer stays in the shop', () => {
   assert.deepEqual(shopWebglGate({ ...ok, spectator: true }), { on: false, reason: 'spectator' });
-  const reward = { ...PRIV, shop: { ...PRIV.shop, rewardOffer: { source: 'merge', slots: [] } } };
-  assert.deepEqual(shopWebglGate({ ...ok, priv: reward }), { on: false, reason: 'reward' });
+  const reward = { ...PRIV, shop: { ...PRIV.shop, rewardOffer: { source: 'merge', slots: [{ kind: 'chess', id: 'x', price: 0 }] } } };
+  assert.deepEqual(shopWebglGate({ ...ok, priv: reward }), { on: true, reason: null });
   assert.deepEqual(shopWebglGate({ ...ok, priv: { ...PRIV, standIns: ['chess_char_1_01_a'] } }), { on: false, reason: 'standin' });
   assert.deepEqual(shopWebglGate({ ...ok, priv: { ...PRIV, diy: { chess_char_1_01_a: { charId: 'char_1' } } } }), { on: false, reason: 'diy' });
   assert.deepEqual(shopWebglGate({ ...ok, priv: { ...PRIV, diy: {} } }), { on: true, reason: null });
 });
 
-test('reason order is fixed: theme, pack, capability, runtime, spectator, reward, standin, diy', () => {
+test('reason order is fixed: theme, pack, capability, runtime, spectator, standin, diy', () => {
   assert.equal(shopWebglGate({ themeId: 'terminal', groups: {} }).reason, 'theme');
   assert.equal(shopWebglGate({ ...ok, groups: {} }).reason, 'pack');
   assert.equal(shopWebglGate({ ...ok, groups: groupsFor(['prefabs.json']) }).reason, 'capability');

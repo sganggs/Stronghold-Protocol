@@ -1834,6 +1834,10 @@ function MatchScreen() {
       }
       if (!L.editable) return;
       if (act === 'buy') {
+        // With a reward offer the host draws a synthesised row: data-shop-slot is the display-row index,
+        // NOT a priv.shop.slots index, so the card under the pointer is not the slot to buy. The reward
+        // cards are chosen with two taps (the old bar's reward cards carried no data-shop-slot either).
+        if (L.priv?.shop?.rewardOffer) return;
         if (L.drag || L.facing || !pointer || pointer.buttons) return;
         const card = document.elementFromPoint(pointer.x, pointer.y)?.closest(':is(.shopbar,[data-shop-webgl]) [data-shop-slot]');
         if (!card || !barRef.current?.contains(card)) return;
@@ -2052,7 +2056,7 @@ function MatchScreen() {
       ${showShop ? (webglShopOn.on
         ? html`<${ShopCanvas} key=${shopMountKey(lang)} lang=${lang} priv=${priv} editable=${editable} collapsed=${barCollapsed} refreshBusy=${refreshBusy} config=${data.get('config')}
           runtime=${webglShop.runtime} barRef=${barRef} offBonds=${offBonds}
-          onBuy=${buy} onLevel=${() => actions.levelUp()} onRefresh=${() => actions.refresh()} onFreeze=${() => actions.freeze()}
+          onBuy=${buy} onReward=${(i) => actions.reward(i)} onLevel=${() => actions.levelUp()} onRefresh=${() => actions.refresh()} onFreeze=${() => actions.freeze()}
           onCollapse=${setCollapsed}
           onDetail=${(id, kind, hint) => setDetail({ kind: kind === 'item' ? 'item' : 'chess', id, hint: hint || null, tap: ++cardTap.current })}
           onDetailClose=${() => setDetail((d) => (d?.kind === 'chess' || d?.kind === 'item' ? null : d))}
@@ -2068,7 +2072,7 @@ function MatchScreen() {
           reward=${phase === PHASE.PREP && !rewardMin ? priv?.shop?.rewardOffer || null : null}
           onReward=${(i) => actions.reward(i)} onRewardLater=${() => setRewardMin(true)} onArm=${setArmedCard} />`) : null}
 
-      ${phase === PHASE.PREP && priv?.shop?.rewardOffer ? html`<${RewardOverlay} priv=${priv} minimized=${rewardMin || barCollapsed}
+      ${phase === PHASE.PREP && priv?.shop?.rewardOffer && !webglShopOn.on ? html`<${RewardOverlay} priv=${priv} minimized=${rewardMin || barCollapsed}
         onMinimize=${(m) => { setRewardMin(m); if (!m) setCollapsed(false); }} />` : null}
 
       ${combat || mode === 'settle' ? html`<${CombatHud} pub=${pub} myId=${myId} watching=${watchingNow} hud=${hud} myDone=${!!myDone && alive}

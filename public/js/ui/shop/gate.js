@@ -2,7 +2,7 @@
 //
 // The gate is the product's own capability test, not a theme id, version or rollout flag:
 //   the installed official group carries prefabs.json + card.json + shop.json
-//   → the runtime preloaded → no spectator/reward/stand-in/DIY.
+//   → the runtime preloaded → no spectator/stand-in/DIY (a rewardOffer stays in the same shop).
 // A theme without the WebGL shop documents simply keeps the DOM bar; selecting ac_s_closur is the release
 // (rollback = switch theme). Reasons are diagnostic (logged / surfaced in metrics), never shown to the player.
 
@@ -44,7 +44,8 @@ export function shopWebglGate(input = {}) {
   if (input.spectator) return { on: false, reason: 'spectator' };
 
   const priv = input.priv || null;
-  if (priv && priv.shop && priv.shop.rewardOffer) return { on: false, reason: 'reward' };
+  // The promotion reward is not a separate screen: the same shop frame renders the offer's last three
+  // cards at price 0, so rewardOffer must not close the WebGL shop.
 
   if (priv && Array.isArray(priv.standIns) && priv.standIns.length > 0) return { on: false, reason: 'standin' };
 
