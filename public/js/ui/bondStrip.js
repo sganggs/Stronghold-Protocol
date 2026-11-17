@@ -141,7 +141,7 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
       return html`<div key=${b.bondId} role="listitem" data-bond=${b.bondId} data-harmony=${b.harmony > 0 ? b.harmony : null}
           class=${cx('bslot', b.active && 'is-active', b.tempLayers > 0 && 'has-temp-layers', reached === segments && 'is-full', openId === b.bondId && 'is-open')} style=${frameStyle}>
         <${BondDisc} name=${rec?.name || b.bondId} icon=${bondIconUrl(m, b.bondId)} layers=${rec?.noStack ? undefined : (b.layers ?? 0) + (b.tempLayers ?? 0)}
-          tier=${b.tier ?? 0} maxTier=${Math.max(1, th.length)} active=${!!b.active} size="sm" showName=${true}
+          tier=${b.tier ?? 0} maxTier=${Math.max(1, th.length)} members=${b.count ?? 0} minCount=${th[0] ?? 0} active=${!!b.active} size="sm" showName=${true}
           layersDisabled=${layersDisabled} onClick=${() => onOpen(b.bondId)}
           title=${`${rec?.name || b.bondId} ${b.count ?? 0}/${next ?? th[th.length - 1] ?? '-'}${b.harmony > 0 ? t('（含调和 +{harmony}）', { harmony: b.harmony }) : ''}`} />
     <${BondStage} tier=${b.active ? b.tier ?? bondTier(b.count ?? 0, th, rec?.maxCount) : 0} />
@@ -206,7 +206,10 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
   ${active ? html`<${Img} class="bpop__stack-deco" src=${uiUrl(data.get('assets'), 'bondDetail/active_stack_deco')} />` : null}
   ${modal ? html`<button type="button" class="bpop__close" aria-label=${t('关闭')} onClick=${onClose}><${Icon} name="close" /></button>` : null}
   <header class=${cx('bpop__head', active && 'is-active')}>
-    <div class=${cx('bpop__disc', active && 'is-active')}><${BondGlyph} bondId=${bondId} /></div>
+    <div class="bpop__disc">
+      <${BondDisc} name=${b.name} icon=${bondIconUrl(data.get('assets'), bondId)} tier=${tier}
+        maxTier=${Math.max(1, th.length)} members=${count} minCount=${th[0] ?? 0} active=${active} disabled=${modeOff || coreAbsent} showName=${false} />
+    </div>
     <div class="bpop__titles">
       ${owner ? html`<span class="bpop__owner"><${GIcon} name="eye" />${tParts('{owner} 的盟约', { owner: html`<b>${owner}</b>` })}</span>` : null}
       <h3 class="bpop__name">${b.name}</h3>

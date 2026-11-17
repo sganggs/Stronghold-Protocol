@@ -217,16 +217,18 @@ export function TierChip({ tier, golden = false, size = 'md', class: cls }) {
  *   onClick?: Function, class?: string, title?: string }} props
  */
 export function BondDisc({
-  name = '', icon, count, layers, tier = 0, maxTier = 3, active = false, disabled = false, layersDisabled = false,
+  name = '', icon, count, layers, members = 0, minCount = 0, tier = 0, maxTier = 3, active = false, disabled = false, layersDisabled = false,
   size = 'md', showName = true, onClick, class: cls, title,
 }) {
   // Remember which URL failed (a per-URL flag can't race a reset effect).
   const [badSrc, setBadSrc] = useState(null);
   const imgOk = !!icon && badSrc !== icon;
-  const n = Math.max(1, Math.min(4, maxTier | 0 || 3));
-  const filled = active && !disabled ? Math.max(1, Math.min(n, tier | 0)) : 0;
-  const full = filled === n;
-  const key = `bondBoardIcon/${filled ? `${n}_${filled}` : '1_0'}`;
+  const progress = !active && !disabled && minCount > 0;
+  const n = Math.max(1, Math.min(4, (progress ? minCount : maxTier) | 0 || 3));
+  const filled = progress ? Math.max(0, Math.min(n, members | 0))
+    : active && !disabled ? Math.max(1, Math.min(n, tier | 0)) : 0;
+  const full = !progress && filled === n;
+  const key = `bondBoardIcon/${progress ? `${n}_${Math.max(1, filled)}` : filled ? `${n}_${filled}` : '1_0'}`;
   const [badFrame, setBadFrame] = useState(null);
   const frameUrl = uiUrl(data.get('assets'), key);
   const frame = badFrame === frameUrl ? null : frameUrl;
@@ -235,7 +237,7 @@ export function BondDisc({
   const glyph = (name || '?').trim().charAt(0) || '?';
   const Tag = onClick ? 'button' : 'div';
   return html`<${Tag} type=${onClick ? 'button' : undefined}
-      class=${cx('bond', 'is-sprite', !frame && 'is-frame-missing', full && 'is-full', `bond--${size}`, active && 'is-active', disabled && 'is-disabled', layersDisabled && 'is-frozen', onClick && 'is-clickable', cls)}
+      class=${cx('bond', 'is-sprite', !frame && 'is-frame-missing', full && 'is-full', progress && !filled && 'is-empty-progress', `bond--${size}`, active && 'is-active', disabled && 'is-disabled', layersDisabled && 'is-frozen', onClick && 'is-clickable', cls)}
       style=${frameStyle} onClick=${onClick} title=${title || name}>
     <span class="bond__disc">
       ${frame ? html`<img src=${frame} alt="" hidden onError=${() => setBadFrame(frame)} />` : null}

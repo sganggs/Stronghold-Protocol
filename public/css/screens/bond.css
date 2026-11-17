@@ -209,12 +209,9 @@
   position: relative; isolation: isolate; flex: none; min-height: .68rem; padding: 0 .08rem .04rem 0;
   display: flex; gap: .14rem; align-items: center;
 }
-.bpop__disc { border-radius: 50%; display: grid; place-items: center; background: #1b2320; border: 2px solid rgba(255, 255, 255, .14); flex: none; }
-.bpop__head .bpop__disc { width: .54rem; height: .54rem; }
-.bpop__head .bpop__disc .bglyph { width: .36rem; height: .36rem; }
-.bpop__disc .bglyph img { filter: brightness(0) invert(.8); }
-.bpop__disc.is-active { background: var(--mint-500); border-color: var(--mint-400); box-shadow: 0 0 .24rem rgba(23, 249, 183, .45); }
-.bpop__disc.is-active .bglyph img { filter: brightness(0) opacity(.85); }
+.bpop__disc { border-radius: 50%; display: grid; place-items: center; flex: none; }
+.bpop__head .bpop__disc { width: .86rem; height: .86rem; }
+.bpop__disc .bond { --disc: .54rem; }
 .bpop__titles { display: flex; flex-direction: column; flex: 1; gap: .03rem; min-width: 0; }
 .bpop__name { font-size: calc(.24 * var(--t)); font-weight: 900; letter-spacing: 0; }
 .bpop__owner { display: inline-flex; align-items: center; gap: .06rem; font-size: calc(.14 * var(--t)); color: var(--amber); }
@@ -355,3 +352,7 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .match-bond-dialog .bpop__mname { font-size: max(calc(.12 * var(--t)), 10px); }
 .match-bond-dialog .bpop__close { position: absolute; right: .08rem; top: .08rem; z-index: 1; display: grid; place-items: center; background: none; border: 1px solid var(--line-2); color: var(--text-lo); }
 .match-bond-dialog .bpop__close .icon { width: .18rem; height: .18rem; }
+
+/* With no members, retain every segment but light none of them. */
+.bond.is-empty-progress .bond__disc::before,
+.bond.is-empty-progress .bond__core::before { filter: grayscale(1) brightness(.6); }
