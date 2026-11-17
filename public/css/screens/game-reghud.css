@@ -368,10 +368,12 @@
    wrap is the overflow safety. Touch targets stay at least --tap-min. */
 @media (max-width: 900px) {
   .shopbar--reg .shopbar__cluster { width: 100%; --reg-k-max: 1; }
-  .shopbar--reg .shopbar__row,
   .shopbar--reg .shopbar__cards,
   .shopbar--reg .shopbar__rwcards { flex-wrap: wrap; justify-content: center; }
-  .shopbar--reg .shopbar__row { width: 100%; }
+  /* The row spans the whole bar here, so a centred row floats the cards and the character card (its last
+     item) towards the middle of the screen: the funds then sit left of the right edge with a blank band
+     under the tools. Keep the row flush right instead, as in the scaled layout. */
+  .shopbar--reg .shopbar__row { width: 100%; flex-wrap: wrap; justify-content: flex-end; }
 }
 @media (max-height: 430px) {
   .shopbar--reg .shopbar__cluster { --reg-k-max: 1; }
