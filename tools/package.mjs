@@ -30,7 +30,12 @@
 // stage adds the production node_modules and (postinstall) public/vendor. The full zip adds the git-ignored art: the
 // files data/assets.json lists, public/fonts, and the local-client extraction (public/assets/local/,
 // data/local-assets.json) when present, including the battlefield scenes under public/assets/local/scene/
-// when this machine extracted them. Missing scenes are not an error: the board keeps the metal tiles, and the
+// when this machine extracted them. The one extraction it never carries is public/assets/local/fonts/ (FONT_ART_PREFIX):
+// the maintainer's decision is that the locally extracted official faces are not distributed — the update zip is the
+// full stage's diff, so it has none either, the asset pack's plan drops their manifest group (withoutHeldFonts), and
+// the staged data/local-assets.json loses groups.fonts (holdBackStagedFonts) so a release host reads no face and the
+// canvas shop falls back to the system fonts. `--only font` on the machine still writes them for the runtime there.
+// Missing scenes are not an error: the board keeps the metal tiles, and the
 // summary says so. Nothing else on disk ships, so art the data no longer lists (焰狐龙梓兰, left out of
 // 自选 in 0.2.0, or files of an old mapping) never ships even when this machine still has it. FULL_ZIP_JP_VOICE (below)
 // decides whether the full zip carries the Japanese voice dub too (default: yes), FULL_ZIP_OPTIONAL_VOICE the English,
@@ -51,7 +56,8 @@
 //
 // Checks, all of them in --dry-run too (which writes nothing): the refusal list below; every relative import of a
 // shipped module and every `node <file>` of the player npm scripts resolves to a shipped file; a full zip has every file
-// data/assets.json and data/local-assets.json list; no shipped file carries a home-directory path (/Users/…,
+// data/assets.json and data/local-assets.json list (the held font group of the local manifest excluded: its files are
+// never shipped before that manifest copy loses the group); no shipped file carries a home-directory path (/Users/…,
 // C:\Users\…, /home/…) or this machine's account name (text and binary, art included; node_modules only for the name);
 // no shipped tracked file has an uncommitted change (--allow-dirty skips that). A build also checks that the stage holds
 // exactly the plan before zipping. Generated into the stage: packs/index.json, the pack index of the shipped packs
@@ -84,7 +90,9 @@
 // and public/fonts/… and README.txt (what the pack is, the version whose manifests it matches, how to import it). The
 // art is what public/js/assetPack.js accepts from a host that has every listed file: its own plan of the three served
 // manifests (data/assets.json, data/local-assets.json, data/local-fx.json; importableArt), with the full zip's voice and
-// effect switches. The `public/` in every path makes the importer pick one prefix for the whole pack (detectAssetPrefix:
+// effect switches. The locally extracted faces are not in it either: the local manifest is read through
+// withoutHeldFonts, whose `fonts` group the importer would otherwise plan. The `public/` in every path makes the
+// importer pick one prefix for the whole pack (detectAssetPrefix:
 // strip up to the last `public/`); the README is the one file it skips. Not in it: the manifests (the browser reads the
 // host's), files no manifest lists (local-client leftovers the full zip still carries), code. The full zip's checks:
 // every listed file on disk, no case clash, the personal-info scan of every file (art included), data/assets.json
@@ -194,6 +202,18 @@ export const FULL_ZIP_FX = true;
 export const FX_ART_PREFIX = 'public/assets/local/fx/';
 
 /**
+ * The locally extracted official font faces (tools/local-extract/fonts.py, `--only font`: the three pinned faces under
+ * this folder plus their `fonts` group in data/local-assets.json). The maintainer's decision is that fonts are not
+ * distributed: no package — full, update, asset or theme — carries this folder or the manifest group; the extraction
+ * stays local and the client falls back to the system faces when the host has none. The full zip's plan holds them
+ * back (`fontHeld`), the asset pack's plan drops the group (withoutHeldFonts), the update zip is the full stage's
+ * diff, and the staged data/local-assets.json loses the group (holdBackStagedFonts).
+ */
+export const FONT_ART_PREFIX = 'public/assets/local/fonts/';
+/** The data/local-assets.json group of those faces (fonts.py writes it in place of the manifest's groups). */
+export const HELD_LOCAL_GROUPS = Object.freeze(['fonts']);
+
+/**
  * Official theme groups the packages hold back (§37.232; the maintainer, 2026-11-15: 「可露希尔主题可以支持单独导入吗，
  * 不想直接内置」). The full, update and asset zips leave out the group's folder and its entry in the shipped
  * data/local-assets.json; `--theme-packs` writes each one as an importable pack (设置 → 界面主题 → 导入主题包) that
@@ -239,6 +259,16 @@ export function withoutHeldThemes(local, held = HELD_THEME_GROUPS, heldEntries =
   const out = { ...local, groups: next };
   if (Number.isFinite(local.count)) out.count = Math.max(0, local.count - removed);
   return out;
+}
+
+/**
+ * data/local-assets.json without the locally extracted `fonts` group (HELD_LOCAL_GROUPS; the same group-dropping rule
+ * as withoutHeldThemes, with no held entries). The same object when it has no such group. Used wherever a package reads
+ * the manifest as a host serves it: the art plan, the asset pack plan and the staged copy of the zip.
+ * @param {any} local
+ */
+export function withoutHeldFonts(local) {
+  return withoutHeldThemes(local, HELD_LOCAL_GROUPS, {});
 }
 
 /**
@@ -376,7 +406,9 @@ export const manifestFiles = listedArtFiles;
 /**
  * The art of a full package: every file data/assets.json lists, public/fonts, public/assets/local/ and
  * data/local-assets.json (when present); the official effects (public/assets/local/fx/ with data/local-fx.json) only
- * with `fx` (FULL_ZIP_FX), else they are `fxHeld`. `missing`: listed files not on disk; `orphans`: files under public/assets
+ * with `fx` (FULL_ZIP_FX), else they are `fxHeld`. The locally extracted faces (FONT_ART_PREFIX) are never shipped:
+ * they are `fontHeld`, and the manifest copy read here drops their `fonts` group (withoutHeldFonts), so neither the
+ * listed-file check nor an update sees them. `missing`: listed files not on disk; `orphans`: files under public/assets
  * that nothing lists (left out); `held`: listed files the zip holds back on purpose — the JP voice dub when `jpVoice`
  * (FULL_ZIP_JP_VOICE) is off, the English / Korean / own-language dubs when `optionalVoice` (FULL_ZIP_OPTIONAL_VOICE)
  * is off: neither shipped nor missing, and never deleted by an update.
@@ -384,18 +416,20 @@ export const manifestFiles = listedArtFiles;
  * A lite plan and a machine that has not extracted them return `scenes: []`; packaging still succeeds.
  */
 export function artPlan(root, { lite = false, jpVoice = FULL_ZIP_JP_VOICE, optionalVoice = FULL_ZIP_OPTIONAL_VOICE, fx = FULL_ZIP_FX, heldThemes = HELD_THEME_GROUPS } = {}) {
-  if (lite) return { files: [], missing: [], orphans: [], held: [], fxHeld: [], themeHeld: [], local: false, scenes: [] };
+  if (lite) return { files: [], missing: [], orphans: [], held: [], fxHeld: [], themeHeld: [], fontHeld: [], local: false, scenes: [] };
   const listed = manifestFiles(readJson(path.join(root, 'data', 'assets.json')) ?? {});
   const local = isFile(path.join(root, 'data', 'local-assets.json'));
   const rawLocal = local ? readJson(path.join(root, 'data', 'local-assets.json')) : null;
-  // the held theme groups and sprites (§37.232) are not listed in the shipped manifest: neither shipped nor missing
-  if (local) for (const f of manifestFiles(withoutHeldThemes(rawLocal ?? {}, heldThemes) ?? {})) listed.add(f);
+  // the held theme groups, sprites (§37.232) and the local fonts are not listed in the shipped manifest: neither
+  // shipped nor missing
+  if (local) for (const f of manifestFiles(withoutHeldFonts(withoutHeldThemes(rawLocal ?? {}, heldThemes)) ?? {})) listed.add(f);
   const heldFiles = heldThemes.length ? heldEntryFiles(rawLocal) : new Set();
   const files = new Set();
   const missing = [];
   const held = [];
   const fxHeld = [];
   const themeHeld = [];
+  const fontHeld = [];
   const heldDirs = heldThemes.map(themeGroupDir);
   for (const f of listed) {
     if (!jpVoice && f.startsWith(JP_VOICE_DIR)) held.push(f);
@@ -406,17 +440,19 @@ export function artPlan(root, { lite = false, jpVoice = FULL_ZIP_JP_VOICE, optio
   for (const f of listTree(root, 'public/fonts')) files.add(f);
   const fxList = isFile(path.join(root, 'data', 'local-fx.json'));
   for (const f of listTree(root, 'public/assets/local')) {
-    if (heldDirs.some((d) => f.startsWith(d)) || heldFiles.has(f)) themeHeld.push(f);
+    if (f.startsWith(FONT_ART_PREFIX)) fontHeld.push(f);
+    else if (heldDirs.some((d) => f.startsWith(d)) || heldFiles.has(f)) themeHeld.push(f);
     else if (!f.startsWith(FX_ART_PREFIX)) { if (local) files.add(f); } else if (fx && fxList) files.add(f); else fxHeld.push(f);
   }
   if (local) files.add('data/local-assets.json');
   if (fx && fxList) files.add('data/local-fx.json');
   // without case: on Windows / macOS a file whose name differs only in case is the listed one (fetch-assets orphanFiles)
-  const lower = new Set([...files, ...held, ...fxHeld, ...themeHeld].map((f) => f.toLowerCase()));
+  const lower = new Set([...files, ...held, ...fxHeld, ...themeHeld, ...fontHeld].map((f) => f.toLowerCase()));
   const orphans = listTree(root, 'public/assets').filter((f) => !lower.has(f.toLowerCase()));
   const sorted = [...files].sort();
   return {
-    files: sorted, missing: missing.sort(), orphans, held: held.sort(), fxHeld: fxHeld.sort(), themeHeld: themeHeld.sort(), local,
+    files: sorted, missing: missing.sort(), orphans, held: held.sort(), fxHeld: fxHeld.sort(), themeHeld: themeHeld.sort(),
+    fontHeld: fontHeld.sort(), local,
     scenes: sorted.filter((f) => f.startsWith(SCENE_ART_PREFIX)),
   };
 }
@@ -691,7 +727,8 @@ export function plan(root, opts = {}) {
   const dropBytes = Object.values(dropped).reduce((n, g) => n + g.bytes, 0);
   return {
     version: pkg.version || '0.0.0', lite, tracked: keep, art: art.files, generated, files, dropped, orphans: art.orphans,
-    held: art.held, fxHeld: art.fxHeld, themeHeld: art.themeHeld || [], localArt: art.local, problems, names: names.length, scanned,
+    held: art.held, fxHeld: art.fxHeld, themeHeld: art.themeHeld || [], fontHeld: art.fontHeld || [], localArt: art.local,
+    problems, names: names.length, scanned,
     scenes: { files: art.scenes || [], bytes: sumBytes(root, art.scenes || []) },
     bytes: {
       tracked: trackedBytes, art: artBytes, modules: modulesBytes, vendor: vendorBytes,
@@ -710,7 +747,8 @@ export function formatSummary(p) {
     `tracked: ${p.tracked.length} files, ${MB(p.bytes.tracked)}`,
   ];
   if (!p.lite) {
-    lines.push(`art: ${p.art.length} files, ${MB(p.bytes.art)} (data/assets.json, public/fonts${p.localArt ? ', public/assets/local + data/local-assets.json' : '; no local-client art here'})`);
+    const localBit = p.localArt ? ', public/assets/local + data/local-assets.json (public/assets/local/fonts stays local)' : '; no local-client art here';
+    lines.push(`art: ${p.art.length} files, ${MB(p.bytes.art)} (data/assets.json, public/fonts${localBit})`);
     const sceneFiles = p.scenes?.files;
     if (sceneFiles?.length) {
       lines.push(`battlefield scenes: ${sceneFiles.length} files, ${MB(p.scenes.bytes || 0)} (public/assets/local/scene; the metal board is the fallback when a stage has none)`);
@@ -732,6 +770,7 @@ export function formatSummary(p) {
   if (!p.lite && p.held?.length) lines.push(`held back: ${p.held.length} voice files (FULL_ZIP_JP_VOICE / FULL_ZIP_OPTIONAL_VOICE off: setup downloads them on the first start)`);
   if (!p.lite && p.fxHeld?.length) lines.push(`held back: ${p.fxHeld.length} official effect files (public/assets/local/fx with data/local-fx.json, FULL_ZIP_FX off: extracted on this machine, not shipped)`);
   if (!p.lite && p.themeHeld?.length) lines.push(`held back: ${p.themeHeld.length} files of ${HELD_THEME_GROUPS.join(', ')} (its group and its ui/outer sprites, with their data/local-assets.json entries: HELD_THEME_GROUPS / HELD_THEME_ENTRIES, an importable pack, --theme-packs)`);
+  if (!p.lite && p.fontHeld?.length) lines.push(`held back: ${p.fontHeld.length} locally extracted font files (public/assets/local/fonts is in no package: the client falls back to the system faces; --only font writes them on this machine only)`);
   lines.push(`personal-info scan: ${p.scanned} files, ${p.names ? `home paths + ${p.names} account name(s)` : 'home paths only (no account name to refuse)'}`);
   lines.push(p.problems.length ? `PROBLEMS (${p.problems.length}):\n${p.problems.map((x) => `  ${x}`).join('\n')}` : 'checks: ok');
   return lines.join('\n') + '\n';
@@ -869,6 +908,23 @@ export function holdBackStagedThemes(stage, log = () => {}) {
 }
 
 /**
+ * The staged data/local-assets.json without the locally extracted `fonts` group: no package ships those faces, so a host
+ * built from one reads no face for the canvas shop and falls back to the system fonts (public/js/ui/prefab/shopDocs.js
+ * themeFonts, unchanged: this machine's own manifest keeps the group for its runtime). Returns whether the file changed.
+ * @param {string} stage @param {(m: string) => void} [log]
+ */
+export function holdBackStagedFonts(stage, log = () => {}) {
+  const file = path.join(stage, 'data', 'local-assets.json');
+  if (!isFile(file)) return false;
+  const doc = readJson(file);
+  const next = withoutHeldFonts(doc);
+  if (!doc || next === doc) return false;
+  fs.writeFileSync(file, JSON.stringify(next));
+  log(`data/local-assets.json: without ${HELD_LOCAL_GROUPS.join(', ')} (locally extracted faces are in no package; the client falls back to the system fonts)`);
+  return true;
+}
+
+/**
  * Copy the plan into `stage`, write the pack index, npm ci (node_modules, public/vendor), write MANIFEST.json, check the
  * stage: what `build` zips and `buildUpdate` compares. Throws on a problem. Returns the staged files.
  */
@@ -878,6 +934,7 @@ function makeStage(root, p, stage, { install, env, log }) {
   for (const rel of p.files) if (!generated.has(rel)) copyInto(root, stage, rel);
   rewritePlayerStage(stage, p);
   holdBackStagedThemes(stage, log);
+  holdBackStagedFonts(stage, log);
   if (generated.has(GENERATED_PACK_INDEX)) {
     const index = writePackIndex(stage, path.join(stage, GENERATED_PACK_INDEX));
     log(`${GENERATED_PACK_INDEX}: ${index.packs.map((x) => `${x.type} ${x.id}`).join(', ') || 'no pack'}`);
@@ -962,7 +1019,9 @@ export function importableArt(assets, local, fx) {
  * manifests, with the full zip's switches — `jpVoice` / `optionalVoice` (FULL_ZIP_JP_VOICE / FULL_ZIP_OPTIONAL_VOICE)
  * hold voice files back (`held`), `fx` (FULL_ZIP_FX) off or no data/local-fx.json leaves the effects out; `missing`:
  * listed, not on disk; `notListed`: what the full zip ships from public/ and the import would skip (no manifest lists
- * it: local-client leftovers, an unlisted font), left out. `scan: false` skips the personal-info scan (tests).
+ * it: local-client leftovers, an unlisted font), left out. The locally extracted faces are not in it: the manifests are
+ * read through withoutHeldFonts, so their `fonts` group never reaches importableArt. `scan: false` skips the
+ * personal-info scan (tests).
  * @param {string} root
  * @param {{ allowDirty?: boolean, env?: object, scan?: boolean, jpVoice?: boolean, optionalVoice?: boolean, fx?: boolean }} [opts]
  */
@@ -973,8 +1032,9 @@ export function assetPackPlan(root, opts = {}) {
   const pkg = readJson(path.join(root, 'package.json')) || {};
   const version = pkg.version || '0.0.0';
   const assets = readJson(path.join(root, 'data', 'assets.json'));
-  // as the full zip: the held theme groups are offered as importable packs, not as importable art (§37.232)
-  const local = withoutHeldThemes(readJson(path.join(root, 'data', 'local-assets.json')));
+  // as the full zip: the held theme groups are offered as importable packs, not as importable art (§37.232), and the
+  // locally extracted fonts are in no package at all (FONT_ART_PREFIX / HELD_LOCAL_GROUPS)
+  const local = withoutHeldFonts(withoutHeldThemes(readJson(path.join(root, 'data', 'local-assets.json'))));
   const fxDoc = fx ? readJson(path.join(root, 'data', 'local-fx.json')) : null;
   const files = [];
   const missing = [];
@@ -1332,8 +1392,13 @@ export function buildUpdate(root, p, bases, { out, install = true, force = false
   }
   // a path no update deletes (a per-machine name such as node_modules/x/.env.example) stays behind, named in the summary
   // …nor a file this zip holds back on purpose (a voice dub with FULL_ZIP_JP_VOICE / FULL_ZIP_OPTIONAL_VOICE off): the manifest still lists it
-  const heldBack = new Set(p.held || []);
-  const diff = diffBases(next, bases, { removable: (rel) => !removalProblem(rel) && !heldBack.has(rel) });
+  // …nor a locally extracted font face (FONT_ART_PREFIX): the faces are not published, but deleting a base's copy or a
+  // host's own `--only font` result is not an update's job. `p.fontHeld` names this machine's faces; the prefix also
+  // covers a face a base shipped while this packaging machine no longer has the extraction.
+  const heldBack = new Set([...(p.held || []), ...(p.fontHeld || [])]);
+  const diff = diffBases(next, bases, {
+    removable: (rel) => !removalProblem(rel) && !heldBack.has(rel) && !rel.startsWith(FONT_ART_PREFIX),
+  });
   for (const rel of diff.left) {
     const bad = pathProblem(rel);
     if (bad) throw new Error(`a base ships ${rel}, which is ${bad}`);
