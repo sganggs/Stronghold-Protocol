@@ -95,49 +95,31 @@ function rider(dmg) {
   if (damageAttackType(dmg) === 'ADDITION' || tagged(dmg, 'addition') || tagged(dmg, 'dot') || tagged(dmg, 'periodic')) return true;
   return false;
 }
-function onBondEvent(battle, eventName, pid, bondId, fn) {
-  const st = S.battleStore(battle, 'bonds:reg:layers', () => ({ hooks: new Set(), map: new Map(), pending: new Set() }));
-  const k = `${eventName}|${pid}|${bondId}`;
+function onLayers(battle, pid, bondId, fn) {
+  const st = S.battleStore(battle, 'bonds:reg:layers', () => ({ map: new Map(), pending: new Set(), hooked: false }));
+  const k = `${pid}|${bondId}`;
   if (!st.map.has(k)) st.map.set(k, []);
   st.map.get(k).push(fn);
-  if (st.hooks.has(eventName)) return;
-  st.hooks.add(eventName);
-  battle.on(eventName, (c) => {
-    const key = `${eventName}|${c.playerId}|${c.bondId}`;
+  if (st.hooked) return;
+  st.hooked = true;
+  const refresh = (c) => {
+    const key = `${c.playerId}|${c.bondId}`;
     const list = st.map.get(key);
     if (!list || st.pending.has(key)) return;
     st.pending.add(key);
     battle.after(0, () => { st.pending.delete(key); for (const f of list) f(); });
-  }, { priority: -100 });
+  };
+  battle.on('layerGain', refresh, { priority: -100 });
+  battle.on('tempLayerChange', refresh, { priority: -100 });
 }
 
-function onLayers(battle, pid, bondId, fn) {
-  onBondEvent(battle, 'layerGain', pid, bondId, fn);
-}
-
-function onTempLayers(battle, pid, bondId, fn) {
-  onBondEvent(battle, 'tempLayerGain', pid, bondId, fn);
-}
-
-/** Temp layers (乌萨斯 kill node `_isTemp`, `garrison_13` `addTempLayers`). Not normal layers; converted at settle. */
+/** Compatibility reader: every temporary source now uses the battle's ledger. */
 export function tempBondLayers(battle, pid, bondId) {
-  const st = S.battleStore(battle, 'bonds:reg:temp', () => ({}));
-  const recorded = typeof battle?.tempLayers === 'function' ? num(battle.tempLayers(pid, bondId)) : 0;
-  return recorded + num(st[`${pid}|${bondId}`]);
+  return typeof battle?.tempLayers === 'function' ? battle.tempLayers(pid, bondId) : 0;
 }
 function addTemp(battle, pid, bondId, n) {
-  if (!(n > 0)) return;
-  // In normal battles (`layerGainsEnabled`), route kills through `battle.addTempLayers` so `result.tempLayerGains`
-  // reaches settle (乌啾 / 折桠 conversion). When gains are disabled (boss/unite), keep them combat-local so wire
-  // validation still sees `tempLayerGains` omitted.
-  if (battle?.flags?.layerGainsEnabled !== false && typeof battle?.addTempLayers === 'function') {
-    battle.addTempLayers(pid, bondId, n);
-    return;
-  }
-  const st = S.battleStore(battle, 'bonds:reg:temp', () => ({}));
-  const k = `${pid}|${bondId}`;
-  st[k] = num(st[k]) + n;
-  battle?.emit?.('tempLayerGain', { playerId: pid, bondId, n });
+  if (!(n > 0) || typeof battle?.addTempLayers !== 'function') return 0;
+  return battle.addTempLayers(pid, bondId, n);
 }
 
 function enemyRaw(battle, id) {
@@ -460,9 +442,8 @@ function installEgir2(battle, pid, effectId, members) {
 
 function installUrsus(battle, pid, effectId, members) {
   const bb = bbOf('ursusShip', effectId, K.ursus);
-  const ursusLayers = () => S.bondLayers(battle, pid, 'ursusShip') + tempBondLayers(battle, pid, 'ursusShip');
   const apply = () => {
-    const L = ursusLayers();
+    const L = S.bondLayers(battle, pid, 'ursusShip');
     const mods = S.directMods({
       atk: num(bb.atk_base) + num(bb.atk_per_stack) * L,
       hp: num(bb.hp_base) + num(bb.hp_per_stack) * L,
@@ -471,7 +452,6 @@ function installUrsus(battle, pid, effectId, members) {
   };
   apply();
   onLayers(battle, pid, 'ursusShip', apply);
-  onTempLayers(battle, pid, 'ursusShip', apply);
   const set = new Set(members);
   const six = reached(battle, pid, 'ursusShip', bb.power_bond_char_cnt);
   battle.on('death', (c) => {
@@ -486,7 +466,7 @@ function installUrsus(battle, pid, effectId, members) {
   battle.on('hit', (c) => {
     const u = c.target, dmg = c.dmg;
     if (!set.has(u) || !dmg || dmg.type === 'true' || tagged(dmg, 'bond:ursus')) return;
-    const L = ursusLayers();
+    const L = S.bondLayers(battle, pid, 'ursusShip');
     const r = scaled(bb, 'damage_one_minus_base', 'damage_one_minus_per_stack', L, 'damage_one_minus_max');
     const cut = Math.max(0, Math.min(num(bb.damage_one_minus_max, 1), r));
     if (!(cut > 0)) return;
@@ -506,7 +486,7 @@ function installUrsus(battle, pid, effectId, members) {
   });
   if (!six) return;
   battle.every(1, () => {
-    const L = ursusLayers();
+    const L = S.bondLayers(battle, pid, 'ursusShip');
     const scale = num(bb.atk_scale_base) + num(bb.atk_scale_per_stack) * L;
     if (!(scale > 0)) return;
     for (const m of members) {

@@ -44,7 +44,7 @@ export class FakeBattle {
     this._events = [];
     const plan = typeof FakeBattle.script === 'function' ? FakeBattle.script(this) : null;
     const bossLike = this.kind === 'boss' || this.kind === 'hidden';
-    this.plan = { duration: bossLike ? Infinity : Math.min(this.timeLimit, 8), leaks: {}, survivors: {}, coins: {}, layerGains: {}, damage: {}, bossDps: 0, leakEvents: [], lpLossEvents: [], deadUids: [], ...(plan || {}) };
+    this.plan = { duration: bossLike ? Infinity : Math.min(this.timeLimit, 8), leaks: {}, survivors: {}, coins: {}, layerGains: {}, tempLayerGains: {}, damage: {}, bossDps: 0, leakEvents: [], lpLossEvents: [], deadUids: [], ...(plan || {}) };
     if (this.plan.throwInCtor) throw new Error('FakeBattle: constructor failure (scripted)');
     this._leakIdx = 0;
     this._lpLossIdx = 0;
@@ -130,6 +130,7 @@ export class FakeBattle {
         leaked,
         perfect: !leaked.some((l) => l.counted !== false),
         layerGains: { ...(this.plan.layerGains[pid] || {}) },
+        ...(this.plan.tempLayerGains?.[pid] && Object.keys(this.plan.tempLayerGains[pid]).length ? { tempLayerGains: { ...this.plan.tempLayerGains[pid] } } : {}),
         coins: this.plan.coins[pid] || 0,
         damageDealt: this.plan.damage[pid] || 1000,
         bossDamage: 0,

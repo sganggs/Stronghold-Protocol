@@ -557,3 +557,75 @@ test('content modules: a throwing install() is logged and skipped; units outside
   assert.equal(r.reason, 'cleared');
   checkInvariants(h.b);
 });
+
+test('temporary layer ledger: cap, removal, isolation, hooks, boss/hidden vs frozen unite carry', () => {
+  const defs = {
+    chess: { t_guard: guard() },
+    enemies: { e_dummy: walker({ speed: 0 }) },
+  };
+  const h = makeBattle({
+    defs, content: 'none',
+    players: [
+      { playerId: 'p1', seat: 0, side: 'L', colOffset: 0, bonds: { yanShip: { count: 3, active: true, tier: 1, layers: 5 } }, units: [{ uid: 1, chessId: 't_guard', row: 9, col: 4 }] },
+      { playerId: 'p2', seat: 1, side: 'R', colOffset: 8, bonds: { yanShip: { count: 3, active: true, tier: 1, layers: 2 } }, units: [] },
+    ],
+  });
+  const seen = [];
+  h.b.on('layerGain', () => seen.push(['layerGain']));
+  h.b.on('tempLayerGain', (c) => seen.push(['tempLayerGain', c.playerId, c.bondId, c.n]));
+  h.b.on('tempLayerChange', (c) => seen.push(['tempLayerChange', c.playerId, c.bondId, c.n, c.total]));
+
+  assert.equal(h.b.addTempLayers('p1', 'yanShip', 6), 6);
+  assert.equal(h.b.tempLayers('p1', 'yanShip'), 6);
+  assert.equal(h.b.tempLayers('p2', 'yanShip'), 0, 'temp layers are isolated per player');
+  assert.equal(h.b.effectiveBondLayers('p1', 'yanShip'), 11);
+  assert.equal(h.b.effectiveBondLayers('p2', 'yanShip'), 2);
+  assert.equal(h.b.getPlayer('p1').bonds.yanShip.layers, 5, 'permanent layers unchanged');
+
+  assert.equal(h.b.removeTempLayers('p1', 'yanShip', 4), 4);
+  assert.equal(h.b.tempLayers('p1', 'yanShip'), 2);
+  assert.equal(h.b.removeTempLayers('p1', 'yanShip', 10), 2, 'removal clamps to current balance');
+  assert.equal(h.b.tempLayers('p1', 'yanShip'), 0);
+  assert.equal(h.b.result().perPlayer.p1.tempLayerGains, undefined, 'empty temp ledger omitted from wire');
+
+  assert.equal(h.b.addTempLayers('p1', 'yanShip', 2e4), 1e4, 'capped at 1e4');
+  assert.equal(h.b.addTempLayers('p1', 'yanShip', 5), 0);
+  assert.deepEqual(h.b.tempLayersSnapshot(), { p1: { yanShip: 1e4 } });
+  assert.deepEqual(seen, [
+    ['tempLayerGain', 'p1', 'yanShip', 6],
+    ['tempLayerChange', 'p1', 'yanShip', 6, 6],
+    ['tempLayerChange', 'p1', 'yanShip', -4, 2],
+    ['tempLayerChange', 'p1', 'yanShip', -2, 0],
+    ['tempLayerGain', 'p1', 'yanShip', 1e4],
+    ['tempLayerChange', 'p1', 'yanShip', 1e4, 1e4],
+  ]);
+
+  for (const kind of ['boss', 'hidden']) {
+    const hb = makeBattle({
+      kind, flags: { layerGainsEnabled: false }, defs, content: 'none',
+      bonds: { ursusShip: { count: 3, active: true, tier: 1, layers: 1 } },
+      units: [{ chessId: 't_guard', row: 9, col: 4 }],
+    });
+    assert.equal(hb.b.addLayers('p1', 'ursusShip', 3, 'test'), 0, `${kind}: permanent gains disabled`);
+    assert.equal(hb.b.addTempLayers('p1', 'ursusShip', 7), 7, `${kind}: temp gains recorded`);
+    assert.equal(hb.b.effectiveBondLayers('p1', 'ursusShip'), 8);
+    assert.equal(hb.b.result().perPlayer.p1.tempLayerGains.ursusShip, 7);
+  }
+
+  const hu = makeBattle({
+    kind: 'unite', flags: { layerGainsEnabled: false }, defs, content: 'none',
+    players: [{
+      playerId: 'p1', seat: 0, side: 'L', colOffset: 0,
+      bonds: { yanShip: { count: 3, active: true, tier: 1, layers: 10 } },
+      tempLayers: { yanShip: 7, ursusShip: 4 },
+      units: [{ uid: 1, chessId: 't_guard', row: 9, col: 4 }],
+    }],
+  });
+  assert.equal(hu.b.tempLayers('p1', 'yanShip'), 7);
+  assert.equal(hu.b.tempLayers('p1', 'ursusShip'), 4);
+  assert.equal(hu.b.effectiveBondLayers('p1', 'yanShip'), 17);
+  assert.equal(hu.b.addTempLayers('p1', 'yanShip', 5), 0, 'unite freezes temp additions');
+  assert.equal(hu.b.removeTempLayers('p1', 'yanShip', 2), 0, 'unite freezes temp removals');
+  assert.equal(hu.b.tempLayers('p1', 'yanShip'), 7);
+  assert.equal(hu.b.result().perPlayer.p1.tempLayerGains, undefined, 'unite omits wire tempLayerGains');
+});

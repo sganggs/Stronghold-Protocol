@@ -110,6 +110,7 @@ function fight(t, spec) {
     units: unitsByOwner.get(p.playerId),
     bonds: p.bonds ?? (p.playerId === 'p1' ? spec.bonds : {}),
     contentInfo: p.contentInfo ?? (p.playerId === 'p1' ? spec.contentInfo : undefined),
+    ...(p.tempLayers ? { tempLayers: p.tempLayers } : (p.playerId === 'p1' && spec.tempLayers ? { tempLayers: spec.tempLayers } : {})),
   }));
   return makeBattle({
     seed: spec.seed ?? 1,
@@ -689,18 +690,36 @@ describe('规程·序列Ⅰ bonds', { concurrency: 1 }, () => {
     h6.run(1.1);
     close(blkHp - blk.hp, (0.5 + 0.0025 * 20) * m.s.atk, 'block arts scales with temp layers');
 
-    const off = fight(t, {
+    const boss = fight(t, {
+      kind: 'boss',
       bonds: { ursusShip: bond(1, 0, 0) },
-      pieces: [piece('reg_ur_off', ['ursusShip'])],
+      pieces: [piece('reg_ur_boss', ['ursusShip'])],
       flags: { layerGainsEnabled: false },
     });
-    off.step();
-    const uo = off.unit('reg_ur_off');
-    off.b.dealDamage({ source: uo, target: tank(off, [9, 16]), amount: 1e9, type: 'true' });
-    assert.equal(tempBondLayers(off.b, 'p1', 'ursusShip'), 2, 'combat-local temp layers still apply when gains are disabled');
-    assert.equal(off.b.result().perPlayer.p1.tempLayerGains, undefined, 'wire tempLayerGains stays omitted');
-    off.step();
-    close(uo.s.atk, 500 * (1 + 0.35 + 0.0075 * 2), 'combat-local temp layers boost atk');
+    boss.step();
+    const ub = boss.unit('reg_ur_boss');
+    boss.b.dealDamage({ source: ub, target: tank(boss, [9, 16]), amount: 1e9, type: 'true' });
+    assert.equal(tempBondLayers(boss.b, 'p1', 'ursusShip'), 2, 'boss retains temp layers for post-boss settlement');
+    assert.equal(boss.b.result().perPlayer.p1.tempLayerGains.ursusShip, 2, 'boss reports wire tempLayerGains');
+    assert.equal(boss.b.result().perPlayer.p1.layerGains.ursusShip, undefined, 'boss permanent layerGains stay omitted');
+    boss.step();
+    close(ub.s.atk, 500 * (1 + 0.35 + 0.0075 * 2), 'boss temp layers boost atk');
+
+    const unite = fight(t, {
+      kind: 'unite',
+      bonds: { ursusShip: bond(1, 0, 0) },
+      tempLayers: { ursusShip: 20 },
+      pieces: [piece('reg_ur_unite', ['ursusShip'])],
+      flags: { layerGainsEnabled: false },
+    });
+    unite.step();
+    const uu = unite.unit('reg_ur_unite');
+    close(uu.s.atk, 500 * (1 + 0.35 + 0.0075 * 20), 'unite inherits helper temp layers immediately');
+    unite.b.dealDamage({ source: uu, target: tank(unite, [9, 16]), amount: 1e9, type: 'true' });
+    assert.equal(tempBondLayers(unite.b, 'p1', 'ursusShip'), 20, 'unite freezes temp layer additions on kill');
+    assert.equal(unite.b.result().perPlayer.p1.tempLayerGains, undefined, 'unite wire tempLayerGains stays omitted');
+    unite.step();
+    close(uu.s.atk, 500 * (1 + 0.35 + 0.0075 * 20), 'unite atk remains frozen at inherited temp layers');
   });
 
   test('伊比利亚: slow, DoT, per-source interval, splash', (t) => {

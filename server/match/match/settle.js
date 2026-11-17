@@ -6,7 +6,7 @@
 import { PHASE, layerGainRoom } from '../../../shared/constants.js';
 import { uniteSurvivors } from '../unite.js';
 import { buildResult } from '../results.js';
-import { FLOW_TICKER_PRIORITY, DELAYS } from './common.js';
+import { FLOW_TICKER_PRIORITY, DELAYS, withTempLayers } from './common.js';
 import { msg } from '../../../shared/i18n.js';
 import { onSettle, resetRoundCounters } from '../botEmotes.js';
 import { creditedKillsOf } from '../../sim/spec.js';
@@ -76,21 +76,9 @@ export class MatchSettle {
         this.dispatch(ps, 'onLayers', { bondId, from: before, to: ps.layers[bondId], reason: 'battle' });
       }
       this._charDamageTickers(ps, r);
-      // 规程: temporary layers exist only for this dispatch. Converters read and consume them; they are not stored.
-      if (r.tempLayerGains && typeof r.tempLayerGains === 'object') {
-        const bag = {};
-        for (const [bondId, n] of Object.entries(r.tempLayerGains)) {
-          if (!this.gd.bond(bondId) || !(typeof n === 'number' && n > 0)) continue;
-          const add = Math.min(1e4, Math.floor(n));
-          if (add > 0) bag[bondId] = add;
-        }
-        if (Object.keys(bag).length) ps.tempLayers = bag;
-      }
-      try {
+      withTempLayers(this, ps, r, () => {
         this.dispatch(ps, 'onBattleResult', { result: r, lpLoss: loss, perfect: counted === 0 && r.perfect !== false, unite: uniteResult || null });
-      } finally {
-        delete ps.tempLayers;
-      }
+      });
       ps.recompute();
     }
     this.eliminateBroken();

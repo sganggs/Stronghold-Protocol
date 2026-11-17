@@ -618,12 +618,18 @@ const BY_BUFF = {
     S.on('deploy', (c) => { if (c.unit === u) add(u.deploySeq); });
   },
   // 多功能补剂: each non-proc damage adds temp_stack_count_add layers to each of the carrier's own active bonds, capped
-  // per bond at temp_stack_count_max. Live battle layers only — not gainLayers, so the match does not keep them.
+  // per carrier/bond at temp_stack_count_max. The shared temporary ledger owns gameplay and settlement.
   act3autochess_equip_acarm131_global_buff(battle, u, p, S) {
     const add = Math.floor(num(p.temp_stack_count_add));
     const cap = Math.floor(num(p.temp_stack_count_max));
     if (!(add > 0) || !(cap > 0)) return;
-    const got = new Map();
+    // Borrowing may expire and be granted again; neither earned layers nor the per-battle cap resets.
+    const rt = runtime(battle);
+    rt.supplementCounts ||= new WeakMap();
+    let sources = rt.supplementCounts.get(u);
+    if (!sources) { sources = new Map(); rt.supplementCounts.set(u, sources); }
+    let got = sources.get(S.tag);
+    if (!got) { got = new Map(); sources.set(S.tag, got); }
     const player = () => battle.getPlayer(u.ownerId);
     onDamageEnemies(S, u, (_t, c) => {
       if (isProc(c.dmg)) return;
@@ -631,23 +637,13 @@ const BY_BUFF = {
       if (!ps || !ps.bonds) return;
       for (const id of unitBonds(u)) {
         if (!bondActive(battle, u.ownerId, id)) continue;
-        const b = ps.bonds[id];
-        if (!b) continue;
+        if (!ps.bonds[id]) continue;
         const have = got.get(id) || 0;
         const n = Math.min(add, cap - have);
         if (n <= 0) continue;
-        b.layers = num(b.layers) + n;
-        got.set(id, have + n);
+        const actual = battle.addTempLayers(u.ownerId, id, n);
+        if (actual > 0) got.set(id, have + actual);
       }
-    });
-    S.onDispose(() => {
-      const ps = player();
-      if (!ps || !ps.bonds) return;
-      for (const [id, n] of got) {
-        const b = ps.bonds[id];
-        if (b) b.layers = Math.max(0, num(b.layers) - n);
-      }
-      got.clear();
     });
   },
   // 伊比利亚骨刺刀: each non-proc damage also deals 1 + double_damage arts hits of atk_scale × ATK. Not bond-gated.

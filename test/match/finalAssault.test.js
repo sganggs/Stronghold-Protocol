@@ -4,8 +4,11 @@ import assert from 'node:assert/strict';
 import { PHASE, GEO } from '../../shared/constants.js';
 import { pairPlayers, bossPoolHp, SharedBossPool, hiddenEligible } from '../../server/match/finalAssault.js';
 import { GameData } from '../../server/match/gamedata.js';
+import { getVersionData } from '../../server/data.js';
+import { createRegistry } from '../../server/match/effectsMeta.js';
 import { FakeBattle } from './fakeBattle.js';
-import { DATA, makeMatch, checkInvariants } from './harness.js';
+import { DATA, makeMatch, give, legalTileFor, checkInvariants } from './harness.js';
+import { setGameData } from '../../server/sim/content/support/index.js';
 import { createRng, deriveSeed } from '../../server/sim/rng.js';
 
 const bossFields = () => FakeBattle.instances.filter((b) => b.kind === 'boss' || b.kind === 'hidden');
@@ -328,4 +331,38 @@ test('Final Assault: stats reach m.private at the end; leader "扣除目标生�
     assert.equal(last.lp, ps.lp);
   }
   m.dispose();
+});
+
+test('Boss round (non-hidden) converts temporary layers at _finishFinal before Hidden Core prep opens', () => {
+  const QUIET = { warn() {}, error() {}, info() {} };
+  const V3 = getVersionData('act3autochess@V3_1', { log: QUIET });
+  setGameData(V3);
+  const REG = createRegistry({ log: QUIET });
+  const h = makeMatch({
+    mode: 'coop', difficulty: 'HARD', humans: 2, seed: 57, fake: true, data: V3, registry: REG,
+    script: (b) => (b.kind === 'boss' ? { bossDps: b.sharedBoss.maxHp / 5, tempLayerGains: { p_0: { ursusShip: 4 } } } : {}),
+  }).start();
+  try {
+    h.autoHumans();
+    h.drive(() => h.m.phase === PHASE.PREP && h.m.round === 14);
+    const m = h.m;
+    const p0 = h.ps('p_0');
+    for (const piece of [...p0.board.values()]) if (piece.kind === 'chess') p0.returnCopies(piece);
+    p0.board.clear();
+    give(m, p0, 'chess_char_1_01_a', 'board', legalTileFor(m, p0, 'chess_char_1_01_a'));
+    p0.bondCountBonus.ursusShip = 3;
+    const before = p0.layers.ursusShip || 0;
+    for (const p of m.order) {
+      p.bondCountBonus.yanShip = 3;
+      p.layers.yanShip = 400;
+      p.recompute();
+    }
+    h.drive(() => m.phase === PHASE.PREP && m.round === 15);
+    assert.equal(p0.layers.ursusShip, before + 2, '184 converts up to 2 ursus temp layers during boss settlement before Hidden Core R15');
+    assert.equal(p0.tempLayers, undefined, 'ps.tempLayers is cleared after boss onBattleResult');
+    checkInvariants(m);
+  } finally {
+    setGameData(null);
+    h.m.dispose();
+  }
 });

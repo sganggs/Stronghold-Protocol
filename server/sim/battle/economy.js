@@ -50,30 +50,60 @@ export class BattleEconomy {
   }
 
   /**
-   * Temporary bond layers (规程). Not written into layerGains and not announced on `layerGain`, so a garrison extra
-   * does not recurse. The field is created only when a positive amount is stored. No-op when gains are disabled
-   * (联防 / boss / hidden) and when the amount is not a positive finite number.
+   * Temporary bond layers (规程): battle-local ledger, separate from the permanent live copy and its 999 cap.
+   * Normal, boss and hidden battles record them into `perPlayer.tempLayerGains`; unite restores and freezes
+   * `PlayerBattleInput.tempLayers` (returns 0 on add/remove). Neither triggers `layerGain`.
    */
-  /** Current temporary layers recorded on `playerId` for `bondId` in this battle. */
   tempLayers(playerId, bondId) {
-    return this._perPlayer[playerId]?.tempLayerGains?.[bondId] ?? 0;
+    return this._temporaryLayers?.get(playerId)?.get(bondId) || 0;
+  }
+
+  /** Detached display snapshot, including boss gains and the frozen unite carry. */
+  tempLayersSnapshot() {
+    return Object.fromEntries([...(this._temporaryLayers || [])].map(([pid, layers]) => [pid, Object.fromEntries(layers)]));
+  }
+
+  /** Effective combat layers: permanent + temporary. */
+  effectiveBondLayers(playerId, bondId) {
+    return Math.max(0, Number(this.getPlayer(playerId)?.bonds?.[bondId]?.layers) || 0) + this.tempLayers(playerId, bondId);
   }
 
   addTempLayers(playerId, bondId, n) {
-    if (!this.flags.layerGainsEnabled || !(n > 0) || !Number.isFinite(n) || playerId == null) return 0;
-    if (typeof bondId !== 'string' || !bondId) return 0;
-    const pp = this._pp(playerId);
-    if (!pp) return 0;
-    const add = Math.min(1e4, Math.floor(n));
-    if (!(add > 0)) return 0;
-    const before = pp.tempLayerGains?.[bondId] ?? 0;
-    const next = Math.min(1e4, before + add);
-    const actual = next - before;
-    if (!(actual > 0)) return 0;
-    if (!pp.tempLayerGains) pp.tempLayerGains = {};
-    pp.tempLayerGains[bondId] = next;
-    this.emit('tempLayerGain', { playerId, bondId, n: actual });
-    return actual;
+    if (this.finished || this.kind === 'unite' || !this.getPlayer(playerId) || typeof bondId !== 'string' || !bondId || !Number.isFinite(n) || n <= 0) return 0;
+    const add = Math.min(1e4 - this.tempLayers(playerId, bondId), Math.floor(n));
+    return this._changeTempLayers(playerId, bondId, add);
+  }
+
+  /** Remove up to `n` temporary layers from `playerId`'s `bondId` ledger (no-op in unite or finished battles). */
+  removeTempLayers(playerId, bondId, n) {
+    if (this.finished || this.kind === 'unite' || !this.getPlayer(playerId) || typeof bondId !== 'string' || !bondId || !Number.isFinite(n) || n <= 0) return 0;
+    const sub = Math.min(this.tempLayers(playerId, bondId), Math.floor(n));
+    return -this._changeTempLayers(playerId, bondId, -sub);
+  }
+
+  _changeTempLayers(playerId, bondId, n) {
+    if (!n) return 0;
+    this._temporaryLayers ||= new Map();
+    if (!this._temporaryLayers.has(playerId)) this._temporaryLayers.set(playerId, new Map());
+    const layers = this._temporaryLayers.get(playerId);
+    const total = this.tempLayers(playerId, bondId) + n;
+    if (total > 0) layers.set(bondId, total);
+    else layers.delete(bondId);
+    if (!layers.size) this._temporaryLayers.delete(playerId);
+    if (this.kind !== 'unite') {
+      const pp = this._pp(playerId);
+      if (pp) {
+        if (total > 0) (pp.tempLayerGains ||= {})[bondId] = total;
+        else if (pp.tempLayerGains) {
+          delete pp.tempLayerGains[bondId];
+          if (!Object.keys(pp.tempLayerGains).length) delete pp.tempLayerGains;
+        }
+      }
+    }
+    const receipt = { playerId, bondId, n, total };
+    if (n > 0) this.emit('tempLayerGain', { ...receipt });
+    this.emit('tempLayerChange', receipt);
+    return n;
   }
 
   /**

@@ -164,18 +164,25 @@ export function kjeragColdWind(battle, playerId, bb = {}, { bondId = 'kjeragShip
   const interval = num(bb['bond_eff_kjerag[storm].interval'], 0);
   const base = num(bb['bond_eff_kjerag[storm].base_time'], 0);
   const per = num(bb['bond_eff_kjerag[storm].time_per_stack'], 0);
-  const layers = () => num(battle.getPlayer(playerId)?.bonds?.[bondId]?.layers, 0);
+  const layers = () => (typeof battle.effectiveBondLayers === 'function'
+    ? battle.effectiveBondLayers(playerId, bondId)
+    : num(battle.getPlayer(playerId)?.bonds?.[bondId]?.layers, 0));
   return startColdWind(battle, { playerId, interval, duration: () => base + per * layers() });
 }
 
 // ---------------------------------------------------------------------------------------------------------------
 // turrets (“双眼皮”)
 
-/** Highest bond layer count of a player (live copy: in-battle gains included). */
+/** Highest bond layer count of a player (live copy + temporary gains). */
 function topLayers(battle, playerId) {
   const bonds = battle.getPlayer(playerId)?.bonds;
   let L = 0;
-  if (bonds && typeof bonds === 'object') for (const b of Object.values(bonds)) L = Math.max(L, num(b?.layers, 0));
+  if (bonds && typeof bonds === 'object') {
+    for (const [id, b] of Object.entries(bonds)) {
+      const n = typeof battle.effectiveBondLayers === 'function' ? battle.effectiveBondLayers(playerId, id) : num(b?.layers, 0);
+      L = Math.max(L, n);
+    }
+  }
   return L;
 }
 

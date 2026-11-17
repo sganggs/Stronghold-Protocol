@@ -150,3 +150,40 @@ test('联防: the carried SP is set after the deployment ("部署完成后…技
     }
   }
 });
+
+test('unite.js carry: helper temporary bond layers carry into uniteBattleOpts unchanged and freeze during the unite fight', () => {
+  const ps = {
+    playerId: 'p1', seat: 0,
+    board: new Map([['10,3', { uid: 1, kind: 'chess' }]]),
+    battleInput: ({ side, colOffset, carry }) => ({
+      playerId: 'p1', seat: 0, side, colOffset,
+      bonds: { yanShip: { count: 3, active: true, tier: 1, layers: 10 } },
+      bandId: null, playerEffects: [],
+      units: [{
+        uid: 1, kind: 'chess', chessId: 't_run', row: 10, col: 3, dir: 'RIGHT', items: [],
+        ...(carry.has(1) ? { carryState: carry.get(1) } : {}),
+      }],
+    }),
+  };
+  const m = {
+    gd: gd(), round: 3,
+    lastResults: new Map([['p1', { unitsEnd: [{ uid: 1, hpPct: 0.8, sp: 2, alive: true }], tempLayerGains: { yanShip: 6, ursusShip: 4 } }]]),
+    dispatch() {},
+  };
+  const { players, flags } = uniteBattleOpts(m, { helpers: [ps], leaked: [] }, 60);
+  assert.deepEqual(players[0].tempLayers, { yanShip: 6, ursusShip: 4 });
+
+  const defs = {
+    chess: { t_run: chessRec({ id: 't_run', bonds: ['yanShip'], profession: 'WARRIOR', skill: null }) },
+    enemies: { enemy_slime: enemyRec({ key: 'enemy_slime', hp: 1e6, speed: 0 }) },
+  };
+  const hb = makeBattle({
+    kind: 'unite', flags, defs, content: 'full', players, timeLimit: 60, autoFinish: false,
+  });
+  hb.step(1);
+  assert.equal(hb.b.tempLayers('p1', 'yanShip'), 6);
+  assert.equal(hb.b.tempLayers('p1', 'ursusShip'), 4);
+  assert.equal(hb.b.effectiveBondLayers('p1', 'yanShip'), 16);
+  assert.equal(hb.b.addTempLayers('p1', 'yanShip', 5), 0);
+  assert.equal(hb.b.result().perPlayer.p1.tempLayerGains, undefined);
+});

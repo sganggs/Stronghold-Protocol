@@ -29,3 +29,25 @@ export const DELAYS = Object.freeze({
  * the remake's (50 s per turn per the owner's 2026-10-10 official-play report). It is also the step's only countdown (m.public.deadline = draft.turnDeadline). × timerScale.
  */
 export const BAND_TURN_SECONDS = 50;
+
+/**
+ * Expose `result.tempLayerGains` on `ps.tempLayers` while dispatching `onBattleResult` (SETTLE / boss end), then drop
+ * any unconverted leftovers so temporary pools never carry past settlement.
+ */
+export function withTempLayers(match, ps, result, fn) {
+  const gains = result?.tempLayerGains;
+  if (gains && typeof gains === 'object') {
+    const bag = {};
+    for (const [bondId, n] of Object.entries(gains)) {
+      if (!match.gd.bond(bondId) || !(typeof n === 'number' && n > 0)) continue;
+      const add = Math.min(1e4, Math.floor(n));
+      if (add > 0) bag[bondId] = add;
+    }
+    if (Object.keys(bag).length) ps.tempLayers = bag;
+  }
+  try {
+    return fn();
+  } finally {
+    delete ps.tempLayers;
+  }
+}

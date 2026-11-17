@@ -8,7 +8,9 @@ import { setGameData, unitBonds } from '../../server/sim/content/support/index.j
 import { createRegistry, resetDefaultRegistry } from '../../server/match/effectsMeta.js';
 import { makeBattle, chessRec, enemyRec } from '../helpers/battleHarness.js';
 import { makeMatch, give, giveItem } from '../match/harness.js';
-import { install as installItems, installItem } from '../../server/sim/content/items/battle.js';
+import { install as installItems, installItem, lendItemEffects } from '../../server/sim/content/items/battle.js';
+import { bondBb as coreBondBb } from '../../server/sim/content/bonds/core.js';
+import { bondBb as addonBondBb } from '../../server/sim/content/bonds/addon/battle.js';
 import { createBotPrepSteps } from '../../server/match/bot.js';
 import { beginCommandPrep } from '../../server/match/bandCommands.js';
 import { KITTED_CHARS } from '../../server/sim/content/kits/index.js';
@@ -202,7 +204,7 @@ test('乌萨斯呼吸器: the deployment in progress is layer 1', () => {
   close(s.atk, 500 * (1 + p.atk_cell), 'atk');
 });
 
-test('多功能补剂: a hit adds layers to the carrier\'s active bond, capped', () => {
+test('多功能补剂: a hit adds temporary layers to the carrier\'s active bond, capped per grant', () => {
   const p = bb(A('3_13'), 'act3autochess_equip_acarm131_global_buff');
   const h = fight({
     items: [A('3_13')], foes: [[10, 9]],
@@ -213,11 +215,87 @@ test('多功能补剂: a hit adds layers to the carrier\'s active bond, capped',
   const u = unit(h);
   const bond = h.b.getPlayer(u.ownerId).bonds.yanShip;
   h.b.dealDamage(u, h.enemies()[0], { amount: 100, type: 'true' });
-  assert.equal(bond.layers, p.temp_stack_count_add);
-  bond.layers = p.temp_stack_count_max;
-  // the cap is tracked on the grant, not the live total we just wrote; one more hit still adds until the grant's own count hits the cap
-  h.b.dealDamage(u, h.enemies()[0], { amount: 100, type: 'true' });
-  assert.ok(bond.layers >= p.temp_stack_count_max);
+  assert.equal(bond.layers, 0, 'permanent bond.layers must not change');
+  assert.equal(h.b.tempLayers('p1', 'yanShip'), p.temp_stack_count_add);
+  assert.equal(h.b.result().perPlayer.p1.tempLayerGains.yanShip, p.temp_stack_count_add);
+  assert.equal(h.b.result().perPlayer.p1.layerGains.yanShip, undefined);
+
+  // External temporary layers do not steal the item grant's own per-battle cap, and hitting past max clamps cleanly.
+  h.b.addTempLayers('p1', 'yanShip', 5);
+  const hitsNeeded = Math.ceil(p.temp_stack_count_max / p.temp_stack_count_add) + 2;
+  for (let i = 0; i < hitsNeeded; i++) h.b.dealDamage(u, h.enemies()[0], { amount: 100, type: 'true' });
+  assert.equal(h.b.tempLayers('p1', 'yanShip'), 5 + p.temp_stack_count_max);
+});
+
+test('多功能补剂: re-lending preserves cap, disposal keeps temp layers, and core/addon/regulation bonds refresh live', () => {
+  const p = bb(A('3_13'), 'act3autochess_equip_acarm131_global_buff');
+  const vicBb = coreBondBb('victoriaShip');
+  const preciBb = addonBondBb('preciShip');
+  const defs = {
+    chess: {
+      t_v: op('t_v', { bonds: ['victoriaShip'] }),
+      t_p: op('t_p', { bonds: ['preciShip'] }),
+      t_y: op('t_y', { bonds: ['yanShip'] }),
+      t_lender: op('t_lender', { bonds: [] }),
+    },
+    enemies: { e_d: enemyRec({ key: 'e_d', hp: 1e7, speed: 0 }) },
+  };
+  const h = makeBattle({
+    content: 'full', defs,
+    units: [
+      { chessId: 't_v', row: 9, col: 4, items: [A('3_13')] },
+      { chessId: 't_y', row: 10, col: 4, items: [A('3_13')] },
+      { chessId: 't_p', row: 11, col: 4, items: [A('3_13')] },
+      { chessId: 't_lender', row: 12, col: 4, items: [A('3_13')] },
+    ],
+    bonds: {
+      victoriaShip: { count: 3, active: true, tier: 1, layers: 0 },
+      yanShip: { count: 3, active: true, tier: 1, layers: 0 },
+      preciShip: { count: 2, active: true, tier: 1, layers: 0 },
+    },
+    enemies: [{ key: 'e_d', pos: [10, 6] }],
+    timeLimit: 999, autoFinish: false,
+  });
+  h.step(1);
+  const tv = h.unit('t_v');
+  const ty = h.unit('t_y');
+  const tp = h.unit('t_p');
+  const tl = h.unit('t_lender');
+  const enemy = h.enemies()[0];
+
+  const yanAtkBefore = ty.s.atk;
+  close(tv.s.dmgDealtMul, vicBb.base_damage_scale, 'victoria before temp layers');
+  close(tp.s.atk, 500 * (1 + preciBb.base_atk), 'preci before temp layers');
+
+  h.b.dealDamage(tv, enemy, { amount: 100, type: 'true' });
+  h.b.dealDamage(ty, enemy, { amount: 100, type: 'true' });
+  h.b.dealDamage(tp, enemy, { amount: 100, type: 'true' });
+  h.step(1);
+  close(
+    tv.s.dmgDealtMul,
+    vicBb.base_damage_scale + vicBb.damage_scale_per_stack * p.temp_stack_count_add,
+    'core bond refreshes on item temp layers',
+  );
+  close(tp.s.atk, 500 * (1 + preciBb.base_atk + preciBb.atk_per_stack * p.temp_stack_count_add), 'addon bond refreshes on item temp layers');
+  assert.ok(ty.s.atk > yanAtkBefore, 'regulation bond refreshes on item temp layers');
+
+  // Cap t_y's own grant first, then lend t_lender's item to t_y: lent grant shares (u, tag) cap across expiration + re-lend.
+  const hitsToCap = Math.ceil(p.temp_stack_count_max / p.temp_stack_count_add) + 1;
+  for (let i = 0; i < hitsToCap; i++) h.b.dealDamage(ty, enemy, { amount: 100, type: 'true' });
+  const beforeLend = h.b.tempLayers('p1', 'yanShip');
+  assert.equal(beforeLend, p.temp_stack_count_max);
+
+  assert.equal(lendItemEffects(h.b, tl, ty, { duration: 10 }), 1);
+  for (let i = 0; i < hitsToCap; i++) h.b.dealDamage(ty, enemy, { amount: 100, type: 'true' });
+  const afterFirstLend = h.b.tempLayers('p1', 'yanShip');
+  assert.equal(afterFirstLend, beforeLend + p.temp_stack_count_max, 'lent copy has its own tag and caps cleanly');
+
+  h.run(10.1);
+  assert.equal(h.b.tempLayers('p1', 'yanShip'), afterFirstLend, 'disposing expired lent grant preserves earned temp layers');
+
+  assert.equal(lendItemEffects(h.b, tl, ty, { duration: 10 }), 1);
+  h.b.dealDamage(ty, enemy, { amount: 100, type: 'true' });
+  assert.equal(h.b.tempLayers('p1', 'yanShip'), afterFirstLend, 're-lending shares the per-battle cap and adds nothing more');
 });
 
 test('伊比利亚骨刺刀: extra arts on a hit, same seed twice', () => {

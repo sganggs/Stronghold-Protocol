@@ -12,7 +12,7 @@ import { buildBossWave, bountySpawns } from '../waves.js';
 import { pairPlayers, bossPairSalt, bossPoolHp, SharedBossPool, CreditPool, hiddenEligible, BOSS_HIT_STEPS } from '../finalAssault.js';
 import { cleanLeaderOps, syncFieldLeaderOps, leaderTopRows } from '../leaderRank.js';
 import { FieldRunner, HeadlessPacer, syntheticResult, BOSS_SILENCE_MS, CATCHUP_TICKS_PER_INTERVAL } from '../fields.js';
-import { FLOW_TICKER_PRIORITY, BOSS_CLOCK_MS, DELAYS } from './common.js';
+import { FLOW_TICKER_PRIORITY, BOSS_CLOCK_MS, DELAYS, withTempLayers } from './common.js';
 
 /** b.pool broadcasts at most this often (ms). */
 const POOL_MIN_GAP_MS = 250;
@@ -590,7 +590,12 @@ export class MatchBoss {
             && this._bossLeaksAgree(f, res, pid);
           this._settleBossBounties(ps, pp, perfect);
         }
-        if (pp && ps) this.dispatch(ps, 'onBattleResult', { result: pp, lpLoss: 0, perfect: !!pp.perfect, boss: true });
+        if (pp && ps) {
+          withTempLayers(this, ps, pp, () => {
+            this.dispatch(ps, 'onBattleResult', { result: pp, lpLoss: 0, perfect: !!pp.perfect, boss: true });
+          });
+          ps.recompute();
+        }
       }
     }
     this._syncTeamLp();

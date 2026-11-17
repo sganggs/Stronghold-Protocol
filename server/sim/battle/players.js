@@ -48,6 +48,13 @@ export class BattlePlayers {
       killed: 0, total: 0, leaked: [], perfect: true, killedInTotal: 0, leakedInTotal: 0,
       layerGains: {}, coins: 0, damageDealt: 0, bossDamage: 0, healingDone: 0, deaths: 0, unitsEnd: [], unitStats: [],
     };
+    // Restore the helper's own-battle temporary layers before installing any content. Unite keeps this ledger frozen.
+    if (this.kind === 'unite' && p.tempLayers && typeof p.tempLayers === 'object') {
+      const entries = Object.entries(p.tempLayers)
+        .filter(([id, n]) => typeof id === 'string' && id && typeof n === 'number' && Number.isFinite(n) && Math.floor(n) > 0)
+        .map(([id, n]) => [id, Math.min(1e4, Math.floor(n))]);
+      if (entries.length) (this._temporaryLayers ||= new Map()).set(ps.playerId, new Map(entries));
+    }
     const late = [];
     for (const u of [...(p.units ?? []), ...(p.commandReserves ?? [])]) {
       try {

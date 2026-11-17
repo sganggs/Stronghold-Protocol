@@ -620,25 +620,27 @@ test('switchhand: both bonds are required, and the carrier plus the summon each 
   assert.equal(lg(h, 'raidShip'), 12);
 });
 
-test('battlestart temporary layers are omitted when gains are disabled', () => {
+test('battlestart temporary layers record in normal and boss battles, but freeze in unite', () => {
   const h = battle(
     [{ id: 'op', g: ['garrison_13_a'], row: 10, col: 4, bonds: ['ursusShip'] }],
     { ursusShip: B(0) },
   );
   assert.equal(h.b._perPlayer.p1.tempLayerGains.ursusShip, 4);
   assert.equal(lg(h, 'ursusShip'), 0);
-  const off = battle(
+  const boss = battle(
     [{ id: 'op', g: ['garrison_13_a'], row: 10, col: 4, bonds: ['ursusShip'] }],
     { ursusShip: B(0) },
-    { flags: { layerGainsEnabled: false } },
+    { kind: 'boss', flags: { layerGainsEnabled: false } },
   );
-  assert.equal(off.b._perPlayer.p1.tempLayerGains, undefined);
+  assert.equal(boss.b._perPlayer.p1.tempLayerGains.ursusShip, 4);
+  assert.equal(lg(boss, 'ursusShip'), 0);
   const unite = battle(
     [{ id: 'op', g: ['garrison_13_a'], row: 10, col: 4, bonds: ['ursusShip'] }],
     { ursusShip: B(0) },
-    { kind: 'unite' },
+    { kind: 'unite', flags: { layerGainsEnabled: false } },
   );
   assert.equal(unite.b._perPlayer.p1.tempLayerGains, undefined);
+  assert.equal(unite.b.tempLayers('p1', 'ursusShip'), 0);
 });
 
 test('bondstackmax raises another operator cap when a chess bond is shared', () => {
@@ -871,6 +873,10 @@ test('tempLayerGains is optional on the result wire and rejected when it is not 
   const huge = structuredClone(withTemp);
   huge.perPlayer.p.tempLayerGains = { ursusShip: 10001 };
   assert.equal(validateClientResult(spec, huge, { gd }).reason, 'temp layers');
+  const boss = buildBattleSpec({ ...spec, kind: 'boss', flags: { layerGainsEnabled: false } });
+  const bossOk = structuredClone(withTemp);
+  delete bossOk.perPlayer.p.layerGains.yanShip;
+  assert.equal(validateClientResult(boss, bossOk, { gd }).ok, true);
   const unite = buildBattleSpec({ ...spec, kind: 'unite', flags: { layerGainsEnabled: false } });
   assert.equal(validateClientResult(unite, withTemp, { gd }).reason, 'layers disabled');
 
@@ -943,4 +949,37 @@ test('乌萨斯 kill temp layers flow into result.tempLayerGains and convert to 
   s.ps.tempLayers = { ...r.tempLayerGains };
   s.fin({ ...r, unitsEnd: living(2).unitsEnd });
   assert.equal(s.L('ursusShip'), 4, 'garrison_184_a (2) + garrison_21_a (2 on-board 乌萨斯) convert all 4 kill temp layers');
+});
+
+test('attrByBond, attrbybond_inrange, and block_eprecoverspeed_inrange refresh when temporary layers change', () => {
+  const attr = battle(
+    [{ id: 'op', g: ['garrison_24_a'], row: 10, col: 4, bonds: ['ursusShip'] }],
+    { ursusShip: B(0) },
+  );
+  near(attr.unit('op').s.aspd, 100);
+  attr.b.addTempLayers('p1', 'ursusShip', 4);
+  attr.step(1);
+  near(attr.unit('op').s.aspd, 102, 'garrison_24_a refreshes on temp layer gain');
+
+  const aura = battle([
+    { id: 'op', g: ['garrison_142_a'], row: 10, col: 4, bonds: ['egirShip'] },
+    { id: 'side', row: 11, col: 4, bonds: ['egirShip'] },
+    { id: 'far', row: 12, col: 8 },
+  ], { egirShip: B(0) });
+  assert.equal(aura.unit('op').findBuff('gar:garrison_142_a:aura'), null);
+  aura.b.addTempLayers('p1', 'egirShip', 20);
+  aura.step(1);
+  assert.equal(aura.unit('op').findBuff('gar:garrison_142_a:aura').mods.aspd, 1);
+  assert.equal(aura.unit('side').findBuff('gar:garrison_142_a:aura').mods.aspd, 1);
+  assert.equal(aura.unit('far').findBuff('gar:garrison_142_a:aura'), null);
+
+  const ep = battle(
+    [{ id: 'op', g: ['garrison_65_a'], row: 10, col: 4, bonds: ['egirShip'] }],
+    { egirShip: B(0) },
+  );
+  const it = ep.b._garInstances.find((x) => x.gid === 'garrison_65_a');
+  near(it._epRate, 0);
+  ep.b.addTempLayers('p1', 'egirShip', 20);
+  ep.step(1);
+  near(it._epRate, 0.01);
 });
