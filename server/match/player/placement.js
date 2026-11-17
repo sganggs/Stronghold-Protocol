@@ -128,7 +128,9 @@ export class PlayerPlacement {
   /**
    * Range-bound summons left outside their owner's attack range (the owner re-oriented in place, promoted, its loadout
    * changed or moved) go back onto their stack — a summon still on a legal tile stays, preserving its facing and
-   * identity (2026-11-12 owner-reported official QoL). Check after both pieces of a swap reach their final tiles.
+   * identity (2026-11-12 original-game recording, docs/research/summon-pr-20261117.md).
+   * [QoL] Shared placement adopts this newer-client behavior across seasons; historical clients were not re-tested.
+   * Check after both pieces of a swap reach their final tiles.
    * A passive lift (`allowTemp`) with no stack
    * joins the expandable temp queue, including past the five visible slots (PRTS 卫戍协议/帮助 §手牌区); it does not
    * wait until the next round. The player's own in-place re-orientation still refuses with `HAND_FULL` when a lifted
