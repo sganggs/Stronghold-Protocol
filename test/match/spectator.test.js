@@ -96,8 +96,12 @@ test('during a battle a spectator may watch any field at once; one added mid-bat
   h.sched.advance(500);
   const first = h.lastTo(S, 'b.start');
   assert.deepEqual([first.fieldId, first.watch, first.authoritative], ['n:p_0', true, false], 'auto-observes the first field');
-  // a fighting player may not look elsewhere — a spectator (like an eliminated player) may
-  assert.equal(m.handle('p_0', { t: 'g.watch', fieldId: 'n:p_1' }).error, ERR.WRONG_PHASE);
+  // Viewing is available during the own battle too; neither replica takes the field's authority.
+  const authorities = m.fields.map(f => f.authority);
+  assert.deepEqual(m.handle('p_0', { t: 'g.watch', fieldId: 'n:p_1' }), { ok: true });
+  const playerView = h.lastTo('p_0', 'b.start');
+  assert.deepEqual([playerView.fieldId, playerView.watch, playerView.authoritative], ['n:p_1', true, false]);
+  assert.deepEqual(m.fields.map(f => f.authority), authorities);
   assert.deepEqual(m.handle(S, { t: 'g.watch', fieldId: 'n:p_1' }), { ok: true });
   const st = h.lastTo(S, 'b.start');
   assert.deepEqual([st.fieldId, st.watch, st.authoritative], ['n:p_1', true, false]);
