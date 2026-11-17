@@ -310,7 +310,7 @@ export function ShopCanvas(props) {
       }
     }
     pushView();
-  }, [props.priv, props.collapsed, props.editable, armed, levelArmed]);
+  }, [props.priv, props.collapsed, props.editable, armed, levelArmed, props.refreshBusy]);
 
   // A language switch remounts the host (game.js keys it by lang); the data overlays may arrive later, so a
   // localized copy of the card/bond/item files must also repaint the live host.

@@ -8,6 +8,9 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+const HOST_SOURCE = readFileSync(new URL('../../public/js/ui/shop/host.js', import.meta.url), 'utf8');
 
 import { GEO } from '../../shared/constants.js';
 import { shopSignature, cardModelFromSlot } from '../../public/js/ui/shop/adapter/model.js';
@@ -187,4 +190,20 @@ test('UIButton: no cooldown means never on cooldown; guardSeconds still debounce
 test('UIButton: a non-interactable button never presses', () => {
   const button = new UIButton({ interactable: false });
   assert.equal(button.Press(0), false);
+});
+
+test('UIButton: the 0.3 s refresh cooldown blocks at 290 ms and allows at 300 ms', () => {
+  let presses = 0;
+  const button = new UIButton({ onClick: () => { presses += 1; }, guardSeconds: 0.3, cooldown: 0.3 });
+  assert.equal(button.Press(1000), true);
+  assert.equal(button.IsInCooldown(1290), true);
+  assert.equal(button.Press(1290), false);
+  assert.equal(button.Press(1300), true);
+  assert.equal(presses, 2);
+});
+
+test('the host binds the refresh button to 0.3 s, not the clickGuard boolean as 1 s', () => {
+  assert.match(HOST_SOURCE, /refresh: new UIButton\(\{ guardSeconds: 0\.3, cooldown: 0\.3 \}\)/);
+  assert.doesNotMatch(HOST_SOURCE, /refresh: new UIButton\(\{ guardSeconds: 0\.3, cooldown: 1 \}\)/);
+  assert.doesNotMatch(HOST_SOURCE, /event: 'refresh', guard: 0\.3, cooldown: 1/);
 });

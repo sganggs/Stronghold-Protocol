@@ -25,7 +25,9 @@ import { UIButton } from './widgets.js';
 const CONTROL_HOTSPOTS = Object.freeze([
   { key: 'enable', paths: ['entry_enable_hotspot', 'btn_open'], event: 'open', guard: 0.5 },
   { key: 'fold', paths: ['btn_close', 'fold_hot_spot'], event: 'close', guard: 0.5 },
-  { key: 'refresh', paths: ['btn_refresh/hotspot'], event: 'refresh', guard: 0.3, cooldown: 1 },
+  // shop.json's btn_refresh/hotspot _clickGuard = { cooldown: 1 (bool), seconds: 0.30000001192092896 }.
+  // `cooldown` is the enable flag, `seconds` is the cooldown length; the product UIButton takes seconds.
+  { key: 'refresh', paths: ['btn_refresh/hotspot'], event: 'refresh', guard: 0.3, cooldown: 0.3 },
   { key: 'freeze', paths: ['btn_frozen/hotspot'], event: 'freeze', guard: 0.5 },
   { key: 'levelUp', paths: ['hotspot_normal', 'upgrade'], event: 'levelUp', guard: 0.5, panel: true },
 ]);
@@ -207,7 +209,7 @@ export async function createShopHost(opts = {}) {
   const buttons = {
     enable: new UIButton({ guardSeconds: 0.5 }),
     fold: new UIButton({ guardSeconds: 0.5 }),
-    refresh: new UIButton({ guardSeconds: 0.3, cooldown: 1 }),
+    refresh: new UIButton({ guardSeconds: 0.3, cooldown: 0.3 }),
     freeze: new UIButton({ guardSeconds: 0.5 }),
     levelUp: new UIButton({ guardSeconds: 0.5, tintRoot: scene.panel, tintTargets: scene.tintTargets.panel }),
   };
