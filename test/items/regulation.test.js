@@ -8,7 +8,7 @@ import { setGameData, unitBonds } from '../../server/sim/content/support/index.j
 import { createRegistry, resetDefaultRegistry } from '../../server/match/effectsMeta.js';
 import { makeBattle, chessRec, enemyRec } from '../helpers/battleHarness.js';
 import { makeMatch, give, giveItem } from '../match/harness.js';
-import { install as installItems, installItem } from '../../server/sim/content/items/battle.js';
+import { install as installItems, installItem, lendItemEffects } from '../../server/sim/content/items/battle.js';
 import { createBotPrepSteps } from '../../server/match/bot.js';
 import { beginCommandPrep } from '../../server/match/bandCommands.js';
 import { install as installCoreBonds } from '../../server/sim/content/bonds/core.js';
@@ -919,7 +919,7 @@ test('bot takes both picks of a golden 促销券', () => {
   });
 });
 
-test('multiple equipment sources combine with other temporary gains; disposing one leaves the rest', () => {
+test('multiple equipment sources combine with other temporary gains; disposing effects retains all earned layers', () => {
   const h = fight({ foes: [[10, 9]], op: { bonds: ['yanShip', 'swiftShip'] },
     bondState: { yanShip: { count: 3, active: true, tier: 1, layers: 7 }, swiftShip: { count: 1, active: false, tier: 0, layers: 4 } } });
   h.step();
@@ -931,16 +931,18 @@ test('multiple equipment sources combine with other temporary gains; disposing o
   assert.equal(b.tempLayers(u.ownerId, 'yanShip'), 8);
   assert.equal(b.tempLayers(u.ownerId, 'swiftShip'), 0, 'inactive bonds gain nothing from the equipment');
   normal.dispose();
-  assert.equal(b.tempLayers(u.ownerId, 'yanShip'), 7);
+  assert.equal(b.tempLayers(u.ownerId, 'yanShip'), 8);
   normal.dispose();
-  assert.equal(b.tempLayers(u.ownerId, 'yanShip'), 7, 'disposal is idempotent');
+  assert.equal(b.tempLayers(u.ownerId, 'yanShip'), 8, 'disposal is idempotent');
   elite.dispose();
-  assert.equal(b.tempLayers(u.ownerId, 'yanShip'), 5);
+  assert.equal(b.tempLayers(u.ownerId, 'yanShip'), 8);
+  b.dealDamage(u, h.enemies()[0], { amount: 1, type: 'true' });
+  assert.equal(b.tempLayers(u.ownerId, 'yanShip'), 8, 'expired effects no longer grant layers');
   assert.equal(b.getPlayer(u.ownerId).bonds.yanShip.layers, 7);
-  assert.equal(b.result().perPlayer[u.ownerId].tempLayerGains.yanShip, 5);
+  assert.equal(b.result().perPlayer[u.ownerId].tempLayerGains.yanShip, 8);
 });
 
-test('equipment temporary gains refresh core standing buffs and their removal, including non-settling fights', () => {
+test('equipment temporary gains refresh core standing buffs and retain them after expiry', () => {
   for (const gainsEnabled of [true, false]) {
     const h = fight({ foes: [[10, 9]], op: { bonds: ['yanShip'] }, extraContent: [installCoreBonds],
       bondState: { yanShip: { count: 3, active: true, tier: 1, layers: 10 } } });
@@ -955,7 +957,29 @@ test('equipment temporary gains refresh core standing buffs and their removal, i
     assert.ok(b.result().perPlayer[u.ownerId].tempLayerGains.yanShip > 0);
     grant.dispose();
     h.step();
-    close(u.s.atk, before, 'core ATK refreshed by temporary removal');
+    close(u.s.atk, before + u.base.atk * V3.bonds.yanShip.bb.atk_per_stack, 'earned temporary buff survives equipment expiry');
     assert.equal(b.errorCount, 0);
   }
+});
+
+test('borrowed supplement expiry preserves layers and borrowing again retains the per-battle cap', () => {
+  const h = fight({ ops: { source: op('source'), receiver: op('receiver', { bonds: ['yanShip'] }) },
+    units: [{ chessId: 'source', row: 10, col: 4, items: [A('3_13')] }, { chessId: 'receiver', row: 10, col: 5 }],
+    foes: [[10, 9]], bondState: { yanShip: { count: 3, active: true, tier: 1, layers: 10 } } });
+  h.step();
+  const b = h.b, receiver = h.unit('receiver'), source = h.unit('source'), foe = h.enemies()[0];
+  assert.equal(lendItemEffects(b, source, receiver, { duration: .1 }), 1);
+  for (let i = 0; i < 3; i++) b.dealDamage(receiver, foe, { amount: 1, type: 'true' });
+  h.run(.2);
+  const afterExpiry = b.tempLayers(receiver.ownerId, 'yanShip');
+  assert.ok(afterExpiry >= 3, 'grants persist after the loan timer expires');
+  b.dealDamage(receiver, foe, { amount: 1, type: 'true' });
+  assert.equal(b.tempLayers(receiver.ownerId, 'yanShip'), afterExpiry, 'expired loan cannot grant more');
+  lendItemEffects(b, source, receiver, { duration: 1 });
+  for (let i = 0; i < 30; i++) b.dealDamage(receiver, foe, { amount: 1, type: 'true' });
+  assert.equal(b.tempLayers(receiver.ownerId, 'yanShip'), 12, 'repeated borrowing shares the 12-layer battle cap');
+  h.run(1.1);
+  assert.equal(b.tempLayers(receiver.ownerId, 'yanShip'), 12);
+  assert.equal(b.getPlayer(receiver.ownerId).bonds.yanShip.layers, 10);
+  assert.equal(b.result().perPlayer[receiver.ownerId].tempLayerGains.yanShip, 12);
 });

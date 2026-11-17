@@ -70,7 +70,7 @@ export class BattleEconomy {
     return this._changeTempLayers(playerId, bondId, Math.min(1e4 - this.tempLayers(playerId, bondId), Math.floor(n)));
   }
 
-  /** Remove only this source's recorded contribution (e.g. when an equipment effect is disposed). */
+  /** Explicit temporary-layer adjustment; expiring equipment does not revoke earned layers. */
   removeTempLayers(playerId, bondId, n) {
     if (this.finished || this.kind === 'unite' || !Number.isFinite(n) || n <= 0) return 0;
     return -this._changeTempLayers(playerId, bondId, -Math.min(this.tempLayers(playerId, bondId), Math.floor(n)));

@@ -435,7 +435,8 @@ the author video BV1UdAHzNEVj and their recall on 2026-10-24; other guardian ski
 Battle owns a temporary-layer ledger keyed by player and bond, separate from the permanent count in
 `getPlayer(pid).bonds[id].layers`. Permanent layers retain their 999 cap; temporary layers have a separate
 10000 cap per player/bond. Bond, garrison and equipment sources use the same ledger. Each equipment effect tracks
-its own contribution and data-defined limit, so disposing it removes only its contribution.
+its data-defined per-battle limit across repeated borrowing. Expiring a borrowed effect stops future grants while
+earned layers remain in the round pool until the next prep.
 
 `addTempLayers` and `removeTempLayers` return the actual positive amount added or removed. `tempLayers` reads one
 temporary count; `tempLayersSnapshot()` returns a detached copy of the whole ledger for hosts and Workers.
