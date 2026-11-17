@@ -85,6 +85,23 @@ function defaultRevokeUrl(url) {
 }
 
 /**
+ * The stored bytes of an imported official group's JSON documents, by their `blob:` URL. The page's connect-src is
+ * 'self', so a blob URL cannot be fetched: ui/prefab/view.js reads shop.json / card.json from these Blobs instead
+ * (§37.232; prefabs.json is parsed and kept by shared/uiTheme.js). Filled when a group is registered, dropped with it.
+ * @type {Map<string, Blob>}
+ */
+const importedDocBlobs = new Map();
+
+/**
+ * The stored bytes of one imported official group document, by its blob URL; null for any other URL.
+ * @param {string} url
+ * @returns {Blob | null}
+ */
+export function importedThemeDocumentBlob(url) {
+  return typeof url === 'string' ? importedDocBlobs.get(url) || null : null;
+}
+
+/**
  * @param {{ openDb?: () => Promise<any>, measure?: (blob: Blob) => Promise<{ ok: boolean, width?: number, height?: number }>, createUrl?: (blob: Blob) => string | null, revokeUrl?: (url: string) => void, revokeDelayMs?: number, fetchImpl?: typeof fetch, now?: () => number }} [opts]
  */
 export function createThemeLibrary(opts = {}) {
@@ -287,6 +304,10 @@ export function createThemeLibrary(opts = {}) {
     if (!doc) delete entries['prefabs.json']; // no prefab HUD from a document this client cannot read
     live.prefabsDoc = doc;
     setImportedThemeGroup(name, { prefabsUrl: doc ? entries['prefabs.json']?.path || null : null, prefabsDoc: doc });
+    for (const [rel, entry] of Object.entries(entries)) {
+      const blob = entry?.path && /\.json$/i.test(rel) ? live.files?.[rel] : null;
+      if (blob && typeof blob.text === 'function') importedDocBlobs.set(entry.path, blob);
+    }
     groupViews.set(name, entries);
     publishGroups();
   }
@@ -296,6 +317,9 @@ export function createThemeLibrary(opts = {}) {
     const live = mem.get(id);
     if (!live?.group) return;
     setImportedThemeGroup(live.group.name, null);
+    for (const [rel, entry] of Object.entries(live.group.entries || {})) {
+      if (entry?.path && /\.json$/i.test(rel)) importedDocBlobs.delete(entry.path);
+    }
     if (groupViews.delete(live.group.name)) publishGroups();
   }
 
@@ -1027,7 +1051,7 @@ export function noteThemeBuy(buy) {
   playCues([buy.trigger]);
 }
 
-export async function bootUiThemes() {
+async function bootThemesOnce() {
   try { await library.boot(); } catch { /* session only */ }
   let manifest;
   try { manifest = await library.loadAssetManifest(); } catch { manifest = null; }
@@ -1065,6 +1089,55 @@ export async function bootUiThemes() {
   }
   applyUiTheme(id);
 }
+let themeBootStarted = false;
+let themeBootResolve = null;
+let themeBootReject = null;
+/**
+ * The boot's failure, once (null while it succeeds or is still running); themesReady() rejects with it.
+ * @type {Error | null}
+ */
+let themeBootError = null;
+const themeReady = new Promise((resolve, reject) => { themeBootResolve = resolve; themeBootReject = reject; });
+// ui/settings.js starts the boot at import without awaiting it: a handler attached now keeps a failed boot from
+// becoming an unhandled rejection, and themesReady() still returns the rejected promise to whoever can fall back.
+themeReady.catch(() => {});
+
+/**
+ * Run the theme library boot once. Screens that need the selected pack (the WebGL shop's colours, character
+ * spine and fonts) await `themesReady()`; before this the pack record is null and they would mount with
+ * DEFAULT_SKIN_COLORS and no character, which is the F5 cold-cache race.
+ *
+ * This function itself never rejects (settings.js starts it without awaiting): a failed boot is logged, and
+ * `themesReady()` rejects with the same error so a dependent screen can fall back (the DOM shop bar).
+ * @returns {Promise<void>}
+ */
+export async function bootUiThemes() {
+  if (!themeBootStarted) {
+    themeBootStarted = true;
+    try {
+      await bootThemesOnce();
+    } catch (err) {
+      themeBootError = err instanceof Error ? err : new Error(String(err));
+      console.error('[uiTheme] theme boot failed; the interface keeps the built-in look', themeBootError);
+      if (themeBootReject) themeBootReject(themeBootError);
+      return;
+    }
+    if (themeBootResolve) themeBootResolve();
+  }
+  await themeReady.catch(() => {});
+}
+
+/**
+ * Resolve after the theme library has booted and the selected pack is applied; starts the boot if needed.
+ * Rejects with the boot error when the boot failed (an unhandled rejection cannot happen: the boot attaches a
+ * handler at module load). A caller that cannot work without the selected pack falls back on that rejection.
+ * @returns {Promise<void>}
+ */
+export function themesReady() {
+  if (!themeBootStarted) bootUiThemes();
+  return themeReady;
+}
+
 
 /**
  * Load an official pack before selectTheme. selectTheme stays synchronous: an import paints
