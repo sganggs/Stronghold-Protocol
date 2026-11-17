@@ -24,7 +24,8 @@
 // becomes active (FxDelay, an m_IsActive clip curve, or the start) and it has playOnAwake (or a playing parent system at
 // the start: Unity plays child systems with their parent); sub-emitter systems only play for their parent. The effect
 // is finished when every non-looping system has ended with no live particle, the non-looping clips have ended and the
-// trails have faded; a looping effect (`_isLoop`, a looping system or clip) runs until `stop()`. `_maxLifetime` ends it
+// trails have faded; a looping effect (`_isLoop`, a looping system or clip) runs until `stop()`. MapEffect is held by
+// its map even when its particle systems finish: its static meshes can keep scrolling. `_maxLifetime` ends it
 // early; `_inactiveOnFinish` nodes hide when it finishes — at its stop() (a projectile's arrival) or when its content
 // has ended — and stay hidden through the `_delayToFinish` linger; `stop({ hit: true })` hides a projectile's
 // `_inactiveOnHit` nodes at once. The light tier (精簡) applies FxLODSetting (`_disableObjects` removed, the
@@ -95,7 +96,7 @@ export function compileEffect(desc, lib = {}) {
     ps: new Array(n).fill(null), psr: new Array(n).fill(null), mesh: new Array(n).fill(null), skinned: new Array(n).fill(null),
     trail: new Array(n).fill(null), line: new Array(n).fill(null), subNodes: new Set(), hasPsAncestor: new Uint8Array(n),
     clips: (Array.isArray(desc?.clips) ? desc.clips : []).map(compileClip), animators: [],
-    pe: null, proj: null, fxDelay: new Map(), tweeners: [], uvRot: [], lod: null, follow: null, direction: null,
+    pe: null, proj: null, mapEffect: null, fxDelay: new Map(), tweeners: [], uvRot: [], lod: null, follow: null, direction: null,
     onPlay: [], onFinish: [], switchable: null, colorMod: null, pause: null, pauses: [], materials: [], lite: [],
     textures: Array.isArray(desc?.textures) ? desc.textures : [], meshes: Array.isArray(desc?.meshes) ? desc.meshes : [],
     stats: desc?.stats || {}, refs: Array.isArray(desc?.refs) ? desc.refs : [],
@@ -147,6 +148,7 @@ export function compileEffect(desc, lib = {}) {
       const f = isObj(b.fields) ? b.fields : {};
       switch (b.class) {
         case 'ParticleEffect': case 'EmptyEffect': if (!def.pe && i === 0) def.pe = f; else if (!def.pe) def.pe = f; break;
+        case 'MapEffect': def.mapEffect = f; break;
         case 'ProjectileEffect': def.proj = f; break;
         case 'FxDelay': def.fxDelay.set(i, Math.max(0, num(f._delayTime, 0))); break;
         case 'FxUVTweener': case 'FxUVTweenerAdvance':
@@ -215,7 +217,7 @@ export function compileEffect(desc, lib = {}) {
     let p = def.parent[i];
     while (p >= 0) { if (def.ps[p]) { def.hasPsAncestor[i] = 1; break; } p = def.parent[p]; }
   }
-  const pe = def.pe || def.proj || {};
+  const pe = def.pe || def.proj || def.mapEffect || {};
   def.delayToPlay = Math.max(0, num(pe._delayToPlay, 0));
   def.randomDelay = Math.max(0, num(pe._randomPlayDelay, 0));
   def.delayToFinish = Math.max(0, num(pe._delayToFinish, 0));
@@ -239,7 +241,7 @@ export function compileEffect(desc, lib = {}) {
   // authored behind its unit: the root's `static_offset` node pushed into the board (z > 0) — see behindUnits
   const so = nodes.find((nd) => nd && nd.name === 'static_offset' && nd.parent === (Number.isInteger(desc?.root) ? desc.root : 0));
   def.back = !!so && Array.isArray(so.pos) && num(so.pos[2], 0) > 0;
-  def.loops = def.isLoop || def.ps.some((p) => p && p.looping && p.playOnAwake !== false) || def.animators.some((a) => def.clips[a.clip]?.loop);
+  def.loops = def.isLoop || !!def.mapEffect || def.ps.some((p) => p && p.looping && p.playOnAwake !== false) || def.animators.some((a) => def.clips[a.clip]?.loop);
   def.material = (i, lite) => {
     const list = lite ? def.lite : def.materials;
     if (list[i] === undefined) list[i] = desc?.materials?.[i] ? compileMaterial(desc.materials[i], { lite }) : null;
@@ -690,7 +692,9 @@ export class Effect {
         const dur = def.maxLifetime > 0 ? def.maxLifetime : num(def.stats.duration, 0) || 1;
         if (ct < dur) busy = true;
       }
-      if (!busy && def.isLoop && this.state === 'play') busy = true; // a looping effect waits for stop()
+      // MapEffect's static renderers live with the tile, independently of finite or renderer-disabled PS children.
+      // Keeping the instance does not restart emission or rewind its material clock.
+      if (!busy && (def.isLoop || def.mapEffect)) busy = true;
     }
     if (def.maxLifetime > 0 && ct >= def.maxLifetime) busy = false;
     if (!busy) this._finish();
