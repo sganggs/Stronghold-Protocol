@@ -37,6 +37,38 @@ const { BOND_LAYER_CAP } = await import('../../shared/constants.js');
 const { data } = await import('../../public/js/data.js');
 await data.loadAll('bonds', 'chess', 'assets');
 
+test('temporary layers add to the capped permanent value without mutating it; strip and popup share the total', () => {
+  const original = [{ bondId: 'ursusShip', layers: 100, count: 3, active: true, tier: 1 }];
+  const list = withLiveLayers(original, null, { ursusShip: 20 });
+  assert.equal(list[0].layers, 120); assert.equal(list[0].tempLayers, 20);
+  assert.deepEqual(original, [{ bondId: 'ursusShip', layers: 100, count: 3, active: true, tier: 1 }]);
+  assert.equal(withLiveLayers(original, { ursusShip: 1000 }, { ursusShip: 20 })[0].layers, BOND_LAYER_CAP + 20);
+  assert.equal(withLiveLayers([{ ...original[0], layers: 120 }], { ursusShip: 100 }, { ursusShip: 20 })[0].layers, 120,
+    'a newer settled public view does not double-count the displayed battle’s temporary conversion');
+  const disc = [...walk(BondStrip({ bonds: list, onOpen() {} }))].find(v => v.type?.name === 'BondDisc');
+  assert.equal(disc.props.layers, 120); assert.equal(disc.props.tempLayers, 20);
+  const popup = [...walk(BondPopup({ bondId: 'sargonShip', entry: { ...list[0], bondId: 'sargonShip' },
+    priv: null, onClose() {}, onMember() {} }))];
+  const total = popup.find(v => v.type === 'b' && v.props.class?.includes('bond-layers--temporary'));
+  assert.equal(total.props.children, 120, 'the popup marks the same combined total yellow');
+  assert.match(read('public/css/components.css'), /\.bond__count\.is-temporary, \.bpop \.bond-layers--temporary \{ color: var\(--gold-2\); \}/);
+  assert.equal(withLiveLayers(original, null, null), original, 'leaving combat restores the permanent record');
+});
+
+test('temporary layers follow the current field owner and are absent in prep, settle and a mismatched field', () => {
+  const pub = { players: [{ playerId: 'me', bonds: [{ bondId: 'ursusShip', layers: 100 }] },
+    { playerId: 'other', bonds: [{ bondId: 'ursusShip', layers: 40 }] }] };
+  const opts = { pub, myId: 'me', combat: true, watchingOther: true, watching: 'n:other', battleFieldId: 'n:other',
+    bondTempLayers: { me: { ursusShip: 20 }, other: { ursusShip: 7 } } };
+  const watched = screenStrip(opts);
+  assert.equal(watched.ownerId, 'other'); assert.equal(watched.bonds[0].layers, 47);
+  for (const patch of [{ combat: false }, { combat: false, settle: true }, { battleFieldId: 'n:me' }]) {
+    assert.equal(screenStrip({ ...opts, ...patch }).bonds[0].layers, 40);
+  }
+  assert.equal(playerBonds({ pub, myId: 'me', ownerId: 'me', tempLive: opts.bondTempLayers })[0].layers, 120);
+  assert.equal(popupView({ pub, myId: 'me', open: { id: 'ursusShip', ownerId: 'other' }, tempLive: opts.bondTempLayers }).entry.layers, 47);
+});
+
 /** Every vnode of a preact tree (htm output), depth first; function components are expanded. */
 function* walk(v) {
   if (Array.isArray(v)) { for (const x of v) yield* walk(x); return; }
@@ -380,7 +412,7 @@ test('§20.15 wiring: the game screen feeds the strip, the popup and the detail 
   assert.match(src, /const strip = screenStrip\(\{[^}]*field, layers, layer, who: watchWho, bondLayers:/, 'the field on screen, the ‹ › layers, the picked teammate');
   assert.match(src, /<\$\{BondStrip\} bonds=\$\{stripBonds\}[^>]*owner=\$\{strip\.name\}/);
   // the popup carries the player it was opened for: the strip's owner from the strip, the unit owner from a card's chip
-  assert.match(src, /const bondPop = popupView\(\{ open: bondOpen, pub, priv, myId, field, units: popOps, live: liveLayers \}\)/);
+  assert.match(src, /const bondPop = popupView\(\{ open: bondOpen, pub, priv, myId, field, units: popOps, live: liveLayers, tempLive: tempLiveLayers \}\)/);
   assert.match(src, /battleRunner\.ownerOps\(bondOpen\.ownerId, field\.fieldId\)/, 'a teammate\'s members in play: the battle on screen\'s operators');
   assert.match(src, /bondId=\$\{bondPop\.bondId\} entry=\$\{bondPop\.entry\} priv=\$\{bondPop\.priv\}[^>]*owner=\$\{bondPop\.name\}/);
   assert.match(src, /onOpen=\$\{\(id\) => openBond\(id, strip\.ownerId, 'strip'\)\}/, 'the strip opens its owner\'s bond');

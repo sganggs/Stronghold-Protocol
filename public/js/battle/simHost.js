@@ -15,8 +15,23 @@ export class InPageSimHost {
     return this;
   }
   start(spec, opts = {}) {
+    this.stop();
     this.spec = spec;
     this.battle = this.sim.spec.createBattleFromSpec(spec, this.sim.ds, { resourceNumbers: true, ...opts });
+    this.tempBondLayers = Object.create(null);
+    const b = this.battle;
+    // Display receipts only: permanent bonds, result conversion and RNG remain owned by the engine.
+    const note = ({ playerId, bondId, n }) => {
+      if (!b.getPlayer?.(playerId) || typeof bondId !== 'string' || !bondId || !Number.isFinite(n) || n <= 0) return;
+      const own = this.tempBondLayers[playerId] ??= Object.create(null);
+      own[bondId] = (own[bondId] || 0) + n;
+    };
+    for (const p of spec.players || []) {
+      for (const id of Object.keys(b.getPlayer?.(p.playerId)?.bonds || {})) {
+        note({ playerId: p.playerId, bondId: id, n: b.tempLayers?.(p.playerId, id) || 0 });
+      }
+    }
+    this.tempLayerHook = b.on?.('tempLayerGain', note);
     this.meter = this.sim.spec.attachLpMeter(this.battle);
     return this;
   }
@@ -55,7 +70,12 @@ export class InPageSimHost {
   }
   syncPool(hp, acked) { this.battle?.sharedBoss?.sync?.(hp, acked); }
   forceEnd(reason) { this.battle?.forceEnd(reason); }
-  stop() { this.battle = null; }
+  stop() {
+    if (this.tempLayerHook) this.battle?.off?.(this.tempLayerHook);
+    this.tempLayerHook = null;
+    this.tempBondLayers = null;
+    this.battle = null;
+  }
 }
 
 /** Wire state only: no engine import or engine object, including in the dev introspection hooks. */
@@ -112,6 +132,7 @@ export class WorkerSimHost {
   }
   accept(packet) {
     this.packet = packet;
+    this.tempBondLayers = packet.tempBondLayers || null;
     this.events.push(...packet.ev);
     Object.assign(this.battle, packet.state);
     this.meter = packet.meter;

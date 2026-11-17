@@ -347,6 +347,7 @@
 }
 .bond.is-active .bond__icon { filter: brightness(0) opacity(.85); }
 .bond.is-active .bond__glyph { color: #06221a; }
+.bond__count.is-temporary, .bpop .bond-layers--temporary { color: var(--gold-2); }
 .bond__count {
   position: absolute;
   left: 50%;

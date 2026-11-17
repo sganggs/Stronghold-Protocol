@@ -335,7 +335,19 @@ export function createBattleRunner(deps) {
       if (!e.live) continue;
       for (const [pid, m] of Object.entries(e.live)) out[pid] = { ...(out[pid] || {}), ...m };
     }
+    // Keep a temporary total anchored to this battle's permanent base, even if a newer public view has settled it.
+    if (cur && !cur.done) for (const [pid, own] of Object.entries(cur.host?.tempBondLayers || {})) {
+      const bonds = cur.battle?.getPlayer?.(pid)?.bonds || {};
+      for (const id of Object.keys(own)) {
+        (out[pid] ??= {})[id] = Number(bonds[id]?.layers) || 0;
+      }
+    }
     return out;
+  }
+
+  function tempLayerMap(e) {
+    const layers = e.host?.tempBondLayers;
+    return layers ? Object.fromEntries(Object.entries(layers).map(([pid, own]) => [pid, { ...own }])) : null;
   }
 
   /**
@@ -354,6 +366,7 @@ export function createBattleRunner(deps) {
       battleId: e.battleId, fieldId: e.fieldId, kind: e.kind, authoritative: e.authoritative, watch: e.watch,
       done: e.done, own: e.own, members: e.members.slice(), loading: !!loading, speed: e.speed, paused: pausedAt != null,
       leaks: leakMap(), uniteLeft: uniteLeftMap(), bondLayers: layerMap(),
+      bondTempLayers: e.done ? null : tempLayerMap(e),
     };
   }
 
@@ -400,6 +413,9 @@ export function createBattleRunner(deps) {
    */
   function noteLayers(e) {
     const b = e.battle;
+    const tempSum = Object.values(e.host?.tempBondLayers || {}).reduce((sum, own) =>
+      sum + Object.values(own).reduce((n, value) => n + value, 0), 0);
+    if (tempSum !== e.tempLayerSum) { e.tempLayerSum = tempSum; leaksDirty = true; }
     if (!b || (b.flags && b.flags.layerGainsEnabled === false) || typeof b.getPlayer !== 'function') return;
     let sum = 0;
     let live = null;
@@ -807,7 +823,7 @@ export function createBattleRunner(deps) {
       // leaker's enemies still standing (noteUniteLeft)
       leaks: 0, leakMark: '', left: null,
       // live bond layers grown in this battle { [playerId]: { [bondId]: n } } and their total gain (noteLayers)
-      live: null, layerSum: 0,
+      live: null, layerSum: 0, tempLayerSum: 0,
       // state-bearing events of the steps run while the tab was hidden (hold(); delivered by the next rendered frame;
       // heldAt = the game time each was drained at), and whether that backlog overflowed (the next frame re-enters the
       // view from the field meta); the event batches of the current sliced step (stepEntry)
