@@ -183,6 +183,31 @@ The pack is stored like any imported pack (IndexedDB `sp-ui-themes`) and does no
 
 No `character` leaves the 盟约 funds box as it is today. With one, the 盟约 funds column keeps the cards' height: `contain: size` keeps its content from sizing the shop row, and the portrait shrinks into the room the money and 收起 leave (about 102×50 at 1600×900; §37.233 — the row used to grow and leave an empty band under the cards). On a 规程 match with no selected character, the card uses ac_n_initial's shop-up spine `trap_1096_acshopup` (idle `Idle`) when that group is installed. The portrait does not take taps (收起 stays the button). 规程 bond discs sit under the middle of the top bar (`.gm--reg .gm__bonds`).
 
+## The canvas shop (official packs, §37.240)
+
+The regulation shop has two renderers: the DOM shop bar (every pack that is not canvas-capable) and a canvas painted
+from the theme's own prefabs. The canvas mounts only for an **official** theme whose installed group (`themes/<id>` in
+`data/local-assets.json`) carries all three documents — `prefabs.json`, `card.json` and `shop.json`. There is no flag:
+the group either has them or it does not, and a theme without them keeps the DOM bar. 可露希尔 is the pack that carries
+them; 卫戍协议终端（官方贴图）and 乌萨斯齐心团 have `prefabs.json` / `card.json` only. An imported official pack works
+the same way: its documents are read from the bytes the import already stored, because the page cannot fetch a `blob:`
+(the CSP's `connect-src` is `'self'`). The pack's colours (`theme.json`'s `colors`) feed the card model, as the DOM
+cards' do.
+
+This is not a theme-pack format extension: `theme.json` has no field for these documents, a third-party pack keeps the
+DOM bar, and dropping a `shop.json` into a custom pack mounts nothing (the gate resolves only the three official ids).
+A pack that wants to approach the official shop look writes the same slots and colours as the sections above.
+
+Fonts are not part of a theme pack at all. The canvas declares `@font-face` from the host's `data/local-assets.json`
+`fonts` group, which comes from the local-client extraction (`tools/local-extract/fonts.py`, `--only font`) into
+`public/assets/local/fonts/`. The maintainer's decision is that those faces are not distributed: the directory is
+git-ignored and in no package — the full, update and asset packages hold the folder and its manifest group back
+(`tools/package.mjs` `FONT_ART_PREFIX`, `withoutHeldFonts`, `holdBackStagedFonts`) — so a host built from a package
+serves no local face, while a machine that ran the extraction itself still uses it. `theme.json` accepts pictures and
+audio; an imported official pack keeps png / jpg / webp / ogg / mp3 / json / atlas / skel. A face that is missing or
+fails to load falls back to the existing font stack; it never blocks the theme, the shop or the match.
+`tools/local-extract/FONT-PROVENANCE.md` is the provenance and records that decision.
+
 ## 规程 HUD from the official prefabs
 
 With 乌萨斯齐心团 or 可露希尔 selected and installed, the top bar, the countdown and the ready button are that pack's own

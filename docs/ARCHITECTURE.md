@@ -183,6 +183,7 @@ so old imports keep working: `public/js/ui/gameLogic.js` (`public/js/ui/gameLogi
 | `public/js/screens/` | `title.js`, `lobby.js`, `room.js`, `loadout.js` (干员调配), `cultivation.js` (its 潜能 / 练度 controls), `ownership.js` (干员持有), `diy.js` (自选编队), `briefing.js`, `bandDraft.js`, `game.js` with `public/js/screens/game/`, `result.js` |
 | `public/js/ui/` | the HUD components (`hud.js`, `shopBar.js`, `detailPanel.js`, `bondStrip.js`, `teamPanel.js` …); `public/js/ui/gameLogic/` the pure in-match logic, unit-tested in Node |
 | `public/js/render/` | the field view: `app.js` with `public/js/render/app/`, `units.js` and `spine.js` (models), `tiles.js`, `projection.js`, `interp.js`, `pick.js`, `drag.js`, `public/js/render/fx/` (effects; `kinds.js` maps the fx kinds), `public/js/render/vfx/` (the official battle effects from the local client: a Unity ParticleSystem interpreter, GLSL shader ports, the WebGL2 pass, the event wiring and the skills' plans and their runtime, `skills.js` / `skillfx.js`, the 驭械术士's floating units, `funnels.js` / `funnelfx.js`; DESIGN §9), `public/js/render/board3d/` (the official 3D board) |
+| `public/js/ui/shop/`, `public/js/render/shop/` | the regulation shop drawn on a canvas (DESIGN §37.240): `ui/shop/gate.js` (the capability gate: an official theme's local group carries `prefabs.json` + `card.json` + `shop.json`, a ready preload, no spectator / stand-in / DIY; a promotion reward stays in the same shop), `ui/shop/ShopCanvas.js` (the in-match mount, two-tap flow and the one fallback to `ShopBar`), `ui/shop/host.js` (canvas, fonts, PIXI, hotspots, RAF, runtime cache; `preloadShopRuntime`), `ui/shop/scene.js` + `prefab.js` + `slots.js` + `mainView.js` + `cardView.js` + `widgets.js` (the ported panels and the card view), `ui/shop/adapter/` (`m.private` → the render model, and the prefab metadata), `public/js/ui/prefab/shopDocs.js` (the theme pack's three documents and its `@font-face` faces), `public/css/screens/game-shop-canvas.css`; the card layer itself in `public/js/render/shop/`: `cardStage.js` (WebGL2, glyph LRU, context-loss flag, resource destroy), `cardWebgl.js`, `cardTimeline.js`, `cardParticles.js`, `cardRecords.js`, `uguiLayout.js`; `public/dev/shop-webgl.html` draws every state for manual checks |
 | `public/css/`, `public/i18n/<code>.json` | the styles; the UI strings of each language pack (English ships) |
 | `public/studio/` | the plugin studio's page (`/studio/`, local network only): `index.html`, `studio.css`; `public/studio/js/main.js` the shell, `api.js` keyed requests, `create.js` / `picker.js` creation, `slots.js` / `info.js` / `issues.js` editing and findings, `labels.js` display names |
 | `public/studio/js/` (gameplay and import) | `authoring.js` / `validateDraft.js` wizard saves and validation; `editors/` template forms (including `dslForm.js` and shared `controls.js`); `trial.js` trial controls; `preview/` the game's cards, field and sound plus `replay.js` / `layers.js`; `forge.js` and `catalog.js` import/install flows |
@@ -197,7 +198,7 @@ so old imports keep working: `public/js/ui/gameLogic.js` (`public/js/ui/gameLogi
 | `packs/` | content packs installed as folders, `packs/<id>/pack.json` + files (PACKS.md); empty in the repository but for its readme |
 | `plugins/` | a server's plugins, `plugins/<id>/plugin.json` + files (PLUGINS.md); git-ignored but for its readme, its guide for AI agents (`plugins/AGENTS.md`) and the templates (`plugins/_template/cosmetic/`, `plugins/_template/content/`, `plugins/_template/script/`, `plugins/_template/ui/`) |
 | `schemas/` | JSON Schemas of manifests, asset overlays, compact records, DSL, UI messages and community catalogues (PLUGINS.md §15), for editors and AI agents |
-| `tools/` | `build-data.mjs`, `build-i18n.mjs`, `i18n.mjs` (UI strings, language packs), `packs.mjs` (content packs), `plugin.mjs` (plugins: list, check, pack, new, test, errors, surface, import-forge, install, catalog), `setup.mjs` / `fetch-assets.mjs` / `tools/assets/` (art and audio), `tools/local-extract/` (art from a local game client), `vendor.mjs`, `golden.mjs`, `check-imports.mjs`, `package.mjs` / `package-update.mjs` (the release zips, the update package, the example asset pack), `doctor.mjs`; sweeps: `matchrun.mjs`, `simrun.mjs`, `botbench.mjs`, `balance.mjs` |
+| `tools/` | `build-data.mjs`, `build-i18n.mjs`, `i18n.mjs` (UI strings, language packs), `packs.mjs` (content packs), `plugin.mjs` (plugins: list, check, pack, new, test, errors, surface, import-forge, install, catalog), `setup.mjs` / `fetch-assets.mjs` / `tools/assets/` (art and audio), `tools/local-extract/` (art from a local game client: `extract.py`; `--only theme` writes a theme pack, `--only shopdocs` runs the recovered producer in `tools/local-extract/legacy/` for the canvas shop's `prefabs.json` / `card.json` / `shop.json` (DESIGN §37.241), `fonts.py` + `--only font` the theme's font bytes (kept local: no package ships them), `legacy/DATA-REPRO.md` their recovery record), `vendor.mjs`, `golden.mjs`, `check-imports.mjs`, `package.mjs` / `package-update.mjs` (the release zips, the update package, the example asset pack), `doctor.mjs`; sweeps: `matchrun.mjs`, `simrun.mjs`, `botbench.mjs`, `balance.mjs` |
 | `test/` | `node:test` suites by area: `test/content/` (kits, enemies, bonds, items), `test/sim/` (the engine), `test/match/` (match engine, bots), `test/ui/`, `test/render/`, `test/golden/` (the stored digests), `test/plugins/` and `test/studio/` (the plugin system, the studio), `test/helpers/` (`battleHarness.js`; `designDocs.js`, the design document in § order for the doc tests), `test/e2e/` (browser and bot runs) |
 | `types/` | JSDoc typedefs of the type-checked slice (`types/README.md`) |
 | `docs/` | the documents; `docs/DESIGN.md` the index of the design document, `docs/design/` its current rules, `docs/history/` its per-release revisions; `docs/research/` the research on the official mode |
@@ -209,6 +210,10 @@ official zh_CN tables (.cache/gamedata) ─┐
 docs/research/*.json ────────────────────┴─▶ tools/build-data.mjs ─▶ data/*.json
 official EN tables ────────────────────────▶ tools/build-i18n.mjs ─▶ data/i18n/en.json
 public mirrors, a local client ────────────▶ tools/setup.mjs ──────▶ public/assets/ + data/assets.json
+local client's theme packs ────────────────▶ tools/local-extract ──▶ public/assets/local/themes/<id>/ +
+                                              (--only theme,          data/local-assets.json (groups
+                                               --only shopdocs,       themes/<id> and fonts; the fonts
+                                               --only font)           stay local: no package ships them)
 
 data/*.json ──────────┬─▶ server/data.js ─────────────▶ the match, the server's battles
                       ├─▶ public/js/data.js ──────────▶ the UI
@@ -238,6 +243,21 @@ public/assets/ ─────────▶ public/js/render/, public/js/audio
   per run, heapUsed after GC): the loader's own allocation drops from 34.3 MiB to 26.0 MiB — the ten adopted files are
   5.19 MB of JSON and are not parsed again. In a browser the absolute numbers differ; the saving is the same second copy
   that no longer exists.
+- **The shop canvas.** The regulation shop can be painted from a theme pack (DESIGN §37.240–§37.241): a local-client
+  extraction writes `public/assets/local/themes/<id>/prefabs.json`, `card.json` and `shop.json` plus the manifest groups
+  `themes/<id>` and `fonts` (`tools/local-extract/extract.py --only theme` / `--only shopdocs` / `--only font`;
+  `public/assets/local/` and `data/local-assets.json` stay git-ignored). The `fonts` group and
+  `public/assets/local/fonts/` stay local: no package ships them (`tools/package.mjs` `FONT_ART_PREFIX`,
+  `withoutHeldFonts`, `holdBackStagedFonts`), so a host of a release package serves no local face and the canvas falls
+  back to the system stack. In the browser the chain is: the group entries →
+  `public/js/ui/prefab/shopDocs.js` `themeShopDocs` (the three documents) and `themeFonts` (the `@font-face` sheet) →
+  `public/js/ui/shop/adapter/model.js` (`m.private` → the render model) → `public/js/ui/shop/scene.js` →
+  `public/js/render/shop/cardStage.js` (WebGL2). `public/js/ui/shop/gate.js` decides from the installed group and the
+  preloaded runtime whether the canvas replaces `public/js/ui/shopBar.js` (plus the spectator / stand-in / DIY
+  cases; a promotion reward keeps the canvas and draws its three 0-price cards inside the same frame); without the
+  three documents, or on any failure, the DOM bar renders. An imported official pack contributes the
+  same group entries with blob URLs, so its documents are read from the page's stored bytes (the CSP's `connect-src`
+  `'self'` forbids fetching a blob).
 - **Languages.** Chinese is the source language; every other language is a pack — `public/i18n/<code>.json` (UI
   strings) and optionally `data/i18n/<code>.json` (game texts), listed by the server at `/packs/index.json`
   (`server/packs.js`; PACKS.md). The English game texts come from the official EN client (`tools/build-i18n.mjs` →
@@ -288,6 +308,7 @@ public/assets/ ─────────▶ public/js/render/, public/js/audio
 | a new client message | `shared/protocol.js` (`C2S`), then `server/match/match/intents.js` (or `server/lobby.js` for `room.*`) | DESIGN §8 |
 | data from the official tables | `tools/build-data.mjs` | rebuild `--offline`, JSON compare, DATA.md, golden |
 | a screen or a HUD panel | `public/js/screens/`, `public/js/ui/`; pure logic in `public/js/ui/gameLogic/` | `test/ui/` |
+| the in-match shop, drawn on a canvas | `public/js/ui/shop/gate.js` (the gate), `public/js/ui/shop/ShopCanvas.js` (the mount and the fallback), `public/js/render/shop/cardStage.js` (the card layer) | DESIGN §37.240, `test/ui/shop-*.test.js`, the dev page `public/dev/shop-webgl.html` |
 | battle visuals | `public/js/render/fx/kinds.js`, `public/js/render/units.js`, `public/js/render/spine.js` | `test/render/` |
 | a UI text | `t('…')` in the code, the English in `public/i18n/en.json` | I18N.md |
 | a language | `public/i18n/<code>.json` (`node tools/i18n.mjs template <code>`), no code | I18N.md "Adding a language", PACKS.md |
