@@ -748,6 +748,7 @@ function installLethania(battle, pid, effectId, members) {
 function installDoc(battle, pid, effectId, members) {
   const bb = bbOf('docShip', effectId, K.doc);
   const three = reached(battle, pid, 'docShip', bb.power_bond_char_cnt);
+  const sheltered = new Set(); // this player's operators holding 庇护 from this installer
   battle.every(1, () => {
     const L = S.bondLayers(battle, pid, 'docShip');
     const healR = num(bb.heal_base) + num(bb.heal_per_stack) * L;
@@ -771,6 +772,15 @@ function installDoc(battle, pid, effectId, members) {
     for (const [a, v] of covered) {
       // [ASSUMED] 庇护 is damage_res as damage taken (strongest of overlapping members, not summed).
       S.passiveBuff(battle, a, 'bond:doc:res', { dmgTakenMul: Math.max(0, 1 - v) });
+      sheltered.add(a);
+    }
+    // 「【聚合】干员攻击范围内的所有干员获得一定比例的庇护」: an operator no member covers any more (it left the range, the
+    // range shrank when a skill ended, the member fell) loses it at the next check (GitHub #976 review, round 83).
+    // [ASSUMED] the 1 s check of the heal; the ability prefab that holds the official aura is not in the tables.
+    for (const a of sheltered) {
+      if (covered.has(a)) continue;
+      battle.removeBuff(a, 'bond:doc:res');
+      sheltered.delete(a);
     }
   });
 }

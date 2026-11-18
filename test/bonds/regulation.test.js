@@ -1523,6 +1523,31 @@ describe('规程·序列Ⅰ bonds', { concurrency: 1 }, () => {
     close(before - p.hp, 850, 'shelter 15%, not 30%');
   });
 
+  test('聚合 庇护 leaves an operator that no member covers any more (#976 review)', (t) => {
+    const h = fight(t, {
+      bonds: { docShip: bond(3, 0, 2) },
+      pieces: [
+        piece('reg_doc_p', ['docShip'], { col: 4, rangeGrid: [[0, 0], [0, 1], [0, 2]] }),
+        piece('reg_doc_q', ['docShip'], { col: 3, rangeGrid: [[0, 0], [0, 1]] }),
+        piece('reg_doc_x', [], { col: 6 }),
+      ],
+    });
+    h.step();
+    const x = h.unit('reg_doc_x');
+    h.run(1.1);
+    assert.ok(x.buffs.some((b) => b.key === 'bond:doc:res'), 'covered by reg_doc_p: sheltered');
+    x.tileC = 9;
+    x.x = 9;
+    h.run(1.1);
+    assert.ok(!x.buffs.some((b) => b.key === 'bond:doc:res'), 'out of every range: the shelter is gone');
+    const p = h.unit('reg_doc_p');
+    assert.ok(p.buffs.some((b) => b.key === 'bond:doc:res'), 'a member inside a range keeps it');
+    x.tileC = 6;
+    x.x = 6;
+    h.run(1.1);
+    assert.ok(x.buffs.some((b) => b.key === 'bond:doc:res'), 'back in range: sheltered again');
+  });
+
   test('奥术 rider arts, RES floor at 3, stealth stripped in range', (t) => {
     const one = fight(t, {
       bonds: { arcaneShip: bond(1, 0, 1) },

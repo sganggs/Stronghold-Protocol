@@ -892,17 +892,17 @@
       "rngDraws": 2316,
       "errors": {"count":0,"kinds":[]},
       "players": {
-        "p1": {"killed":24,"total":24,"perfect":true,"leaks":0,"leaksUncounted":0,"coins":0,"dmg":1723964,"bossDmg":482161,"heal":52335,"deaths":0,"layerGains":{}},
+        "p1": {"killed":24,"total":24,"perfect":true,"leaks":0,"leaksUncounted":0,"coins":0,"dmg":1723964,"bossDmg":482161,"heal":52601,"deaths":0,"layerGains":{}},
         "p2": {"killed":0,"total":0,"perfect":true,"leaks":0,"leaksUncounted":0,"coins":0,"dmg":5905725,"bossDmg":2028720,"heal":123410,"deaths":2,"layerGains":{}}
       },
       "units": [
         ["p1",1,"op","chess_char_4_23_b",2,"uniequip_002_qiubai",2534.4,1,13,2,115042,9726,433,249,3],
         ["p1",2,"op","chess_char_6_04_b",1,"none",2740.1,1,15,5,943079,5243,815,159,6],
-        ["p1",3,"op","chess_char_4_22_b",2,"uniequip_002_cgbird",1742.4,1,7,0,0,0,16508,55,2],
+        ["p1",3,"op","chess_char_4_22_b",2,"uniequip_002_cgbird",1742.4,1,7,0,0,0,16770,55,2],
         ["p1",4,"op","chess_char_4_24_b",0,"uniequip_002_pasngr",1586.2,1,9,0,10569,0,0,69,23],
         ["p1",5,"op","chess_char_4_25_b",2,"uniequip_002_aglina",1520.2,1,19,0,52640,521,521,53,4],
         ["p1",6,"op","chess_char_4_26_b",0,"uniequip_002_bldsk",2678.72,1,23,0,0,5085,21520,83,1],
-        ["p1",7,"op","chess_char_4_27_b",1,"uniequip_002_sntlla",1791.9,1,11,0,4278,1333,312,90,3],
+        ["p1",7,"op","chess_char_4_27_b",1,"uniequip_002_sntlla",1791.9,1,11,0,4278,1599,315,90,3],
         ["p1",8,"op","chess_char_6_01_b",1,"uniequip_002_thorn2",1331,1,25,4,353165,2312,267,80,12],
         ["p1",9,"op","chess_char_6_02_b",2,"uniequip_002_blaze2",1619.2,1,17,1,99325,3856,1410,169,6],
         ["p1",10,"op","chess_char_6_03_b",2,"uniequip_002_skadi2",1753.63,1,21,1,145865,18962,5248,0,5],
@@ -943,13 +943,13 @@
       "enemies": {
         "enemy_1166_dusbr_2": [22,22,0,5802,759689],
         "enemy_9007_acelem": [2,2,0,18892,565058],
-        "enemy_9017_achunt_2": [2,0,0,41046,2510881],
+        "enemy_9017_achunt_2": [2,0,0,41311,2510881],
         "enemy_9018_actrpa": [1,0,0,31735,1185543],
         "enemy_9019_actrpb": [1,0,0,19547,1122645],
         "enemy_9020_actrpc": [1,0,0,16116,1485872]
       },
-      "hooks": [1,80,6000,1771,1793,7281,12263,15749,30,50,108,101,126,46230,756,12,29,0,1,94,0,31,2],
-      "events": {"atk":2238,"cast":11,"deploy":45,"die":50,"dmg":11233,"engage":18,"fx":3330,"heal":556,"rate":202,"skill":209,"spawn":71,"status":1584},
+      "hooks": [1,80,6000,1771,1793,7281,12263,15751,30,50,108,101,126,46230,756,12,29,0,1,94,0,31,2],
+      "events": {"atk":2238,"cast":11,"deploy":45,"die":50,"dmg":11233,"engage":18,"fx":3330,"heal":557,"rate":202,"skill":209,"spawn":71,"status":1584},
       "fx": {
         "anchor": 6,
         "aoe": 212,
@@ -995,7 +995,7 @@
         "weightless": 4,
         "zone": 252
       },
-      "snaps": "dd92755b 6f98b49a a1f592d6 9f7b60fe 8f63bc3c bf673459 2edf8aba f26f2344 e6685fde feb4500f 1138bf42 d2536a8b cf25dad5 3bfa6bc6 0d0a4f5f 7fbe3781 2a7651c3 bd1505ea 3a59b3f8 59b6f778"
+      "snaps": "dd92755b 6f98b49a a1f592d6 9f7b60fe 8f63bc3c bf673459 2edf8aba f26f2344 e6685fde feb4500f 1138bf42 d2536a8b cf25dad5 3bfa6bc6 cbf409dd 75d161a1 8f73ca63 1cfbb48a 6ed09a98 8aeca818"
     },
     "hidden-boss_9-solo": {
       "about": "假想敌：铳 solo pool 3986667: chess_char_6_15_b chess_char_6_16_b chess_char_6_20_b chess_char_5_02_b chess_char_5_03_b chess_char_5_04_b chess_char_6_17_b chess_char_6_18_b chess_char_6_19_b chess_char_5_01_b token_10069_mcnist_mcgraf token_10030_mlyss_wtrman",
