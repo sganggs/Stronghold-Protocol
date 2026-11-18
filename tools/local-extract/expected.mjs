@@ -99,9 +99,10 @@ export const EXPECTED_LOCAL_GROUPS = Object.freeze([
 // An extracted record whose version is not this one is stale: setup asks once (DESIGN §34.12).
 // 4 removes exact redundant scene renderers (#684); older extracts still contain the source duplicates.
 // 5 writes 规程's three pieces whole (regulation_scenes.py layout 'pieces'); a 4 extract is the rows cut from them.
+// 6 gives opaque albedo a lossless RGB companion while preserving shared alpha atlases.
 // [ASSUMED] A group with no kind:Scene record is not a version problem (the group-key check still applies).
 export const EXPECTED_SCENE = Object.freeze({
-  version: 5,
+  version: 6,
 });
 
 export const EXPECTED_FX = Object.freeze({

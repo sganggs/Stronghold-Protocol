@@ -317,7 +317,11 @@ containing the plugin JSON and roster; `--only plugin-art/<charId>` narrows the 
 
 ### Re-extracting scenes after an update
 
-Scene extraction version **5** writes 规程's three level prefabs whole, one group each (scene.json `layout: 'pieces'`,
+Scene extraction version **6** binds a lossless RGB companion for opaque albedo images containing zero-alpha
+texels with useful RGB. The original RGBA resource remains unchanged for transparent consumers. Cutout, blended,
+water, trap-shadow and independent data textures keep their original channels. RGB comes from the already encoded
+albedo, so this does not change its decoded colour or lighting. This is a compatibility workaround for a reported
+Edge snow-surface disappearance, not proof of a browser or GPU root cause. Version **5** writes 规程's three level prefabs whole, one group each (scene.json `layout: 'pieces'`,
 DESIGN §37.266); 盟约's scenes are unchanged from version 4. Version **4** removes complete, exact redundant renderers
 (GitHub #684, DESIGN §34.24).
 The official Android `26-04-13-12-31-42_e9b560` m03 scene contains both a base rock (renderer 2048) and its
@@ -332,7 +336,7 @@ ties are described in §34.24; deletion is a remake art correction, not an offic
 After updating, run `node tools/setup.mjs --scenes`, or answer a typed **yes** to setup's existing version-only
 re-extraction prompt. Version-3 scenes still load but contain the redundant geometry; replacing code alone does
 not repair already extracted files. A missing-scene/partial set retains the existing explicit `--scenes` / `--yes`
-gate. `scene.json` mesh version remains 1; the manifest's `scene` record is version 5. A 规程 scene of version 4 (cut
+gate. `scene.json` mesh version remains 1; the manifest's `scene` record is version 6. A 规程 scene of version 4 (cut
 into the 19×21 board) is not drawn by this client — the board stays procedural until it is extracted again.
 
 For inspection without replacing installed assets, the local extractor already supports **both** output options:

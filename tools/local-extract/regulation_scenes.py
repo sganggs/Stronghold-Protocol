@@ -460,12 +460,13 @@ def _write(stage_id, chunks, materials, mat_tex, light, images, out_root, manife
                 tex = pptr.read()
                 tname = re.sub(r'[^A-Za-z0-9_.\-\[\]]+', '_', tex.m_Name or f'tex_{pptr.m_PathID}')
                 materials[name][key] = tname
-                if tname in manifest.get(scenes.TEX_SUB, {}):
-                    continue
-                img = scenes.normal_rgb(tex.image) if key == 'normalMap' else tex.image
-                manifest.setdefault(scenes.TEX_SUB, {})[tname] = {
-                    **scenes.save_image(img, tex_dir, tname, scenes.TEX_SUB, key in scenes.LOSSLESS_MAPS), 'kind': 'Texture2D'}
-                written += 1
+                if tname not in manifest.get(scenes.TEX_SUB, {}):
+                    img = scenes.normal_rgb(tex.image) if key == 'normalMap' else tex.image
+                    manifest.setdefault(scenes.TEX_SUB, {})[tname] = {
+                        **scenes.save_image(img, tex_dir, tname, scenes.TEX_SUB, key in scenes.LOSSLESS_MAPS), 'kind': 'Texture2D'}
+                    written += 1
+                if key == 'map':
+                    written += scenes.export_opaque_albedo(info, out_root, manifest)
             except Exception as e:
                 log(f'  warn {stage_id}: texture {slot} of {name}: {e}')
     doc = {'version': scenes.SCENE_VERSION, 'stage': stage_id,
