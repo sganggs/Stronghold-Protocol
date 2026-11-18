@@ -87,8 +87,8 @@ export class BattleEconomy {
     else layers.delete(bondId);
     if (!layers.size) this._temporaryLayers.delete(playerId);
     // Keep normal/boss receipts until next prep. Unite only carries the own battle's frozen ledger.
-    if (this.kind !== 'unite') {
-      const pp = this._pp(playerId);
+    const pp = this.kind !== 'unite' ? this._pp(playerId) : null;
+    if (pp) {
       if (total > 0) (pp.tempLayerGains ||= {})[bondId] = total;
       else if (pp.tempLayerGains) {
         delete pp.tempLayerGains[bondId];

@@ -1919,8 +1919,8 @@ function MatchScreen() {
   })();
   // the bond popup: next to the card, never over the selected unit's underframe when a place is free (bondPopupPlace)
   const bpPlace = (() => {
-  if (!bondOpen) return 'left';
-  if (bondOpen.from === 'strip') return 'center';
+    if (!bondOpen) return 'left';
+    if (bondOpen.from === 'strip') return 'center';
     const { rem, vp } = panelFrame();
     return bondPopupPlace(ufShown ? underframeRect(ufGeo, rem) : null, vp, rem, resolved ? dSide : null);
   })();

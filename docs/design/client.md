@@ -1120,7 +1120,7 @@ arrow controls. Watched owners, harmony counts, morph members and disabled bonds
 The strip's .08rem clip padding has matching negative margins to preserve the discs' and names' original height.
 Prep and Final Assault prep reserve the arrows' 44 px floor and any taller measured bounds (including native scrollbars),
 relative to the field host and safe-area insets. The minimum band remains while collapsed; desktop keeps the official
-camera and original 2.16rem band when the strip already fits (§35.110).
+camera and the 1.98rem band (2.16rem before PR #923's card layout) when the strip already fits (§35.110).
 
 从局内顶部盟约列表打开的盟约卡片左右居中，成员区每行显示 7 个方形干员头像；卡片宽度容纳这 7 个头像、间距和内边距，窄屏时限制在屏幕内。点击卡片外部关闭，点击盟约图标仍按原有切换逻辑处理。
 

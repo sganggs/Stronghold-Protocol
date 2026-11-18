@@ -947,6 +947,12 @@ test('tempLayerGains is optional on the result wire and rejected when it is not 
   const huge = structuredClone(withTemp);
   huge.perPlayer.p.tempLayerGains = { ursusShip: 10001 };
   assert.equal(validateClientResult(spec, huge, { gd }).reason, 'temp layers');
+  // round 83: at most 8 per counted knock-out + 200 (killed 2 → 216), not the ledger's 10000 (a later 联防 fights with it)
+  const edge = structuredClone(withTemp);
+  edge.perPlayer.p.tempLayerGains = { ursusShip: 216 };
+  assert.equal(validateClientResult(spec, edge, { gd }).ok, true);
+  edge.perPlayer.p.tempLayerGains = { ursusShip: 217 };
+  assert.equal(validateClientResult(spec, edge, { gd }).reason, 'temp layers');
   const unite = buildBattleSpec({ ...spec, kind: 'unite', flags: { layerGainsEnabled: false } });
   assert.equal(validateClientResult(unite, withTemp, { gd }).reason, 'layers disabled');
   const onlyTemp = structuredClone(withTemp);
