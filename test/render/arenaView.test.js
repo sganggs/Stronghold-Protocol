@@ -31,6 +31,19 @@ test('a stage without an arena (盟约, a plugin stage, 规程\'s escape stages)
   if (stages.act3autochess_escaped_single) assert.equal(arenaField(stages.act3autochess_escaped_single, 'normal'), stages.act3autochess_escaped_single);
 });
 
+test('enemy preview retains the originating piece, pen rectangle and devices on every Regulation map', () => {
+  for (const kind of ['prep', 'bossPrep', 'boss', 'hidden', 'unite']) {
+    const view = arenaViewOf(kind);
+    assert.equal(arenaViewOf('pen', kind), view, kind);
+    for (const id of arenaIds) {
+      const before = arenaField(stages[id], view);
+      const preview = arenaField(stages[id], arenaViewOf('pen', kind));
+      assert.equal(preview, before, `${id} ${kind}: keep the same piece and device records`);
+      assert.deepEqual(parsePenRect(preview.config.enemy_place_rect), parsePenRect(before.config.enemy_place_rect));
+    }
+  }
+});
+
 test('the ten 规程 battlefields: 7 regions at the official rects; four player blocks, 联防, a left and a right boss field', { skip: !arenaIds.length && 'no 规程 data' }, () => {
   assert.equal(arenaIds.length, 10);
   for (const id of arenaIds) {

@@ -776,15 +776,20 @@ export async function createFieldView(host, options = {}) {
   function setStage(st) {
     if (!st || typeof st !== 'object' || !Array.isArray(st.rows)) return false;
     stageData = st;
-    drawStage(arenaField(st, arenaViewOf(viewKind(camKind, camOpts))));
+    drawStage(arenaField(st, arenaViewFor(viewKind(camKind, camOpts))));
     return true;
   }
 
   /** 规程: the piece of the arena a view kind shows (render/arenaView.js); a stage without an arena stays as it is. */
   function showField(vk) {
     if (!stageData) return;
-    const st = arenaField(stageData, arenaViewOf(vk));
+    const st = arenaField(stageData, arenaViewFor(vk));
     if (st !== stageRec) drawStage(st);
+  }
+
+  function arenaViewFor(vk) {
+    const origin = camBeforePen ? viewKind(camBeforePen.kind, camBeforePen.opts) : null;
+    return arenaViewOf(vk, origin);
   }
 
   function drawStage(st) {
