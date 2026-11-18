@@ -41,6 +41,7 @@ export const TILEKEY_GLYPH = Object.freeze({
   tile_forbidden: '#', tile_road: 'r', tile_floor: 'f', tile_wall: 'h', tile_fence_bound: 'b', tile_fence: 'b',
   tile_achand: 'a', tile_start: 'S', tile_end: 'E', tile_telin: 'I', tile_telout: 'O', tile_mire: 'm',
   tile_smog: 'g', tile_deepsea: 'd', tile_infection: 'i', tile_grass: 'r', tile_hole: '#', tile_duel_grassland: 'w',
+  tile_acempty: '#', // 规程's arena outside its pieces (data/stages.json `arena`): void
 });
 
 export const COLORS = Object.freeze({

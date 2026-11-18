@@ -358,7 +358,7 @@ export class BoardScene {
   setStage(stage) {
     if (this.destroyed) return;
     const official = stage ? this.scenePacks.get(stage.id) || null : null;
-    const key = stage ? `${stage.id || ''}|${official ? official.key : ''}|${(stage.rows || []).join('/')}|${JSON.stringify((stage.devices || []).map((d) => [d.key, d.pos, d.active, d.dir]))}` : '';
+    const key = stage ? `${stage.id || ''}|${official ? official.key : ''}|${stage.scenePiece?.group || ''}|${(stage.rows || []).join('/')}|${JSON.stringify((stage.devices || []).map((d) => [d.key, d.pos, d.active, d.dir]))}` : '';
     if (key === this.stageKey) return;
     this.stageKey = key;
     this.stage = stage || null;
@@ -366,7 +366,8 @@ export class BoardScene {
     this.sceneWater = [];
     this.official = null;
     if (!stage) { applyWaterMaterial(this.mat.water, null); return; }
-    const board = buildBoard(stage, { uv: this.pack?.uv || null, area: this.area, platformMesh: !!this.platformGeometry() });
+    // a 规程 view's stage (render/arenaView.js) holds one piece in a void grid: all of it is built, whatever the area
+    const board = buildBoard(stage, { uv: this.pack?.uv || null, area: stage.scenePiece ? null : this.area, platformMesh: !!this.platformGeometry() });
     this.board = board;
     const M = this.meshes = {};
     this.official = official && this._buildScene(official) ? official : null;
@@ -441,8 +442,14 @@ export class BoardScene {
     const infos = pack.doc?.materials || {};
     this.sceneWater = [];
     const buckets = new Map();
+    // 规程's scene is its three pieces whole (regulation_scenes.py layout 'pieces'): the stage a view draws names the
+    // one piece it shows and where that piece's cells are in the grid (render/arenaView.js scenePiece). A pieces scene
+    // without that, or a stage with it on a scene cut before (an older extract), is not drawn: the procedural board shows.
+    const pieces = pack.doc?.layout === 'pieces';
+    const piece = this.stage?.scenePiece || null;
+    if (pieces !== !!piece) return false;
     for (const c of pack.chunks || []) {
-      if (c.group && !sceneGroupVisible(pack.groups?.[c.group], this.area, c.group)) continue;
+      if (pieces ? c.group !== piece.group : c.group && !sceneGroupVisible(pack.groups?.[c.group], this.area, c.group)) continue;
       const info = infos[c.material] || null;
       const mk = sceneMaterialKey(c, info);
       let bucket = buckets.get(mk);
@@ -482,6 +489,7 @@ export class BoardScene {
       const mesh = new T.Mesh(g, mat);
       mesh.castShadow = false; mesh.receiveShadow = false;
       mesh.renderOrder = water ? 1 : mat.userData.blend === 'blend' ? 2 : mat.userData.blend === 'cutout' ? -3 : -4;
+      if (piece) mesh.position.set(piece.dc || 0, piece.dr || 0, 0);
       mesh.matrixAutoUpdate = false; mesh.updateMatrix();
       this.root.add(mesh);
       this.meshes[`scene${n++}`] = mesh;

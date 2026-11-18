@@ -160,7 +160,8 @@ import { ImpostorAtlas } from './impostor.js';
 import { stepClipBounds } from './spine.js';
 import { loadThree, loadBoardPack, loadScenePack, webgl2Available, boardArtListed } from './board3d/load.js';
 import { BoardScene } from './board3d/scene.js';
-import { layoutPen, penSignature } from './pen.js';
+import { layoutPen, penSignature, parsePenRect } from './pen.js';
+import { arenaField, arenaViewOf } from './arenaView.js';
 import { IDENTITY, bossPrepField, tilesToDisp, leaderStand } from './prepfield.js';
 import { pickOnTile, pickBattle, hitTiles } from './pick.js';
 import { promotionsOf } from './promote.js';
@@ -314,7 +315,8 @@ export async function createFieldView(host, options = {}) {
   };
 
   let mode = 'idle';          // 'idle' | 'prep' | 'battle'
-  let stageRec = null;
+  let stageData = null;       // the stage set (data/stages.json)
+  let stageRec = null;        // the stage drawn: stageData, or the piece of a 规程 arena the view shows (render/arenaView.js)
   let cam = presetCamera('prep', { width: s0.width, height: s0.height, padding: defaultPadding('prep', s0) }, { hud: hudBands('prep', s0) });
   let camFrom = null, camTo = null, camT0 = 0, camKind = 'prep', camOpts = {}, camMs = CAMERA_MS;
   let pendingView = null;     // tile band/focus to apply when the camera transition ends
@@ -632,7 +634,7 @@ export async function createFieldView(host, options = {}) {
 
   function camRect() {
     const k = viewKind(camKind, camOpts);
-    if (k === 'pen') return { r0: 14, r1: 18, c0: 7, c1: 13 };
+    if (k === 'pen') return (stageRec?.scenePiece && parsePenRect(stageRec.config?.enemy_place_rect)) || { r0: 14, r1: 18, c0: 7, c1: 13 };
     // prep lights the bench (hand row 7 / temp row 8) with the field, like the official prep view
     if (camOpts.rect) { const r = normRect(camOpts.rect); return k === 'prep' ? { ...r, r0: Math.min(r.r0, GEO.HAND_ROW) } : r; }
     // the boss round's prep lights the whole boss field: the pair partner's half is shown with its pieces (item 51)
@@ -650,6 +652,8 @@ export async function createFieldView(host, options = {}) {
     // — `shop: false` (the folded shop, public issue #5) = the official shop-collapsed camera, clear of the folded
     // shop's HUD band (re-evaluated on resize: camOpts keep the flag)
     const vk = viewKind(kind, o); // (a 'prep' camera on the boss rows = the Final Assault prep)
+    // a 规程 view's pen is beside its road (render/arenaView.js), not where the official enemy camera looks: fit it
+    if (k === 'pen' && stageRec?.scenePiece) return presetCamera(k, { width: sz.width, height: sz.height, padding: o.padding || defaultPadding(k, sz) }, { rect: camRect(), fit: true });
     return presetCamera(k, { width: sz.width, height: sz.height, padding: o.padding || defaultPadding(k, sz) }, {
       rect, side: o.side, half: !!o.half, shop: o.shop, fit: !!o.fit, config: stageRec?.config || null,
       hud: hudBands(vk, sz, { shop: o.shop ?? true }),
@@ -676,6 +680,7 @@ export async function createFieldView(host, options = {}) {
     camOpts = { ...o };
     // the field actually shown (a 'prep' camera on the boss rows is the Final Assault prep: boss field built / drawn)
     const vk = viewKind(camKind, camOpts);
+    showField(vk);
     if (vk === 'prep') setPrepField(IDENTITY);
     else if (vk === 'bossPrep') setPrepField(bossPrepField(camOpts.side === 'R' ? 'R' : 'L'));
     const target = targetCamera(camKind, camOpts);
@@ -770,6 +775,19 @@ export async function createFieldView(host, options = {}) {
 
   function setStage(st) {
     if (!st || typeof st !== 'object' || !Array.isArray(st.rows)) return false;
+    stageData = st;
+    drawStage(arenaField(st, arenaViewOf(viewKind(camKind, camOpts))));
+    return true;
+  }
+
+  /** 规程: the piece of the arena a view kind shows (render/arenaView.js); a stage without an arena stays as it is. */
+  function showField(vk) {
+    if (!stageData) return;
+    const st = arenaField(stageData, arenaViewOf(vk));
+    if (st !== stageRec) drawStage(st);
+  }
+
+  function drawStage(st) {
     stageRec = st;
     tiles.setStage(st);
     tiles.setBattleRect(mode === 'battle' && battleMeta ? battleMeta.rect : null);
@@ -778,7 +796,6 @@ export async function createFieldView(host, options = {}) {
     // a pen laid out before the stage arrived (setPrep / a scouting board first) used the default zones and the old
     // tile heights: lay it out again on this stage
     if (penList) { const l = penList; clearPen(); setPenList(l); }
-    return true;
   }
 
   // ---- views ----------------------------------------------------------------------------------------------
@@ -1566,7 +1583,7 @@ export async function createFieldView(host, options = {}) {
     // own preview, bounties excluded); a real battle empties the pen (the enemies are about to spawn)
     if (battleMeta.prep) setPenList(Array.isArray(meta.nextEnemies) ? meta.nextEnemies : (ownPen || []).filter((x) => x && x.source !== 'bounty' && x.source !== 'effect'));
     else setPenList(null);
-    if (meta.stageId && (!stageRec || stageRec.id !== meta.stageId)) {
+    if (meta.stageId && (!stageData || stageData.id !== meta.stageId)) {
       const st = data.stage(meta.stageId);
       if (st) setStage(st);
     }

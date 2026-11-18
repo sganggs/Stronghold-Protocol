@@ -439,6 +439,22 @@ must cover the removed renderer's visibility (the same group or the always-visib
 and separately switched groups remain. Prefer non-collapsed lightmap UVs, then base visibility, then static baking,
 then the lower renderer id. Existing extracted scenes require re-extraction; mesh format version stays 1.
 
+规程 arena (DESIGN §37.266): a 规程 level is one 36×55 arena — four player blocks (`sub_01`, 7×20), the 联防 board
+(`sub_02`, 6×21) and two boss fields with their pens (`sub_03`, 13×21) — that the sim keeps composing into 盟约's 19×21
+stage (`tools/versions/layouts.mjs composeRegulationStage`). The build also writes the arena itself (`stages.json`
+`arena`, DATA §12; `regulationArena`), and extractor version 5 writes the three prefabs whole, one group each
+(`regulation_scenes.py`, scene.json `layout: 'pieces'`). The client draws the one piece a view shows
+(`render/arenaView.js arenaField`): the prep, normal and pen cameras a player block (hand row 7, equipment row 8, the road
+rows 9–12 cols 0–10 — the sim's cells, tile for tile — and its preview pen **beside the road**, rows 8–12 cols 12–18),
+联防 the `sub_02` board (rows 8–13), the boss, hidden and Final Assault prep cameras a boss field (rows 0–12, its pen
+rows 7–11 cols 7–13). Outside the piece the grid is void; the arena devices standing on the piece move with it and keep
+the stats of the stage's device of the same key; `config.enemy_place_rect` becomes the piece's pen rect, so
+`render/pen.js` lays the preview out there and the pen camera fits it. `board3d/scene.js` draws only that piece's group,
+shifted to its rows; a pieces scene with the composed stage, or a stage that names a piece with an older cut scene, falls
+back to the procedural board. The view's field switches when the camera's kind does. **[ASSUMED]** seat s draws the
+block whose `ownerSeat` is s (the blocks are the same piece; the renderer passes no seat, so the first block); the key
+light is `sub_01`'s; the pen camera is fitted to the pen rect instead of the official `enemy_camera_param`.
+
 阻隔工事 (`trap_1105_accrate`, renderer `crate`; 0.3.1, GitHub #663, DESIGN §34.7): static prep crates and
 battle DeviceViews use the client's own 636-vertex / 344-triangle model and `TX_trap_1105_accrate`, extracted under
 `mesh/trap_110`, with its authored UVs. The battle prefab's identity parents, model rotation −90° about X and scale
