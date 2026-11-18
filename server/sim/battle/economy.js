@@ -46,6 +46,7 @@ export class BattleEconomy {
     pp.layerGains[bondId] = (pp.layerGains[bondId] ?? 0) + add;
     if (ps && ps.bonds[bondId]) ps.bonds[bondId].layers = (ps.bonds[bondId].layers ?? 0) + add;
     this._ev(['layer', playerId, bondId, add]);
+    this.emit('bondLayersChanged', { playerId, bondId, n: add });
     return add;
   }
 
@@ -94,6 +95,7 @@ export class BattleEconomy {
         if (!Object.keys(pp.tempLayerGains).length) delete pp.tempLayerGains;
       }
     }
+    this.emit('bondLayersChanged', { playerId, bondId, n });
     const receipt = { playerId, bondId, n, total };
     if (n > 0) this.emit('tempLayerGain', { ...receipt });
     this.emit('tempLayerChange', receipt);

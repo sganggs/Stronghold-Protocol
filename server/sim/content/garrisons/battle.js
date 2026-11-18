@@ -563,8 +563,7 @@ function installReaders(battle, by) {
     pending = true;
     battle.after(0, () => { pending = false; recompute(); });
   };
-  battle.on('layerGain', refresh);
-  battle.on('tempLayerChange', refresh);
+  battle.on('bondLayersChanged', refresh);
   const onstart = by.get('act2autochess_gar_eff_attrByBond_add_onstart');
   if (onstart) {
     const m = byUnit(onstart);

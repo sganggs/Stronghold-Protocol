@@ -475,7 +475,7 @@ earned layers remain in the round pool until the next prep.
 `addTempLayers` and `removeTempLayers` return the actual positive amount added or removed. `tempLayers` reads one
 temporary count; `tempLayersSnapshot()` returns a detached copy of the whole ledger for hosts and Workers.
 `effectiveBondLayers` and the content helper `bondLayers` read permanent + temporary layers. A committed gain emits
-`tempLayerGain`; gains and removals emit `tempLayerChange`. Standing bond and garrison modifiers coalesce refreshes
+`tempLayerGain`; gains and removals emit `tempLayerChange`. Both permanent and temporary writes emit `bondLayersChanged` with `{ playerId, bondId, n }` after a nonzero committed change. Standing bond and garrison modifiers coalesce refreshes
 after these changes; periodic effects, equipment and devices read the effective count. Temporary changes neither
 consume permanent cap room nor invoke permanent `layerGain` modifiers.
 

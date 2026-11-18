@@ -109,8 +109,7 @@ function onLayers(battle, pid, bondId, fn) {
     st.pending.add(key);
     battle.after(0, () => { st.pending.delete(key); for (const f of list) f(); });
   };
-  battle.on('layerGain', refresh, { priority: -100 });
-  battle.on('tempLayerChange', refresh, { priority: -100 });
+  battle.on('bondLayersChanged', refresh, { priority: -100 });
 }
 
 /** Compatibility reader: every temporary source now uses the battle's ledger. */

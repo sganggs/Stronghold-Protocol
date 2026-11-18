@@ -139,8 +139,7 @@ function onLayerChange(battle, fn) {
     pending = true;
     battle.after(0, () => { pending = false; fn(); });
   };
-  battle.on('layerGain', defer, { priority: -100 });
-  battle.on('tempLayerChange', defer, { priority: -100 });
+  battle.on('bondLayersChanged', defer, { priority: -100 });
 }
 
 /**

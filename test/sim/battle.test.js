@@ -561,6 +561,8 @@ test('content modules: a throwing install() is logged and skipped; units outside
 test('temporary layer ledger: actual gains/removals, independent caps, hooks, snapshots and expiry', () => {
   const h = makeBattle({ content: 'none', bonds: { yanShip: { layers: 998, active: true, tier: 1, count: 3 } }, autoFinish: false });
   const b = h.b, receipts = [], changes = [], permanent = [];
+  const committed = [];
+  b.on('bondLayersChanged', ({ playerId, bondId, n }) => committed.push([n, b.effectiveBondLayers(playerId, bondId)]));
   b.on('tempLayerGain', c => receipts.push(c.n));
   b.on('tempLayerChange', c => changes.push([c.n, c.total]));
   b.on('layerGain', c => permanent.push(c.n));
@@ -582,6 +584,7 @@ test('temporary layer ledger: actual gains/removals, independent caps, hooks, sn
   assert.equal(b.result().perPlayer.p1.tempLayerGains.yanShip, 9998);
   assert.equal(b.removeTempLayers('p1', 'yanShip', 20000), 9998);
   assert.equal(b.result().perPlayer.p1.tempLayerGains, undefined);
+  assert.deepEqual(committed, [[9999, 10997], [1, 10998], [1, 10999], [-2, 10997], [-9998, 999]]);
   assert.deepEqual(changes, [[9999, 9999], [1, 10000], [-2, 9998], [-9998, 0]]);
   b.forceEnd('forced');
   assert.equal(b.addTempLayers('p1', 'yanShip', 2), 0);
