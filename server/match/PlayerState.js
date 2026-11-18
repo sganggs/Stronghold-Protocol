@@ -55,7 +55,8 @@
 //     流形) sends one stack (deployLimit copies — 凯瑟琳 2) to the hand, placed by hand like any piece (no deploy slot);
 //     withdrawing/selling/merging the owner removes its tokens (an elite that takes a merged copy's tile gets a fresh
 //     stack of its own, like any deployment), moving it on the board (also when a summon dragged onto
-//     it swaps it away) sends its placed summons back onto their stack ("移动干员时，其所属召唤物全部退场并重置至手牌区");
+//     it swaps it away) keeps its placed summons on legal tiles, returning only those outside the final placement range
+//     (2026-11-12 owner-reported official QoL; the old PRTS help still describes recalling all of them);
 //     a summon stack removed from temp at a prep deadline comes back at the next round start (startRound tops every
 //     board owner's summons up to the deploy limit, "干员所属召唤物会于下一回合返还"). In battle a skill's summon takes its
 //     tile when the skill fires (sim/content/tokens.js dockSkillSummons). A summon whose text reads "只能部署在召唤者

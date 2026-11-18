@@ -246,22 +246,6 @@ export class PlayerPieces {
     for (let i = 0; i < this.temp.length; i++) if (this.temp[i] && this.temp[i].kind === 'token' && this.temp[i].ownerUid === ownerUid) this.temp[i] = null;
   }
 
-  /**
-   * An owner that changes its board tile (moved, swapped): its summons on the board go back onto its stack (PRTS
-   * 卫戍协议/帮助 "移动干员时，其所属召唤物全部退场并重置至手牌区"). With no stack and no free hand slot the summon joins
-   * the expandable temp queue (`allowTemp`). A stack that a prep deadline then removes still comes back at the next
-   * round start. `keep`: a summon the player just placed (the one dragged onto its owner, which swapped the owner
-   * away) stays where it was put.
-   */
-  _liftTokensOf(ownerUid, keep = null) {
-    for (const [k, p] of [...this.board]) {
-      if (p.kind !== 'token' || p.ownerUid !== ownerUid || p === keep) continue;
-      this.board.delete(k);
-      // allowTemp always queues past the visible row; put the summon back only if stow itself refused.
-      if (!this._returnToken(p, null, { allowTemp: true })) this.board.set(k, p);
-    }
-  }
-
   /** Copies of one summon type an owner has (placed pieces + stacks in the hand / temp). */
   _tokenCountOf(ownerUid, tokenId) {
     const mine = (p) => !!p && p.kind === 'token' && p.ownerUid === ownerUid && p.id === tokenId;

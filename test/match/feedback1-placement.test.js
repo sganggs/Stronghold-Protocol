@@ -8,8 +8,8 @@
 //      read "只能部署在召唤者攻击范围内" (token description; PRTS 狼群 特性): the piece may only stand on a tile of its
 //      owner's attack range (the rotated grid of its board tile and facing). Re-orienting the owner in place keeps the
 //      piece while it is still inside, else sends it back to its stack [ASSUMED] (refused, HAND_FULL, when it would have
-//      nowhere to go); moving the owner sends it back anyway (PRTS 卫戍协议/帮助 "移动干员时，其所属召唤物全部退场并重置
-//      至手牌区") — with no room it leaves the board until the next round start.
+//      nowhere to go). The 2026-11-12 owner-reported QoL also keeps legal summons when their owner moves; only an
+//      invalid final range returns them, overflowing into temp if the hand is full.
 // The sim side (突袭 landing tile, tactical point) is test/sim/feedback1-water.test.js.
 // 高台: the owner's decision of 2026-10-05 (reversing the one of 2026-10-04, elite 歌蕾蒂娅 with HOK-Y only) follows
 // PRTS — every MELEE chess whose trait reads 「可以放置于远程位」 (the 钩索师 / 推击手 branch trait: 歌蕾蒂娅, 崖心, 见行者,
@@ -204,7 +204,11 @@ test('#9 full visible bench: a re-orientation is refused (HAND_FULL); moving the
   assert.deepEqual(move(m, vigil.uid, board(10, 4), 'UP'), { ok: true });
   assert.equal(ps.board.get('11,5'), wolf);
   checkInvariants(m);
-  // moving her (her summons go back to the hand; with no room a normal summon stays put) to (9,9) facing RIGHT, whose
+  // Moving to a nearby tile with a full bench needs no free slot when the wolf remains legal.
+  assert.deepEqual(move(m, vigil.uid, board(10, 3), 'RIGHT'), { ok: true });
+  assert.equal(ps.board.get('11,5'), wolf);
+  assert.equal(ps.temp.length, 5, 'no new overflow for a legal summon');
+  // Moving to (9,9) facing RIGHT, whose
   // range (rows 8–10, cols 9–12) leaves the wolf out: it leaves the board — no illegal placement reaches the battle
   assert.deepEqual(move(m, vigil.uid, board(9, 9), 'RIGHT'), { ok: true });
   assert.equal(ps.board.get('11,5'), undefined, 'outside her range with nowhere to go: removed');

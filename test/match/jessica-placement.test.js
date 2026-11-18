@@ -93,7 +93,7 @@ test('Jessica: a deployed shield cannot move or be swapped to a distant tile; ad
   h.invariants();
 });
 
-test('Jessica: owner reorientation keeps the shield; moving her returns it and withdrawal removes it', (t) => {
+test('Jessica: owner movement keeps a still-adjacent shield; an invalid tile returns it and withdrawal removes it', (t) => {
   const { h, ps, owner } = prep(t);
   assert.deepEqual(move(h, stackOf(ps, owner).uid, board(10, 5)), { ok: true });
   const shield = ps.board.get('10,5');
@@ -101,6 +101,8 @@ test('Jessica: owner reorientation keeps the shield; moving her returns it and w
   assert.deepEqual(move(h, shield.uid, board(10, 5), 'LEFT'), { ok: true });
   assert.deepEqual(move(h, owner.uid, board(10, 4), 'UP'), { ok: true });
   assert.equal(ps.board.get('10,5'), shield);
+  assert.deepEqual(move(h, owner.uid, board(9, 5)), { ok: true });
+  assert.equal(ps.board.get('10,5'), shield, 'still orthogonally adjacent after moving');
   assert.deepEqual(move(h, owner.uid, board(9, 4)), { ok: true });
   assert.ok(!ps.board.has('10,5'));
   const returned = stackOf(ps, owner);
