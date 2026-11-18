@@ -1055,3 +1055,20 @@ Canvas 为 inert、aria-hidden、pointer-events:none，可用时以手动 popove
 ```
 
 正常完整提取也尝试可选 PC 光标，不加入手机客户端的 `EXPECTED_LOCAL_GROUPS`。清单 `groups["ui/cursor"].prts_hand` 记录源包身份／文件名、各 Sprite 像素 SHA-256、源包及输出 SHA-256、帧布局、时间和提取版本 2；本次来源 `anon/f7bcd64480c4566f25d65d642f5fba95.bin`。二进制不入 Git，发布须同步实际文件及清单。Canvas 截图会包含实际手形，定向验证同时保留静止／按下像素与页面截图，并检查连续点击穿透、系统语义、DPR、全屏和 opt-out 清理。
+
+
+### Optional bounded scene-binary transport
+
+Large scenes can declare `binParts` in `scene.json`: two to four ordered `{key, bytes}` records. The first key is
+`bin` (`scene.bin`), then `bin1` / `bin2` / `bin3` (`scene1.bin` etc.); each part is at most 15,000,000 bytes.
+`binBytes` remains the total original mesh size. Chunk offsets, attributes and indices address the rejoined buffer
+and do not change. The browser validates the metadata, each response size and the total before parsing; a missing
+or malformed part keeps the existing procedural fallback. No paths are accepted from `binParts`, only fixed
+manifest keys. Older single-file scenes remain readable. Extractors use the same writer for both scene families;
+small scenes retain `scene.bin` alone. No mesh-format or extraction-freshness bump is needed for this optional
+transport extension. Binary resources already pass through the existing manifest/cache/asset-pack paths.
+
+The 15 MB budget is a transport compatibility choice for deployments with a 16,000,000-byte resource-pack limit,
+including the reporting fork; it is not the upstream asset-pack limit (256 MiB per entry). Actual unmodified #977
+MAP05 / MAP10 / MAP12 binaries are 19,614,492 / 31,660,444 / 32,194,384 bytes, so they need 2 / 3 / 3 parts.
+This change does not raise any archive or cache limit and does not reduce geometry.

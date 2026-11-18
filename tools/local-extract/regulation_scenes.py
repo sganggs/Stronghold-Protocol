@@ -435,9 +435,10 @@ def _write(stage_id, chunks, materials, mat_tex, light, images, out_root, manife
     if not records:
         log(f'  warn {stage_id}: no regulation triangle')
         return 0
-    (out_dir / 'scene.bin').write_bytes(bytes(blob))
-    manifest.setdefault(sub, {})['bin'] = {'path': f'/assets/local/{sub}/scene.bin', 'kind': 'SceneData', 'bytes': len(blob)}
-    written = 1
+    bin_parts = scenes.write_scene_bins(out_dir, blob)
+    for part in bin_parts:
+        manifest.setdefault(sub, {})[part['key']] = {'path': f'/assets/local/{sub}/{part["name"]}', 'kind': 'SceneData', 'bytes': part['bytes']}
+    written = len(bin_parts)
     lightmaps = 0
     for index, image in enumerate(images):
         try:
@@ -475,6 +476,8 @@ def _write(stage_id, chunks, materials, mat_tex, light, images, out_root, manife
            'layout': 'pieces', 'pieceGrid': {PIECE_GROUPS[i]: [PIECE_ROWS[i], PIECE_COLS[i]] for i in (1, 2, 3)},
            'materials': dict(sorted(materials.items())), 'groups': sorted({rec['group'] for rec in records}),
            'chunks': records, 'binBytes': len(blob)}
+    if len(bin_parts) > 1:
+        doc['binParts'] = [{k: part[k] for k in ('key', 'bytes')} for part in bin_parts]
     (out_dir / 'scene.json').write_text(json.dumps(doc, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
     manifest[sub]['scene'] = {'path': f'/assets/local/{sub}/scene.json', 'kind': 'Scene', 'chunks': len(records),
                               'version': scenes.SCENE_EXTRACT_VERSION}

@@ -387,6 +387,22 @@ def hidden_groups(raw, objects):
     return out
 
 
+SCENE_BIN_PART_BYTES = 15_000_000
+
+
+def write_scene_bins(folder, blob):
+    """Split transport bytes only; concatenation reproduces the original mesh and every chunk offset."""
+    if not 0 < len(blob) <= 4 * SCENE_BIN_PART_BYTES:
+        raise ValueError('scene binary must fit at most four bounded transport parts')
+    parts = []
+    for i, offset in enumerate(range(0, len(blob), SCENE_BIN_PART_BYTES)):
+        key = 'bin' if i == 0 else f'bin{i}'
+        name = 'scene.bin' if i == 0 else f'scene{i}.bin'
+        data = blob[offset:offset + SCENE_BIN_PART_BYTES]
+        (folder / name).write_bytes(data)
+        parts.append({'key': key, 'bytes': len(data), 'name': name})
+    return parts
+
 def export_scene(stage_id, deps, scene_path, ab_root, out_root, manifest, log, material_info, shader_deps=()):
     """Write one stage's scene (see the module docstring). Returns the number of files written (0 on failure)."""
     import aklz4  # noqa: F401  (registers the LZ4AK decoder)
@@ -655,9 +671,10 @@ def export_scene(stage_id, deps, scene_path, ab_root, out_root, manifest, log, m
                         'bounds': [round(v, 3) for v in (min(xs), min(ys), min(zs), max(xs), max(ys), max(zs))]})
         blob += data
     n = 0
-    (out_dir / 'scene.bin').write_bytes(bytes(blob))
-    manifest.setdefault(sub, {})['bin'] = {'path': f'/assets/local/{sub}/scene.bin', 'kind': 'SceneData', 'bytes': len(blob)}
-    n += 1
+    bin_parts = write_scene_bins(out_dir, blob)
+    for part in bin_parts:
+        manifest.setdefault(sub, {})[part['key']] = {'path': f'/assets/local/{sub}/{part["name"]}', 'kind': 'SceneData', 'bytes': part['bytes']}
+    n += len(bin_parts)
 
     # lightmap pages: light RGB + the shadow mask's R as alpha
     pages = {}
@@ -756,6 +773,8 @@ def export_scene(stage_id, deps, scene_path, ab_root, out_root, manifest, log, m
            'lightRange': LIGHT_RANGE, 'lightEncoding': LIGHT_ENCODING, **({'env': env_doc} if env_doc else {}),
            'materials': dict(sorted(materials.items())), 'groups': sorted({rec['group'] for rec in records}),
            'chunks': records, 'binBytes': len(blob)}
+    if len(bin_parts) > 1:
+        doc['binParts'] = [{k: part[k] for k in ('key', 'bytes')} for part in bin_parts]
     (out_dir / 'scene.json').write_text(json.dumps(doc, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
     manifest[sub]['scene'] = {'path': f'/assets/local/{sub}/scene.json', 'kind': 'Scene', 'chunks': len(records),
                               'version': SCENE_EXTRACT_VERSION}

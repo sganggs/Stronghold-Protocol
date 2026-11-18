@@ -22,7 +22,7 @@ import { presetCamera } from '../../public/js/render/projection.js';
 import { sceneMaterial, sceneWaterMaterial, sceneBlend, sceneEnvTexture, focusUniforms, SCENE_LIGHT, waterMaterial, applyWaterMaterial, WATER_DEFAULTS, SCENE_WATER_DEFAULTS, WATER_TUNING, boardMaterial, glassMaterial, trapMaterial } from '../../public/js/render/board3d/materials.js';
 import {
   parseSceneChunks, sceneGroupRects, loadScenePack, sceneListed, resetBoardPack, sceneGroup, sceneMaterialKey, mergeSceneChunks,
-  SCENE_TEX_GROUP, SCENE_VERSION, SCENE_VERTEX_BYTES, isSceneWater, sceneWaterInfo,
+  SCENE_TEX_GROUP, SCENE_VERSION, SCENE_VERTEX_BYTES, joinSceneBuffers, isSceneWater, sceneWaterInfo,
 } from '../../public/js/render/board3d/load.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -40,6 +40,17 @@ for (const dir of existsSync(path.join(ROOT, 'data/versions')) ? readdirSync(pat
   for (const [id, stage] of Object.entries(JSON.parse(readFileSync(file, 'utf8')))) if (!allStages[id]) allStages[id] = stage;
 }
 const manifest = (() => { try { return JSON.parse(readFileSync(path.join(ROOT, 'data/local-assets.json'), 'utf8')); } catch { return null; } })();
+
+test('scene transport parts are bounded, ordered and complete before allocating their joined buffer', () => {
+  const doc = { binBytes: 5, binParts: [{ key: 'bin', bytes: 2 }, { key: 'bin1', bytes: 3 }] };
+  const buffers = [new Uint8Array([1, 2]).buffer, new Uint8Array([3, 4, 5]).buffer];
+  assert.deepEqual([...new Uint8Array(joinSceneBuffers(doc, buffers))], [1, 2, 3, 4, 5]);
+  assert.equal(joinSceneBuffers(doc, buffers.slice(0, 1)), null);
+  assert.equal(joinSceneBuffers(doc, [...buffers].reverse()), null);
+  assert.equal(joinSceneBuffers({ ...doc, binBytes: 6 }, buffers), null);
+  assert.equal(joinSceneBuffers({ ...doc, binParts: [{ key: 'bin', bytes: 2 }, { key: '../../elsewhere', bytes: 3 }] }, buffers), null);
+  assert.equal(joinSceneBuffers({ binBytes: 30_000_002, binParts: [{ key: 'bin', bytes: 15_000_001 }, { key: 'bin1', bytes: 15_000_001 }] }, buffers), null);
+});
 
 function py(code) {
   const src = `import sys, json, struct\nsys.path.insert(0, ${JSON.stringify(TOOL)})\nimport scenes as s\n${code}`;
@@ -402,6 +413,27 @@ print(json.dumps({
   });
 });
 
+test('scene transport writer splits exact bytes and leaves small legacy files unchanged', { skip: !PY && 'no Python' }, () => {
+  const out = py(`import tempfile, hashlib
+from pathlib import Path
+with tempfile.TemporaryDirectory() as tmp:
+    folder = Path(tmp)
+    raw = b'abc' * 5000001
+    parts = s.write_scene_bins(folder, raw)
+    joined = b''.join((folder / p['name']).read_bytes() for p in parts)
+    small = s.write_scene_bins(folder, b'abc')
+    rejected = False
+    try:
+        s.write_scene_bins(folder, b'')
+    except ValueError:
+        rejected = True
+    print(json.dumps({'parts': parts, 'same': hashlib.sha256(raw).digest() == hashlib.sha256(joined).digest(), 'small': small, 'emptyRejected': rejected}))`);
+  assert.deepEqual(out.parts.map(p => [p.key, p.bytes]), [['bin', 15000000], ['bin1', 3]]);
+  assert.equal(out.same, true);
+  assert.deepEqual(out.small, [{ key: 'bin', bytes: 3, name: 'scene.bin' }]);
+  assert.equal(out.emptyRejected, true);
+});
+
 describe('scene chunks (load.js)', () => {
   test('parseSceneChunks: typed-array views per chunk; a record that does not fit the buffer rejects the scene', () => {
     const { doc, bin } = fakeScene(PARTS);
@@ -509,6 +541,22 @@ describe('scene chunks (load.js)', () => {
       assert.ok(lit.images.data.TX_N && lit.images.data.TX_M && lit.images.env, 'the normal / gloss maps and the reflection atlas');
       assert.ok(lit.images.tex.TX_E && !lit.images.data.TX_E, 'emission is an sRGB colour map');
       assert.ok(!lit.images.tex.TX_N && !lit.images.tex.TX_M, 'data maps stay out of the sRGB textures');
+      resetBoardPack();
+      const wholeFetch = globalThis.fetch;
+      const cut = 40;
+      json = { ...doc, binParts: [{ key: 'bin', bytes: cut }, { key: 'bin1', bytes: bin.byteLength - cut }] };
+      urls[`${group}|bin1`] = '/s/scene1.bin';
+      globalThis.fetch = async u => u === '/s/scene.bin' ? new Response(bin.slice(0, cut))
+        : u === '/s/scene1.bin' ? new Response(bin.slice(cut)) : wholeFetch(u);
+      const split = await loadScenePack(store, 'act2autochess_m02');
+      assert.ok(split, 'transport parts restore the existing mesh layout');
+      assert.deepEqual(split.chunks.map(c => [...c.index]), pack.chunks.map(c => [...c.index]));
+      assert.deepEqual(split.chunks.map(c => [...c.position]), pack.chunks.map(c => [...c.position]));
+      resetBoardPack();
+      globalThis.fetch = async u => u === '/s/scene1.bin' ? new Response(null, { status: 404 })
+        : u === '/s/scene.bin' ? new Response(bin.slice(0, cut)) : wholeFetch(u);
+      assert.equal(await loadScenePack(store, 'act2autochess_m02'), null, 'missing part keeps the fallback board');
+      globalThis.fetch = wholeFetch;
       resetBoardPack();
       json = { ...doc, version: SCENE_VERSION + 1 };
       assert.equal(await loadScenePack(store, 'act2autochess_m02'), null, 'unknown version → the procedural board');

@@ -176,6 +176,31 @@ export const SCENE_VERSION = 1;
 /** Bytes per vertex of a scene chunk: position f32×3, uv f32×2, lightmap uv f32×2, normal i8×4, colour u8×4. */
 export const SCENE_VERTEX_BYTES = 36;
 
+/** Optional transport parts; their order restores the unchanged scene.bin vertex/index layout. */
+function sceneBinParts(doc) {
+  const parts = doc?.binParts;
+  if (!Array.isArray(parts) || parts.length < 2 || parts.length > 4) return null;
+  let total = 0;
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    if (part?.key !== (i ? `bin${i}` : 'bin') || !Number.isSafeInteger(part.bytes)
+      || part.bytes <= 0 || part.bytes > 15_000_000) return null;
+    total += part.bytes;
+  }
+  return total === doc.binBytes ? parts : null;
+}
+
+/** Join only declared, bounded scene parts. Missing/truncated data falls back to the procedural board. */
+export function joinSceneBuffers(doc, buffers) {
+  const parts = sceneBinParts(doc);
+  if (!parts || !Array.isArray(buffers) || buffers.length !== parts.length
+    || buffers.some((b, i) => !(b instanceof ArrayBuffer) || b.byteLength !== parts[i].bytes)) return null;
+  const joined = new Uint8Array(doc.binBytes);
+  let offset = 0;
+  for (const buffer of buffers) { joined.set(new Uint8Array(buffer), offset); offset += buffer.byteLength; }
+  return joined.buffer;
+}
+
 /**
  * Typed-array views of the chunks of a scene.bin (scenes.py pack_chunk); null when a record does not fit the buffer.
  * @param {object} doc scene.json
@@ -330,8 +355,23 @@ export function loadScenePack(assets, stageId) {
     if (!(await sceneListed(assets, stageId)) || typeof assets.image !== 'function') return null;
     const url = (g, n) => { const u = assets.localUrl(g, n); return typeof u === 'string' && u ? u : null; }; // as in loadBoardPack
     const group = sceneGroup(stageId);
-    const [doc, buf] = await Promise.all([fetchJson(url(group, 'scene')), fetchBuffer(url(group, 'bin'))]);
-    if (!isObj(doc) || doc.version !== SCENE_VERSION || !buf) return null;
+    const [doc, first] = await Promise.all([fetchJson(url(group, 'scene')), fetchBuffer(url(group, 'bin'))]);
+    if (!isObj(doc) || doc.version !== SCENE_VERSION || !first) return null;
+    let buf = first;
+    if (doc.binParts !== undefined) {
+      const parts = sceneBinParts(doc);
+      if (!parts || first.byteLength !== parts[0].bytes) return null;
+      const buffers = [first];
+      for (const part of parts.slice(1)) {
+        const nextUrl = url(group, part.key);
+        if (!nextUrl) return null;
+        const next = await fetchBuffer(nextUrl);
+        if (!next || next.byteLength !== part.bytes) return null;
+        buffers.push(next);
+      }
+      buf = joinSceneBuffers(doc, buffers);
+      if (!buf) return null;
+    }
     const chunks = parseSceneChunks(doc, buf);
     if (!chunks || !chunks.length) return null;
     const img = async (u) => {
