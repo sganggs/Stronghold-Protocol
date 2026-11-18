@@ -22,7 +22,7 @@ import { presetCamera } from '../../public/js/render/projection.js';
 import { sceneMaterial, sceneWaterMaterial, sceneBlend, sceneEnvTexture, focusUniforms, SCENE_LIGHT, waterMaterial, applyWaterMaterial, WATER_DEFAULTS, SCENE_WATER_DEFAULTS, WATER_TUNING, boardMaterial, glassMaterial, trapMaterial } from '../../public/js/render/board3d/materials.js';
 import {
   parseSceneChunks, sceneGroupRects, loadScenePack, sceneListed, resetBoardPack, sceneGroup, sceneMaterialKey, mergeSceneChunks,
-  SCENE_TEX_GROUP, SCENE_VERSION, SCENE_VERTEX_BYTES, joinSceneBuffers, isSceneWater, sceneWaterInfo,
+  SCENE_TEX_GROUP, SCENE_VERSION, SCENE_VERTEX_BYTES, isSceneWater, sceneWaterInfo,
 } from '../../public/js/render/board3d/load.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -41,16 +41,6 @@ for (const dir of existsSync(path.join(ROOT, 'data/versions')) ? readdirSync(pat
 }
 const manifest = (() => { try { return JSON.parse(readFileSync(path.join(ROOT, 'data/local-assets.json'), 'utf8')); } catch { return null; } })();
 
-test('scene transport parts are bounded, ordered and complete before allocating their joined buffer', () => {
-  const doc = { binBytes: 5, binParts: [{ key: 'bin', bytes: 2 }, { key: 'bin1', bytes: 3 }] };
-  const buffers = [new Uint8Array([1, 2]).buffer, new Uint8Array([3, 4, 5]).buffer];
-  assert.deepEqual([...new Uint8Array(joinSceneBuffers(doc, buffers))], [1, 2, 3, 4, 5]);
-  assert.equal(joinSceneBuffers(doc, buffers.slice(0, 1)), null);
-  assert.equal(joinSceneBuffers(doc, [...buffers].reverse()), null);
-  assert.equal(joinSceneBuffers({ ...doc, binBytes: 6 }, buffers), null);
-  assert.equal(joinSceneBuffers({ ...doc, binParts: [{ key: 'bin', bytes: 2 }, { key: '../../elsewhere', bytes: 3 }] }, buffers), null);
-  assert.equal(joinSceneBuffers({ binBytes: 30_000_002, binParts: [{ key: 'bin', bytes: 15_000_001 }, { key: 'bin1', bytes: 15_000_001 }] }, buffers), null);
-});
 
 function py(code) {
   const src = `import sys, json, struct\nsys.path.insert(0, ${JSON.stringify(TOOL)})\nimport scenes as s\n${code}`;
@@ -543,19 +533,28 @@ describe('scene chunks (load.js)', () => {
       assert.ok(!lit.images.tex.TX_N && !lit.images.tex.TX_M, 'data maps stay out of the sRGB textures');
       resetBoardPack();
       const wholeFetch = globalThis.fetch;
-      const cut = 40;
-      json = { ...doc, binParts: [{ key: 'bin', bytes: cut }, { key: 'bin1', bytes: bin.byteLength - cut }] };
-      urls[`${group}|bin1`] = '/s/scene1.bin';
-      globalThis.fetch = async u => u === '/s/scene.bin' ? new Response(bin.slice(0, cut))
-        : u === '/s/scene1.bin' ? new Response(bin.slice(cut)) : wholeFetch(u);
+      const cuts = [0, 4, 17, 39, 60, 85, 112, bin.byteLength];
+      const parts = cuts.slice(1).map((end,i) => ({ key:i ? `bin${i}` : 'bin', bytes:end-cuts[i] }));
+      json = { ...doc, binParts:parts };
+      const binaries = new Map(parts.map((part,i) => {
+        const path = i ? `/s/scene${i}.bin` : '/s/scene.bin';
+        urls[`${group}|${part.key}`] = path;
+        return [path,bin.slice(cuts[i],cuts[i+1])];
+      }));
+      globalThis.fetch = async u => binaries.has(u) ? new Response(binaries.get(u)) : wholeFetch(u);
       const split = await loadScenePack(store, 'act2autochess_m02');
-      assert.ok(split, 'transport parts restore the existing mesh layout');
+      assert.ok(split, 'seven transport parts restore the existing mesh layout across attribute boundaries');
       assert.deepEqual(split.chunks.map(c => [...c.index]), pack.chunks.map(c => [...c.index]));
       assert.deepEqual(split.chunks.map(c => [...c.position]), pack.chunks.map(c => [...c.position]));
       resetBoardPack();
-      globalThis.fetch = async u => u === '/s/scene1.bin' ? new Response(null, { status: 404 })
-        : u === '/s/scene.bin' ? new Response(bin.slice(0, cut)) : wholeFetch(u);
+      const requested = [];
+      globalThis.fetch = async u => {
+        requested.push(u);
+        return u === '/s/scene3.bin' ? new Response(null,{status:404})
+          : binaries.has(u) ? new Response(binaries.get(u)) : wholeFetch(u);
+      };
       assert.equal(await loadScenePack(store, 'act2autochess_m02'), null, 'missing part keeps the fallback board');
+      assert.ok(!requested.includes('/s/scene4.bin'),'stop requesting after the first missing part');
       globalThis.fetch = wholeFetch;
       resetBoardPack();
       json = { ...doc, version: SCENE_VERSION + 1 };

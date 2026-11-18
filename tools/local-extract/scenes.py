@@ -35,6 +35,7 @@ import json
 import re
 import struct
 from pathlib import Path
+from scene_transport import write_scene_bins
 
 SAND = ['arts/maps/map_autochesssand/res.ab', 'arts/maps/map_survivaloasis_city/res.ab', 'arts/maps/map_yumen/res.ab']
 SHORE = ['arts/maps/map_doss_shore/res.ab']
@@ -387,21 +388,6 @@ def hidden_groups(raw, objects):
     return out
 
 
-SCENE_BIN_PART_BYTES = 15_000_000
-
-
-def write_scene_bins(folder, blob):
-    """Split transport bytes only; concatenation reproduces the original mesh and every chunk offset."""
-    if not 0 < len(blob) <= 4 * SCENE_BIN_PART_BYTES:
-        raise ValueError('scene binary must fit at most four bounded transport parts')
-    parts = []
-    for i, offset in enumerate(range(0, len(blob), SCENE_BIN_PART_BYTES)):
-        key = 'bin' if i == 0 else f'bin{i}'
-        name = 'scene.bin' if i == 0 else f'scene{i}.bin'
-        data = blob[offset:offset + SCENE_BIN_PART_BYTES]
-        (folder / name).write_bytes(data)
-        parts.append({'key': key, 'bytes': len(data), 'name': name})
-    return parts
 
 def export_scene(stage_id, deps, scene_path, ab_root, out_root, manifest, log, material_info, shader_deps=()):
     """Write one stage's scene (see the module docstring). Returns the number of files written (0 on failure)."""
