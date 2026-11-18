@@ -679,12 +679,6 @@ test('switchhand: both bonds are required, and the carrier plus the summon each 
 });
 
 test('boss retains battle-start temporary receipts; unite cannot gain new layers', () => {
-  const h = battle(
-    [{ id: 'op', g: ['garrison_13_a'], row: 10, col: 4, bonds: ['ursusShip'] }],
-    { ursusShip: B(0) },
-  );
-  assert.equal(h.b._perPlayer.p1.tempLayerGains.ursusShip, 4);
-  assert.equal(lg(h, 'ursusShip'), 0);
   const off = battle(
     [{ id: 'op', g: ['garrison_13_a'], row: 10, col: 4, bonds: ['ursusShip'] }],
     { ursusShip: B(0) },
@@ -987,6 +981,8 @@ test('garrison_13 (battlestart) and garrison_23 (ursus temp extra) boost live ä¹
   );
   const us = hStart.unit('op');
   assert.equal(hStart.b.tempLayers('p1', 'ursusShip'), 4);
+  assert.equal(hStart.b.result().perPlayer.p1.tempLayerGains.ursusShip, 4);
+  assert.equal(lg(hStart, 'ursusShip'), 0);
   near(us.s.atk, us.base.atk * (1 + 0.35 + 0.0075 * 4), 'garrison_13_a boosts live atk');
   near(us.s.maxHp, us.base.maxHp * (1 + 0.1 + 0.003 * 4), 'garrison_13_a boosts live maxHp');
 
