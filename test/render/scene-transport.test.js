@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { SCENE_BIN_PART_BYTES, SCENE_TRANSPORT_LIMITS, sceneBinParts, readSceneBuffer } from '../../public/js/render/board3d/sceneTransport.js';
 
-const documentOf = sizes => ({ binBytes:sizes.reduce((a,b)=>a+b,0), binParts:sizes.map((bytes,i)=>({key:i?`bin${i}`:'bin',bytes})) });
+const documentOf = sizes => ({ binBytes:sizes.reduce((a,b)=>a+b,0), binParts:sizes });
 
 test('variable part counts use one destination and write each part before requesting the next', async () => {
   const doc=documentOf(Array(12).fill(2)), events=[], allocations=[];
@@ -30,10 +30,10 @@ test('variable part counts use one destination and write each part before reques
 
 test('validate the complete declaration and policy before allocating or reading', async () => {
   const doc=documentOf([2,3]), bad=[
-    null, {}, {...doc,binParts:[]}, {...doc,binParts:[{key:'bin0',bytes:5}]},
-    {...doc,binParts:[{key:'bin',bytes:2},{key:'bin2',bytes:3}]},
-    {...doc,binParts:[{key:'bin',bytes:2},{key:'bin',bytes:3}]},
-    {...doc,binParts:[{key:'bin',bytes:2},{key:'../elsewhere',bytes:3}]},
+    null, {}, {...doc,binParts:[]}, {...doc,binParts:[{key:'bin',bytes:2},{key:'bin1',bytes:3}]}, {...doc,binParts:{bin:2,bin1:3}},
+    {...doc,binParts:[2,{key:'bin1',bytes:3}]}, {...doc,binParts:[{key:'bin',bytes:2},3]},
+    {...doc,binParts:['2',3]}, {...doc,binParts:[null,5]}, {...doc,binParts:[true,4]},
+    {...doc,binParts:[[2],3]}, {...doc,binParts:[2,undefined]},
     {...doc,binBytes:6}, {...doc,binBytes:NaN}, {...doc,binBytes:Number.MAX_SAFE_INTEGER+1},
     documentOf([0]), documentOf([-1]), documentOf([1.5]), documentOf([SCENE_BIN_PART_BYTES+1]),
     documentOf([SCENE_TRANSPORT_LIMITS.maxBytes]), documentOf(Array(SCENE_TRANSPORT_LIMITS.maxParts+1).fill(1)),

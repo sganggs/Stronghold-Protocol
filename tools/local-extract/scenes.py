@@ -760,7 +760,7 @@ def export_scene(stage_id, deps, scene_path, ab_root, out_root, manifest, log, m
            'materials': dict(sorted(materials.items())), 'groups': sorted({rec['group'] for rec in records}),
            'chunks': records, 'binBytes': len(blob)}
     if len(bin_parts) > 1:
-        doc['binParts'] = [{k: part[k] for k in ('key', 'bytes')} for part in bin_parts]
+        doc['binParts'] = [part['bytes'] for part in bin_parts]
     (out_dir / 'scene.json').write_text(json.dumps(doc, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
     manifest[sub]['scene'] = {'path': f'/assets/local/{sub}/scene.json', 'kind': 'Scene', 'chunks': len(records),
                               'version': SCENE_EXTRACT_VERSION}

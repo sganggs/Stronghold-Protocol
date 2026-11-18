@@ -534,11 +534,11 @@ describe('scene chunks (load.js)', () => {
       resetBoardPack();
       const wholeFetch = globalThis.fetch;
       const cuts = [0, 4, 17, 39, 60, 85, 112, bin.byteLength];
-      const parts = cuts.slice(1).map((end,i) => ({ key:i ? `bin${i}` : 'bin', bytes:end-cuts[i] }));
+      const parts = cuts.slice(1).map((end,i) => end-cuts[i]);
       json = { ...doc, binParts:parts };
-      const binaries = new Map(parts.map((part,i) => {
+      const binaries = new Map(parts.map((_,i) => {
         const path = i ? `/s/scene${i}.bin` : '/s/scene.bin';
-        urls[`${group}|${part.key}`] = path;
+        urls[`${group}|${i ? `bin${i}` : 'bin'}`] = path;
         return [path,bin.slice(cuts[i],cuts[i+1])];
       }));
       globalThis.fetch = async u => binaries.has(u) ? new Response(binaries.get(u)) : wholeFetch(u);

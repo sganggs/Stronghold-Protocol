@@ -1,4 +1,4 @@
-"""Scene transport policy; binParts is an ordered, variable-length list of manifest keys and byte lengths."""
+"""Scene transport policy; binParts is an ordered, variable-length array of byte lengths."""
 # Leave room for ZIP headers and the manifest within a 16,000,000-byte resource pack.
 SCENE_BIN_PART_BYTES = 15_000_000
 SCENE_BIN_MAX_BYTES = 60_000_000
