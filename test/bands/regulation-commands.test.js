@@ -155,19 +155,19 @@ test('zero-state mapped bond reaches own and watched popups but stays off the st
     yield v;
     yield* walk(v.props?.children);
   };
-  const nowText = (popup) => {
-    const section = [...walk(popup)].find((v) => typeof v.props?.class === 'string' && v.props.class.split(/\s+/).includes('bpop__sec--now'));
-    return ([...walk(section)].find((v) => v.type?.name === 'RichText')?.props.text || '').replace(/<[^>]*>/g, '');
+  const effectText = (popup) => {
+    const description = [...walk(popup)].find((v) => v.props?.class === 'bpop__desc');
+    return (description?.props.text || '').replace(/<[^>]*>/g, '');
   };
   const ownPopup = BondPopup({ bondId, entry: own.entry, priv: own.priv, onClose() {} });
-  assert.match(nowText(ownPopup), /周围敌人造成120%攻击力真实伤害/);
-  assert.doesNotMatch(nowText(ownPopup), /召唤整备区最右侧/);
-  assert.ok(!/—/.test(nowText(ownPopup)));
+  assert.match(effectText(ownPopup), /周围敌人造成120%攻击力真实伤害/);
+  assert.doesNotMatch(effectText(ownPopup), /召唤整备区最右侧/);
+  assert.ok(!/—/.test(effectText(ownPopup)));
 
   const teammateId = h.ps('p_1').playerId;
   const watched = popupView({ open: { id: bondId, ownerId: ps.playerId }, pub, priv: h.ps('p_1').privateView(), myId: teammateId, field: null });
   assert.equal(watched.entry.effectId, target);
-  assert.match(nowText(BondPopup({ bondId, entry: watched.entry, priv: watched.priv, owner: watched.name, onClose() {} })), /周围敌人造成120%攻击力真实伤害/);
+  assert.match(effectText(BondPopup({ bondId, entry: watched.entry, priv: watched.priv, owner: watched.name, onClose() {} })), /周围敌人造成120%攻击力真实伤害/);
 
   const emptyStrip = BondStrip({ bonds: priv.bonds, onOpen() {} });
   assert.ok(![...walk(emptyStrip)].some((v) => v.props?.['data-bond'] === bondId));

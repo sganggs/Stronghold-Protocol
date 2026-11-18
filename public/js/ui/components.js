@@ -221,7 +221,7 @@ export function TierChip({ tier, golden = false, size = 'md', class: cls, overla
  */
 export function BondDisc({
   name = '', icon, count, layers, members = 0, minCount = 0, tier = 0, maxTier = 3, active = false, disabled = false, layersDisabled = false,
-  size = 'md', showName = true, onClick, class: cls, title,
+  size = 'md', showName = true, onClick, class: cls, title, cross = disabled, tag = null,
 }) {
   // Remember which URL failed (a per-URL flag can't race a reset effect).
   const [badSrc, setBadSrc] = useState(null);
