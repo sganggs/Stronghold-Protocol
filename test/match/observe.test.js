@@ -1,6 +1,6 @@
 // Observing rules of the client (public/js/battle/observe.js, research 09 §3.1 / §6.3) — the mirror of the server's
 // Match._watchClient: prep boards, no observing while the own normal battle runs, a teammate's field once it is over,
-// the other pair's boss field hidden, eliminated players free; the 联防 / 最终攻势 camera halves and their captions;
+// cross-group boss viewing, eliminated players free; the 联防 / 最终攻势 camera halves and their captions;
 // a reloaded screen that watched a teammate's battle takes the watch back (resumedWatch).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -18,7 +18,7 @@ test('observeTarget: prep, own battle running / over, boss pairs, eliminated pla
     { fieldId: 'n:a', kind: 'normal', players: ['a'], live: liveA },
     { fieldId: 'n:b', kind: 'normal', players: ['b'], live: true, progress: { killed: 3, total: 8, done: false } },
   ], players);
-  assert.match(observeTarget(players[1], combat(true), 'a').reason, /作战中无法查看/);
+  assert.deepEqual(observeTarget(players[1], combat(true), 'a'), {fieldId:'n:b'});
   assert.deepEqual(observeTarget(players[1], combat(true), 'a', { ownDone: true }), { fieldId: 'n:b' }, 'the local battle already ended');
   assert.deepEqual(observeTarget(players[1], combat(false), 'a'), { fieldId: 'n:b' });
   assert.deepEqual(observeTarget(players[0], combat(false), 'a', { observing: true }), { back: true });
@@ -32,10 +32,50 @@ test('observeTarget: prep, own battle running / over, boss pairs, eliminated pla
     { fieldId: 'b1', kind: 'boss', players: ['a', 'b'], live: true },
     { fieldId: 'b2', kind: 'boss', players: ['d'], live: true },
   ], [...players, P('d', 3)]);
-  assert.match(observeTarget(P('d', 3), fa, 'a').reason, /另一组/);
+  assert.deepEqual(observeTarget(P('d', 3), fa, 'a'), { fieldId: 'b2' });
   assert.match(observeTarget(players[1], fa, 'a').reason, /同一战场/);
   const dead = pubOf('FINAL_ASSAULT', fa.fields, [{ ...players[0], alive: false }, players[1], P('d', 3)]);
   assert.deepEqual(observeTarget(P('d', 3), dead, 'a'), { fieldId: 'b2' }, 'eliminated: anything');
+});
+
+test('设置「作战中查看队友」 off (PR #971): no other field while the own battle runs; once it is over, or switched on, it opens', () => {
+  const players = [P('a', 0), P('b', 1), P('c', 2), P('d', 3)];
+  const normal = pubOf('COMBAT', [
+    { fieldId: 'n:a', kind: 'normal', players: ['a'], live: true },
+    { fieldId: 'n:b', kind: 'normal', players: ['b'], live: true },
+  ], players);
+  assert.match(observeTarget(players[1], normal, 'a', { liveWatch: false }).reason, /设置/);
+  assert.deepEqual(observeTarget(players[1], normal, 'a', { liveWatch: false, ownDone: true }), { fieldId: 'n:b' }, 'the own battle already ended');
+  assert.deepEqual(observeTarget(players[1], normal, 'a', { liveWatch: true }), { fieldId: 'n:b' });
+  const bossFields = [
+    { fieldId: 'b1', kind: 'boss', players: ['a', 'b'], live: true },
+    { fieldId: 'b2', kind: 'boss', players: ['c', 'd'], live: true },
+  ];
+  const fa = pubOf('FINAL_ASSAULT', bossFields, players);
+  assert.match(observeTarget(players[2], fa, 'a', { liveWatch: false }).reason, /设置/);
+  assert.deepEqual(observeTarget(players[2], fa, 'a', { liveWatch: true }), { fieldId: 'b2' });
+  const over = pubOf('FINAL_ASSAULT', [{ ...bossFields[0], live: false }, bossFields[1]], players);
+  assert.deepEqual(observeTarget(players[2], over, 'a', { liveWatch: false }), { fieldId: 'b2' }, 'the own boss field is over');
+  const dead = pubOf('FINAL_ASSAULT', bossFields, [{ ...players[0], alive: false }, ...players.slice(1)]);
+  assert.deepEqual(observeTarget(players[2], dead, 'a', { liveWatch: false }), { fieldId: 'b2' }, 'eliminated: anything');
+  assert.match(observeTarget(players[1], fa, 'a', { liveWatch: false }).reason, /同一战场/);
+});
+
+test('cross-group boss/hidden viewing restores after reconnect, once, without overriding return-home', () => {
+  const players = [P('a', 0), P('b', 1), P('c', 2), P('d', 3)];
+  for (const [phase, kind] of [['FINAL_ASSAULT', 'boss'], ['HIDDEN_CORE', 'hidden']]) {
+    const pub = pubOf(phase, [
+      { fieldId: 'b1', kind, players: ['a', 'b'], live: true },
+      { fieldId: 'b2', kind, players: ['c', 'd'], live: true },
+    ], players);
+    const battle = { battleId: `${phase}-b2`, fieldId: 'b2', kind, watch: true };
+    assert.deepEqual(observeTarget(players[2], pub, 'a'), { fieldId: 'b2' });
+    assert.deepEqual(observeTarget(players[0], pub, 'a', { observing: true }), { back: true });
+    assert.deepEqual(resumedWatch(battle, { pub, myId: 'a' }), { seen: battle.battleId, fieldId: 'b2' });
+    assert.equal(resumedWatch(battle, { pub, myId: 'a', seen: battle.battleId }).fieldId, null);
+    assert.equal(resumedWatch({ ...battle, watch: false }, { pub, myId: 'a' }).fieldId, null);
+    assert.equal(resumedWatch({ ...battle, kind: 'normal' }, { pub, myId: 'a' }).fieldId, null);
+  }
 });
 
 test('cameraLayers: ‹ LEFT / 全景 / RIGHT › with "你自己" / name / "无人在家"; none for normal or single boss fields', () => {

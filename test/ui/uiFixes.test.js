@@ -164,8 +164,8 @@ describe('watch targets and the view switcher', () => {
       { fieldId: 'b2', kind: 'boss', players: ['x'], live: true },
     ],
   };
-  test('the other pair of a Final Assault and eliminated teammates are refused client-side', () => {
-    assert.match(watchTarget(pub.players[2], pub, 'me').reason, /另一组/);
+  test('the other pair of a Final Assault is watchable; eliminated teammates remain unavailable', () => {
+    assert.deepEqual(watchTarget(pub.players[2], pub, 'me'), { fieldId: 'b2' });
     assert.match(watchTarget(pub.players[3], pub, 'me').reason, /淘汰/);
     assert.deepEqual(watchTarget(pub.players[1], pub, 'me'), { fieldId: 'b1' });
     // an eliminated spectator may watch any boss field

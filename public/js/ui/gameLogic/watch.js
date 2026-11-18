@@ -40,27 +40,17 @@ export function cycleField(fields, current, dir = 1) {
 
 /**
  * What clicking a teammate row asks the server to watch, or why it can't (mirror of server Match.watch): an
- * eliminated player has no board to watch, and during 最终攻势 / 隐秘核心 a fighting player can't see the other
- * pair's boss field ("无法查看另一组队友的战场情况").
+ * eliminated player has no board to watch. Final Assault and Hidden Core allow viewing the other pair's field.
  * @param {any} p m.public player row
  * @param {any} pub
- * @param {string} myId
+ * @param {string} _myId
  * @returns {{ fieldId: string } | { reason: string }}
  */
-export function watchTarget(p, pub, myId) {
+export function watchTarget(p, pub, _myId) {
   if (!isObj(p)) return { reason: t('无效的目标') };
   if (p.alive === false) return { reason: t('该队友已被淘汰，无法查看其阵地') };
   const combat = isCombatPhase(pub?.phase);
   const fieldId = (combat && typeof p.fieldId === 'string' && p.fieldId) || ownFieldId(p.playerId);
-  if (combat) {
-    const fields = Array.isArray(pub?.fields) ? pub.fields.filter(isObj) : [];
-    const f = fields.find((x) => x.fieldId === fieldId);
-    const me = sortedPlayers(pub).find((x) => x.playerId === myId);
-    const mine = fields.find((x) => Array.isArray(x.players) && x.players.includes(myId));
-    if (f && (f.kind === 'boss' || f.kind === 'hidden') && me?.alive !== false && mine && mine.fieldId !== f.fieldId) {
-      return { reason: t('无法查看另一组队友的战场') };
-    }
-  }
   return { fieldId };
 }
 
