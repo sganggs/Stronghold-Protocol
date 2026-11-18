@@ -1,6 +1,9 @@
 // render/style.js — palette and visual tunables of the battlefield renderer (pure data).
 // Colours follow research 07 §7 (tile palette, tuned by eye) and the UI design system (theme.css).
 
+/** [ASSUMED] UI tuning (2026-11-17), not extracted official constants: smaller, slightly forward on the same pad. */
+export const BENCH_UNIT = Object.freeze({ forward: 0.15, scale: 0.9 });
+
 export const TILE_H = Object.freeze({
   wall: 0.42,      // 'h' high ground
   forbid: 0.3,     // '#' forbidden block (data: HIGH)

@@ -43,6 +43,46 @@ function view(info, opts = {}, assets = store()) {
   return new UnitView(ctx, { id: 1, side: 'ally', kind: 'chess', defId: 'char_x', tier: 3, x: 5, y: 12, maxHp: 1000, ...info }, opts);
 }
 
+test('resting bench operators shrink at the feet and move forward within the original pick tile', () => {
+  for (const camera of [cam(), presetCamera('bossPrep', { width: 1280, height: 720, side: 'R' })]) {
+    const a = view({ kind: 'op', x: 4, y: 7 }, { prep: true });
+    const b = view({ kind: 'op', x: 4, y: 7 }, { prep: true, bench: true });
+    try {
+      a.setItems(['one']); b.setItems(['one']);
+      a.update(0, camera, 0); b.update(0, camera, 0);
+      const feet = camera.project(4, 7, 0);
+      const down = camera.project(4, 6.85, 0).y - feet.y;
+      assert.ok(down > 0);
+      assert.equal(b.x, 4); assert.equal(b.y, 7);
+      assert.equal(b.body.scale.x, 0.9);
+      assert.ok(Math.abs(b.root.position.y - a.root.position.y - down) < 1e-8);
+      assert.ok(Math.abs(b.shadow.position.y - a.shadow.position.y - down) < 1e-8);
+      assert.ok(Math.abs(b._headTiles / a._headTiles - 0.9) < 1e-8);
+      assert.equal(b.hud.scale.x, 1);
+      assert.equal(b.itemPips[0].width, a.itemPips[0].width);
+      // The same view is reused when dragging and when placed on the battlefield.
+      b.lift = 1; b.update(0, camera, 0);
+      assert.equal(b.body.scale.x, 1);
+      assert.equal(b.screen.y, camera.project(4, 7, 1).y);
+      b.lift = 0; b.bench = false; b.update(0, camera, 0);
+      assert.equal(b.body.scale.x, 1);
+      assert.equal(b.root.position.y, a.root.position.y);
+    } finally { a.destroy(); b.destroy(); }
+  }
+});
+
+test('bench tuning leaves battle operators and preparation summons unchanged', () => {
+  for (const [kind, prep] of [['op', false], ['token', true]]) {
+    const v = view({ kind, y: 7 }, { prep, bench: true });
+    try {
+      const camera = cam();
+      v.update(0, camera, 0);
+      assert.equal(v.body.scale.x, 1);
+      assert.equal(v.screen.y, camera.project(v.x, v.y, v.z).y);
+    } finally { v.destroy(); }
+  }
+});
+
 test('prep pips retain both equipment slots and a zero-slot morph, then remove only unequipped pips', () => {
   const v = view({}, { prep: true });
   v.setItems(['one', 'two', 'morph']);

@@ -967,6 +967,8 @@ export async function createFieldView(host, options = {}) {
       v._home = w;
       v.dimmed = false;
       if (info.kind === 'item' && v.setIcon) v.setIcon(info.icon); // an icon the manifest named late (onAssets)
+      // Reused views must restore full size when the operator leaves the hand.
+      if (v instanceof UnitView) v.bench = e.area === 'hand' && info.kind === 'op';
       if (v.setCount) v.setCount(e.piece.kind === 'token' ? e.piece.count : 0);
       if (v.setItemProgress) v.setItemProgress(pieceItemProgress(e.piece));
       if (v.setItems) v.setItems(Array.isArray(e.piece.items) ? e.piece.items.map((it) => { const r = data.item(it?.id); return assets.itemIcon ? assets.itemIcon(r ? { trapId: r.trapId, iconId: r.iconId } : it?.id) : null; }) : []);
@@ -1670,7 +1672,7 @@ export async function createFieldView(host, options = {}) {
     if (!info || gone.has(id)) return null;
     v = info.kind === 'device' ? new DeviceView(ctx, info)
       : info.kind === 'item' ? new ItemView(ctx, scoutItemInfo(info))
-      : new UnitView(ctx, info, { prep: !!battleMeta?.prep && info.side === 'ally' });
+      : new UnitView(ctx, info, { prep: !!battleMeta?.prep && info.side === 'ally', bench: info.area === 'hand' && info.kind === 'op' });
     // a teammate's operator shows its equipped items like the own prep bench does (item pips; user playtest #2:
     // at the unit, not only in the detail card) — prep surfaces only, the battle HUD stays as it is
     if (v.setItems && battleMeta?.prep && Array.isArray(info.items) && info.items.length) {

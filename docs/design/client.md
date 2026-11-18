@@ -4,6 +4,12 @@ Part of [DESIGN.md](../DESIGN.md) (the index; section numbers are global).
 
 ## 9. Client rendering contract (public/js/render)
 
+Resting operators in the hand use 90% body scale about their feet and a downward visual offset corresponding to
+0.15 tile toward the front of their existing pad (UI tuning, 2026-11-17). Shadows follow; head markers and equipped-item
+icons follow the adjusted head height at their original sizes. Own and scouted prep views share this presentation.
+Dragging / deployment restores normal presentation. Tile geometry, logical coordinates, tile picking, loose equipment,
+temporary reserves, summons and battle operators keep their existing behaviour.
+
 Normal healing ranges use cyan-blue battlefield highlights; damaging ranges keep orange. Placement previews and
 inspected operators / healing summons resolve the same loadout record (dmgType heal or attackKind heal).
 The solid fill, Pixi stripes and SVG stripes share that choice, preserving highlight groups and orientation.
