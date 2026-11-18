@@ -332,11 +332,13 @@ function rebirthCooldowns(e) {
 
 /** devices.js' lasting 活性源石 effect: a timed buff, not field state — cleared at a 重生 (rebirthCleanse). */
 const INFECTION_BUFF = 'terrain:infection';
+/** devices.js' 规程 tile_speedup child: it outlives the tile and is not a talent `persist` buff, so a 重生 clears it. */
+const SPEEDUP_BUFF = 'terrain:speedup';
 
 function rebirthCleanse(b, e) {
   for (const x of e.buffs.slice()) {
     if (x.persist || (x.source && x.source.side === 'enemy')) continue;
-    if (x.source || x.status || x.key === INFECTION_BUFF) b.removeBuff(e, x);
+    if (x.source || x.status || x.key === INFECTION_BUFF || x.key === SPEEDUP_BUFF) b.removeBuff(e, x);
   }
 }
 

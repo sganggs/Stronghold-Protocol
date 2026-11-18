@@ -2222,7 +2222,7 @@ const TILE_LEGEND = {
   g: { tileKey: 'tile_smog', special: 'smog', desc: '排气格栅：其上干员不会成为敌方远程攻击目标' },
   d: { tileKey: 'tile_deepsea', special: 'deepsea', desc: '深水区：不可部署（拒绝部署），敌人持续受伤、减速、减攻速' },
   i: { tileKey: 'tile_infection', special: 'infection', desc: '活性源石：单位受持续真实伤害，攻击力与攻速提升' },
-  z: { tileKey: 'tile_speedup', special: 'speedup', desc: '加速地块（规程）：站上的地面单位攻速 +attack_speed、移速 ×move_speed（官方 25 / 1.5）；飞行单位不吃地面地形' },
+  z: { tileKey: 'tile_speedup', special: 'speedup', desc: '加速地块（规程）：我方地面干员/召唤物攻速 +attack_speed，敌方地面单位移速 ×move_speed（官方 25 / 1.5）；离开后保留，重生清除；飞行单位不吃' },
   w: { tileKey: 'tile_duel_grassland', special: 'duelGrass', desc: '隐匿地块（规程）：双方地面单位获得隐匿；敌人被阻挡时显形，解除阻挡立即恢复，离开地块清除' },
 };
 
@@ -2256,6 +2256,7 @@ const DEVICE_ROLES = {
   trap_1105_accrate: 'crate', trap_1106_achplat: 'platform', trap_032_mound: 'mound', trap_013_blower: 'blower',
   trap_098_mire: 'mireController', trap_042_tidectrl: 'tideController', trap_1104_aclasert: 'turret',
   trap_1112_acblzd: 'coldWind', trap_036_storm: 'sandstorm', trap_040_canoe: 'waterPlatform',
+  trap_196_cnnon: 'cannon',
   trap_1107_acblock: 'sealedFloor', trap_218_fttree: 'bush', trap_039_dstnta: 'bossSpawn',
 };
 /** Roles that block ground movement while active ([ASSUMED] for platform/mound). */

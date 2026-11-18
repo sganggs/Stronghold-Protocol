@@ -987,9 +987,18 @@ and 扎罗's 溶血骇惧; "受到N真实伤害" over time is damage (PRTS 伤�
 `'dot'` / `'periodic'` (player report D1). Terrain ticks (`content/devices.js`): 深水区's 【水蚀】 is the same kind (PRTS 涨潮控制
 深水 "无来源真实持续伤害（不属于环境伤害，不会触发受击回复）": `noSp`, tags `'dot'` / `'periodic'` / `'deepsea'`); 活性源石's is
 无来源 true damage tagged `'terrain'` — 环境伤害 (PRTS 自然环境), what "受到来自自然环境的伤害" content (纠缠藤蔓) reads — and
-not `'dot'` [ASSUMED] (DESIGN §22.4). 规程 `tile_speedup` (glyph `z`) is not a tick: a ground unit standing on it gains
-ASPD +`attack_speed` and move ×`move_speed` (`stage.special.speedup`, official 25 / 1.5), both sides, cleared on leaving;
-flyers skip it. Glyph `w` (`tile_duel_grassland`) grants both sides' ground units Stealth through the independent
+not `'dot'` [ASSUMED] (DESIGN §22.4). 规程 `tile_speedup` (glyph `z`) is not a tick. The buff template's
+success branch gives a ground ally whose profession is one of PIONEER / WARRIOR / TANK / SNIPER / CASTER / MEDIC /
+SUPPORT / SPECIAL / TOKEN flat ASPD +`attack_speed` (official 25, from `stage.special.speedup`); the fail branch gives
+a ground enemy move ×`move_speed` (official 1.5) and no ASPD. Both children are infinite and are not removed when the
+parent tile buff ends, so they stay after the unit leaves the tile, until a 重生 clears them or the unit leaves the
+field. Standing on the tile again does not stack (maxStack 1). Flyers skip it (`terrainFor`). Devices are not allies of
+those professions. 规程 盐坨子炮 (`trap_196_cnnon`, role `cannon`) stands on the separator just above the field
+(row = rect.r1 + 1, facing DOWN; `spawnDevice` `allowOutside`) and does not block the road. Every 6 s (`sktok_cnnon`
+SP; the stage runes `char_skill_cd_mul` / `char_attribute_add` are not applied [ASSUMED]) it deals its ATK as physical
+damage to allies on the far tile of range 4-1 and moves one adjacent ground enemy of 重量 ≤ 3 onto that tile.
+Operators can attack it. 寻险水手 (`enemy_10043_sailor`) gains a short move-speed buff from that teleport only.
+Glyph `w` (`tile_duel_grassland`) grants both sides' ground units Stealth through the independent
 `terrain:duelGrass` buff. Leaving clears only that source; blocked enemies are visible and regain it after
 `stage.special.duelGrass.enemyStealthRestoreSec` seconds (`stealthRestore`, fallback 0). The official value is 0, so
 release is immediate. Flyers skip it. Source: official tile/buff prefabs, [field receipt](research/regulation-map09-20261112.json). The 源石溶剂 drain also ticks on every 敌人类我方单位 of the field (炎佑, a

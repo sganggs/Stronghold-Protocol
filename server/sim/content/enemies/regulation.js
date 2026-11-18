@@ -6,11 +6,13 @@
 // Official numbers are read from the enemy record. Points with no blackboard are marked [ASSUMED].
 
 import { hypot, sin, cos } from '../../detmath.js';
+import { ALLY_COLLIDER_RADIUS, PROJECTILE_SPEEDS } from '../../constants.js';
+import { canTargetAlly } from '../../targeting.js';
 import {
   hurt, elem, areaAllies, auraAllies, remainingRoute, stayRoute, spawnChildren, nthOf, canCast, BOOM_RADIUS, auraBuff, watchDeaths,
   unbalancedNow,
 } from './helpers.js';
-import { skill, stealth, ep, refraction, reborn } from './archetypes.js';
+import { skill, stealth, ep, refraction, reborn, deathBoom } from './archetypes.js';
 
 const num = (v, d) => {
   if (typeof v === 'number' && Number.isFinite(v)) return v;
@@ -530,12 +532,143 @@ function kitAchest() {
   }];
 }
 
+/** Recompute the block-count bonus on `u` from the Reborn Creations (`enemy_bloodsucker_block_cnt`) it holds. */
+function syncRebornBlocker(b, u) {
+  if (!u || !u.alive) return;
+  let total = 0;
+  let cap = 6;
+  for (const o of u.blocking || []) {
+    if (!o.alive || o.blockedBy !== u || !(o.mem?.rebornBlockStep > 0)) continue;
+    total += o.mem.rebornBlockStep;
+    if (o.mem.rebornBlockCap > 0) cap = Math.min(cap, o.mem.rebornBlockCap);
+  }
+  total = Math.min(cap, total);
+  if (total > 0) b.addBuff(u, { key: 'reg:rebornBlocker', persist: true, refresh: 'replace', mods: { blockCnt: total } });
+  else b.removeBuff(u, 'reg:rebornBlocker');
+}
+
+/** 大君之触 / 仁慈之触 / 大君之赐 / 慷慨之赐: 90% phys/arts DR (`dmg_res.damage_resistance`; true damage is not in
+ *  that key). No buff template names `dmg_res`, so silence not removing it is [ASSUMED] (the sibling block buff
+ *  `enemy_bloodsucker_block_cnt[control]` is explicitly unsilenceable). +1 blockCnt per blocked copy, capped by
+ *  `max_valid_stack_cnt` (6), recomputed from whoever is actually blocking it. */
+function kitRebornCreation(ab) {
+  const dr = tv(ab, 'dmg_res.damage_resistance', 0.9);
+  const blockStep = tv(ab, 'buff_to_blocker.block_cnt', 1);
+  const blockCap = tv(ab, 'buff_to_blocker.max_valid_stack_cnt', 6);
+  const mul = Math.max(0, 1 - dr);
+  return [{
+    spawn(b, e, a) {
+      a.blocker = null;
+      e.mem.rebornBlockStep = blockStep;
+      e.mem.rebornBlockCap = blockCap;
+      b.addBuff(e, { key: 'reg:rebornCreation', persist: true, mods: { physTakenMul: mul, artsTakenMul: mul } });
+    },
+    blocked(c, b, e, a) {
+      const prev = a.blocker;
+      a.blocker = c.blocker ?? e.blockedBy ?? null;
+      if (prev && prev !== a.blocker) syncRebornBlocker(b, prev);
+      if (a.blocker) syncRebornBlocker(b, a.blocker);
+    },
+    tick(b, e, a) {
+      const cur = e.blockedBy ?? null;
+      if (cur === a.blocker) return;
+      const prev = a.blocker;
+      a.blocker = cur;
+      if (prev) syncRebornBlocker(b, prev);
+      if (cur) syncRebornBlocker(b, cur);
+    },
+    death(c, b, e, a) {
+      const prev = a.blocker;
+      a.blocker = null;
+      if (prev) syncRebornBlocker(b, prev);
+    },
+  }];
+}
+
+/** “喷射罐” / “喷爆罐”: Attack_Begin (0.6 s) -> Attack_Loop (1.0 s, OnAttack at 0) × `Boom.attack@times` (3) -> Attack_End
+ *  (0.267 s), next spray after `Boom.attack@cooldown` (4 s) from spray start [ASSUMED: exact C# channel cadence uses
+ *  1.0 s Attack_Loop × times scaled by ASPD and `cooldown` from spray start; CC or losing the target ends the spray];
+ *  silenced death blast (`Boom.atk_scale` arts + `Boom.freeze` s cold, BOOM_RADIUS [ASSUMED]). */
+function kitWinbom(ab) {
+  const times = Math.max(1, Math.round(tv(ab, 'Boom.attack@times', 3)));
+  const cd = tv(ab, 'Boom.attack@cooldown', 4);
+  const boomScale = tv(ab, 'Boom.atk_scale', 1);
+  const boomCold = tv(ab, 'Boom.freeze', 10);
+  return [
+    {
+      attack(c, b, e, a) {
+        const t = c.targets && c.targets[0];
+        if (!t || !(times > 1)) return;
+        const scale = 100 / Math.max(10, e.s.aspd || 100);
+        a.spray = {
+          target: t,
+          depSeq: c.targetDeployments?.get(t) ?? t.deploySeq,
+          left: times - 1,
+          timer: 1,
+          pendingCd: Math.max(e.s.interval, cd * scale),
+          standUntil: b.time + times * scale,
+        };
+      },
+      tick(b, e, a, dt) {
+        const s = a.spray;
+        if (!s) return;
+        if (s.pendingCd != null) {
+          e.atkCd = s.pendingCd;
+          s.pendingCd = null;
+          e.atkStandUntil = Math.max(e.atkStandUntil, s.standUntil);
+          return;
+        }
+        if (!canCast(e, false, b) || e.s.flags.fear || e.s.flags.disarm || (e.s.flags.tremble && e.blockedBy)) {
+          a.spray = null;
+          b._cutAttackStand(e);
+          return;
+        }
+        const t = s.target;
+        const reach = (e.base.rangeRadius || 1) + ALLY_COLLIDER_RADIUS;
+        const valid = t && t.alive && t.deploySeq === s.depSeq
+          && (e.blockedBy === t ? !!t.deployed : (canTargetAlly(e, t, true) && hypot(t.x - e.x, t.y - e.y) <= reach + 1e-9));
+        if (!valid) {
+          a.spray = null;
+          b._cutAttackStand(e);
+          return;
+        }
+        const rate = Math.max(10, e.s.aspd || 100) / 100;
+        s.timer -= dt * rate;
+        if (s.timer > 1e-9) return;
+        s.timer += 1;
+        s.left--;
+        const depSeq = s.depSeq;
+        const rangedShot = !(e.blockedBy && t === e.blockedBy && (e.base.rangeRadius || 1) < 1);
+        b._ev(['atk', e.id, t.id, rangedShot ? 'enemy' : 'none']);
+        const attackId = ++b._attackSeq;
+        const hit = (tt, isProjectile = false) => {
+          if (!tt || !tt.alive || tt.deploySeq !== depSeq) return;
+          if (!e.alive && !rangedShot) return;
+          b.dealDamage(e, tt, { amount: e.s.atk * (e.profile?.atkScale ?? 1), type: 'arts', isAttack: true, attackId, isProjectile });
+        };
+        if (rangedShot && hypot(t.x - e.x, t.y - e.y) > 0.75) {
+          b.addProjectile({ from: e, target: t, speed: PROJECTILE_SPEEDS.enemy, visual: 'enemy', source: e, onHit: (c) => hit(c.target, true) });
+        } else hit(t);
+        if (s.left <= 0) {
+          a.spray = null;
+          e.atkStandUntil = Math.max(e.atkStandUntil, b.time + 0.267);
+        } else {
+          e.atkStandUntil = Math.max(e.atkStandUntil, b.time + 1 / rate);
+        }
+      },
+    },
+    deathBoom({ scale: boomScale, type: 'arts', status: boomCold > 0 ? { key: 'cold', dur: boomCold } : null }),
+  ];
+}
+
 const same = (kit) => kit;
 
 export const REGULATION_KITS = Object.freeze({
   enemy_1406_chghmr: kitChghmr,
   enemy_1375_ltnclr: kitLtnclr,
   enemy_1375_ltnclr_2: same(kitLtnclr),
+  enemy_1385_winbom: kitWinbom,
+  enemy_1385_winbom_2: same(kitWinbom),
   enemy_1388_wingnt: kitWingnt,
   enemy_1388_wingnt_2: same(kitWingnt),
   enemy_1191_krgrg: kitKrgrg,
@@ -545,6 +678,10 @@ export const REGULATION_KITS = Object.freeze({
   enemy_1431_lrmzrd: kitLrmzrd,
   enemy_1431_lrmzrd_2: same(kitLrmzrd),
   enemy_9040_accrit: kitAccrit,
+  enemy_1220_dzoms: kitRebornCreation,
+  enemy_1220_dzoms_2: same(kitRebornCreation),
+  enemy_1221_dzomg: kitRebornCreation,
+  enemy_1221_dzomg_2: same(kitRebornCreation),
   enemy_1222_dpvt: kitDeathrattle,
   enemy_1222_dpvt_2: same(kitDeathrattle),
   enemy_1223_dmech: kitDeathrattle,

@@ -240,7 +240,7 @@ test('左手泰特斯 halves the highest-ATK operator for 25 s after 10 s and ma
   assert.ok(!h.unit('t_gun').findBuff('reg:weaken'), 'only the highest ATK');
 });
 
-test('speedup raises ASPD and move speed; grassland grants stealth instead; a flyer skips the tile', () => {
+test('speedup gives allies ASPD only and enemies move speed only; grassland grants stealth; a flyer skips the tile', () => {
   const row = '##hrrzrwrrfrrrrrrrf##';
   assert.equal(row.length, 21);
   assert.equal(row[5], 'z');
@@ -261,9 +261,9 @@ test('speedup raises ASPD and move speed; grassland grants stealth instead; a fl
   const speed = fast.findBuff('terrain:speedup');
   assert.ok(speed);
   assert.equal(speed.mods.aspd, 25);
-  assert.equal(speed.mods.moveMul, 1.5);
+  assert.equal(speed.mods.moveMul, undefined);
   assert.equal(fast.s.aspd, 125);
-  // Operators are created with base move 0, so the multiplier does not change their stat.
+  // Operators are created with base move 0. Allies do not get the enemy move scaler.
   assert.equal(fast.s.moveSpeed, 0);
   assert.equal(grass.findBuff('terrain:speedup'), null);
   assert.ok(grass.findBuff('terrain:duelGrass'));
@@ -273,7 +273,7 @@ test('speedup raises ASPD and move speed; grassland grants stealth instead; a fl
   const gear = put(h, 'enemy_9028_acfncb', [10, 5]);
   h.step(1);
   assert.ok(gear.findBuff('terrain:speedup'));
-  assert.equal(gear.s.aspd, 125);
+  assert.equal(gear.s.aspd, 100);
   assert.ok(near(gear.s.moveSpeed, 0.6));
   const fly = put(h, ARMOR, [10, 5], 'FLY');
   h.step(1);

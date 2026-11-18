@@ -20,9 +20,14 @@
 //   活性源石 i  a unit on it (allies and ground enemies) gets a timed effect: damage true dmg/s, ATK + atk, ASPD +
 //              attack_speed for `duration` s from its last contact — an enemy keeps it after walking off; one effect
 //              per unit, its time starts again while the unit is on the tile; the tiles never switch off
-//   加速 z      规程 tile_speedup: a ground unit standing on it (allies and enemies) gets ASPD +attack_speed (flat,
-//              official 25) and move ×move_speed (official 1.5), from stage.special.speedup when that block is present.
-//              Cleared on leaving. Flyers skip it (terrainFor).
+//   加速 z      规程 tile_speedup (buff template tile_speedup): a ground ally of profession PIONEER/WARRIOR/TANK/SNIPER/
+//              CASTER/MEDIC/SUPPORT/SPECIAL/TOKEN gets ASPD +attack_speed (flat, official 25); a ground enemy gets
+//              move ×move_speed (official 1.5) and no ASPD. The children are not removed when the tile buff ends, so
+//              they stay after leaving until a 重生 (archetypes.js rebirthCleanse) or the unit leaves the field.
+//              Standing on it again does not stack. Flyers skip it (terrainFor). From stage.special.speedup.
+//   盐坨子炮   规程 trap_196_cnnon on the separator above the field (row = rect.r1+1, facing DOWN): every 6 SP × the
+//              stage's char_skill_cd_mul (MAP10: 18 s; cannonRunes) a physical hit of its ATK on the far tile of range 4-1,
+//              and one adjacent ground enemy of 重量 ≤ 3 is moved there. Operators can attack it (taunt −1).
 //   隐匿 w      规程 tile_duel_grassland grants both sides' ground units stealth. Enemy blocking suppresses it;
 //              release restores it after stage.special.duelGrass.enemyStealthRestoreSec (fallback 0; the official
 //              0 is immediate). Leaving clears it.
@@ -43,7 +48,7 @@ import { COLS, ROWS } from '../constants.js';
 import { performAttack, attackCountdown } from '../ai.js';
 import { sortEnemyTargets } from '../targeting.js';
 import { DIR_VEC, normDir, oppositeDir } from '../dir.js';
-import { hypot } from '../detmath.js';
+import { hypot, roundHalfEven } from '../detmath.js';
 import { matchBands, bandRecord, buffsOf } from './support/index.js';
 
 const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : (typeof v === 'string' && v.trim() !== '' && Number.isFinite(+v) ? +v : d));
@@ -56,6 +61,33 @@ const BUFF = { 1: 'terrain:mire', 2: 'terrain:smog', 3: 'terrain:deepsea', 4: 't
 const AIRFLOW = 'terrain:airflow';
 const CRATE_KEY = 'trap_1105_accrate';
 const TURRET_KEY = 'trap_1104_aclasert';
+const CANNON_KEY = 'trap_196_cnnon';
+/** sktok_cnnon: AUTO, INCREASE_WITH_TIME, spCost 6, initSp 0, increment 1. deviceRecord does not keep the SP block. */
+const CANNON_SP = 6;
+
+/**
+ * The stage runes naming the cannon (MAP10: char_attribute_add ATK −300 / MAX_HP +30000 and char_skill_cd_mul scale 3, each
+ * written twice — once for the aliases trap_196_cnnon#1…#4, once for the bare id). [ASSUMED] the two filters name the
+ * same four cannons, so each distinct effect applies once: ATK 900, HP 60000, a shot every 18 s (6 SP × 3). Returns
+ * { atk, hp, cdMul } deltas, neutral when the stage has none.
+ */
+function cannonRunes(stage, d) {
+  const names = new Set([CANNON_KEY, d.key, d.alias, d.raw?.alias].filter(Boolean));
+  const seen = new Set();
+  const out = { atk: 0, hp: 0, cdMul: 1 };
+  for (const r of stage?.runes || []) {
+    const filter = String(r?.bbStr?.char ?? '').split('|').map((x) => x.trim()).filter(Boolean);
+    if (!filter.some((n) => names.has(n))) continue;
+    const sig = `${r.key}:${JSON.stringify(r.bb ?? {})}`;
+    if (seen.has(sig)) continue;
+    seen.add(sig);
+    if (r.key === 'char_attribute_add') { out.atk += num(r.bb?.ATK); out.hp += num(r.bb?.MAX_HP); }
+    else if (r.key === 'char_skill_cd_mul' && num(r.bb?.scale) > 0) out.cdMul *= num(r.bb.scale);
+  }
+  return out;
+}
+/** tile_speedup success-branch professions (buff template). DEVICE is not in the list. */
+const SPEEDUP_PROFESSIONS = new Set(['PIONEER', 'WARRIOR', 'TANK', 'SNIPER', 'CASTER', 'MEDIC', 'SUPPORT', 'SPECIAL', 'TOKEN']);
 /** Research 05 §2.3 values, used only when a stage has no `special` block / device blackboard. */
 const RESEARCH = Object.freeze({
   mire: { intervalSec: 1, aspdPerStack: -0.05, moveMulPerStack: -0.05, maxStacks: 10, heavyWeight: 3 },
@@ -267,6 +299,102 @@ function tickTurret(battle, u, dt) {
   T.cd = u.s.interval;
 }
 
+// ---------------------------------------------------------------------------------------------------------------
+// 盐坨子炮 (trap_196_cnnon) — separator trap, not a road obstacle
+
+/** The cannon stands on the wall row just above this field and faces down into it. */
+function cannonOnField(battle, d) {
+  const R = battle.rect;
+  if (!R || d.row !== R.r1 + 1 || d.col < R.c0 || d.col > R.c1) return false;
+  return normDir(d.dir, 'DOWN') === 'DOWN';
+}
+
+/** Far tile of the authored range (level-1 talent 4-1: five tiles forward, including the cannon). */
+function cannonImpact(d) {
+  const tiles = d.raw?.rangeTiles;
+  let best = null, bestD = -1;
+  if (Array.isArray(tiles)) {
+    for (const p of tiles) {
+      if (!Array.isArray(p) || p.length < 2) continue;
+      const dist = Math.abs(p[0] - d.row) + Math.abs(p[1] - d.col);
+      if (dist > bestD) { bestD = dist; best = p; }
+    }
+  }
+  if (best && bestD > 0) return [best[0], best[1]];
+  const [fr, fc] = DIR_VEC[normDir(d.dir, 'DOWN')];
+  return [d.row + fr * 4, d.col + fc * 4];
+}
+
+function spawnCannon(battle, st, d) {
+  if (d.key !== CANNON_KEY && d.role !== 'cannon') return null;
+  if (!isActive(battle, st, d) || !cannonOnField(battle, d)) return null;
+  // Composed m10 reuses alias #3 on both row-13 cannons and #2 on both row-6 cannons, so the alias is not an id.
+  const id = `${d.row},${d.col}`;
+  if (st.cannons.has(id)) return st.cannons.get(id);
+  const stats = d.stats ?? d.raw?.stats ?? {};
+  const rune = cannonRunes(battle.stage?.runes ? battle.stage : battle.stage?.raw, d);
+  const u = battle.spawnDevice(d.key, d.row, d.col, {
+    hp: Math.max(1, num(stats.maxHp, 30000) + rune.hp), atk: Math.max(0, num(stats.atk, 1200) + rune.atk), def: num(stats.def, 3000), res: num(stats.res, 0),
+    bat: num(stats.bat, 6), blockCnt: 0, allowOutside: true, dir: normDir(d.dir, 'DOWN'),
+    name: d.name ?? d.raw?.name ?? d.key,
+  });
+  if (!u) return null;
+  const sp = CANNON_SP * rune.cdMul;
+  u.mem.cannon = { id, impact: cannonImpact(d), cd: sp, sp };
+  battle.setAllyTarget(u, true);
+  st.cannons.set(id, u);
+  battle.fx('cannonOnline', { x: u.x, y: u.y, id: u.id, alias: aliasOf(d) });
+  return u;
+}
+
+/** 寻险水手: being teleported by the cannon raises move speed briefly. The bridge half of the talent is not here. */
+function sailorCannonBoost(battle, e) {
+  if (!e || e.defId !== 'enemy_10043_sailor') return;
+  const bb = e.def?.talents?.bb;
+  const mul = num(bb && bb['MoveSpeedUp.move_speed'], 2);
+  const dur = num(bb && bb['MoveSpeedUp.speed_up_duration'], 1);
+  // [ASSUMED] move_speed 2 is a final scaler, the same reading as tile_speedup's move_speed.
+  if (!(mul > 1) || !(dur > 0)) return;
+  battle.addBuff(e, { key: 'ab:sailorCannon', duration: dur, mods: { moveMul: mul } });
+}
+
+function fireCannon(battle, u) {
+  const T = u.mem.cannon;
+  if (!T) return;
+  const [r, c] = T.impact;
+  battle.fx('explode', { x: c, y: r, r: 0.5, kind: 'cannon', id: u.id });
+  // [ASSUMED] the empty skill blackboard has no splash radius: only allies whose centre is on the impact tile.
+  if (battle.grid.inRect(r, c)) {
+    for (const a of battle.alliesInRadius(c, r, 0.51)) {
+      battle.dealDamage(u, a, { amount: u.s.atk, type: 'phys', isSkill: true });
+    }
+  }
+  // [ASSUMED] 周围 is chebyshev 1 around the cannon, not around the blast. One enemy, lowest id.
+  let pick = null;
+  for (const e of battle.enemies) {
+    if (!e.alive || e.hidden || e.isFlying || num(e.s.massLevel, 0) > 3) continue;
+    const er = roundHalfEven(e.y), ec = roundHalfEven(e.x);
+    if (Math.max(Math.abs(er - u.tileR), Math.abs(ec - u.tileC)) !== 1) continue;
+    if (!pick || e.id < pick.id) pick = e;
+  }
+  if (!pick || !battle.grid.inRect(r, c)) return;
+  pick.x = c;
+  pick.y = r;
+  battle._unblock(pick);
+  if (pick.route) pick.route.pts = null;
+  battle.fx('teleport', { x: c, y: r, id: pick.id, src: u.id });
+  sailorCannonBoost(battle, pick);
+}
+
+function tickCannon(battle, u, dt) {
+  const T = u.mem.cannon;
+  if (!u.alive || !T) return;
+  T.cd -= dt;
+  if (T.cd > 1e-9) return;
+  T.cd += T.sp;
+  fireCannon(battle, u);
+}
+
 /** Activate “双眼皮” turrets on this field (all known aliases by default; idempotent). Returns the turret units. */
 export function activateTurrets(battle, { aliases = null } = {}) {
   const st = stateOf(battle);
@@ -363,11 +491,29 @@ const deepWaterDamage = (battle, amount) => (ctx) => {
   if (amount > 0 && ctx.unit.alive) battle.dealDamage(null, ctx.unit, { amount, type: 'true', canDodge: false, sourceless: true, noSp: true, tags: ['dot', 'periodic', 'deepsea'] });
 };
 
+/** tile_speedup's derived child. maxStack 1: a unit that already has it (still standing, or back again) is left alone. */
+function grantSpeedup(battle, st, u) {
+  const key = BUFF[TERRAIN.speedup];
+  if (u.findBuff(key)) return;
+  const S = st.speedup;
+  if (u.side === 'enemy') {
+    battle.addBuff(u, { key, mods: { moveMul: S.moveMul } });
+    return;
+  }
+  if (!SPEEDUP_PROFESSIONS.has(u.def?.profession)) return;
+  battle.addBuff(u, { key, mods: { aspd: S.aspd } });
+}
+
 function enterTerrain(battle, st, u, code) {
   const m = u.mem;
-  if (m.terrain === code) return;
-  // leaving a tile ends its effect — except 活性源石's, which runs out on its own (touchInfection)
-  if (m.terrain && m.terrain !== TERRAIN.infection) battle.removeBuff(u, BUFF[m.terrain]);
+  if (m.terrain === code) {
+    // a 重生 clears the child while the unit is still standing on z; contact gives it back, still one stack
+    if (code === TERRAIN.speedup) grantSpeedup(battle, st, u);
+    return;
+  }
+  // leaving a tile ends its effect — except 活性源石's, which runs out on its own (touchInfection), and tile_speedup's
+  // child, which the template does not finish when the parent ends
+  if (m.terrain && m.terrain !== TERRAIN.infection && m.terrain !== TERRAIN.speedup) battle.removeBuff(u, BUFF[m.terrain]);
   m.terrain = code;
   m.terrainSince = battle.time;
   m.mireStacks = 0;
@@ -380,10 +526,7 @@ function enterTerrain(battle, st, u, code) {
   } else if (code === TERRAIN.deepsea) {
     const D = st.deepsea;
     battle.addBuff(u, { key: BUFF[code], mods: { aspd: D.aspd, moveMul: D.moveMul }, interval: 1, onTick: deepWaterDamage(battle, D.damage) });
-  } else if (code === TERRAIN.speedup) {
-    const S = st.speedup;
-    battle.addBuff(u, { key: BUFF[code], mods: { aspd: S.aspd, moveMul: S.moveMul } });
-  }
+  } else if (code === TERRAIN.speedup) grantSpeedup(battle, st, u);
   // mire layers are applied by tickMire, 活性源石 by touchInfection (every tick on the tile)
 }
 
@@ -502,7 +645,7 @@ function refreshUnit(battle, st, u) {
 
 function ensureTick(battle, st) {
   if (st.ticking) return;
-  if (!st.hasTerrain && !st.flow.size && !st.turrets.size) return;
+  if (!st.hasTerrain && !st.flow.size && !st.turrets.size && !st.cannons.size) return;
   st.ticking = true;
   battle.on('tick', ({ dt }) => {
     if (st.hasTerrain || st.flow.size) {
@@ -510,6 +653,7 @@ function ensureTick(battle, st) {
       for (const e of battle.enemies) refreshUnit(battle, st, e);
     }
     for (const u of st.turrets.values()) tickTurret(battle, u, dt);
+    for (const u of st.cannons.values()) tickCannon(battle, u, dt);
   });
   // a unit that (re)deploys / spawns starts fresh (death drops its buffs) and gets its tile's terrain at once: smog
   // must already hide an operator from the first enemy shot of the battle. A 【移动】 (ctx.move: 乌尔比安 S3,
@@ -541,6 +685,7 @@ export function install(battle) {
     hasTerrain: false,
     flow: new Map(),
     turrets: new Map(),
+    cannons: new Map(),
     platformOn: new Set(),
     platformOff: new Set(),
     crateOff: new Set(),
@@ -605,6 +750,7 @@ export function install(battle) {
     }
     // “双眼皮” turrets switched on (band 机械援助 / overrides)
     for (const d of devices) if ((d.key === TURRET_KEY || d.role === 'turret') && isActive(battle, st, d)) spawnTurret(battle, st, d);
+    for (const d of devices) if (d.key === CANNON_KEY || d.role === 'cannon') spawnCannon(battle, st, d);
     ensureTick(battle, st);
   }, { priority: 50 });
 }

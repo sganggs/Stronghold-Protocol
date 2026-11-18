@@ -528,7 +528,7 @@ export function tube(g, a, b, rad, seg = 8, col = [1, 1, 1]) {
 
 // ---- devices ----------------------------------------------------------------------------------------------------
 
-const DEVICE_KINDS = new Set(['crate', 'platform', 'mound', 'blower', 'turret', 'waterPlatform', 'bush', 'sealedFloor']);
+const DEVICE_KINDS = new Set(['crate', 'platform', 'mound', 'blower', 'turret', 'waterPlatform', 'bush', 'sealedFloor', 'cannon']);
 
 /**
  * Active stage devices standing on drawn tiles: `{ kind, r, c, dir, z0, key, alias, rangeTiles }`. Every visible

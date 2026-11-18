@@ -338,7 +338,9 @@ export function checkInvariants(b) {
     }
     if (u.alive) {
       if (u.hp < 0 || u.hp > s.maxHp + 1e-6) bad(`hp ${u.hp} / ${s.maxHp}`, u);
-      if (u.deployed && !u.hidden) {
+      // 盐坨子炮 is a separator device on the wall row just above the rect (devices.js spawnCannon, allowOutside).
+      const separatorCannon = u.kind === 'device' && u.mem?.cannon;
+      if (u.deployed && !u.hidden && !separatorCannon) {
         if (u.x < R.c0 - 0.5 - 1e-6 || u.x > R.c1 + 0.5 + 1e-6 || u.y < R.r0 - 0.5 - 1e-6 || u.y > R.r1 + 0.5 + 1e-6) bad(`pos ${u.x},${u.y} outside rect`, u);
       }
       if (u.skill && !u.skill.noSkill) {
