@@ -64,8 +64,9 @@ SCENE_VERSION = 1
 # Manifest `scene` record (kind Scene) of each scene/<stageId> group. scene.json `version` stays SCENE_VERSION so a
 # scene extracted before this still loads. setup / doctor compare this with expected.mjs and ask once when an
 # existing record is older (DESIGN §34.12). 3: emission maps are lossless too, so a version-2 extract (normal and
-# gloss only) is stale and that same prompt asks again. 4: remove exact redundant renderers (#684, §34.24).
-SCENE_EXTRACT_VERSION = 4
+# gloss only) is stale and that same prompt asks again. 4: remove exact redundant renderers (#684, §34.24). 5: 规程's
+# three pieces are written whole (regulation_scenes.py, scene.json layout 'pieces').
+SCENE_EXTRACT_VERSION = 5
 # display-space light value that a lightmap page's 1.0 stands for (decode_rgbm; scene.json lightRange, with
 # lightEncoding 'gamma'). The pages of the eleven scenes stay below 2.8.
 LIGHT_RANGE = 3.0

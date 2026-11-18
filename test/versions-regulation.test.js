@@ -8,7 +8,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { normalizeMirror, sourceOfProfile, SOURCES } from '../tools/versions/sources.mjs';
-import { composeRegulationStage, placeRegulationTemplate, TEMPLATE_OFFSETS } from '../tools/versions/layouts.mjs';
+import { composeRegulationStage, placeRegulationTemplate, regulationArena, TEMPLATE_OFFSETS } from '../tools/versions/layouts.mjs';
 import { loadProfile, pinnedShaOf } from '../tools/versions/profiles.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -124,6 +124,26 @@ test('composeRegulationStage: the cached 战场 m01 pieces give the built rows (
   assert.ok(out.mapData.tiles[out.mapData.map[18 - 7][0]].blackboard.some((b) => b.key === 'isValidHand'), 'hand row marked');
   assert.equal(glyphAt(out, 8, 4), 'tile_acbag', 'the equipment row where 盟约 has its temp row');
   assert.throws(() => composeRegulationStage(read('level_act3autochess_m01.json'), [pieces[1], pieces[0], pieces[2]]), /sub_01 is 6x21/);
+});
+
+test('regulationArena: the cached 战场 m01 level holds its pieces at the official rects, nothing outside them (skipped without the gamedata cache)', async () => {
+  const { profile } = await loadProfile('act3autochess@V3_1');
+  const base = join(ROOT, '.cache', `gamedata@${sourceOfProfile(profile).cacheTag(profile.pins.default)}`, 'levels', 'activities', 'act3autochess');
+  if (!existsSync(join(base, 'level_act3autochess_m01', 'level_act3autochess_m01_sub_01.json'))) return;
+  const read = (f) => JSON.parse(readFileSync(join(base, f), 'utf8'));
+  const pieces = [1, 2, 3].map((n) => read(`level_act3autochess_m01/level_act3autochess_m01_sub_0${n}.json`));
+  const main = read('level_act3autochess_m01.json');
+  const { level, regions } = regulationArena(main, pieces);
+  assert.deepEqual(regions.map((r) => [r.id, r.role, r.piece, r.rect, r.field, r.ownerSeat ?? r.side]), [
+    [0, 'player', 1, [0, 6, 0, 19], { dr: 7, dc: 0 }, 0], [1, 'player', 1, [0, 6, 35, 54], { dr: 7, dc: 0 }, 1],
+    [2, 'unite', 2, [8, 13, 17, 37], { dr: 8, dc: 0 }, undefined], [3, 'boss', 3, [15, 27, 0, 20], { dr: 0, dc: 0 }, 'L'],
+    [4, 'boss', 3, [15, 27, 34, 54], { dr: 0, dc: 0 }, 'R'], [5, 'player', 1, [29, 35, 0, 19], { dr: 7, dc: 0 }, 2],
+    [6, 'player', 1, [29, 35, 35, 54], { dr: 7, dc: 0 }, 3],
+  ]);
+  assert.equal(level.mapData.map.length, 36);
+  assert.equal(level.mapData.map[0].length, 55);
+  // pieces given in the wrong order are not where the level has them
+  assert.throws(() => regulationArena(main, [pieces[1], pieces[0], pieces[2]]), /holds sub_01 1 times, expected 4/);
 });
 
 test('data/versions/act3autochess-v3_1: regulation bond rule and editable counts (owner 2026-11-09; recordings 2026-11-12: co-op 标准 0 core, 险境+ 5 core, add-ons 5 / 2)', () => {
