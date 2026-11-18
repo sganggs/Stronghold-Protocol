@@ -571,3 +571,46 @@ test('v3_1 raw stages: Nymph PASSABLE excludes red/blue gates and still accepts 
     + `tile_floor ${coverage.floorCells} cells/${coverage.floorLayouts} layouts; `
     + `${coverage.successfulGroundUses} legal ground uses`);
 });
+
+test('skill-change drafts offer at most one current unlocked row per strategy chain and never another tier of the held command', t => {
+  const { ps } = setup(t, 'band_random', 1);
+  const bandOf = id => Object.values(data.bands).find(b => b.skills?.some(s => s.effectId === id))?.bandId;
+  const capturePool = choiceId => {
+    let seen = null;
+    const rng = { shuffle(arr) { seen = [...arr]; return [...arr]; } };
+    ps.commandDrafts = [];
+    assert.equal(openSkillChangeDraft(ps, choiceId, { rng }), true);
+    return seen;
+  };
+
+  for (const [round, gold, wantDance, wantShield, wantRich] of [
+    [1, 0, 'aceffect_band_107', 'aceffect_band_37', 'aceffect_band_54'],
+    [4, 60, 'aceffect_band_108', 'aceffect_band_37', 'aceffect_band_54'],
+    [9, 119, 'aceffect_band_109', 'aceffect_band_38', 'aceffect_band_54'],
+    [12, 120, 'aceffect_band_110', 'aceffect_band_38', 'aceffect_band_55'],
+  ]) {
+    ps.stats.gold = gold;
+    next(ps, round);
+    for (const choiceId of ['skill_change_1', 'skill_change_2']) {
+      const pool = capturePool(choiceId);
+      const bands = pool.map(s => bandOf(s.effectId));
+      assert.equal(new Set(bands).size, bands.length, `R${round} ${choiceId} has at most one row per chain`);
+      assert.deepEqual(pool.filter(s => bandOf(s.effectId) === 'band_dance').map(s => s.effectId), [wantDance]);
+      assert.deepEqual(pool.filter(s => bandOf(s.effectId) === 'band_shield').map(s => s.effectId), [wantShield]);
+      assert.deepEqual(pool.filter(s => bandOf(s.effectId) === 'band_rich').map(s => s.effectId), [wantRich]);
+    }
+    for (let i = 0; i < 40; i++) {
+      ps.commandDrafts = [];
+      assert.equal(openSkillChangeDraft(ps, 'skill_change_1'), true);
+      const cards = ps.commandDrafts[0].cards;
+      assert.equal(new Set(cards.map(bandOf)).size, cards.length, 'a draft never shows two levels of the same command');
+    }
+  }
+
+  for (const [bandId, round, gold] of [['band_dance', 1, 0], ['band_dance', 9, 0], ['band_shield', 1, 0], ['band_rich', 4, 60]]) {
+    ps.bandId = bandId; ps.stats.gold = gold;
+    next(ps, round);
+    const pool = capturePool('skill_change_1');
+    assert.equal(pool.some(s => bandOf(s.effectId) === bandId), false, `holding ${bandId} excludes its entire chain`);
+  }
+});

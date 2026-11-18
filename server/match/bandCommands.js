@@ -13,6 +13,15 @@ export const paramsOf = b => ({ ...b.bb, ...b.bbStr });
 export const skillRows = ps => Object.values(ps.gd.raw.bands || {}).flatMap(b => b.skills || []);
 export const commandSkill = ps => ps.command ? skillRows(ps).find(s => s.effectId === ps.command.currentEffectId) || null : null;
 
+/** Whether a command row's upgrade condition (`unlockType` / `unlockParam`: to its `next` row) holds for the player now. */
+function isUnlocked(ps, s) {
+  const [a, b] = s.unlockParam;
+  return s.unlockType === 'band_skill_load_by_round' ? ps.m.round >= Number(a)
+    : s.unlockType === 'band_skill_load_by_shop_lv' ? ps.shop.level >= Number(a)
+    : s.unlockType === 'band_skill_load_by_coin_cost' ? ps.stats.gold >= Number(a)
+    : s.unlockType === 'band_skill_load_by_bond_act_count' ? (ps.bonds[a]?.count || 0) >= Number(b) : false;
+}
+
 /**
  * The effect-id map both the battle input and the bond/command displays read.
  * Starts from the opening band's `auto_chess_effect_replace` (that table stays after a swap), then
@@ -57,13 +66,7 @@ export function syncCommand(ps) {
   }
   for (let n = 0; n < 74; n++) {
     const s = commandSkill(ps);
-    if (!s?.next) break;
-    const [a, b] = s.unlockParam;
-    const unlocked = s.unlockType === 'band_skill_load_by_round' ? ps.m.round >= Number(a)
-      : s.unlockType === 'band_skill_load_by_shop_lv' ? ps.shop.level >= Number(a)
-      : s.unlockType === 'band_skill_load_by_coin_cost' ? ps.stats.gold >= Number(a)
-      : s.unlockType === 'band_skill_load_by_bond_act_count' ? (ps.bonds[a]?.count || 0) >= Number(b) : false;
-    if (!unlocked) break;
+    if (!s?.next || !isUnlocked(ps, s)) break;
     const next = skillRows(ps).find(row => row.effectId === s.next);
     if (!next) break;
     const old = ps.command.records[s.effectId];
@@ -182,16 +185,37 @@ export function useCommand(ps, effectId, target, ctx) {
 }
 
 /**
+ * The row a skill-change draft offers of one strategy's command chain (each 规程 band has one chain): none for the
+ * chain the player holds; else the chain's first ACTIVE row advanced along its unlocked ACTIVE upgrades — the level
+ * the player would hold now. Round 83 (a community report: 追随者们 offered 妮芙's command at level 1 and level 3 at
+ * once): the pool took every ACTIVE row, so one command came in at several levels. [ASSUMED] the pool stays ACTIVE-only
+ * and a chain's first row needs no unlock (PR #952 argues from official screenshots for passive commands and unlock
+ * gates — not taken here).
+ */
+function activePoolRow(ps, band) {
+  const rows = band?.skills || [];
+  if (rows.some(r => r.effectId === ps.command.currentEffectId)) return null;
+  let cur = rows.find(r => r.type === 'ACTIVE') || null;
+  for (let n = 0; cur?.next && n < 74; n++) {
+    if (!isUnlocked(ps, cur)) break;
+    const next = rows.find(r => r.effectId === cur.next) || skillRows(ps).find(r => r.effectId === cur.next);
+    if (!next || next.type !== 'ACTIVE') break;
+    cur = next;
+  }
+  return cur;
+}
+
+/**
  * ITEMS integration: openSkillChangeDraft(player, 'skill_change_1', ctx) opens the 投机骰子 three-command choice.
  * skill_change_2 is the two-command prep choice. Returns false without changing state for an unknown choice or
  * a season without commands. ctx is optional; its RNG is used when supplied. g.commandChoice resolves the first
- * queued draft. [ASSUMED] Pool = all other ACTIVE skill rows, including upgraded rows; no filter exists in the data.
+ * queued draft. [ASSUMED] Pool = one row per other strategy's command chain at its current level (activePoolRow).
  */
 export function openSkillChangeDraft(player, choiceId, ctx = null) {
   if (!['skill_change_1', 'skill_change_2'].includes(choiceId)) return false;
   syncCommand(player);
   if (!player.command) return false;
-  const pool = skillRows(player).filter(s => s.type === 'ACTIVE' && s.effectId !== player.command.currentEffectId);
+  const pool = Object.values(player.gd.raw.bands || {}).map(b => activePoolRow(player, b)).filter(Boolean);
   const cards = (ctx?.rng || player.m.rngMeta).shuffle(pool).slice(0, choiceId === 'skill_change_1' ? 3 : 2).map(s => s.effectId);
   if (!cards.length) return false;
   (player.commandDrafts ||= []).push({ id: `command.${player.m.nextUid()}`, choiceId, cards });

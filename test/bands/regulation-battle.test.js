@@ -18,6 +18,7 @@ const data = new DataSource({ ...raw, chess: { ...raw.chess, test_a: chessRec({ 
     test_enemy: enemyRec({ key: 'test_enemy', hp: 100000, speed: 0 }),
     test_fly: enemyRec({ key: 'test_fly', hp: 100000, speed: 0, motion: 'FLY' }),
     test_huge: { ...enemyRec({ key: 'test_huge', hp: 100000, speed: 0 }), hitArea: { w: 1.2, h: 1 } },
+    test_boss_body: { ...enemyRec({ key: 'test_boss_body', hp: 100000, speed: 0 }), hitArea: { w: 4.95, h: 2.95, dx: 0, dy: 1 } },
   } }, null);
 before(() => setGameData(raw));
 after(() => setGameData(null));
@@ -45,12 +46,48 @@ test('shield mark triggers on attacks and caps its shield at one hit', () => {
   assert.equal(a.findBuff('command:shield:7').shieldHits, 1);
 });
 
-test('fear tile affects only the first enemy touching it, for the blackboard duration', () => {
-  const h = battle([{ id: 1, row: 9, col: 8, tag: 'eff_band19' }]); h.step();
+test('fear tile fears every enemy whose root tile enters it once per tile, without firing on a distant huge hitbox', () => {
+  const h = battle([{ id: 1, row: 9, col: 8, tag: 'eff_band19' }, { id: 2, row: 9, col: 6, tag: 'eff_band19' }], { timeLimit: 10 });
+  h.step();
+  const hidden = h.spawn('test_enemy', { pos: [9, 8] }); hidden.hidden = true;
+  const boss = h.spawn('test_boss_body', { pos: [9, 10] });
+  h.step();
+  assert.ok(!hidden.s.flags.fear, 'hidden enemy does not trigger the tile');
+  assert.ok(!boss.s.flags.fear, '5x3 boss standing two columns away does not trigger via its collider');
+
   const first = h.spawn('test_enemy', { pos: [9, 8] }), second = h.spawn('test_enemy', { pos: [9, 8] });
   h.step();
-  assert.ok(first.s.flags.fear); assert.ok(!second.s.flags.fear);
-  const applied = h.hooksOf('statusApplied').filter(c => c.target === first); assert.equal(applied[0].duration, 3);
+  assert.ok(first.s.flags.fear); assert.ok(second.s.flags.fear, 'simultaneous second enemy is feared too');
+  const applied = h.hooksOf('statusApplied').filter(c => c.target === first && c.status === 'fear');
+  assert.equal(applied[0].duration, 3);
+
+  const third = h.spawn('test_enemy', { pos: [9, 9] });
+  third.x = 8; third.y = 9;
+  h.step();
+  assert.ok(third.s.flags.fear, 'later enemy entering the same tile is still feared');
+
+  h.b.removeBuff(first, 'fear');
+  first.x = 8; first.y = 9;
+  h.step();
+  assert.ok(!first.s.flags.fear, 'the same enemy does not re-trigger the same fear tile');
+  first.x = 6; first.y = 9;
+  h.step();
+  assert.ok(first.s.flags.fear, 'each placed fear tile tracks its own per-enemy trigger');
+
+  // Pair/mirrored and 联防 fields map the marked tile to the player's half.
+  const mirrored = makeBattle({ data, content: 'full', autoFinish: false, timeLimit: 2, kind: 'hidden',
+    players: [{ playerId: 'p1', seat: 0, side: 'R', units: [unit(1)], bonds: {}, commandMarks: [{ id: 1, row: 9, col: 8, tag: 'eff_band19' }] }] });
+  mirrored.step();
+  const rightEnemy = mirrored.spawn('test_enemy', { pos: [2, GEO.COLS - 1 - 8] });
+  mirrored.step();
+  assert.ok(rightEnemy.s.flags.fear);
+
+  const unite = makeBattle({ data, content: 'full', autoFinish: false, timeLimit: 2, kind: 'unite',
+    players: [{ playerId: 'p1', seat: 0, side: 'L', colOffset: 8, units: [unit(1)], bonds: {}, commandMarks: [{ id: 1, row: 9, col: 8, tag: 'eff_band19' }] }] });
+  unite.step();
+  const uniteEnemy = unite.spawn('test_enemy', { pos: [9, 16] });
+  unite.step();
+  assert.ok(uniteEnemy.s.flags.fear);
 });
 
 test('breakaway mark waits for damage, then deploys the reserved bench operator once', () => {
