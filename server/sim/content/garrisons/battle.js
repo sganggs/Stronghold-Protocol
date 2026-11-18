@@ -49,8 +49,8 @@ import { REGULATION_INSTALLERS, runChild, inGarrisonRange, grantBondRange } from
 
 const ids = (s) => String(s ?? '').split(',').map((x) => x.trim()).filter(Boolean);
 const EMPTY = Object.freeze([]);
-/** Status keys for check_ab_flag values used by the data (16 = 冻结). */
-const AB_FLAG_STATUS = Object.freeze({ 16: 'freeze' });
+/** Status keys for check_ab_flag values used by the data (16 = 冻结, 33 = 恐惧). */
+const AB_FLAG_STATUS = Object.freeze({ 16: 'freeze', 33: 'fear' });
 
 function garrisonIdsOf(u) {
   const list = u?.def?.raw?.garrisonIds ?? u?.def?.garrisonIds;
@@ -410,7 +410,7 @@ const INSTALLERS = {
 
   act1autochess_gar_event_enemy_abflag_inrange(battle, list) {
     const watched = new Set(list.map((it) => AB_FLAG_STATUS[S.num(it.bb.check_ab_flag, 16)] ?? 'freeze'));
-    // "进入冻结时": only a new entry (engine ctx.entered — a refresh of a running freeze is not one)
+    // Entering the configured status: only a new entry (ctx.entered), never a refresh.
     battle.on('statusApplied', ({ target, status, entered }) => {
       if (!target || !watched.has(status) || !entered || target.side !== 'enemy') return;
       for (const it of list) {

@@ -462,3 +462,9 @@ existing handlers. Delayed replacement callbacks explicitly hold battle completi
 punisher replacement has no artificial one-second delay. A leak does not count as a kill and silence does not
 suppress these death talents. Sources, exact ids and retained placement assumptions:
 [Regulation death-summon investigation](../research/sarkaz-death-spawns-20261113.md).
+
+### Regulation Nymph fear garrison
+
+The enemy-status garrison event reads `check_ab_flag`: 16 means freeze, 33 means fear. Regulation Nymph's
+`garrison_99_a/b` grants active Swift 4/8 layers on a new fear entry inside her attack range, capped at 20/40
+per battle. Refreshing an existing fear, freezing an enemy, or fearing an enemy outside her range grants nothing.
