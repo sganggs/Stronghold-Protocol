@@ -150,6 +150,7 @@ export function uniteBattleOpts(m, plan, timeLimit) {
     const colOffset = plan.helpers.length > 1 && i === 0 ? 8 : 0;
     // the layers its own combat reached (bondsView, the round's pending gains; PRTS "以其阵地当前的状态") — see header
     const input = ps.battleInput({ side: 'L', colOffset, carry, reached: true });
+    if (r?.tempLayerGains && Object.keys(r.tempLayerGains).length) input.tempLayers = { ...r.tempLayerGains };
     const ev = { input, kind: 'unite', round: m.round, spawns: wave.spawns };
     m.dispatch(ps, 'onBattleStart', ev);
     return ev.input && typeof ev.input === 'object' ? ev.input : input;

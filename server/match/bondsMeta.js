@@ -195,9 +195,9 @@ export function activatedLayers(bonds) {
  * (it stays the grey 本局禁用 disc). With an empty map the list is unchanged, including on seasons without commands.
  * @param {import('./gamedata.js').GameData} gd
  * @param {ReturnType<typeof computeBonds>} bonds
- * @param {{ full?: boolean, off?: ReturnType<typeof offBondCounts>, effectOverrides?: Record<string, string> }} [opts] full → include thresholds/countsHand (m.private)
+ * @param {{ tempLayers?: Record<string, number>, full?: boolean, off?: ReturnType<typeof offBondCounts>, effectOverrides?: Record<string, string> }} [opts] full → include thresholds/countsHand (m.private)
  */
-export function bondList(gd, bonds, { full = false, off = null, effectOverrides = null } = {}) {
+export function bondList(gd, bonds, { full = false, off = null, tempLayers = {}, effectOverrides = null } = {}) {
   const overrides = effectOverrides && typeof effectOverrides === 'object' ? effectOverrides : {};
   const order = new Map(gd.bondIds.map((id, i) => [id, i]));
   const list = [];
@@ -207,6 +207,7 @@ export function bondList(gd, bonds, { full = false, off = null, effectOverrides 
     return typeof target === 'string' && target && gd.raw.effects?.[target] ? target : null;
   };
   const extras = (e) => {
+    if (tempLayers[e.bondId] > 0) e.tempLayers = tempLayers[e.bondId];
     if (!e.off) {
       const target = mappedTarget(e.bondId);
       if (target) e.effectId = target;
@@ -218,7 +219,7 @@ export function bondList(gd, bonds, { full = false, off = null, effectOverrides 
     return e;
   };
   for (const [bondId, b] of Object.entries(bonds || {})) {
-    if (!(b.count > 0 || b.layers > 0 || b.active)) continue;
+    if (!(b.count > 0 || b.layers > 0 || b.active || tempLayers[bondId] > 0)) continue;
     const e = { bondId, count: b.count, active: b.active, tier: b.tier, layers: b.layers };
     if (b.harmony > 0) e.harmony = b.harmony;
     list.push(extras(e));

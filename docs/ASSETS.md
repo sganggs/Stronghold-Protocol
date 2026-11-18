@@ -21,6 +21,12 @@ cooldown. It respects the SFX/mute settings; a stale asynchronous decode cannot 
 All downloaded game assets the client needs are listed in **`data/assets.json`**. Game-art requests must use that manifest.
 The original project icons below are shipped static files, not downloaded game assets.
 
+Bond UI sprites are registered in `docs/research/07-assets.json` under `autochessUi` (`hudBondItem`,
+`bondDetail`, `bondChar`) and `arts.bondBoardIcon`; the asset plan consumes these registrations.
+After updating a checkout, run `npm run assets` to download them and regenerate the manifest. An older or incomplete
+manifest keeps text stages and rarity badges, CSS discs, borders and badge backgrounds, and generic navigation arrows;
+optional decoration disappears. The UI never guesses `/assets/ui/` paths for missing entries.
+
 ## Original project application icons (#413)
 
 By the maintainer's revised decision of 2026-10-10, **沿用 0.2.x 的薄荷绿城堡并精修**.

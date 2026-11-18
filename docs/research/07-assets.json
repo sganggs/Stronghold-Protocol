@@ -25075,7 +25075,8 @@
    "fx_num_increase": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/cn/assets/dyn/ui/autochess/%5Buc%5Dautochessbattle/hud/autochess_hud_bond_item/fx_num_increase.png",
    "matte_num": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/cn/assets/dyn/ui/autochess/%5Buc%5Dautochessbattle/hud/autochess_hud_bond_item/matte_num.png",
    "select_frame": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/cn/assets/dyn/ui/autochess/%5Buc%5Dautochessbattle/hud/autochess_hud_bond_item/select_frame.png",
-   "select_glow": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/cn/assets/dyn/ui/autochess/%5Buc%5Dautochessbattle/hud/autochess_hud_bond_item/select_glow.png"
+   "select_glow": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/cn/assets/dyn/ui/autochess/%5Buc%5Dautochessbattle/hud/autochess_hud_bond_item/select_glow.png",
+   "bond_level_3": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/cn/assets/dyn/ui/autochess/%5Buc%5Dautochessbattle/hud/autochess_hud_bond_item/bond_level_3.png"
   },
   "equipSlot": {
    "img_equipslot_bg": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/cn/assets/dyn/ui/autochess/%5Buc%5Dautochessbattle/battle/act2autochess_equip_slot_panel/img_equipslot_bg.png",
@@ -25294,6 +25295,26 @@
    "img_bkg_dec_right_lower": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/cn/assets/dyn/ui/autochess/%5Buc%5Dautochessouter/common/prefab_auto_chess_prepare_page_bkg/img_bkg_dec_right_lower.png",
    "img_bkg_main": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/cn/assets/dyn/ui/autochess/%5Buc%5Dautochessouter/common/prefab_auto_chess_prepare_page_bkg/img_bkg_main.png",
    "img_screen_line_repeat": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/cn/assets/dyn/ui/autochess/%5Buc%5Dautochessouter/common/prefab_auto_chess_prepare_page_bkg/img_screen_line_repeat.png"
+  },
+  "bondDetail": {
+   "active_icon": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/cn/assets/dyn/ui/autochess/%5Buc%5Dautochessbattle/hud/dialog/autochess_hud_bond_detail_dialog/active_icon.png",
+   "active_stack_bg": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/cn/assets/dyn/ui/autochess/%5Buc%5Dautochessbattle/hud/dialog/autochess_hud_bond_detail_dialog/active_stack_bg.png",
+   "active_stack_deco": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/cn/assets/dyn/ui/autochess/%5Buc%5Dautochessbattle/hud/dialog/autochess_hud_bond_detail_dialog/active_stack_deco.png",
+   "bond_active_bg": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/cn/assets/dyn/ui/autochess/%5Buc%5Dautochessbattle/hud/dialog/autochess_hud_bond_detail_dialog/bond_active_bg.png",
+   "bond_inactive_bg": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/cn/assets/dyn/ui/autochess/%5Buc%5Dautochessbattle/hud/dialog/autochess_hud_bond_detail_dialog/bond_inactive_bg.png",
+   "arrow": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/cn/assets/dyn/ui/autochess/%5Buc%5Dautochessbattle/hud/dialog/autochess_hud_bond_detail_dialog/arrow.png",
+   "detail_bg": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/cn/assets/dyn/ui/autochess/%5Buc%5Dautochessbattle/hud/dialog/autochess_hud_bond_detail_dialog/detail_bg.png",
+   "matte_circle": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/cn/assets/dyn/ui/autochess/%5Buc%5Dautochessbattle/hud/dialog/autochess_hud_bond_detail_dialog/matte_circle.png",
+   "title_char_icon": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/cn/assets/dyn/ui/autochess/%5Buc%5Dautochessbattle/hud/dialog/autochess_hud_bond_detail_dialog/title_char_icon.png"
+  },
+  "bondChar": {
+   "avatar_border": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/cn/assets/dyn/ui/autochess/%5Buc%5Dautochessbattle/hud/autochess_hud_bond_char_item/avatar_border.png",
+   "img_chess_level_1": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/cn/assets/dyn/ui/autochess/%5Buc%5Dautochessbattle/hud/autochess_hud_bond_char_item/img_chess_level_1.png",
+   "img_chess_level_2": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/cn/assets/dyn/ui/autochess/%5Buc%5Dautochessbattle/hud/autochess_hud_bond_char_item/img_chess_level_2.png",
+   "img_chess_level_3": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/cn/assets/dyn/ui/autochess/%5Buc%5Dautochessbattle/hud/autochess_hud_bond_char_item/img_chess_level_3.png",
+   "img_chess_level_4": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/cn/assets/dyn/ui/autochess/%5Buc%5Dautochessbattle/hud/autochess_hud_bond_char_item/img_chess_level_4.png",
+   "img_chess_level_5": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/cn/assets/dyn/ui/autochess/%5Buc%5Dautochessbattle/hud/autochess_hud_bond_char_item/img_chess_level_5.png",
+   "img_chess_level_6": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/cn/assets/dyn/ui/autochess/%5Buc%5Dautochessbattle/hud/autochess_hud_bond_char_item/img_chess_level_6.png"
   }
  },
  "arts": {

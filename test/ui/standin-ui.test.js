@@ -333,7 +333,7 @@ describe('match UI of a not-owned chess', () => {
     assert.ok(row, 'the member row is the stand-in');
     assert.ok(hasClass(row, 'is-on'), 'on the board');
     assert.equal(textOf([...walk(row)].find((v) => hasClass(v, 'bpop__mname'))), 'Sharp');
-    assert.ok([...walk(row)].some((v) => hasClass(v, 'uthumb__si')), 'the small 「替补」 mark on the thumbnail');
+    assert.ok([...walk(row)].some((v) => hasClass(v, 'square-op-thumb__standin')), 'the small 「替补」 mark on the thumbnail');
     assert.ok(srcsOf(row).some((x) => x.includes('char_609_acguad')), 'the stand-in\'s avatar');
     row.props.onClick();
     assert.deepEqual(seen.at(-1), [SILVER, null, getChess(SILVER).charId]);

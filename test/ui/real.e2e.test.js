@@ -279,7 +279,8 @@ class Client {
     assert.ok(name && name.length > 0, 'bond popup has a name');
     await sleep(250);
     await this.shot(`bond-${this.label}`);
-    await this.click('.bpop__close');
+    await this.click('.bslot .bond');
+    await this.page.waitForSelector('.bpop', { hidden: true });
     this.note(`bond popup ${name}`);
     return true;
   }

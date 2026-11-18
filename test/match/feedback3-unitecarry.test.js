@@ -150,3 +150,24 @@ test('联防: the carried SP is set after the deployment ("部署完成后…技
     }
   }
 });
+
+test('联防 inherits each helper temporary pool unchanged, without sharing or re-awarding it', t => {
+  const h = makeMatch({ mode: 'coop', humans: 3, seed: 5, fake: true }).start();
+  t.after(() => h.m.dispose());
+  h.toPrep(1);
+  const m = h.m, p1 = h.ps('p_0'), p2 = h.ps('p_1');
+  m.lastResults.set(p1.playerId, { unitsEnd: [], tempLayerGains: { yanShip: 12 } });
+  m.lastResults.set(p2.playerId, { unitsEnd: [], tempLayerGains: { yanShip: 24 } });
+  const { players } = uniteBattleOpts(m, { helpers: [p1, p2], leaked: [] }, 60);
+  assert.deepEqual(players.map(p => p.tempLayers), [{ yanShip: 12 }, { yanShip: 24 }]);
+  const b = makeBattle({ kind: 'unite', players, content: 'none', autoFinish: false }).b;
+  assert.equal(b.tempLayers(p1.playerId, 'yanShip'), 12);
+  assert.equal(b.tempLayers(p2.playerId, 'yanShip'), 24);
+  for (const p of [p1, p2]) {
+    assert.equal(b.addTempLayers(p.playerId, 'yanShip', 99), 0);
+    assert.equal(b.removeTempLayers(p.playerId, 'yanShip', 99), 0);
+    assert.equal(b.result().perPlayer[p.playerId].tempLayerGains, undefined);
+  }
+  players[0].tempLayers.yanShip = 0;
+  assert.equal(b.tempLayers(p1.playerId, 'yanShip'), 12, 'battle has its own copied pool');
+});

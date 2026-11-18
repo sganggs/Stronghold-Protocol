@@ -192,8 +192,9 @@ export function bondTier(battle, pid, bondId) {
   return b && b.active ? Math.max(1, Math.floor(num(b.tier, 1))) : 0;
 }
 export const bondActive = (battle, pid, bondId, minTier = 1) => bondTier(battle, pid, bondId) >= minTier;
-/** Live layers (also while the bond is inactive). */
-export const bondLayers = (battle, pid, bondId) => Math.max(0, num(bondState(battle, pid, bondId)?.layers, 0));
+/** Effective battle layers (permanent + temporary, also while inactive). */
+export const bondLayers = (battle, pid, bondId) => typeof battle.effectiveBondLayers === 'function'
+  ? battle.effectiveBondLayers(pid, bondId) : Math.max(0, num(bondState(battle, pid, bondId)?.layers, 0));
 /** Ids of the player's active bonds. */
 export function activeBondIds(battle, pid) {
   const out = [];

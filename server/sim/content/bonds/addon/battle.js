@@ -4,7 +4,7 @@
 // (support directMods: additive with every other percentage, PRTS 盟约记录). Effects only apply to the owning
 // player's units (`unit.ownerId === playerId`): two players sharing a boss / 联防 field never buff each other.
 // Layer-dependent values read the LIVE layers (`battle.getPlayer(pid).bonds[id].layers`): an IN_BATTLE layer gain
-// (engine `layerGain` hook, which fires before the layers are written) schedules one deferred recompute per player.
+// (post-write `bondLayersChanged` hook) schedules one deferred recompute per player.
 //
 //   精准 preciShip     members ATK +(base_atk + atk_per_stack·L); tier 2 (3 distinct): members + RANGED operators,
 //                      which also ignore power_def_penetrate DEF / power_magic_resist_penetrate RES (defIgnorePct / resIgnorePct)
@@ -507,7 +507,7 @@ export function install(battle) {
 
   // live layers
   if (states.some((st) => Object.keys(st.tiers).some((id) => LAYERED.has(id)))) {
-    battle.on('layerGain', (c) => {
+    const refresh = (c) => {
       const st = byPid[c.playerId];
       if (!st || !st.tiers[c.bondId] || !LAYERED.has(c.bondId) || st.pending) return;
       st.pending = true;
@@ -516,7 +516,8 @@ export function install(battle) {
         applyPassives(battle, st);
         if (st.tiers[ID.skillful]) updateAura(battle, st);
       });
-    });
+    };
+    battle.on('bondLayersChanged', refresh);
   }
 
   // 灵巧 aura (deploy / death immediately, relocations through a cheap poll)

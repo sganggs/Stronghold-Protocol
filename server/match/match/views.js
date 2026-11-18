@@ -133,7 +133,7 @@ export class MatchViews {
         // m.result's own bonds, so their layers would only cost every m.public bytes for the rest of the match
         // (the mode-off bonds with members included, `off: true`, as in m.private — bondsMeta.offBondCounts).
         // A 规程 replacement adds `effectId` and, when that bond has no members yet, a zero row the strip does not draw.
-        bonds: ps.alive ? bondList(this.gd, ps.bondsView(), { off: offBondCounts(ps.gd || this.gd, ps), effectOverrides: commandBondOverrides(ps) }) : [],
+        bonds: ps.alive ? bondList(this.gd, ps.bondsView(), { tempLayers: ps.tempLayers, off: offBondCounts(ps.gd || this.gd, ps), effectOverrides: commandBondOverrides(ps) }) : [],
         fieldId: this.fieldOf(ps),
         status: this.statusOf(ps),
         autoplay: ps.autoplay,

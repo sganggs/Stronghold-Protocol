@@ -519,3 +519,8 @@ Live display hosts opt into Battle `resourceNumbers`; optional `b.ev` tuples are
 `['resource', unitId, 'cost'|'sp', actualSignedDelta, reason]`. They carry post-settlement receipts, never mutable
 SP requests or bar differences sampled by the renderer. These cosmetic events may be dropped when stale; they
 change no gameplay state and are absent from headless/golden observation. See [§37.3](../history/0.4.0.md).
+
+
+`PlayerBattleInput.tempLayers`（可选，联防）：每位协防者本人战斗结束时的临时盟约余额（bondId → 层数）。
+服务端从已接受结果复制，BattleSpec JSON／摘要与重演保留此字段；模拟在内容安装前恢复，联防禁止增减且不把继承量再当新收益。
+普通／Boss 结果的 `tempLayerGains` 保留到下一次进入休整期，自己与队友的盟约视图条目在转换前携带 `tempLayers` 显示值。

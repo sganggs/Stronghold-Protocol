@@ -153,7 +153,7 @@ export class PlayerViews {
       deployCap: this.deployCap,
       deployCount: this.deployCount,
       // + the mode-off bonds it has members of (`off: true`, the strip's grey 本局禁用 discs — bondsMeta.offBondCounts)
-      bonds: bondList(this.gd, this.bondsView(), { full: true, off: offBondCounts(this.gd, this), effectOverrides: commandBondOverrides(this) }),
+      bonds: bondList(this.gd, this.bondsView(), { full: true, tempLayers: this.tempLayers, off: offBondCounts(this.gd, this), effectOverrides: commandBondOverrides(this) }),
       effects: this.effectsView(),
       nextEnemies: this.m.nextEnemiesFor(this),
       // DESIGN §16: the effective operator loadout ({ [baseChessId]: { skill, module } }; chess not listed use defaults)

@@ -220,30 +220,30 @@ export function TierChip({ tier, golden = false, size = 'md', class: cls, overla
  *   briefing's official 阵容不完整 corner, ui/matchInfo.js BondLackTag)
  */
 export function BondDisc({
-  name = '', icon, count, layers, tier = 0, maxTier = 3, active = false, disabled = false, layersDisabled = false,
+  name = '', icon, count, layers, members = 0, minCount = 0, tier = 0, maxTier = 3, active = false, disabled = false, layersDisabled = false,
   size = 'md', showName = true, onClick, class: cls, title, cross = disabled, tag = null,
 }) {
   // Remember which URL failed (a per-URL flag can't race a reset effect).
   const [badSrc, setBadSrc] = useState(null);
   const imgOk = !!icon && badSrc !== icon;
-  const n = Math.max(1, Math.min(8, maxTier | 0 || 3));
-  const filled = Math.max(0, Math.min(n, tier | 0));
-  const R = 46;
-  const C = 2 * Math.PI * R;
-  const gap = n > 1 ? 5 : 0;
-  const seg = C / n - gap;
+  const progress = !active && !disabled && minCount > 0;
+  const n = Math.max(1, Math.min(4, (progress ? minCount : maxTier) | 0 || 3));
+  const filled = progress ? Math.max(0, Math.min(n, members | 0))
+    : active && !disabled ? Math.max(1, Math.min(n, tier | 0)) : 0;
+  const full = !progress && filled === n;
+  const key = `bondBoardIcon/${progress ? `${n}_${Math.max(1, filled)}` : filled ? `${n}_${filled}` : '1_0'}`;
+  const [badFrame, setBadFrame] = useState(null);
+  const frameUrl = uiUrl(data.get('assets'), key);
+  const frame = badFrame === frameUrl ? null : frameUrl;
+  const frameStyle = `--bond-frame: ${frame ? `url("${frame}")` : 'none'}; --bond-frame-size: calc(var(--disc) * ${full ? .815 / .52 : .688 / .52})`;
   const stack = layers ?? count;
   const glyph = (name || '?').trim().charAt(0) || '?';
   const Tag = onClick ? 'button' : 'div';
   return html`<${Tag} type=${onClick ? 'button' : undefined}
-      class=${cx('bond', `bond--${size}`, active && 'is-active', disabled && 'is-disabled', layersDisabled && 'is-frozen', onClick && 'is-clickable', cls)}
-      onClick=${onClick} title=${title || name}>
+      class=${cx('bond', 'is-sprite', !frame && 'is-frame-missing', full && 'is-full', progress && !filled && 'is-empty-progress', `bond--${size}`, active && 'is-active', disabled && 'is-disabled', layersDisabled && 'is-frozen', onClick && 'is-clickable', cls)}
+      style=${frameStyle} onClick=${onClick} title=${title || name}>
     <span class="bond__disc">
-      <svg class="bond__ring" viewBox="-50 -50 100 100" aria-hidden="true">
-        ${Array.from({ length: n }, (_, i) => html`<circle key=${i} r=${R}
-          class=${i < filled ? 'on' : 'off'} stroke-dasharray=${`${seg} ${C - seg}`}
-          stroke-dashoffset=${-(i * C) / n - gap / 2} transform="rotate(-90)" />`)}
-      </svg>
+      ${frame ? html`<img src=${frame} alt="" hidden onError=${() => setBadFrame(frame)} />` : null}
       <span class="bond__core">
         ${imgOk
           ? html`<img class="bond__icon" src=${icon} alt="" draggable=${false} onError=${() => setBadSrc(icon)} />`
