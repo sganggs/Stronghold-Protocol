@@ -52,6 +52,7 @@ test('desktop canvas hand opt-in, rapid clicks, semantic cursors and native fall
     const openSettings = async () => {
       await page.waitForSelector('.title-settings', { visible: true });
       await page.click('.title-settings');
+      await page.click('[data-settings-tab="appearance"]');
       await page.waitForSelector('[data-testid="arknights-cursor"]', { visible: true });
     };
     const enabled = () => page.$eval('[data-testid="arknights-cursor"]', e => e.getAttribute('aria-checked'));

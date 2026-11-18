@@ -163,6 +163,7 @@ describe('Modal keyboard focus', { skip: !ENABLED && 'set SP_E2E=1 and have Chro
       await page.waitForFunction(() => document.querySelector('.modal__box')?.contains(document.activeElement));
       const assertInside = async () => assert.equal(await page.evaluate(() => document.querySelector('.modal__box').contains(document.activeElement)), true);
       for (const reverse of [false, true]) for (let i = 0; i < 25; i++) { await tab(page, reverse); await assertInside(); }
+      await page.click('[data-settings-tab="controls"]');
       await page.focus('.set-key[data-action="retreat"]');
       await page.keyboard.press('Enter');
       await page.waitForSelector('.set-key.is-waiting');

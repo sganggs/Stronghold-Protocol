@@ -48,6 +48,7 @@ describe('设置 → 素材存储', { skip: !ENABLED && 'set SP_E2E=1 (and have 
     await page.goto(`${base}/`, { waitUntil: 'networkidle0', timeout: 60000 });
     await page.waitForSelector('.title-settings', { timeout: 15000 });
     await page.click('.title-settings');
+    await page.click('[data-settings-tab="resources"]');
     await page.waitForSelector('[data-testid="storage-note"]', { timeout: 5000 });
     return { page, problems };
   };
@@ -105,6 +106,7 @@ describe('设置 → 素材存储', { skip: !ENABLED && 'set SP_E2E=1 (and have 
     }, [current, old]);
     await page.waitForSelector('.title-settings', { timeout: 15000 });
     await page.click('.title-settings');
+    await page.click('[data-settings-tab="resources"]');
     await page.waitForSelector('[data-testid="storage-prune"]', { timeout: 5000 });
     await page.click('[data-testid="storage-prune"]');
     await page.waitForFunction(() => [...document.querySelectorAll('button[data-autofocus]')].some((b) => b.textContent.trim() === '清理'), { timeout: 5000 });

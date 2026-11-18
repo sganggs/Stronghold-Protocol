@@ -521,6 +521,18 @@ sliding, so a block — which freezes velocity — still turns it with the front
 
 ### Local preferences and recovery (§28.14, §28.18–20)
 
+Settings uses six categories: interface, audio, battle display, controls, appearance, and resources/feedback.
+The modal keeps a stable size while the navigation and content scroll independently. Up/Down and Home/End move
+between category tabs. Each opening starts at Interface with an empty search. Search matches the actual localized
+labels, explanations and English micro labels across all available controls, groups results by category, and lets
+players edit those same controls. Matching is literal, case-insensitive and NFKC-normalized; whitespace-separated
+words all have to match. Dynamic theme/plugin names and conditional FX availability update the index as rendered
+text changes. Empty conditional sections are excluded. Clicking a category clears search; clearing search returns
+to the previous category. Escape in a nonempty search field clears it before the next Escape closes the dialog.
+Category and search changes preserve mounted sections, including pending theme imports and diagnostics. Hidden
+shortcut editors release keyboard capture. Queries and categories last for this opening; saved preferences retain
+the existing settings store and localStorage keys.
+
 Room seat cards isolate their internal layers so remove-player / AI buttons remain below the top-bar settings
 dialog and its backdrop, including after entry animations finish (#888, [0.4.0](../history/0.4.0.md)).
 
