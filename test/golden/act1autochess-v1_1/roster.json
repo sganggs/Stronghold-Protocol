@@ -802,10 +802,10 @@
         ["p1",2,"op","chess_char_6_02_a",2,null,2384.8,1,4,1,30,0,0,6,1],
         ["p1",3,"op","chess_char_6_06_a",2,null,2640.92,1,5,2,3691,0,0,6,1],
         ["p1",4,"op","chess_char_6_07_a",2,null,2613.6,1,6,2,5298,400,0,15,1],
-        ["p1",5,"op","chess_char_5_17_b",1,"uniequip_002_rosesa",1821.6,1,10,0,0,0,1303,20,2],
+        ["p1",5,"op","chess_char_5_17_b",1,"uniequip_002_rosesa",1821.6,1,10,0,0,0,1310,20,2],
         ["p1",6,"op","chess_char_5_18_b",2,"uniequip_002_typhon",2810.81,1,11,32,114253,0,0,35,2],
         ["p1",7,"op","chess_char_6_01_a",2,null,1375.7,1,12,9,20728,0,0,8,3],
-        ["p1",8,"op","chess_char_6_04_a",2,null,1427.98,1,13,1,12271,4485,6,0,3],
+        ["p1",8,"op","chess_char_6_04_a",2,null,1427.98,1,13,1,12271,4485,0,0,3],
         ["p1",9,"op","chess_char_6_05_a",2,null,2376,1,14,21,132461,952,2,85,3],
         ["p1",10,"op","chess_char_6_08_a",2,null,1236.4,1,7,11,75314,0,0,4,3],
         ["p1",11,"op","chess_char_6_09_a",2,null,1469.56,1,8,0,0,0,4622,17,1],
@@ -860,10 +860,10 @@
         "enemy_1516_jakill": [1,1,0,5365,50000],
         "enemy_9006_actoxi": [1,1,0,0,15000]
       },
-      "hooks": [1,213,5564,533,533,1181,1253,2501,170,195,39,38,34,40456,322,71,170,0,1,171,2,0,2],
+      "hooks": [1,213,5564,533,533,1181,1253,2479,170,195,39,38,34,40456,322,71,170,0,1,171,2,0,2],
       "events": {"atk":569,"bounty":6,"cast":1,"deploy":41,"die":195,"dmg":1193,"engage":30,"fx":602,"heal":103,"layer":2,"rate":46,"skill":77,"spawn":213,"status":378},
       "fx": {"aoe":121,"arrowRain":16,"bombard":18,"bombardShell":18,"displace":3,"dodge":6,"drone":143,"droneLock":89,"drones":3,"explode":16,"finale":1,"firewall":1,"garrison":2,"grow":82,"lock":18,"mark":2,"revive":1,"saltWard":2,"slash":11,"sp":15,"summon":27,"talent":1,"telegraph":1,"tide":3,"zone":2},
-      "snaps": "48d0f730 6b19ea7c 9546a6d6 8e08e858 019cec64 6bc93c3d 704bef27 f020f34b 3bbc3644 42a0c481 92a5c51c 1a644140 0e67fb55 08b73d87 0425fb4d dab591f6 9cb6b85d f19f0050 14d60549"
+      "snaps": "48d0f730 6b19ea7c 845fbf41 573a7613 bd3629bb 3998978a 99d157f4 a24d253d f2f7e9df 20a8183a 2e2f693f 8713e413 159336a6 435a4660 25ead21e 921a0801 cd54b0d2 b0c82cb7 aaa7c2a6"
     },
     "roster-015": {
       "about": "pass 0 band 7: chess_char_6_16_a chess_char_6_03_b chess_char_6_02_b chess_char_6_06_b chess_char_6_11_a chess_char_6_12_a chess_char_6_13_a chess_char_6_14_a chess_char_6_15_a chess_char_6_01_b chess_char_6_04_b chess_char_6_05_b token_10017_skadi2_dedant",
@@ -892,10 +892,10 @@
         ["p1",5,"op","chess_char_6_11_a",2,null,4296.13,1,10,0,0,331,0,0,0],
         ["p1",6,"op","chess_char_6_12_a",1,null,3715.48,1,6,14,77998,265,0,24,18],
         ["p1",7,"op","chess_char_6_13_a",1,null,3655.34,1,8,25,135875,18278,14785,1,1],
-        ["p1",8,"op","chess_char_6_14_a",2,null,4832.52,1,9,0,0,17521,61767,57,1],
+        ["p1",8,"op","chess_char_6_14_a",2,null,4832.52,1,9,0,0,17521,61880,57,1],
         ["p1",9,"op","chess_char_6_15_a",2,null,4252.54,1,4,0,0,248,0,0,0],
-        ["p1",10,"op","chess_char_6_01_b",2,"uniequip_002_lemuen",4466,1,5,66,395352,23722,2524,57,4],
-        ["p1",11,"op","chess_char_6_04_b",2,"uniequip_002_skadi2",4860.24,1,15,1,73314,34668,4397,0,3],
+        ["p1",10,"op","chess_char_6_01_b",2,"uniequip_002_lemuen",4466,1,5,66,395352,23722,2496,57,4],
+        ["p1",11,"op","chess_char_6_04_b",2,"uniequip_002_skadi2",4860.24,1,15,1,73314,34668,4312,0,3],
         ["p1",12,"op","chess_char_6_05_b",2,"uniequip_002_narant",7179.48,1,7,0,0,0,0,1,1],
         ["p1",13,"token","token_10017_skadi2_dedant",null,null,100,0,16,0,0,0,0,0,null],
         ["-","~1","device","trap_1105_accrate",null,null,100,1,1,0,0,0,0,0,null],
@@ -923,10 +923,10 @@
         "enemy_1517_xi": [1,1,0,5866,45000],
         "enemy_9007_acelem": [1,1,0,0,27000]
       },
-      "hooks": [1,136,5857,324,323,750,1160,4951,117,121,32,30,73,23484,74,11,117,0,1,114,0,21,0],
+      "hooks": [1,136,5857,324,323,750,1160,4909,117,121,32,30,73,23484,74,11,117,0,1,114,0,21,0],
       "events": {"atk":502,"bounty":6,"cast":4,"deploy":16,"die":121,"dmg":888,"engage":5,"fx":319,"heal":458,"rate":22,"skill":62,"spawn":136,"status":177},
       "fx": {"airstrike":17,"aoe":19,"bombard":71,"bombardShell":71,"burst":21,"cleanse":1,"displace":1,"emergency":1,"explode":4,"finale":2,"lock":71,"revive":1,"slash":7,"steal":1,"summon":3,"talent":1,"telegraph":3,"tide":3,"wanted":20,"zone":1},
-      "snaps": "a258f443 70197254 223d16b0 11cb79ce 8222b35f f0137618 afb4b15d 74bd86d6 e502322d c6a973a8 5f2e5077 af9594e3 8a6258c1 28c8f0ea fb3995ec ace096d7 8713b33b 19944939 a6813360 1aae1894"
+      "snaps": "a258f443 70197254 b3a83208 cc104be6 45424bf7 da975220 7823c445 ecd0418e 4a16c328 24eb8819 8a0edcea 5da62a0a 5ce36e74 02ee28f6 b9964632 70e25891 40e2569d 594a4ddb 4ff04a7e 23b28a36"
     },
     "roster-016": {
       "about": "pass 0 band 7: chess_char_6_16_b chess_char_5_01_b chess_char_6_07_b chess_char_6_08_b chess_char_6_09_b chess_char_6_10_b chess_char_6_11_b chess_char_6_12_b chess_char_6_13_b chess_char_6_14_b chess_char_6_15_b chess_char_5_02_b token_10030_mlyss_wtrman",
