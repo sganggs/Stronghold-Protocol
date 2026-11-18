@@ -6,7 +6,7 @@
 import { PHASE, layerGainRoom } from '../../../shared/constants.js';
 import { uniteSurvivors } from '../unite.js';
 import { buildResult } from '../results.js';
-import { FLOW_TICKER_PRIORITY, DELAYS } from './common.js';
+import { FLOW_TICKER_PRIORITY, DELAYS, applyTempLayers } from './common.js';
 import { msg } from '../../../shared/i18n.js';
 import { onSettle, resetRoundCounters } from '../botEmotes.js';
 import { creditedKillsOf } from '../../sim/spec.js';
@@ -77,15 +77,7 @@ export class MatchSettle {
       }
       this._charDamageTickers(ps, r);
       // Preserve the own-battle pool through SETTLE. Conversion runs when the next prep actually opens.
-      if (r.tempLayerGains && typeof r.tempLayerGains === 'object') {
-        const bag = {};
-        for (const [bondId, n] of Object.entries(r.tempLayerGains)) {
-          if (!this.gd.bond(bondId) || !(typeof n === 'number' && n > 0)) continue;
-          const add = Math.min(1e4, Math.floor(n));
-          if (add > 0) bag[bondId] = add;
-        }
-        if (Object.keys(bag).length) ps.tempLayers = bag;
-      }
+      applyTempLayers(this.gd, ps, r);
       this.dispatch(ps, 'onBattleResult', { result: r, lpLoss: loss, perfect: counted === 0 && r.perfect !== false, unite: uniteResult || null });
       ps.recompute();
     }

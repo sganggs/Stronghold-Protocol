@@ -426,7 +426,7 @@ test('SERVER_CONVERT_TEMP_BOND: share one pool and convert only on entering prep
   both.activate('ursusShip');
   both.m.lastResults.set(both.ps.playerId, {
     leaked: [], perfect: true, coins: 0, layerGains: {}, killed: 0, damageDealt: 0,
-    tempLayerGains: { ursusShip: 10 }, unitsEnd: [],
+    tempLayerGains: { ursusShip: 10.8, unknownBond: 3, yanShip: Infinity }, unitsEnd: [],
   });
   both.m.settle(null, null);
   assert.deepEqual(both.ps.tempLayers, { ursusShip: 10 }, 'SETTLE preserves the pool');
@@ -989,7 +989,7 @@ test('own combat end and SETTLE retain temporary layers in public/private views;
   s.activate('ursusShip');
   const pid = s.ps.playerId;
   const result = { leaked: [], perfect: true, coins: 0, layerGains: {}, killed: 0, damageDealt: 0,
-    tempLayerGains: { ursusShip: 10 }, unitsEnd: [] };
+    tempLayerGains: { ursusShip: 10.8, unknownBond: 3, yanShip: Infinity }, unitsEnd: [] };
   s.m.phase = 'COMBAT';
   s.m.fields = [{ fieldId: `n:${pid}`, players: [pid], kind: 'normal', live: true }];
   s.m._finishCombat(() => ({ perPlayer: { [pid]: result }, errors: 0 }));
@@ -1006,4 +1006,45 @@ test('own combat end and SETTLE retain temporary layers in public/private views;
   assert.equal(s.ps.privateView().bonds.find(b => b.bondId === 'ursusShip').tempLayers, undefined);
   s.m.enterPrep();
   assert.equal(s.L('ursusShip'), 4, 're-entering prep cannot convert a stale pool again');
+});
+
+test('SETTLE clears a stale temporary balance when the reported pool is empty', t => {
+  const s = setup(71);
+  t.after(() => s.m.dispose());
+  s.ps.tempLayers = { ursusShip: 4 };
+  s.m.settle(null, null);
+  assert.equal(s.ps.tempLayers, undefined);
+});
+
+test('attrByBond, attrbybond_inrange, and block_eprecoverspeed_inrange refresh when temporary layers change', () => {
+  const attr = battle(
+    [{ id: 'op', g: ['garrison_24_a'], row: 10, col: 4, bonds: ['ursusShip'] }],
+    { ursusShip: B(0) },
+  );
+  near(attr.unit('op').s.aspd, 100);
+  attr.b.addTempLayers('p1', 'ursusShip', 4);
+  attr.step(1);
+  near(attr.unit('op').s.aspd, 102, 'garrison_24_a refreshes on temp layer gain');
+
+  const aura = battle([
+    { id: 'op', g: ['garrison_142_a'], row: 10, col: 4, bonds: ['egirShip'] },
+    { id: 'side', row: 11, col: 4, bonds: ['egirShip'] },
+    { id: 'far', row: 12, col: 8 },
+  ], { egirShip: B(0) });
+  assert.equal(aura.unit('op').findBuff('gar:garrison_142_a:aura'), null);
+  aura.b.addTempLayers('p1', 'egirShip', 20);
+  aura.step(1);
+  assert.equal(aura.unit('op').findBuff('gar:garrison_142_a:aura').mods.aspd, 1);
+  assert.equal(aura.unit('side').findBuff('gar:garrison_142_a:aura').mods.aspd, 1);
+  assert.equal(aura.unit('far').findBuff('gar:garrison_142_a:aura'), null);
+
+  const ep = battle(
+    [{ id: 'op', g: ['garrison_65_a'], row: 10, col: 4, bonds: ['egirShip'] }],
+    { egirShip: B(0) },
+  );
+  const it = ep.b._garInstances.find((x) => x.gid === 'garrison_65_a');
+  near(it._epRate, 0);
+  ep.b.addTempLayers('p1', 'egirShip', 20);
+  ep.step(1);
+  near(it._epRate, 0.01);
 });

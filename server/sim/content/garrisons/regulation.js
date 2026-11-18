@@ -132,6 +132,16 @@ function bondSteps(battle, it) {
   for (const b of ids(it.bbStr.bond_id)) if (S.bondActive(battle, it.unit.ownerId, b)) sum += S.bondLayers(battle, it.unit.ownerId, b);
   return Math.floor(sum / div);
 }
+function onLayerChange(battle, fn) {
+  let pending = false;
+  const defer = () => {
+    if (pending) return;
+    pending = true;
+    battle.after(0, () => { pending = false; fn(); });
+  };
+  battle.on('layerGain', defer, { priority: -100 });
+  battle.on('tempLayerChange', defer, { priority: -100 });
+}
 
 /**
  * bond_allinrange (garrison_237): each operator on bond_range_id gets the grant on their own active bonds.
@@ -491,7 +501,7 @@ export const REGULATION_INSTALLERS = {
     // [ASSUMED] the bonus is recomputed when the layer band changes and replaced, not stacked.
     const run = () => { for (const it of list) refreshAura(battle, it); };
     onBattleStart(battle, run);
-    battle.on('layerGain', run);
+    onLayerChange(battle, run);
   },
   act3autochess_gar_effect_block_eprecoverspeed_inrange(battle, list) {
     const arm = () => {
@@ -501,6 +511,7 @@ export const REGULATION_INSTALLERS = {
       }
     };
     onBattleStart(battle, arm);
+    onLayerChange(battle, arm);
     battle.on('tick', ({ dt }) => {
       if (!(dt > 0)) return;
       for (const it of list) {
