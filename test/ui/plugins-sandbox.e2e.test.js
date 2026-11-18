@@ -4,9 +4,11 @@ import assert from 'node:assert/strict';
 import {Client,hasChrome,sleep} from '../e2e/client.mjs';
 import {scriptFixture} from '../helpers/scriptFixtures.js';
 import {startServer} from '../../server/index.js';
+import {csUrlPart} from '../../shared/plugins/identity.js';
+const REG='act3autochess@V3_1';
 const enabled=process.env.SP_E2E==='1' && hasChrome();
-test('two sandbox-script players start without consent and Worker battles verify under site CSP', {skip:!enabled,timeout:300000},async t=>{
- const f=scriptFixture(t,{mode:'sandbox'});f.put('training',`export default sp => sp.content.register({install(b){b.on('battleStart',()=>{for(const u of b.allyUnits)b.addBuff(u,{key:'training',mods:{atkFlat:2}});});}});`);
+test('two sandbox-script players in 规程 start without consent and Worker battles verify under site CSP', {skip:!enabled,timeout:300000},async t=>{
+ const f=scriptFixture(t,{mode:'sandbox'});f.put('training',`export default sp => sp.content.register({install(b){b.on('battleStart',()=>{for(const u of b.allyUnits)b.addBuff(u,{key:'training',mods:{atkFlat:2}});});}});`, {versions:[REG]});
  const previous=process.env.SP_PLUGIN_SCRIPTS;process.env.SP_PLUGIN_SCRIPTS='sandbox';
  t.after(()=>{if(previous===undefined)delete process.env.SP_PLUGIN_SCRIPTS;else process.env.SP_PLUGIN_SCRIPTS=previous;});
  const srv=await startServer({port:0,host:'127.0.0.1',quiet:true,pluginsDir:f.pluginsDir,assetIndex:false,matchHost:{matchOptions:{verify:'all',timerScale:0.1,combatSpeed:16,botRehearsal:0}}});
@@ -14,7 +16,7 @@ test('two sandbox-script players start without consent and Worker battles verify
  const policy=(await fetch(srv.url)).headers.get('content-security-policy');
  assert.match(policy,/connect-src 'self';/);assert.ok(!/script-src[^;]*(?:data:|blob:|unsafe-eval)/.test(policy));
  const P=(await import('puppeteer-core')).default;
- const host=new Client(P,srv.url,'host',{prefix:'plugins-sandbox',w:1600,h:900}), guest=new Client(P,srv.url,'guest',{prefix:'plugins-sandbox',w:1600,h:900});
+ const host=new Client(P,srv.url,'host',{prefix:'plugins-sandbox',w:1600,h:900,lobbyVersion:REG}), guest=new Client(P,srv.url,'guest',{prefix:'plugins-sandbox',w:1600,h:900,lobbyVersion:REG});
  t.after(async()=>{await host.close();await guest.close();});
  await host.open();await host.enter('凯尔希');const {code}=await host.createCoop();
  await guest.open();await guest.enter('阿米娅');await guest.click('.mode-card','同盟模拟');await guest.click('.join-row input');await guest.page.keyboard.type(code);await guest.click('.join-row button','加入同盟');await guest.page.waitForSelector('.room-screen');
@@ -33,7 +35,11 @@ test('two sandbox-script players start without consent and Worker battles verify
  await host.waitFor(s=>s.phase==='COMBAT','battle',120000);
  await host.page.waitForFunction(()=>[...globalThis.__SP_RUNNER__._entries.values()].some(e=>
    e.host?.remote && e.host.worker instanceof Worker && !e.battle.step && !e.battle.data));
- assert.equal(srv.lobby.getRoom(code).content.execution,'sandbox');
+ const {cs, execution}=srv.lobby.getRoom(code).content;
+ assert.equal(execution,'sandbox');
+ const index=await (await fetch(`${srv.url}/cs/${csUrlPart(cs)}/index.json`)).json();
+ assert.equal(index.version,REG);
+ assert.equal(index.vanilla,false);
  const match=srv.lobby.getRoom(code).match;let accepted=false,last;
  for(const begin=Date.now();Date.now()-begin<90000;){last=await match.diag();if(last.verifyStats?.verified>0 || last.fields?.some(f=>f.done&&f.resultSource==='client')){accepted=true;break;}await sleep(100);}
  assert.ok(accepted,JSON.stringify(last));assert.equal(last.verifyStats.rejected,0);
