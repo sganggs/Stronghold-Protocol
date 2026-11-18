@@ -230,6 +230,8 @@ test('F5 rule 3: a body on the home of a summon that has expired or been killed 
     const b = h.b;
     const sum = b.allyUnits.find((u) => u.kind === 'token' && u.uid === 2);
     const yan = h.unit(3);
+    // round 83 (§37.244): her S3 drain can knock her out now, and a 海嗣 comes back only while she stands — keep her skill off
+    if (how === 'expired') b.addBuff(h.unit(1), { key: 'test:silence', duration: 999, flags: { silence: true } });
     assert.ok(sum.alive && sum.tileR === 10 && sum.tileC === 5, `the ${name} on its placed tile`);
     if (how === 'killed') kill(b, sum);
     else h.runUntil(() => !sum.alive, 120);
