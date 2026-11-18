@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  phaseMode, phaseBanner, isCombatPhase, isBossPhase, countdownState, phaseTotalSeconds, pregameStepCount, pregameStepIndex, sortBonds, bondTier, nextThreshold,
+  phaseMode, phaseBanner, isCombatPhase, isBossPhase, bondLayersFrozen, countdownState, phaseTotalSeconds, pregameStepCount, pregameStepIndex, sortBonds, bondTier, nextThreshold,
   battleOverSfx, ownRoundLoss, uniteResultBox, battleResultBox, roundResultBox, RESULT_BOX_MS,
   bondMembers, memberHeadCount, bannedPerBond, priceTone, mergeProgress, shopBlockReason, deploySets, indexPieces, placementContext, canPlace,
   boardTargets, dropIntent, normalizeDraft, heldDraftPub, normalizeSp, normalizePersonalChoice, groupEnemies, factionTypes, snapHud, bossFrac, attackInterval, fmtNum,
@@ -80,6 +80,17 @@ describe('phases', () => {
   test('combat / boss predicates and banners', () => {
     assert.ok(isCombatPhase(PHASE.UNITE) && !isCombatPhase(PHASE.PREP));
     assert.ok(isBossPhase(PHASE.HIDDEN_CORE) && !isBossPhase(PHASE.COMBAT));
+    const reg = { finalAssault: { layerGainsEnabled: true } };
+    const covenant = { finalAssault: { layerGainsEnabled: false } };
+    assert.equal(bondLayersFrozen(PHASE.UNITE, reg), true);
+    assert.equal(bondLayersFrozen(PHASE.PREP, reg), false);
+    assert.equal(bondLayersFrozen(PHASE.COMBAT, null), false);
+    assert.equal(bondLayersFrozen(PHASE.FINAL_ASSAULT, covenant), true);
+    assert.equal(bondLayersFrozen(PHASE.HIDDEN_CORE, {}), true);
+    assert.equal(bondLayersFrozen(PHASE.FINAL_ASSAULT, reg), false);
+    assert.equal(bondLayersFrozen(PHASE.HIDDEN_CORE, reg), false);
+    const screen = readFileSync(path.join(ROOT, 'public/js/screens/game.js'), 'utf8');
+    assert.match(screen, /bondLayersFrozen\(phase, data\.get\('config'\)\)/);
     assert.equal(phaseBanner(PHASE.UNITE, {}).title, '联防阶段');
     assert.equal(phaseBanner(PHASE.FINAL_ASSAULT, {}).title, '最终攻势');
     assert.equal(phaseBanner(PHASE.HIDDEN_CORE, {}).title, '隐秘核心');

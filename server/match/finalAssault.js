@@ -27,7 +27,10 @@
 //     rest, so the pool is 0 or ≥ 1 and a leader shown at 0 HP is down (sim/constants.js; the browser's LocalBossPool
 //     follows the same rule, server/sim/spec.js). Before, the per-player crediting of a report could leave 3.6e-12 that
 //     the browser could never deal (user playtest #6 item 5).
-//   * No IN_BATTLE layer gains (flags.layerGainsEnabled = false).
+//   * IN_BATTLE layer gains follow config.finalAssault.layerGainsEnabled (bossLayerGainsEnabled): 盟约 false, 规程
+//     true for both the Final Assault and the Hidden Core. 联防 is a different switch and stays off. Gains the battle
+//     reports are kept in _finishFinal with the same 999 cap as SETTLE. Hidden-core eligibility stays the layer sum
+//     frozen at the end of the boss round's prep; it is not recomputed from layers gained during the fight.
 //   * BOSS_HIT tickers (BOSS_HIT_STEPS 20 / 50 / 80 %): a player's damage to the round's pool (SharedBossPool.byPlayer)
 //     over its size, each threshold once per boss round — the Hidden Core never counts the Final Assault's damage
 //     (player report after 0.1.0: "隐藏boss还没打就出了造成50%伤害播报").
@@ -46,6 +49,15 @@ import { bossPoolShareOf } from './gamedata.js';
  * (SharedBossPool.byPlayer — one pool per boss round, so the Final Assault and the Hidden Core count apart).
  */
 export const BOSS_HIT_STEPS = [0.2, 0.5, 0.8];
+
+/**
+ * Whether this version's Final Assault and Hidden Core keep permanent IN_BATTLE layer gains.
+ * Reads config.finalAssault.layerGainsEnabled (true only on the 规程 profile). Never a family name check.
+ * @param {{ config?: { finalAssault?: { layerGainsEnabled?: boolean } } }} gd
+ */
+export function bossLayerGainsEnabled(gd) {
+  return gd?.config?.finalAssault?.layerGainsEnabled === true;
+}
 
 /**
  * Where a board piece (board row / col / dir) stands on a boss field for side 'L' | 'R' — the same mapping as the

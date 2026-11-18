@@ -130,6 +130,7 @@ export class FakeBattle {
         leaked,
         perfect: !leaked.some((l) => l.counted !== false),
         layerGains: { ...(this.plan.layerGains[pid] || {}) },
+        ...(this.plan.tempLayerGains && this.plan.tempLayerGains[pid] ? { tempLayerGains: { ...this.plan.tempLayerGains[pid] } } : {}),
         coins: this.plan.coins[pid] || 0,
         damageDealt: this.plan.damage[pid] || 1000,
         bossDamage: 0,

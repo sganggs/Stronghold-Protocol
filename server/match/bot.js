@@ -106,7 +106,7 @@ import { commandSkill, commandView, keepsFunds } from './bandCommands.js';
 import { computeBonds, pieceBonds } from './bondsMeta.js';
 import { isFlyKey, bountySpawns } from './waves.js';
 import { previewPlayer } from './preview.js';
-import { bossPoolHp, SharedBossPool } from './finalAssault.js';
+import { bossPoolHp, SharedBossPool, bossLayerGainsEnabled } from './finalAssault.js';
 import { GEO, REHEARSAL_MAX_CANDIDATES } from '../../shared/constants.js';
 import { mitigate } from '../sim/attack.js';
 import { HOVER_KEYS } from '../sim/content/enemies.js';
@@ -1952,7 +1952,7 @@ function bossCandidateOpts(m, ps, byUid, plan) {
     sharedBoss: new SharedBossPool(hp),
     // the spec the host's browser rebuilds the pool from (buildBattleSpec reads `boss`, not the live pool object)
     boss: { poolHp: hp, poolMax: hp },
-    flags: { layerGainsEnabled: false, ...m.gd.dp, enemyScale: m.gd.enemyScale(m.round) },
+    flags: { layerGainsEnabled: bossLayerGainsEnabled(m.gd), ...m.gd.dp, enemyScale: m.gd.enemyScale(m.round) },
     fieldId: `rb:${ps.playerId}`,
     enemyOverrides: wave.overrides,
     waveId: wave.templateId,
@@ -3316,8 +3316,10 @@ function prepTraitValue(m, ps, view, W, self, key, dir, g, copied = false) {
 
 /** §37.37 [ASSUMED] Layers a position-dependent trait of `p` (on `key`, facing `dir`) adds per round, in focus-bond equivalents. */
 function positionTraitValue(m, ps, view, W, p, key, dir, t, final) {
-  // the Final Assault gains no battle layers (finalAssault.js layerGainsEnabled false) and has no prep after it
-  if (final && (t.on === 'IN_BATTLE' || t.on === 'SERVER_PREP_START')) return 0;
+  // SERVER_PREP_START pays at the next prep. The Final Assault prep has none after it.
+  // IN_BATTLE pays during the fight only when this version's boss fields keep layer gains.
+  if (final && t.on === 'SERVER_PREP_START') return 0;
+  if (final && t.on === 'IN_BATTLE' && !bossLayerGainsEnabled(m.gd)) return 0;
   const front = () => chessAhead(view, key, dir, 1);
   const bondsOf = (q) => chessRec(m, q.id, ps)?.bonds || [];
   const sum = (bonds, n) => bonds.reduce((s, b) => s + n * W(b), 0);
@@ -3603,9 +3605,10 @@ export function* positionPlanSteps(m, ps, chosen, base, ctx, { devourOnly = fals
   const inSet = new Set(chess.map((p) => p.uid));
   const bonds = computeBonds(pgd, { board, hand: ps.hand.filter((p) => p && !inSet.has(p.uid)), layers: ps.layers, bondCountBonus: ps.bondCountBonus });
   const W = (b) => (!bonds[b]?.active ? 0 : b === ctx.focus ? 1 : pgd.bond(b)?.isCore ? 0.5 : 0.3);
-  // the devour where it brings layers (a normal round): a boss field gains none, but its devour hands the members the base
-  // ATK and block of what they devour, which the rehearsal measures (§37.70: its devour-safe candidates dealt less leader
-  // damage) and §37.77's feeding candidates go for
+  // the devour where it brings layers (a normal round). The boss-prep candidate generator still skips that layer
+  // model when there is no wave, except feeding candidates. The rehearsal battle itself follows
+  // bossLayerGainsEnabled, so this estimate can miss 阿戈尔 layers on a 规程 Final Assault. What the devour hands
+  // the members (base ATK and block) is what the rehearsal measures (§37.70, §37.77).
   const dm = (m.wave || feed) && W('egirShip') > 0 ? devourModel(m, ps, chess, bonds) : null;
   // §37.70 a twin (devourTwinsSteps): only of a candidate that feeds a piece that stays down, and only for the devour
   if (devourOnly && (!dm || !devourMarks(planView(base, chess), dm).down.size)) return null;

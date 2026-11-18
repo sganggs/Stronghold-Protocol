@@ -64,6 +64,9 @@ export default Object.freeze({
       TRAINING: { core: 0, addon: 0 },
     }),
     rules: Object.freeze({ equipHand: true, bondDraw: 'regulation' }),
+    // Boss and hidden fields keep permanent IN_BATTLE layer gains (maintainer 2026-11-19). 联防 stays off.
+    // Omitted on the covenant profiles, so their built config.finalAssault.layerGainsEnabled stays false.
+    finalAssault: Object.freeze({ layerGainsEnabled: true }),
   }),
   // 155 shop chess (310 records) and 465 effects against 下半's 133 / 361: 6.4 MB built, so the limit is 7 MB, not 6
   expect: Object.freeze({ bonds: 26, bands: 61, visibleNonDiy: 141, triggerDeviations: 'present', maxMB: 7 }),

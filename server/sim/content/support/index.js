@@ -404,7 +404,8 @@ export function battleStore(battle, ns, init = () => ({})) {
 // battle: IN_BATTLE layer gains
 
 /**
- * Add IN_BATTLE layers (no-op in 联防 / boss / hidden fields: `battle.flags.layerGainsEnabled`).
+ * Add IN_BATTLE layers. No-op unless `battle.flags.layerGainsEnabled` (联防 always off; boss / hidden follow
+ * config.finalAssault.layerGainsEnabled — 规程 on, 盟约 off).
  *   playerId       receiving player
  *   bonds          bond id or array of ids (each gets `n`)
  *   n              layers per bond (floored)

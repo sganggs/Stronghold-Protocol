@@ -397,7 +397,7 @@ export function runBoss({ data, mode, difficulty, round, seed, profile = 1, boss
     const b = m.newBattle({
       seed: deriveSeed(m.seed, `${fieldId}:${round}`), kind: hidden ? 'hidden' : 'boss', modeId: m.modeId, round, stageId: m.stageId,
       rect: { ...GEO.BOSS_RECT }, timeLimit: Infinity, players: inputs, spawns: m._sanitizeSpawns(spawns), routes: wave.routes,
-      sharedBoss: pool, flags: { layerGainsEnabled: false, ...gd.dp, enemyScale: gd.enemyScale(round) }, fieldId, enemyOverrides: wave.overrides, waveId: wave.templateId, bossId: id,
+      sharedBoss: pool, flags: { layerGainsEnabled: gd.config?.finalAssault?.layerGainsEnabled === true, ...gd.dp, enemyScale: gd.enemyScale(round) }, fieldId, enemyOverrides: wave.overrides, waveId: wave.templateId, bossId: id,
     });
     b.on('enemyLeak', (ctx) => {
       const e = ctx && ctx.enemy;

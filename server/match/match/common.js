@@ -1,6 +1,8 @@
 // server/match/match/common.js — constants and small helpers shared by the Match method modules
 // (server/match/match/*.js); server/match/Match.js re-exports FLOW_TICKER_PRIORITY, DELAYS and BAND_TURN_SECONDS.
 
+import { layerGainRoom } from '../../../shared/constants.js';
+
 /**
  * Ticker priority of the remake's match-flow notices (隐秘核心已解锁, 联防阶段, a player out or gone): the official lines
  * (research 06 §9.2) go BOSS_HIT 30 > CHAR_DAMAGE 20 > SHOP_LEVEL 11 > GOLDEN_CHAR 2 > CHAR_GIFT 1; ours sit under the
@@ -39,4 +41,20 @@ export function applyTempLayers(gd, ps, result) {
   }
   if (Object.keys(balance).length) ps.tempLayers = balance;
   else delete ps.tempLayers;
+}
+
+/**
+ * Keep one battle's permanent IN_BATTLE gains on the player. The same write a normal SETTLE uses and the boss /
+ * hidden finish uses: unknown bonds, non-positive counts, and a bond already at BOND_LAYER_CAP add nothing and
+ * dispatch nothing. `dispatch` is Match.dispatch.
+ */
+export function commitBattleLayerGains(gd, ps, layerGains, dispatch) {
+  for (const [bondId, n] of Object.entries(layerGains || {})) {
+    if (!gd.bond(bondId) || !(n > 0)) continue;
+    const before = ps.layers[bondId] || 0;
+    const add = layerGainRoom(before, Math.floor(n));
+    if (!(add > 0)) continue;
+    ps.layers[bondId] = before + add;
+    dispatch(ps, 'onLayers', { bondId, from: before, to: ps.layers[bondId], reason: 'battle' });
+  }
 }

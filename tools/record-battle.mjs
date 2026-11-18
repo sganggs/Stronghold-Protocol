@@ -168,7 +168,8 @@ function record(sc) {
     seed: SEED ^ hash(sc.name), kind: sc.kind, modeId, round, stageId: sc.stageId,
     timeLimit: sc.kind === 'boss' ? Infinity : timeLimit, routes: conv.routes, spawns: conv.spawns,
     players: sc.players(), sharedBoss, enemyOverrides: conv.overrides ?? {}, fieldId: sc.kind === 'normal' ? 'n:P1' : sc.kind === 'unite' ? 'u' : 'b1',
-    flags: { layerGainsEnabled: sc.kind === 'normal', dpInit: 10, dpPerSec: 1, dpMax: 99 }, logger: quiet,
+    // boss / hidden fields follow config.finalAssault.layerGainsEnabled (规程 on, 盟约 off); 联防 never gains
+    flags: { layerGainsEnabled: sc.kind === 'normal' || ((sc.kind === 'boss' || sc.kind === 'hidden') && config.finalAssault?.layerGainsEnabled === true), dpInit: 10, dpPerSec: 1, dpMax: 99 }, logger: quiet,
   });
   const frames = [];
   let field = null;

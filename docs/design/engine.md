@@ -75,7 +75,8 @@ b.on(event, fn, { priority=0, owner } ) / b.off(...)   // hook bus (§5.4)
      leaked: [ { enemyKey, mods, lpr, sourcePlayerId } ],   // for unite aggregation & LP
      perfect: bool,                       // no leaks
      layerGains: { [bondId]: n },         // IN_BATTLE gains (0 if flags.layerGainsEnabled false); what was added — capped at
-                                          // the bond's room under BOND_LAYER_CAP 999 (§6.3, §20.12)
+                                          // the bond's room under BOND_LAYER_CAP 999 (§6.3, §20.12). 规程 boss/hidden set the flag true;
+                                          // SETTLE and _finishFinal both keep the map. 盟约 boss/hidden and every 联防 leave it empty.
      coins: n,                            // bounty coins earned
      damageDealt: n, bossDamage: n, healingDone: n, deaths: n,
      unitsEnd: [ { uid, hpPct, sp, alive } ] } },   // operators + board summon pieces; sp = 技力 incl. stored charges

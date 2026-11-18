@@ -12,6 +12,7 @@ import { buildBattleSpec } from '../sim/spec.js';
 import { DataSource } from '../sim/simdata.js';
 import { bountyOf, mapAliases, hasBattlePart, gateOf, benchGate } from '../sim/content/choices.js';
 import { StudioError } from './files.js';
+import { bossLayerGainsEnabled } from '../match/finalAssault.js';
 
 const own = (map, id) => typeof id === 'string' && Object.hasOwn(map || {}, id) ? map[id] : null;
 const requireRecord = (map, id, path) => own(map, id) || fail(path, 'unknown');
@@ -181,7 +182,7 @@ function build(input, raw) {
     });
   } else if (s.enemies.length) fail('enemies', 'inactive');
   spawns = withBounties(gd, s.round, { ...wave, spawns, ...(s.enemyMode === 'custom' ? { actions: [] } : {}) }, bounties, playerId(0));
-  const flags = { layerGainsEnabled: s.kind === 'normal', ...gd.dp, ...(bossLike(s) ? { enemyScale: gd.enemyScale(s.round) } : {}), ...s.flags };
+  const flags = { layerGainsEnabled: s.kind === 'normal' || (bossLike(s) && bossLayerGainsEnabled(gd)), ...gd.dp, ...(bossLike(s) ? { enemyScale: gd.enemyScale(s.round) } : {}), ...s.flags };
   if (flags.dpInit > flags.dpMax) fail('flags.dpInit', 'limit');
   const hp = bossLike(s) ? gd.bossPoolHp(bossId, s.players.length) : null;
   const spec = buildBattleSpec({ battleId: 'studio-console', fieldId: 'studio-console', seed: s.seed, kind: s.kind, modeId: s.modeId,
