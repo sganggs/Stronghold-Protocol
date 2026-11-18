@@ -42,6 +42,43 @@ const pe = (fields) => ({ class: 'ParticleEffect', enabled: true, fields: { _del
 function runUntil(fx, seconds, dt = 1 / 30) { for (let t = 0; t < seconds && !fx.done; t += dt) fx.update(dt); return fx; }
 
 describe('effect lifecycle', () => {
+  test('MapEffect keeps static meshes after a finite disabled particle system ends, without restarting particles', () => {
+    const ps = psNode(1, 0, { len: 2 });
+    ps.particleSystemRenderer.m_Enabled = false;
+    const mesh = { id: 2, name: 'red-light', parent: 1, children: [], active: true,
+      meshFilter: 'builtin:Quad', meshRenderer: { m_Enabled: true, materials: [0] } };
+    const descriptor = desc([root([{ class: 'MapEffect', enabled: true, fields: {} }]), ps, mesh]);
+    for (const lite of [false, true]) {
+      const def = compileEffect(descriptor);
+      const fx = new Effect(def, { seed: 97, lite, lib: new FxLibrary() });
+      runUntil(fx, 60);
+      assert.equal(def.loops, true, 'map-owned instances are not expendable one-shots');
+      assert.equal(fx.state, 'play');
+      assert.equal(fx.sys[1].count, 0);
+      assert.equal(fx.sys[1].alive, false, 'finite particles stop normally');
+      assert.ok(fx.ctime >= 59, 'the scrolling material clock never restarts');
+      const items = [];
+      fx.gather({ pos: [0, 0, -5] }, item => items.push(item));
+      assert.equal(items.length, 1, 'the static red-light mesh still draws');
+      fx.stop(); runUntil(fx, 1);
+      assert.equal(fx.done, true, 'explicit stop still releases the map effect');
+      fx.reset(97); runUntil(fx, 5);
+      assert.equal(fx.done, false, 'pool reuse preserves map ownership');
+      fx.kill(); assert.equal(fx.done, true);
+    }
+  });
+
+  test('disabled MapEffect and finite ordinary effects retain their normal completion', () => {
+    for (const behaviours of [[], [{ class: 'MapEffect', enabled: false, fields: {} }], [pe({})]]) {
+      const fx = new Effect(compileEffect(desc([root(behaviours), psNode(1, 0, { len: 2 })])));
+      runUntil(fx, 5);
+      assert.equal(fx.done, true);
+    }
+    const fx = new Effect(compileEffect(desc([root([{ class: 'MapEffect', enabled: true, fields: { _delayToFinish: 0.4 } }])])));
+    fx.update(0.1); fx.stop(); runUntil(fx, 2);
+    assert.equal(fx.done, true, 'authored finish delay remains bounded');
+  });
+
   test('a one-shot finishes when its particles are gone, then lingers `_delayToFinish`', () => {
     const fx = new Effect(compileEffect(desc([root([pe({ _delayToFinish: 0.4 })]), psNode(1, 0)])), { seed: 1 });
     fx.update(1 / 30);
