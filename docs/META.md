@@ -152,9 +152,14 @@ eligible. Source: [official play recording in the PR #940 follow-up](https://git
 
 ITEMS integration: import `openSkillChangeDraft(player, choiceId, ctx?)` from `server/match/bandCommands.js`, or call
 `ctx.openSkillChangeDraft(choiceId)` in a meta handler. `skill_change_1` queues three cards; `skill_change_2` queues two.
-It returns false for unknown choices or commandless data. `[ASSUMED]` the missing official pool is all other ACTIVE
-rows, including upgraded rows. `commandDraft` exposes the first queued draft; `g.commandChoice {choiceId,idx}` takes a
-card. Ready waits for these choices, while bots and the prep deadline resolve them deterministically.
+It returns false for unknown choices or commandless data. The pool is one row per other strategy chain, at the
+level the player would hold now: start at `skills[0]` and walk `next` while that row's unlock holds (the same rule
+as the held command). Official Followers screenshots (PR #940, 2026-11-14) include both ACTIVE and PASSIVE cards.
+A chain still on a NONE row is left out, as is the held chain. A resolved row whose buffs include
+`auto_chess_effect_replace` (变约 stays on the opening band) or `gain_band_skill_from_pool_in_prep` (追随者们' own
+per-round choice) is left out. `[ASSUMED]` exact server weights are unavailable. `commandDraft` exposes the first
+queued draft; `g.commandChoice {choiceId,idx}` takes a card. Ready waits for these choices, while bots and the prep
+deadline resolve them deterministically.
 
 ### 1.2 机变 (SP draft)
 Family = weighted pick from `choices.schedule[modeId].rounds[r].families`; cards: co-op 6 shared (each player takes 1,

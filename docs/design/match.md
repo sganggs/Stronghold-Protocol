@@ -8,6 +8,10 @@ Regulation Nymph tile commands (`MAP_TILE` / `PASSABLE`) exclude red and blue ga
 even though these tiles are passable. Ordinary passable ground remains eligible; high ground, fences and this
 round's already-marked cells retain their existing restrictions. See META §1.1a and the PR #940 follow-up recording.
 
+投机骰子 (`skill_change_1`) and 追随者们 (`skill_change_2`) each offer one row of every other strategy chain:
+the ACTIVE or PASSIVE row the player would hold now. A chain still on NONE, the chain already held, a 变约 row
+(`auto_chess_effect_replace`) and 追随者们' own per-round choice are left out. See META §1.1a.
+
 ### 6.1 State machine (Match.js)
 
 ```
