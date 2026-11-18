@@ -1272,3 +1272,31 @@ describe('extracted scenes (when scene bundles were extracted here)', { skip: !O
     }
   });
 });
+
+
+test('native terrain depth uses finite MapSettings highland height and ignores malformed objects', { skip: !HAS_PIL && 'no Pillow' }, () => {
+  const out = py(`import regulation_scenes as rs
+from types import SimpleNamespace as N
+class Obj:
+    type = N(name='MonoBehaviour')
+    def __init__(self, tree): self.tree = tree
+    def read_typetree(self): return self.tree
+values = [None, True, -1, 5, float('inf'), 0.4, 0]
+results = [rs.tile_depth_height([Obj({'_mapSettings': {'highlandHeight': v}})]) for v in values]
+results.append(rs.tile_depth_height([Obj({'_mapSettings': None}), Obj({'_mapSettings': {'highlandHeight': 0.4}})]))
+print(json.dumps(results))`);
+  assert.deepEqual(out, [null, null, null, null, null, 0.4, 0, 0.4]);
+});
+
+
+test('terrain fallback visibility is safe before the first board build and restores missing effects', () => {
+  const board = Object.create(BoardScene.prototype);
+  assert.doesNotThrow(() => board.setNativeTerrain(new Set()));
+  board.meshes = {duelGrass:{visible:true}, infection:{visible:true}, mire:{visible:true}};
+  board.setNativeTerrain(new Set(['w', 'i']));
+  assert.equal(board.meshes.duelGrass.visible,false);
+  assert.equal(board.meshes.infection.visible,false);
+  assert.equal(board.meshes.mire.visible,true);
+  board.setNativeTerrain(new Set());
+  assert.ok(Object.values(board.meshes).every(m=>m.visible));
+});

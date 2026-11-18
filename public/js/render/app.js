@@ -148,10 +148,10 @@ import { TileField } from './tiles.js';
 import { UnitView, ItemView, DeviceView, FORMS, syncView } from './units.js';
 import { FxSystem, ensureDamageFonts, projSpeed } from './fx.js';
 import { OfficialFx } from './vfx/system.js';
+import { TerrainFx } from './vfx/terrainfx.js';
 import { FxWiring } from './vfx/wiring.js';
 import { PluginFxPlayer } from './vfx/pluginPlayer.js';
 import { resolveOfficialFx } from './vfx/tier.js';
-import { boardToUnity } from './vfx/math.js';
 import { createDragController, pieceTile, dragStandTile } from './drag.js';
 import { backdropTextures, shadowTexture, refreshTierChips, refreshDownLabels, silhouetteTexture } from './textures.js';
 import { TILE_H, TIER_COLORS, COLORS } from './style.js';
@@ -418,6 +418,11 @@ export async function createFieldView(host, options = {}) {
   setupCleanup.push(() => ofx.destroy());
   layers.vfxGround.addChild(ofx.ground);
   layers.vfxOver.addChild(ofx.over);
+  const terrainOfx = new OfficialFx({ P, renderer: app.renderer, assets, cam: () => cam, heightAt });
+  const terrainFx = new TerrainFx(terrainOfx);
+  setupCleanup.push(() => { terrainFx.clear(); terrainOfx.destroy(); });
+  layers.vfxGround.addChild(terrainOfx.ground);
+  layers.vfxOver.addChild(terrainOfx.over);
   const wiring = new FxWiring(ofx, {
     speed: projSpeed,
     // the index unit of a battle unit: the drawn operator (a stand-in's, a 自选 pick's), the chess' operator, the enemy / token
@@ -441,34 +446,9 @@ export async function createFieldView(host, options = {}) {
   /** The tier the effects run at now: the setting (auto: 精简 on touch devices) while the 3D board draws. */
   function syncOfficialFx() {
     ofx.setTier(board3d ? resolveOfficialFx(settings.officialFx, ofx.available) : 'off');
+    terrainOfx.setTier(board3d ? resolveOfficialFx(settings.officialFx, terrainOfx.available) : 'off');
   }
-  ofx.init().then((ok) => { if (!destroyed && ok) { syncOfficialFx(); wiring.ready(); } }, () => {});
-  // 规程 MAP09 隐匿地块 (§37.230): the client's own tile effect mapeff_079_dikuai_01 (FX_GENERIC tile.duelGrass) loops on
-  // every concealment tile, in prep and in battle, while the 3D board and the official effects are on; the 2D board and
-  // 官方特效 off keep the tinted tile (tiles.js 'w', board3d duelGrass material). A clear (battle start / end) drops the
-  // loops: they are spawned again on the next frame.
-  const GRASS_FX = 'mapeff_079_dikuai_01';
-  let grassFx = [];
-  let grassKey = '';
-  const grassAlive = (h) => !!h && !h.cancelled && (ofx.pending.includes(h) || (!!h.effect && ofx.effects.includes(h.effect)));
-  function syncGrassFx() {
-    const cells = board3d?.board?.terrain?.duelGrass || [];
-    const on = !!board3d && ofx.active && cells.length > 0 && ofx.lib.has(GRASS_FX);
-    const key = on ? `${board3d.stageKey}|${ofx.tier}` : '';
-    // the official loop replaces our tinted frame (board3d duelGrass mesh, #939's [ASSUMED] look): one or the other
-    const overlay = board3d?.meshes?.duelGrass;
-    if (overlay) overlay.visible = !on;
-    if (key === grassKey && (!on || grassFx.every(grassAlive))) return;
-    for (const h of grassFx) h?.kill?.();
-    grassFx = [];
-    grassKey = key;
-    if (!on) return;
-    for (const [r, c] of cells) {
-      const z = heightAt(r, c) || 0;
-      const h = ofx.spawn(GRASS_FX, { pos: boardToUnity(c, r, z), groundZ: -z }, { loop: true, important: true });
-      if (h) grassFx.push(h);
-    }
-  }
+  Promise.all([ofx.init(), terrainOfx.init()]).then(([ok]) => { if (!destroyed) { syncOfficialFx(); if (ok) wiring.ready(); } }, () => {});
   // battle devices (crates / turrets as sim units): the official crate mesh in the 3D scene, else a Pixi box
   ctx.createBox = (spec) => switchableBox({ board: () => board3d, pixi: () => tiles.createBox(), spec });
   const impostors = new ImpostorAtlas(app.renderer);
@@ -2040,6 +2020,7 @@ export async function createFieldView(host, options = {}) {
     frameNo++;
     impSlot = 0;
     ofx.frameStats();
+    terrainOfx.frameStats();
     if (frameNo % 30 === 1) {
       impInterval = pickImpostorInterval(); clipAllowed = pickClipping();
       culledCount = 0;
@@ -2070,7 +2051,7 @@ export async function createFieldView(host, options = {}) {
       }
       tiles.project(cam);
       updateBackdrop(clock);
-      syncGrassFx();
+      terrainFx.update(board3d, dt);
       if (mode === 'battle') {
         const renderT = interp.update(now / 1000);
         if (Number.isFinite(renderT)) {
@@ -2093,8 +2074,6 @@ export async function createFieldView(host, options = {}) {
           }
         }
       } else if (mode === 'prep') {
-        // the concealment tiles' loops are the only official effects in prep: run them on the frame clock
-        if (ofx.active && grassFx.length) ofx.update(Math.min(0.25, dt));
         for (const [key, pd] of pending) {
           if (now - pd.t > DROP_PENDING_MS) {
             pending.delete(key);
@@ -2355,6 +2334,7 @@ export async function createFieldView(host, options = {}) {
       holdScene(false); // no scene any more: the quiet budget may free the skeletons (lobby / room / result)
       try { fx.destroy(); } catch { /* ignore */ }
       try { ofx.destroy(); } catch { /* ignore */ }
+      terrainFx.clear(); terrainOfx.destroy();
       pluginFx.destroy();
       try { tiles.destroy(); } catch { /* ignore */ }
       try { impostors.destroy(); } catch { /* ignore */ }
@@ -2371,7 +2351,7 @@ export async function createFieldView(host, options = {}) {
         fps: Math.round(fps * 10) / 10, frameMs: Math.round(frameMs * 100) / 100, cpuMs: Math.round(cpuMs * 100) / 100, renderMs: Math.round(renderMs * 100) / 100, mode, units: views.size, impostor: impInterval, impostorAtlas: { ...impostors.stats }, boardArt: !!tiles.atlas.art,
         board3d: board3d ? { on: true, ...board3d.stats(), losses: recover.count } : { on: false, error: board3dError, recovering: !!recover.timer, losses: recover.count },
         pen: penViews.size, penHidden, prepField: prepXf.kind === 'bossPrep' ? prepXf.side : null, lod: loadLevel, culled: culledCount,
-        ...fx.counts, officialFx: ofx.stats(), spine: assets.spine?.stats ? assets.spine.stats() : null, renderT: interp.renderT, rate: interp.rate,
+        ...fx.counts, officialFx: ofx.stats(), terrainFx: terrainOfx.stats(), spine: assets.spine?.stats ? assets.spine.stats() : null, renderT: interp.renderT, rate: interp.rate,
         buffered: interp.size, camera: cam.params(),
       };
     },

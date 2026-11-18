@@ -33,6 +33,7 @@ Materials are not all in the sand theme. STAGE_DEPS is the bundle each stage's m
 (m01–m04 and m06 sand, m05 Syracuse metro, m09/m11 icewild, m10/m12 ltny2) plus the one external mesh.
 """
 import json
+import math
 import re
 from pathlib import Path
 
@@ -417,7 +418,7 @@ def _shift_pages(chunks, page_of):
     return out
 
 
-def _write(stage_id, chunks, materials, mat_tex, light, images, out_root, manifest, log):
+def _write(stage_id, chunks, materials, mat_tex, light, images, out_root, manifest, log, tile_depth=None):
     from PIL import Image
     out_dir = Path(out_root) / scenes.SCENE_SUB / stage_id
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -475,6 +476,8 @@ def _write(stage_id, chunks, materials, mat_tex, light, images, out_root, manife
            'layout': 'pieces', 'pieceGrid': {PIECE_GROUPS[i]: [PIECE_ROWS[i], PIECE_COLS[i]] for i in (1, 2, 3)},
            'materials': dict(sorted(materials.items())), 'groups': sorted({rec['group'] for rec in records}),
            'chunks': records, 'binBytes': len(blob)}
+    if tile_depth:
+        doc['tileDepthHeights'] = tile_depth
     (out_dir / 'scene.json').write_text(json.dumps(doc, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
     manifest[sub]['scene'] = {'path': f'/assets/local/{sub}/scene.json', 'kind': 'Scene', 'chunks': len(records),
                               'version': scenes.SCENE_EXTRACT_VERSION}
@@ -605,15 +608,33 @@ def _atlas(images, chunks, log, stage_id, gutter=ATLAS_GUTTER):
     return [atlas], out
 
 
+def tile_depth_height(objects):
+    """MapSettings.highlandHeight in this piece, for terrain FX depth only (not unit positions)."""
+    for obj in objects:
+        if obj.type.name != 'MonoBehaviour':
+            continue
+        try:
+            value = obj.read_typetree().get('_mapSettings', {}).get('highlandHeight')
+        except Exception:
+            continue
+        if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) and 0 <= value <= 4:
+            return round(value, 5)
+    return None
+
+
 def export_stage(stage_id, paths, dep_paths, out_root, manifest, log, material_info):
     """Write one 规程 stage from its three prefab bundles. `paths` is (sub_01, sub_02, sub_03)."""
     images = []
     merged = {}
     materials, mat_tex = {}, {}
     light = None
+    tile_depth = {}
     log(f'{stage_id}: loading {", ".join(Path(p).name for p in paths)}')
     owns = _load_pieces(paths, dep_paths, log, stage_id)
     for piece, own in zip((1, 2, 3), owns):
+        height = tile_depth_height(own)
+        if height is not None:
+            tile_depth[PIECE_GROUPS[piece]] = height
         chunks, mats, texs, piece_light, pages, stats = _chunks_of_piece(piece, own, log, stage_id, material_info)
         log(f'  sub_0{piece}: {stats["tris"]} triangles'
             f' ({stats["inactive"]} inactive, {stats["nomat"]} without a material, {stats["static"]} static)')
@@ -637,7 +658,7 @@ def export_stage(stage_id, paths, dep_paths, out_root, manifest, log, material_i
         if light is None and piece_light is not None:
             light = piece_light
     images, merged = _atlas(images, merged, log, stage_id)
-    return _write(stage_id, merged, materials, mat_tex, light, images, out_root, manifest, log)
+    return _write(stage_id, merged, materials, mat_tex, light, images, out_root, manifest, log, tile_depth=tile_depth)
 
 
 def export_regulation(ab_root, out_root, manifest, log, ids, roots, material_info, shader_deps=()):

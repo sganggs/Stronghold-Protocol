@@ -624,6 +624,13 @@ export class BoardScene {
     }
   }
 
+  /** Replace a fallback only after its extracted terrain effect has started. */
+  setNativeTerrain(glyphs) {
+    for (const [glyph, key] of [['w', 'duelGrass'], ['i', 'infection'], ['m', 'mire']]) {
+      if (this.meshes?.[key]) this.meshes[key].visible = !glyphs.has(glyph);
+    }
+  }
+
   _buildBackground(board) {
     const T = this.THREE;
     const B = LIGHTING.bg;
