@@ -939,8 +939,10 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
   one stack of deploy-limit copies (凯瑟琳 2 of her 3 devices); each copy is placed and turned like any piece (no deploy
   slot — the PRTS token pages give 部署占用数 0), only while its owner is on the board. Withdrawing / selling / merging the
   owner removes its summons; moving it to another tile (a move, a swap, or a summon dragged onto it — that summon stays
-  where it was dropped) sends its placed summons back onto their stack ("移动干员时，其所属召唤物全部退场并重置至手牌区";
-  `PlayerState._liftTokensOf`). A stack that overflowed into temp and was removed at a prep deadline comes back at the
+  where it was dropped) keeps each placed summon whose tile is still legal for the owner's final position and sends only
+  the others back onto their stack (PR #969's official recording of the new client, accepted for all five versions by the
+  maintainer on 2026-11-18; the PRTS help line "移动干员时，其所属召唤物全部退场并重置至手牌区" describes the older client;
+  `PlayerState._liftOutOfRange` after the move). A stack that overflowed into temp and was removed at a prep deadline comes back at the
   next round start (§手牌区 "干员所属召唤物会于下一回合返还": `PlayerState.startRound` tops every board owner's summons up
   to the deploy limit, `grantTokensFor`). A summon whose text reads "只能部署在召唤者攻击范围内" (tokens.json `ownerRange`:
   the tacticians' 援军, 伺夜 狼群 / 缪尔赛思 流形 — choosing the tactical point; player report #9 after 0.1.0) only goes on
