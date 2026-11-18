@@ -10,9 +10,13 @@
 //                           settles after a rotation (iOS reports the old size for a few frames) so the field view and
 //                           the rem scale re-layout; keeps --sp-vh (the real visible height) for the CSS.
 //   fullscreen              { supported(), active(), toggle(), exit() }: Fullscreen API with the webkit-prefixed
-//                           variant (iPadOS / older Safari); iPhone Safari has no element fullscreen → unsupported and the
-//                           button hides. Android: after entering, the orientation is locked to landscape when allowed.
-//   FullscreenButton        HUD / title button (hidden where unsupported), follows fullscreenchange.
+//                           variant (iPadOS / older Safari). Android: after entering, the orientation is locked to
+//                           landscape when allowed.
+//   FullscreenButton        HUD / title button, follows fullscreenchange. iOS/iPadOS without element fullscreen opens
+//                           Home Screen steps (Safari → 添加到主屏幕); already standalone needs no button.
+//   iosKind / fullscreenAction / fullscreenGuideDialog
+//                           which copy that button shows. iPad (including iPadOS desktop mode) is not titled as iPhone
+//                           and is not told to turn a phone sideways.
 //   useScreenWakeLock(active) screen wake lock while active and visible, restored on foreground and released on cleanup.
 //   long-press              a still touch of LONG_PRESS_MS on a DOM control → a synthetic `contextmenu` (= detail) when
 //                           the browser sends none (iOS Safari); when a handler took it (preventDefault: detail card,
@@ -22,7 +26,7 @@
 
 import { useEffect, useState } from '../../vendor/hooks.module.js';
 import { pwaInstall } from '../pwa.js';
-import { html, Icon, Button } from './components.js';
+import { html, Icon, Button, alertDialog } from './components.js';
 import { t } from '../../../shared/i18n.js';
 
 /** A touch held this long without moving opens the detail (contextmenu) on DOM controls. */
@@ -241,15 +245,100 @@ export function useFullscreen() {
   return on;
 }
 
-/** Fullscreen toggle (hidden where the browser has no element fullscreen, e.g. iPhone Safari). */
+/**
+ * iPhone-sized iOS (including iPod touch) or iPad. null off iOS/iPadOS.
+ * iPadOS 13+ reports a desktop Mac identity; `isIOS` already treats that as iPadOS, so the wording does too.
+ * @param {any} [win]
+ * @returns {'iphone'|'ipad'|null}
+ */
+export function iosKind(win = globalThis) {
+  if (!isIOS(win)) return null;
+  const nav = win.navigator || {};
+  const ua = nav.userAgent || '';
+  if (/iPad/.test(ua) || nav.platform === 'MacIntel' || /Macintosh/.test(ua)) return 'ipad';
+  return 'iphone';
+}
+
+/**
+ * What the fullscreen control does on this browser.
+ * 'native': the Fullscreen API toggle. 'guide': Safari Home Screen steps. null: hide the button
+ * (no element fullscreen, and either this is not iOS/iPadOS or the window is already standalone).
+ * [ASSUMED] the existing fullscreen control is also the installation-guidance entry (issue #413).
+ * Detection of fullscreen and standalone stays in `detectFeatures`; `iosKind` only picks the guide.
+ * @param {any} [win]
+ * @returns {'native'|'guide'|null}
+ */
+export function fullscreenAction(win = globalThis) {
+  const features = detectFeatures(win);
+  if (features.fullscreen) return 'native';
+  if (iosKind(win) && !features.standalone) return 'guide';
+  return null;
+}
+
+/**
+ * Label, pressed state and popup flag for the control. `active` is the Fullscreen API state.
+ * A guide button is not a toggle: no aria-pressed, aria-haspopup=dialog.
+ * @param {'native'|'guide'|null} action
+ * @param {boolean} [active]
+ * @returns {{ guide: boolean, label: string, pressed: string|undefined, popup: string|undefined, icon: string }|null}
+ */
+export function fullscreenButtonView(action, active = false) {
+  if (!action) return null;
+  const guide = action === 'guide';
+  const on = !guide && !!active;
+  return {
+    guide,
+    label: on ? t('退出全屏') : t('全屏'),
+    pressed: guide ? undefined : (on ? 'true' : 'false'),
+    popup: guide ? 'dialog' : undefined,
+    icon: on ? 'collapse' : 'expand',
+  };
+}
+
+/**
+ * Alert options for the Home Screen steps. iPad copy never says 「横置手机」 and is not titled only 「iPhone」.
+ * Chrome (CriOS) and Firefox (FxiOS) get the same steps; the first step tells them to open Safari.
+ * [ASSUMED] one shared guide is enough for Safari and for other iOS browsers. 「横置平板」 is our iPad wording.
+ * @param {any} [win]
+ */
+export function fullscreenGuideDialog(win = globalThis) {
+  const pad = iosKind(win) === 'ipad';
+  const intro = pad
+    ? t('iPad 需从主屏幕打开游戏，才能隐藏浏览器工具栏。')
+    : t('iPhone 需从主屏幕打开游戏，才能隐藏浏览器工具栏。');
+  const last = pad
+    ? t('点击“添加”，再从主屏幕打开游戏并横置平板。')
+    : t('点击“添加”，再从主屏幕打开游戏并横置手机。');
+  const steps = [
+    t('用 Safari 打开本站，点击浏览器的分享按钮。'),
+    t('选择“添加到主屏幕”；若出现“作为网页 App 打开”，请保持开启。'),
+    last,
+  ];
+  return {
+    title: pad ? t('iPad 全屏') : t('iPhone 全屏'),
+    okText: t('关闭'),
+    micro: 'FULLSCREEN',
+    text: html`<div class="modal__text">
+      <p>${intro}</p>
+      <ol>
+        <li>${steps[0]}</li>
+        <li>${steps[1]}</li>
+        <li>${steps[2]}</li>
+      </ol>
+    </div>`,
+  };
+}
+
+/** Fullscreen toggle. Without element fullscreen on iOS/iPadOS, opens the Home Screen guide instead of hiding. */
 export function FullscreenButton({ class: cls = '' }) {
   const on = useFullscreen();
-  const [ok] = useState(() => fullscreen.supported());
-  if (!ok) return null;
-  const label = on ? t('退出全屏') : t('全屏');
-  return html`<button type="button" class=${`fsbtn tapx ${cls}`} aria-label=${label} title=${label} aria-pressed=${on ? 'true' : 'false'}
-      onClick=${() => fullscreen.toggle()}>
-    <${Icon} name=${on ? 'collapse' : 'expand'} />
+  const [action] = useState(() => fullscreenAction());
+  const view = fullscreenButtonView(action, on);
+  if (!view) return null;
+  const enter = () => (view.guide ? alertDialog(fullscreenGuideDialog()) : fullscreen.toggle());
+  return html`<button type="button" class=${`fsbtn tapx ${cls}`} aria-label=${view.label} title=${view.label}
+      aria-pressed=${view.pressed} aria-haspopup=${view.popup} onClick=${enter}>
+    <${Icon} name=${view.icon} />
   </button>`;
 }
 

@@ -5,8 +5,9 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { installCompat } from '../../public/js/ui/compat.js';
-import { detectFeatures, featureClasses, fullscreen, installDeviceSupport, installScreenWakeLock, isIOS, LONG_PRESS_MS, screenLandscape } from '../../public/js/ui/device.js';
+import { detectFeatures, featureClasses, fullscreen, fullscreenAction, fullscreenButtonView, fullscreenGuideDialog, installDeviceSupport, installScreenWakeLock, iosKind, isIOS, LONG_PRESS_MS, screenLandscape } from '../../public/js/ui/device.js';
 import { checkButtons } from '../../public/js/ui/hud.js';
 import { penPlacement, penZoneTiles, previewEnemyKey, PEN } from '../../public/js/ui/gameLogic.js';
 import { bannerVisible } from '../../public/js/ui/connBanner.js';
@@ -166,6 +167,161 @@ describe('ui/device.js feature detection', () => {
     const none = fakeWindow({ fs: false });
     assert.equal(fullscreen.supported(none.win), false);
     assert.equal(await fullscreen.enter(none.win), false);
+  });
+});
+
+// ---- Home Screen guide (issue #413, PR #936 ported by hand) ---------------------------------------------------------
+
+const IPHONE_SAFARI = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1';
+const IPAD_SAFARI = 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1';
+const IPOD_SAFARI = 'Mozilla/5.0 (iPod touch; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 Version/15.0 Mobile/15E148 Safari/604.1';
+const IPHONE_CHROME = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 CriOS/120.0.6099.119 Mobile/15E148 Safari/604.1';
+const IPAD_FIREFOX = 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 FxiOS/131.0 Mobile/15E148 Safari/605.1.15';
+const ANDROID_CHROME = 'Mozilla/5.0 (Linux; Android 15; Pixel 9) Chrome/129.0.0.0 Mobile Safari/537.36';
+
+/** A browser fake with a chosen user agent and optional fullscreen / standalone flags. */
+function iosWindow({ ua = '', platform = '', touchPoints = 0, fs = false, standalone = false, navStandalone = false } = {}) {
+  const media = standalone ? { '(display-mode: standalone)': true } : {};
+  const { win } = fakeWindow({ fs, media, touchPoints });
+  Object.assign(win.navigator, { userAgent: ua, platform });
+  if (navStandalone) win.navigator.standalone = true;
+  return win;
+}
+
+function vnodeText(v) {
+  if (v == null || typeof v === 'boolean') return '';
+  if (typeof v === 'string' || typeof v === 'number') return String(v);
+  if (Array.isArray(v)) return v.map(vnodeText).join('');
+  return vnodeText(v.props?.children);
+}
+
+function liCount(v) {
+  if (v == null || typeof v !== 'object') return 0;
+  if (Array.isArray(v)) return v.reduce((n, x) => n + liCount(x), 0);
+  return (v.type === 'li' ? 1 : 0) + liCount(v.props?.children);
+}
+
+describe('ui/device.js Home Screen guide', () => {
+  test('iPhone without element fullscreen opens the three Home Screen steps', () => {
+    const win = iosWindow({ ua: IPHONE_SAFARI });
+    assert.equal(iosKind(win), 'iphone');
+    assert.equal(fullscreenAction(win), 'guide');
+    const view = fullscreenButtonView('guide', false);
+    assert.equal(view.popup, 'dialog');
+    assert.equal(view.pressed, undefined);
+    assert.equal(view.label, '全屏');
+    assert.equal(view.icon, 'expand');
+    const dialog = fullscreenGuideDialog(win);
+    assert.equal(dialog.title, 'iPhone 全屏');
+    assert.equal(dialog.okText, '关闭');
+    assert.equal(dialog.micro, 'FULLSCREEN');
+    assert.equal(liCount(dialog.text), 3);
+    const body = vnodeText(dialog.text);
+    assert.match(body, /用 Safari 打开/);
+    assert.match(body, /添加到主屏幕/);
+    assert.match(body, /横置手机/);
+    assert.doesNotMatch(body, /横置平板/);
+  });
+
+  test('iPad wording is not the iPhone title and does not say 横置手机', () => {
+    const win = iosWindow({ ua: IPAD_SAFARI });
+    assert.equal(iosKind(win), 'ipad');
+    assert.equal(fullscreenAction(win), 'guide');
+    const dialog = fullscreenGuideDialog(win);
+    assert.equal(dialog.title, 'iPad 全屏');
+    assert.doesNotMatch(dialog.title, /iPhone/);
+    const body = vnodeText(dialog.text);
+    assert.match(body, /iPad 需从主屏幕打开游戏/);
+    assert.match(body, /用 Safari 打开/);
+    assert.match(body, /横置平板/);
+    assert.doesNotMatch(`${dialog.title}\n${body}`, /横置手机/);
+    assert.doesNotMatch(body, /iPhone/);
+  });
+
+  test('iPadOS desktop mode (Mac identity plus multitouch) uses the iPad guide', () => {
+    const win = iosWindow({
+      ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/17.0 Safari/605.1.15',
+      platform: 'MacIntel',
+      touchPoints: 5,
+    });
+    assert.equal(iosKind(win), 'ipad');
+    const dialog = fullscreenGuideDialog(win);
+    assert.equal(dialog.title, 'iPad 全屏');
+    assert.doesNotMatch(vnodeText(dialog.text), /横置手机/);
+    assert.match(vnodeText(dialog.text), /横置平板/);
+  });
+
+  test('iOS Chrome and Firefox see 用 Safari 打开', () => {
+    const chrome = iosWindow({ ua: IPHONE_CHROME });
+    assert.equal(fullscreenAction(chrome), 'guide');
+    const chromeDialog = fullscreenGuideDialog(chrome);
+    assert.equal(chromeDialog.title, 'iPhone 全屏');
+    assert.match(vnodeText(chromeDialog.text), /用 Safari 打开/);
+    const firefox = iosWindow({ ua: IPAD_FIREFOX });
+    assert.equal(iosKind(firefox), 'ipad');
+    const firefoxDialog = fullscreenGuideDialog(firefox);
+    assert.equal(firefoxDialog.title, 'iPad 全屏');
+    assert.match(vnodeText(firefoxDialog.text), /用 Safari 打开/);
+    assert.doesNotMatch(vnodeText(firefoxDialog.text), /横置手机/);
+  });
+
+  test('iPod touch uses the phone guide', () => {
+    const win = iosWindow({ ua: IPOD_SAFARI });
+    assert.equal(iosKind(win), 'iphone');
+    assert.match(vnodeText(fullscreenGuideDialog(win).text), /横置手机/);
+  });
+
+  test('already standalone without element fullscreen hides the control', () => {
+    const byMode = iosWindow({ ua: IPHONE_SAFARI, standalone: true });
+    const byFlag = iosWindow({ ua: IPAD_SAFARI, navStandalone: true });
+    assert.equal(fullscreenAction(byMode), null);
+    assert.equal(fullscreenAction(byFlag), null);
+    assert.equal(fullscreenButtonView(null, false), null);
+  });
+
+  test('a non-iOS browser without fullscreen hides the control', () => {
+    const win = iosWindow({ ua: ANDROID_CHROME, platform: 'Linux armv8l', touchPoints: 5 });
+    assert.equal(iosKind(win), null);
+    assert.equal(fullscreenAction(win), null);
+    assert.equal(fullscreenAction({}), null);
+  });
+
+  test('element fullscreen keeps the old toggle, including on a standalone iPhone', () => {
+    const win = iosWindow({ ua: IPHONE_SAFARI, fs: true, standalone: true });
+    assert.equal(fullscreenAction(win), 'native');
+    const off = fullscreenButtonView('native', false);
+    assert.equal(off.guide, false);
+    assert.equal(off.popup, undefined);
+    assert.equal(off.pressed, 'false');
+    assert.equal(off.label, '全屏');
+    assert.equal(off.icon, 'expand');
+    const on = fullscreenButtonView('native', true);
+    assert.equal(on.pressed, 'true');
+    assert.equal(on.label, '退出全屏');
+    assert.equal(on.icon, 'collapse');
+  });
+
+  test('the four language packs translate both guides', () => {
+    const phone = fullscreenGuideDialog(iosWindow({ ua: IPHONE_SAFARI }));
+    const pad = fullscreenGuideDialog(iosWindow({ ua: IPAD_SAFARI }));
+    const msgids = [phone.title, pad.title, ...vnodeText(phone.text).split(/(?<=。)/), ...vnodeText(pad.text).split(/(?<=。)/)]
+      .map((s) => s.trim()).filter(Boolean);
+    assert.ok(msgids.length >= 8, `expected the guide sentences, got ${msgids.join(' | ')}`);
+    const packs = {};
+    for (const code of ['en', 'ja', 'ko', 'zh-TW']) {
+      packs[code] = JSON.parse(readFileSync(new URL(`../../public/i18n/${code}.json`, import.meta.url), 'utf8'));
+      for (const id of msgids) assert.equal(typeof packs[code][id], 'string', `${code} missing ${id}`);
+    }
+    const en = packs.en;
+    assert.equal(en['iPhone 全屏'], 'Fullscreen on iPhone');
+    assert.equal(en['iPad 全屏'], 'Fullscreen on iPad');
+    assert.match(en['用 Safari 打开本站，点击浏览器的分享按钮。'], /Safari/);
+    assert.match(en['选择“添加到主屏幕”；若出现“作为网页 App 打开”，请保持开启。'], /Add to Home Screen/);
+    assert.doesNotMatch(en['选择“添加到主屏幕”；若出现“作为网页 App 打开”，请保持开启。'], /添加到主屏幕/);
+    assert.match(en['点击“添加”，再从主屏幕打开游戏并横置手机。'], /phone sideways/);
+    assert.match(en['点击“添加”，再从主屏幕打开游戏并横置平板。'], /turn your iPad sideways/);
+    assert.doesNotMatch(en['点击“添加”，再从主屏幕打开游戏并横置平板。'], /phone/);
+    assert.doesNotMatch(en['iPad 需从主屏幕打开游戏，才能隐藏浏览器工具栏。'], /iPhone/);
   });
 });
 

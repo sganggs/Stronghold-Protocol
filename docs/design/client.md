@@ -624,6 +624,14 @@ refused recovery can return to the previous identity and nickname. It does not i
 Without BroadcastChannel it refuses shared recovery. Server restart / expiry clears
 obsolete metadata on the next welcome. A spectator never registers a recoverable player seat.
 
+The title and match fullscreen control (`FullscreenButton`) uses the detected native Fullscreen API when the
+browser has it. On iOS/iPadOS without element fullscreen, the same button opens translated Safari Home Screen
+steps (Share → Add to Home Screen, including “Open as Web App” when that switch is shown). iPhone copy says to
+turn the phone sideways; iPad copy, including iPadOS desktop mode, is titled for iPad and does not say to turn
+a phone sideways. iOS Chrome and Firefox see the “open in Safari” step. An already standalone window without
+native fullscreen hides the control. Wake lock, the rotate hint and the `beforeinstallprompt` install button
+are unchanged. [ASSUMED] reusing the fullscreen control as the installation-guidance entry (issue #413).
+
 `manifest.json` enables browser installation. The maintainer's revised decision of 2026-10-10 is to
 **沿用 0.2.x 的薄荷绿城堡并精修**: `public/icons/app.svg` keeps the existing three-battlement rook, inset tower
 and splayed base in mint `#4ed8af` on dark `#0c0f0e`. Refinement B narrows the tower, balances the battlements,

@@ -2571,5 +2571,13 @@
   "大厅已启用改变玩法的插件（非官方），创建房间时将自动带入": "Lobby has gameplay plugins enabled (unofficial); they will apply automatically when creating a room",
   "大厅插件": "Lobby Plugins",
   "骷髅手指光标": "PRTS hand cursor",
-  "使用明日方舟的骷髅手指光标；文字输入、拖动和缩放仍保留系统光标。": "Use the Arknights skeletal hand cursor; text input, dragging and resizing keep the system cursor."
+  "使用明日方舟的骷髅手指光标；文字输入、拖动和缩放仍保留系统光标。": "Use the Arknights skeletal hand cursor; text input, dragging and resizing keep the system cursor.",
+  "iPhone 全屏": "Fullscreen on iPhone",
+  "iPad 全屏": "Fullscreen on iPad",
+  "iPhone 需从主屏幕打开游戏，才能隐藏浏览器工具栏。": "On iPhone, open the game from the Home Screen to hide the browser toolbar.",
+  "iPad 需从主屏幕打开游戏，才能隐藏浏览器工具栏。": "On iPad, open the game from the Home Screen to hide the browser toolbar.",
+  "用 Safari 打开本站，点击浏览器的分享按钮。": "Open this site in Safari and tap the browser's Share button.",
+  "选择“添加到主屏幕”；若出现“作为网页 App 打开”，请保持开启。": "Choose Add to Home Screen. If Open as Web App appears, leave it turned on.",
+  "点击“添加”，再从主屏幕打开游戏并横置手机。": "Tap Add, then open the game from the Home Screen and turn your phone sideways.",
+  "点击“添加”，再从主屏幕打开游戏并横置平板。": "Tap Add, then open the game from the Home Screen and turn your iPad sideways."
 }
