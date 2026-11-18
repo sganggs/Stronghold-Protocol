@@ -174,6 +174,20 @@ function BondStage({ tier }) {
   </span>`;
 }
 
+function bondDisplay(bondId, entry) {
+  const base = data.lookup('bonds', bondId);
+  const count = entry?.count ?? 0;
+  const layers = entry?.layers ?? 0;
+  const tempLayers = entry?.tempLayers ?? 0;
+  const total = layers + tempLayers;
+  const effectId = entry?.effectId;
+  const record = bondEffectRecord(base, data.lookup('effects', effectId || base?.effectId), total);
+  const thresholds = !effectId && Array.isArray(entry?.thresholds) && entry.thresholds.length
+    ? entry.thresholds : record?.thresholds || [];
+  const tier = !effectId && entry?.tier != null ? entry.tier : bondTier(count, thresholds, record?.maxCount);
+  return { record, count, thresholds, tier, layers, tempLayers, total };
+}
+
 /**
  * @param {{ bonds: any[], layersDisabled?: boolean, onOpen:(bondId:string)=>void, openId?: string|null,
  *   owner?: string|null }} props — owner: the watched teammate's name (null = your own bonds)
@@ -192,10 +206,7 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
       aria-label=${owner ? t('{owner} 的盟约', { owner }) : t('我的盟约')} data-owner=${owner || null}>
     ${owner ? html`<${OwnerTag} owner=${owner} />` : null}
     ${shown.map((b) => {
-      const base = data.lookup('bonds', b.bondId);
-      const rec = bondEffectRecord(base, data.lookup('effects', b.effectId || base?.effectId), b.layers ?? 0);
-      const th = b.effectId ? rec?.thresholds || [] : Array.isArray(b.thresholds) && b.thresholds.length ? b.thresholds : rec?.thresholds || [];
-      const tier = b.effectId ? bondTier(b.count ?? 0, th, rec?.maxCount) : b.tier ?? 0;
+      const { record: rec, thresholds: th, count, tier, tempLayers, total } = bondDisplay(b.bondId, b);
       const segments = Math.max(1, Math.min(4, th.length));
       const reached = b.active && !b.off ? Math.max(1, Math.min(segments, tier)) : 0;
       const frameStyle = `--bond-frame-size: ${reached === segments ? '.815' : '.688'}rem; --bond-rim-top: ${reached === segments ? 13 / 77 : 8 / 65}`;
@@ -206,17 +217,17 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
             class=${cx('bslot', 'is-off', openId === b.bondId && 'is-open')} style=${frameStyle}>
           <${BondDisc} name=${name} icon=${bondIconUrl(m, b.bondId)} tier=${0} maxTier=${Math.max(1, th.length)} active=${false}
             disabled=${true} size="sm" showName=${true} layersDisabled=${layersDisabled} onClick=${() => onOpen(b.bondId)}
-            title=${t('{tip} · {n} 名成员', { tip: briefingBondTip(name, 'off'), n: b.count ?? 0 })} />
+            title=${t('{tip} · {n} 名成员', { tip: briefingBondTip(name, 'off'), n: count })} />
           <span class="bslot__count bslot__off">${t('本局禁用')}</span>
         </div>`;
       }
-      const next = nextThreshold(b.count ?? 0, th);
+      const next = nextThreshold(count, th);
       return html`<div key=${b.bondId} role="listitem" data-bond=${b.bondId} data-harmony=${b.harmony > 0 ? b.harmony : null}
-          class=${cx('bslot', b.active && 'is-active', b.tempLayers > 0 && 'has-temp-layers', reached === segments && 'is-full', openId === b.bondId && 'is-open')} style=${frameStyle}>
-        <${BondDisc} name=${rec?.name || b.bondId} icon=${bondIconUrl(m, b.bondId)} layers=${rec?.noStack ? undefined : (b.layers ?? 0) + (b.tempLayers ?? 0)}
-          tier=${tier} maxTier=${Math.max(1, th.length)} members=${b.count ?? 0} minCount=${th[0] ?? 0} active=${!!b.active} size="sm" showName=${true}
+          class=${cx('bslot', b.active && 'is-active', tempLayers > 0 && 'has-temp-layers', reached === segments && 'is-full', openId === b.bondId && 'is-open')} style=${frameStyle}>
+        <${BondDisc} name=${rec?.name || b.bondId} icon=${bondIconUrl(m, b.bondId)} layers=${rec?.noStack ? undefined : total}
+          tier=${tier} maxTier=${Math.max(1, th.length)} members=${count} minCount=${th[0] ?? 0} active=${!!b.active} size="sm" showName=${true}
           layersDisabled=${layersDisabled} onClick=${() => onOpen(b.bondId)}
-          title=${`${rec?.name || b.bondId} ${b.count ?? 0}/${next ?? th[th.length - 1] ?? '-'}${b.harmony > 0 ? t('（含调和 +{harmony}）', { harmony: b.harmony }) : ''}`} />
+          title=${`${rec?.name || b.bondId} ${count}/${next ?? th[th.length - 1] ?? '-'}${b.harmony > 0 ? t('（含调和 +{harmony}）', { harmony: b.harmony }) : ''}`} />
     <${BondStage} tier=${b.active ? tier : 0} />
       </div>`;
     })}
@@ -245,16 +256,11 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
  *   `entry.harmony` (the server's bond views: the +1 调和 added to `count`): 在场 n（含调和 +1） and the 调和 row
  */
 export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember, place = null, over = false, beside = null, owner = null, ownerId, off = false, coreAbsent = false, morphMode = 'official', modal = false, onPrevious = null, onNext = null }) {
-  const base = data.lookup('bonds', bondId);
-  const b = bondEffectRecord(base, data.lookup('effects', entry?.effectId || base?.effectId), entry?.layers ?? 0);
+  const { record: b, count, thresholds: th, tier: reachedTier, layers, tempLayers, total } = bondDisplay(bondId, entry);
   if (!b) return null;
-  // A greyed regulation core must not use `off`: that sentence is the opposite of "its operators cannot appear".
-  // Keep the core-absent note distinct from the mode-disabled explanation.
+  // A greyed regulation core has its own explanation, distinct from a mode-disabled bond.
   const modeOff = !!off && !coreAbsent;
-  const count = entry?.count ?? 0;
-  const layers = entry?.layers ?? 0;
-  const th = entry?.effectId ? b.thresholds || [] : Array.isArray(entry?.thresholds) && entry.thresholds.length ? entry.thresholds : b.thresholds || [];
-  const tier = modeOff ? 0 : entry?.effectId ? bondTier(count, th, b.maxCount) : entry?.tier ?? bondTier(count, th, b.maxCount);
+  const tier = modeOff ? 0 : reachedTier;
   const active = !modeOff && (entry ? !!entry.active : tier > 0);
   // (自选 pieces are their operators: the own ones by m.private.diy, a watched teammate's by the pick its unit carries)
   const dd = { chess: data.get('chess'), backups: data.get('backups') };
@@ -301,13 +307,13 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
     </div>
     ${b.noStack ? null : html`<div class="bpop__layers" aria-label=${t('层数')}>
       <span style=${`--bpop-layer-bg: ${uiBackground('bondDetail/bond_active_bg')}`}>${t('层数')} <b class="num t-mint">${layers}</b></span>
-      ${entry?.tempLayers > 0 ? html`<span class="bpop__temporary num">+${entry.tempLayers}</span>` : null}
+      ${tempLayers > 0 ? html`<span class="bpop__temporary num">+${tempLayers}</span>` : null}
     </div>`}
   </header>
   <div class="bpop__body">
   ${coreAbsent ? html`<p class="bpop__off" role="note">${briefingBondTip(b.name, 'off', 0, true)}</p>` : modeOff ? html`<p class="bpop__off" role="note">${t('本模式下该盟约不会激活（其干员仍可能因所属的其他盟约出现）')}</p>` : null}
     <section class="bpop__sec">
-      <${RichText} as="p" text=${formatBondEffect(b, layers + (entry?.tempLayers ?? 0))} class="bpop__desc" />
+      <${RichText} as="p" text=${formatBondEffect(b, total)} class="bpop__desc" />
     </section>
     <section class="bpop__sec">
       ${harmony ? (harmonyBy.length
