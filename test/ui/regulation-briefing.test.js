@@ -20,7 +20,7 @@ globalThis.fetch = async (url) => {
 };
 
 const { regulationBriefingLayout, RegulationBriefing } = await import('../../public/js/ui/regulationBriefing.js');
-const { MatchBondGroups, MatchBondRow, BannedByBond, RegulationHead, matchInfoModel } = await import('../../public/js/ui/matchInfo.js');
+const { MatchBondGroups, MatchBondRow, BannedByBond, BannedThumb, BondLackTag, RegulationHead, matchInfoModel } = await import('../../public/js/ui/matchInfo.js');
 const { MatchEnemies } = await import('../../public/js/ui/matchEnemies.js');
 const { StagePreview, StageMap, stagePreviewChoice, stagePreviewCells, stagePreviewKeys, STAGE_PREVIEW_CROP, STAGE_PREVIEW_ZOOM } = await import('../../public/js/ui/stagePreview.js');
 const { Img, RichText } = await import('../../public/js/ui/gameComponents.js');
@@ -149,7 +149,7 @@ test('BannedByBond groups operators by bond and repeats one who is in two', () =
   const view = BannedByBond({ model: bondModel(), onBond() {} });
   const groups = [...walk(view)].filter((v) => hasClass(v, 'reg-banned__group'));
   assert.deepEqual(groups.map((v) => v.props['data-bond']), ['sargon', 'yan', 'extra']);
-  const thumbs = (node) => [...walk(node)].filter((v) => v.type?.name === 'UnitThumb').map((v) => v.props.id);
+  const thumbs = (node) => [...walk(node)].filter((v) => v.type === BannedThumb).map((v) => v.props.id);
   assert.deepEqual(thumbs(groups[0]), ['a', 'b']);
   assert.deepEqual(thumbs(groups[1]), ['b']);
   assert.deepEqual(thumbs(groups[2]), ['c']);
@@ -157,6 +157,32 @@ test('BannedByBond groups operators by bond and repeats one who is in two', () =
   assert.deepEqual(thumbs(rest), ['z']);
   const empty = BannedByBond({ model: { ...bondModel(), banned: [], perBond: new Map() } });
   assert.match(textOf(empty), /本局没有禁用干员/);
+});
+
+test('a banned operator is the official grey portrait with the 禁用 corner; a drawn bond keeps its 阵容不完整 corner (round 83)', () => {
+  // the operator: UnitThumb dimmed, the uthumb--banned look, the corner badge (no local art in the tests: the CSS fold)
+  const thumb = BannedThumb({ id: 'a' });
+  assert.equal(thumb.type?.name, 'UnitThumb');
+  assert.equal(thumb.props.id, 'a');
+  assert.equal(thumb.props.dim, true);
+  assert.equal(thumb.props.class, 'uthumb--banned');
+  assert.ok(hasClass(thumb.props.badge, 'uthumb__ban'));
+  // the group disc: the drawn set's official corner (BondLackTag) instead of the ✕; a bond the mode never activates keeps the ✕
+  const model = { ...bondModel(), stateOf: (id) => (id === 'sargon' ? 'drawn' : id === 'extra' ? 'off' : null) };
+  const view = BannedByBond({ model, onBond() {} });
+  const discs = [...walk(view)].filter((v) => v.type?.name === 'BondDisc');
+  const byName = Object.fromEntries(discs.map((d) => [d.props.name, d.props]));
+  assert.equal(byName.sargon.tag?.type, BondLackTag);
+  assert.equal(byName.sargon.cross, false);
+  assert.equal(byName.extra.cross, true);
+  assert.equal(byName.extra.tag, null);
+  assert.equal(byName.yan.cross, false);
+  // the CSS: portraits at the official proportions (rows of at most 7), tier mark bottom-left, the corner on the top-right
+  const css = readFileSync(path.join(ROOT, 'public/css/screens/briefing.css'), 'utf8');
+  assert.match(css, /--ban-ut: 1\.3rem/);
+  assert.match(css, /max-width: calc\(7 \* var\(--ban-ut\)/);
+  assert.match(css, /\.reg-banned \.uthumb\.uthumb--banned \.uthumb__tier \{ top: auto; bottom:/);
+  assert.match(css, /\.uthumb__ban \{[^}]*top: 1px; right: 1px; width: 34%/);
 });
 
 test('the preview is the stage cells until a manifest lists a picture', () => {
