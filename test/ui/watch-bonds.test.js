@@ -512,9 +512,7 @@ test('temporary display anchors permanent base to the battle and follows only th
   assert.equal(settled.bonds.find(b => b.bondId === 'yanShip').tempLayers, 20, 'SETTLE retains temporary layers until prep');
   const mismatched = screenStrip({ ...opts, watchingOther: true, watching: 'n:p2' });
   assert.ok(mismatched.bonds.every(b => !b.tempLayers));
-  for (const patch of [{ combat: false }]) {
-    assert.ok(screenStrip({ ...opts, ...patch }).bonds.every(b => !b.tempLayers));
-  }
+  assert.ok(screenStrip({ ...opts, combat: false }).bonds.every(b => !b.tempLayers));
 });
 
 test('a temporary-only bond joins the display even without permanent layers or members', () => {
