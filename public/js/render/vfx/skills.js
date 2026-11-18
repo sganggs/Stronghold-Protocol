@@ -1347,6 +1347,12 @@ export function chargeKeys(plan) {
  * or, instead of a projectile (history §32.14.43):
  *   attack      the node of the plan attack the fx stands for: its cast / range rows play on the owner at the fx, its hit
  *               groups and aims on the damage the fx's frame deals after it (SkillFx kit hits)
+ * or a shell the kit fires and moves itself (history §37.242):
+ *   launch      the last node name of a to-tile ability of the owner's current mode (its facing variant): the fx fires
+ *               it now — its cast rows on the owner for its facing, `projectile`'s flying effect straight from the
+ *               muzzle to the fx's point over the kit's flight time `extra.t` (SkillFx._launch)
+ *   ends        the fx kind of a launch binding this fx ends: the owner's oldest shell in the air stops where it is
+ *               (the kit's explosion, which may come before the end point), then this binding plays
  * The R11 entries (0.3.0 official-effects audit, history §32.14.44) bind a kit area or strike to the official prefab
  * the client plays there: the areas are the skill projectiles' reached effects (the projectile stays where it lands —
  * AuraHitBehaviour — for the area's life), the strikes their hit effects.
@@ -1423,6 +1429,17 @@ export const FX_BINDINGS = Object.freeze({
   skchr_lemuen_3: Object.freeze({
     lock: binding({ owner: 'src', keys: ['lemuen_skill_03_crosshair_range', 'lemuen_skill_03_crosshair_02'], hold: 'lock', during: true }),
     bombard: binding({ owner: 'id', projectile: 'projectile_chr_lemuen_s3_attack', at: 'point', holdS: 2, during: true }),
+  }),
+  // 涤火杰西卡 S3 (kits/ops/op-jesca2.js fireBomb / explode): a 'bombardShell' (id = her, the farthest tile ahead, `t` its
+  // flight time) is her mode S3's ExtraBomb (ProjectileToTileAbility: cast jesca2_skill_03_start_02 / _down for her
+  // facing, projectile_chr_jesca2_s3_bomb flying straight at speed 5 with its main jesca2_skill_03_trail_02); its
+  // 'bombard' (id = her, where it went off) is that projectile's EffectBehaviour _effectsWhenStop jesca2_skill_03_hit_02
+  // (index.json lists it under `effects`, not onHit / onReached). Until round 83 both were 蕾缪安's procedural mortar
+  // shell and blast (GitHub report: her S3's attack effects looked wrong). No `during` on the explosion: a shell fired
+  // at the skill's last moment still lands after it
+  skchr_jesca2_3: Object.freeze({
+    bombardShell: binding({ owner: 'id', launch: 'ExtraBomb', projectile: 'projectile_chr_jesca2_s3_bomb', during: true }),
+    bombard: binding({ owner: 'id', keys: ['jesca2_skill_03_hit_02'], at: 'point', oneshot: true, ends: 'bombardShell' }),
   }),
   // 泡泡 S2 (chess_char_2_08-bubble.js): she makes no attack; every damage instance she takes strikes back at its source
   // ('counter': id = her, target = the attacker). The client's bubble_s_2 does it at ON_TAKE_DAMAGE — DamageViaAttr and
@@ -1582,7 +1599,7 @@ export function bindingKeys(idx, skillId) {
     for (const k of bindingEffects(idx, bind)) out.add(k);
     // the tick oneshots and, when the binding flies the shot itself, the trail (preloading; neither is a reached effect)
     for (const k of bind.hits || []) if (lc(k)) out.add(lc(k));
-    if (bind.fly && bind.projectile) {
+    if ((bind.fly || bind.launch) && bind.projectile) {
       const main = lc(idx?.projectiles?.[lc(bind.projectile)]?.main);
       if (main) out.add(main);
     }
