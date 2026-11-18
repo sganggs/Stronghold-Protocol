@@ -92,10 +92,11 @@ the summons the same way, and the summons rank after the operators of all player
 field — units deploy one after another with a fixed delay from the battle start — and "两处阵地将前后拼接为一处阵地").
 
 外勤医疗's prepared slot is a preparation view record, not a combat `Unit`. The `battleStart` handler creates either
-预备干员-医疗 or Touch after counting deployed elites. [ASSUMED] Its effective targeting order precedes ordinary
-initial deployments (`preBattleAggroSeq`); its actual `deploySeq` still identifies the later runtime spawn. Prepared
-slots on a shared field follow player order [ASSUMED]. A later `spawnMapChar` without this option keeps its ordinary
-summon order (§30.22).
+预备干员-医疗 or Touch after counting deployed elites, on every player whose match bands include the grant — a teammate
+whose own 规程 command is a different effect, and a field kept after the holder has left. [ASSUMED] Its effective
+targeting order precedes ordinary initial deployments (`preBattleAggroSeq`); its actual `deploySeq` still identifies
+the later runtime spawn. Prepared slots on a shared field follow player order [ASSUMED]. A later `spawnMapChar`
+without this option keeps its ordinary summon order (§30.22).
 
 Register hooks before the first step (e.g. `opts.setup(battle)` or right after `new Battle`).
 

@@ -717,6 +717,41 @@ test('Touch 外勤医疗: every player of a match with the band gets 预备干�
   cover('band_amedic');
 });
 
+test('外勤医疗: a teammate\'s own 规程 command does not drop the medic, nor does the holder leaving or swapping the command', () => {
+  const medics = (h) => h.b.allyUnits.filter((u) => u.alive && (u.defId === 'char_605_cmedic' || u.defId === 'char_613_acmedc'))
+    .map((u) => [u.ownerId, u.defId, u.tileR, u.tileC]);
+  const seat = (id, bandId, commandEffectId, extra = {}) => ({
+    playerId: id, seat: id === 'p1' ? 0 : 1, side: id === 'p1' ? 'L' : 'R', colOffset: id === 'p1' ? 0 : 8,
+    bonds: {}, playerEffects: [], bandId, commandEffectId, units: [], ...extra,
+  });
+  const coop = makeBattle({
+    stageId: 'act2autochess_m01', autoFinish: false, timeLimit: 5, kind: 'unite',
+    players: [
+      seat('p1', 'band_amedic', 'aceffect_band_61', { contentInfo: { matchBands: ['band_amedic', 'band_amiya'] } }),
+      seat('p2', 'band_amiya', 'aceffect_band_22', { contentInfo: { matchBands: ['band_amiya', 'band_amedic'] } }),
+    ],
+  });
+  coop.step();
+  assert.deepEqual(medics(coop), [
+    ['p1', 'char_605_cmedic', 10, 2],
+    ['p2', 'char_605_cmedic', 10, 10],
+  ]);
+  const retained = makeBattle({
+    stageId: 'act2autochess_m01', autoFinish: false, timeLimit: 5,
+    players: [seat('p2', 'band_amiya', 'aceffect_band_22', {
+      side: 'L', colOffset: 0, contentInfo: { matchBands: ['band_amiya', 'band_amedic'] },
+    })],
+  });
+  retained.step();
+  assert.deepEqual(medics(retained), [['p2', 'char_605_cmedic', 10, 2]], 'grant kept after the holder is gone');
+  const swapped = makeBattle({
+    stageId: 'act2autochess_m01', autoFinish: false, timeLimit: 5,
+    players: [seat('p1', 'band_amedic', 'aceffect_band_22', { contentInfo: { matchBands: ['band_amedic'] } })],
+  });
+  swapped.step();
+  assert.deepEqual(medics(swapped), [['p1', 'char_605_cmedic', 10, 2]], 'bandId still Touch: the command swap does not revoke the grant');
+});
+
 test('外勤医疗: 预备干员-医疗 and Touch keep preplaced targeting order against a flying 守墓石像', () => {
   const defs = {
     harold: chessRec({ id: 'harold', profession: 'TANK', skill: null, stats: { atk: 0, maxHp: 1e7, blockCnt: 0 } }),
