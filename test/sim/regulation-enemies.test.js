@@ -221,6 +221,25 @@ test('丛生 doubles the first hit and locks healing; 左手泰特斯 revives on
   assert.equal(e.s.flags.untargetable, true);
 });
 
+test('左手泰特斯 halves the highest-ATK operator for 25 s after 10 s and marks it with the weaken status (round 83)', () => {
+  const chess = { ...CHESS, t_hit: chessRec({ id: 't_hit', profession: 'SNIPER', projectile: 'none', stats: { atk: 600, maxHp: 1e7, def: 0, res: 0, blockCnt: 0 }, rangeGrid: [[0, 0]], skill: null }) };
+  const h = makeBattle({
+    content: 'generic', extraContent: [enemiesMod, bossesMod], seed: 1, autoFinish: false, timeLimit: 40,
+    defs: { enemies: V.enemies, chess }, units: [{ chessId: 't_hit', row: 9, col: 2 }, { chessId: 't_gun', row: 9, col: 3 }],
+  });
+  put(h, TITUS, [9, 12]);
+  const hit = h.unit('t_hit');
+  h.run(9);
+  assert.ok(!hit.findBuff('reg:weaken'));
+  h.run(2);
+  const buff = hit.findBuff('reg:weaken');
+  assert.ok(buff, 'the cut lands after the 10 s initial cooldown');
+  assert.equal(buff.status, 'weaken');
+  assert.ok(near(hit.s.atk, 300), 'ATK -50 % (additive atkPct)');
+  assert.ok(h.eventsOf('status').some((e) => e[1] === hit.id && e[2] === 'weaken'), 'the client gets the weaken status');
+  assert.ok(!h.unit('t_gun').findBuff('reg:weaken'), 'only the highest ATK');
+});
+
 test('speedup raises ASPD and move speed; grassland grants stealth instead; a flyer skips the tile', () => {
   const row = '##hrrzrwrrfrrrrrrrf##';
   assert.equal(row.length, 21);

@@ -398,7 +398,11 @@ function kitDsfull(ab) {
   }];
 }
 
-/** “左手”泰特斯: reborn() plus a silenced ATK cut on the highest-ATK ally. */
+/**
+ * “左手”泰特斯: reborn() plus a silenced ATK cut on the highest-ATK ally. The cut shows on that operator as the 'weaken'
+ * status icon (round 83: a report said it did not seem to work — it did, with nothing drawn on the operator; the official
+ * skill keeps wind_buff_01 on its target meanwhile). Its value stays the additive atkPct of the blackboard.
+ */
 function kitLfkght(ab) {
   const sk = ab.sk.AtkDesWeaken;
   return [
@@ -410,7 +414,7 @@ function kitLfkght(ab) {
         if (!best || u.s.atk > best.s.atk || (u.s.atk === best.s.atk && u.id < best.id)) best = u;
       }
       if (!best) return;
-      b.addBuff(best, { key: 'reg:weaken', duration: bb(sk, 'duration', 25), mods: { atkPct: bb(sk, 'atk', -0.5) } });
+      b.addBuff(best, { key: 'reg:weaken', duration: bb(sk, 'duration', 25), mods: { atkPct: bb(sk, 'atk', -0.5) }, visible: true, status: 'weaken' });
     }, { sil: true }),
   ];
 }
