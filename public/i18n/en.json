@@ -2557,5 +2557,14 @@
   "敌方单位被阻挡时显形，解除阻挡后立即恢复隐匿": "Enemies become visible while blocked and regain Stealth immediately when released.",
   "有核心盟约的干员，仅当其核心盟约全部置灰时无法出现；仅有附加盟约的干员，仅当其附加盟约全部置灰时无法出现": "An operator with core bonds is unavailable only when all of its core bonds are grey; one with only add-on bonds is unavailable only when all of its add-on bonds are grey.",
   "{name}：该核心盟约的干员无法出现，同属其他亮着的核心盟约的除外": "{name}: operators of this core bond are unavailable, except those that also belong to another lit core bond",
-  "这台服务器已经带有这个官方主题，直接在下面选用即可。": "This server already has this official theme. Pick it in the list below."
+  "这台服务器已经带有这个官方主题，直接在下面选用即可。": "This server already has this official theme. Pick it in the list below.",
+  "当前插件新增 {n} 名自选干员，可在「自选编队」中选用并带入对局": "The active plugins add {n} custom operator(s); select them in Custom Squad to bring them into matches",
+  "前往自选编队": "Open Custom Squad",
+  "大厅启用的插件会在创建房间时自动带入；「自选编队」也会同步显示插件新增干员。": "Room plugins enabled in the lobby carry over automatically when creating a room; Custom Squad also updates to show operators added by plugins.",
+  "无法预览当前插件组合": "Could not preview this plugin selection",
+  "本服务器已固定房间插件配置，不能在大厅修改": "Room plugins are locked by this server and cannot be changed in the lobby",
+  "恢复默认配置": "Reset Defaults",
+  "恢复为本服务器的默认插件配置。": "Restore this server's default plugin selection.",
+  "大厅已启用改变玩法的插件（非官方），创建房间时将自动带入": "Lobby has gameplay plugins enabled (unofficial); they will apply automatically when creating a room",
+  "大厅插件": "Lobby Plugins"
 }

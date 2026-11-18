@@ -106,6 +106,9 @@ cosmetic plugins (P1a) change its art only, named by the visual hash **`vs`**:
   order (`hash`: 16 hex of the plugin's part, `auto`: switched on because another requires it); `warnings`:
   `override { path, plugins: [earlier, later] }` (the later applies), `app { id, app }` (made for other game versions —
   a cosmetic plugin is still allowed); `bytes`: the art the set serves. An empty set is exactly the vanilla shape;
+- C→S `plugins.preview { version?, plugins? }` (same `plugins` shape as below; heavy bucket) — the lobby resolves a set without
+  holding it; `ok { content, policy: { rooms, default } }`. `room.create` takes the same optional `plugins` (left out: the
+  server owner's defaults) (PR #949, DESIGN §37.267).
 - C→S `room.setPlugins { plugins: [{ id, settings? }] }` (≤ 32 plugin ids; `settings` scalar values, ignored by the
   cosmetic class) — host-only (`NOT_HOST`), before the match (`ROOM_STARTED`), in the heavy rate-limit bucket (`RATE`); it
   un-readies the other humans; the same set again changes nothing (only changed 「自动」 marks are broadcast, without

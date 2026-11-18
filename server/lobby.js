@@ -854,6 +854,7 @@ export class Lobby {
       case 'room.spectate': return this.spectate(session, msg);
       case 'room.removeSpectator': return this.removeSpectator(session, msg);
       case 'room.setPlugins': return this.setPlugins(session, msg);
+      case 'plugins.preview': return this.previewPlugins(session, msg);
       case 'room.setMode': return this.setMode(session, msg);
       case 'room.contentReady': return this.contentReady(session, msg, ctx);
       case 'room.consent': return this.consent(session,msg);
@@ -950,7 +951,7 @@ export class Lobby {
   // room.* handlers
   // ---------------------------------------------------------------------------------------------------
 
-  create(session, { mode, difficulty: asked, test, version: askedVersion, soloUnlimited, modeId: askedMode } = {}) {
+  create(session, { mode, difficulty: asked, test, version: askedVersion, soloUnlimited, modeId: askedMode, plugins } = {}) {
     // A test room exists only when the process switch allowed it. The check runs before the room is built.
     if (test === true && this.testEnabled !== true) return fail(ERR.TEST_DISABLED);
     // the official version (header "Official versions"): left out, the server's default
@@ -990,22 +991,11 @@ export class Lobby {
     const code = this.genCode(fixedIsMine ? cur : null);
     if (!code) return fixed ? fail(ERR.ROOM_CODE_TAKEN, 'the fixed alliance key is in use')
       : fail(ERR.INTERNAL, 'no room code available');
-    // the server owner's default plugins (plugins/config.json `default`; header "Gameplay plugins"): none — the original
-    // game. Keep the defaults that support the room's official version; fixed rooms must support the entire list. Resolved
-    // before the creator leaves the old room (a refusal keeps them there), so a set that room alone holds counts as freed
-    // (limits.maxSets), as when the room went first before M1
-    let initial = this.baseContent(version);
-    const selected = this.plugins?.defaultsFor?.(version);
-    const defaults = selected?.ids || this.plugins?.defaults?.() || [];
-    if (selected?.skipped.length) this.warnOnce(`[lobby] default plugins (${selected.skipped.join(', ')}) do not support ${version}: skipped`);
-    if (defaults.length) {
-      const r = this.resolveContent(null, defaults, {}, version, leaving ? cur.content : null);
-      if ('error' in r) {
-        const fixed = (() => { try { return this.plugins?.fixed?.() || null; } catch { return null; } })();
-        if (fixed && fixed.length && r.error === ERR.VERSION_UNSUPPORTED) return r;
-        this.warnOnce(`[lobby] the default plugins (${defaults.join(', ')}) cannot be applied${version !== DEFAULT_VERSION ? ` to ${version}` : ''}: ${r.error}${r.detail ? ` (${r.detail})` : ''}`);
-      } else initial = r.content;
-    }
+    // Resolved before the creator leaves the old room (a refusal keeps them there), so a set that room alone holds counts
+    // as freed (limits.maxSets), as when the room went first before M1.
+    const resolved = this.resolveInitialContent(plugins, version, leaving ? cur.content : null);
+    if ('error' in resolved) return resolved;
+    const initial = resolved.content;
     if (cur) this.removeMember(cur, session.playerId);
     const room = new Room(code, mode, difficulty, this.now(), version);
     // a laddered version (规程's solo): the asked official mode, else the first of the difficulty (标准 → 规程等级1); the
@@ -1029,6 +1019,9 @@ export class Lobby {
     session.notice = null;
     session.pendingResult = null;
     this.log.info(`[lobby] ${code} created (${mode}/${difficulty}${version !== DEFAULT_VERSION ? `, ${version}` : ''}${room.test ? ', test' : ''}) by ${session.name}`);
+    if (plugins !== undefined && initial?.plugins?.length) {
+      this.log.info(`[lobby] ${code} plugins: ${initial.plugins.map((p) => `${p.id}@${p.version}`).join(', ')}${room.modded ? ` (content ${initial.cs.slice(0, 8)})` : ''}`);
+    }
     this.broadcastState(room);
     return OK;
   }
@@ -1228,6 +1221,64 @@ export class Lobby {
     return OK;
   }
 
+  /** Extract deduplicated plugin ids and per-plugin scalar settings from a C2S selection array. */
+  parsePluginSelection(plugins) {
+    const ids = [...new Set(plugins.map((p) => p.id))];
+    /** @type {Record<string, Record<string, unknown>>} */
+    const settings = {};
+    for (const p of plugins) if (p.settings) settings[p.id] = p.settings;
+    return { ids, settings };
+  }
+
+  /** Summary of plugins/config.json policy for lobby preview clients. */
+  pluginPolicySummary() {
+    try {
+      const p = this.plugins?.policy?.();
+      if (p) return p;
+    } catch { /* fallback below */ }
+    return { rooms: this.plugins ? 'host' : 'off', default: [] };
+  }
+
+  /**
+   * Resolve initial room/preview content for `version`: explicit client `plugins` selection or server policy defaults.
+   * @param {Array<{ id: string, settings?: Record<string, unknown> }> | undefined} plugins
+   * @param {string} version
+   * @param {Room['content'] | null} [replacing]
+   * @param {{ warn?: boolean }} [opts]
+   */
+  resolveInitialContent(plugins, version, replacing = null, { warn = true } = {}) {
+    if (plugins !== undefined) {
+      const { ids, settings } = this.parsePluginSelection(plugins);
+      return this.resolveContent(null, ids, settings, version, replacing);
+    }
+    let initial = this.baseContent(version);
+    const selected = this.plugins?.defaultsFor?.(version);
+    const defaults = selected?.ids || this.plugins?.defaults?.() || [];
+    if (warn && selected?.skipped.length) this.warnOnce(`[lobby] default plugins (${selected.skipped.join(', ')}) do not support ${version}: skipped`);
+    if (defaults.length) {
+      const r = this.resolveContent(null, defaults, {}, version, replacing);
+      if ('error' in r) {
+        const fixed = (() => { try { return this.plugins?.fixed?.() || null; } catch { return null; } })();
+        if (fixed && fixed.length && r.error === ERR.VERSION_UNSUPPORTED) return r;
+        if (warn) this.warnOnce(`[lobby] the default plugins (${defaults.join(', ')}) cannot be applied${version !== DEFAULT_VERSION ? ` to ${version}` : ''}: ${r.error}${r.detail ? ` (${r.detail})` : ''}`);
+      } else initial = r.content;
+    }
+    return { content: initial };
+  }
+
+  /**
+   * plugins.preview: resolve (without holding) a plugin set for the client lobby so DIY pickers and cosmetics match
+   * what the player's next created room will play.
+   */
+  previewPlugins(session, { version: askedVersion, plugins } = {}) {
+    const version = askedVersion ?? this.defaultVersion();
+    if (!this.versionEnabled(version)) return fail(ERR.VERSION_UNKNOWN);
+    if (!this.versionAvailable(version)) return fail(ERR.VERSION_UNSUPPORTED, 'the data of this version is not available');
+    const r = this.resolveInitialContent(plugins, version, null, { warn: false });
+    if ('error' in r) return r;
+    return { ok: true, reply: { content: r.content, policy: this.pluginPolicySummary() } };
+  }
+
   /**
    * room.setPlugins (header "The room's plugins", "Gameplay plugins"): host-only, before the match; the set of the plugins
    * asked for becomes the room's content and the other humans are un-readied — nothing changes (and nobody is un-readied)
@@ -1240,10 +1291,7 @@ export class Lobby {
     if (room.hostId !== session.playerId) return fail(ERR.NOT_HOST);
     if (room.match) return fail(ERR.ROOM_STARTED);
     if (room.versionVote) return fail(ERR.VERSION_VOTE);
-    const ids = [...new Set(plugins.map((p) => p.id))];
-    /** @type {Record<string, Record<string, unknown>>} */
-    const settings = {};
-    for (const p of plugins) if (p.settings) settings[p.id] = p.settings;
+    const { ids, settings } = this.parsePluginSelection(plugins);
     const r = this.resolveContent(room, ids, settings);
     if ('error' in r) return r;
     let content = r.content;
