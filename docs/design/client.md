@@ -533,6 +533,9 @@ Category and search changes preserve mounted sections, including pending theme i
 shortcut editors release keyboard capture. Queries and categories last for this opening; saved preferences retain
 the existing settings store and localStorage keys.
 
+Setting labels and section captions share regular-weight typography. Language uses the standard label/control row;
+screen-fit, theme, shortcut, plugin and resource captions use the same plain heading layout with their actions.
+
 Room seat cards isolate their internal layers so remove-player / AI buttons remain below the top-bar settings
 dialog and its backdrop, including after entry animations finish (#888, [0.4.0](../history/0.4.0.md)).
 

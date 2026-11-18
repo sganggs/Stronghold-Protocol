@@ -1223,14 +1223,6 @@
 }
 .modal__box.setdlg .modal__title, .modal__box.verpick .modal__title { font-size: max(calc(.28 * var(--t)), 16px); letter-spacing: .06em; }
 .modal__box.setdlg .modal__actions .btn, .modal__box.verpick .modal__actions .btn { min-height: max(.5rem, calc(44px * var(--sp-ui, 1)), 32px); }
-.modal__box.setdlg .set-keys__head.sw-sec__head, .modal__box.setdlg .sw-sec__head {
-  display: flex; align-items: center; justify-content: flex-start; gap: .1rem; height: auto;
-  min-height: max(.62rem, calc(44px * var(--sp-ui, 1)), 32px); padding: 0 .08rem 0 .04rem;
-  background: linear-gradient(rgba(24, 29, 28, .74), rgba(24, 29, 28, .74));
-}
-.modal__box.setdlg .sw-sec__glyph { position: static; transform: none; flex: none; }
-.modal__box.setdlg .sw-sec__glyph .icon { color: #1d2322; }
-.modal__box.setdlg .sw-sec__name { min-width: 0; }
 .modal__box.setdlg .set-keys__head > .btn,
 .modal__box.setdlg .set-keys__head > .set-storage__actions,
 .modal__box.setdlg .set-keys__head > .theme-page__actions { margin-left: auto; }
@@ -1276,8 +1268,8 @@
 .settings-modal [data-setting-id="voiceLanguage"] .set-voice { grid-column: 1 / -1; }
 .settings-modal .set-voice .set-seg { flex-wrap: wrap; }
 .settings-modal .set-voice .set-seg button { min-width: max-content; white-space: nowrap; }
+.settings-modal .set-lang button { min-width: max-content; padding: .04rem .06rem; }
 .settings-modal .set-row:not(.set-fit__row) { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) auto; }
-.settings-modal .set-row--lang { grid-template-columns: minmax(0, 1fr); }
 @media (max-width: 1100px), (max-height: 600px) {
   .modal__box.settings-modal .modal__head { padding-top: 10px; }
   .settings-modal > .modal__body { padding: 10px 14px; }

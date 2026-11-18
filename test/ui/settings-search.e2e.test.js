@@ -59,11 +59,20 @@ test('settings categories/search: controls, localization, imports, keyboard owne
       return Math.max(...centers)-Math.min(...centers)<2;
     }));
     assert.ok(fitAligned,'screen-fit label, steps, range and value share one row');
+    const labelStyles = () => page.$$eval('.settings-content .set-row__label', labels => labels
+      .filter(e => e.getClientRects().length).map(e => ({ text:e.textContent, weight:getComputedStyle(e).fontWeight, size:getComputedStyle(e).fontSize })));
+    const ordinaryLabel = (await labelStyles())[0];
+    assert.equal(ordinaryLabel.weight,'400');
+    assert.equal(await page.$('.settings-content [class*="sw-sec__"]'),null,'settings use ordinary labels rather than result-screen decorations');
     await shot('categories-desktop');
     for (const id of ['audio','battle','controls','appearance','resources']) {
       await category(id);
       assert.equal(await page.$eval('.settings-modal',e=>e.getBoundingClientRect().height),boxHeight);
       assert.ok(await page.$eval('.settings-content',e=>e.scrollWidth-e.clientWidth<=1),`category ${id} fits horizontally`);
+      for (const label of await labelStyles()) {
+        assert.equal(label.weight,ordinaryLabel.weight,`consistent label weight: ${label.text}`);
+        assert.equal(label.size,ordinaryLabel.size,`consistent label size: ${label.text}`);
+      }
       await shot(`category-${id}`);
     }
     assert.equal(await page.$$eval('.set-key[data-action="retreat"]',es=>es.length),1,'results reuse one control instance');

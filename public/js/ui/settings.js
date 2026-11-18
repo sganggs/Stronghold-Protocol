@@ -232,7 +232,7 @@ function HotkeySection({ keys, touchUi, active = true }) {
   </ul>
   <p class=${cx('set-keys__note', note?.warn && 'is-warn')} role="status" aria-live="polite">${status}</p>`;
   return html`<section class="set-keys" aria-labelledby="set-keys-title">
-    <${SetHead} id="set-keys-title" icon="key" title=${t('快捷键')} micro="HOTKEYS">
+    <${SetHead} id="set-keys-title" title=${t('快捷键')} micro="HOTKEYS">
       <${Button} variant="ghost" size="sm" icon="refresh" class="set-keys__reset" disabled=${isDefaultHotkeys(keys)}
         onClick=${() => { setWaiting(null); updateSettings({ keys: DEFAULT_HOTKEYS }); setNote({ text: t('已恢复默认快捷键') }); }}>${t('恢复默认')}<//>
     <//>
@@ -273,7 +273,7 @@ function DiagSection() {
     setNote(ok ? 'copied' : 'refused');
   };
   return html`<section class="set-diag" aria-labelledby="set-diag-title">
-    <${SetHead} id="set-diag-title" icon="warn" title=${t('问题反馈')} micro="DIAGNOSTICS">
+    <${SetHead} id="set-diag-title" title=${t('问题反馈')} micro="DIAGNOSTICS">
       <${Button} variant="ghost" size="sm" icon="copy" class="set-diag__copy" data-testid="diag-copy" onClick=${copy}>${t('复制诊断信息')}<//>
     <//>
     <p class="set-hint">${t('遇到问题时，复制诊断信息并粘贴到 GitHub issue 中，开发者就能看到出错时的情况。诊断信息只在本机生成，不会自动上传；玩家名和房间号会被替换。')}</p>
@@ -312,7 +312,7 @@ function CosmeticSection() {
   if (!list.length) {
     if (!hasAnySkinChoices()) return null;
     return html`<section class="set-plugins" aria-labelledby="set-skins-title" data-testid="personal-plugins">
-      <${SetHead} id="set-skins-title" icon="image" title=${t('外观插件')} micro="COSMETIC PLUGINS" />
+      <${SetHead} id="set-skins-title" title=${t('外观插件')} micro="COSMETIC PLUGINS" />
       <${OtherSkinsRow} value=${s.otherSkins !== false} onSet=${(v) => updateSettings({ otherSkins: v })} />
     </section>`;
   }
@@ -325,7 +325,7 @@ function CosmeticSection() {
   }));
   const flip = (id, on) => { const r = setPersonalPlugin(id, on); if ('error' in r) toast(describeError(r.error), 'warn'); };
   return html`<section class="set-plugins" aria-labelledby="set-plugins-title" data-testid="personal-plugins">
-    <${SetHead} id="set-plugins-title" icon="image" title=${t('外观插件')} micro="COSMETIC PLUGINS" />
+    <${SetHead} id="set-plugins-title" title=${t('外观插件')} micro="COSMETIC PLUGINS" />
     <p class="set-hint">${t('只改变你自己看到的画面和声音，不影响其他博士，也不影响战斗；插件为非官方制作。')}</p>
     <${OtherSkinsRow} value=${s.otherSkins !== false} onSet=${(v) => updateSettings({ otherSkins: v })} />
     ${winners.map((w) => html`<p key=${w.name} class="set-hint set-theme-win">${t('{token} 由「{name}」生效', { token: w.name, name: pluginName(list.find((p) => p.id === w.pluginId) || { id: w.pluginId }) })}</p>`)}
@@ -378,7 +378,7 @@ function UiPluginSection() {
     toast(r.error === 'PLUGIN_LIMIT' ? t('最多同时开启 {n} 个界面插件', { n: UI_LIMITS.maxPlugins }) : describeError(r.error), 'warn');
   };
   return html`<section class="set-plugins" aria-labelledby="set-ui-plugins-title" data-testid="ui-plugins">
-    <${SetHead} id="set-ui-plugins-title" icon="dots" title=${t('界面插件')} micro="UI PLUGINS" />
+    <${SetHead} id="set-ui-plugins-title" title=${t('界面插件')} micro="UI PLUGINS" />
     <p class="set-hint">${t('只改变这个浏览器里的界面，不能替你操作对局，也不影响其他博士；插件为非官方制作。')}</p>
     ${!list.length ? html`<p class="set-hint">${t('本服务器没有可开启的界面插件')}</p>` : list.map((p) => {
       const on = onIds.has(p.id);
@@ -449,7 +449,7 @@ function StorageSection() {
     } finally { setPruning(false); }
   };
   return html`<section class="set-storage" aria-labelledby="set-storage-title" data-testid="storage-section">
-    <${SetHead} id="set-storage-title" icon="copy" title=${t('素材存储')} micro="STORAGE">
+    <${SetHead} id="set-storage-title" title=${t('素材存储')} micro="STORAGE">
       <span class="set-storage__actions">
         ${importSupport().ok ? html`<${Button} variant="ghost" size="sm" icon="refresh" data-testid="storage-prune" disabled=${pruning || importing}
           loading=${pruning} onClick=${prune}>${t('清理旧版本素材')}<//>` : null}
@@ -465,12 +465,10 @@ function StorageSection() {
   </section>`;
 }
 
-/** The result screen's button plate. A missing sprite falls back to the same CSS wash. */
-/** A settings block title in the S.W.E.E.P. section-caption shape. `children` are the row's actions. */
-function SetHead({ id, title, micro, icon = null, children }) {
-  return html`<div class="set-keys__head sw-sec__head">
-    ${icon ? html`<span class="sw-sec__glyph" aria-hidden="true"><${Icon} name=${icon} /></span>` : null}
-    <span class="set-row__label sw-sec__name" id=${id || undefined}><i>[</i> ${title} <i>]</i>${micro ? html`<${MicroLabel}>${micro}<//>` : null}</span>
+/** A settings block title uses the same typography as a setting label. `children` are its actions. */
+function SetHead({ id, title, micro, children }) {
+  return html`<div class="set-keys__head">
+    <span class="set-row__label" id=${id || undefined}>${title}${micro ? html`<${MicroLabel}>${micro}<//>` : null}</span>
     ${children || null}
   </div>`;
 }
@@ -504,8 +502,8 @@ export function SettingsModal({ open, onClose }) {
   const fxTier = resolveOfficialFx(s.officialFx, true);
   const entries = [
     { id: 'language', category: 'interface', render: () => html`
-      <${SetHead} icon="book" title=${t('语言')} micro="LANGUAGE" />
-      <div class="set-row set-row--lang">
+      <div class="set-row">
+        <span class="set-row__label">${t('语言')}<${MicroLabel}>LANGUAGE<//></span>
         <${LangToggle} class="set-lang" />
       </div>
       ${mtNote ? html`<p class="set-hint set-lang-note" data-testid="lang-mt-note">${mtNote}</p>` : null}
