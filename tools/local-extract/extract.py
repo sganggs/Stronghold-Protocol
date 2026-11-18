@@ -40,6 +40,7 @@ aklz4.py registers a decoder for it. This script pulls the art the web sources l
     scene.json + scene.bin + lightmap pages and scene/tex/ (the materials' albedo textures). The scene bundles ship
     only while the season runs: they are read from the client when it has them, else from --scenes <dir> (default
     .cache/official-scenes/*, filled by tools/local-extract/fetch_scenes.py)
+  - optional PC PRTS cursor → ui/cursor (--only ui/cursor); not required on mobile
   - 规程's ten battlefields (regulation_scenes.REGULATION_IDS). Their art is three piece prefabs, not the logic
     scene bundle; the same --only scene / --scenes <dir> run writes scene/<stageId>/ with the rows layouts.mjs
     borrows. Each stage's materials come from regulation_scenes.STAGE_DEPS (sand, Syracuse metro, icewild or
@@ -90,6 +91,7 @@ import scenes  # noqa: E402  (the battlefield scene table and exporter; imports 
 import regulation_scenes  # noqa: E402  (规程 piece prefabs → the same scene/ group; no UnityPy at import)
 import fx  # noqa: E402  (the official battle effects, DESIGN §33; imports UnityPy only when it runs)
 import operators  # noqa: E402 (installed plugin operators' optional official art, §34.28)
+import cursor  # optional Windows-client PRTS hand
 import versions  # noqa: E402 (the official-version roster's missing presentation art)
 import autochess_themes  # noqa: E402 (official in-match UI themes; UnityPy only when a theme run executes)
 import season_entry  # noqa: E402 (规程's opening for the title screen; UnityPy only when it runs)
@@ -1169,6 +1171,7 @@ def main():
                                         'options': GUIDE_WEBP_OPTIONS[GUIDE_WEBP_MODE]},
                           'enemySpines': {'bundles': ENEMY_ART, 'sub': ENEMY_SPINE_SUB, 'ids': ENEMY_SPINES},
                           'tokenSpines': {'bundles': TOKEN_PACKS, 'sub': TOKEN_SPINE_SUB, 'ids': TOKEN_SPINES},
+                          'cursor': {'sub': cursor.SUB, 'optional': True, 'prefab': cursor.PREFAB, 'poses': cursor.POSES},
                           'expectedGroups': expected_local_groups(),
                           'fx': {'sub': fx.FX_SUB, 'groups': list(fx.FX_GROUPS), 'version': fx.FORMAT_VERSION,
                                  'indexVersion': fx.INDEX_VERSION, 'meshVersion': fx.MESH_VERSION,
@@ -1203,6 +1206,7 @@ def main():
     if not ab_root or not ab_root.exists():
         print('No Arknights install found. Pass --game <install directory or AssetBundle root>.', file=sys.stderr)
         return 2
+    args.cursor_client = cursor.client_data(ab_root)
     with client_bundles(ab_root) as active_root:
         return extract(args, active_root)
 
@@ -1219,9 +1223,10 @@ def extract(args, ab_root):
     # §34.28: a normal full run is not consent for optional plugin art. --only plugin-art is explicit too.
     art_on = client and wants_sub(args.only, operators.SUB) and (bool(args.only) or args.plugin_art)
     art_ids = spine_ids(args.only, operators.SUB, operators.references(Path(args.plugin_root))) if art_on else []
+    cursor_on = wants_sub(args.only, cursor.SUB)
     versions_on = client and (not args.only or 'versions' in args.only)
     entry_on = client and wants_sub(args.only, season_entry.SUB)
-    if not jobs and not enemy_ids and not token_ids and not stage_ids and not reg_ids and not fx_on and not art_on and not versions_on and not theme_ids and not entry_on:
+    if not jobs and not enemy_ids and not token_ids and not stage_ids and not reg_ids and not fx_on and not art_on and not versions_on and not theme_ids and not entry_on and not cursor_on:
         print(f'--only {args.only}: no job matches', file=sys.stderr)
         return 2
     if theme_ids and not args.themes:
@@ -1231,6 +1236,8 @@ def extract(args, ab_root):
     out_root.mkdir(parents=True, exist_ok=True)
     manifest, total = {}, 0
     chars = {}
+    if cursor_on:
+        total += cursor.export(getattr(args, 'cursor_client', None), out_root, manifest, print)
     if versions_on:
         total += versions.export(ab_root, out_root, manifest, print, ROOT)
     if art_ids:
@@ -1269,7 +1276,7 @@ def extract(args, ab_root):
             old_chars = previous.get('chars') or {}
             old = previous.get('groups') or {}
             if not args.only:
-                old = {g: v for g, v in old.items() if g.startswith(('char/', 'spine/char/'))}
+                old = {g: v for g, v in old.items() if g.startswith(('char/', 'spine/char/')) or g == cursor.SUB}
         except (OSError, ValueError) as e:
             print(f'warn: previous manifest unreadable ({e}); writing only the re-extracted groups', file=sys.stderr)
     # Partial sprite packs keep previously extracted pictures, just as merge_chars keeps their URLs.

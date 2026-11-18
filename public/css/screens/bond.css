@@ -12,8 +12,8 @@
 .dhead__info .dbonds--top .dbond { font-size: calc(.14 * var(--t)); padding: .02rem .07rem .02rem .03rem; }
 .dhead__info .dbond__icon { width: .24rem; height: .24rem; }
 .dbonds--top .dbond { gap: .06rem; padding: .03rem .08rem .03rem .04rem; font: inherit; font-size: calc(.15 * var(--t)); color: var(--text-md);
-  background: rgba(255, 255, 255, .03); border: 1px solid var(--line-2); cursor: default; }
-.dbonds--top button.dbond { cursor: pointer; }
+  background: rgba(255, 255, 255, .03); border: 1px solid var(--line-2); cursor: var(--sp-cursor-default, default); }
+.dbonds--top button.dbond { cursor: var(--sp-cursor-pointer, pointer); }
 .dbonds--top button.dbond:hover { border-color: var(--mint-500); color: #fff; }
 .dbonds--top .dbond.is-active { color: var(--mint-400); background: rgba(78, 216, 175, .1); border-color: var(--mint-700); }
 .dbonds--top .dbond.is-core .dbond__name { font-weight: 700; }
@@ -99,7 +99,7 @@
 }
 .bond__ban .icon { width: 80%; height: 80%; }
 .bond.is-frozen { opacity: .5; }
-.bond.is-clickable { cursor: pointer; }
+.bond.is-clickable { cursor: var(--sp-cursor-pointer, pointer); }
 .bond--sm { --disc: .42rem; }
 .bond--lg { --disc: .76rem; }
 
@@ -114,7 +114,7 @@
 /* A bare arrow (the owner's request after 0.2.0: the boxed 「收起」 tab looked heavy): transparent, half-visible until
    hovered or focused; the 44 × 44 touch target stays (an invisible hit area), the name is the aria-label. */
 .gm__bonds .bonds-toggle { pointer-events: auto; flex: none; display: inline-flex; align-items: center; justify-content: center;
-  min-width: 44px; min-height: 44px; padding: 0; color: var(--text-hi); background: transparent; border: 0; cursor: pointer;
+  min-width: 44px; min-height: 44px; padding: 0; color: var(--text-hi); background: transparent; border: 0; cursor: var(--sp-cursor-pointer, pointer);
   opacity: .55; transition: opacity var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out); line-height: 1; }
 .bonds-toggle .icon { width: max(.22rem, 18px); height: max(.22rem, 18px); filter: drop-shadow(0 0 2px rgba(0, 0, 0, .85)); }
 .bonds-toggle[aria-expanded="false"] { opacity: .8; }
@@ -157,8 +157,8 @@
   pointer-events: auto; touch-action: pan-x; scrollbar-width: thin; }
 .bstrip-scroll .bslot { flex: none; }
 .gm__bonds .bstrip-scroll__arrow { flex: none; width: 44px; height: 44px; padding: 0;
-  background: rgba(8, 11, 10, .7); color: var(--mint); border: 1px solid var(--line-2); cursor: pointer; pointer-events: auto; }
-.bstrip-scroll__arrow:disabled { opacity: .3; cursor: default; }
+  background: rgba(8, 11, 10, .7); color: var(--mint); border: 1px solid var(--line-2); cursor: var(--sp-cursor-pointer, pointer); pointer-events: auto; }
+.bstrip-scroll__arrow:disabled { opacity: .3; cursor: var(--sp-cursor-default, default); }
 .gm.is-pen .gm__bonds .bstrip-scroll *, .gm.has-sp .gm__bonds .bstrip-scroll * { pointer-events: none; }
 
 .gm__bond-list > .tt-anchor { display: block; max-width: 100%; }
@@ -236,7 +236,7 @@
 .bpop__facts small.bpop__hnote { font-size: max(calc(.12 * var(--t)), 8px); color: var(--gold-2); }
 .bpop__harmony { display: flex; align-items: center; gap: .08rem; width: 100%; margin: 0; padding: .05rem .1rem; text-align: left;
   font: inherit; font-size: max(calc(.14 * var(--t)), 9px); line-height: 1.45; color: var(--text-md); background: rgba(242, 189, 62, .08); border: 1px dashed rgba(242, 189, 62, .5); }
-button.bpop__harmony { cursor: pointer; }
+button.bpop__harmony { cursor: var(--sp-cursor-pointer, pointer); }
 button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .bpop__harmony b { flex: none; color: var(--gold-2); font-weight: 700; white-space: nowrap; }
 .bpop__harmony span { min-width: 0; }
@@ -256,7 +256,7 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .bpop-nav__arrow {
   position: absolute; top: 50%; translate: 0 -50%; width: max(.6rem, 32px, calc(44px * var(--sp-ui, 1))); height: max(.9rem, 32px, calc(44px * var(--sp-ui, 1)));
   display: grid; place-items: center; padding: 0; border: 0; background: transparent;
-  color: var(--text-hi); cursor: pointer; pointer-events: auto; filter: drop-shadow(0 2px 3px #000);
+  color: var(--text-hi); cursor: var(--sp-cursor-pointer, pointer); pointer-events: auto; filter: drop-shadow(0 2px 3px #000);
 }
 .bpop-nav__arrow--prev { right: calc(100% + .06rem); }
 .bpop-nav__arrow--next { left: calc(100% + .06rem); }

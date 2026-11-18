@@ -2569,5 +2569,7 @@
   "恢复默认配置": "Reset Defaults",
   "恢复为本服务器的默认插件配置。": "Restore this server's default plugin selection.",
   "大厅已启用改变玩法的插件（非官方），创建房间时将自动带入": "Lobby has gameplay plugins enabled (unofficial); they will apply automatically when creating a room",
-  "大厅插件": "Lobby Plugins"
+  "大厅插件": "Lobby Plugins",
+  "骷髅手指光标": "PRTS hand cursor",
+  "使用明日方舟的骷髅手指光标；文字输入、拖动和缩放仍保留系统光标。": "Use the Arknights skeletal hand cursor; text input, dragging and resizing keep the system cursor."
 }

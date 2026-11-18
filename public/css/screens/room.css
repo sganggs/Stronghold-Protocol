@@ -589,7 +589,7 @@
 }
 .rs-pill__diff .icon, .rs-pill__ver .icon { flex: none; width: 1.2em; height: 1.2em; }
 .rs-pill__code { font-size: calc(.13 * var(--t)); color: #9aa19e; }
-.rs-pill__diff:disabled { cursor: default; }
+.rs-pill__diff:disabled { cursor: var(--sp-cursor-default, default); }
 .rs-pill__diff:hover:not(:disabled), .rs-pill__diff:focus-visible { filter: brightness(1.2); }
 /* another doctor's pill: opens the read-only 选择模拟协议 (the host chooses) */
 .rs-pill__diff.is-ro { cursor: help; }
@@ -634,7 +634,7 @@
 .rs-opts__diff .icon { width: 1.1em; height: 1.1em; }
 .rs-opts__diff em { margin-left: .06rem; font-style: normal; color: var(--text-hi); text-decoration: underline; text-underline-offset: 2px; }
 .rs-opts__diff:hover:not(:disabled), .rs-opts__diff:focus-visible { border-color: var(--d-color); }
-.rs-opts__diff:disabled { cursor: default; opacity: .6; }
+.rs-opts__diff:disabled { cursor: var(--sp-cursor-default, default); opacity: .6; }
 .room-bar__right { display: flex; align-items: center; justify-content: flex-end; gap: .14rem; }
 .rs-go.proto-start { flex: none; width: min(4.6rem, 40vw); }
 /* the label (§35.18 review: it shared 选择模拟协议's wrapping label by accident, and on a phone a fixed 46 px button then cut
@@ -676,7 +676,7 @@
 .dpick__opt .icon { width: .2rem; height: .2rem; color: var(--d-color); opacity: .55; transition: opacity var(--t-fast); }
 .dpick__opt:hover:not(:disabled) { color: var(--text-hi); background: rgba(255, 255, 255, .03); }
 .dpick__opt:hover:not(:disabled) .icon { opacity: 1; }
-.dpick__opt:disabled { cursor: default; }
+.dpick__opt:disabled { cursor: var(--sp-cursor-default, default); }
 .dpick__opt.is-active {
   color: var(--d-color);
   background: transparent; background: color-mix(in srgb, var(--d-color) 17%, transparent);
@@ -843,7 +843,7 @@
 }
 .rs-pill__ver .icon { color: #9fd3ff; }
 .rs-pill__vername { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.rs-pill__ver:disabled { cursor: default; opacity: .7; }
+.rs-pill__ver:disabled { cursor: var(--sp-cursor-default, default); opacity: .7; }
 .rs-pill__ver.is-ro { cursor: help; }
 .rs-pill__ver:hover:not(:disabled), .rs-pill__ver:focus-visible { filter: brightness(1.2); }
 .rs-opts__ver { color: #cfe9ff; }
