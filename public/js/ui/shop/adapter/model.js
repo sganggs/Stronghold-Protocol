@@ -5,7 +5,7 @@
 // and bond icons). The renderer reads a plain model, so switching a room's version needs no reload here.
 
 import { data } from '../../../data.js';
-import { chessPortraitUrl, profMarkUrl, itemIconUrl, bondIconUrl, uiUrl } from '../../assetUrls.js';
+import { chessPortraitUrl, profMarkUrl, itemIconUrl, localItemIconUrl, bondIconUrl, uiUrl } from '../../assetUrls.js';
 import { DEFAULT_SKIN_COLORS } from '../../../../../shared/uiTheme.js';
 import { AutoChessBattleShopSlot, AutoChessBattleShopViewModel } from '../model.js';
 
@@ -17,11 +17,20 @@ import { AutoChessBattleShopSlot, AutoChessBattleShopViewModel } from '../model.
  * @param {{ armedSlotId?: number|null, armedAt?: number, cardFlags?: any,
  *   colors?: Record<string, string>, urlOf?: (file: string) => string|null }} [opts]
  */
+/** Official card garrison tint: normal -> colour 1, tier 5 -> colour 2, tier 6 -> colour 3. */
+export function garrisonTintFor(colors, tier) {
+  const garrisonColors = [(colors || {}).garrisonIconColor1, (colors || {}).garrisonIconColor2, (colors || {}).garrisonIconColor3];
+  return garrisonColors[tier >= 6 ? 2 : (tier === 5 ? 1 : 0)] || '#FFFFFF';
+}
+
 export function cardModelFromSlot(slot, index, priv, opts = {}) {
   const shop = (priv && priv.shop) || {};
   const kind = slot && slot.kind === 'item' ? 'item' : 'chess';
   const id = slot && slot.id ? slot.id : '';
   const m = data.get('assets') || {};
+  // The padded item sprite of the local-client extraction (official m_Rect canvas) when it is there; the
+  // fetched items entry is the trimmed mirror copy the DOM slots show with object-fit: contain.
+  const local = data.get('local') || null;
   const record = kind === 'item' ? data.lookup('items', id) : data.lookup('chess', id);
   const colors = { ...DEFAULT_SKIN_COLORS, ...(opts.colors || {}) };
   const tier = Number((record && record.tier) || 1);
@@ -38,7 +47,6 @@ export function cardModelFromSlot(slot, index, priv, opts = {}) {
   const firstGarrison = kind === 'chess' && Array.isArray(record && record.garrisonIds) ? record.garrisonIds[0] : null;
   const garrison = firstGarrison ? data.lookup('garrisons', firstGarrison) : null;
   const garrisonIcon = garrison && garrison.eventTypeIcon ? uiUrl(m, `garrisonTypeIcon/${garrison.eventTypeIcon}`) : null;
-  const garrisonColors = [colors.garrisonIconColor1, colors.garrisonIconColor2, colors.garrisonIconColor3];
   const profession = kind === 'chess' && record ? String(record.profession || '') : '';
   return {
     slotId: index + 1,
@@ -62,7 +70,7 @@ export function cardModelFromSlot(slot, index, priv, opts = {}) {
     armedAt: armed ? Number(opts.armedAt) || 0 : 0,
     bonds: kind !== 'item',
     icon: kind === 'item' && record ? (record.iconId || record.trapId || '') : '',
-    iconFile: kind === 'item' && record ? itemIconUrl(m, record) : null,
+    iconFile: kind === 'item' && record ? (localItemIconUrl(local, record) || itemIconUrl(m, record)) : null,
     // Content the card view paints (all URLs resolved from data + assetUrls, never from a theme path).
     profession,
     portraitFile: kind === 'chess' && record ? chessPortraitUrl(m, record) : null,
@@ -71,7 +79,7 @@ export function cardModelFromSlot(slot, index, priv, opts = {}) {
     bondColor: colors.bondColor || '#000000',
     nameColor: colors.chessNameColor || '#FFFFFF',
     garrisonIconFile: garrisonIcon,
-    garrisonTint: garrisonColors[tier >= 6 ? 2 : (tier === 5 ? 1 : 0)] || '#FFFFFF',
+    garrisonTint: garrisonTintFor(colors, tier),
     garrisonIds: Array.isArray(record && record.garrisonIds) ? record.garrisonIds.slice() : [],
     colors,
     urlOf: typeof opts.urlOf === 'function' ? opts.urlOf : null,

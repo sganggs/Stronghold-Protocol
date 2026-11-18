@@ -45,7 +45,7 @@ export const OFFICIAL_PACK_EXT = Object.freeze(['png', 'jpg', 'jpeg', 'webp', 'o
 export const BUILTIN_ID = 'terminal';
 const ID_RE = /^[a-z0-9][a-z0-9_-]{0,39}$/;
 
-/** Official colour names (skinColorDataDict). Garrison 2 and 3 have no second chip in our UI. */
+/** Official colour names (skinColorDataDict), including the canvas renderer's garrison 2/3. */
 export const COLOR_KEYS = Object.freeze([
   'skinLightColor', 'skinDarkColor', 'bondColor', 'bondIconColor', 'chessNameColor',
   'saleColor1', 'saleColor2', 'destroyColor1', 'destroyColor2', 'countdownHintColor',
@@ -528,8 +528,10 @@ export function assessTheme(input) {
       if (!COLOR_KEYS.includes(key)) { unused.colors.push(key); continue; }
       const colour = acceptColour(value);
       if (!colour) { refused.push({ path: `colors.${key}`, code: 'bad-color' }); continue; }
-      if (!COLOR_VAR[key]) { unused.colors.push(key); continue; }
+      // Keep every accepted official colour in the pack: the canvas card renderer reads
+      // garrisonIconColor2/3 even though ui-theme.css has no custom property for them.
       colors[key] = colour;
+      if (!COLOR_VAR[key]) { unused.colors.push(key); continue; }
       used.colors.push(key);
     }
   }

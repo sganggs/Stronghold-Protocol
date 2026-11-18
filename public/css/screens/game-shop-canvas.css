@@ -47,3 +47,9 @@
   outline: 2px solid #9fe1ff;
   outline-offset: -2px;
 }
+
+/* A blocked control must look blocked (the old bar dims disabled buttons; the canvas cannot). */
+.shop-webgl--game .shop-webgl__hit:disabled {
+  opacity: 0.55;
+  cursor: default;
+}

@@ -6,7 +6,10 @@ import assert from 'node:assert/strict';
 
 import { tripleLoopEntry, tripleLoopLength } from '../../public/js/ui/shop/cardView.js';
 import { applyClip } from '../../public/js/render/shop/cardTimeline.js';
-import { spawn, stepOne } from '../../public/js/render/shop/cardParticles.js';
+import {
+  spawn, stepOne, tintOf, systemsOf, prepare, advanceEmitter,
+  MAX_POINT_PX, pointMaxSize, pointSizeOf,
+} from '../../public/js/render/shop/cardParticles.js';
 
 const CLIP = {
   len: 2.5,
@@ -98,4 +101,107 @@ test('triple particle world units are converted to px (reference scale)', () => 
   assert.ok(Math.abs(p.x) <= 71.5 && Math.abs(p.y) <= 81.5, 'box position is 143x163 px');
   stepOne(system, p, 0.5);
   assert.ok(p.sizePx >= 10, 'the per-frame step keeps the px scale');
+});
+
+test('only particle_tv_glow multiplies _TintColor (triple stays at 1)', () => {
+  const tv = tintOf({ name: 'particle_tv_glow', colors: { _TintColor: [0.5, 0.5, 0.5, 1] } });
+  const point = tintOf({ name: 'm_particle_point', colors: { _TintColor: [0.5, 0.5, 0.5, 1] } });
+  const star = tintOf({ name: 'm_particle_star', colors: { _TintColor: [0.5, 0.5, 0.5, 1] } });
+  assert.deepEqual(tv, [0.5, 0.5, 0.5]);
+  assert.deepEqual(point, [1, 1, 1]);
+  assert.deepEqual(star, [1, 1, 1]);
+});
+
+test('only the mounted tier sub-prefab may keep its tv_particle system', () => {
+  const spec = (name) => ({ path: `autochess_shop_card_item/root/${name}/tv_particle`, sub: name, material: null });
+  const card = { materials: {}, sub: {}, particles: [spec('frame_lv2_obj'), spec('frame_lv3_obj')] };
+  const five = systemsOf(card, ['frame_lv2_obj', 'chess_level_5_obj']);
+  const six = systemsOf(card, ['frame_lv3_obj', 'chess_level_6_obj']);
+  assert.deepEqual(five.map((s) => s.name), ['tv_particle']);
+  assert.ok(five[0].spec.path.includes('frame_lv2_obj'));
+  assert.deepEqual(six.map((s) => s.name), ['tv_particle']);
+  assert.ok(six[0].spec.path.includes('frame_lv3_obj'));
+});
+
+test('the particle draw cap is reference MAX_POINT_PX=64, not 1024', () => {
+  assert.equal(MAX_POINT_PX, 64);
+});
+
+// reference/card/particles.js:175-177/369/373: the TV glow is a point sprite with one square size derived from
+// ParticleSystemRenderer.maxParticleSize (world units -> px) and clamped to the 64 px point cap.
+test('point size follows the reference maxPx and cap', () => {
+  assert.equal(pointMaxSize({ maxPx: 2000 }, 1.6667), 64);
+  assert.equal(pointMaxSize({ maxPx: 30 }, 2), 60);
+  assert.equal(pointMaxSize({}, 3), 64, 'no renderer max falls back to the point cap');
+  assert.equal(pointSizeOf({ maxPx: 2000 }, { sizePx: 64 }, 4 / 3), 64, '106.7 px is clamped to 64');
+  assert.equal(pointSizeOf({ maxPx: 2000 }, { sizePx: 10 }, 2), 20);
+  assert.equal(pointSizeOf({ maxPx: 2000 }, { sizePx: 0.1 }, 1), 1);
+});
+
+test('prepare keeps the point path for the TV glow only and derives maxPx from the spec renderer', () => {
+  const base = {
+    startSize: { mode: 'constant', value: 0.64 },
+    startLifetime: { mode: 'constant', value: 0.4 },
+    maxParticles: 1,
+    rate: { mode: 'constant', value: 10 },
+    startColor: { mode: 'color', min: '#FFFFFF1A', color: '#FFFFFF0D' },
+    modules: {},
+    renderer: { maxParticleSize: 20 },
+  };
+  const tv = prepare({ ...base, path: 'autochess_shop_card_item/root/frame_lv3_obj/tv_particle', material: 'particle_tv_glow' }, 0, null);
+  assert.equal(tv.pointSprite, true);
+  assert.equal(tv.maxPx, 2000, '20 world units -> 2000 px, so the 64 px cap binds');
+  const star = prepare({ ...base, path: 'autochess_shop_card_item/root/panel_main/btn_card/state_fx_triple/particle_ctrl/particle_3', material: 'm_particle_star' }, 1, null);
+  assert.equal(star.pointSprite, false, 'the triple star keeps the masked quad path');
+});
+
+// reference/card/particles.js:340-355 emits before advancing the alive particles. Spawning after the step left
+// the fresh particle at spawn()'s placeholder alpha=1, so the TV glow painted one white frame per respawn.
+function tvSystem() {
+  return {
+    emission: { enabled: true, rate: [10, 10], rateDistance: [0, 0], bursts: [], duration: 1, looping: true, prewarm: true },
+    rate: [10, 10],
+    life: [0.4, 0.4],
+    size: [0.64, 0.64],
+    color: [[1, 1, 1, 0.10196078431372549], [1, 1, 1, 0.10196078431372549]],
+    startGradient: null,
+    alphaKeys: [[0, 0], [0.5, 1], [1, 0]],
+    sizeKeys: null,
+    max: 1,
+    shape: null,
+    speed: [0, 0],
+    noise: null,
+    alive: [],
+    acc: 0,
+    distAcc: 0,
+    t: 0,
+    active: false,
+    seed: 12345,
+  };
+}
+
+test('a fresh particle is never drawn with the spawn() placeholder alpha', () => {
+  const system = tvSystem();
+  let worst = 0;
+  for (let i = 0; i < 240; i += 1) {
+    advanceEmitter(system, system, 1 / 60, 0);
+    for (const p of system.alive) worst = Math.max(worst, p.alpha);
+  }
+  assert.ok(worst <= 0.10196078431372549 + 1e-9, `the TV alpha ramp tops out at its start colour alpha (saw ${worst})`);
+});
+
+test('the emitter advances a freshly spawned particle in the same frame', () => {
+  const system = tvSystem();
+  // run until a respawn happens after the prewarmed particle has died
+  let respawnAge = null;
+  for (let i = 0; i < 240; i += 1) {
+    const had = system.alive.length;
+    advanceEmitter(system, system, 1 / 60, 0);
+    if (had === 0 && system.alive.length === 1 && system.t > 0.4) {
+      respawnAge = system.alive[0].age;
+      break;
+    }
+  }
+  assert.ok(respawnAge != null, 'a respawn happened');
+  assert.ok(respawnAge > 0 && respawnAge <= 1 / 60 + 1e-9, `the new particle was stepped once (age ${respawnAge})`);
 });

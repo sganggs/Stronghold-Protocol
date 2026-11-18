@@ -14,7 +14,7 @@ const HOST_SOURCE = readFileSync(new URL('../../public/js/ui/shop/host.js', impo
 
 import { GEO } from '../../shared/constants.js';
 import { shopSignature, cardModelFromSlot } from '../../public/js/ui/shop/adapter/model.js';
-import { shopCardFlags, shopCardFlagsWithHand } from '../../public/js/ui/shop/ShopCanvas.js';
+import { shopCardFlags, shopCardFlagsWithHand, shopCanRefresh } from '../../public/js/ui/shop/ShopCanvas.js';
 import { cardAble } from '../../public/js/ui/shop/cardView.js';
 import { UIButton } from '../../public/js/ui/shop/widgets.js';
 import { AutoChessStylizedShopSlotsPanel } from '../../public/js/ui/shop/slots.js';
@@ -163,28 +163,25 @@ test('slots panel: a changed refreshSeq plays the script anims clip (special var
   assert.equal(panel.lastRefresh, 'whole_card_refresh_special');
 });
 
-// ---- UIButton: cooldown is the cooldown, guardSeconds is the click guard --------------------------------
+// ---- UIButton: C# ClickGuardModule (cooldown bool + seconds) -------------------------------------------
 
-test('UIButton: a cooldown blocks presses for its own length', () => {
+test('UIButton: the prefab guard cooldown blocks at 290 ms and allows at 300 ms', () => {
   let presses = 0;
-  const button = new UIButton({ onClick: () => { presses += 1; }, cooldown: 1 });
+  const button = new UIButton({ onClick: () => { presses += 1; }, clickGuard: { cooldown: 1, seconds: 0.3 } });
   assert.equal(button.IsInCooldown(1000), false, 'no press yet');
   assert.equal(button.Press(1000), true);
-  assert.equal(button.IsInCooldown(1500), true);
-  assert.equal(button.Press(1500), false);
-  assert.equal(button.lastBlocked, 1500);
-  assert.equal(button.IsInCooldown(2100), false);
-  assert.equal(button.Press(2100), true);
+  assert.equal(button.IsInCooldown(1290), true);
+  assert.equal(button.Press(1290), false);
+  assert.equal(button.lastBlocked, 1290);
+  assert.equal(button.Press(1300), true);
   assert.equal(presses, 2);
 });
 
-test('UIButton: no cooldown means never on cooldown; guardSeconds still debounces a rapid press', () => {
-  const button = new UIButton({ guardSeconds: 0.5 });
+test('UIButton: cooldown:0 (also with seconds:.5) is off; only refresh has a lock', () => {
+  const button = new UIButton({ clickGuard: { cooldown: 0, seconds: 0.5 } });
   assert.equal(button.Press(0), true);
-  assert.equal(button.IsInCooldown(100), false, 'no cooldown configured');
-  assert.equal(button.IsInGuard(100), true);
-  assert.equal(button.Press(100), false);
-  assert.equal(button.Press(600), true);
+  assert.equal(button.IsInCooldown(100), false);
+  assert.equal(button.Press(100), true, 'no client-side card/button debounce in the prefab');
 });
 
 test('UIButton: a non-interactable button never presses', () => {
@@ -192,18 +189,17 @@ test('UIButton: a non-interactable button never presses', () => {
   assert.equal(button.Press(0), false);
 });
 
-test('UIButton: the 0.3 s refresh cooldown blocks at 290 ms and allows at 300 ms', () => {
-  let presses = 0;
-  const button = new UIButton({ onClick: () => { presses += 1; }, guardSeconds: 0.3, cooldown: 0.3 });
-  assert.equal(button.Press(1000), true);
-  assert.equal(button.IsInCooldown(1290), true);
-  assert.equal(button.Press(1290), false);
-  assert.equal(button.Press(1300), true);
-  assert.equal(presses, 2);
+test('the host reads each control guard from the prefab UIButton, not hardcoded seconds', () => {
+  assert.match(HOST_SOURCE, /clickGuardFor\(spec\.paths\)/);
+  assert.doesNotMatch(HOST_SOURCE, /guardSeconds: 0\.5/);
+  assert.doesNotMatch(HOST_SOURCE, /cooldown: 1/);
 });
 
-test('the host binds the refresh button to 0.3 s, not the clickGuard boolean as 1 s', () => {
-  assert.match(HOST_SOURCE, /refresh: new UIButton\(\{ guardSeconds: 0\.3, cooldown: 0\.3 \}\)/);
-  assert.doesNotMatch(HOST_SOURCE, /refresh: new UIButton\(\{ guardSeconds: 0\.3, cooldown: 1 \}\)/);
-  assert.doesNotMatch(HOST_SOURCE, /event: 'refresh', guard: 0\.3, cooldown: 1/);
+// ---- refresh affordability: ctrl.canRefresh and the DOM control must agree -------------------------------
+
+test('refresh is allowed by free refresh, special recruit or enough funds', () => {
+  assert.equal(shopCanRefresh({ funds: 0, shop: { refreshPrice: 3, freeRefreshes: 1 } }), true);
+  assert.equal(shopCanRefresh({ funds: 3, shop: { refreshPrice: 3 } }), true);
+  assert.equal(shopCanRefresh({ funds: 2, shop: { refreshPrice: 3 } }), false);
+  assert.equal(shopCanRefresh({ funds: 0, shop: { refreshPrice: 3, rewardOffer: { source: 'special' } } }), true);
 });

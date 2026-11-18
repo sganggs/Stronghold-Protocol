@@ -29,7 +29,25 @@
 
 export const WORLD_TO_PX = 100;
 
-const MAX_QUAD_PX = 1024;
+// reference/card/particles.js:12/369: point smoke/star sprites cap at 64 px; the TV emitter is 138 px here
+// without this cap, which overexposes the TV and the card (W94/W98).
+export const MAX_POINT_PX = 64;
+const MAX_QUAD_PX = MAX_POINT_PX;
+
+// reference/card/particles.js:175-177/369: `maxPx` is ParticleSystemRenderer.maxParticleSize in world units
+// (100 px each) and falls back to the point cap. The TV spec serializes maxParticleSize 20, so the point cap is
+// the 64 px limit W98 hard-coded — derived here the way the reference derives it.
+export function pointMaxSize(system, scale) {
+  const s = Number(scale) > 0 ? Number(scale) : 1;
+  const maxPx = Number(system && system.maxPx) > 0 ? Number(system.maxPx) : MAX_POINT_PX;
+  return Math.min(MAX_POINT_PX, maxPx * s);
+}
+
+// reference/card/particles.js:373: one square size for both axes, clamped between 1 px and the point cap.
+export function pointSizeOf(system, particle, scale) {
+  const s = Number(scale) > 0 ? Number(scale) : 1;
+  return Math.max(1, Math.min(pointMaxSize(system, s), Number(particle && particle.sizePx) * s));
+}
 
 const BURST_EPS = 1e-6;
 
@@ -86,6 +104,31 @@ const QUAD_FRAG = `#version 300 es
       alpha *= uMaskInvert > 0.5 ? (1.0 - mask) : mask;
     }
     outColor = vec4(rgb * uTint.rgb * vColor.rgb, alpha * uTint.a * vColor.a);
+  }`;
+
+// reference/card/particles.js:14-34: the TV glow is a point sprite, not a textured quad. Chrome sizes the point
+// in device px through gl_PointSize and shader-side sampling uses gl_PointCoord, so this path has no ST, mask,
+// channel, tint uniform or V flip — the colour arrives already multiplied by `_TintColor` and the alpha ramp.
+const POINT_VERT = `#version 300 es
+  in vec2 aPos;
+  in float aSize;
+  in vec4 aColor;
+  uniform vec2 uView;
+  out vec4 vColor;
+  void main() {
+    vColor = aColor;
+    gl_Position = vec4(aPos.x / uView.x * 2.0 - 1.0, 1.0 - aPos.y / uView.y * 2.0, 0.0, 1.0);
+    gl_PointSize = max(1.0, aSize);
+  }`;
+
+const POINT_FRAG = `#version 300 es
+  precision mediump float;
+  in vec4 vColor;
+  out vec4 outColor;
+  uniform sampler2D uTex;
+  void main() {
+    vec4 t = texture(uTex, gl_PointCoord);
+    outColor = vec4(t.rgb * vColor.rgb, t.a * vColor.a);
   }`;
 
 function compile(gl, type, src) {
@@ -392,6 +435,7 @@ export function prepare(spec, index, card, options = {}) {
   const [c0, c1] = colorPair(spec.startColor);
   const sizeModule = modules.size;
   const slots = card ? materialSlots(card, spec.material) : null;
+  const material = card ? materialByName(card, spec.material) : null;
   const emission = emissionOf(spec);
   const path = String(spec.path || '');
   const key = spec.pathId != null && spec.pathId !== '' ? `pathId:${spec.pathId}` : `path:${path}`;
@@ -409,6 +453,8 @@ export function prepare(spec, index, card, options = {}) {
     ? [Math.abs(Number(component.lossyScale[0])), Math.abs(Number(component.lossyScale[1]))]
     : null;
   const native = !!(options.native || (spec.native === true));
+  const materialName = (material && material.name) || (spec && spec.material) || null;
+  const maxParticleSize = Number(spec && spec.renderer && spec.renderer.maxParticleSize) || 0;
   return {
     spec,
     index,
@@ -444,7 +490,13 @@ export function prepare(spec, index, card, options = {}) {
     channel: slots ? slots.channel : 0,
     speedV: slots ? slots.speedV : 0,
     maskInvert: slots ? slots.maskInvert : 0,
-    tint: slots ? slots.tint : [1, 1, 1, 1],
+    // ref:particles.js:124-129 — AlphaBlend _TintColor multiplies only particle_tv_glow; the triple
+    // emitters were validated without it (their _TintColor is also 0.5, but that family must stay at 1).
+    tint: [...tintOf(material), 1],
+    // ref:particles.js:175-177/187-206: the TV glow keeps the reference point-sprite path (gl.POINTS,
+    // gl_PointSize, gl_PointCoord); every other emitter keeps the masked quad path.
+    maxPx: maxParticleSize > 0 ? maxParticleSize * WORLD_TO_PX : MAX_POINT_PX,
+    pointSprite: materialName === 'particle_tv_glow',
     shader: slots ? slots.shader : null,
     missingTexture: !!(slots && !slots.baseFile),
     emission,
@@ -495,17 +547,31 @@ export function systemsOf(card, mounted) {
   const components = componentMap(card && card.particleComponents);
   const nativePrefabs = nativePrefabsOf(card && card.particleComponents);
   const all = [];
+  const mountedPath = (path) => {
+    if (!mountedSet.size) return true;
+    for (const name of mountedSet) {
+      if (path === name || path.endsWith('/' + name) || path.includes('/' + name + '/')) return true;
+    }
+    return false;
+  };
   const push = (list, site, forcedNative = false) => {
     for (const system of list || []) {
-      const root = String(system.path || '').split('/')[0];
-      if (site === 'sub' && mountedSet.size && !mountedSet.has(root)) continue;
-      all.push({ spec: system, native: forcedNative || nativePrefabs.has(root) || system.native === true });
+      const path = String(system.path || '');
+      const root = path.split('/')[0];
+      if (site === 'sub' && !mountedPath(path)) continue;
+      all.push({ spec: system, site, native: forcedNative || nativePrefabs.has(root) || system.native === true });
     }
   };
-  push(card.particles, 'card');
+  // scene.bakeParticles marks the per-frame TV systems with `sub`: they belong to a mounted sub-prefab,
+  // not to the card root, so the mounted filter applies to them.
+  for (const system of card.particles || []) push([system], system && system.sub ? 'sub' : 'card');
   push(card.nativeParticles, 'native', true);
   for (const sub of Object.values(card.sub || {})) push(sub.particles, 'sub');
-  return all.map((entry, index) => prepare(entry.spec, index, card, { components, native: entry.native }));
+  return all.map((entry, index) => {
+    const prepared = prepare(entry.spec, index, card, { components, native: entry.native });
+    prepared.site = entry.site;
+    return prepared;
+  });
 }
 
 function randomOf(state) {
@@ -625,7 +691,7 @@ export function stepOne(system, p, dt) {
 }
 
 
-function fireBursts(system, state, from, to) {
+function fireBursts(system, state, from, to, step = 0) {
   const emission = system.emission;
   if (!emission || !emission.bursts.length || !(to > from)) return;
   const duration = emission.duration > 0 ? emission.duration : Infinity;
@@ -641,7 +707,8 @@ function fireBursts(system, state, from, to) {
         const t = base + burst.time + rep * burst.repeatInterval;
         if (t <= from || t > to) continue;
         if (burst.probability < 1 && randomOf(state) >= burst.probability) continue;
-        const age = Math.max(0, to - t);
+        // the caller advances every alive particle after emitting, so the spawn age is one step short
+        const age = Math.max(0, to - t - step);
         for (let n = 0; n < burst.count; n += 1) {
           if (state.alive.length >= system.max) break;
           state.alive.push(spawn(system, age, state));
@@ -652,7 +719,7 @@ function fireBursts(system, state, from, to) {
 }
 
 
-function advanceEmitter(system, state, step, distance) {
+export function advanceEmitter(system, state, step, distance) {
   const emission = system.emission;
   if (!emission || emission.enabled === false) {
     state.alive.length = 0;
@@ -671,12 +738,11 @@ function advanceEmitter(system, state, step, distance) {
   }
   const prevT = state.t;
   const curT = prevT + step;
-
-  for (let i = state.alive.length - 1; i >= 0; i -= 1) {
-    if (!stepOne(system, state.alive[i], step)) state.alive.splice(i, 1);
-  }
   const emitting = emission.looping || prevT < emission.duration;
 
+  // reference/card/particles.js:340-355 emits first and only then advances every alive particle. Spawning
+  // after the step let a fresh particle reach the draw with spawn()'s placeholder `alpha = 1`, which painted
+  // one full-brightness frame per respawn (the TV glow flashed white every 0.4 s instead of fading 0→1→0).
   if (emitting && (emission.rate[0] > 0 || emission.rate[1] > 0)) {
     state.acc += between(state, emission.rate) * step;
     while (state.acc >= 1) {
@@ -695,7 +761,11 @@ function advanceEmitter(system, state, step, distance) {
     if (state.distAcc > 4) state.distAcc = 4;
   }
 
-  fireBursts(system, state, prevT, curT);
+  fireBursts(system, state, prevT, curT, step);
+
+  for (let i = state.alive.length - 1; i >= 0; i -= 1) {
+    if (!stepOne(system, state.alive[i], step)) state.alive.splice(i, 1);
+  }
   state.t = curT;
   return state.alive.length;
 }
@@ -963,8 +1033,64 @@ export function create(canvas, card, textures, mounted) {
   const aMaskUV = gl.getAttribLocation(program, 'aMaskUV');
   const aColor = gl.getAttribLocation(program, 'aColor');
   const buffer = gl.createBuffer();
-  const systems = systemsOf(card, mounted);
+
+  // reference/card/particles.js:208-221: the TV glow gets the reference's own point program. A driver that
+  // refuses the program (or an attribute) leaves the TV on the quad path instead of dropping the effect.
+  let point = null;
+  {
+    let pointVs = null;
+    let pointFs = null;
+    let pointProgram;
+    try {
+      pointVs = compile(gl, gl.VERTEX_SHADER, POINT_VERT);
+      pointFs = compile(gl, gl.FRAGMENT_SHADER, POINT_FRAG);
+      pointProgram = gl.createProgram();
+      gl.attachShader(pointProgram, pointVs);
+      gl.attachShader(pointProgram, pointFs);
+      gl.linkProgram(pointProgram);
+      const ok = gl.getProgramParameter(pointProgram, gl.LINK_STATUS);
+      const pPos = gl.getAttribLocation(pointProgram, 'aPos');
+      const pSize = gl.getAttribLocation(pointProgram, 'aSize');
+      const pColor = gl.getAttribLocation(pointProgram, 'aColor');
+      if (ok && pPos >= 0 && pSize >= 0 && pColor >= 0) {
+        point = {
+          program: pointProgram,
+          buffer: gl.createBuffer(),
+          aPos: pPos,
+          aSize: pSize,
+          aColor: pColor,
+          view: gl.getUniformLocation(pointProgram, 'uView'),
+          tex: gl.getUniformLocation(pointProgram, 'uTex'),
+        };
+      } else {
+        gl.deleteProgram(pointProgram);
+      }
+    } catch {
+      point = null;
+    } finally {
+      for (const sh of [pointVs, pointFs]) {
+        if (!sh) continue;
+        if (point && point.program) gl.detachShader(point.program, sh);
+        gl.deleteShader(sh);
+      }
+    }
+  }
+  const mountedSource = mounted && typeof mounted === 'object' && 'mounted' in mounted ? mounted : null;
+  const systems = systemsOf(card, null);
   const simulation = createSimulation(systems);
+  const mountedNames = () => {
+    if (!mountedSource) return Array.isArray(mounted) ? mounted : [];
+    return Array.isArray(mountedSource.mounted) ? mountedSource.mounted : [];
+  };
+  const mountedMatch = (path) => {
+    const names = mountedNames();
+    if (!names.length) return true;
+    for (const name of names) {
+      if (path === name || path.endsWith('/' + name) || path.includes('/' + name + '/')) return true;
+    }
+    return false;
+  };
+  const isMounted = (system) => system.site !== 'sub' || mountedMatch(String(system.path || ''));
   let clock = 0;
 
   
@@ -977,12 +1103,62 @@ export function create(canvas, card, textures, mounted) {
   };
 
   
+  // reference/card/particles.js:359-409: one gl.POINTS draw per TV emitter, with that emitter's own material
+  // texture, the reference's single square size, and the colour that already carries `_TintColor` (baked in
+  // spawn). No ST / mask / channel / V flip and no gamma: exactly the reference fragment.
+  const drawPointSprites = (system, state) => {
+    if (!point) return 0;
+    const texture = textures(system.file || system.baseFile);
+    if (!texture || !texture.tex) return 0;
+    const scale = state.unitScale > 0 ? state.unitScale : simulation.unitPx;
+    const cx = state.rect.x + state.rect.w / 2;
+    const cy = state.rect.y + state.rect.h / 2;
+    const tint = system.tint || [1, 1, 1, 1];
+    const data = new Float32Array(state.alive.length * 7);
+    let n = 0;
+    for (const p of state.alive) {
+      if (p.alpha <= 0.002) continue;
+      data[n * 7 + 0] = cx + p.px * scale;
+      data[n * 7 + 1] = cy + p.py * scale;
+      data[n * 7 + 2] = pointSizeOf(system, p, scale);
+      data[n * 7 + 3] = p.colour[0] * tint[0];
+      data[n * 7 + 4] = p.colour[1] * tint[1];
+      data[n * 7 + 5] = p.colour[2] * tint[2];
+      data[n * 7 + 6] = p.alpha;
+      n += 1;
+    }
+    if (!n) return 0;
+    gl.useProgram(point.program);
+    gl.enable(gl.BLEND);
+    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.colorMask(true, true, true, true);
+    gl.uniform2f(point.view, canvas.width, canvas.height);
+    gl.bindBuffer(gl.ARRAY_BUFFER, point.buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, data.subarray(0, n * 7), gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(point.aPos);
+    gl.vertexAttribPointer(point.aPos, 2, gl.FLOAT, false, 28, 0);
+    gl.enableVertexAttribArray(point.aSize);
+    gl.vertexAttribPointer(point.aSize, 1, gl.FLOAT, false, 28, 8);
+    gl.enableVertexAttribArray(point.aColor);
+    gl.vertexAttribPointer(point.aColor, 4, gl.FLOAT, false, 28, 12);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, texture.tex);
+    gl.uniform1i(point.tex, 0);
+    gl.drawArrays(gl.POINTS, 0, n);
+    return n;
+  };
+
   const draw = (node) => {
     if (destroyed) return 0;
     let drawn = 0;
     for (const state of simulation.emittersFor(node)) {
       const system = state.system;
+      if (!isMounted(system)) continue;
       if (!state.rect || !system.drawable || system.native || system.missingTexture || !state.alive.length) continue;
+      if (system.pointSprite) {
+        drawn += drawPointSprites(system, state);
+        continue;
+      }
       const baseTex = textures(system.baseFile);
       if (!baseTex || !baseTex.tex) continue;
       const maskTex = system.maskFile ? textures(system.maskFile) : null;
@@ -1069,6 +1245,11 @@ export function create(canvas, card, textures, mounted) {
     gl.deleteBuffer(buffer);
     if (program) gl.deleteProgram(program);
     program = null;
+    if (point) {
+      gl.deleteBuffer(point.buffer);
+      gl.deleteProgram(point.program);
+      point = null;
+    }
   };
 
   return {
@@ -1076,11 +1257,14 @@ export function create(canvas, card, textures, mounted) {
     draw,
     
     has: (node) => simulation.has(node),
-    aliveCount: () => simulation.aliveCount(),
-    report: (node) => simulation.report(node),
+    aliveCount: () => systems.filter(isMounted).reduce((sum, system) => sum + system.alive.length, 0),
+    report: (node) => simulation.report(node).filter((row) => {
+      const system = systems.find((candidate) => candidate.name === row.name && String(candidate.path) === String(row.path));
+      return !system || isMounted(system);
+    }),
     destroy,
     get destroyed() { return destroyed; },
-    get systems() { return systems; },
+    get systems() { return systems.filter(isMounted); },
     get simulation() { return simulation; },
   };
 }

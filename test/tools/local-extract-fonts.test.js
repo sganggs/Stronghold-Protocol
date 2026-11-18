@@ -75,7 +75,7 @@ elif scenario == 'conflict':
     fonts._read_fonts = source(DATA)
 elif scenario == 'missing':
     fonts._read_fonts = lambda game_data: {}
-elif scenario not in ('full-run', 'font-exit', 'hot-update', 'shopdocs'):
+elif scenario not in ('full-run', 'font-exit', 'hot-update', 'shopdocs', 'theme-files'):
     raise SystemExit('unknown scenario ' + scenario)
 
 if scenario == 'full-run':
@@ -181,6 +181,24 @@ elif scenario == 'shopdocs':
     with contextlib.redirect_stderr(err):
         code = extract.extract(make_args(), str(work / 'fake-ab'), None, None)
     result = {'total': total, 'logs': logs, 'groups': sorted(manifest), 'code': code, 'stderr': err.getvalue()}
+elif scenario == 'theme-files':
+    # list_theme_files registers the files a theme producer wrote without listing (the free-refresh plate etc.).
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('extract', str(tool / 'extract.py'))
+    extract = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(extract)
+    out = work / 'out'
+    sprites = out / 'themes' / 'ac_s_closur' / 'sprites'
+    sprites.mkdir(parents=True)
+    (sprites / 'listed.webp').write_bytes(b'not-a-real-image')
+    (sprites / 'ext_cost_free.webp').write_bytes(b'not-a-real-image')
+    (out / 'themes' / 'ac_s_closur' / 'theme.json').write_text('{}', encoding='utf-8')
+    logs = []
+    group = 'themes/ac_s_closur'
+    manifest = {group: {'sprites/listed.webp': {'path': '/assets/local/' + group + '/sprites/listed.webp',
+                                                'kind': 'Sprite', 'w': 7, 'h': 9}}}
+    extract.list_theme_files(str(out), manifest, logs.append, ['ac_s_closur'])
+    result = {'group': manifest[group], 'logs': logs}
 else:
     manifest = {}
     written = fonts.export_fonts(str(game), str(out), manifest, log)
@@ -289,4 +307,21 @@ test('previous_groups: a full extract keeps an earlier groups.fonts, an --only r
   assert.deepEqual(result.kept, ['char/x', 'fonts']);
   assert.deepEqual(result.partial, ['char/x', 'fonts', 'themes/ac_s_closur', 'ui/common']);
   assert.deepEqual(result.merged, ['char/x', 'fonts']);
+});
+
+test('list_theme_files lists the files a theme producer left out, keeping the listed ones as they are', { skip: !PY && 'no python' }, () => {
+  const result = runDriver('theme-files');
+  assert.deepEqual(result.group['sprites/listed.webp'], {
+    path: '/assets/local/themes/ac_s_closur/sprites/listed.webp', kind: 'Sprite', w: 7, h: 9,
+  }, 'a listed file keeps its own entry');
+  assert.deepEqual(result.group['sprites/ext_cost_free.webp'], {
+    path: '/assets/local/themes/ac_s_closur/sprites/ext_cost_free.webp', kind: 'Sprite',
+  }, 'the free-refresh plate the shop prefab names is now resolvable');
+  assert.deepEqual(result.group['theme.json'], {
+    path: '/assets/local/themes/ac_s_closur/theme.json', kind: 'TextAsset',
+  });
+  assert.deepEqual(result.logs.sort(), [
+    'themes: listed themes/ac_s_closur/sprites/ext_cost_free.webp (the producer left it out)',
+    'themes: listed themes/ac_s_closur/theme.json (the producer left it out)',
+  ]);
 });

@@ -102,7 +102,8 @@ test('a good pack keeps colours, tokens, images, banners and voice', () => {
   ]);
   assert.equal(report.ok, true);
   assert.equal(report.colors.skinLightColor, '#00FFC4');
-  assert.equal(report.colors.garrisonIconColor2, undefined);
+  // garrison 2/3 have no CSS variable but the canvas card renderer needs them in the pack.
+  assert.equal(report.colors.garrisonIconColor2, '#FFFFFF33');
   assert.deepEqual(report.tokens, { '--mint-400': '#112233' });
   assert.deepEqual(report.images.shop_main, { path: 'ui/shop.png', slice: null });
   assert.deepEqual(report.images.prep_ready.slice, [12, 24, 12, 24]);
@@ -262,7 +263,7 @@ test('the built-in look adds no CSS; a pack writes blob URLs and a default frame
   assert.equal(decl.props['--sp-banner-perfectStreak'], undefined);
   assert.ok(decl.slices.includes('rest'));
   assert.equal(decl.props['--sp-img-help_battle'], undefined);
-  assert.ok(!decl.colors.includes('garrison2'));
+  assert.ok(!decl.colors.includes('garrison2')); // no ui-theme.css custom property
   assert.deepEqual(decl.slots.includes('shop_main') && decl.banners.includes('gameStart'), true);
 
   const props = {};

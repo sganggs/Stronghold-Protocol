@@ -648,13 +648,17 @@ export const TINT_FADE = 0.1;
 
 export class UIButton {
   
-  constructor({ node = null, onClick = null, interactable = true, guardSeconds = 0, cooldown = 0, signal = '',
+  constructor({ node = null, onClick = null, interactable = true, guardSeconds = 0, cooldown = 0, clickGuard = null, signal = '',
     tintRoot = null, tintTargets = [] } = {}) {
     this.node = node;
     this.onClick = onClick;
     this.interactable = interactable;
-    this.guardSeconds = Number(guardSeconds) || 0;
-    this.cooldown = Number(cooldown) || 0;
+    // C# UIButton.ClickGuardModule: `cooldown` is the enable bool, `seconds` is the duration. The
+    // prefab's _clickGuard object is passed through unchanged; old callers may still pass the two scalars.
+    const guard = clickGuard && typeof clickGuard === 'object' ? clickGuard : { cooldown: !!cooldown, seconds: guardSeconds };
+    this.clickGuard = { cooldown: !!guard.cooldown, seconds: Number(guard.seconds) || 0 };
+    this.guardSeconds = this.clickGuard.seconds;
+    this.cooldown = this.clickGuard.cooldown;
     this.signal = signal;
     this.lastPress = -1e9;
     
@@ -675,22 +679,16 @@ export class UIButton {
 
 
   
-  /** The prefab's cooldown lock (`cooldown` seconds after a press); a button without one is never on cooldown. */
+  /** C# ClickGuardModule: `cooldown` only enables; `seconds` is the lock length. */
   IsInCooldown(now = performance.now()) {
-    if (!this.cooldown) return false;
-    return now - this.lastPress < this.cooldown * 1000;
-  }
-
-  /** The prefab's click guard (`guardSeconds`): the per-button debounce of a rapid second press. */
-  IsInGuard(now = performance.now()) {
-    if (!this.guardSeconds) return false;
-    return now - this.lastPress < this.guardSeconds * 1000;
+    if (!this.clickGuard.cooldown) return false;
+    return now - this.lastPress < this.clickGuard.seconds * 1000;
   }
 
   
   Press(now = performance.now()) {
     if (!this.interactable) return false;
-    if (this.IsInCooldown(now) || this.IsInGuard(now)) { this.lastBlocked = now; return false; }
+    if (this.IsInCooldown(now)) { this.lastBlocked = now; return false; }
     this.lastPress = now;
     if (this.onClick) this.onClick(now);
     return true;

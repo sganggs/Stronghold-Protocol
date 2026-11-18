@@ -33,62 +33,16 @@ const FRAME_FILE = {
 
 const TIER_FILE = (tier) => `sprites/chess_level_icon_${tier}.webp`;
 
-/** Equip icon natural size per file URL: null = not known yet (a load is in flight) or unknown. */
-const equipSizeCache = new Map();
-const equipSizeWaiters = new Map();
-const EQUIP_BOX = Object.freeze([93, 93]);
-
-/** Contain the icon inside the prefab's box (old DOM shop: `.scard__itemart img { object-fit: contain }`). */
-function fitEquipIcon(node, size) {
-  if (!node || !size || !(size.w > 0) || !(size.h > 0)) return;
-  const rect = node.rect || {};
-  const base = rect.sizeDelta || EQUIP_BOX;
-  const bw = Number(base[0]) || EQUIP_BOX[0];
-  const bh = Number(base[1]) || EQUIP_BOX[1];
-  const k = Math.min(bw / size.w, bh / size.h);
-  const w = size.w * k;
-  const h = size.h * k;
-  if (Math.abs(w - bw) < 0.01 && Math.abs(h - bh) < 0.01) return;
-  node.rect = { ...rect, sizeDelta: [w, h] };
-}
-
-/**
- * Natural size of an equip icon. The first call starts one image load and records the node that needs the
- * fit; when the image arrives the node is fitted in place and the scene is rebuilt (the next scene.rebuild
- * reads the fitted rect, so the card view does not have to render again).
- */
-function equipNaturalSize(file, view, node) {
-  if (!file) return null;
-  if (equipSizeCache.has(file)) return equipSizeCache.get(file);
-  if (typeof Image !== 'function') return null;
-  let waiters = equipSizeWaiters.get(file);
-  if (!waiters) {
-    waiters = new Set();
-    equipSizeWaiters.set(file, waiters);
-    const img = new Image();
-    img.decoding = 'async';
-    img.onload = () => {
-      const w = Number(img.naturalWidth);
-      const h = Number(img.naturalHeight);
-      const size = w > 0 && h > 0 ? { w, h } : null;
-      equipSizeCache.set(file, size);
-      for (const waiter of waiters) {
-        if (size) fitEquipIcon(waiter.node, size);
-        try { waiter.scene && waiter.scene.markDirty && waiter.scene.markDirty('layout'); } catch { /* detached */ }
-      }
-      equipSizeWaiters.delete(file);
-    };
-    img.onerror = () => {
-      equipSizeCache.set(file, null);
-      equipSizeWaiters.delete(file);
-    };
-    img.src = file;
-  }
-  if (node) waiters.add({ node, scene: view && view.scene });
-  return null;
-}
-
 const clone = cloneNode;
+
+/** Re-path a cloned card sub-prefab subtree (same rule as ctrl.js:12-17). */
+export function repathCardNode(node, basePath, name = node.name) {
+  if (!node) return node;
+  node.name = name;
+  node.path = basePath ? `${basePath}/${name}` : name;
+  for (const child of node.children || []) repathCardNode(child, node.path);
+  return node;
+}
 
 
 function findNode(root, name) {
@@ -234,8 +188,8 @@ export class AutoChessBattleShopCardView {
     const tierHost = findNode(tree, 'chess_level_obj_container');
     const frameSub = sub(level.frame);
     const tierSub = sub(level.tierObj);
-    if (frameHost && frameSub) frameHost.children = [...(frameHost.children || []), this.uniqueEmitterPaths(frameSub, this.doc.sub[level.frame], tree.path)];
-    if (tierHost && tierSub) tierHost.children = [...(tierHost.children || []), this.uniqueEmitterPaths(tierSub, this.doc.sub[level.tierObj], tree.path)];
+    if (frameHost && frameSub) frameHost.children = [...(frameHost.children || []), this.uniqueEmitterPaths(repathCardNode(frameSub, frameHost.path), this.doc.sub[level.frame], tree.path)];
+    if (tierHost && tierSub) tierHost.children = [...(tierHost.children || []), this.uniqueEmitterPaths(repathCardNode(tierSub, tierHost.path), this.doc.sub[level.tierObj], tree.path)];
     return tree;
   }
 
@@ -321,8 +275,7 @@ export class AutoChessBattleShopCardView {
     const blockH = bonds.length * rowH;
     const startY = Math.max(0, containerH - blockH);
     list.children = bonds.map((bond, index) => {
-      const row = clone(template);
-      row.name = `${template.name}_${index}`;
+      const row = repathCardNode(clone(template), list.path, `${template.name}_${index}`);
       row.rect = { anchors: { min: [0, 1], max: [0, 1] }, pivot: [0, 1], sizeDelta: [rowW, rowH], anchoredPosition: [4, -(startY + index * rowH)] };
       const icon = findNode(row, 'icon');
 
@@ -338,7 +291,7 @@ export class AutoChessBattleShopCardView {
     const holder = findNode(tree, 'root_cost');
     const source = this.doc.sub && this.doc.sub.cost_view;
     if (!holder || !source) return;
-    const costRoot = clone(source.root);
+    const costRoot = repathCardNode(clone(source.root), holder.path, source.root.name);
     holder.children = [costRoot];
     this.applyCostState(costRoot, this.shopModel());
   }
@@ -376,11 +329,6 @@ export class AutoChessBattleShopCardView {
     const equipIcon = findNode(tree, 'equip');
     if (equipIcon && this.model.iconFile) {
       equipIcon.image = { ...(equipIcon.image || {}), file: this.model.iconFile, sprite: this.model.icon };
-      // The prefab's equip rect is a square (93×93) while item icons are not (source art for 源石溶剂 is
-      // 94×146). The old DOM shop drew the item art with object-fit: contain, so letterbox the icon inside
-      // the prefab box instead of stretching it; the natural size is cached per file.
-      const size = equipNaturalSize(this.model.iconFile, this, equipIcon);
-      if (size) fitEquipIcon(equipIcon, size);
     }
     const equipName = findNode(tree, 'eqiup_name');
     if (equipName) {
@@ -437,6 +385,10 @@ export class AutoChessBattleShopCardView {
     this.state = this.stateOf(model);
     this.library = [{ id: this.state.operator, name: model.name }];
     this.ui = this.stateUi(model);
+    // reference/card/card2.js:728-731: only the tier's mounted sub-prefabs may own a tv_particle.
+    const level = this.levelStyle(this.state.tier);
+    this.mounted = [level.frame, level.tierObj].filter(Boolean);
+    if (this.root) this.root.__cardMounted = this.mounted;
 
     const tree = this.buildTree();
     if (model.isChar) {

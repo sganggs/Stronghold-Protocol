@@ -192,6 +192,7 @@ function cardSubClip(doc, entry) {
 
 export class ShopScene {
   constructor({ theme, canvas, size = [DESIGN_W, DESIGN_H], tintTargets = null, pathIdMap = null, particlesEnabled = false, statusEnabled = true, particleComponents = null, options = {} }) {
+    const self = this;
     const opts = options || {};
     this.options = opts;
     this.theme = theme;
@@ -231,7 +232,19 @@ export class ShopScene {
     this.cardParticlesEnabled = opts.cardParticles !== false;
     this.cardClock = 0;
     this.cardClockLast = null;
+    const cardMountedView = {
+      // The card documents carry both frame_lv2_obj and frame_lv3_obj, each with a tv_particle. Only the
+      // mounted tier sub-prefabs may emit (reference/card/card2.js:728-731); CardParticles reads this.
+      get mounted() {
+        const out = [];
+        for (const root of self.cardRoots || []) {
+          for (const name of (root && root.__cardMounted) || []) if (!out.includes(name)) out.push(name);
+        }
+        return out;
+      },
+    };
     this.renderer = createCardRenderer({
+      view: cardMountedView,
       canvas,
 
       card: {
@@ -303,7 +316,7 @@ export class ShopScene {
       const innerName = (Array.isArray(cardRoot.children) && cardRoot.children[0] && cardRoot.children[0].name) || 'root';
       for (const name of ['frame_lv2_obj', 'frame_lv3_obj']) {
         for (const spec of ((cardSubs[name] || {}).particles) || []) {
-          cardTv.push({ ...spec, path: `${rootPath}/${innerName}/${spec.path || `${name}/tv_particle`}` });
+          cardTv.push({ ...spec, sub: name, path: `${rootPath}/${innerName}/${spec.path || `${name}/tv_particle`}` });
         }
       }
     }

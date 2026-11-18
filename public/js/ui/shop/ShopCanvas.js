@@ -27,6 +27,16 @@ const KEEP_ARMED = '[data-shop-webgl], .dpanel, .modal';
 /** Game-data files whose localized copies feed the card model. */
 const LOCALE_FILES = Object.freeze(['chess', 'items', 'bonds', 'garrisons', 'assets']);
 
+/** The same refresh affordability rule the ctrl panel paints (free refresh, special recruit, or funds). */
+export function shopCanRefresh(priv) {
+  const shop = (priv && priv.shop) || {};
+  const special = !!(shop.rewardOffer && shop.rewardOffer.source === 'special');
+  const free = Number(shop.freeRefreshes) || 0;
+  const cost = Number(shop.refreshPrice) || 0;
+  const funds = Number(priv && priv.funds) || 0;
+  return special || free > 0 || funds >= cost;
+}
+
 /** The promotion/reward offer renders as the last three slots of the normal chess row. */
 export const REWARD_SLOT_COUNT = 3;
 
@@ -203,7 +213,7 @@ export function ShopCanvas(props) {
   const controlReasons = () => {
     const p = propsRef.current;
     return {
-      refresh: p.refreshBusy ? t('正在刷新…') : shopBlockReason('refresh', { config: p.config, priv: p.priv, editable: p.editable }),
+      refresh: p.refreshBusy ? t('正在刷新…') : (shopCanRefresh(p.priv) ? null : t('资金不足')),
       freeze: p.editable ? null : shopBlockReason('freeze', { config: p.config, priv: p.priv, editable: p.editable }),
       levelUp: shopBlockReason('levelUp', { config: p.config, priv: p.priv, editable: p.editable }),
     };

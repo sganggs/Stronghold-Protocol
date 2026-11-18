@@ -466,7 +466,7 @@ export function create(canvas, card, view, options = {}) {
   let clock = 0;
 
   const particleRenderer = (options.particles && !search.includes('noparticles'))
-    ? options.particles.create(canvas, card, loadTexture, (view && view.mounted) || null)
+    ? options.particles.create(canvas, card, loadTexture, view)
     : null;
   const skipParticleDraw = search.includes('nodraw');
   let particleSim = 0;

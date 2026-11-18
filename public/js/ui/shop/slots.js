@@ -67,6 +67,24 @@ function mountBases(root) {
     .map((node) => [node, [...(node.children || [])]]);
 }
 
+/** The card prefab's panel_main/hot_spot UIButton._clickGuard (cooldown bool + seconds). */
+function cardClickGuard(root) {
+  const walk = (node) => {
+    if (!node) return null;
+    const path = String(node.path || '');
+    if (path === 'panel_main/hot_spot' || path.endsWith('/panel_main/hot_spot')) {
+      const comp = (node.components || []).find((c) => c && c.class === 'UIButton');
+      if (comp && comp.fields && comp.fields._clickGuard) return comp.fields._clickGuard;
+    }
+    for (const child of node.children || []) {
+      const hit = walk(child);
+      if (hit) return hit;
+    }
+    return null;
+  };
+  return walk(root);
+}
+
 function resetMounts(view) {
   for (const [node, children] of view.__mountBases || []) node.children = [...children];
 }
@@ -291,7 +309,7 @@ export class AutoChessStylizedShopSlotsPanel {
 
         view.button = new UIButton({
           interactable: true,
-          guardSeconds: 0.5,
+          clickGuard: cardClickGuard(root),
           tintRoot: root,
           tintTargets: this.scene.tintTargets.card,
         });

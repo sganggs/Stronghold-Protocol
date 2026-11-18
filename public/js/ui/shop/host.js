@@ -21,15 +21,13 @@ import { ShopSpineView } from './spineView.js';
 import { AutoChessBattleShopMainView } from './mainView.js';
 import { UIButton } from './widgets.js';
 
-/** Control hotspots the prefab's UIButtons cover, with the prefab's clickGuard values (lab main.js). */
+/** Control hotspots the prefab's UIButtons cover; their guards are read from each UIButton's _clickGuard. */
 const CONTROL_HOTSPOTS = Object.freeze([
-  { key: 'enable', paths: ['entry_enable_hotspot', 'btn_open'], event: 'open', guard: 0.5 },
-  { key: 'fold', paths: ['btn_close', 'fold_hot_spot'], event: 'close', guard: 0.5 },
-  // shop.json's btn_refresh/hotspot _clickGuard = { cooldown: 1 (bool), seconds: 0.30000001192092896 }.
-  // `cooldown` is the enable flag, `seconds` is the cooldown length; the product UIButton takes seconds.
-  { key: 'refresh', paths: ['btn_refresh/hotspot'], event: 'refresh', guard: 0.3, cooldown: 0.3 },
-  { key: 'freeze', paths: ['btn_frozen/hotspot'], event: 'freeze', guard: 0.5 },
-  { key: 'levelUp', paths: ['hotspot_normal', 'upgrade'], event: 'levelUp', guard: 0.5, panel: true },
+  { key: 'enable', paths: ['entry_enable_hotspot', 'btn_open'], event: 'open' },
+  { key: 'fold', paths: ['btn_close', 'fold_hot_spot'], event: 'close' },
+  { key: 'refresh', paths: ['btn_refresh/hotspot'], event: 'refresh' },
+  { key: 'freeze', paths: ['btn_frozen/hotspot'], event: 'freeze' },
+  { key: 'levelUp', paths: ['hotspot_normal', 'upgrade'], event: 'levelUp', panel: true },
 ]);
 
 const DESIGN = Object.freeze([1920, 372]);
@@ -132,6 +130,41 @@ export async function preloadShopRuntime(opts = {}) {
  *     The caller owns the fallback: `update()` rethrows a render failure so its try/catch can run once.
  * @returns {Promise<any>} the host handle
  */
+/**
+ * The model fields the canvas draws. `shopSignature` (adapter/model.js) is only the row's identity — a
+ * purchase (sold), a freeze, a price shift or a level-up deliberately does not change it (it drives the
+ * refresh clip) — so the immediate-repaint key must cover the painted model itself. Without this, a frozen
+ * toggle or a bought card whose id stays put waits for the rAF's dirty flag, which a hidden tab, a fold or a
+ * reward offer may never run. garrisonTint is part of the painted model: a theme pack whose colours
+ * finish loading after the first frame must repaint without a disable→unfold cycle (W94/W98).
+ */
+export function shopModelPaintKey(model) {
+  if (!model) return '';
+  const cards = Array.isArray(model.slots) ? model.slots : [];
+  const select = model.selectSlot;
+  const row = cards.map((card) => [
+    card.slotId, card.id, card.isEmpty ? 1 : 0, card.isFrozen ? 1 : 0,
+    card.price, card.srcPrice, card.currCoin, card.tier, card.level,
+    card.armed ? 1 : 0, card.armedAt || 0,
+    card.isHandFull ? 1 : 0, card.hasSame ? 1 : 0, card.canComb ? 1 : 0, card.hasFusePartner ? 1 : 0,
+    card.name, card.nameColor, card.bondColor,
+    // The localized art/labels a data overlay can replace while the slot's id stays put.
+    card.portraitFile, card.profMarkFile, card.garrisonIconFile, card.garrisonTint, card.iconFile,
+    Array.isArray(card.bondList)
+      ? card.bondList.map((bond) => `${bond.id}:${bond.name || ''}:${bond.iconFile || ''}`).join(',')
+      : '',
+  ].join(':')).join('|');
+  return [
+    model.avalid ? 1 : 0, model.unfold ? 1 : 0, model.level, model.maxLevel, model.coinCount,
+    model.refreshCost, model.upgradeCost, model.freeRefreshCnt,
+    model.isFrozen ? 1 : 0, model.isSpecRefresh ? 1 : 0, model.isSpecialRecruit ? 1 : 0,
+    model.remainCharCnt, model.refreshSeq,
+    select ? `${select.slotId}:${select.isGoods ? 1 : 0}:${select.isUpgrade ? 1 : 0}:${select.sold ? 1 : 0}:${select.isChar ? 1 : 0}` : '',
+    row,
+  ].join('|');
+}
+
+
 export async function createShopHost(opts = {}) {
   const container = opts.container;
   if (!container) throw new Error('createShopHost: container required');
@@ -206,13 +239,28 @@ export async function createShopHost(opts = {}) {
   scene.externalQuad = (rec) => (rec.node === scene.spineHolderNode ? spine.quad() : null);
   spine.start();
 
-  const buttons = {
-    enable: new UIButton({ guardSeconds: 0.5 }),
-    fold: new UIButton({ guardSeconds: 0.5 }),
-    refresh: new UIButton({ guardSeconds: 0.3, cooldown: 0.3 }),
-    freeze: new UIButton({ guardSeconds: 0.5 }),
-    levelUp: new UIButton({ guardSeconds: 0.5, tintRoot: scene.panel, tintTargets: scene.tintTargets.panel }),
-  };
+  /** Find a node under the panel by a path suffix and return its UIButton._clickGuard (C# bool + seconds). */
+  function clickGuardFor(paths) {
+    for (const suffix of paths) {
+      const node = (function walk(n) {
+        if (!n) return null;
+        const path = String(n.path || '');
+        if (path === suffix || path.endsWith('/' + suffix)) return n;
+        for (const child of n.children || []) {
+          const hit = walk(child);
+          if (hit) return hit;
+        }
+        return null;
+      })(scene.panel);
+      if (!node) continue;
+      const comp = (node.components || []).find((c) => c && c.class === 'UIButton');
+      if (comp && comp.fields && comp.fields._clickGuard) return comp.fields._clickGuard;
+    }
+    return null;
+  }
+  const buttons = Object.fromEntries(CONTROL_HOTSPOTS.map((spec) => [spec.key,
+    new UIButton({ clickGuard: clickGuardFor(spec.paths), tintRoot: spec.key === 'levelUp' ? scene.panel : null,
+      tintTargets: spec.key === 'levelUp' ? scene.tintTargets.panel : [] })]));
 
   let dead = false;
   /** WebGL context lost (reported once; the caller falls back to the DOM shop bar). */
@@ -517,38 +565,6 @@ export async function createShopHost(opts = {}) {
     ].join('|');
   }
 
-  /**
-   * The model fields the canvas draws. `shopSignature` (adapter/model.js) is only the row's identity — a
-   * purchase (sold), a freeze, a price shift or a level-up deliberately does not change it (it drives the
-   * refresh clip) — so the immediate-repaint key must cover the painted model itself. Without this, a frozen
-   * toggle or a bought card whose id stays put waits for the rAF's dirty flag, which a hidden tab, a fold or a
-   * reward offer may never run.
-   */
-  function modelPaintKey(model) {
-    if (!model) return '';
-    const cards = Array.isArray(model.slots) ? model.slots : [];
-    const select = model.selectSlot;
-    const row = cards.map((card) => [
-      card.slotId, card.id, card.isEmpty ? 1 : 0, card.isFrozen ? 1 : 0,
-      card.price, card.srcPrice, card.currCoin, card.tier, card.level,
-      card.armed ? 1 : 0, card.armedAt || 0,
-      card.isHandFull ? 1 : 0, card.hasSame ? 1 : 0, card.canComb ? 1 : 0, card.hasFusePartner ? 1 : 0,
-      card.name, card.nameColor, card.bondColor,
-      // The localized art/labels a data overlay can replace while the slot's id stays put.
-      card.portraitFile, card.profMarkFile, card.garrisonIconFile, card.iconFile,
-      Array.isArray(card.bondList)
-        ? card.bondList.map((bond) => `${bond.id}:${bond.name || ''}:${bond.iconFile || ''}`).join(',')
-        : '',
-    ].join(':')).join('|');
-    return [
-      model.avalid ? 1 : 0, model.unfold ? 1 : 0, model.level, model.maxLevel, model.coinCount,
-      model.refreshCost, model.upgradeCost, model.freeRefreshCnt,
-      model.isFrozen ? 1 : 0, model.isSpecRefresh ? 1 : 0, model.isSpecialRecruit ? 1 : 0,
-      model.remainCharCnt, model.refreshSeq,
-      select ? `${select.slotId}:${select.isGoods ? 1 : 0}:${select.isUpgrade ? 1 : 0}:${select.sold ? 1 : 0}:${select.isChar ? 1 : 0}` : '',
-      row,
-    ].join('|');
-  }
 
   function update(nextPriv, nextView = {}) {
     if (dead) return null;
@@ -573,7 +589,7 @@ export async function createShopHost(opts = {}) {
     let model;
     try {
       model = updateModel({ paint: false });
-      const key = `${scene.state}|${refreshSeq}|${shopSignature(priv)}|${viewPaintKey()}|${modelPaintKey(model)}`;
+      const key = `${scene.state}|${refreshSeq}|${shopSignature(priv)}|${viewPaintKey()}|${shopModelPaintKey(model)}`;
       if (key !== lastPaintKey) {
         lastPaintKey = key;
         // A refresh re-renders the cards; re-bind the panel holder (the panel itself is not rebuilt) and

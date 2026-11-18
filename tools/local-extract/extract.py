@@ -5,6 +5,10 @@ The official CN client ships Unity AssetBundles compressed with a custom LZ4 var
 aklz4.py registers a decoder for it. This script pulls the art the web sources lack:
   - map_autochess / map_autochesssand textures (the real board tile atlas)
   - every Sprite of the three autochess UI bundles (HUD frames, badges, banners, icons)
+  - the shop's 91 item (equip) icons of [uc]autochesscommon (arts/shopitemicon/trap_*), padded to each sprite's m_Rect
+    (160×160: the tight art at m_RD.textureRectOffset on a transparent canvas) → item/. The shop card's equip node is a
+    93×93 Image with m_PreserveAspect 0 that draws the sprite rect, so the trimmed file would be stretched (+18 %
+    horizontally on a 137×157 icon); the padded file is what that node draws (render/shop stage, UV 0..1)
   - the 6 in-match emoticon themes of 盟约 (activity_table autoChessData.enabledEmoticonThemeIdList; only the
     *_battle sprites, keyed by display_meta_table picId: emoticon/<dir>/<picId>.png, see data/emotes.json)
   - the autochess guidebook pages and battle projectile sprites
@@ -286,6 +290,10 @@ JOBS = [
     ('arts/maps/map_autochess/res.ab', 'map/autochess', {'Texture2D', 'Material'}),
     ('arts/maps/map_autochesssand/res.ab', 'map/autochesssand', {'Texture2D', 'Material'}),
     ('ui/autochess/[uc]autochesscommon.ab', 'ui/common', {'Sprite'}),
+    # the 91 shop item (equip) icons of the same bundle (arts/shopitemicon/trap_*): the shop card's equip node is a
+    # 93×93 Image with m_PreserveAspect 0 that draws the sprite rect (93×93 quad, UV 0..1), so export each padded to its
+    # m_Rect (160×160) — the trimmed file (e.g. 137×157) is stretched +18 % horizontally when drawn there
+    ('ui/autochess/[uc]autochesscommon.ab', 'item', {'Sprite'}, r'^trap_', {'padRect': True}),
     ('ui/autochess/[uc]autochessbattle.ab', 'ui/battle', {'Sprite', 'TextAsset'}),
     ('ui/autochess/[uc]autochessouter.ab', 'ui/outer', {'Sprite'}),
     # 规程·序列Ⅰ's season art for the lobby's 规程 look (act3autochess): the red season ground and the skyline in front of
@@ -424,10 +432,12 @@ def safe_name(name):
 
 
 def job_parts(job):
-    """(rel, sub, kinds, keep) of a JOBS entry; keep is a compiled name filter or None."""
+    """(rel, sub, kinds, keep, opts) of a JOBS entry; keep is a compiled name filter or None, opts its export flags:
+    `padRect` writes a Sprite padded to its m_Rect instead of to its trimmed pixels (padded_sprite)."""
     rel, sub, kinds = job[:3]
     keep = re.compile(job[3]) if len(job) > 3 and job[3] else None
-    return rel, sub, kinds, keep
+    opts = job[4] if len(job) > 4 and job[4] else {}
+    return rel, sub, kinds, keep, opts
 
 
 def only_prefix(prefix):
@@ -758,10 +768,33 @@ def merge_manifest(old_groups, new_groups, ran_subs):
     return {g: dict(sorted(out[g].items())) for g in sorted(out)}
 
 
+def padded_sprite(obj, image):
+    """`image` (the sprite's trimmed pixels) on a transparent canvas of the sprite's m_Rect, with the tight art pasted at
+    m_RD.textureRectOffset. Unity draws a sprite into its rect (m_Rect is the quad, the texture region is the trimmed
+    part), so a file trimmed to its opaque pixels loses that padding: the shop item icons are 160×160 rects whose ink is
+    e.g. 137×157, and the card's 93×93 equip node would stretch them. None when the sprite has no usable rect.
+    This is the canvas of reference/card/export-sprites-padded.py's padded(); keep the two identical."""
+    from PIL import Image
+    tree = obj.read_typetree()
+    rect = tree.get('m_Rect') or {}
+    width = int(round(rect.get('width') or 0))
+    height = int(round(rect.get('height') or 0))
+    if width <= 0 or height <= 0:
+        return None
+    canvas = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+    offset = (tree.get('m_RD') or {}).get('textureRectOffset') or {}
+    ox = int(round(offset.get('x') or 0))
+    oy = int(round(offset.get('y') or 0))
+    # textureRectOffset is measured from the rect's bottom-left in Unity; PIL pastes from the top-left
+    top = height - oy - image.height
+    canvas.paste(image, (ox, max(0, top)), image if image.mode == 'RGBA' else None)
+    return canvas
+
+
 def export_bundle(ab_root, job, out_root, manifest, log):
     import aklz4  # noqa: F401  (registers the LZ4AK decoder)
     import UnityPy
-    rel, sub, kinds, keep = job_parts(job)
+    rel, sub, kinds, keep, opts = job_parts(job)
     src = ab_root / rel
     if not src.exists():
         log(f'skip (missing) {rel}')
@@ -795,6 +828,11 @@ def export_bundle(ab_root, job, out_root, manifest, log):
                 img = data.image
                 if img is None or img.width < 2 or img.height < 2:
                     continue
+                if t == 'Sprite' and opts.get('padRect'):
+                    img = padded_sprite(obj, img)
+                    if img is None:  # no m_Rect: a trimmed file is wrong for this output, so skip it
+                        log(f'  warn {rel} #{obj.path_id}: sprite without an m_Rect')
+                        continue
                 fname = name + '.png'
                 if fname in seen:  # same name twice: a Sprite (true aspect) beats its padded Texture2D
                     if t == 'Texture2D' or manifest.get(sub, {}).get(name, {}).get('kind') == 'Sprite':
@@ -1089,6 +1127,46 @@ def export_shopdocs(ab_root, out_root, manifest, log, ids, themes_dirs, game_dat
     return total
 
 
+# Theme files a producer writes whose extension is not a document or an audio clip: sprites and text metadata.
+THEME_FILE_KINDS = {'.png': 'Sprite', '.webp': 'Sprite', '.jpg': 'Sprite', '.json': 'TextAsset',
+                    '.skel': 'TextAsset', '.atlas': 'TextAsset', '.md': 'TextAsset', '.mp3': 'AudioClip'}
+
+
+def list_theme_files(out_root, manifest, log, theme_ids):
+    """Register every file of a theme directory that its producer wrote but did not list.
+
+    The client resolves a prefab's `sprites/<name>.webp` only through the theme group of data/local-assets.json
+    (docs/ASSETS.md: listed files only, a URL is never guessed). The archived shop/card producer writes extra
+    files beside the three documents it registers — the external plates (`sprites/ext_cost_free.webp`, the
+    free-refresh plate the refresh button shows) and the material textures (`sprites/tex_*.webp`) — so without
+    them the prefab still loads and draws an untextured quad. Listing the leftovers keeps the group a superset
+    of the directory. A file the producer already listed keeps its entry (path, kind, w, h).
+    """
+    for theme_id in theme_ids:
+        group = f'{autochess_themes.THEME_SUB}/{theme_id}'
+        dest = Path(out_root) / autochess_themes.THEME_SUB / theme_id
+        if not dest.is_dir():
+            continue
+        listed = manifest.setdefault(group, {})
+        for path in sorted(dest.rglob('*')):
+            if not path.is_file() or path.name.startswith('.'):
+                continue
+            rel = path.relative_to(dest).as_posix()
+            if rel in listed:
+                continue
+            kind = THEME_FILE_KINDS.get(path.suffix.lower(), 'TextAsset')
+            entry = {'path': f'/assets/local/{group}/{rel}', 'kind': kind}
+            if kind == 'Sprite':
+                try:
+                    from PIL import Image
+                    with Image.open(path) as image:
+                        entry['w'], entry['h'] = image.size
+                except Exception:
+                    pass
+            listed[rel] = entry
+            log(f'themes: listed {group}/{rel} (the producer left it out)')
+
+
 def expected_local_groups():
     """Group keys a full extract writes into data/local-assets.json (no --only; fx stays out — fx.py FX_GROUPS).
 
@@ -1274,8 +1352,9 @@ def main():
     args = ap.parse_args()
 
     if args.print_jobs:
-        jobs = [{'bundle': rel, 'sub': sub, 'kinds': sorted(kinds), 'keep': keep.pattern if keep else None}
-                for rel, sub, kinds, keep in map(job_parts, JOBS)]
+        jobs = [{'bundle': rel, 'sub': sub, 'kinds': sorted(kinds), 'keep': keep.pattern if keep else None,
+                 'padRect': bool(opts.get('padRect'))}
+                for rel, sub, kinds, keep, opts in map(job_parts, JOBS)]
         derived = [{'sub': sub, 'from': src, 'derive': kind, 'name': name} for sub, src, kind, name in DERIVED]
         webp = [{'sub': sub, 'name': name, 'mode': mode} for sub, name, mode in WEBP]
         print(json.dumps({'emoteThemes': [{'themeId': t, 'dir': d} for t, d in EMOTE_THEMES], 'jobs': jobs,
@@ -1390,8 +1469,10 @@ def extract(args, ab_root, game_arg=None, game_data=None):
     if theme_ids:
         total += autochess_themes.export_themes(
             args.themes, out_root, manifest, print, theme_ids, ROOT, game_root=ab_root)
+        list_theme_files(out_root, manifest, print, theme_ids)
     if shopdoc_ids:
         total += export_shopdocs(ab_root, out_root, manifest, print, shopdoc_ids, args.themes, game_data)
+        list_theme_files(out_root, manifest, print, shopdoc_ids)
     fonts_ok = True
     if font_on:
         # main() resolves this before client_bundles yields the hot-update tree; the fallback keeps a direct

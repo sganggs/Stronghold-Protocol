@@ -134,7 +134,7 @@ export function roleBoxes(doc, built) {
 }
 
 
-function drawsShape(node, card) {
+export function drawsShape(node, card) {
   if (!node) return false;
   if (node.text) return String(node.text.text || '').length > 0;
   const image = node.image || null;
@@ -144,7 +144,9 @@ function drawsShape(node, card) {
       || Object.values(card.sub || {}).some((sub) => sub.materials && sub.materials[key]);
     if (known) return true;
   }
-  if (!image || !(image.file || image.color)) return false;
+  // A prefab content slot with neither a file nor a sprite is not drawable: drawing a coloured quad
+  // here is the white 93x93 block that hides a missing equip/profile/price image.
+  if (!image || !(image.file || image.sprite)) return false;
 
   return !(image.external || (image.sprite && !image.file));
 }

@@ -16,6 +16,7 @@ export const EXPECTED_LOCAL_GROUPS = Object.freeze([
   "emoticon/foolwisdel",
   "emoticon/slug",
   "guide",
+  "item",
   "map/autochess",
   "map/autochesssand",
   "map/common",
