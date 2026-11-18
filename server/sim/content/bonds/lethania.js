@@ -277,6 +277,11 @@ function walkPath(battle, unit, route, dt) {
   unit.moving = moved;
 }
 
+/** Four-way ground pursuit. Leithania summons and the 谢拉格 giant both call this. */
+export function pursueGroundEnemy(battle, unit, dt) {
+  moveTowardTarget(battle, unit, dt);
+}
+
 function moveTowardTarget(battle, unit, dt) {
   unit.moving = false;
   if (!unit.alive || !unit.deployed) return;

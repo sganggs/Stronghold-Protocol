@@ -9,7 +9,7 @@ import { hypot, sin, cos } from '../../detmath.js';
 import { ALLY_COLLIDER_RADIUS, PROJECTILE_SPEEDS } from '../../constants.js';
 import { canTargetAlly } from '../../targeting.js';
 import {
-  hurt, elem, areaAllies, auraAllies, remainingRoute, stayRoute, spawnChildren, nthOf, canCast, BOOM_RADIUS, auraBuff, watchDeaths,
+  hurt, elem, areaAllies, areaAlliesInTiles, fieldAllies, targetsNear, auraAllies, remainingRoute, stayRoute, spawnChildren, nthOf, canCast, BOOM_RADIUS, auraBuff, watchDeaths,
   unbalancedNow,
 } from './helpers.js';
 import { skill, stealth, ep, refraction, reborn, deathBoom } from './archetypes.js';
@@ -110,15 +110,49 @@ function kitLtnclr(ab) {
   }];
 }
 
-/** “投石机”: the first attack is ×scale, then it only melee-attacks. The handbook cross has no radius. */
+/** Target tile plus its orthogonal neighbours. The handbook cross has no radius. [ASSUMED] plus-1. */
+function plusTiles(r, c, n) {
+  const out = [[r, c]];
+  for (let i = 1; i <= n; i++) out.push([r + i, c], [r - i, c], [r, c + i], [r, c - i]);
+  return out;
+}
+
+/**
+ * “投石机” / “榴弹炮”: the first attack throws one snowball (rawRangeRadius 2.5; the built rangeRadius is 0
+ * because applyWay is MELEE). Talent FirstAttack.attack@first_atk_scale. Then melee only.
+ * The cross radius is not on the blackboard. [ASSUMED] plus-1, the target tile and four orthogonal neighbours.
+ * The client draws the existing 'lob' arc from the attack event; the sim shell uses the same speed.
+ */
 function kitWingnt(ab) {
   const scale = tv(ab, 'FirstAttack.attack@first_atk_scale', 1.5);
   return [{
-    hitOut(c, b, e, a) {
-      if (a.used || !c.dmg || !c.dmg.isAttack) return;
-      a.used = true;
-      c.dmg.mul *= scale;
+    spawn(b, e) {
+      const raw = e.def && e.def.raw && e.def.raw.stats;
+      const reach = Number(raw && raw.rawRangeRadius);
+      e.base.rangeRadius = Number.isFinite(reach) && reach > 0 ? reach : 2.5;
+      e.profile.melee = false;
+      e.profile.deferHit = true;
+      e.profile.shot = 'lob';
+    },
+    attack(c, b, e, a) {
+      if (a.thrown) return;
+      a.thrown = true;
+      const atk = e.s.atk * scale;
       e.profile.melee = true;
+      e.profile.deferHit = false;
+      e.base.rangeRadius = 0;
+      for (const t of c.targets) {
+        b.addProjectile({
+          from: e, target: t, speed: PROJECTILE_SPEEDS.lob, visual: 'lob', source: e, hitDead: true,
+          onHit: (hit) => {
+            const r = Math.round(hit.y), col = Math.round(hit.x);
+            b.fx('explode', { x: hit.x, y: hit.y, r: 1, kind: 'snowball', tiles: plusTiles(r, col, 1) });
+            for (const u of areaAlliesInTiles(b, e, r, col, 'plus', 1)) {
+              hurt(b, e, u, atk, 'phys', { isSkill: false, tags: ['splash', 'snowball'] });
+            }
+          },
+        });
+      }
     },
   }];
 }
@@ -223,6 +257,113 @@ function kitBdguad(ab) {
         c.dmg.mul *= Math.max(0, 1 - dr);
       },
     },
+  ];
+}
+
+const SOUL_VORTEX = 'enemy_1428_lrsoul';
+const SOUL_CAP = 3;
+// The atk_boost trigger interval and the laser's lifetime are not on the skill blackboard. [ASSUMED] 1s.
+const LASER_STEP = 1;
+
+function nearestVortex(b, e, range) {
+  let best = null;
+  let bd = range;
+  for (const o of b.enemies) {
+    if (!o || !o.alive || o === e || o.defId !== SOUL_VORTEX) continue;
+    const d = hypot(o.x - e.x, o.y - e.y);
+    if (d > range + 1e-9) continue;
+    if (!best || d < bd - 1e-9 || (Math.abs(d - bd) <= 1e-9 && o.id < best.id)) { best = o; bd = d; }
+  }
+  return best;
+}
+
+/** One straight line through the locked target. [ASSUMED] the dominant axis of wizard → target, the whole row or column. */
+function laserLine(b, e, target) {
+  const horizontal = Math.abs(target.x - e.x) >= Math.abs(target.y - e.y);
+  const line = [];
+  for (const u of fieldAllies(b, e)) {
+    if (horizontal ? Math.abs(u.y - target.y) < 0.5 : Math.abs(u.x - target.x) < 0.5) line.push(u);
+  }
+  return line;
+}
+
+function laserTarget(b, e) {
+  const range = e.base.rangeRadius > 0 ? e.base.rangeRadius : 1.7;
+  let best = null;
+  let bd = Infinity;
+  for (const u of targetsNear(b, e, range)) {
+    const d = hypot(u.x - e.x, u.y - e.y);
+    if (!best || d < bd - 1e-9 || (Math.abs(d - bd) <= 1e-9 && u.id < best.id)) { best = u; bd = d; }
+  }
+  return best;
+}
+
+function laserDamage(b, e, line, scale, ramp) {
+  const amount = e.s.atk * scale * (1 + ramp);
+  let far = null;
+  let fd = -1;
+  for (const u of line) {
+    if (!u || !u.alive) continue;
+    hurt(b, e, u, amount, 'arts', { isSkill: true, tags: ['laser'] });
+    const d = hypot(u.x - e.x, u.y - e.y);
+    if (!far || d > fd) { far = u; fd = d; }
+  }
+  if (far) b.fx('beam', { x: e.x, y: e.y, from: e.id, to: far.id, kind: 'soulLaser' });
+}
+
+/**
+ * 聚焦 / 棱镜魂灵残迹. Pickup radius is not on captureSoul. [ASSUMED] it equals the attack rangeRadius.
+ * Holding any vortex and a target in range spends every stack on Laser. ATK MULTIPLIER ramps by atk_step
+ * up to atk_ladder × stacks (atkPct: the ramp starts at 0). Each tick deals ATK × atk_scale.
+ * Capture is an InstantKill: no player bounty. [ASSUMED] the stage still counts the vortex as gone.
+ */
+function kitLrwzrd(ab) {
+  const sk = ab.sk.Laser;
+  const ladder = bb(sk, 'atk_ladder', 0.25);
+  const scale = bb(sk, 'atk_scale', 0.4);
+  const step = bb(sk, 'atk_step', 0.4);
+  return [
+    {
+      tick(b, e, a, dt) {
+        const ch = e.mem.soulLaser;
+        if (ch) {
+          ch.acc += dt;
+          if (ch.acc + 1e-9 < LASER_STEP) return;
+          ch.acc -= LASER_STEP;
+          ch.ramp = Math.min(ch.cap, ch.ramp + ch.step);
+          laserDamage(b, e, ch.line, ch.scale, ch.ramp);
+          if (ch.ramp + 1e-9 >= ch.cap) {
+            e.mem.soulLaser = null;
+            e.profile.noAttack = false;
+          }
+          return;
+        }
+        if ((e.mem.soulStacks || 0) >= SOUL_CAP || !canCast(e, false, b)) return;
+        const range = e.base.rangeRadius > 0 ? e.base.rangeRadius : 1.7;
+        const soul = nearestVortex(b, e, range);
+        if (!soul) return;
+        e.mem.soulStacks = (e.mem.soulStacks || 0) + 1;
+        soul.bounty = null;
+        b.kill(soul, null);
+      },
+    },
+    timed(sk, (b, e) => {
+      const stacks = e.mem.soulStacks || 0;
+      if (!(stacks > 0) || e.mem.soulLaser) return;
+      const target = laserTarget(b, e);
+      if (!target) return;
+      e.mem.soulStacks = 0;
+      const cap = Math.abs(ladder * stacks);
+      const ramp = Math.min(step, cap);
+      const line = laserLine(b, e, target);
+      laserDamage(b, e, line, scale, ramp);
+      if (ramp + 1e-9 < cap) {
+        e.mem.soulLaser = { acc: 0, ramp, cap, step, scale, line };
+        e.profile.noAttack = true;
+      }
+    }, {
+      cond: (b, e) => (e.mem.soulStacks || 0) > 0 && !e.mem.soulLaser && !!laserTarget(b, e),
+    }),
   ];
 }
 
@@ -675,6 +816,8 @@ export const REGULATION_KITS = Object.freeze({
   enemy_1191_krgrg_2: same(kitKrgrg),
   enemy_1219_mtrbty: kitMtrbty,
   enemy_1409_bdguad_2: kitBdguad,
+  enemy_1429_lrwzrd: kitLrwzrd,
+  enemy_1429_lrwzrd_2: same(kitLrwzrd),
   enemy_1431_lrmzrd: kitLrmzrd,
   enemy_1431_lrmzrd_2: same(kitLrmzrd),
   enemy_9040_accrit: kitAccrit,

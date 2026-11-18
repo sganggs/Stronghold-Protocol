@@ -429,6 +429,51 @@ describe('规程·序列Ⅰ bonds', { concurrency: 1 }, () => {
     close(g.s.maxHp, 21000 * 1.02, 'giant hp one step');
   });
 
+  test('谢拉格 giant sits, then walks toward a distant enemy', (t) => {
+    const h = fight(t, {
+      bonds: { kjeragShip: bond(6, 0) },
+      timeLimit: 40,
+      pieces: [piece('reg_kj_move', ['kjeragShip'])],
+    });
+    h.step();
+    const g = h.b.allyUnits.find((u) => u.defId === GIANT && u.alive);
+    assert.ok(g);
+    assert.equal(g.s.blockCnt, 3);
+    assert.equal(!!g.s.flags.noMove, true);
+    // Inside the normal rect and outside both the 2.4 attack radius and the 0.8 sit radius.
+    const far = tank(h, [12, 10]);
+    const x0 = g.x, y0 = g.y;
+    const d0 = Math.hypot(far.x - x0, far.y - y0);
+    h.run(2);
+    close(g.x, x0, 'still sitting x');
+    close(g.y, y0, 'still sitting y');
+    h.run(6);
+    const d1 = Math.hypot(far.x - g.x, far.y - g.y);
+    assert.ok(d1 < d0 - 0.2, `giant walked toward the enemy (${d0} -> ${d1})`);
+    assert.equal(!!g.s.flags.noMove, false);
+    assert.equal(h.b.errors.length, 0);
+  });
+
+  test('谢拉格 giant shatters a frozen enemy while sitting', (t) => {
+    const h = fight(t, {
+      bonds: { kjeragShip: bond(6, 0) },
+      timeLimit: 20,
+      pieces: [piece('reg_kj_freeze', ['kjeragShip'])],
+    });
+    h.step();
+    const g = h.b.allyUnits.find((u) => u.defId === GIANT && u.alive);
+    assert.ok(g);
+    const e = tank(h, [g.tileR, g.tileC]);
+    h.b.applyStatus(e, 'freeze', { duration: 30, source: null });
+    assert.ok(e.findBuff('freeze'));
+    const hp = e.hp;
+    const hit = h.runUntil(() => e.hp < hp, 8);
+    assert.equal(hit, true);
+    assert.ok(hp - e.hp >= g.s.atk * 3, `frozen hit ${hp - e.hp} atk ${g.s.atk}`);
+    assert.equal(e.findBuff('freeze'), null);
+    assert.equal(h.b.errors.length, 0);
+  });
+
   test('叙拉古_2: ASPD on deploy, a random abnormal at 6, true pulse around two abnormals', (t) => {
     const bb = effectParams('bondeffect_siracusa_2', 'act3autochess_bond_eff_siracusa');
     assert.equal(bb.base_attack_speed, 25);

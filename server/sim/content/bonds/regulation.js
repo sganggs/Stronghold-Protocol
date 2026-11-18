@@ -16,7 +16,7 @@ import { COLS } from '../../constants.js';
 import { tileKeyOf } from '../../targeting.js';
 import { msg } from '../../../../shared/i18n.js';
 import { bbCap } from '../../../../shared/plugins/officialBounds.js';
-import { captureLethaniaBirthMode, lethaniaSummon } from './lethania.js';
+import { captureLethaniaBirthMode, lethaniaSummon, pursueGroundEnemy } from './lethania.js';
 
 const num = S.num;
 
@@ -131,6 +131,90 @@ function talentBb(raw) {
   if (!raw) return {};
   if (raw.talents && raw.talents.bb) return raw.talents.bb;
   return {};
+}
+function skillBb(raw, key) {
+  const sk = (raw && raw.skills || []).find((s) => s && s.prefabKey === key);
+  return (sk && sk.bb) || {};
+}
+
+const GIANT_SIT = 'kjerag:giant:sit';
+
+/**
+ * 不眠雪山 as an allied token. Official summon is a controller trap; one token at battle start stays [ASSUMED].
+ * Starts 覆雪坐定 (noMove, block from BlockEnemy). SwitchMode.interval with no attack switches to 覆雪苏醒
+ * and reuses the Leithania ground pursuit at the record's moveSpeed. An enemy inside Switch2Snowy.range_radius
+ * sits again. [ASSUMED] that 0.8 is the sit condition — the skill blackboard has no other key.
+ * Splash: sitting uses BlockEnemy.attack@ability_range_radius, awake uses PowerAttack.range_radius.
+ * [ASSUMED] which radius belongs to which form; both forms splash (handbook).
+ * FrozenBreak ×atk_scale then clears freeze, sitting only (handbook 覆雪坐定). The template itself has no mode check.
+ * 神迹之声 is not run: spData is INCREASE_WITH_TIME initSp 10 / maxSp 18 / increment 1 (enemy_database,
+ * omitted from the built record) and Attract.range_radius 1.5, but the attract buff's lifetime is only on the prefab.
+ */
+function giantKit(raw) {
+  const tb = talentBb(raw);
+  const st = raw.stats || {};
+  const radius = num(st.rangeRadius, 2.4);
+  const sitSplash = num(tb['BlockEnemy.attack@ability_range_radius'], 1.5);
+  const wakeSplash = num(skillBb(raw, 'PowerAttack').range_radius, 1.1);
+  const wakeAfter = num(tb['SwitchMode.interval'], 5);
+  const sitRange = num(skillBb(raw, 'Switch2Snowy').range_radius, 0.8);
+  const frozenScale = num(tb['FrozenBreak.atk_scale'], 3.5);
+  const sit = (battle, unit) => {
+    unit.mem.kjeragMode = 'sit';
+    unit.mem.kjeragQuiet = 0;
+    unit.profile.splashRadius = sitSplash;
+    // install runs before deploy, while the token is still not alive (battle/status.js addBuff).
+    battle.addBuff(unit, { key: GIANT_SIT, persist: true, refresh: 'replace', allowDead: true, flags: { noMove: true } });
+  };
+  const wake = (battle, unit) => {
+    unit.mem.kjeragMode = 'awake';
+    unit.mem.kjeragQuiet = 0;
+    unit.profile.splashRadius = wakeSplash;
+    battle.removeBuff(unit, GIANT_SIT);
+  };
+  return {
+    trait: {
+      attack: 'ranged',
+      dmgType: 'arts',
+      projectile: 'bolt',
+      canHitFly: true,
+      attackRangeRadius: radius,
+      strictAttackRange: true,
+      splashRadius: sitSplash,
+      splashScale: 1,
+    },
+    install(battle, unit) {
+      unit.motion = 'GROUND';
+      sit(battle, unit);
+      battle.on('attack', (c) => {
+        if (c.attacker === unit && !c.isSkill) unit.mem.kjeragQuiet = 0;
+      }, { owner: unit });
+      battle.on('hit', (c) => {
+        if (c.source !== unit || unit.mem.kjeragMode !== 'sit' || !c.dmg || c.dmg.cancel) return;
+        const t = c.target;
+        if (!t || !t.findBuff || !t.findBuff('freeze')) return;
+        c.dmg.mul *= frozenScale;
+        battle.removeStatus(t, 'freeze');
+      }, { owner: unit });
+      battle.on('tick', ({ dt }) => {
+        if (!unit.alive) return;
+        if (unit.mem.kjeragMode === 'sit') {
+          unit.profile.splashRadius = sitSplash;
+          unit.mem.kjeragQuiet = (unit.mem.kjeragQuiet || 0) + dt;
+          if (unit.mem.kjeragQuiet + 1e-9 >= wakeAfter) wake(battle, unit);
+        } else {
+          unit.profile.splashRadius = wakeSplash;
+          const r2 = sitRange * sitRange;
+          for (const e of battle.enemies) {
+            if (!e.alive || !e.deployed) continue;
+            const dx = e.x - unit.x, dy = e.y - unit.y;
+            if (dx * dx + dy * dy <= r2 + 1e-9) { sit(battle, unit); break; }
+          }
+        }
+        pursueGroundEnemy(battle, unit, dt);
+      }, { owner: unit });
+    },
+  };
 }
 /** Chebyshev radius. [ASSUMED] range id `x-5` is 5 tiles from the anchor, the square the summon node names. */
 function nearestOpen(battle, fromR, fromC, radius) {
@@ -304,17 +388,33 @@ function installKjerag2(battle, pid, effectId, members) {
     const steps = step > 0 ? Math.floor(S.bondLayers(battle, pid, 'kjeragShip') / step) : 0;
     // BondBuff on the enemy talent: ATK / HP scale by floor(layers / stackStep). The official summon is a
     // controller trap on mode change; this remake has no controller, so one allied token at battle start is
-    // [ASSUMED]. SwitchMode and FrozenBreak stay on the enemy record and are not run here.
+    // [ASSUMED]. The token's kit runs SwitchMode and FrozenBreak (giantKit).
     const atkMul = 1 + num(tb['BondBuff.base_atk']) + num(tb['BondBuff.attack_per_stack']) * steps;
     const hpMul = 1 + num(tb['BondBuff.base_max_hp']) + num(tb['BondBuff.max_hp_per_stack']) * steps;
     const st = raw.stats || {};
+    const blockCnt = num(tb['BlockEnemy.block_cnt'], st.blockCnt);
     battle.spawnToken(anchor, GIANT, tile[0], tile[1], {
-      def: raw, anySource: true,
+      def: {
+        ...raw,
+        id: GIANT,
+        profession: 'CASTER',
+        attackKind: 'ranged',
+        dmgType: 'arts',
+        canHitFly: true,
+        projectile: 'bolt',
+        rangeGrid: [[0, 0]],
+      },
+      anySource: true,
+      lethaniaPursuit: true,
+      position: { x: tile[1], y: tile[0] },
       stats: {
         atk: num(st.atk) * atkMul,
         maxHp: num(st.maxHp) * hpMul,
-        blockCnt: num(tb['BlockEnemy.block_cnt'], st.blockCnt),
+        blockCnt,
+        moveSpeed: num(st.moveSpeed, 0.4),
+        rangeRadius: num(st.rangeRadius, 2.4),
       },
+      kit: giantKit(raw),
     });
   }, { once: true });
 }

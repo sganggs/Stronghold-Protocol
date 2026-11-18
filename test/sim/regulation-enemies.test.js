@@ -303,6 +303,106 @@ test('solo schedule uses countSingle and specialEnemyNumSingle; multi and the de
   assert.equal(getData().factions.generation.specialEnemyNumSingle, undefined);
 });
 
+test('投石机 throws one snowball with a plus splash, then only melees', () => {
+  const WING = 'enemy_1388_wingnt';
+  const h = fight({
+    units: [
+      { chessId: 't_gun', row: 9, col: 6, uid: 1 },
+      { chessId: 't_gun', row: 9, col: 7, uid: 2 },
+      { chessId: 't_gun', row: 10, col: 7, uid: 3 },
+      { chessId: 't_gun', row: 9, col: 10, uid: 4 },
+      { chessId: 't_wall', row: 12, col: 4, uid: 5 },
+    ],
+  });
+  h.step(1);
+  const primary = h.allies().find((u) => u.uid === 1);
+  const ortho = h.allies().find((u) => u.uid === 2);
+  const diag = h.allies().find((u) => u.uid === 3);
+  const far = h.allies().find((u) => u.uid === 4);
+  const wall = h.allies().find((u) => u.uid === 5);
+  const p0 = primary.hp, o0 = ortho.hp, d0 = diag.hp, f0 = far.hp, w0 = wall.hp;
+  put(h, WING, [9, 4]);
+  const landed = h.runUntil(() => primary.hp < p0, 8);
+  assert.equal(landed, true);
+  assert.equal(p0 - primary.hp, 1200);
+  assert.equal(o0 - ortho.hp, 1200);
+  assert.equal(diag.hp, d0);
+  assert.equal(far.hp, f0);
+  assert.equal(wall.hp, w0);
+  const lobs = h.eventsOf('atk').filter((e) => e[3] === 'lob');
+  assert.equal(lobs.length, 1);
+  const blast = h.eventsOf('fx').filter((e) => e[1] === 'explode');
+  assert.equal(blast.length, 1);
+  assert.deepEqual(blast[0][4].tiles, [[9, 6], [10, 6], [8, 6], [9, 7], [9, 5]]);
+
+  const afterP = primary.hp, afterO = ortho.hp;
+  assert.equal(h.b.relocate(wall, 9, 4), true);
+  const hit = h.runUntil(() => wall.hp < w0, 8);
+  assert.equal(hit, true);
+  assert.equal(w0 - wall.hp, 800);
+  assert.equal(primary.hp, afterP);
+  assert.equal(ortho.hp, afterO);
+  assert.equal(h.b.errors.length, 0);
+});
+
+test('聚焦魂灵残迹 picks up to three vortices and spends them on a line laser', () => {
+  const WIZ = 'enemy_1429_lrwzrd';
+  const SOUL = 'enemy_1428_lrsoul';
+  const held = fight();
+  put(held, WIZ, [9, 8]);
+  const near = [put(held, SOUL, [9, 7]), put(held, SOUL, [9, 8.2]), put(held, SOUL, [9, 6.5]), put(held, SOUL, [9, 7.4])];
+  const outside = put(held, SOUL, [12, 10]);
+  held.run(1);
+  const aliveNear = near.filter((e) => e.alive).length;
+  assert.equal(aliveNear, 1);
+  assert.equal(outside.alive, true);
+  assert.equal(held.b.errors.length, 0);
+
+  const h = fight({
+    units: [
+      { chessId: 't_gun', row: 9, col: 9, uid: 1 },
+      { chessId: 't_gun', row: 9, col: 10, uid: 2 },
+      { chessId: 't_gun', row: 10, col: 9, uid: 3 },
+    ],
+  });
+  h.step(1);
+  const onLine = h.allies().find((u) => u.uid === 2);
+  const off = h.allies().find((u) => u.uid === 3);
+  const line0 = onLine.hp, off0 = off.hp;
+  put(h, WIZ, [9, 8]);
+  const soul = put(h, SOUL, [9, 7]);
+  soul.bounty = { coins: 9, ownerPlayerId: 'p1' };
+  const fired = h.runUntil(() => onLine.hp < line0, 3);
+  assert.equal(fired, true);
+  assert.equal(soul.alive, false);
+  assert.equal(line0 - onLine.hp, 200);
+  assert.equal(off.hp, off0);
+  const beams = h.eventsOf('fx').filter((e) => e[1] === 'beam');
+  assert.equal(beams.length >= 1, true);
+  assert.equal(beams[0][4].kind, 'soulLaser');
+  const again = onLine.hp;
+  put(h, SOUL, [9, 7]);
+  h.run(2);
+  assert.equal(onLine.hp, again);
+  assert.equal(h.b.errors.length, 0);
+
+  const elite = fight({
+    units: [
+      { chessId: 't_gun', row: 9, col: 9, uid: 1 },
+      { chessId: 't_gun', row: 9, col: 10, uid: 2 },
+    ],
+  });
+  elite.step(1);
+  const far = elite.allies().find((u) => u.uid === 2);
+  const f0 = far.hp;
+  put(elite, 'enemy_1429_lrwzrd_2', [9, 8]);
+  put(elite, SOUL, [9, 7]);
+  const hit = elite.runUntil(() => far.hp < f0, 3);
+  assert.equal(hit, true);
+  assert.equal(f0 - far.hp, 280);
+  assert.equal(elite.b.errors.length, 0);
+});
+
 test('each new kit can spawn for a short step without a handler error', () => {
   const keys = [...Object.keys(REGULATION_KITS), ...Object.keys(REGULATION_BOSS_KITS)];
   for (const key of keys) {
