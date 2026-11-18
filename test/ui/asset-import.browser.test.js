@@ -13,6 +13,7 @@ import { startServer } from '../../server/index.js';
 import { hash16 } from '../../server/http/assetIndex.js';
 import { crc32 } from '../../public/js/assetPack.js';
 import { CHROME, hasChrome } from '../e2e/client.mjs';
+import { seedReleaseRead } from '../helpers/releaseNotes.js';
 
 /** A zip of stored entries: `[{ name, raw }]`. */
 function buildStoredZip(files) {
@@ -108,6 +109,7 @@ test('import has its own dialog that requests nothing on opening; imported art i
   const browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--no-sandbox'] });
   t.after(() => browser.close());
   const page = await browser.newPage();
+  await seedReleaseRead(page); // the title's own controls: no release notes nor entry film over them
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto(srv.url);
@@ -182,6 +184,7 @@ test('import has its own dialog that requests nothing on opening; imported art i
   assert.equal(await page.$('.asset-download .asset-import__row'), null, 'the download dialog has no import controls');
 
   const insecure = await browser.newPage();
+  await seedReleaseRead(insecure);
   await insecure.evaluateOnNewDocument(() => {
     Object.defineProperty(window, 'isSecureContext', { configurable: true, value: false });
   });

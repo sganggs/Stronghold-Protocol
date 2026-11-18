@@ -35,7 +35,8 @@
 //                 after duration_switch s on the field) and sluggish; the bomb is used up ('expired', never a knock-out;
 //                 its blast fx carries `consumed: true` so clients play the explosion, not a death sound); 禁疗, no HP
 //                 loss, never gone because of its HP (champagneHold — the owner's decision D2 of 2026-10-08); an
-//                 unrevealed 隐匿 enemy does not set it off (CHAMPAGNE_TRIGGER)
+//                 unrevealed 隐匿 enemy does not set it off (CHAMPAGNE_TRIGGER). It also leaves when 琳琅诗怀雅 leaves
+//                 (champagneLeavesWithOwner — [ASSUMED], the token has no owner-exit field)
 //   从不混淆的方向 untargetable marker; when the owner's skill ends it vanishes and the owner returns to its tile
 //   黄金盟誓      attacks deal true damage (trait); lasts while the owner's skill runs; 维娜 S3 places one on every
 //                 free deployable tile around her (kits/ops/chess_char_6_07-siege2.js) — no per-owner deploy limit (SKILL_SUMMON_UNCAPPED)
@@ -81,8 +82,8 @@
 //
 // Exports for other content: spawnYanyou, spawnMapChar, findSummonTile, summonToken, tacticalPoint, wolfShadows,
 // COUNTDOWN_SUMMONS / startCountdown (the countdown summons' 无敌 + 禁疗 and timer bar, shared with the kits that time them),
-// champagneHold / CHAMPAGNE_TRIGGER (香槟炸弹's durability and the enemies it goes off on, shared with 琳琅诗怀雅's kit,
-// kits/ops/chess_char_3_04-swire2.js),
+// champagneHold / CHAMPAGNE_TRIGGER / champagneLeavesWithOwner (香槟炸弹's durability, the enemies it goes off on, and
+// leaving with 琳琅诗怀雅, shared with her kit, kits/ops/chess_char_3_04-swire2.js),
 // wolfShadowInterval, installWolfTacticalPoint, wolfTacticalPoint, wolfReturnNow (the 狼群's 战术点形态, shared with the
 // 伺夜 kit's own pack, kits/ops/chess_char_3_19-vigil.js), releaseSkillSummon, SKILL_SUMMON_START_DEPLOY, CAT_SHIELD_KEY,
 // TOKEN_IDS; mapCharTalents and touchGospel (Touch's 攫升 / 超脱 and 恳切福音, shared with the Touch 补位 stand-in kit,
@@ -1067,6 +1068,24 @@ export function champagneHold(battle, bomb) {
 }
 
 /**
+ * 香槟炸弹 leaves with 琳琅诗怀雅. A knock-out, a retreat (including a 联防 `forcedExit`) and a permanent retreat all
+ * emit `death` (deploy.js `_remove`); the bomb then retreats with `expired`, the same owner-exit the 诅咒娃娃 and
+ * 乌尔比安's marker use. champagneHold is not touched: D2 still means no HP loss and no heal.
+ * [ASSUMED] official data has no owner-exit field for token_10031_swire2_gdtrap (empty desc / descRaw on the shop
+ * token and on the 规程 backups record). A bomb placed in the same tick after she has already left misses that `death`
+ * — emit snapshots its listeners — so it withdraws on its own deploy.
+ */
+export function champagneLeavesWithOwner(battle, bomb) {
+  const owner = bomb.ownerUnit;
+  if (!owner) return;
+  const leave = () => {
+    if (bomb.alive) battle.retreat(bomb, { reason: 'expired', permanent: true });
+  };
+  battle.on('death', (ctx) => { if (ctx.unit === owner) leave(); }, { owner: bomb });
+  if (!owner.alive) onDeploy(battle, bomb, leave);
+}
+
+/**
  * The enemies a 香槟炸弹 may set off on: ground and selectable (canTargetEnemy) — a 隐匿 enemy that is neither revealed nor
  * blocked is none (PRTS 作战机制 §隐匿 "隐匿效果使得获得该效果的单位无法被任何敌方的能力索敌选中"; its pages carry no 无视隐匿 /
  * 无视可选性 note; the other contact traps — 多萝西's 共振装置, 望's 棋子 — select so too). A community report the owner relayed
@@ -1101,7 +1120,7 @@ function champagne(bb) {
       },
     },
     trait: { noAttack: true },
-    install(battle, unit) { untargetable(battle, unit); champagneHold(battle, unit); },
+    install(battle, unit) { untargetable(battle, unit); champagneHold(battle, unit); champagneLeavesWithOwner(battle, unit); },
   };
 }
 

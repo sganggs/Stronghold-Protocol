@@ -10,7 +10,8 @@
 // start one. Reduced motion, or a sprite that fails to load, gets no film (the title screen shows at once). Never over
 // a room or a match: the route is watched from the card on, and a session restored into a room / a match while the card
 // waits or the film runs takes the overlay down at once, silences the cue and hands the music back to that screen.
-// main.js calls playEntryFilm once at boot.
+// main.js calls playEntryFilm once at boot. A 规程 start (versions.js startupVersion) plays 规程's own opening instead
+// (ui/regulationFilm.js: the client's season entry, DESIGN §37.147) through the same card, skip, cue and music hold.
 import { store, selectRoute } from '../store.js';
 import { audio, resolveBgm } from '../audio.js';
 import { data } from '../data.js';
@@ -18,6 +19,8 @@ import { reducedMotion } from './device.js';
 import { mountAllianceIntro, preloadSprites, setCycleOrigin, INTRO_AUDIO, INTRO_SPAN } from './allianceScene.js';
 import { t } from '../../../shared/i18n.js';
 import { scriptOf } from '../../../shared/i18nPacks.js';
+import { DEFAULT_VERSION } from '../../../shared/versions.js';
+import { startupVersion } from '../versions.js';
 
 // The cue for a manifest that does not list it: the manifest's own entry (audio.sfx.ui.load) carries the content hash, so
 // the worker answers it from a finished download (GitHub #725, §37.99).
@@ -46,12 +49,15 @@ function phoneReady() {
   return globalThis.innerWidth > globalThis.innerHeight;
 }
 
-/** Decode the cue (and warm the lobby music) while the pictures load; null when nothing can be heard now. */
-async function prepareSound() {
+/**
+ * Decode the cue (and warm the lobby music) while the pictures load; null when nothing can be heard now.
+ * @param {string} version  the version whose lobby track the film hands over to
+ */
+async function prepareSound(version) {
   const ctx = audio.ctx;
   if (!ctx || ctx.state !== 'running' || audio.volumes?.muted) return null;
   const manifest = data.get('assets');
-  const track = resolveBgm(manifest, 'lobby');
+  const track = resolveBgm(manifest, 'lobby', version);
   const listed = manifest?.audio?.sfx?.ui?.load;
   const wait = (p) => Promise.race([Promise.resolve(p).catch(() => null), new Promise((r) => setTimeout(() => r(null), 2500))]);
   const [sfx] = await Promise.all([wait(audio._buffer(typeof listed === 'string' && listed ? listed : ENTRY_SFX)), wait(track?.intro ? audio._buffer(track.intro) : null), wait(track ? audio._buffer(track.loop) : null)]);
@@ -95,10 +101,57 @@ export function holdBgm(a = audio) {
 let playing = false;
 
 /**
- * @param {() => boolean} allowed  false once the film must go (a room / a match, the caller's skip)
- * @param {(host: HTMLElement) => { render: (t: number) => void, grain: () => void, destroy: () => void }} mount
+ * @typedef {{ render: (t: number) => void, grain: () => void, destroy: () => void }} FilmScene
+ * @typedef {{ label: string, mount: (host: HTMLElement) => FilmScene, preload: (ms: number) => Promise<boolean>,
+ *   span: { from: number, fadeAt: number, to: number }, audio: { sfxAt: number, bgmAt: number }, version: string,
+ *   origin?: (t0: number) => void }} Film  span / audio: film seconds (the film runs from `from` to `to`, fading out
+ *   from `fadeAt`; the cue starts at sfxAt, the held music at bgmAt); version: whose lobby track to warm; origin: told
+ *   the moment film second `from` is on screen
  */
-function run(allowed, mount) {
+
+/**
+ * 盟约's film (ui/allianceScene.js).
+ * @param {(host: HTMLElement) => FilmScene} mount
+ * @returns {Film}
+ */
+function allianceFilm(mount) {
+  return {
+    label: t('卫戍协议') + ' · ' + t('盟约'),
+    mount,
+    preload: (ms) => preloadSprites(undefined, ms),
+    span: INTRO_SPAN,
+    audio: INTRO_AUDIO,
+    // its cues are timed to the default season's lobby track (act2autochess is not in audio.seasons)
+    version: DEFAULT_VERSION,
+    // the backdrop under the opening shows the same moment of the cycle
+    origin: (t0) => setCycleOrigin(t0 + (3.12 - INTRO_SPAN.from) * 1000),
+  };
+}
+
+/**
+ * 规程's opening (ui/regulationFilm.js), or null when its group is not extracted / not readable.
+ * @param {((host: HTMLElement) => FilmScene)|null} [mount]  tests pass a stand-in scene
+ * @returns {Promise<Film|null>}
+ */
+async function regulationFilm(mount = null) {
+  const m = await import('./regulationFilm.js');
+  const pack = await m.loadRegulationPack();
+  if (!pack) return null;
+  return {
+    label: t('卫戍协议·规程'),
+    mount: mount || ((host) => m.mountRegulationIntro(host, pack)),
+    preload: (ms) => m.preloadRegulation(pack, ms),
+    span: m.REG_SPAN,
+    audio: m.REG_AUDIO,
+    version: startupVersion(store.get()),
+  };
+}
+
+/**
+ * @param {() => boolean} allowed  false once the film must go (a room / a match, the caller's skip)
+ * @param {Film} film
+ */
+function run(allowed, film) {
   if (playing || !allowed()) return;
   playing = true;
   if (!document.getElementById('spa-entry-style')) {
@@ -110,7 +163,7 @@ function run(allowed, mount) {
   // a modal <dialog>: the top layer, so it also covers the fullscreen prompt (fullscreen-guide.js, a modal dialog too)
   const el = document.createElement('dialog');
   el.className = 'spa-entry';
-  el.setAttribute('aria-label', t('卫戍协议') + ' · ' + t('盟约'));
+  el.setAttribute('aria-label', film.label);
   el.innerHTML = '<span class="spa-entry__skip"></span>';
   el.firstChild.textContent = t('点击跳过');
   const locked = !(audio.ctx && audio.ctx.state === 'running');
@@ -202,19 +255,19 @@ function run(allowed, mount) {
   const fonts = document.fonts?.load
     ? Promise.race([Promise.all(['300 40px Bender', '400 40px Bender'].map((f) => document.fonts.load(f).catch(() => null))), new Promise((r) => setTimeout(r, 1200))])
     : null;
-  const pictures = preloadSprites(undefined, 3000);
-  gate.then(() => Promise.all([pictures, fonts, prepareSound()])).then((res) => {
+  const pictures = film.preload(3000);
+  gate.then(() => Promise.all([pictures, fonts, prepareSound(film.version)])).then((res) => {
     if (done) return;
     // a sprite that 404'd (or never loaded) is not a film: take the cover down instead of playing blank frames
     if (!res || res[0] !== true) { finish('end'); return; }
     if (!allowed()) { finish('leave'); return; }
     const sound = res[2];
     armSkip();
-    try { scene = mount(el); } catch (err) { console.warn('[intro] could not start', err); finish('end'); return; }
-    const { from, fadeAt, to } = INTRO_SPAN;
+    try { scene = film.mount(el); } catch (err) { console.warn('[intro] could not start', err); finish('end'); return; }
+    const { from, fadeAt, to } = film.span;
     const lead = 0.04;
     const t0 = performance.now() + lead * 1000; // video second `from` is on screen at t0
-    setCycleOrigin(t0 + (3.12 - from) * 1000); // the backdrop under the opening shows the same moment of the cycle
+    film.origin?.(t0);
     if (sound && audio.ctx?.state === 'running') {
       const ctx = audio.ctx;
       if (sound.sfx && audio.sfxGain) {
@@ -222,14 +275,14 @@ function run(allowed, mount) {
           const node = ctx.createBufferSource(), gain = ctx.createGain();
           node.buffer = sound.sfx; gain.gain.value = SFX_GAIN;
           node.connect(gain); gain.connect(audio.sfxGain);
-          const when = ctx.currentTime + lead + (INTRO_AUDIO.sfxAt - from);
+          const when = ctx.currentTime + lead + Math.max(0, film.audio.sfxAt - from);
           node.start(when);
           src = { node, gain, when };
         } catch { /* ignore */ }
       }
       release = holdBgm();
       // audio.js starts a track 50 ms after it is asked for
-      if (release) bgmTimer = setTimeout(() => release?.(), Math.max(0, (lead + INTRO_AUDIO.bgmAt - from - 0.05) * 1000));
+      if (release) bgmTimer = setTimeout(() => release?.(), Math.max(0, (lead + film.audio.bgmAt - from - 0.05) * 1000));
     }
     const frame = () => {
       if (done) return;
@@ -250,22 +303,31 @@ function run(allowed, mount) {
 /**
  * Play the film once per page load, before the title screen — also when a reload lands in the lobby; never over a
  * room or a match, never under reduced motion, and never unless every sprite actually loads. A phone that is
- * portrait when this is called does not play it later, after a rotation.
- * @param {{ skip?: () => boolean, mount?: typeof mountAllianceIntro }} [opts]  skip() → true when it must not (or no
- *   longer) play; mount: the scene (tests pass a stand-in)
+ * portrait when this is called does not play it later, after a rotation. globalThis.__SP_ENTRY_FILM__ = 'off' (the
+ * browser suites) plays nothing.
+ * @param {{ skip?: () => boolean, mount?: typeof mountAllianceIntro, regulation?: () => boolean,
+ *   regulationMount?: ((host: HTMLElement) => FilmScene)|null }} [opts]  skip() → true when it must not (or no longer)
+ *   play; mount: 盟约's scene (tests pass a stand-in); regulation() → true: 规程's opening instead (asked once, here),
+ *   nothing when its group is not extracted; regulationMount: its scene (tests)
  */
 export async function playEntryFilm(opts = {}) {
-  const { skip = () => false, mount = mountAllianceIntro } = opts;
+  const { skip = () => false, mount = mountAllianceIntro, regulation = () => false, regulationMount = null } = opts;
+  // dev / E2E switch, like globalThis.__SP_RENDER__: the browser suites that are not about the film set it before the
+  // page loads (test/helpers/releaseNotes.js skipEntryFilm); a player's page never has it
+  if (globalThis.__SP_ENTRY_FILM__ === 'off') return;
   if (reducedMotion()) return;
   // once, as the title is entered — a later rotation does not get a second look
   if (touchDevice() && !phoneReady()) return;
   try { await data.load('assets'); } catch { return; }
   const allowed = () => { const r = selectRoute(store.get()); return r !== 'room' && r !== 'game' && !skip(); };
   if (!allowed()) return;
+  let film;
+  try { film = regulation() ? await regulationFilm(regulationMount) : allianceFilm(mount); } catch { return; }
+  if (!film || !allowed()) return;
   // a short look: the title is already on screen, so a film that would only cover it seconds later is skipped this
   // time (the sprites it did load are cached for the next page load)
   let pictures;
-  try { pictures = await preloadSprites(undefined, 1200); } catch { return; }
+  try { pictures = await film.preload(1200); } catch { return; }
   if (pictures !== true || !allowed()) return;
-  run(allowed, mount);
+  run(allowed, film);
 }

@@ -33,6 +33,17 @@ export function textProblems(rootSel, extraEllipsis = '') {
   // (a hyphen before a digit is part of a code such as AC-2, not a place to break: §35.18 review of the text-fit fixes)
   const breakOk = (p, c) => (/[\s\-\u2010\u2013\u2014/\u00b7\u30fb]/.test(p) && !(/[-\u2010]/.test(p) && /\d/.test(c)))
     || (hangul.test(p) || hangul.test(c) ? !(letter.test(p) && letter.test(c)) : cjk.test(p) || cjk.test(c));
+  // the word of text node `n` around index `i` is wider than `el`'s content box (measured on one line in its font)
+  const wordWider = (n, i, el) => {
+    const t = n.textContent;
+    let a = i, b = i;
+    while (a > 0 && !/\s/.test(t[a - 1])) a--;
+    while (b < t.length && !/\s/.test(t[b])) b++;
+    const cs = getComputedStyle(el), g = document.createElement('canvas').getContext('2d');
+    g.font = cs.font;
+    const box = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    return g.measureText(t.slice(a, b)).width > box + 0.5;
+  };
   for (const root of document.querySelectorAll(rootSel)) {
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     for (let n = walker.nextNode(); n; n = walker.nextNode()) {
@@ -97,8 +108,12 @@ export function textProblems(rootSel, extraEllipsis = '') {
           const p = n.textContent[i - 1] || ' ';
           if (prevTop != null && rr.top > prevTop + rr.height / 2) {
             const at = `${n.textContent.slice(Math.max(0, i - 6), i)}|${n.textContent.slice(i, i + 6)}`;
-            // (a player's name is any string: on a phone its second line may start inside a long word — §35.51)
-            if (!breakOk(p, c) && !el.closest('.seat__name')) { out.push(`broken inside a word (${at}): ${label}`); break; }
+            // (a player's name is any string: on a phone its second line may start inside a long word — §35.51; a picker's
+            // operator name breaks inside a word only when that word alone is wider than the tile: overflow-wrap
+            // break-word, English 「Thunderbringer」)
+            if (!breakOk(p, c) && !el.closest('.seat__name') && !(el.closest('.cardpick__name') && wordWider(n, i, el.closest('.cardpick__name')))) {
+              out.push(`broken inside a word (${at}): ${label}`); break;
+            }
             if (noStart.test(c)) { out.push(`a line starts with ${c} (${at}): ${label}`); break; }
           }
           prevTop = rr.top;

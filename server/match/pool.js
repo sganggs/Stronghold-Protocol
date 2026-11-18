@@ -25,7 +25,7 @@
  * Per-match disabled bond set D and banned chess (research 01 A2): D = uniform sample of `core` core bonds and `addon`
  * add-on bonds among weight > 0 bonds that are active in the mode. A visible chess is banned iff every one of its
  * bonds is in D ∪ mode.inactiveBondIds. Regulation's profile switches to two core groups (solo) / half grey (multi)
- * and a separate core OR all-add-ons exclusion (the regulation tutorial, 2026-11-09 owner play report).
+ * and core-priority exclusion via GameData.bondsExclude (only coreless operators follow all add-ons).
  * @param {import('./gamedata.js').GameData} gd
  * @param {Function} rng seeded rng (createRng)
  * @returns {{ drawn: string[], staticOff: string[], banned: string[], choice?: { groups: string[][], picked: number|null } }}
@@ -40,12 +40,13 @@ export function drawDisabledBonds(gd, rng) {
   const core = eligible.filter((b) => gd.bond(b).isCore);
   const addon = eligible.filter((b) => !gd.bond(b).isCore);
   if (gd.regulationBondDraw) {
-    // Owner's level 1: 4 + 4; co-op: 10 → 5. [ASSUMED] The same half split at higher levels / 标准;
-    // an odd leftover stays active. LOCAL training keeps its configured counts.
+    // Solo: two groups of half the core bonds (owner's level 1: 4 + 4; recordings: 规程等级1 / 极速 4 + 4, 规程等级20 5 + 5);
+    // an odd leftover stays active. Co-op greys the profile's `bans.core` (recordings 2026-11-12: 标准 0 of 8 in two
+    // matches of BV11NW869ELq, 险境 / 绝境 / 终极 5 of 10); LOCAL training keeps its configured counts too.
     const half = Math.floor(core.length / 2);
     const shuffled = sample(core, core.length, rng);
     const choice = gd.isSolo ? { groups: [shuffled.slice(0, half), shuffled.slice(half, half * 2)], picked: null } : null;
-    const coreOff = choice ? [] : shuffled.slice(0, gd.mode.type === 'MULTI' ? half : nCore);
+    const coreOff = choice ? [] : shuffled.slice(0, nCore);
     const drawn = [...coreOff, ...sample(addon, nAddon, rng)].sort();
     return { drawn, staticOff, banned: bannedChessForBonds(gd, drawn, staticOff), ...(choice ? { choice } : {}) };
   }
@@ -109,20 +110,21 @@ export class SharedPool {
 
   /**
    * Remaining copies of eligible chess (tier ≤ maxTier, or exactly `tier`): the pool's entries, then `extra` ([id, entry]
-   * pairs of the same shape — a player's 自选 stock) under the same filters.
+   * pairs of the same shape — a player's 自选 stock) under the same filters. Explicit extra tierExempt entries bypass
+   * maxTier only, retaining their real tier; exact-tier draws and ordinary pool entries never bypass the gate.
    */
   _eligible({ maxTier = 6, tier = null, filter = null, extra = null, ignoreCounts = false } = {}) {
     const out = [];
-    const scan = (list) => {
+    const scan = (list, extraEntries = false) => {
       for (const [id, e] of list) {
         if (!ignoreCounts && e.left <= 0) continue;
-        if (tier != null ? e.tier !== tier : e.tier > maxTier) continue;
+        if (tier != null ? e.tier !== tier : e.tier > maxTier && !(extraEntries && e.tierExempt === true)) continue;
         if (filter && !filter(id, e)) continue;
         out.push([id, ignoreCounts ? 1 : e.left]);
       }
     };
     scan(this.entries);
-    if (extra) scan(extra);
+    if (extra) scan(extra, true);
     return out;
   }
 
@@ -130,7 +132,7 @@ export class SharedPool {
    * Copy-weighted roll: one copy uniformly among remaining copies of eligible chess. Returns a base id or null.
    * @param {Function} rng
    * @param {{ maxTier?: number, tier?: number|null, filter?: (id: string, e: object) => boolean,
-   *   extra?: Iterable<[string, { left: number, tier: number }]>|null }} [opts]
+   *   extra?: Iterable<[string, { left: number, tier: number, tierExempt?: boolean }]>|null }} [opts]
    */
   roll(rng, opts = {}) {
     const el = this._eligible(opts);

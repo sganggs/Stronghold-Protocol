@@ -355,7 +355,7 @@ const ITEM_HANDLERS = {
   use_equip_next_gold: {
     onEquip(ctx, ev) { ctx.addPendingFunds(int(paramsOf(ctx, ev.item).count, 2)); },
   },
-  // 简易通讯机 (规程): `count` operators that have the carrier's FIRST bond, tier ≤ shop level.
+  // 简易通讯机 (规程): FIRST bond, tier ≤ shop level; an explicitly marked special carrier may recruit its own base form.
   equip_destory_first_bond_char: {
     onEquip(ctx, ev) {
       const n = Math.max(1, int(paramsOf(ctx, ev.item).count, 1));
@@ -363,7 +363,7 @@ const ITEM_HANDLERS = {
       let got = 0;
       if (first) {
         for (let k = 0; k < n; k++) {
-          const id = rollSameBond(ctx, [first], ctx.shopLevel());
+          const id = ctx.rollChess({ bond: first, maxTier: ctx.shopLevel(), tierExemptChess: [ctx.gd.baseIdOf(ev.target.id)] });
           if (id && ctx.grantChess(id)) got++;
         }
       }
@@ -435,15 +435,21 @@ const ITEM_HANDLERS = {
       ctx.openSkillChangeDraft?.(typeof name === 'string' && name ? name : 'skill_change_1');
     },
   },
-  // 人事部记录: one special shop refresh. Slots prefer operators of the carrier's first bond (tier ≤ shop level);
-  // a slot the bond pool cannot fill is a normal roll. [ASSUMED] every slot is replaced, frozen equipment included.
+  // 人事部记录: refresh operators AND equipment (owner verified official footage, 2026-11-11), including frozen
+  // slots. Only operator slots prefer the carrier's first bond, with an ordinary operator fallback.
   equip_use_main_bond: {
     onEquip(ctx, ev) {
       const first = ctx.pieceBonds(ev.target.uid)[0] || null;
       const maxTier = ctx.shopLevel();
       const n = ctx.shopSlots().length;
+      const chessCount = ctx.gd.shopSlots(maxTier).chess;
       const used = [];
       for (let i = 0; i < n; i++) {
+        if (i >= chessCount) {
+          const id = ctx.rollItem({ maxTier });
+          ctx.setShopSlot(i, id ? { kind: 'item', id } : null);
+          continue;
+        }
         let id = first ? ctx.rollChess({ maxTier, bond: first, filter: (x) => !used.includes(x) }) : null;
         if (!id) id = ctx.rollChess({ maxTier, filter: (x) => !used.includes(x) });
         if (!id) id = ctx.rollChess({ maxTier });

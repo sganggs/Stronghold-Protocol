@@ -35,6 +35,8 @@ import { html, BondDisc, Icon, MicroLabel, Tooltip } from './components.js';
 import { RichText, BondGlyph, GIcon, Sprite, Img, SquareOperatorThumb } from './gameComponents.js';
 import { sortBonds, bondMembers, nextThreshold, bondTier, harmonyMembers, HARMONY_BOND, briefingBondTip, diyGetter, diyRecordFor, memberStandIn, standInForText } from './gameLogic.js';
 import { bondIconUrl, uiUrl } from './assetUrls.js';
+import { formatBondEffect } from './richText.js';
+import { bondEffectRecord } from './bondEffect.js';
 import { data } from '../data.js';
 import { t, tParts, tName } from '../../../shared/i18n.js';
 
@@ -53,9 +55,19 @@ function OwnerTag({ owner }) {
   </span>`;
 }
 
+/** Mouse travel (CSS px) before a press on the strip becomes a drag — below it the press stays a disc's click. */
+export const BOND_DRAG_SLOP = 5;
+
+/**
+ * The strip's horizontal scroller. No arrow buttons any more (the owner, 2026-11-14 「盟约行左右箭头取消吧，直接鼠标拖动
+ * 或者手指滑动就好，收起的小箭头还保留」, §37.201): a finger swipes it natively (touch-action pan-x), a mouse drags it
+ * (past BOND_DRAG_SLOP the press is a drag and the click that ends it opens no popup), the wheel scrolls it sideways, the
+ * keyboard's arrows still scroll the focused strip; a fading edge says more bonds wait on that side.
+ */
 function BondScroller({ count, children }) {
   const viewport = useRef(null);
   const [edges, setEdges] = useState({ left: false, right: false });
+  const [dragging, setDragging] = useState(false);
   useEffect(() => {
     const el = viewport.current;
     if (!el) return;
@@ -80,11 +92,68 @@ function BondScroller({ count, children }) {
       el.removeEventListener('scroll', update);
     };
   }, [viewport, count]);
-  const scroll = direction => viewport.current?.scrollBy({ left: direction * Math.max(80, viewport.current.clientWidth * .75), behavior: 'smooth' });
-  return html`<div class="bstrip-scroll">
-    <button type="button" class="bstrip-scroll__arrow" disabled=${!edges.left} aria-label=${t('向左滚动盟约')} onClick=${() => scroll(-1)}>‹</button>
+  useEffect(() => {
+    const el = viewport.current;
+    if (!el) return;
+    /** @type {{ id: number, x: number, left: number, moved: boolean }|null} */
+    let press = null;
+    let swallow = false;
+    const down = (e) => {
+      if (e.pointerType !== 'mouse' || e.button !== 0 || el.scrollWidth <= el.clientWidth + 1) return;
+      press = { id: e.pointerId, x: e.clientX, left: el.scrollLeft, moved: false };
+    };
+    const move = (e) => {
+      if (!press || e.pointerId !== press.id) return;
+      const dx = e.clientX - press.x;
+      if (!press.moved) {
+        if (Math.abs(dx) < BOND_DRAG_SLOP) return;
+        press.moved = true;
+        try { el.setPointerCapture(e.pointerId); } catch { /* the pointer is gone */ }
+        setDragging(true);
+      }
+      el.scrollLeft = press.left - dx;
+      e.preventDefault();
+    };
+    const up = (e) => {
+      if (!press || e.pointerId !== press.id) return;
+      if (press.moved) swallow = true;
+      press = null;
+      setDragging(false);
+    };
+    // the click a drag ends with (its target: the disc pressed, or the strip holding the capture) opens nothing
+    const click = (e) => {
+      if (!swallow) return;
+      swallow = false;
+      e.stopPropagation();
+      e.preventDefault();
+    };
+    // a vertical wheel scrolls the row sideways while it has room that way (the board's own wheel zoom never sees it)
+    const wheel = (e) => {
+      const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      if (!d || el.scrollWidth <= el.clientWidth + 1) return;
+      const max = el.scrollWidth - el.clientWidth;
+      if ((d < 0 && el.scrollLeft <= 0) || (d > 0 && el.scrollLeft >= max - 1)) return;
+      el.scrollLeft = Math.max(0, Math.min(max, el.scrollLeft + d));
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    el.addEventListener('pointerdown', down);
+    el.addEventListener('pointermove', move);
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
+    el.addEventListener('click', click, true);
+    el.addEventListener('wheel', wheel, { passive: false });
+    return () => {
+      el.removeEventListener('pointerdown', down);
+      el.removeEventListener('pointermove', move);
+      el.removeEventListener('pointerup', up);
+      el.removeEventListener('pointercancel', up);
+      el.removeEventListener('click', click, true);
+      el.removeEventListener('wheel', wheel);
+    };
+  }, [viewport]);
+  return html`<div class=${cx('bstrip-scroll', edges.left && 'is-l', edges.right && 'is-r', (edges.left || edges.right) && 'can-drag', dragging && 'is-dragging')}>
     ${cloneElement(children, { ref: viewport })}
-    <button type="button" class="bstrip-scroll__arrow" disabled=${!edges.right} aria-label=${t('向右滚动盟约')} onClick=${() => scroll(1)}>›</button>
   </div>`;
 }
 
@@ -110,7 +179,9 @@ function BondStage({ tier }) {
  *   owner?: string|null }} props — owner: the watched teammate's name (null = your own bonds)
  */
 export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null, owner = null }) {
-  const sorted = sortBonds(bonds, (id) => data.lookup('bonds', id));
+  // A zero-count mapped row exists so the popup can resolve it. It is not a strip icon.
+  const sorted = sortBonds(bonds, (id) => data.lookup('bonds', id))
+    .filter((b) => b.off ? b.count > 0 : b.active || b.count > 0 || b.layers > 0);
   if (!sorted.length) {
     return html`<div class=${cx('bstrip', 'bstrip--empty', owner && 'is-other')} data-owner=${owner || null}>
       ${owner ? html`<${OwnerTag} owner=${owner} />` : html`<${MicroLabel}>BONDS</${MicroLabel}>`}<span>${owner ? t('{owner} 尚未激活盟约', { owner }) : t('部署干员以激活盟约')}</span></div>`;
@@ -121,11 +192,13 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
       aria-label=${owner ? t('{owner} 的盟约', { owner }) : t('我的盟约')} data-owner=${owner || null}>
     ${owner ? html`<${OwnerTag} owner=${owner} />` : null}
     ${shown.map((b) => {
-      const rec = data.lookup('bonds', b.bondId);
-      const th = Array.isArray(b.thresholds) && b.thresholds.length ? b.thresholds : rec?.thresholds || [];
-    const segments = Math.max(1, Math.min(4, th.length));
-    const reached = b.active && !b.off ? Math.max(1, Math.min(segments, b.tier ?? bondTier(b.count ?? 0, th, rec?.maxCount))) : 0;
-    const frameStyle = `--bond-frame-size: ${reached === segments ? '.815' : '.688'}rem; --bond-rim-top: ${reached === segments ? 13 / 77 : 8 / 65}`;
+      const base = data.lookup('bonds', b.bondId);
+      const rec = bondEffectRecord(base, data.lookup('effects', b.effectId || base?.effectId), b.layers ?? 0);
+      const th = b.effectId ? rec?.thresholds || [] : Array.isArray(b.thresholds) && b.thresholds.length ? b.thresholds : rec?.thresholds || [];
+      const tier = b.effectId ? bondTier(b.count ?? 0, th, rec?.maxCount) : b.tier ?? 0;
+      const segments = Math.max(1, Math.min(4, th.length));
+      const reached = b.active && !b.off ? Math.max(1, Math.min(segments, tier)) : 0;
+      const frameStyle = `--bond-frame-size: ${reached === segments ? '.815' : '.688'}rem; --bond-rim-top: ${reached === segments ? 13 / 77 : 8 / 65}`;
       if (b.off) {
         // a bond the mode never activates, with members: the briefing's grey ✕ disc, no stack count, 本局禁用 under it
         const name = rec?.name || b.bondId;
@@ -141,10 +214,10 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
       return html`<div key=${b.bondId} role="listitem" data-bond=${b.bondId} data-harmony=${b.harmony > 0 ? b.harmony : null}
           class=${cx('bslot', b.active && 'is-active', b.tempLayers > 0 && 'has-temp-layers', reached === segments && 'is-full', openId === b.bondId && 'is-open')} style=${frameStyle}>
         <${BondDisc} name=${rec?.name || b.bondId} icon=${bondIconUrl(m, b.bondId)} layers=${rec?.noStack ? undefined : (b.layers ?? 0) + (b.tempLayers ?? 0)}
-          tier=${b.tier ?? 0} maxTier=${Math.max(1, th.length)} members=${b.count ?? 0} minCount=${th[0] ?? 0} active=${!!b.active} size="sm" showName=${true}
+          tier=${tier} maxTier=${Math.max(1, th.length)} members=${b.count ?? 0} minCount=${th[0] ?? 0} active=${!!b.active} size="sm" showName=${true}
           layersDisabled=${layersDisabled} onClick=${() => onOpen(b.bondId)}
           title=${`${rec?.name || b.bondId} ${b.count ?? 0}/${next ?? th[th.length - 1] ?? '-'}${b.harmony > 0 ? t('（含调和 +{harmony}）', { harmony: b.harmony }) : ''}`} />
-    <${BondStage} tier=${b.active ? b.tier ?? bondTier(b.count ?? 0, th, rec?.maxCount) : 0} />
+    <${BondStage} tier=${b.active ? tier : 0} />
       </div>`;
     })}
   </div>`;
@@ -165,21 +238,23 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
  *   pick (`diy`, its unit's: the card composes their operator; the own rows' card reads m.private.diy); `off`: the
  *   mode never activates this bond (gameLogic modeOffBonds — 标准's 10 inactive bonds): 本局禁用 instead of 未激活, with a
  *   note, no 在场 count and no 当前效果 block (its numbers would promise an effect the mode never gives; the bond text stays).
- *   `coreAbsent` (matchInfo regulationCoreAbsent): a regulation core the match has greyed. Its operators cannot appear,
- *   so the card does not take the `off` branch — that note says they may still show up through another bond. It keeps
- *   the effect and the members, and says 「{name}：该核心盟约的所有干员无法出现」. An add-on stays on `off`.
+ *   `coreAbsent` (matchInfo regulationCoreAbsent): a regulation core the match has greyed. Its operators appear only
+ *   through another lit bond, so the card does not take the `off` branch (that note is about a bond the mode never
+ *   activates). It keeps the effect and the members, and says 「{name}：该核心盟约的干员无法出现，同属其他亮着的核心盟约的除外」.
+ *   An add-on stays on `off`.
  *   `entry.harmony` (the server's bond views: the +1 调和 added to `count`): 在场 n（含调和 +1） and the 调和 row
  */
 export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember, place = null, over = false, beside = null, owner = null, ownerId, off = false, coreAbsent = false, morphMode = 'official', modal = false, onPrevious = null, onNext = null }) {
-  const b = data.lookup('bonds', bondId);
+  const base = data.lookup('bonds', bondId);
+  const b = bondEffectRecord(base, data.lookup('effects', entry?.effectId || base?.effectId), entry?.layers ?? 0);
   if (!b) return null;
   // A greyed regulation core must not use `off`: that sentence is the opposite of "its operators cannot appear".
   // Keep the core-absent note distinct from the mode-disabled explanation.
   const modeOff = !!off && !coreAbsent;
   const count = entry?.count ?? 0;
   const layers = entry?.layers ?? 0;
-  const th = Array.isArray(entry?.thresholds) && entry.thresholds.length ? entry.thresholds : b.thresholds || [];
-  const tier = modeOff ? 0 : entry?.tier ?? bondTier(count, th, b.maxCount);
+  const th = entry?.effectId ? b.thresholds || [] : Array.isArray(entry?.thresholds) && entry.thresholds.length ? entry.thresholds : b.thresholds || [];
+  const tier = modeOff ? 0 : entry?.effectId ? bondTier(count, th, b.maxCount) : entry?.tier ?? bondTier(count, th, b.maxCount);
   const active = !modeOff && (entry ? !!entry.active : tier > 0);
   // (自选 pieces are their operators: the own ones by m.private.diy, a watched teammate's by the pick its unit carries)
   const dd = { chess: data.get('chess'), backups: data.get('backups') };
@@ -232,7 +307,7 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
   <div class="bpop__body">
   ${coreAbsent ? html`<p class="bpop__off" role="note">${briefingBondTip(b.name, 'off', 0, true)}</p>` : modeOff ? html`<p class="bpop__off" role="note">${t('本模式下该盟约不会激活（其干员仍可能因所属的其他盟约出现）')}</p>` : null}
     <section class="bpop__sec">
-      <${RichText} as="p" text=${b.descRaw || b.desc} class="bpop__desc" />
+      <${RichText} as="p" text=${formatBondEffect(b, layers + (entry?.tempLayers ?? 0))} class="bpop__desc" />
     </section>
     <section class="bpop__sec">
       ${harmony ? (harmonyBy.length

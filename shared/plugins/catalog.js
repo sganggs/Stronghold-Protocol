@@ -12,7 +12,7 @@
 // read, and the folder check applies the class's own afterwards); install refuses a download whose length differs.
 
 import { APP_VERSION } from '../constants.js';
-import { PLUGIN_CLASSES, PLUGIN_MAX_BYTES, appVersionMatches, isPluginId, isSemver, isVersionRange } from './manifest.js';
+import { PLUGIN_CLASSES, PLUGIN_MAX_BYTES, appCompatible, isPluginId, isSemver, isVersionRange } from './manifest.js';
 import { isContentHash } from './identity.js';
 
 /** [ASSUMED] see the header. */
@@ -160,7 +160,8 @@ export function readCatalog(raw) {
  * One entry's install status against this build.
  * `installed` is the version string in plugins/<id>/, null when the folder is there but the version cannot be read,
  * and undefined when it is not installed. Incompatible wins over installed / updatable, and the installed version is
- * still reported. [ASSUMED] every class, including cosmetic, uses appVersionMatches. A missing `app` is compatible.
+ * still reported. [ASSUMED] every class, including cosmetic, uses appCompatible (0.4.x also runs the 0.3 line,
+ * §37.231). A missing `app` is compatible.
  * A present `app` that is empty, whitespace, or not a range (including one appVersionMatches would treat as a match
  * because it cannot read it) is incompatible.
  * @param {Record<string, unknown>} entry
@@ -170,7 +171,7 @@ export function readCatalog(raw) {
  */
 export function entryStatus(entry, installed, appVersion = APP_VERSION) {
   const app = entry.app;
-  const incompatible = Object.hasOwn(entry, 'app') && (typeof app !== 'string' || app.trim() === '' || !isVersionRange(app) || !appVersionMatches(app, appVersion));
+  const incompatible = Object.hasOwn(entry, 'app') && (typeof app !== 'string' || app.trim() === '' || !isVersionRange(app) || !appCompatible(app, appVersion));
   const installedVersion = installed === undefined ? null : installed;
   if (incompatible) return { status: 'incompatible', installedVersion };
   if (installed === undefined) return { status: 'available', installedVersion: null };

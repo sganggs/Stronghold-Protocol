@@ -35,7 +35,7 @@ import { useGameData, makeLookups, BandIcon, BondGlyph, Img } from '../ui/gameCo
 import { data, useData } from '../data.js';
 import { fmtNum, diyRecordFor, cardStandIn } from '../ui/gameLogic.js';
 import { useDocClass } from '../ui/device.js';
-import { uiUrl, chessAvatarUrl, chessPortraitUrl, itemIconUrl } from '../ui/assetUrls.js';
+import { uiUrl, chessAvatarUrl, chessPortraitUrl, itemIconUrl, medalIconUrl } from '../ui/assetUrls.js';
 import { identity } from '../net.js';
 import { TITLE_HEX_SECTORS, titleSectorClip } from '../ui/titleHexagon.js';
 import { store, createStore, useStore, selectRoute } from '../store.js';
@@ -50,7 +50,7 @@ import { t, N_ } from '../../../shared/i18n.js';
 import { scriptOf } from '../../../shared/i18nPacks.js';
 import { VersionTag } from '../ui/pluginTag.js';
 import { contentSet, retryContentSet } from '../content.js';
-import { DEFAULT_VERSION, shownVersion, seasonOf, versionLabel, welcomeVersion } from '../versions.js';
+import { DEFAULT_VERSION, roomPluginCs, shownVersion, seasonOf, versionContentStatus, versionLabel, welcomeVersion } from '../versions.js';
 import { VERSIONS } from '../../../shared/versions.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
@@ -168,7 +168,7 @@ function ProfileBlock({ agg, gd, nickname }) {
         <div class="st-profile">
           <b class="st-profile__name">Dr. ${nickname || t('未知')}</b>
           <div class="st-profile__trophies" title=${t('累计本机保留战绩中获得的奖杯')}>
-            <${Img} src=${uiUrl(gd.m, `medalIcon/${trophyMedalOf(agg.trophies, gd.config?.trophies?.medals)?.iconId || ''}`)}
+            <${Img} src=${medalIconUrl(gd.m, trophyMedalOf(agg.trophies, gd.config?.trophies?.medals)?.iconId || '')}
               class="st-profile__medal" fallback=${html`<${Icon} name="crown" />`} />
             <div><span>${t('获得奖杯')}</span><b class="num">${fmtNum(agg.trophies)}</b></div>
           </div>
@@ -590,10 +590,13 @@ function Replay({ rec, onBack }) {
   const gd = useGameData();
   const res = useMemo(() => recordToResult(rec), [rec]);
   const version = recordVersion(rec);
-  const versionReady = useStore((c) => (version === DEFAULT_VERSION ? c.kind !== 'version' : c.kind === 'version' && c.version === version && c.status === 'ready'), Object.is, contentSet);
-  const failed = useStore((c) => version !== DEFAULT_VERSION && c.kind === 'version' && c.version === version && c.status === 'failed', Object.is, contentSet);
-  const shown = useStore(shownVersion);
   const inRoom = useStore((s) => !!s.room);
+  // the default data: any set but another version's; another version: its own set or the room's plugin set on it (§37.210)
+  const roomCs = useStore(roomPluginCs);
+  const versionState = useStore((c) => (version === DEFAULT_VERSION ? (c.kind === 'version' ? 'loading' : 'ready') : versionContentStatus(c, version, roomCs)), Object.is, contentSet);
+  const versionReady = versionState === 'ready';
+  const failed = version !== DEFAULT_VERSION && versionState === 'failed';
+  const shown = useStore(shownVersion);
   const offered = useStore((s) => versionOffered(s, version));
   if (!gd.ready || !versionReady || shown !== version) {
     return html`<${ReplayWait} version=${version} otherInRoom=${inRoom && shown !== version} offered=${offered} failed=${failed} inRoom=${inRoom} onBack=${onBack} />`;

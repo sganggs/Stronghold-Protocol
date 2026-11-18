@@ -1,0 +1,206 @@
+{
+  "date": "2026-11-13",
+  "version": "act3autochess@V3_1",
+  "pinnedTable": "6f63c14e27b847ef74b53b00fe51fc322b3cd7ff",
+  "sources": [
+    "https://prts.wiki/w/萨卡兹子裔战士",
+    "https://prts.wiki/w/萨卡兹子裔工匠",
+    "https://prts.wiki/w/萨卡兹子裔链术师",
+    "https://prts.wiki/w/萨卡兹子裔集怒者",
+    "https://prts.wiki/w/萨卡兹子裔毁击者",
+    "https://prts.wiki/w/萨卡兹子裔责罚者",
+    "https://prts.wiki/w/萨卡兹子裔惩戒者",
+    "https://prts.wiki/w/萨卡兹骸骨卫士长"
+  ],
+  "records": {
+    "enemy_1222_dpvt": {
+      "name": "萨卡兹子裔战士",
+      "talents": {
+        "bb": {
+          "deathrattle.delay": 1
+        },
+        "bbStr": {
+          "deathrattle.enemy_key": "enemy_1220_dzoms"
+        }
+      }
+    },
+    "enemy_1222_dpvt_2": {
+      "name": "萨卡兹子裔战士组长",
+      "talents": {
+        "bb": {
+          "deathrattle.delay": 1
+        },
+        "bbStr": {
+          "deathrattle.enemy_key": "enemy_1220_dzoms_2"
+        }
+      }
+    },
+    "enemy_1223_dmech": {
+      "name": "萨卡兹子裔工匠",
+      "talents": {
+        "bb": {
+          "deathrattle.delay": 1
+        },
+        "bbStr": {
+          "deathrattle.enemy_key": "enemy_1220_dzoms"
+        }
+      }
+    },
+    "enemy_1223_dmech_2": {
+      "name": "萨卡兹子裔工匠组长",
+      "talents": {
+        "bb": {
+          "deathrattle.delay": 1
+        },
+        "bbStr": {
+          "deathrattle.enemy_key": "enemy_1220_dzoms_2"
+        }
+      }
+    },
+    "enemy_1225_dkmage": {
+      "name": "萨卡兹子裔链术师",
+      "talents": {
+        "bb": {
+          "epdamage.attack@ep_damage_ratio": 0.3,
+          "epdamage.attack@max_target": 4,
+          "epdamage.attack@chain.atk_scale": 0.85,
+          "deathrattle.delay": 1,
+          "epdamage.attack@projectile_range": 1.6
+        },
+        "bbStr": {
+          "deathrattle.enemy_key": "enemy_1221_dzomg"
+        }
+      }
+    },
+    "enemy_1225_dkmage_2": {
+      "name": "萨卡兹子裔链术师组长",
+      "talents": {
+        "bb": {
+          "epdamage.attack@ep_damage_ratio": 0.3,
+          "epdamage.attack@max_target": 4,
+          "epdamage.attack@chain.atk_scale": 0.85,
+          "deathrattle.delay": 1,
+          "epdamage.attack@projectile_range": 1.6
+        },
+        "bbStr": {
+          "deathrattle.enemy_key": "enemy_1221_dzomg_2"
+        }
+      }
+    },
+    "enemy_1226_dklord": {
+      "name": "萨卡兹子裔集恨者",
+      "talents": {
+        "bb": {
+          "deathrattle.delay": 1,
+          "aura.atk": 0.15,
+          "aura.max_valid_stack_cnt": 6
+        },
+        "bbStr": {
+          "deathrattle.enemy_key": "enemy_1221_dzomg"
+        }
+      }
+    },
+    "enemy_1226_dklord_2": {
+      "name": "萨卡兹子裔集怒者",
+      "talents": {
+        "bb": {
+          "deathrattle.delay": 1,
+          "aura.atk": 0.25,
+          "aura.max_valid_stack_cnt": 6
+        },
+        "bbStr": {
+          "deathrattle.enemy_key": "enemy_1221_dzomg_2"
+        }
+      }
+    },
+    "enemy_1361_dthrow": {
+      "name": "萨卡兹子裔轰击者",
+      "talents": {
+        "bb": {
+          "Attack.attack@projectile_delay_time": 4,
+          "Attack.delay": 1,
+          "Attack.attack@projectile_radius": 1.1
+        },
+        "bbStr": {
+          "Attack.enemy_key": "enemy_1220_dzoms"
+        }
+      }
+    },
+    "enemy_1361_dthrow_2": {
+      "name": "萨卡兹子裔毁击者",
+      "talents": {
+        "bb": {
+          "Attack.attack@projectile_delay_time": 4,
+          "Attack.delay": 1,
+          "Attack.attack@projectile_radius": 1.1
+        },
+        "bbStr": {
+          "Attack.enemy_key": "enemy_1220_dzoms_2"
+        }
+      }
+    },
+    "enemy_1362_dfat": {
+      "name": "萨卡兹子裔责罚者",
+      "talents": {
+        "bb": {},
+        "bbStr": {
+          "Attack.enemy_key": "enemy_1221_dzomg"
+        }
+      }
+    },
+    "enemy_1362_dfat_2": {
+      "name": "萨卡兹子裔惩戒者",
+      "talents": {
+        "bb": {},
+        "bbStr": {
+          "Attack.enemy_key": "enemy_1221_dzomg_2"
+        }
+      }
+    },
+    "enemy_1363_spnshd_2": {
+      "name": "萨卡兹骸骨卫士长",
+      "talents": {
+        "bb": {
+          "BmbcarBuff.range_radius": 1,
+          "Summon.cnt": 2,
+          "Summon.attack_speed": -40,
+          "Summon.duration": 5
+        },
+        "bbStr": {
+          "Summon.enemy_key": "enemy_1367_dseed"
+        }
+      }
+    },
+    "enemy_1133_harchn": {
+      "name": "变异巨岩蛛",
+      "talents": {
+        "bb": {
+          "deathrattle.cnt": 4,
+          "deathrattle.offset_bound": 0.2,
+          "deathrattle.delay": 0.2
+        },
+        "bbStr": {
+          "deathrattle.enemy_key": "enemy_1137_plasm"
+        }
+      }
+    },
+    "enemy_1133_harchn_2": {
+      "name": "变异巨岩蛛α",
+      "talents": {
+        "bb": {
+          "deathrattle.cnt": 4,
+          "deathrattle.offset_bound": 0.2,
+          "deathrattle.delay": 0.2
+        },
+        "bbStr": {
+          "deathrattle.enemy_key": "enemy_1138_tumor"
+        }
+      }
+    }
+  },
+  "scope": "Death summon registration and battle lifetime; other unmapped enemy abilities are not claimed complete.",
+  "unchangedApproximations": [
+    "Existing parent-position / remaining-route spawning; native nearest-passable-tile random scatter is not newly modelled.",
+    "Existing runtime summon accounting and inherited stat modifiers."
+  ]
+}

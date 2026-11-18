@@ -155,6 +155,9 @@
 .rs-key__link:hover, .rs-key__link:focus-visible { border-color: rgba(255, 255, 255, .4); }
 .rs-key__link .icon { width: 60%; height: 60%; }
 .rs-key--solo { gap: .1rem; padding-right: .2rem; font-size: calc(.16 * var(--t)); color: #b7bdbb; }
+/* beside a longer title (规程: 「Regulation Level 1」 and the version on two lines) 「SINGLE OPERATOR / 1 Doctor only」
+   wraps at 大 / 特大 in an 800–960 px window: the plate grows with it instead of cutting the second line */
+.rs-key--solo { height: auto; min-height: max(.56rem, 32px, calc(34px * var(--sp-ui, 1))); padding-block: 2px; }
 
 /* ---- seats: a tall card (strip, portrait, state) and the name plate under it ---------------------------------- */
 .rs-seats {
@@ -335,6 +338,27 @@
   border-radius: 999px;
 }
 .rseat__kick .icon { width: max(.2rem, 12px); height: max(.2rem, 12px); }
+/* 转为观战 on one's own card (room.js SeatCard): the kick's corner, free on one's own card; only on a short screen, where
+   the 观战席 bar gives its line up (below) — elsewhere the bar's own button */
+.rseat__spectate {
+  position: absolute;
+  right: -.08rem;
+  top: -.12rem;
+  z-index: 3;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: max(.4rem, 24px);
+  height: max(.4rem, 24px);
+  padding: 0;
+  color: #eef0ef;
+  background: rgba(0, 0, 0, .7);
+  border: 1px solid rgba(255, 255, 255, .45);
+  border-radius: 999px;
+}
+.rseat__spectate .icon { width: max(.2rem, 12px); height: max(.2rem, 12px); }
+.rseat__spectate:hover:not(:disabled), .rseat__spectate:focus-visible { border-color: var(--mint-400); }
+.rseat__spectate:disabled { opacity: .45; }
 .rseat__kick .icon + .icon { width: max(.14rem, 9px); margin-left: -2px; }
 .rseat__kick:hover:not(:disabled), .rseat__kick:focus-visible { filter: brightness(1.3); }
 .rseat__pick {
@@ -499,6 +523,12 @@
 /* a name's lines balanced, so none ends in one character (§35.18 review: 「アンジェリー|ナ」, 「维娜·维多利|亚」 at 小, and
    「ファートゥー|ス」, which `pretty` kept in Chrome and none of which it changed in Safari) */
 .cardpick__name { text-wrap: balance; }
+/* a name with a Latin word of 12+ characters is set smaller (room.js longWord: English 「Leizi the Thunderbringer」 —
+   「Thunderbringer」 alone ran past the tile at every 文字大小 on the phones — and 「Miss.Christine」 at 小); a word still
+   wider than the tile breaks inside it (break-word, not anywhere: with `balance` that split words that fit). [ASSUMED] .115
+   (×.82 of the names' .14) */
+.cardpick__name { overflow-wrap: break-word; }
+.cardpick__name.is-long { font-size: calc(.115 * var(--t)); }
 .cardpick__star { position: absolute; top: .04rem; right: .04rem; padding: 0 .04rem; background: #d9dedc; color: #111; font-size: calc(.12 * var(--t)); font-weight: 800; }
 .cardpick__op.r6 .cardpick__star { background: #ffcf5a; }
 .cardpick__op.r5 .cardpick__star { background: #f2e06b; }
@@ -718,11 +748,18 @@
   .rseat__invite b { font-size: min(calc(.34 * var(--t)), calc(18px + var(--t-step) / 2)); line-height: 1.15; }
   .rseat__wait small { font-size: min(calc(.16 * var(--t)), calc(15px + var(--t-step) / 2)); }
   .rseat__add { margin-top: 2px; }
+  /* PR #910 put 观战席 on every co-op room, a line the seats had here (the caps around assume it: 「Add AI Teammate」 /
+     「Standing by」 ran past the cards at 大 / 特大 on the 640 / 667 px phones). With nobody watching the bar gives the line
+     back, and 转为观战 sits on one's own card instead (its corner, .rseat__spectate) — also while spectators fill the bar,
+     so the bar wraps no second line for it. [ASSUMED] */
+  .specbar--empty, .specbar [data-testid="room-spectate"] { display: none; }
+  .rseat__spectate { display: inline-flex; }
   .rseat__plus { width: 26px; height: 26px; }
   .rseat__plus::before { width: 5px; }
   .rseat__plus::after { height: 5px; }
   /* the picker's names (and with them its tiles, 6.6em wide) capped, so a phone at 特大 keeps five tiles a row. [ASSUMED] */
   .cardpick__grid, .cardpick__name { font-size: min(calc(.14 * var(--t)), 11px); }
+  .cardpick__name.is-long { font-size: min(calc(.115 * var(--t)), calc(11px + var(--t-step) / 2)); }
   .rs-foot { padding-bottom: 8px; gap: 8px; }
   /* the mode line, the status line (a spectator's runs to two lines) and 独立模拟's briefing, capped so the seat cards keep
      their height (at 特大 the .28 × --t status took four lines on a 640×360 phone and left the cards 40 px); each a pixel
@@ -791,6 +828,13 @@
 /* ---- official versions (DESIGN §35.23): the version pill beside the difficulty, ⚙'s 版本 row, the banner; the name ends
    in an ellipsis in the pill (a phone, a long language) ---- */
 .rs-clock__ver { margin-left: .1rem; }
+/* the version beside the mode holds its whole name, on two lines if it must (English 「Regulation · Sequence I」 at 大 /
+   特大 ended in an ellipsis or ran past the tag). A short screen gives its line to the seats, as it does the banner's
+   (below): the footer's version pill names the version (its tooltip and picker; on a 规程-default server every room
+   showed the tag, and its second line ran the seat cards' text past them at 特大). [ASSUMED] */
+.rs-clock__ver { height: auto; min-height: .26rem; padding-block: 1px; line-height: 1.15; white-space: normal; }
+.rs-clock__ver .vertag__label { white-space: normal; text-overflow: clip; }
+@media (max-height: 520px) { .rs-clock__ver { display: none; } }
 /* The tooltip must carry the pill's height: an auto-height wrapper makes its child's 78% resolve to auto. */
 .rs-pill__version { height: 100%; min-width: 0; align-items: center; }
 .rs-pill__ver {

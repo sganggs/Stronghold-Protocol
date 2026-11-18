@@ -216,6 +216,8 @@ describe('extracted board files (when a local client was extracted)', { skip: !m
 
   test('the WebP copies the manifest lists are on disk with their PNGs beside them', { skip: !hasFiles && 'files not extracted' }, () => {
     for (const [g, entries] of Object.entries(manifest.groups)) {
+      // the official theme packs (extract.py --only theme, docs/ASSETS.md) are WebP-only, not WebP copies of PNGs
+      if (g.startsWith('themes/')) continue;
       for (const [n, e] of Object.entries(entries)) {
         if (!/\.webp$/.test(e?.path || '')) continue;
         assert.ok(existsSync(onDisk(e.path)), `${g}/${n}`);

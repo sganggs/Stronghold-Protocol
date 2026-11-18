@@ -3,6 +3,7 @@
 // Used by test/e2e/coop.e2e.mjs. Not a test file itself (it only exports helpers).
 
 import { seedReleaseRead } from '../helpers/releaseNotes.js';
+import { DEFAULT_VERSION } from '../../shared/versions.js';
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
 import net from 'node:net';
@@ -203,6 +204,11 @@ export async function startRealServer(opts = {}) {
     if (opts.fast.slowSpawns) env.SP_SLOW_SPAWNS = String(opts.fast.slowSpawns);
     if (opts.pluginsDir) env.SP_PLUGINS_DIR = opts.pluginsDir;
   }
+  // the server's default version (the lobby's preselect, what lobby settings are checked against): 第二期下半, the version
+  // the suites were written on (Client's lobbyVersion agrees) — a 盟约 lobby on a 规程-default server keeps its settings
+  // until a room (public/js/ui/loadoutSync.js canSendSettings). { env: { SP_VERSION_DEFAULT: null } } is a stock server
+  // (规程, shared/versions.js LOBBY_DEFAULT_VERSION).
+  env.SP_VERSION_DEFAULT ||= DEFAULT_VERSION;
   // extra environment for the server. Unset enables every official version; { SP_VERSIONS: 'act2autochess' } hides the
   // switch (DESIGN §35.23). A null value unsets a variable.
   if (opts.env && typeof opts.env === 'object') for (const [k, v] of Object.entries(opts.env)) { if (v == null) delete env[k]; else env[k] = String(v); }
@@ -247,11 +253,12 @@ export async function startRealServer(opts = {}) {
  */
 export class Client {
   /**
-   * `lobbyVersion`: the version this browser's lobby preselects (`sp.pref.lobby.version`, set before the page loads).
-   * Since 2026-11-09 the lobby starts on 规程 (LOBBY_DEFAULT_VERSION); a suite about a 盟约 screen (the 4-slot 自选编队)
-   * passes the default version's id. Null leaves the browser's own choice.
+   * `lobbyVersion`: the version this browser's lobby starts on (`sp.pref.lobby.version`, written before the first load
+   * while the browser has none: a version picked in the page survives its reloads). Default: DEFAULT_VERSION, 第二期下半
+   * — the suites were written on 盟约 (its difficulty names, the 4-slot 自选编队, no 选择自编 step); since 2026-11-09 a
+   * fresh browser's lobby starts on 规程 (LOBBY_DEFAULT_VERSION), which `null` keeps (the browser's own choice).
    */
-  constructor(puppeteer, base, label, { w = 1920, h = 1080, prefix = 'coop', lobbyVersion = null } = {}) {
+  constructor(puppeteer, base, label, { w = 1920, h = 1080, prefix = 'coop', lobbyVersion = DEFAULT_VERSION } = {}) {
     Object.assign(this, { puppeteer, base, label, w, h, prefix, lobbyVersion, problems: [], log: [], shots: [] });
   }
 
@@ -275,11 +282,11 @@ export class Client {
     });
     page.on('response', (r) => { if (r.status() >= 400) this.problems.push(`http ${r.status()}: ${r.url()}`); });
     page.on('dialog', (d) => d.dismiss().catch(() => {}));
-    await seedReleaseRead(page);
+    await seedReleaseRead(page, { film: true });
     if (this.lobbyVersion) {
       await page.evaluateOnNewDocument((id) => {
         if (window.top !== window || !/^https?:$/.test(location.protocol)) return;
-        localStorage.setItem('sp.pref.lobby.version', JSON.stringify(id));
+        if (localStorage.getItem('sp.pref.lobby.version') == null) localStorage.setItem('sp.pref.lobby.version', JSON.stringify(id));
       }, this.lobbyVersion);
     }
     await page.goto(`${this.base}/${query}`, { waitUntil: 'domcontentloaded' });

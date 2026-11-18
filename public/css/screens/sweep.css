@@ -1,9 +1,9 @@
 /* ==========================================================================================
    screens/sweep.css — S.W.E.E.P.报告 (js/screens/sweep.js): the event's report screen (the event video 2:17 – 3:03) as a
    full-screen Modal over the lobby — a misty light-grey field, the top bar (back · ⓘ at the left, three tabs at the
-   right), a detail column at the left and sections of dark tiles at the right; the enemy codex is a second full-screen
-   Modal over it. Read-only: nothing here changes a setting or the loadout. Every font size follows 设置 → 文字大小
-   (`--t`, css/theme.css), floored in px for phones.
+   right; 规程 adds 装备报告, .sw-tabs--4), a detail column at the left and sections of dark tiles at the right; the
+   enemy codex is a second full-screen Modal over it. Read-only: nothing here changes a setting or the loadout. Every
+   font size follows 设置 → 文字大小 (`--t`, css/theme.css), floored in px for phones.
    ========================================================================================== */
 /* the report and the codex are full-screen Modals (ui/components.js Modal: focus trap, Esc, focus restored) */
 /* Content must be visible even with a paused animation timeline (§35.113). Include the Modal veil: its shared
@@ -57,6 +57,8 @@
 .sw-tab.is-on { color: #fff; background: linear-gradient(180deg, #2c3231, #151918); box-shadow: 0 .03rem .1rem rgba(0, 0, 0, .4); }
 .sw-tab__icon { display: grid; place-items: center; }
 .sw-tab__icon .icon { width: max(.28rem, 16px); height: max(.28rem, 16px); }
+/* 规程's fourth tab only — 盟约's three keep the widths above. [ASSUMED] the bar shrinks so four labels fit a phone. */
+.sw-tabs--4 .sw-tab { min-width: max(1.7rem, 32px, calc(76px * var(--sp-ui, 1))); padding: 0 .14rem; }
 /* ---- body ---- */
 .sw-body { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 4.3fr) minmax(0, 5.7fr); gap: .5rem; padding: .1rem .34rem .26rem .3rem; }
 .sw-left { min-height: 0; display: flex; flex-direction: column; }
@@ -79,6 +81,14 @@
 .sw-hero__txt { font-size: max(calc(.6 * var(--t)), 28px); font-weight: 900; color: rgba(255, 255, 255, .7); }
 .sw-hero__box > .sw-hero__img > .icon, .sw-hero__img > svg { width: 50%; height: 50%; color: rgba(255, 255, 255, .7); }
 .sw-hero__name { margin: .04rem 0 0; font-size: max(calc(.34 * var(--t)), 17px); font-weight: 900; letter-spacing: .06em; text-shadow: 0 1px .08rem rgba(0, 0, 0, .55); }
+.sw-hero--item .sw-hero__name { max-width: 100%; text-align: center; line-height: 1.25; }
+.sw-hero__box.is-item { width: max(1.7rem, 32px, calc(88px * var(--sp-ui, 1))); height: max(1.7rem, 32px, calc(88px * var(--sp-ui, 1))); }
+/* the same definite cells as the tiles, so a tall item fits the frame instead of spilling over it */
+.sw-hero__box.is-item { grid-template: minmax(0, 1fr) / minmax(0, 1fr); }
+.sw-hero__box.is-item .sw-hero__img { grid-template: minmax(0, 1fr) / minmax(0, 1fr); width: 74%; height: 74%; min-width: 0; min-height: 0; border-radius: 0; background: none; box-shadow: none; }
+.sw-hero__box.is-item .sw-hero__img img { display: block; width: 100%; height: 100%; min-width: 0; min-height: 0; object-fit: contain; filter: none; }
+.sw-hero__tier { position: absolute; z-index: 2; top: -.06rem; right: -.08rem; }
+.sw-hero .sw-hero__tier { --tier-h: max(.4rem, 22px); }
 .sw-hero__sub { font-size: max(calc(.16 * var(--t)), 11px); color: #c4ccca; }
 .sw-facts { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: .1rem; }
 .sw-pill { display: inline-flex; align-items: baseline; gap: .1rem; padding: .04rem .2rem; font-size: max(calc(.19 * var(--t)), 12px); color: #dfe5e3;
@@ -92,6 +102,15 @@
 .sw-text p { margin: 0; }
 .sw-text .rt span, .sw-cd__desc span, .sw-cd__abil .rt span { font-size: inherit; }
 .sw-text__h { margin: 0 0 .04rem; font-size: max(calc(.21 * var(--t)), 13px); color: var(--mint-300, #8ff0d2); }
+/* 装备报告's 基础效果 / 进阶效果 as the official chips: a grey tag, the 进阶 one gold with dark ink, an up-chevron before the
+   words (official 规程 report, BV11NW869ELq part 1 ≈ 33:20; owner 2026-11-12 asked to tidy the new tab) */
+.sw-fx__k { display: flex; align-items: center; gap: .05rem; width: fit-content; margin: .16rem 0 .06rem; padding: .02rem .1rem .02rem .07rem; border-radius: .05rem;
+  font-size: max(calc(.15 * var(--t)), 10px); font-weight: 800; letter-spacing: .08em; line-height: 1.35; color: #e8edeb; background: rgba(78, 85, 83, .92); }
+.sw-fx__k::before { content: ''; flex: none; width: .9em; height: .62em; background: currentColor; opacity: .85;
+  clip-path: polygon(0 100%, 50% 18%, 100% 100%, 74% 100%, 50% 58%, 26% 100%); }
+.sw-text > .sw-fx__k:first-child { margin-top: 0; }
+.sw-fx__k--gold { color: #221d0d; background: #e8c650; }
+.sw-text .sw-flavor { margin-top: .18rem; font-size: max(calc(.17 * var(--t)), 11px); font-style: italic; line-height: 1.55; color: #aeb7b4; }
 .sw-text .sw-text__bonds { margin-top: .12rem; display: flex; flex-wrap: wrap; align-items: center; gap: .08rem; font-size: max(calc(.16 * var(--t)), 11px); color: #c7cfcd; }
 .sw-chip { display: inline-flex; align-items: center; gap: .05rem; padding: .02rem .1rem .02rem .05rem; font-size: max(calc(.16 * var(--t)), 11px); color: #eef2f1;
   background: rgba(24, 29, 28, .8); border: 1px solid rgba(255, 255, 255, .12); text-shadow: none; }
@@ -145,6 +164,9 @@ button.sw-eth:hover { border-color: #fff; }
 .sw-sec__glyph { position: absolute; left: 50%; top: 0; transform: translate(-50%, -62%); display: grid; place-items: center; width: max(.38rem, 22px); height: max(.38rem, 22px);
   color: var(--sw-ink); background: linear-gradient(180deg, #f2f5f4, #c5cdcb); box-shadow: 0 .02rem .08rem rgba(0, 0, 0, .35); }
 .sw-sec__glyph .icon { width: 64%; height: 64%; }
+/* 装备报告: the tier chip sits in the glyph's place, above `[ N阶 ]`. The other sections keep the filled square. */
+.sw-sec--tier .sw-sec__glyph { width: auto; height: auto; background: none; box-shadow: none; }
+.sw-sec--tier .sw-sec__glyph .tier { --tier-h: max(.46rem, 26px); }
 .sw-sec__name { display: inline-flex; align-items: center; gap: .14rem; font-size: max(calc(.25 * var(--t)), 14px); font-weight: 800; letter-spacing: .1em; color: #f1f4f3; }
 .sw-sec__name i { font-style: normal; font-weight: 300; font-size: 1.3em; color: rgba(241, 244, 243, .6); }
 .sw-sec__name small { font-size: .6em; font-weight: 600; letter-spacing: 0; color: rgba(241, 244, 243, .5); }
@@ -173,6 +195,13 @@ button.sw-eth:hover { border-color: #fff; }
 .sw-glyph { display: grid; place-items: center; width: 72%; aspect-ratio: 1; margin-bottom: 8%; }
 .sw-glyph img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 0 .08rem rgba(255, 255, 255, .55)); }
 .sw-glyph .icon { width: 70%; height: 70%; }
+/* 装备报告 tiles: the item icon, five per row on the shared grid (four below 640px). [ASSUMED] that grid, not a new count. */
+/* The tile's grid has one definite cell (minmax(0, 1fr) both ways): with auto tracks the 68 % height did not resolve, so a
+   tall icon (伪装服, the 兔子 plush …) took its height from the 68 % width and was cut by the tile (owner, 2026-11-12). */
+.sw-tile--item .sw-tile__in { grid-template: minmax(0, 1fr) / minmax(0, 1fr); }
+.sw-item { display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); place-items: center; width: 68%; height: 68%; min-width: 0; min-height: 0; }
+.sw-item img { display: block; width: 100%; height: 100%; min-width: 0; min-height: 0; object-fit: contain; }
+.sw-item__txt { font-size: max(calc(.28 * var(--t)), 14px); font-weight: 900; color: rgba(238, 242, 241, .75); }
 .sw-allcodex { display: flex; align-items: center; gap: .16rem; width: 100%; margin: 0 0 .1rem; padding: .14rem .22rem; font: inherit; text-align: left; color: #eef2f1; cursor: pointer;
   background: linear-gradient(90deg, rgba(24, 29, 28, .86), rgba(24, 29, 28, .62)); border: 1px solid rgba(255, 255, 255, .12); }
 .sw-allcodex:hover { border-color: var(--mint-500); }
@@ -248,7 +277,11 @@ button.sw-eth:hover { border-color: #fff; }
   .sw-detail { flex: none; }
   .sw-text { flex: none; overflow: visible; min-height: 0; }
   .sw-hero__box { height: 64px; } .sw-hero__box.is-art { width: 64px; }
+  .sw-hero__box.is-item { width: 64px; height: 64px; }
   .sw-hero__img { width: 50px; height: 50px; }
+  /* a landscape phone is short: four tabs scroll instead of covering the back button */
+  .sw-tabs--4 { overflow-x: auto; scrollbar-width: none; }
+  .sw-tabs--4 .sw-tab { min-width: 0; }
   .sw-hero__name { font-size: max(calc(0.375 * var(--t)), 15px); }
   .sw-sec__grid { gap: 8px; padding: 10px 10px 0; }
   .sw-tile__cap { display: none; }
@@ -272,3 +305,9 @@ button.sw-eth:hover { border-color: #fff; }
   .sw__mist { animation: none; }
   .sw-tile { transition: none; }
 }
+/* The report's own heads stay a centered grid. Reused captions in the detail card are a row, or the later
+   sheet's grid would center them and float the glyph. Settings already beats this with a more specific rule. */
+.dpanel .dsec__title.sw-sec__head {
+  display: flex; place-items: unset; align-items: baseline; justify-content: flex-start; height: auto; gap: .1rem;
+}
+.dpanel .dsec__title .sw-sec__glyph { position: static; left: auto; top: auto; transform: none; flex: none; width: max(.28rem, 16px); height: max(.28rem, 16px); }

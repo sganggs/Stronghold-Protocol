@@ -12,6 +12,18 @@
   transform-origin: bottom right;
 }
 @keyframes shop-up { from { opacity: 0; transform: translateY(.3rem); } }
+/* The official shop background behind both shops (§37.238; ui/shopBar.js ShopBackdrop, ui/regHud.js regShopBackdropModel):
+   the face pack's full-width bottom shadow and its corner decorations. A sibling before the shop in the HUD, so the deploy
+   fold's scale on the shop leaves it whole; behind every HUD control (z-index -1 in the HUD's stacking context, still over
+   the field); out to the screen's edges past the safe-area insets. Its layers sit on the bottom edge. */
+.gm__hud > .shopbg {
+  position: absolute; z-index: -1; pointer-events: none; overflow: hidden;
+  top: calc(-1 * var(--sa-t, 0px)); right: calc(-1 * var(--sa-r, 0px)); bottom: calc(-1 * var(--sa-b, 0px)); left: calc(-1 * var(--sa-l, 0px));
+  animation: shopbg-in var(--t-slow) var(--ease-out);
+}
+.shopbg__layer { position: absolute; display: block; pointer-events: none; }
+.shopbg__layer > i { position: absolute; inset: 0; display: block; background-position: center; background-repeat: no-repeat; background-size: 100% 100%; }
+@keyframes shopbg-in { from { opacity: 0; } }
 /* Official layout (research 06 §11.2 / D3): "剩余可放置角色: N" on its own line, right-aligned ABOVE [冻结] [刷新]. On one
    line the block reached over the bench's last pads (整备区 slot 9 at 16:9 under the official shop camera). Only the
    bar's parts take the pointer: its box spans the empty space left of the tools, which used to swallow drags and taps
@@ -70,6 +82,9 @@
 .lvcard:hover:not(.is-disabled) { filter: brightness(1.08); }
 .lvcard:active:not(.is-disabled) { transform: translateY(1px); }
 .lvcard__price { position: absolute; top: .08rem; left: 50%; transform: translateX(-50%); }
+/* The level sprite of a theme / the 规程 pack (shop_level_N, 「LEVEL」 and the numeral): shown only when one is set. */
+.lvcard__plate { display: none; position: absolute; left: 50%; top: 46%; width: 1rem; height: 1rem; transform: translate(-50%, -50%);
+  background-position: center; background-size: contain; background-repeat: no-repeat; pointer-events: none; }
 .lvcard__frame { position: relative; display: flex; flex-direction: column; align-items: center; padding: .04rem .16rem .02rem; border: 2px solid rgba(6, 17, 13, .75); }
 .lvcard__frame::before, .lvcard__frame::after { content: ''; position: absolute; width: .1rem; height: .1rem; border: 2px solid var(--text-on-mint); }
 .lvcard__frame::before { left: -.06rem; top: -.06rem; border-right: 0; border-bottom: 0; }
@@ -131,6 +146,21 @@
 .scard__bond.is-off { color: var(--text-dim); text-decoration: line-through; text-decoration-color: rgba(255, 84, 84, .6); } /* the mode never activates it (标准) */
 .scard__class { display: flex; align-items: center; gap: .05rem; font-size: .13rem; color: var(--text-lo); }
 .scard__prof { width: .18rem; height: .18rem; object-fit: contain; opacity: .85; }
+/* An operator the player already holds (ui/shopBar.js `repeat`, §37.201): the official card's repeated-operator effect —
+   autochess_shop_card_item _repeatedFxNode (state_fx_triple), whose loop_triple clip fades its outline in to .8 and its
+   flow layer to .55 over a third of a second: the client's white frame_outline (ui/battle) in the theme's light colour, a
+   breathing glow rising from the bottom. [ASSUMED] the tint and the flow's motion (no recording frame shows it close up). */
+.scard__repeat { position: absolute; inset: -1px; z-index: 4; pointer-events: none; --repeat-c: var(--sp-c-skin-light, #ffe9a6);
+  box-shadow: inset 0 0 0 2px var(--repeat-c), 0 0 .12rem var(--repeat-c); opacity: .8; animation: scard-repeat-in .33s ease-out both; }
+.scard__repeat.has-art { box-shadow: 0 0 .1rem var(--repeat-c); background: var(--repeat-c);
+  -webkit-mask: var(--repeat-art) center / 100% 100% no-repeat; mask: var(--repeat-art) center / 100% 100% no-repeat; }
+.scard__repeatglow { position: absolute; left: 0; right: 0; bottom: 0; height: 60%; z-index: 4; pointer-events: none; --repeat-c: var(--sp-c-skin-light, #ffe9a6);
+  background: linear-gradient(0deg, rgba(255, 233, 166, .34), transparent);
+  background: linear-gradient(0deg, color-mix(in srgb, var(--repeat-c) 34%, transparent), transparent); animation: scard-repeat-flow 2.5s ease-in-out infinite; }
+.scard.is-repeat .scard__art { filter: brightness(1.06); }
+@keyframes scard-repeat-in { from { opacity: 0; } }
+@keyframes scard-repeat-flow { 0%, 100% { opacity: .35; } 50% { opacity: .62; } }
+@media (prefers-reduced-motion: reduce) { .scard__repeat, .scard__repeatglow { animation: none; } }
 .scard__mergetag { position: absolute; z-index: 3; right: 0; top: .38rem; font-size: .12rem; font-weight: 700; padding: .01rem .06rem; background: var(--gold); color: #1d1400; letter-spacing: .08em; }
 /* 0.2.0 补位: a chess the player does not own shows its stand-in (ui/shopBar.js ChessCard) — a small 「替补」 mark */
 .scard__standin { position: absolute; z-index: 3; left: 0; top: .38rem; max-width: calc(100% - .1rem); font-size: max(.11rem, 8px); font-weight: 700; line-height: 1.4;
@@ -161,6 +191,18 @@
 /* a slot the 调度中心's upgrade opened and nothing filled yet (ui/shopBar.js EmptyCard, also .scard--sold): the bare frame — no hatching,
    no SOLD OUT text */
 .scard--sold.scard--empty { background: rgba(8, 11, 10, .4); border-color: var(--line); }
+/* The official empty card on a 盟约 card (§37.238, ui/shopBar.js EmptyArt): the official card's box keeps its proportions,
+   as wide as the card and centred, the empty card on it as on a 规程 card; our hatching, dashed frame and SOLD OUT text
+   step aside. */
+.scard.scard--vacant.has-empty-art:not(.scard--reg) { background: none; border-color: transparent; overflow: visible; }
+.scard.scard--vacant.has-empty-art:not(.scard--reg) > .scard__soldtxt { display: none; }
+.scard__emptybox { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); display: block; pointer-events: none; }
+.scard__emptybox > .scard__prefab-layer { position: absolute; display: block; pointer-events: none; }
+.scard__emptybox > .scard__prefab-layer > i { position: absolute; inset: 0; display: block; background-position: center; background-repeat: no-repeat; background-size: 100% 100%; }
+/* A 盟约 card under the selected official theme gets that theme's card face (§37.238; 卫戍协议终端: bg_black, as on its 规程
+   card, §37.237) under the whole card, the frame ring included; our gradient face steps aside. */
+.scard.has-backing:not(.scard--reg) { background: var(--scard-under) var(--scard-under-pos, center) / var(--scard-under-size, 100% 100%) no-repeat, #151a18; }
+.scard.has-backing:not(.scard--reg) > .scard__bg { display: none; }
 
 /* ---- funds card ---- */
 .funds { width: 1.18rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .08rem; padding: .06rem; border-left: 1px solid var(--line); }

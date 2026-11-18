@@ -282,8 +282,8 @@ test('§21.26 docs: DESIGN (the subsection and the normative lines), META, PLAYI
   for (const k of ['morphPairings', 'harmonyMembers', '`harmony: 1`', 'bandBondIds', 'botPickBand', '0 of 200 and 0 of 800', '5 of 200 solo and 23 of 800 co-op',
     'shared/bandBonds.js', 'bandOffBonds', 'BandOffTag', '本局禁用【拉特兰】盟约，此策略效果可能无法发挥', 'it stays selectable']) assert.ok(s.includes(k), k);
   assert.match(doc('docs/DATA.md'), /\| `bondIds` \| `\["lateranoShip"\]` \(潘格尼尼\) \/ `\[\]` \|/, 'DATA.md bands.json bondIds');
-  assert.match(DESIGN, /bonds:\[\{bondId,count,active,tier,layers,harmony\? \/\* 调和's \+1 is in count, §21\.26 \*\/\}\]/, '§8.2');
-  assert.match(DESIGN, /bonds: \[ \{ bondId, count, active, tier, layers, harmony\? \/\* 调和's \+1 is in count, §21\.26 \*\/, thresholds, countsHand \} \]/, '§8.3');
+  assert.match(DESIGN, /bonds:\[\{bondId,count,active,tier,layers,harmony\? \/\* 调和's \+1 is in count, §21\.26 \*\/,effectId\? \/\* 规程: the effect commandBondOverrides uses; absent otherwise \*\/\}\]/, '§8.2');
+  assert.match(DESIGN, /bonds: \[ \{ bondId, count, active, tier, layers, harmony\? \/\* 调和's \+1 is in count, §21\.26 \*\/, thresholds, countsHand, effectId\? \} \]/, '§8.3');
   assert.match(DESIGN, /Strategy \(§21\.6\): pick a band \(weighted by starting LP; never one built around a bond the mode switches off — `gd\.bandBondIds`, §21\.26\)/, '§6.6');
   const META = doc('docs/META.md');
   assert.match(META, /\*\*Strategy\*\* \(`botPickBand`\)/);

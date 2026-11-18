@@ -35,3 +35,10 @@ export function itemForbidsDiy(item) {
 export function chessIsDiy(rec) {
   return !!(rec && (rec.isDiy === true || typeof rec.diyFor === 'string'));
 }
+
+/** Official per-form equipment capacity; ordinary records inherit the mode's default (normally 2). */
+export function equipmentCapacity(rec, fallback = 2) {
+  const slots = rec?.equipSlotNum;
+  if (Number.isInteger(slots) && slots > 0) return slots;
+  return Number.isInteger(fallback) && fallback > 0 ? fallback : 2;
+}

@@ -178,7 +178,10 @@ export function formatBondEffect(bond, layers = 0) {
     // a layer-scaled chance (迅捷 / 不屈 base_prob + prob_per_stack, 奇迹 baseprob + prob) stops at 100 % like the sim's
     // min(1, …) (bonds/addon procChance, meta.js 奇迹) — the card read 124 % at 266 layers (GitHub #108)
     const chance = /prob/i.test(`${p.base}|${p.perStack}`);
-    values[p.index] = chance ? Math.max(0, Math.min(1, base + per * L)) : base + per * L;
+    let v = chance ? Math.max(0, Math.min(1, base + per * L)) : base + per * L;
+    // 规程's own cap of the number (effectDescParamDataDict descParamMax: 萨尔贡's 60 %, the chances' 100 %, §37.208)
+    if (Number(p.max) > 0) v = Math.min(v, Number(p.max));
+    values[p.index] = v;
     formats[p.index] = p.format || '0';
   }
   return fillPlaceholders(src, values, formats);

@@ -10,6 +10,7 @@ import { createRng, deriveSeed } from '../../sim/rng.js';
 import { creditedKillsOf } from '../../sim/spec.js';
 import { buildBossWave, bountySpawns } from '../waves.js';
 import { pairPlayers, bossPairSalt, bossPoolHp, SharedBossPool, CreditPool, hiddenEligible, BOSS_HIT_STEPS } from '../finalAssault.js';
+import { cleanLeaderOps, syncFieldLeaderOps, leaderTopRows } from '../leaderRank.js';
 import { FieldRunner, HeadlessPacer, syntheticResult, BOSS_SILENCE_MS, CATCHUP_TICKS_PER_INTERVAL } from '../fields.js';
 import { FLOW_TICKER_PRIORITY, BOSS_CLOCK_MS, DELAYS } from './common.js';
 
@@ -64,6 +65,9 @@ export class MatchBoss {
       },
     });
     this.bossPool = pool;
+    // the operator tally of the leader ranking lives on this pool, every version (§37.149: the owner asked for it in 盟约
+    // too; 规程 only from §37.124). A new pool (the hidden round) starts empty.
+    pool.ops = new Map();
     // the round's plan (_planBossWaves: the Hidden Core's own draw, GitHub #845); a departure since keeps intact pairs
     const groups = pairPlayers(alive, createRng(deriveSeed(this.seed, bossPairSalt(this.gd, this.round))), this.bossPairs);
     this.bossPairs = groups.map(g => g.map(p => p.playerId));
@@ -202,15 +206,26 @@ export class MatchBoss {
    * A boss field's shared-pool damage, as reported cumulatively by its client (`by`: per player) — credited up to the
    * plausibility budget of the field clock; the rest is credited by later reports / the boss clock (`bossReported`).
    */
-  _creditBoss(f, cum, by) {
+  _creditBoss(f, cum, by, ops) {
     const pool = this.bossPool;
     const reported = Number(cum);
     // the team LP ran out first: the run failed at that moment (PRTS "…使目标生命值扣除至0，则无视倒计时直接失败"), so
     // damage reported afterwards — in flight, or rounded up in the final b.result — changes nothing (user playtest #6)
     if (!pool || !Number.isFinite(reported) || this._finalEnding === 'forced') return;
-    if (!f.bossReported || reported > f.bossReported.cum) f.bossReported = { cum: reported, by: by && typeof by === 'object' ? { ...by } : null };
+    if (!f.bossReported || reported > f.bossReported.cum) {
+      const next = { cum: reported, by: by && typeof by === 'object' ? { ...by } : null };
+      // a later report with no `ops` keeps the previous split; an explicit list replaces it (an empty list clears)
+      next.ops = Array.isArray(ops) ? cleanLeaderOps(ops) : (f.bossReported && Array.isArray(f.bossReported.ops) ? f.bossReported.ops : null);
+      f.bossReported = next;
+    } else if (Array.isArray(ops) && f.bossReported) {
+      f.bossReported.ops = cleanLeaderOps(ops);
+    }
+    f.opsReport = f.bossReported && Array.isArray(f.bossReported.ops) ? f.bossReported.ops : null;
     const c = Math.min(reported, this._bossDmgBudget(f));
-    if (!(c > f.bossAcked)) return;
+    if (!(c > f.bossAcked)) {
+      this._syncLeaderOps(f);
+      return;
+    }
     const delta = c - f.bossAcked;
     f.bossAcked = c;
     let attributed = 0;
@@ -228,6 +243,29 @@ export class MatchBoss {
       if (pid) f.bossBy[pid] = (f.bossBy[pid] || 0) + (delta - attributed);
       pool.damage(pid, delta - attributed);
     }
+    this._syncLeaderOps(f);
+  }
+
+  /** Fold this field's operator rows into the current pool. No-op without the pool's operator map. */
+  _syncLeaderOps(f) {
+    if (!f || !this.bossPool || !this.bossPool.ops || this._finalEnding === 'forced') return;
+    syncFieldLeaderOps(this.bossPool, f);
+  }
+
+  /**
+   * The public top 3. Server-run fields are folded here so a tick that dealt damage shows up even when no
+   * client report arrived. The cursor makes a second read add nothing.
+   */
+  _leaderTopView() {
+    const pool = this.bossPool;
+    if (!pool || !pool.ops) return [];
+    if (this._finalEnding !== 'forced') {
+      for (const f of this.fields) this._syncLeaderOps(f);
+    }
+    return leaderTopRows(pool, (pid) => {
+      const ps = this.players.get(pid);
+      return ps && Number.isInteger(ps.seat) ? ps.seat : 1e9;
+    });
   }
 
   /** A boss field's LP cost (leaks × lpr + leader LP effects): `cumulative` totals from its client, deltas from the server run. */
@@ -509,6 +547,9 @@ export class MatchBoss {
 
   _bossTick(runner) {
     this._applyOvertime(runner.time);
+    if (this.bossPool && this.bossPool.ops && this._finalEnding !== 'forced') {
+      for (const f of this.fields) this._syncLeaderOps(f);
+    }
     if (this.teamLp <= 0 && this.bossPool.hp > 0) runner.forceAll('forced');
     // client-side combat with every boss field on the server: humans that reconnect / watch run display replicas
     // whose LocalBossPool follows b.pool

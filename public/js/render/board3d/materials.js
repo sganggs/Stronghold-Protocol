@@ -296,6 +296,22 @@ export function infectionMaterial(THREE, tex, focus) {
   });
 }
 
+/** Reduced-effects fallback for the red concealment-module rim; the full mode uses the client prefab. */
+export function duelGrassMaterial(THREE, focus) {
+  return new THREE.ShaderMaterial({
+    uniforms: {uTime:{value:0}, ...focus}, vertexShader:TERRAIN_VERT,
+    fragmentShader:[
+      'uniform float uTime;', FOCUS_GLSL, 'varying vec2 vUv; varying vec3 vWorld;',
+      'void main() {',
+      'float edge = min(min(vUv.x,1.0-vUv.x),min(vUv.y,1.0-vUv.y));',
+      'float rim = (1.0-smoothstep(0.02,0.065,edge))*smoothstep(0.0,0.012,edge);',
+      'float pulse = 0.8 + 0.2 * sin(uTime * 2.0);',
+      'gl_FragColor=vec4(vec3(1.0,0.07,0.12)*focusMask(vWorld.xy),rim*pulse);',
+      '#include <colorspace_fragment>', '}',
+    ].join('\n'), transparent:true, depthWrite:false,
+  });
+}
+
 /** Smog: drifting exhaust haze (vertical billboards over the grilles). */
 export function smogMaterial(THREE, tex, focus) {
   const uniforms = { uTime: { value: 0 }, uNoise: { value: tex.noise || null }, ...focus };
@@ -404,7 +420,9 @@ export function sceneBlend(info) {
  * A lit material of an official scene, lit in display (gamma) space like the client (SCENE_LIGHT has the formula):
  * albedo `map` × _Color, the lightmap's baked light, the key light masked by the baked shadow (lightmap A), the
  * reflection of `env`, the normal and metallic-gloss maps, then emission; alpha test / blend by the material's
- * keywords; the focus falloff of the other board materials. Emission (`SCENE_EMIS`) is on only when the material's
+ * keywords; the focus falloff of the other board materials. Opaque and cutout fragments write alpha 1:
+ * the albedo alpha is coverage for the cutout test only. Blend (`SCENE_BLEND`) writes that alpha.
+ * Emission (`SCENE_EMIS`) is on only when the material's
  * `_EMISSION` keyword is on and `emissionMap` loaded: toDisplay(map) * _EmissionColor.rgb, added before the clamp.
  * A scene.json without those keys, a missing map, or a map whose keyword is off (the Syracuse floor) adds nothing.
  * Without `env` (a scene extracted before the reflection atlas) the material
@@ -450,6 +468,7 @@ export function sceneMaterial(THREE, o, focus) {
       ...(o.map ? { SCENE_MAP: 1 } : {}), ...(o.lightMap ? { SCENE_LM: 1 } : {}), ...(o.lightMap && !gamma ? { SCENE_LM_V1: 1 } : {}),
       ...(pbs ? { SCENE_PBS: 1 } : {}), ...(pbs && o.normalMap ? { SCENE_NORMAL: 1 } : {}), ...(pbs && o.glossMap ? { SCENE_GLOSS: 1 } : {}),
       ...(emis ? { SCENE_EMIS: 1 } : {}),
+      ...(blend === 'blend' ? { SCENE_BLEND: 1 } : {}),
     },
     vertexShader: [
       'attribute vec2 aLm;',
@@ -531,7 +550,17 @@ export function sceneMaterial(THREE, o, focus) {
       '    lit += toDisplay(texture2D(uEmissionMap, vUv).rgb) * uEmissionColor;',
       '  #endif',
       '  vec3 c = toLinear(clamp(lit, 0.0, 1.0));',
-      '  gl_FragColor = vec4(c * focusMask(vWorld.xy), a.a);',
+      // Opaque / cutout write 1. Only blend keeps the albedo alpha.
+      // [ASSUMED] that channel is not opacity unless an alpha keyword says so. The ice floor
+      // (Standard-Ice, _Mode 0, no alpha keyword) stores ~0 there while the RGB is the snow colour.
+      // Writing it makes a preserveDrawingBuffer readback (thumbnail toDataURL; MSAA resolve with
+      // the renderer's premultipliedAlpha) turn the floor into the clear colour. The match canvas
+      // is alpha:false, so the same fragments stay visible on screen.
+      '  float outAlpha = 1.0;',
+      '  #ifdef SCENE_BLEND',
+      '    outAlpha = a.a;',
+      '  #endif',
+      '  gl_FragColor = vec4(c * focusMask(vWorld.xy), outAlpha);',
       '  #include <colorspace_fragment>',
       '}',
     ].join('\n'),

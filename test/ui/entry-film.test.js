@@ -6,7 +6,8 @@
 // the entry cue and hands the music back to the screen. holdBgm: with audio.lobbyTrack set nothing fades and playBgm
 // is left alone; without it the screen's music is held and released from its top; a lobbyTrack that arrives during
 // the hold is passed to the real playBgm at once. A sprite that fails to load plays no film. A phone in portrait
-// when the title is entered does not start the film after it rotates to landscape.
+// when the title is entered does not start the film after it rotates to landscape. A 规程 start plays 规程's opening
+// (ui/regulationFilm.js) through the same overlay and cue, and nothing at all without its extracted group.
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -285,6 +286,18 @@ test('a sprite that fails to load plays no film', async () => {
   }
 });
 
+test('globalThis.__SP_ENTRY_FILM__ = \'off\' (the browser suites that are not about the film) plays nothing', async () => {
+  globalThis.__SP_ENTRY_FILM__ = 'off';
+  try {
+    const spy = sceneSpy();
+    await playEntryFilm({ mount: spy.mount });
+    assert.equal(overlay(), null, 'the title stays uncovered');
+    assert.equal(spy.mounted, 0);
+  } finally {
+    delete globalThis.__SP_ENTRY_FILM__;
+  }
+});
+
 test('a phone in portrait when the title is entered does not start the film after rotating to landscape', async () => {
   const prevMedia = globalThis.matchMedia;
   const prevW = globalThis.innerWidth, prevH = globalThis.innerHeight;
@@ -311,5 +324,66 @@ test('a phone in portrait when the title is entered does not start the film afte
     globalThis.matchMedia = prevMedia;
     globalThis.innerWidth = prevW;
     globalThis.innerHeight = prevH;
+  }
+});
+
+// ---- 规程's opening (ui/regulationFilm.js) through the same runner ---------------------------------------------------
+const { clearRegulationPack, REGULATION_ENTRY, ENTRY_PREFAB, ENTRY_CLIP } = await import('../../public/js/ui/regulationFilm.js');
+/**
+ * fetch answering the local manifest (with or without 规程's opening group) and the group's prefabs.json — the clean
+ * checkout has no data/local-assets.json — and the manifest loaded again with it. Returns the undo.
+ */
+async function regulationGroup(present) {
+  const entry = `/assets/local/${REGULATION_ENTRY}/prefabs.json`;
+  const manifest = { version: 1, groups: present ? { [REGULATION_ENTRY]: { 'prefabs.json': { path: entry }, 'sprites/a.webp': { path: `/assets/local/${REGULATION_ENTRY}/sprites/a.webp` } } } : {} };
+  const doc = { spPrefabs: 1, prefabs: { [ENTRY_PREFAB]: { name: ENTRY_PREFAB, children: [{ name: 'a', image: { sprite: 'a', type: 'simple', color: '#FFFFFF' } }] } }, clips: { [ENTRY_CLIP]: { len: 3.1667, wrap: 0, curves: [] } } };
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    if (u.split('?')[0].split('/').pop() === 'local-assets.json') return { ok: true, status: 200, json: async () => manifest };
+    if (u === entry) return { ok: true, status: 200, json: async () => doc };
+    return realFetch(url);
+  };
+  clearRegulationPack();
+  await data.invalidate('local');
+  return async () => { globalThis.fetch = realFetch; clearRegulationPack(); await data.invalidate('local'); };
+}
+
+test('a 规程 start plays 规程\'s opening through the same overlay: its label, its scene, the cue; a key skips it', async () => {
+  const restore = await regulationGroup(true);
+  const { ctx, sources } = runningContext();
+  Object.assign(audio, { ctx, sfxGain: {}, _buffer: async () => ({ duration: 1 }), _fadeOutBgm() {} });
+  PROTO.playBgm = function () {};
+  const alliance = sceneSpy();
+  const regulation = sceneSpy();
+  try {
+    await playEntryFilm({ mount: alliance.mount, regulation: () => true, regulationMount: regulation.mount });
+    const el = overlay();
+    assert.ok(el, 'the overlay is up');
+    assert.equal(el.attrs['aria-label'], '卫戍协议·规程');
+    for (let i = 0; i < 100 && !regulation.frames; i++) await sleep(20);
+    assert.equal(regulation.mounted, 1, '规程\'s scene runs');
+    assert.equal(alliance.mounted, 0, 'not 盟约\'s');
+    assert.ok(sources[0] && sources[0].started != null, 'the load cue is scheduled');
+    pressKey();
+    await sleep(400);
+    assert.equal(overlay(), null, 'skipped');
+    assert.equal(regulation.destroyed, 1);
+  } finally {
+    await restore();
+  }
+});
+
+test('a 规程 start without the extracted opening plays nothing (not 盟约\'s film either)', async () => {
+  const restore = await regulationGroup(false);
+  const alliance = sceneSpy();
+  const regulation = sceneSpy();
+  try {
+    await playEntryFilm({ mount: alliance.mount, regulation: () => true, regulationMount: regulation.mount });
+    await sleep(100);
+    assert.equal(overlay(), null, 'the title stays uncovered');
+    assert.equal(alliance.mounted + regulation.mounted, 0);
+  } finally {
+    await restore();
   }
 });

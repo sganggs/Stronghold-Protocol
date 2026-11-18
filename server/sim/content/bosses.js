@@ -54,7 +54,7 @@
 //                            RES +45, animates 2; 斥退 at 999 s.
 //   boss_7 “萨米的意志”      冰凌 (its normal attack) hits a whole column; 自然涌动 stun + arts DoT; <50 %: damage taken
 //                            ×(1−0.6), 2 targets; Doom at 600 s (LP −30). Targets via fairOrder (two players alternate).
-// The huge leaders (SELF_BOUND: 胄 ×2, 管 ×2, 昆图斯, 阿利斯泰尔, 萨米的意志 — the 巨型单位 with a data `hitArea`) are
+// The legacy huge leaders (SELF_BOUND: 胄 ×2, 管 ×2, 昆图斯, 阿利斯泰尔, 萨米的意志) are
 // 自缚 + 无法被阻挡 (PRTS 天赋): a persistent noMove + unblockable buff from spawn, so they never walk their route.
 // Every leader (tag boss) ignores 侵蚀 gauge damage ("最终攻势中，敌方领袖不会受到侵蚀损伤").
 // An airborne (起飞) operator is no selection of a ground leader or part (对地规避: canTargetAlly, the damage pipeline,
@@ -151,7 +151,7 @@ const SPRING_BOUNCE_FALLOFF = 0.85, SPRING_BOUNCE_RANGE = 2, SPRING_COMBO_HITS =
  * 不可阻挡", 假想敌：管 (+ 隐秘核心) / 盐风主教昆图斯 / 阿利斯泰尔，帝国余晖 / “萨米的意志” "自缚 … 无法被阻挡"). 自缚 (PRTS
  * 异常效果 UNMOVABLE_PRIVATE) = 无法移动, like 束缚 but never recognised as 束缚: flag noMove, not bind. They stand where
  * they spawn whatever their route says (the official routes walk to a goal; only the talent holds them), so their
- * hit area (body.js) stays on the pipe block. These are exactly the enemies with a data `hitArea`.
+ * hit area (body.js) stays on the pipe block. This list is independent of `hitArea`: 后兽 has a rectangle but still moves.
  */
 export const SELF_BOUND = Object.freeze([
   'enemy_9013_acstmk', 'enemy_9013_acstmk_2', 'enemy_9021_acduml', 'enemy_9021_acduml_2', 'enemy_1521_dslily',
@@ -498,11 +498,27 @@ function fireShell(b, boss, target) {
   return sh;
 }
 
+/**
+ * The hit count of a leader token (刺胄之弹 enemy_9016_acstmr, the 余音 enemy_9023_acdums): the data's × the round's HP
+ * multiplier, without its 补给线 / 补给线II share (`supplyHpMul`, co-op 终极 from round 5) when the season's own 补给线
+ * effects leave the key out — 规程's aceffect_enemy_2 / 2_2 `enemy_exclude` lists both tokens (11-05 data), 下半's lists only
+ * 炎佑 and the 器物 hit-count keys (archetypes.js `times`), so 下半's tokens keep the whole multiplier.
+ */
+const SUPPLY_EFFECTS = ['aceffect_enemy_2', 'aceffect_enemy_2_2'];
+const supplyExempt = (b, key) => SUPPLY_EFFECTS.some((id) => {
+  const rec = b.data?.rawEffect?.(id);
+  return (Array.isArray(rec?.buffs) ? rec.buffs : []).some((x) => String(x?.bbStr?.enemy_exclude || '').split('|').includes(key));
+});
+const tokenHits = (b, e2) => {
+  const s = Number(e2.mods && e2.mods.supplyHpMul);
+  return Number.isFinite(s) && s > 0 && s !== 1 && supplyExempt(b, e2.defId) ? e2.base.maxHp / s : e2.base.maxHp;
+};
+
 function kitShell(ab, e) {
   const stun = T(ab, 'killed.duration') ?? 0, dot = T(ab, 'killed.value') ?? 0;
   return [{
     spawn(b, e2) {
-      setHits(e2, e2.base.maxHp); hitCount(b, e2, true);                      // 需要数次攻击击倒 (× the round's HP: summonMods)
+      setHits(e2, tokenHits(b, e2)); hitCount(b, e2, true);                   // 需要数次攻击击倒 (× the round's HP: summonMods, tokenHits)
       b.addBuff(e2, { key: 'boss:shellGuard', persist: true, flags: { noDisplace: true } }); // 失衡免疫 (PRTS 天赋; also 静态刚体)
     },
     tick(b, e2, a, dt) {
@@ -865,7 +881,7 @@ function kitEcho(ab, e) {
   const s = ab.sk.Skill;
   return [
     {
-      spawn(b, e2) { setHits(e2, e2.base.maxHp); hitCount(b, e2, true); e2.blockWeight = ECHO_BLOCK_WEIGHT; setEchoForm(b, e2, 'dark'); }, // hits × the round's HP (summonMods)
+      spawn(b, e2) { setHits(e2, tokenHits(b, e2)); hitCount(b, e2, true); e2.blockWeight = ECHO_BLOCK_WEIGHT; setEchoForm(b, e2, 'dark'); }, // hits × the round's HP (summonMods, tokenHits)
       taken(c, b, e2) { const s = c.source || c.credit; if (s && s.side === 'ally') echoHit(b, e2); }, // 受到伤害时以自身为中心造成一次范围伤害 (a 无来源 burst too)
     },
     s && {

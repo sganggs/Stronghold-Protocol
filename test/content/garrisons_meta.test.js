@@ -724,10 +724,11 @@ test('歌蕾蒂娅 / 余: granting a chess toasts 「名字：获得X」', () =>
   assert.ok(handChess(yu.ps).some((id) => CH(id).name === yuName), yuLine);
 });
 
-test('余 37: a chess of the bond with the most members (normal: 3 in the row; 精锐: always)', () => {
+test('余 37: a chess of the bond with the most members (normal: 3 in the row; 精锐: always), at most the shop level (§37.205)', () => {
   for (const { gid, g, owners } of idsOf('SERVER_PREP_START', 'SERVER_MOST_BOND')) {
     for (const owner of owners) {
       const s = setup();
+      s.ps.shop.level = 4; // a tier no higher than this (GitHub #218; the owner, 2026-11-14)
       give(s.m, s.ps, owner, 'board', [10, 4]);
       s.ps.bondCountBonus.egirShip = 9;
       s.ps.recompute();
@@ -743,6 +744,7 @@ test('余 37: a chess of the bond with the most members (normal: 3 in the row; �
       const got = handChess(s.ps);
       assert.equal(got.length, 1, gid);
       assert.ok(CH(got[0]).bonds.includes('egirShip'), `${gid} ${got[0]}`);
+      assert.ok(CH(got[0]).tier <= 4, `${gid} ${got[0]}: tier ${CH(got[0]).tier} above the shop level`);
     }
     cover(gid);
   }

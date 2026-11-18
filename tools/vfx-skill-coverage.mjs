@@ -7,6 +7,7 @@
 // `when` (render/vfx/talents.js: in force by the record, bindable on a client signal or why not). Read-only.
 //
 // Usage: node tools/vfx-skill-coverage.mjs [--index <path>] [--json] [--list] [--anchors] [--sim [seconds]]
+//        [--version <id>|all]
 //   --index    index.json of an extraction (default public/assets/local/fx/index.json, tools/local-extract fx.py)
 //   --json     the report as JSON on stdout
 //   --list     also print every unmapped key (unit, skill, key, role, reason) and the skills without a plan
@@ -14,10 +15,13 @@
 //   --sim      also run every roster enemy with a skill plan through the sim (a duel of `seconds`, default 75, against
 //              two operators; the battle's events fed to render/vfx/wiring.js with a stand-in effect system): its 'cast'
 //              events, the skill windows they open and the official skill keys that play (a few minutes)
-// Roster: data/chess.json (every record's equipped and selectable skills), data/backups.json `units` (the 补位 / 自选
-// forms' skills), the summons (data/tokens.json, data/backups.json `tokens`: the token's own skills) and
-// data/enemies.json (each enemy's `skills[].prefabKey`). A skill counts once per (unit, skill). Without an index the
-// tool says so and exits 0. Unknown options are errors (exit code 2).
+//   --version  whose roster to read. Omitted (and the default version id): data/*.json, and the report is unchanged.
+//              An official id (act3autochess@V3_1) or its slug (act3autochess-v3_1): data/versions/<slug>/*.json.
+//              `all`: every version, each report labelled; with --json, an array. Unknown options, an unknown id and
+//              a missing value are errors (exit code 2).
+// Roster: chess.json (every record's equipped and selectable skills), backups.json `units` (the 补位 / 自选 forms'
+// skills), the summons (tokens.json, backups.json `tokens`: the token's own skills) and enemies.json (each enemy's
+// `skills[].prefabKey`). A skill counts once per (unit, skill). Without an index the tool says so and exits 0.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -26,17 +30,19 @@ import {
   resolveSkill, skillPlan, chargePlan, chargeKeys, unitKeyOf, targetsOf, CHARGE_EMITTERS, UNMAPPED, SIGNALS, FX_BINDINGS, bindingKeys,
 } from '../public/js/render/vfx/skills.js';
 import { talentBindings, bindable } from '../public/js/render/vfx/talents.js';
+import { VERSIONS, versionById, versionSlug } from '../shared/versions.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const DEFAULT_INDEX = path.join(ROOT, 'public/assets/local/fx/index.json');
-const USAGE = 'usage: node tools/vfx-skill-coverage.mjs [--index <path>] [--json] [--list] [--anchors] [--sim [seconds]]';
+const USAGE = 'usage: node tools/vfx-skill-coverage.mjs [--index <path>] [--json] [--list] [--anchors] [--sim [seconds]] [--version <id>|all]';
+const ROSTER_FILES = ['chess', 'backups', 'tokens', 'enemies'];
 
 /** The plan groups counted per role (a skill counts in a group when it has ≥ 1 entry there). */
 export const ROLE_GROUPS = Object.freeze(['start', 'loop', 'end', 'ready', 'range', 'attack.cast', 'attack.range', 'attack.aim',
   'attack.hit', 'each.cast', 'each.hit', 'trigger', 'targets']);
 
-function parseArgs(argv) {
-  const o = { index: DEFAULT_INDEX, json: false, list: false, anchors: false, sim: 0 };
+export function parseArgs(argv) {
+  const o = { index: DEFAULT_INDEX, json: false, list: false, anchors: false, sim: 0, version: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--json') o.json = true;
@@ -44,9 +50,36 @@ function parseArgs(argv) {
     else if (a === '--anchors') o.anchors = true;
     else if (a === '--sim') o.sim = Number(argv[i + 1]) > 0 ? Number(argv[++i]) : 75;
     else if (a === '--index' && argv[i + 1]) o.index = path.resolve(argv[++i]);
+    else if (a === '--version') {
+      const v = argv[i + 1];
+      if (!v || v.startsWith('--')) return null;
+      o.version = v;
+      i++;
+    }
     else return null;
   }
   return o;
+}
+
+/**
+ * The registry entry of a roster version: omitted / `default` / the default id → data/*.json; an official id or its
+ * directory slug (act3autochess-v3_1) → that version; anything else → null.
+ * @param {string|null|undefined} id
+ */
+export function resolveVersion(id) {
+  if (id == null || id === '' || id === 'default') return VERSIONS.find((v) => !v.dir) || VERSIONS[0];
+  return versionById(id) || VERSIONS.find((v) => versionSlug(v) === id) || null;
+}
+
+/**
+ * One version's roster files ({ chess, backups, tokens, enemies }), or null when `id` is not a version.
+ * @param {string|null|undefined} [id]
+ */
+export function loadRosterData(id = null) {
+  const entry = resolveVersion(id);
+  if (!entry) return null;
+  const dir = path.join(ROOT, 'data', entry.dir);
+  return Object.fromEntries(ROSTER_FILES.map((n) => [n, readJson(path.join(dir, `${n}.json`)) || {}]));
 }
 
 const readJson = (p) => { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; } };
@@ -403,16 +436,29 @@ const isMain = import.meta.url === new URL(process.argv[1] ?? '', 'file://').hre
 if (isMain) {
   const o = parseArgs(process.argv.slice(2));
   if (!o) { console.error(USAGE); process.exit(2); }
+  if (o.version && o.version !== 'all' && !resolveVersion(o.version)) { console.error(USAGE); process.exit(2); }
   const idx = readJson(o.index);
   if (!idx || !idx.units) {
     const shown = o.index.startsWith(ROOT + path.sep) ? path.relative(ROOT, o.index) : o.index;
     console.log(`no extracted effects at ${shown} (tools/local-extract: extract.py --only fx --fx-set used) — nothing to report`);
     process.exit(0);
   }
-  const data = Object.fromEntries(['chess', 'backups', 'tokens', 'enemies'].map((n) => [n, readJson(path.join(ROOT, 'data', `${n}.json`)) || {}]));
-  const rep = coverage(idx, data, o.anchors ? { describe: descriptorReader(o.index, idx) } : {});
-  if (o.sim) rep.sim = { seconds: o.sim, ...(await simEnemySkills(idx, data, o.sim)) };
-  if (o.json) console.log(JSON.stringify(rep, null, 1));
-  else printReport(rep, o);
+  const ids = !o.version ? [null] : o.version === 'all' ? VERSIONS.map((v) => v.id) : [o.version];
+  const reports = [];
+  for (const id of ids) {
+    const data = loadRosterData(id);
+    const rep = coverage(idx, data, o.anchors ? { describe: descriptorReader(o.index, idx) } : {});
+    // labelled only when --version was passed, so the default JSON stays the coverage() object
+    if (id) rep.rosterVersion = resolveVersion(id).id;
+    if (o.sim) rep.sim = { seconds: o.sim, ...(await simEnemySkills(idx, data, o.sim)) };
+    reports.push(rep);
+  }
+  if (o.json) console.log(JSON.stringify(ids.length === 1 ? reports[0] : reports, null, 1));
+  else {
+    for (const rep of reports) {
+      if (rep.rosterVersion) console.log(`roster version: ${rep.rosterVersion}`);
+      printReport(rep, o);
+    }
+  }
 }
 

@@ -3,6 +3,7 @@ import { seedReleaseRead } from '../helpers/releaseNotes.js';
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
+import { DEFAULT_VERSION } from '../../shared/versions.js';
 const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const ENABLED = process.env.SP_E2E === '1' && existsSync(CHROME);
 describe('0.2.3 follow-up client features', { skip: !ENABLED }, () => {
@@ -10,7 +11,9 @@ describe('0.2.3 follow-up client features', { skip: !ENABLED }, () => {
   before(async () => {
     const { startServer } = await import('../../server/index.js');
     const puppeteer = (await import('puppeteer-core')).default;
-    server = await startServer({ port: 0, host: '127.0.0.1', quiet: true });
+    // written on 盟约 (第二期下半): a room created without a version is the server default's — on a stock server 规程,
+    // whose content the page must load before room.start (CONTENT_NOT_READY)
+    server = await startServer({ port: 0, host: '127.0.0.1', quiet: true, versions: { default: DEFAULT_VERSION } });
     base = `http://127.0.0.1:${server.port}`;
     browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--no-sandbox'] });
   });
@@ -159,16 +162,21 @@ describe('0.2.3 follow-up client features', { skip: !ENABLED }, () => {
     const ctx = await browser.createBrowserContext();
     try {
       const page = await pageIn(ctx, true);
-      const open = async () => { await page.evaluate(async () => (await import('/js/ui/loadoutSync.js')).openLoadout()); await page.waitForSelector('.lo-card__pick'); await page.click('.lo-card__pick'); await page.waitForSelector('[data-voice-char] select', { visible: true }); };
+      const open = async () => { await page.evaluate(async () => (await import('/js/ui/loadoutSync.js')).openLoadout()); await page.waitForSelector('.lo-card__pick'); await page.click('.lo-card__pick'); await page.waitForSelector('[data-voice-char] [role="combobox"]', { visible: true }); };
+      const chooseVoice = async (value) => {
+        await page.click('[data-voice-char] [role="combobox"]');
+        await page.waitForSelector(`[data-voice-char] [role="option"][data-value="${value}"]`, { visible: true });
+        await page.click(`[data-voice-char] [role="option"][data-value="${value}"]`);
+      };
       await open();
       const id = await page.$eval('[data-voice-char]', (e) => e.dataset.voiceChar);
-      await page.select('[data-voice-char] select', 'jp');
+      await chooseVoice('jp');
       assert.equal(await page.evaluate(async (id) => (await import('/js/audio.js')).audio.voiceOverrides[id], id), 'jp');
       await page.reload({ waitUntil: 'domcontentloaded' });
       await page.waitForFunction(() => globalThis.__SP__?.store.get().connection.status === 'online');
       await open();
-      assert.equal(await page.$eval('[data-voice-char] select', (e) => e.value), 'jp');
-      await page.select('[data-voice-char] select', '');
+      assert.equal(await page.$eval('[data-voice-char] [role="combobox"]', (e) => e.dataset.value), 'jp');
+      await chooseVoice('');
       assert.equal(await page.evaluate((id) => JSON.parse(localStorage.getItem('sp.pref.settings')).voiceOverrides[id], id), undefined);
     } finally { await ctx.close(); }
   });

@@ -15,14 +15,37 @@
 // Texts go through t() (docs/I18N.md). [ASSUMED] The existing book glyph represents an archived event period;
 // the room's version controls use the same glyph.
 
-import { useState } from '../../vendor/hooks.module.js';
+import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Button, Icon, Modal, Spinner } from './components.js';
 import { useStore } from '../store.js';
 import { contentSet, retryContentSet } from '../content.js';
-import { DEFAULT_VERSION, lobbyVersion, periodLine, serverDefaultVersion, setLobbyVersion, versionLabel } from '../versions.js';
+import { DEFAULT_VERSION, VERSION_PERIODS, lobbyVersion, periodLine, serverDefaultVersion, setLobbyVersion, versionLabel } from '../versions.js';
 import { getLang, t } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
+
+/** The result screen's button plate (screens/settle.js SettleButtonArt). CSS fills in when the sprite is absent. */
+/**
+ * Season identity of a version card. 规程 is the regulation family or the period table's
+ * regulation half; every other official period is a 盟约 card. Never a bond id.
+ * @param {string | { id?: string, family?: string }} v
+ * @returns {'regulation' | 'covenant'}
+ */
+export function versionSeason(v) {
+  const id = v && typeof v === 'object' ? v.id : v;
+  if ((v && typeof v === 'object' && v.family) === 'regulation' || VERSION_PERIODS[id]?.half === 'regulation') return 'regulation';
+  return 'covenant';
+}
+
+/**
+ * Scroll the open picker's current card into view. Returns that row, or null.
+ * @param {ParentNode | null | undefined} root
+ */
+export function scrollCurrentCard(root) {
+  const row = root?.querySelector?.('.verpick__row.is-on, .verpick__row[aria-selected="true"]') || null;
+  row?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+  return row;
+}
 
 /** The load state of a version on this page, as the chip shows it ('' when its data is on screen or not needed). */
 export function versionLoadText(c, id) {
@@ -40,15 +63,20 @@ export function versionLoadText(c, id) {
 export function VersionPicker({ mode, versions, current, serverDefault, roomMode = null, editable = true, busy = false, onPick, onClose, note = null }) {
   const list = Array.isArray(versions) ? versions : [];
   const chineseTexts = getLang() !== 'zh';
-  return html`<${Modal} open=${true} onClose=${onClose} class="verpick" micro="OFFICIAL VERSION" title=${t('游戏版本')} width="min(8.4rem, 96vw)"
-      actions=${html`<${Button} variant="ghost" onClick=${onClose}>${t('关闭')}<//>`}>
+  const listRef = useRef(null);
+  useEffect(() => { scrollCurrentCard(listRef.current); }, [current, list.length]);
+  return html`<${Modal} open=${true} onClose=${onClose} class="verpick" micro="OFFICIAL VERSION" title=${t('游戏版本')} width="min(12.6rem, 96vw)"
+      actions=${html`<${Button} variant="ghost" class="verpick__close" onClick=${onClose}>${t('关闭')}<//>`}>
     <p class="verpick__lead">${mode === 'room' ? t('同盟的版本由创建者发起切换，在座的博士全部同意后生效。') : t('大厅版本只影响本机：加入其他版本的同盟时会载入该版本，离开后恢复。')}</p>
-    <ul class="verpick__list" role="listbox" aria-label=${t('游戏版本')} data-testid="version-picker">
+    <ul ref=${listRef} class="verpick__list" role="listbox" aria-label=${t('游戏版本')} data-testid="version-picker">
       ${list.map((v) => {
         const on = v.id === current;
         const usable = !roomMode || !Array.isArray(v.roomModes) || v.roomModes.includes(roomMode);
         const preview = v.id !== DEFAULT_VERSION;
-        return html`<li key=${v.id} role="option" aria-selected=${on ? 'true' : 'false'} class=${cx('verpick__row', on && 'is-on', preview && 'is-preview')}>
+        const season = versionSeason(v);
+        // Colour is the season: red 规程, teal 盟约. (No registry id on the card: it means nothing to a player.)
+        return html`<li key=${v.id} role="option" aria-selected=${on ? 'true' : 'false'} data-season=${season}
+            class=${cx('verpick__row', season === 'regulation' ? 'is-reg' : 'is-covenant', on && 'is-on', preview && 'is-preview')}>
           <button type="button" class="verpick__pick" data-version=${v.id} data-autofocus=${on ? '' : undefined}
               disabled=${!editable || busy || on || !usable} onClick=${() => onPick(v.id)}>
             <span class="verpick__name">${versionLabel(v.id)}</span>

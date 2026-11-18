@@ -218,8 +218,10 @@
 .pausebtn.is-busy { opacity: .6; }
 
 /* boss-round overtime warning (ui/hud.js OvertimeWarning; red DOT look: official icon_warn / blood_icon + bg_lose_hp) */
+/* its own width (no wrap), drawn over the effects column under a tall countdown (可露希尔's TV): the warning is
+   short-lived and its 已流失 tail used to vanish behind the column (§37.201) */
 .otwarn {
-  position: relative; display: flex; align-items: center; gap: .08rem; height: .38rem; padding: 0 .14rem 0 .1rem;
+  position: relative; z-index: 3; display: flex; align-items: center; gap: .08rem; height: .38rem; padding: 0 .14rem 0 .1rem; flex: none; width: max-content;
   background: linear-gradient(90deg, rgba(120, 10, 14, .92), rgba(40, 6, 8, .88)); border: 1px solid rgba(255, 84, 84, .7);
   color: #ffdede; font-size: .16rem; white-space: nowrap; box-shadow: 0 0 .18rem rgba(255, 36, 36, .35);
   animation: ot-in var(--t-slow) var(--ease-out);
@@ -433,6 +435,11 @@
 .gtop__iconbtn.has-sprite:hover, .enemybtn.has-sprite:hover:not(.is-grey) { background: var(--chk-sprite) center / 100% 100% no-repeat; filter: brightness(1.2); box-shadow: none; }
 .gtop__iconbtn.has-sprite.is-on { background: var(--chk-sprite) center / 100% 100% no-repeat; }
 
+/* the 准备 question (funds left, an unused command — §37.201): its sentences, then the 「本局不再提醒」 box */
+.ready-ask .modal__text + .modal__text { margin-top: .06rem; }
+.ready-ask__mute { display: flex; align-items: center; gap: .08rem; margin-top: .14rem; color: var(--text-md); font-size: calc(.15 * var(--t)); cursor: pointer; }
+.ready-ask__mute input { flex: none; width: max(.2rem, 18px); height: max(.2rem, 18px); margin: 0; accent-color: var(--mint-400); cursor: pointer; }
+
 /* ready toggle */
 .readywrap { display: flex; flex-direction: column; align-items: flex-end; gap: .05rem; }
 .readywrap__count { font-size: .14rem; color: var(--text-lo); }
@@ -527,6 +534,57 @@
 .team__ob, .team__back { align-self: flex-start; margin-top: .04rem; min-width: 1.1rem; animation: pop-in var(--t-fast) var(--ease-out); }
 .team__ob .btn__label, .team__back .btn__label { letter-spacing: .12em; }
 .team__back { border-color: rgba(255, 255, 255, .7); color: #fff; }
+/* 完美连胜 / 领袖伤害 (ui/avatarBadges.js, §37.148). The streak holder (33.76 units = .338rem) is centred .024rem inside
+   the avatar's right edge and .066rem below its top (recording BV13LWM6BEvY); the leader-damage layers cover the
+   avatar's own .8rem box (the flare, twice as wide, crosses both edges). Neither takes a click. The own row's "you"
+   marker moves to the bottom-left corner while a streak badge holds the top-right one. */
+.abadge { position: absolute; pointer-events: none; }
+.abadge--boss { left: 0; top: 0; width: .8rem; height: .8rem; z-index: 2; }
+.abadge--streak { left: .607rem; top: -.103rem; width: .338rem; height: .338rem; z-index: 3; }
+.team__info { position: relative; z-index: 2; }
+/* The scan layers' textures are an even 70 % (ac_n_initial tex_damage_fx_scan_light, 可露希尔 img_streak_line): the
+   recording (ac_n_initial) shows a band that fades above and below as it sweeps down — [ASSUMED] the shader's falloff,
+   drawn as a mask across the layer's travel: vertical for ac_n_initial's (it moves down), horizontal for 可露希尔's (its
+   clip moves it across, inside the soft group_scan mask; no recording of that skin) */
+.abadge--boss[data-pack="themes/ac_n_initial"] .pf__n[data-n="scan_light"] {
+  -webkit-mask-image: linear-gradient(180deg, transparent 18%, #000 42%, #000 58%, transparent 82%);
+  mask-image: linear-gradient(180deg, transparent 18%, #000 42%, #000 58%, transparent 82%);
+}
+.abadge--boss[data-pack="themes/ac_s_closur"] .pf__n[data-n="scan_light"] {
+  -webkit-mask-image: linear-gradient(90deg, transparent 20%, #000 44%, #000 56%, transparent 80%);
+  mask-image: linear-gradient(90deg, transparent 20%, #000 44%, #000 56%, transparent 80%);
+}
+.team__you.is-low { top: auto; right: auto; bottom: -.08rem; left: -.08rem; }
+/* without the local art: a gold triangle (level 1) / a dark star (level 2) with the count, an amber scan band */
+.abadge--streak.is-css { display: grid; place-items: center; }
+.abadge--streak.is-css .abadge__base { position: absolute; inset: 0; }
+.abadge--streak.is-r1 .abadge__base { clip-path: polygon(50% 2%, 98% 94%, 2% 94%); background: linear-gradient(180deg, #ffe46b, #f5b400); }
+.abadge--streak.is-r2 .abadge__base {
+  inset: -.04rem; background: radial-gradient(circle, #2a1a0f 38%, #f68a25 72%, #ffcf6e);
+  clip-path: polygon(50% 0, 61% 31%, 93% 25%, 71% 50%, 93% 75%, 61% 69%, 50% 100%, 39% 69%, 7% 75%, 29% 50%, 7% 25%, 39% 31%);
+}
+/* the count fits the fixed holder: team-panel chrome, not on the 文字大小 root (test/ui/text-scale.test.js `.team`) */
+.team .abadge--streak.is-css .abadge__n { position: relative; margin-top: .07rem; font-size: .12rem; font-weight: 800; line-height: 1; color: #121212; }
+.team .abadge--streak.is-r2 .abadge__n { margin-top: 0; font-size: .13rem; color: #f68a25; text-shadow: 0 0 .03rem #000; }
+.abadge--boss.is-css { overflow: hidden; }
+.abadge--boss.is-css .abadge__scan {
+  position: absolute; left: 0; right: 0; top: -30%; height: 30%; opacity: 0; mix-blend-mode: screen;
+  background: linear-gradient(180deg, rgba(255, 197, 0, 0), rgba(255, 197, 0, .5) 45%, rgba(255, 236, 170, .75) 50%, rgba(255, 197, 0, .5) 55%, rgba(255, 197, 0, 0));
+  animation: abadge-scan 6s linear infinite;
+}
+.abadge--boss.is-l2 .abadge__scan { filter: saturate(1.3) brightness(1.15); }
+.abadge--boss.is-l3::before {
+  content: ''; position: absolute; inset: .03rem; pointer-events: none;
+  background:
+    linear-gradient(#ff9a5e, #ff9a5e) left top / .12rem 2px no-repeat, linear-gradient(#ff9a5e, #ff9a5e) left top / 2px .12rem no-repeat,
+    linear-gradient(#ff9a5e, #ff9a5e) right top / .12rem 2px no-repeat, linear-gradient(#ff9a5e, #ff9a5e) right top / 2px .12rem no-repeat,
+    linear-gradient(#ff9a5e, #ff9a5e) left bottom / .12rem 2px no-repeat, linear-gradient(#ff9a5e, #ff9a5e) left bottom / 2px .12rem no-repeat,
+    linear-gradient(#ff9a5e, #ff9a5e) right bottom / .12rem 2px no-repeat, linear-gradient(#ff9a5e, #ff9a5e) right bottom / 2px .12rem no-repeat;
+}
+/* the official clip: the scan fades in at the top, sweeps down for 3 s, then rests until the 6 s loop restarts */
+@keyframes abadge-scan { 0% { top: -30%; opacity: 0; } 14% { opacity: 1; } 36% { opacity: 1; } 50% { top: 100%; opacity: 0; } 100% { top: 100%; opacity: 0; } }
+.abadge--boss.is-still .abadge__scan { animation: none; top: 35%; opacity: .7; }
+@media (prefers-reduced-motion: reduce) { .abadge--boss.is-css .abadge__scan { animation: none; top: 35%; opacity: .7; } }
 
 /* player avatar (band icon / glyph) */
 .pavatar {
@@ -767,6 +825,36 @@
 }
 .dpbox__icon { width: .26rem; height: .26rem; color: var(--mint-500); }
 .dpbox b { font-size: .34rem; line-height: 1; color: #fff; }
+/* The leader ranking (ui/leaderRank.js, every version). .gm__hud is pointer-events: none, so the panel opts back in.
+   Top clears the ticker (bottom 1.3rem) and the overtime-grown top bar (~1.38rem). Right sits just left of the
+   effects column (right .3rem + width .5rem). The bottom stops .7rem above the screen's middle, which clears the
+   DP box (its half-height is under that). Width stays right of the team dock (--dock-team-right: 2.8rem).
+   Three rows plus the toggle have to fit a ~81px band on a 375px-tall phone, so the row and the toggle are
+   smaller than a 44px touch target. [ASSUMED] during a leader fight the plugin slot yields the upper right and
+   sits below the DP box — its max box otherwise reaches this panel on a phone. */
+.ldmg {
+  position: absolute; z-index: 5;
+  right: .92rem;
+  top: 1.95rem;
+  width: min(2.2rem, calc(100vw - 3.4rem - .92rem - .3rem));
+  max-height: calc(50% - 1.95rem - .7rem);
+  display: flex; flex-direction: column; align-items: stretch; gap: .04rem;
+  padding: .04rem; pointer-events: auto; overflow: hidden;
+  background: rgba(8, 11, 10, .85); border: 1px solid var(--line-2);
+}
+.ldmg__toggle {
+  min-height: .32rem; padding: 0 .06rem; align-self: flex-end;
+  background: none; border: 0; color: var(--text-md); font-size: calc(.14 * var(--t)); cursor: pointer;
+}
+.ldmg__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .02rem; min-height: 0; }
+.ldmg__row { min-height: .34rem; display: flex; align-items: center; gap: .04rem; min-width: 0; }
+.ldmg__name {
+  flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: calc(.13 * var(--t)); color: var(--text-hi);
+}
+.ldmg__share { flex: 0 0 auto; display: flex; align-items: center; gap: .02rem; color: var(--gold); font-size: calc(.13 * var(--t)); }
+.ldmg__share .icon { width: .16rem; height: .16rem; }
+.gm.is-boss .gm__ui-slot { bottom: .3rem; max-height: calc(50% - 1.2rem); }
 .chud__bottom { position: absolute; left: 50%; bottom: .3rem; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: .12rem; pointer-events: none; }
 .chud__bottom > * { pointer-events: auto; }
 .chud__msg {
@@ -816,6 +904,9 @@
 .settings-btn.btn--square .btn__icon { width: 62%; height: 62%; } /* the gear glyph is drawn smaller in its box than the book */
 .set-list { display: flex; flex-direction: column; gap: .16rem; padding-top: .06rem; }
 .set-row { display: grid; grid-template-columns: minmax(0, 3.3rem) minmax(0, 1fr) auto; align-items: center; gap: .18rem; min-height: .44rem; }
+/* 语言 sits under its section caption, so the five endonyms use the whole row */
+.set-row--lang > .lang-toggle { grid-column: 1 / -1; justify-self: stretch; max-width: 100%; }
+.set-row--lang .set-seg { width: 100%; }
 /* The label column may shrink (the label wraps) instead of pushing its control out of the modal: at 设置 →「文字大小」
    大 / 特大 a phone's label (a Chinese name plus its Latin micro label) is wider than 3.3rem at 1rem = 40 px. */
 .set-row__label { display: flex; flex-wrap: wrap; align-items: center; gap: .1rem; font-size: calc(.18 * var(--t)); color: var(--text-hi); }
@@ -930,11 +1021,12 @@
 .ff-tile--goal { background: radial-gradient(circle, rgba(60, 160, 255, .55), rgba(10, 50, 120, .5)); border: 2px solid #4ab0ff; }
 .ff-tile--mire { background: linear-gradient(180deg, #4a4030, #3c3326); }
 .ff-tile--smog { background: linear-gradient(180deg, #4a4a52, #3a3a42); }
+.ff-tile--duel-grass { background: radial-gradient(circle, #729d9f, #3f626b); box-shadow: inset 0 0 0 1px #a4e2d4; }
 .ff-tile--deep { background: linear-gradient(180deg, #1e3a52, #173045); }
 .ff-tile--infect { background: linear-gradient(180deg, #4a2a3a, #3a2030); }
 .ff-tile.is-legal { box-shadow: inset 0 0 0 2px rgba(89, 244, 202, .8), inset 0 0 calc(var(--tile) * .4) rgba(23, 249, 183, .3); }
 .ff-tile.is-illegal { box-shadow: inset 0 0 0 2px rgba(255, 84, 84, .5); }
-.ff-tile.is-range { box-shadow: inset 0 0 0 2px rgba(246, 163, 41, .7); }
+.ff-tile.is-range { box-shadow: inset 0 0 0 2px var(--ff-range-color, rgba(246, 163, 41, .7)); }
 .ff-tile.is-hover-legal { background: rgba(78, 216, 175, .45); }
 .ff-tile.is-hover-illegal { background: rgba(255, 60, 60, .4); }
 @keyframes gate-pulse { 50% { box-shadow: 0 0 calc(var(--tile) * .4) rgba(255, 60, 40, .8); } }
@@ -1090,6 +1182,8 @@
 .gm__hud.is-enter .team { animation: gtop-from-l 460ms cubic-bezier(.16, .84, .3, 1) 380ms both; }
 /* the shop keeps its own shop-up in the list, so it does not start again when .is-enter goes */
 .gm__hud.is-enter .shopbar { animation: shop-up var(--t-slow) var(--ease-out), gtop-rise 460ms cubic-bezier(.16, .84, .3, 1) 460ms both; }
+/* the shop's background (§37.238) fades in as the shop rises, not before it */
+.gm__hud.is-enter > .shopbg { animation: shopbg-in var(--t-slow) var(--ease-out), gtop-fade 460ms ease-out 460ms both; }
 @keyframes gtop-cap-in { 0% { opacity: 0; transform: translateY(-.5rem) scale(.92); filter: brightness(2.2); } 60% { opacity: 1; } 100% { filter: none; } }
 @keyframes gtop-open { from { opacity: 0; transform: scaleX(.05); } }
 @keyframes gtop-fade { from { opacity: 0; } }
@@ -1102,7 +1196,28 @@
   .gtop__half .roundbox__num, .gm__hud.is-enter .gtop__cap, .gm__hud.is-enter .gtop__half, .gm__hud.is-enter .gtop__deco,
   .gm__hud.is-enter .gtop__plus, .gm__hud.is-enter .gtop__frame--l, .gm__hud.is-enter .gtop__frame--r, .gm__hud.is-enter .gtop__left, .gm__hud.is-enter .gtop__right,
   .gm__hud.is-enter .team { animation: none; }
-  .gm__hud.is-enter .shopbar { animation: shop-up var(--t-slow) var(--ease-out); }}
+  .gm__hud.is-enter .shopbar { animation: shop-up var(--t-slow) var(--ease-out); }
+  .gm__hud.is-enter > .shopbg { animation: shopbg-in var(--t-slow) var(--ease-out); }
+}
+
+/* Keep every bond reachable without shrinking its disc or extending over the right HUD. */
+.gm__bond-list { flex: 1; }
+.bstrip-scroll { display: flex; align-items: center; min-width: 0; gap: .04rem; }
+/* Let the padding protect rings/counts from clipping without lowering the discs and names into the board. */
+.gm__bonds .bstrip-scroll .bstrip { min-width: 0; overflow-x: auto; overflow-y: hidden; padding: .08rem 0; margin: -.08rem 0;
+  pointer-events: auto; touch-action: pan-x; scrollbar-width: none; }
+.gm__bonds .bstrip-scroll .bstrip::-webkit-scrollbar { display: none; }
+.bstrip-scroll .bslot { flex: none; }
+/* No arrows (§37.201): drag / swipe / wheel (ui/bondStrip.js BondScroller); a fading edge says more bonds wait that way. */
+.bstrip-scroll.is-l .bstrip { -webkit-mask-image: linear-gradient(90deg, transparent, #000 .36rem); mask-image: linear-gradient(90deg, transparent, #000 .36rem); }
+.bstrip-scroll.is-r .bstrip { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - .36rem), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - .36rem), transparent); }
+.bstrip-scroll.is-l.is-r .bstrip { -webkit-mask-image: linear-gradient(90deg, transparent, #000 .36rem, #000 calc(100% - .36rem), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 .36rem, #000 calc(100% - .36rem), transparent); }
+.bstrip-scroll.can-drag .bstrip { cursor: grab; }
+.bstrip-scroll.is-dragging .bstrip, .bstrip-scroll.is-dragging .bslot { cursor: grabbing; user-select: none; }
+.gm.is-pen .gm__bonds .bstrip-scroll *, .gm.has-sp .gm__bonds .bstrip-scroll * { pointer-events: none; }
+
+.gm__bond-list > .tt-anchor { display: block; max-width: 100%; }
 
 .ai-vote { display:flex; flex-wrap:wrap; gap:.12rem; align-items:center; margin:.15rem 0; padding:.1rem; border:1px solid #426055; }
 .ai-participation-entry { flex:none; }
@@ -1117,5 +1232,15 @@
 .band-command.is-unavailable { opacity: .65; cursor: default; }
 .band-command.is-dragging { box-shadow: 0 0 .12rem #7fffc9; }
 [data-shop-slot].is-command-target { outline: 2px solid #7fffc9; outline-offset: -2px; }
+/* the target under the dragged command turns orange, as its board square does (ui/bandCommand.js HOVER, §37.201) */
+[data-shop-slot].is-command-target.is-command-hover { outline: 3px solid #ff9a3c; }
+/* the aiming arrow from the command to the pointer (ui/bandCommand.js aimLayer): the client's chevron (ui/battle fx_arrow)
+   as a mask in mint, orange over a valid target; a clipped chevron without the art */
+.cmd-aim { position: fixed; inset: 0; z-index: 60; pointer-events: none; --cmd-aim-c: #7fffc9; }
+.cmd-aim.is-on { --cmd-aim-c: #ff9a3c; }
+.cmd-aim__c { position: absolute; left: 0; top: 0; width: 22px; height: 14px; margin: -7px 0 0 -11px; opacity: .85;
+  background: var(--cmd-aim-c); -webkit-mask: var(--cmd-aim-art) center / contain no-repeat; mask: var(--cmd-aim-art) center / contain no-repeat; }
+.cmd-aim__c.is-tip { width: 30px; height: 20px; margin: -10px 0 0 -15px; opacity: 1; }
+.cmd-aim.is-plain .cmd-aim__c { -webkit-mask: none; mask: none; clip-path: polygon(50% 0, 100% 72%, 100% 100%, 50% 32%, 0 100%, 0 72%); }
 .command-draft { display: flex; gap: .16rem; flex-wrap: wrap; }
 .command-draft__card { flex: 1 1 1.8rem; padding: .16rem; border: 1px solid #7fffc966; }

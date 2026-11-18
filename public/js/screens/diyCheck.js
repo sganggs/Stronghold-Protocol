@@ -22,13 +22,16 @@ const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI'];
 
 const bundle = () => ({ chess: data.get('chess'), backups: data.get('backups') });
 
-/** Why a grey card cannot be brought: a banned core, otherwise every add-on. */
-function greyReason(rec, disabled) {
+/**
+ * Why a grey card cannot be brought: every bond of it is greyed (server gamedata bondsExclude, §37.200) — its core
+ * bond(s) when it has no add-on, its add-ons when it has no core, else all of them.
+ */
+function greyReason(rec) {
   const bonds = Array.isArray(rec?.bonds) ? rec.bonds : [];
   const table = data.get('bonds') || {};
-  const off = new Set(disabled || []);
-  const coreOff = bonds.some((b) => table[b]?.isCore && off.has(b));
-  return coreOff ? t('核心盟约已禁用') : t('附加盟约均已禁用');
+  const core = bonds.filter((b) => table[b]?.isCore).length;
+  if (!core) return t('附加盟约均已禁用');
+  return core === bonds.length ? t('核心盟约已禁用') : t('所属盟约均已禁用');
 }
 
 /** 选择自编 screen. */
@@ -118,7 +121,7 @@ export function DiyCheckScreen() {
                 <${OperatorImage} class="diy-check__art" chess=${{ charId: pick.charId, assets: unit?.assets }} />
                 <span class="diy-check__name">${rec?.name || pick.charId}</span>
                 <span class="diy-check__bonds">${(rec?.bonds || []).map((b) => html`<${BondGlyph} key=${b} bondId=${b} />`)}</span>
-                ${grey ? html`<small class="diy-check__why">${greyReason(rec, pub.disabledBonds)}</small>` : null}
+                ${grey ? html`<small class="diy-check__why">${greyReason(rec)}</small>` : null}
               </button>`;
             })}
           </div>

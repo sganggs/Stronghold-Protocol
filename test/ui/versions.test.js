@@ -131,3 +131,34 @@ test('the client renders no research texts of the data (spec / implFormula / how
   const allowed = (h) => /^public\/js\/ui\/detailPanel\.js:\d+: \$\{item\.note \?/.test(h);
   assert.deepEqual(hits.filter((h) => /\.(implFormula|howToPlay|note)\b/.test(h) && !allowed(h)), [], 'no research text is read');
 });
+
+test('versionContentStatus / roomPluginCs: a 规程 room with gameplay plugins counts its plugin set (§37.210)', () => {
+  const REG = 'act3autochess@V3_1';
+  const room = { room: { version: REG, content: { vanilla: false, cs: CS('e'), version: REG } } };
+  assert.equal(V.roomPluginCs(room), CS('e'));
+  assert.equal(V.roomPluginCs({ room: { version: REG, content: { vanilla: true, cs: CS('f'), version: REG } } }), null, 'a plain version set is no plugin set');
+  assert.equal(V.roomPluginCs({}), null);
+  // the default data needs no set
+  assert.equal(V.versionContentStatus({ kind: null }, 'act2autochess', null), 'ready');
+  assert.equal(V.versionContentStatus(null, null, null), 'ready');
+  // the version's own set: its status
+  for (const status of ['loading', 'ready', 'failed']) assert.equal(V.versionContentStatus({ kind: 'version', version: REG, cs: CS('f'), status }, REG, null), status);
+  assert.equal(V.versionContentStatus({ kind: 'version', version: 'act1autochess', cs: CS('b'), status: 'ready' }, REG, null), 'loading', 'another version\'s set');
+  // the room's plugin set built on the version: the match no longer waits for a plain set that never comes
+  const plugins = (status, version = REG, cs = CS('e')) => ({ kind: 'plugins', cs, version: status === 'ready' ? version : null, status });
+  assert.equal(V.versionContentStatus(plugins('ready'), REG, V.roomPluginCs(room)), 'ready');
+  assert.equal(V.versionContentStatus(plugins('loading'), REG, V.roomPluginCs(room)), 'loading');
+  assert.equal(V.versionContentStatus(plugins('failed'), REG, V.roomPluginCs(room)), 'failed');
+  assert.equal(V.versionContentStatus(plugins('ready', 'act1autochess'), REG, V.roomPluginCs(room)), 'loading', 'a set on another version');
+  assert.equal(V.versionContentStatus(plugins('ready', REG, CS('d')), REG, V.roomPluginCs(room)), 'loading', 'not the room\'s set (the room changed its plugins)');
+  assert.equal(V.versionContentStatus(plugins('ready'), REG, null), 'loading', 'outside a plugin room');
+});
+
+test('the match screen and replays wait through versionContentStatus, not for a plain version set only (§37.210)', () => {
+  const src = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
+  for (const rel of ['public/js/screens/game.js', 'public/js/screens/stats.js']) {
+    const s = src(rel);
+    assert.match(s, /versionContentStatus\(c, version, roomCs\)/, `${rel} asks versionContentStatus`);
+    assert.doesNotMatch(s, /c\.kind === 'version' && c\.version === version/, `${rel} no longer requires kind 'version'`);
+  }
+});

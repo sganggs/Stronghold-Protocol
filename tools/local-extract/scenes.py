@@ -2,6 +2,9 @@
 (scenes/activities/<season>/level_<stage>/level_<stage>.ab, with …/lightingdata.ab beside it) whose tile models are
 baked into "Combined Mesh (root: scene)" objects, plus loose meshes for the parts the game shows and hides.
 
+规程's boards are not in SCENES. Their meshes are three piece prefabs; regulation_scenes.py writes the same
+files, moved onto the rows tools/versions/layouts.mjs borrows. Those ten groups stay out of expected_local_groups.
+
 The scene bundles ship only while the season runs (the hot-update list of an off-season client has none), so they are
 read from the client's AB root when it has them and else from a directory of bundles kept from an in-season version
 (extract.py --scenes <dir>, default .cache/official-scenes/*; tools/local-extract/fetch_scenes.py fills it). Materials

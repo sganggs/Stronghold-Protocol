@@ -230,6 +230,9 @@ export default {
       install(battle, unit) {
         // [ASSUMED] a trap: no enemy selects it
         battle.addBuff(unit, { key: 'trait:wangStone', flags: { untargetable: true }, persist: true, allowDead: true });
+        // PRTS 棋子 实体类型 "装置": map terrain does not act on it, as on the map's devices (content/devices.js refreshUnit) —
+        // 活性源石 burned a 1000-HP 棋子 down in ~15 s (community report via the owner, 2026-11-14 「望的棋子会被烫死」, §37.205)
+        unit.mem.terrainImmune = true;
         battle.on('deploy', (ctx) => {
           if (ctx.unit !== unit) return;
           const w = owner.mem.wang;

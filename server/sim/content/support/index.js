@@ -22,11 +22,11 @@ import { grantedBondsByMorph } from '../../../../shared/plugins/rules.js';
 import { RECORD_MAPS } from '../../../../shared/plugins/dataUtils.js';
 import { COLS, DIRECT_BONUS_STACKING } from '../../constants.js';
 import { frontOf, offsetTile } from '../../dir.js';
-import { bodyInKeys, bodyDist, bodyInRadius, bodyOnTile, bodyTileReach, bodyInRange } from '../../body.js';
+import { bodyInKeys, bodyDist, bodyInRadius, bodyOnTile, bodyTileReach, bodyInRange, bodyInRangeTile } from '../../body.js';
 
 export { COLS };
 /** Where an enemy can be hit (a huge enemy's whole hit rectangle, sim/body.js) — for every range test on enemies. */
-export { bodyInKeys, bodyDist, bodyInRadius, bodyOnTile, bodyTileReach };
+export { bodyInKeys, bodyDist, bodyInRadius, bodyOnTile, bodyTileReach, bodyInRangeTile };
 
 // =====================================================================================================================
 // numbers & data

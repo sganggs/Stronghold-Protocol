@@ -174,6 +174,19 @@ const MACE_SKILLS = slotMap([slotClip(0, 'A_Skill2'), slotClip(1, 'A_Attack', { 
 // Modes/R) C2_Skill; “碎铳之簧” 元素护盾 / 频次护盾: skill "1" (RangedAttack Skill_b / MultiRangedAttack Skill_c). Until 0.3.2
 // every one of them swung its attack clip.
 const WARDEN_SKILLS = slotMap([slotClip(0, 'C1_Skill', { strike: true }), slotClip(1, 'C2_Skill', { strike: true })]);
+// 后兽 (enemy_2123_dyjsww, the tail 矩兽 summons; fx/index.json units.enemy_2123_dyjsww): the name rule pairs
+// Skill_2_A with slot 1. The abilities name Blink Skill_B, SummonBranchEnemy Skill_B, Punishment Skill_A and
+// GlobalDoom Skill_2_A. kitTail casts Blink, Punishment and GlobalDoom. DyjswwSwitch's animKey Translate is not a
+// clip of the skeleton [ASSUMED: the body keeps Idle_A, the resolved attack, which is the idle]. Skill_2_B is
+// named by no ability. 破城者 (SkyProjectile F_Skill; the attack role is F_Attack) and 神勇的帕拉杜利斯
+// (rushEndNormal Skill_End, rushEndAdvance Stun_Begin) stay resolved: no kit casts those slots.
+const TAIL_SKILLS = slotMap([
+  slotClip(0, 'Idle_A', { via: 'attack' }),
+  slotClip(1, 'Skill_B'),
+  slotClip(2, 'Skill_B'),
+  slotClip(3, 'Skill_A'),
+  slotClip(4, 'Skill_2_A'),
+]);
 export const PREFAB_SPINE_ROLES = Object.freeze({
   enemy_1116_liprr: PRISONER_GREY_3,
   enemy_1116_liprr_2: PRISONER_GREY_3,
@@ -188,6 +201,7 @@ export const PREFAB_SPINE_ROLES = Object.freeze({
   enemy_1516_jakill: { skills: WARDEN_SKILLS },
   enemy_9019_actrpb: { skills: slotMap([slotClip(0, 'Skill_b', { strike: true })]) },
   enemy_9020_actrpc: { skills: slotMap([slotClip(0, 'Skill_c', { strike: true })]) },
+  enemy_2123_dyjsww: { skill: TAIL_SKILLS[0], skills: TAIL_SKILLS },
   // operators by character id: both the front and the back model
   char_337_utage: { skill: UTAGE_S2, skills: { 0: UTAGE_S1, 1: UTAGE_S2 } },
 });

@@ -17,6 +17,8 @@ const versionReady = (c, version) => c.page.waitForFunction((version) => {
 
 async function choose(c, version) {
   await c.page.waitForSelector('.lobby-screen', { visible: true });
+  // the chip comes with welcome's version list, which can follow the lobby by a moment (the third case of this file)
+  await c.page.waitForSelector('[data-testid="version-switch"]', { visible: true });
   if (await c.page.$eval('[data-testid="version-switch"]', e => e.dataset.version) === version) return;
   await c.click('[data-testid="version-switch"]');
   await c.click(`.verpick__pick[data-version="${version}"]`);

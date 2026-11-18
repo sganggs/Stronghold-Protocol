@@ -287,12 +287,20 @@ test('幻影: each 夜莺 deployment adds 2 (RIN-Y stage 3: 3) to her stock, at 
   }
 });
 
-test('幻影 without DP waits for it; 夜莺 heals her 幻影 (an injured 友方单位 in range) and her S2 barrier reaches it', () => {
+test('幻影 without DP waits for it; the 幻影 holds 禁疗 (PRTS 幻影 备注 "持有禁疗。", §37.201): 夜莺 neither heals it nor gives it her S2 barrier, an HP regen still restores it', () => {
   const { h, u, bird } = field({ tier: 6, elite: true, mod: RINY, skill: 1, phantom: [12, 4], dp: 0 });
-  // the drain makes it an injured ally of her range
+  // the drain makes it injured, inside her range — still no patient of hers
   u.skill.gainSp(999);
-  assert.ok(h.runUntil(() => bird.findBuff('cgbird:barrier'), 6), 'barrier on the 幻影 with the next heal');
-  assert.ok(h.hooksOf('heal').some((c) => c.source === u && c.target === bird), 'healed');
+  h.run(6);
+  assert.ok(bird.alive && bird.hp < bird.s.maxHp, 'injured by its own drain');
+  assert.equal(bird.findBuff('cgbird:barrier'), null, 'no S2 barrier on the 幻影');
+  assert.equal(h.hooksOf('heal').filter((c) => c.target === bird && c.amount > 0).length, 0, 'never healed');
+  assert.equal(h.b.heal(u, bird, 100), 0, 'a direct heal restores nothing (禁疗)');
+  // 生命回复速度 is no 治疗 (PRTS 禁疗 "增减生命回复速度…的效果不会被识别为治疗类能力"): it outruns the 3 % drain
+  const hp0 = bird.hp;
+  h.b.addBuff(bird, { key: 'test:regen', duration: 3, mods: { hpRegen: 1000 } });
+  h.run(2);
+  assert.ok(bird.hp > hp0, `regenerates (${hp0.toFixed(0)} → ${bird.hp.toFixed(0)})`);
   h.b.kill(bird, null);
   h.run(25);
   assert.ok(!bird.alive, 'no DP: still down');

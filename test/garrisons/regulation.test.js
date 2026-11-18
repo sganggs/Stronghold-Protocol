@@ -11,9 +11,11 @@ import { setGameData } from '../../server/sim/content/support/index.js';
 import { makeBattle, chessRec, enemyRec } from '../helpers/battleHarness.js';
 import { ursusTempExtra } from '../../server/sim/content/garrisons/regulation.js';
 import { underframeActions } from '../../public/js/ui/facing.js';
+import { carrySellPrice } from '../../server/match/player/acquire.js';
 import { buildBattleSpec, compactResult, resultDigest } from '../../server/sim/spec.js';
 import { validateClientResult } from '../../server/match/fields.js';
 import { isBattleResult } from '../../shared/protocol.js';
+import { SharedPool } from '../../server/match/pool.js';
 
 const QUIET = { warn() {}, error() {}, info() {} };
 const RAW = getVersionData('act3autochess@V3_1', { log: QUIET });
@@ -23,10 +25,10 @@ after(() => setGameData(null));
 
 const handItems = (ps) => [...ps.hand, ...ps.temp].filter((p) => p && p.kind === 'item');
 
-function setup(seed = 70) {
+function setup(seed = 70, mode = 'solo', difficulty = 'FUNNY') {
   // 规程 has no mode_single_normal. mode_single_funny is the solo table modeIdFor('solo', 'FUNNY') names,
   // and its level-1 shop is still 3 chess + 1 item. band_bldsk is not in this season; band_sarkazb is, and has no buffs.
-  const h = makeMatch({ mode: 'solo', difficulty: 'FUNNY', seed, registry: REG, fake: true, data: RAW }).start();
+  const h = makeMatch({ mode, difficulty, seed, registry: REG, fake: true, data: RAW }).start();
   h.toPrep(1, { band: 'band_sarkazb' });
   const m = h.m;
   const ps = h.ps('p_0');
@@ -81,6 +83,90 @@ const living = (n, extra = []) => {
   return { unitsEnd: unitsEnd.concat(extra) };
 };
 
+function saleSetup(t, seed = 70) {
+  // Use a mode with 绝技 enabled; the upstream solo FUNNY fixture disables it.
+  const s = setup(seed, 'coop', 'ABYSS');
+  t.after(() => { assert.equal(s.m.errorCount, 0); s.m.dispose(); });
+  s.m.disabledBonds = []; s.m.bannedChess = [];
+  s.m.pool = new SharedPool(s.m.gd);
+  return s;
+}
+
+test('伊桑 sale: official 3 elites / 2 助力 formation can grant 罗比菈塔', t => {
+  for (const seed of [1, 2, 3, 4]) for (const form of ['a', 'b']) {
+    const { m, ps } = saleSetup(t, seed);
+    ps.shop.level = 6;
+    // Match the observed bond counts, not the whole recording's roster. 绝技 has no member operators.
+    for (const [id, r, c] of [
+      ['chess_char_3_19_b', 10, 4], // 罗比菈塔: 助力 / 坚守.
+      ['chess_char_1_11_b', 10, 5], // 夏栎: 助力.
+      ['chess_char_1_09_b', 10, 6], // 卡达: 奥术.
+    ]) give(m, ps, id, 'board', [r, c]);
+    const ethan = give(m, ps, `chess_char_3_18_${form}`, 'hand');
+    assert.equal(ps.bonds.suntShip.count, 3);
+    assert.equal(ps.bonds.deputShip.count, 2);
+    // Make the observed reward deterministic; the official capture does not establish its probability.
+    const roberta = 'chess_char_3_19_a';
+    for (const [id, entry] of m.pool.entries) if (id !== roberta) m.pool.take(id, entry.left);
+    const old = new Set(ps.allChess().map(p => p.uid));
+    assert.deepEqual(m.handle('p_0', { t: 'g.sell', uid: ethan.uid }), { ok: true });
+    assert.deepEqual(ps.allChess().filter(p => !old.has(p.uid)).map(p => p.id), [roberta]);
+  }
+});
+
+test('伊桑 sale: reported R13 formation grants a 莱塔尼亚 operator when 4 elites outnumber its 3 real members', t => {
+  for (const seed of [1, 2, 3, 4]) for (const form of ['a', 'b']) {
+    const { m, ps } = saleSetup(t, seed);
+    ps.shop.level = 6;
+    // Public formation from R13 of the reported replay; no account or replay identifiers are needed.
+    for (const [id, r, c] of [
+      ['chess_char_4_02_b', 11, 6], ['chess_char_1_04_a', 11, 7], ['chess_char_6_20_a', 11, 8],
+      ['chess_char_5_01_b', 10, 5], ['chess_char_4_26_a', 10, 6], ['chess_char_6_20_b', 10, 7],
+      ['chess_char_5_11_b', 10, 8],
+    ]) give(m, ps, id, 'board', [r, c]);
+    const ethan = give(m, ps, `chess_char_3_18_${form}`, 'hand');
+    assert.equal(ps.bonds.suntShip.count, 4);
+    assert.equal(ps.bonds.lethaniaShip.count, 3);
+    const old = new Set(ps.allChess().map(p => p.uid));
+    assert.deepEqual(m.handle('p_0', { t: 'g.sell', uid: ethan.uid }), { ok: true });
+    const gained = ps.allChess().filter(p => !old.has(p.uid));
+    assert.equal(gained.length, 1);
+    assert.ok(ps.gd.chess(gained[0].id).bonds.includes('lethaniaShip'));
+  }
+});
+
+test('伊桑 sale: both forms respect shop level and exclude their own base id even after copies return', t => {
+  for (const form of ['a', 'b']) for (const level of [1, 3, 5]) {
+    const { m, ps } = saleSetup(t);
+    ps.shop.level = level;
+    ps.bondCountBonus.arcaneShip = 10; ps.recompute();
+    const ethan = give(m, ps, `chess_char_3_18_${form}`, 'hand');
+    const allowed = 'chess_char_1_09_a'; // 卡达: a stocked arcane operator within every tested shop level.
+    for (const [id, entry] of m.pool.entries) if (id !== allowed) m.pool.take(id, entry.left);
+    assert.deepEqual(m.handle('p_0', { t: 'g.sell', uid: ethan.uid }), { ok: true });
+    assert.deepEqual(ps.allChess().map(p => p.id), [allowed], 'returned Ethan copies cannot be granted back');
+    assert.ok(ps.gd.tierOf(ps.allChess()[0].id) <= level);
+  }
+});
+
+test('伊桑 sale: only self or above-level stock leaves no reward and does not fall back to a smaller bond', t => {
+  for (const form of ['a', 'b']) {
+    const { m, ps } = saleSetup(t);
+    ps.shop.level = 3;
+    ps.bondCountBonus.arcaneShip = 10;
+    ps.bondCountBonus.lethaniaShip = 5;
+    const ethan = give(m, ps, `chess_char_3_18_${form}`, 'hand');
+    // Keep a T5 arcane operator and a T3 operator of the smaller bond in stock; neither qualifies.
+    for (const [id, entry] of m.pool.entries) {
+      if (!['chess_char_5_11_a', 'chess_char_3_02_a'].includes(id)) m.pool.take(id, entry.left);
+    }
+    const funds = ps.funds;
+    assert.deepEqual(m.handle('p_0', { t: 'g.sell', uid: ethan.uid }), { ok: true });
+    assert.equal(ps.allChess().length, 0);
+    assert.ok(ps.funds > funds, 'sale payment is independent of reward availability');
+  }
+});
+
 test('SERVER_SELF_SELL_PRICE_DELTA: stacks to the text cap, skips the hand, never lowers a higher price; sell pays it', () => {
   const s = setup();
   const piece = give(s.m, s.ps, 'chess_char_3_04_a', 'board', [10, 4]);
@@ -118,6 +204,69 @@ test('SERVER_SELF_SELL_PRICE_FIXED: acquire sets the blackboard price and clears
   assert.equal(piece.meta.sellFixed, true);
   assert.equal(s.ps.sellPriceOf(piece), 3);
   assert.equal(s.m.gd.sellPrice(piece.id), 1);
+});
+
+test('精英化 keeps the sale price (§37.209): a grown 海沫 merges into a 4 elite that grows on to 8; 温蒂 still fixes 6', () => {
+  const s = setup();
+  // a tile the elite may take (the merge puts it on the deployed copy's tile only when that tile is legal for it)
+  const probe = s.ps.newPiece('chess', 'chess_char_3_04_b');
+  let at = null;
+  for (let r = 0; r < 12 && !at; r++) for (let c = 0; c < 12 && !at; c++) if (s.ps._legal(probe, r, c)) at = [r, c];
+  assert.ok(at, 'a legal tile for 海沫');
+  const grown = give(s.m, s.ps, 'chess_char_3_04_a', 'board', at);
+  s.prepEnd();
+  s.prepEnd();
+  s.prepEnd();
+  assert.equal(s.ps.sellPriceOf(grown), 4);
+  give(s.m, s.ps, 'chess_char_3_04_a', 'hand');
+  const elite = s.acquire('chess_char_3_04_a');
+  assert.equal(elite.id, 'chess_char_3_04_b');
+  assert.equal(s.ps.find(elite.uid).area, 'board', 'the elite takes the grown copy\'s tile');
+  assert.equal(s.ps.sellPriceOf(elite), 4, 'the grown copy\'s price, not the table 1');
+  assert.equal(s.ps.pieceView(elite).sellPrice, 4, 'the sell button shows it');
+  assert.equal(elite.meta.sellBonus, 3);
+  s.prepEnd();
+  assert.equal(s.ps.sellPriceOf(elite), 6, '+2 a prep end once elite');
+  s.prepEnd();
+  assert.equal(s.ps.sellPriceOf(elite), 8);
+  s.prepEnd();
+  assert.equal(s.ps.sellPriceOf(elite), 8, 'the elite text cap');
+  const funds = s.ps.funds;
+  assert.deepEqual(s.m.handle('p_0', { t: 'g.sell', uid: elite.uid }), { ok: true });
+  assert.equal(s.ps.funds, funds + 8);
+
+  // 温蒂: the copies are fixed at 3; the elite's own 获得时 特质 sets 6 in the gain after the merge
+  const w = s.acquire('chess_char_4_05_a');
+  s.acquire('chess_char_4_05_a');
+  assert.equal(s.ps.sellPriceOf(w), 3);
+  const we = s.acquire('chess_char_4_05_a');
+  assert.equal(we.id, 'chess_char_4_05_b');
+  assert.equal(s.ps.sellPriceOf(we), 6);
+  assert.equal(we.meta.sellFixed, true);
+
+  // copies without an effect price merge into a table-price elite (nothing to carry)
+  for (let i = 0; i < 3; i++) s.acquire('chess_char_1_18_a');
+  const plain = s.ps.allChess().find((p) => p.id === 'chess_char_1_18_b');
+  assert.ok(plain, 'a merged elite 拉普兰德');
+  assert.equal(plain.meta.sellPrice, undefined);
+  assert.equal(s.ps.sellPriceOf(plain), 1);
+});
+
+test('carrySellPrice: the highest copy with its bonus / fixed mark; nothing at or below the elite table price', () => {
+  const copy = (meta) => ({ meta });
+  const elite = () => ({ meta: {} });
+  const a = elite();
+  carrySellPrice(a, [copy({}), copy({ sellPrice: 3, sellBonus: 2 }), copy({ sellPrice: 5, sellBonus: 4 })], 1);
+  assert.deepEqual(a.meta, { sellPrice: 5, sellBonus: 4 });
+  const b = elite();
+  carrySellPrice(b, [copy({ sellPrice: 3, sellBonus: 0, sellFixed: true }), copy({})], 1);
+  assert.deepEqual(b.meta, { sellPrice: 3, sellBonus: 0, sellFixed: true });
+  const c = elite();
+  carrySellPrice(c, [copy({ sellPrice: 1 }), copy({ sellPrice: 0 }), copy({ sellPrice: Number.NaN })], 1);
+  assert.deepEqual(c.meta, {}, 'no price above the table');
+  const d = elite();
+  carrySellPrice(d, [copy({}), null, copy(undefined)], 1);
+  assert.deepEqual(d.meta, {});
 });
 
 test('SERVER_GAIN_RANDOM_EQUIP: one item from the board at prep start; the hand does not; the elite text is 两件 twice', () => {
@@ -169,13 +318,26 @@ test('SERVER_GAIN_SPECIAL_REFRESH_BOND_CHAR: one charge, count is how many slots
   assert.deepEqual(queued.ps.shop.slots.map((slot) => slot.id), ['chess_char_1_01_a', 'chess_char_1_01_a', 'chess_char_1_01_a', itemId]);
 });
 
-test('SERVER_UPGRADE_SELF_EQUIP: a carried non-golden item becomes its upgrade in place', () => {
-  const s = setup();
-  const piece = give(s.m, s.ps, 'chess_char_4_15_a', 'board', [10, 4]);
-  piece.items.push(s.ps.newPiece('item', 'chess_item_1_01_e_a'));
-  piece.items.push(s.ps.newPiece('item', 'chess_item_1_01_e_b'));
-  s.prepStart();
-  assert.deepEqual(piece.items.map((it) => it.id), ['chess_item_1_01_e_b', 'chess_item_1_01_e_b']);
+test('SERVER_UPGRADE_SELF_EQUIP: both operator forms return the upgraded instances without unequipping unchanged items', () => {
+  for (const id of ['chess_char_4_15_a', 'chess_char_4_15_b']) {
+    const s = setup();
+    const piece = give(s.m, s.ps, id, 'board', [10, 4]);
+    const normal = s.ps.newPiece('item', 'chess_item_1_01_e_a');
+    normal.itemPoolCopies = 0;
+    normal.meta = { source: 'test' };
+    const golden = s.ps.newPiece('item', 'chess_item_1_01_e_b');
+    piece.items.push(normal, golden);
+    s.prepStart();
+    assert.deepEqual(piece.items, [golden], 'already-advanced equipment is not upgraded or returned');
+    assert.equal(normal.id, 'chess_item_1_01_e_b');
+    assert.equal(normal.itemPoolCopies, 0, 'passive stock provenance survives the return');
+    assert.deepEqual(normal.meta, { source: 'test' });
+    assert.ok(handItems(s.ps).includes(normal), 'the same instance returns to storage');
+    assert.notEqual(s.ps.find(normal.uid)?.area, 'equipped');
+    const before = handItems(s.ps).length;
+    s.prepStart();
+    assert.equal(handItems(s.ps).length, before, 'a repeated trigger does not duplicate returned equipment');
+  }
   const hand = setup(71);
   const held = give(hand.m, hand.ps, 'chess_char_4_15_a', 'hand');
   held.items.push(hand.ps.newPiece('item', 'chess_item_1_01_e_a'));
@@ -183,27 +345,41 @@ test('SERVER_UPGRADE_SELF_EQUIP: a carried non-golden item becomes its upgrade i
   assert.equal(held.items[0].id, 'chess_item_1_01_e_a', 'the hand is not on the board');
 });
 
-test('SERVER_ADD_BOND_UPGRADE_LAYER: 1, 2, 3, 4, then the remainder, then nothing', () => {
+test('SERVER_UPGRADE_SELF_EQUIP: multiple upgrades return to overflow when the equipment row is full', () => {
+  const s = setup(72);
+  const piece = give(s.m, s.ps, 'chess_char_4_15_a', 'board', [10, 4]);
+  for (let i = 0; i < 5; i++) s.ps.stow(s.ps.newPiece('item', 'chess_item_1_01_e_b'));
+  const items = [s.ps.newPiece('item', 'chess_item_1_01_e_a'), s.ps.newPiece('item', 'chess_item_1_01_e_a')];
+  for (const item of items) item.itemPoolCopies = 0;
+  piece.items.push(...items);
+  s.prepStart();
+  assert.equal(piece.items.length, 0, 'mutating the equipment list does not skip the second item');
+  for (const item of items) {
+    assert.equal(item.id, 'chess_item_1_01_e_b');
+    assert.ok(s.ps.tempPieces().includes(item), 'forced returns use the existing hidden overflow');
+    assert.equal(item.itemPoolCopies, 0);
+  }
+});
+
+test('SERVER_ADD_BOND_UPGRADE_LAYER: single rewards rise to 12 and keep paying', () => {
   const s = setup();
   s.activate('kjeragShip');
   const piece = s.acquire('chess_char_3_07_a');
   assert.equal(s.L('kjeragShip'), 1);
-  for (const n of [3, 6, 10, 12, 12]) {
+  for (const n of [3, 6, 10, 15, 21, 28, 36, 45, 55, 66, 78, 90]) {
     s.m.dispatcher.triggerGarrisons(s.ps, piece, 'SERVER_GAIN');
     assert.equal(s.L('kjeragShip'), n);
   }
 });
 
-test('SERVER_GAIN_FREE_REFRESH_UPGRADE_COUNT: the first two grants are 1, the next fills the cap', () => {
+test('SERVER_GAIN_FREE_REFRESH_UPGRADE_COUNT: each pair upgrades the next reward to a maximum of 3', () => {
   const s = setup();
   const piece = s.acquire('chess_char_3_13_a');
   assert.equal(s.ps.shop.freeRefreshes, 1);
-  s.m.dispatcher.triggerGarrisons(s.ps, piece, 'SERVER_GAIN');
-  assert.equal(s.ps.shop.freeRefreshes, 2);
-  s.m.dispatcher.triggerGarrisons(s.ps, piece, 'SERVER_GAIN');
-  assert.equal(s.ps.shop.freeRefreshes, 3);
-  s.m.dispatcher.triggerGarrisons(s.ps, piece, 'SERVER_GAIN');
-  assert.equal(s.ps.shop.freeRefreshes, 3);
+  for (const total of [2, 4, 6, 9, 12, 15]) {
+    s.m.dispatcher.triggerGarrisons(s.ps, piece, 'SERVER_GAIN');
+    assert.equal(s.ps.shop.freeRefreshes, total);
+  }
 });
 
 test('SERVER_ADD_ACTIVATED_BOND_BY_ALIVE_CHAR: living chess, the per-trigger cap, SELF, and a hand carrier', () => {

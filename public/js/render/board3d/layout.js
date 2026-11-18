@@ -207,6 +207,7 @@ export function classifyStage(stage, area = null) {
       case 'E': t.surf = 'ringHatch'; break;
       case 'I': case 'O': t.surf = 'lift'; t.rot = t.glyph === 'O' ? 180 : 0; break;
       case 'g': t.surf = 'slats'; t.tint = [0.72, 0.76, 0.78]; break;
+      case 'w': t.surf = 'concrete'; t.tint = [0.55, 0.85, 0.85]; break;
       case 'm': t.rot = (h % 4) * 90; t.tint = [0.78, 0.8, 0.7]; break;
       case 'i': t.rot = (h % 4) * 90; t.tint = [0.95, 0.88, 0.86]; break;
       case 'd': t.surf = 'concrete'; t.tint = [0.35, 0.42, 0.46]; break;
@@ -339,7 +340,7 @@ export function buildBoard(stage, opts = {}) {
   const topZ = (t) => (t.glyph === 'd' ? -BASIN : t.h);
   const board = new Geom(), decal = new Geom(), pipe = new Geom(), glass = new Geom();
   const raised = new Geom(), raisedDecal = new Geom();
-  const gates = [], terrain = { water: [], mire: [], smog: [], infection: [] };
+  const gates = [], terrain = { water: [], mire: [], smog: [], infection: [], duelGrass: [] };
   // S / E gates come from the whole grid, not from the drawn tiles: the enemy half's start gate sits outside the
   // current area and the `t.drawn` filter below would drop it, so watching one half lost the other side's red gate.
   // A boss field is framed on its own arena, where the other gates would sit on top of the arena's own, so there
@@ -407,6 +408,16 @@ export function buildBoard(stage, opts = {}) {
       case 'd': terrain.water.push([r, c]); break;
       case 'm': terrain.mire.push([r, c]); break;
       case 'g': terrain.smog.push([r, c]); break;
+      case 'w': {
+        // Distinct tinted tile plus a thin concealment frame; never fall back to a non-deployable floor glyph.
+        terrain.duelGrass.push([r, c]);
+        const a = 0.43, b = 0.405, z = zt + 0.006;
+        const uv = surfaceUV(UVT.concrete);
+        for (const [x0, x1, y0, y1] of [[-a, a, -a, -b], [-a, a, b, a], [-a, -b, -b, b], [b, a, -b, b]]) {
+          decal.quad([[c + x0, r + y0, z], [c + x1, r + y0, z], [c + x1, r + y1, z], [c + x0, r + y1, z]], uv, [0, 0, 1], [1, 0.23, 0.27]);
+        }
+        break;
+      }
       case 'i': terrain.infection.push([r, c]); break;
       default: break;
     }

@@ -125,7 +125,12 @@ describe('App screen wake lock', { skip: !ENABLED && 'set SP_E2E=1 (and have Chr
     await page.waitForSelector(`.fsbtn[aria-pressed="${on}"]`);
   }
   async function explanation(page, lang, ios = false) {
-    await page.select('.modal [data-testid="lang-toggle"] select', lang);
+    const radio = await page.$(`.modal [data-testid="lang-toggle"] button[data-lang="${lang}"]`);
+    if (radio) await radio.click();
+    else {
+      await page.click('.modal [data-testid="lang-toggle"] [role="combobox"]');
+      await page.click(`.modal [data-testid="lang-toggle"] [role="option"][data-lang="${lang}"]`);
+    }
     const pack = lang === 'zh' ? null : JSON.parse(readFileSync(path.join(ROOT, `public/i18n/${lang}.json`), 'utf8'));
     const tr = (key) => pack?.[key] || key;
     const hint = tr(ios ? IOS_HINT : HINT).replace('{support}', tr(SUPPORT));

@@ -349,7 +349,7 @@ test('game texts fall back per text: the pack\'s overlay, then its fallback\'s, 
   } finally { console.warn = w; }
 });
 
-test('client: the index registers the language packs; the menu lists them (buttons up to four, a list beyond); packs load by their URLs', async () => {
+test('client: the index registers the language packs; the menu lists them (buttons up to five, a list beyond); packs load by their URLs', async () => {
   const lang = await import('../public/js/ui/lang.js');
   const index = { version: 1, packs: [
     { id: 'en', type: 'lang', lang: 'en', name: 'English', englishName: 'English', fallback: [], files: { ui: '/i18n/en.json', data: '/data/i18n/en.json' } },
@@ -371,7 +371,9 @@ test('client: the index registers the language packs; the menu lists them (butto
   assert.equal(menu.kind, 'buttons');
   assert.deepEqual(menu.items.map((i) => [i.code, i.label, i.htmlLang, i.on]), [['zh', '中文', 'zh-CN', false], ['en', 'English', 'en', true], ['qab', 'Qab', 'qab', false]]);
   assert.equal(menu.items[2].title, 'Test B', 'the English name as a tooltip when it reads differently');
-  const many = ['a1', 'a2', 'a3', 'a4', 'a5'].map((c) => ({ code: c, name: c, englishName: c }));
+  const five = ['a1', 'a2', 'a3', 'a4', 'a5'].map((c) => ({ code: c, name: c, englishName: c }));
+  assert.equal(lang.langMenuModel(five, 'a1').kind, 'buttons', 'the five shipped packs stay a segmented row');
+  const many = ['a1', 'a2', 'a3', 'a4', 'a5', 'a6'].map((c) => ({ code: c, name: c, englishName: c }));
   assert.equal(lang.langMenuModel(many, 'a1').kind, 'select');
   assert.equal(await lang.loadLangChain('qab', fetchFake), true);
   assert.ok(got.includes('/packs/qab/ui.json') && got.includes('/i18n/en.json'), 'the pack and its fallback, by their URLs');

@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readyFundsPrompt } from '../../public/js/ui/gameLogic.js';
+import { readyFundsPrompt, readyCommandPrompt, readyPrompt } from '../../public/js/ui/gameLogic.js';
 import { makeMatch } from '../match/harness.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -52,11 +52,53 @@ test('the server rule stays: readying with funds is accepted and the prep end wi
   m.dispose();
 });
 
-test('game.js asks through readyFundsPrompt before g.ready (button and Space share toggleReady)', () => {
+test('game.js asks through readyFundsPrompt / readyCommandPrompt before g.ready (button and Space share toggleReady)', () => {
   const src = readFileSync(path.join(ROOT, 'public/js/screens/game.js'), 'utf8');
-  const body = src.slice(src.indexOf('const toggleReady = useCallback('), src.indexOf('const toggleReady = useCallback(') + 900);
-  assert.match(body, /readyFundsPrompt\(L\.priv, \{ keptBands: data\.get\('config'\)\?\.economy\?\.leftoverFundsKeptByBands, autoplay: !!me\?\.autoplay \}\)/);
-  assert.ok(body.indexOf('confirmDialog(ask)') < body.indexOf('actions.ready(r)'), 'confirmed before the request');
+  const body = src.slice(src.indexOf('const toggleReady = useCallback('), src.indexOf('const toggleReady = useCallback(') + 2200);
+  assert.match(body, /const autoplay = !!me\?\.autoplay;/);
+  assert.match(body, /readyFundsPrompt\(L\.priv, \{ keptBands: data\.get\('config'\)\?\.economy\?\.leftoverFundsKeptByBands, autoplay \}\)/);
+  assert.match(body, /!commandAskMuted\.current \? readyCommandPrompt\(L\.priv, \{ autoplay \}\)/);
+  assert.ok(body.indexOf('confirmDialog({ ...ask') > 0 && body.indexOf('confirmDialog({ ...ask') < body.indexOf('actions.ready(r)'), 'confirmed before the request');
   assert.match(src, /onReady=\$\{toggleReady\}/);
   assert.match(src, /toggleReady\(!L\.priv\.ready\)/, 'Space');
+});
+
+// §37.201: an unused drag command asks too (the owner, 2026-11-14), in the same box, mutable for the match
+const cmd = (o = {}) => ({ type: 'ACTIVE', targetType: 'COMMON_CHESS', usable: true, reason: null, targets: [{ uid: 3 }], ...o });
+test('a usable drag command not used this round asks; locked, passive, cooled down, broke, click-only or targetless do not', () => {
+  assert.match(readyCommandPrompt(priv({ command: cmd() })).text, /指令还可以使用/);
+  assert.ok(readyCommandPrompt(priv({ command: cmd({ targetType: 'TILE' }) })), 'a tile target is dragged too');
+  assert.equal(readyCommandPrompt(priv({ command: cmd({ targetType: 'NO_TARGET' }) })), null, 'a click command');
+  assert.equal(readyCommandPrompt(priv({ command: cmd({ type: 'PASSIVE' }) })), null);
+  assert.equal(readyCommandPrompt(priv({ command: cmd({ type: 'NONE', usable: false, reason: 'locked' }) })), null);
+  assert.equal(readyCommandPrompt(priv({ command: cmd({ usable: false, reason: 'cooldown' }) })), null);
+  assert.equal(readyCommandPrompt(priv({ command: cmd({ usable: false, reason: 'funds' }) })), null);
+  assert.equal(readyCommandPrompt(priv({ command: cmd({ targets: [] }) })), null, 'no target this round');
+  assert.equal(readyCommandPrompt(priv({ command: null })), null);
+  assert.equal(readyCommandPrompt(priv({ command: cmd(), ready: true })), null);
+  assert.equal(readyCommandPrompt(priv({ command: cmd() }), { ready: false }), null, 'cancelling a ready never asks');
+  assert.equal(readyCommandPrompt(priv({ command: cmd() }), { autoplay: true }), null, 'AI 托管');
+  assert.equal(readyCommandPrompt(priv({ command: cmd(), alive: false })), null);
+});
+
+test('one box for both reasons: the command sentence first, the funds question last; only the command makes it mutable', () => {
+  const funds = readyFundsPrompt(priv({ funds: 4 }), { keptBands: KEPT });
+  const command = readyCommandPrompt(priv({ command: cmd() }));
+  const both = readyPrompt(funds, command);
+  assert.equal(both.title, '准备就绪前');
+  assert.equal(both.lines.length, 2);
+  assert.match(both.lines[0], /指令还可以使用/);
+  assert.match(both.lines[1], /4 资金未使用.*确定准备就绪吗/);
+  assert.equal(both.mutable, true);
+  const onlyCommand = readyPrompt(null, command);
+  assert.equal(onlyCommand.title, '指令未使用');
+  assert.deepEqual(onlyCommand.lines.slice(1), ['确定准备就绪吗？']);
+  assert.equal(onlyCommand.mutable, true);
+  const onlyFunds = readyPrompt(funds, null);
+  assert.equal(onlyFunds.title, '剩余资金');
+  assert.deepEqual(onlyFunds.lines, [funds.text]);
+  assert.equal(onlyFunds.mutable, false);
+  assert.equal(readyPrompt(null, null), null);
+  assert.equal(both.okText, '准备就绪');
+  assert.equal(both.cancelText, '继续整备');
 });

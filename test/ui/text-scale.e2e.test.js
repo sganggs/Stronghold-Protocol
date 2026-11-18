@@ -70,8 +70,9 @@ describe('文字大小 on a phone (headless Chrome)', { skip: !ENABLED && 'set S
     }
     return {
       root: parseFloat(getComputedStyle(document.documentElement).fontSize),
-      label: px('.set-row__label'),
-      micro: px('.set-row__label .micro'),
+      // a row's label (round 72 put the section captions — also .set-row__label — above the first row)
+      label: px('.set-row .set-row__label'),
+      micro: px('.set-row .set-row__label .micro'),
       modalWidth: box ? Math.round(box.width) : null,
       bodyOverflowX: body ? body.scrollWidth - body.clientWidth : null,
       outRight: Math.round(outRight),

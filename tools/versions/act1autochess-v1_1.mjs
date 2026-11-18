@@ -35,6 +35,14 @@ export default Object.freeze({
   config: Object.freeze({
     hiddenCore: Object.freeze({ single: 300, multi: 1000 }),
     // Round53 authorizes full-bench swaps in every version; first-period client fidelity is unmeasured [ASSUMED], §36.2.
+    // Bonds greyed per match: 2 of the 6 core bonds — a guide written in the season (2025-12-09) says 「核心盟约ban2留4」
+    // (community report via the owner, 2026-11-14, §37.205; 第二期's 3 of 8 had been assumed here); add-ons 4 of 9 as in
+    // 第二期 [ASSUMED]; 标准 0 + 1 (research 01 A2: 上半's intro greys only 坚守).
+    bans: Object.freeze({
+      FUNNY: { core: 0, addon: 1 },
+      NORMAL: { core: 2, addon: 4 }, HARD: { core: 2, addon: 4 }, ABYSS: { core: 2, addon: 4 },
+      TRAINING: { core: 0, addon: 0 },
+    }),
     rules: Object.freeze({ deployOrder: 'rowBottomUp', soloTimed: true, benchEquip: false, bossMirrorShare: false }),
   }),
   expect: Object.freeze({ bonds: 18, bands: 20, visibleNonDiy: 95, triggerDeviations: 'none' }),

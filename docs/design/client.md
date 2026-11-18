@@ -4,12 +4,34 @@ Part of [DESIGN.md](../DESIGN.md) (the index; section numbers are global).
 
 ## 9. Client rendering contract (public/js/render)
 
+Normal healing ranges use cyan-blue battlefield highlights; damaging ranges keep orange. Placement previews and
+inspected operators / healing summons resolve the same loadout record (dmgType heal or attackKind heal).
+The solid fill, Pixi stripes and SVG stripes share that choice, preserving highlight groups and orientation.
+This does not recolour the card mini-map or infer a healing range from profession, incidental healing, regen, or skill
+text. Special skills that change the displayed ability need separate verified display metadata. Colour families follow
+[PRTS combat mechanics](https://prts.wiki/w/%E4%BD%9C%E6%88%98%E6%9C%BA%E5%88%B6#%E6%94%BB%E5%87%BB%E8%8C%83%E5%9B%B4);
+the exact RGB values are this UI's palette, not extracted official constants.
+
+**Match transition cues.** A round start has one `RoundPopup` (round, income and spectator state). Entering rest,
+ordinary combat or an Improv draft adds no central phase banner; the top bar still identifies the phase. A shared
+draft reaching the viewer's unpicked turn plays one `轮到你选` cue and its sound — in solo simulation too (decision 7
+of 2026-10-22, kept on 2026-11-14, history §37.225). Spectators and personal 教鞭 choices do not play that cue. `screens/game.js` owns the cue, using the installed theme's
+existing banner or the default disc, never both; the choice overlay keeps its persistent turn status and countdown.
+A queued or visible cue expires when that turn ends, its card is picked or the phase changes, and loading theme art
+does not replay a consumed turn. The round plate may finish before the cue; it never causes a second round plate.
+Source: player report and confirmed acceptance criteria, 2026-11-14; no gameplay or simulation changes.
+
 Match-information bond entries (#915, history §37.98) open the existing `BondPopup` directly: the in-game chips,
 briefing discs and strategy information discs share its effects, member list and ban marks. `MatchBondDialog` shares
 Modal's focus stack; Escape or its backdrop closes the card alone and restores its trigger. A strategy-turn change
 or leaving preparation also removes it. In-game ownership, live layers, morph rules and member skins use the existing
 view data; opening a member closes the information overlays before showing its operator card. Before combat the
 member grid is informational. Mode activation bans and drawn incomplete lineups keep their existing distinct meanings.
+On 规程, when the owner's bond entry carries `effectId`, the popup and the strip tier read that effect
+(`effectDescParams`, `displayThresholds`, `params`) instead of the bond's own effect. The effects column shows the
+current command line, each replacement the battle uses, and a retained opening passive when that buff is still the
+opening band's. A zero-count mapped row is popup data only; the strip does not draw it. A mode-off bond stays the
+grey disc and does not take the replacement text.
 
 **Operator skins (§34.23, [SKINS.md](../SKINS.md)).** [ASSUMED] Retain received skin IDs separately from displayed
 skins so the other-player switch restores loaded units when re-enabled, including boss prep partners. Any-phase
@@ -360,7 +382,8 @@ The owner's `prepMapChars` (外勤医疗's 预备干员-医疗, or another displ
 preparation views: tapping one opens its existing operator-style detail card and highlights its attack range from
 its board-space position and facing, including on a mirrored boss half. They cannot be dragged, sold or retreated
 from this preview. The inspection affordance does not make the preview a combat unit; the battle sim still creates
-the selected variant at battle start (§30.22).
+the selected variant at battle start (§30.22). A standing “模拟宝藏” (`enemy_9038_achest`) is the same kind of
+read-only prep unit, in board coordinates, and that tile is not a legal deploy target.
 
 Audio: autochess BGM per phase, UI SFX (buy/sell/refresh/level/merge/ready/timer), a prep piece's landing sound (its battle deploy sound, once per landing, in landing voices of its own that take over the oldest, §31.8), per-unit attack/hit SFX (throttled; an impact plays for a hostile attack's phys / arts / true damage only, never an operator's skill-mode file for a normal attack; each bank's own instance limit, pitch and delay — §34.25; a skill cue that reaches the client before its unit — the sim emits a deploy-tick cast ahead of the unit's `['spawn']` — is held and sounds once when the unit is tracked, `AudioManager.pendingSkill`, GitHub PR #292 by @LimitlessHPPK; entering a field late hands the sound the buffered `spawn` tuples only, `screens/game/early.js audioEarly`, so no old death, deploy or cast replays), boss music in R14/15. While the music is silent — muted, or the BGM volume at 0 — no BGM is downloaded: the track the screen wants is remembered, a different one still playing stops, and the wanted track is fetched once the music is audible again (`AudioManager.bgmSilent`; about 14 MB a match for a player who turned the music off).
 
@@ -475,7 +498,7 @@ sliding, so a block — which freezes velocity — still turns it with the front
 ### Local preferences and recovery (§28.14, §28.18–20)
 
 Room seat cards isolate their internal layers so remove-player / AI buttons remain below the top-bar settings
-dialog and its backdrop, including after entry animations finish (#888, [0.3.4](../history/0.3.4.md)).
+dialog and its backdrop, including after entry animations finish (#888, [0.4.0](../history/0.4.0.md)).
 
 Settings persist `textSize` (sm/md/lg/xl; default sm), `voiceLang` (cn/jp/en/kr; default cn), `voiceNative` (the
 本土语言 switch; default false), `voiceOverrides` (charId → cn/jp/en/kr/native; default empty), `prepDeployFold`
@@ -498,7 +521,7 @@ when some operators must retain it. Older empty or stale selections resolve to C
 Starting/resuming after a download selection change rebuilds the queue; existing cached files are retained.
 
 The selected-piece underframe uses fixed viewport positioning, matching `tileScreen` client coordinates; screen-fit
-insets must not be added again by the HUD containing block (#889, [0.3.4](../history/0.3.4.md)).
+insets must not be added again by the HUD containing block (#889, [0.4.0](../history/0.4.0.md)).
 
 异形屏适配 (`ui/screenFit.js`) persists `sp.pref.screenFit` — four whole pixel offsets `{ l, r, t, b }` in ±100 (inward
 positive; the settings show each as a 0–100 slider, 50 = 0, 2 px a step) — on this device only. While any offset is
@@ -1116,7 +1139,7 @@ CHANGELOG section, never during room/match play or session restoration. Dismissa
 The title footer reopens it, with newer/older navigation limited to the running release and its predecessors.
 `/CHANGELOG.md` is revalidated, including after update overlays; only that root document is served. Text-only Markdown
 supports headings, lists, code, emphasis and safe links; the document stays in its authored language. A failed fetch
-never marks it read. Unavailable storage falls back to once per page. Revision: [§37.1](../history/0.3.4.md).
+never marks it read. Unavailable storage falls back to once per page. Revision: [§37.1](../history/0.4.0.md).
 
 ### COST / SP receipts (#657)
 
@@ -1125,7 +1148,7 @@ switch. Official mode permits agent skill/charger kill COST gains and actual mer
 permits pioneer skill gains ([ASSUMED] scope approved in #657). SP permits extra bond/talent/skill recovery only,
 excluding time, ordinary attack/hurt and initial SP. Full/locked bars and zero receipts show nothing. White COST,
 red deductions and cyan SP follow the issue examples; exact colours, 80% numeric size, centred placement, 0.9 s
-lifetime and up to two decimals are [ASSUMED]. Receipts do not merge. Revision: [§37.3](../history/0.3.4.md).
+lifetime and up to two decimals are [ASSUMED]. Receipts do not merge. Revision: [§37.3](../history/0.4.0.md).
 
 ### Preparation progress displays (§37.13)
 
@@ -1142,7 +1165,7 @@ manifest replacement. Downloads/catalogue entries use the 512 MB outer cap until
 
 ### Summon outfits (§37.18)
 
-召唤物时装沿用主人干员的公开选择，自选主人显式使用所选干员 `charId`；备战、手牌、临时整备、侦察与战斗一致，缺失资源回退默认模型。来源、显示层边界和插件格式见 [SKINS.md](../SKINS.md) 与 [0.3.4 §37.18](../history/0.3.4.md)。
+召唤物时装沿用主人干员的公开选择，自选主人显式使用所选干员 `charId`；备战、手牌、临时整备、侦察与战斗一致，缺失资源回退默认模型。来源、显示层边界和插件格式见 [SKINS.md](../SKINS.md) 与 [0.4.0 §37.18](../history/0.4.0.md)。
 
 ### Regulation equipment row
 
@@ -1199,6 +1222,14 @@ or an unverifiable file cannot satisfy a requirement. Only manifests may use the
 files and operators; cancellation or invalid manifests cannot report completeness. `public/js/resourceCheck.js`
 exposes the checker and pure planning/summary functions for downstream deployments. 下载素材 uses the multi-language
 selections from 干员语音.
+
+### Complete equipment HUD
+
+Prep unit equipment icons show every actually carried item, including zero-slot equipment, without drawing empty
+capacity. Icons retain their existing size; rows have at most three items, centred independently and balanced:
+four uses 2+2, five 3+2, six 3+3, with additional rows when needed. The bottom edge remains fixed and extra rows grow
+upward. Progress text clears the bottom row even at minimum icon size. [ASSUMED, presentation] This balanced layout
+is a remake UI choice, not a claim about official-game spacing. No equipment capacity or simulation rule changes.
 
 临时层显示统一读取 Battle 临时账本的 detached snapshot，经 InPageSimHost／Worker／runner 传递，包含 Boss 新增和联防继承的临时层。
 卡片保留普通层数与金色 `+N`，顶部条显示金色合计。只展示当前战场所属玩家的临时值，本人战斗结束和 SETTLE 保留，下一次进入休整期才清除；切换战场时读取对应玩家的池；

@@ -7,9 +7,51 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseRichText, richTextPlain, rtClassName, formatPlaceholder, fillPlaceholders, formatBondEffect } from '../../public/js/ui/richText.js';
+import { bondEffectRecord } from '../../public/js/ui/bondEffect.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const load = (f) => JSON.parse(readFileSync(path.join(ROOT, 'data', f), 'utf8'));
+
+test('regulation replacement displays use the selected effect bindings', () => {
+  const unwrap = (f) => { const d = JSON.parse(readFileSync(path.join(ROOT, 'data/versions/act3autochess-v3_1', f), 'utf8')); return d[f.replace('.json', '')] || d; };
+  const bonds = unwrap('bonds.json');
+  const effects = unwrap('effects.json');
+  const pairs = [
+    ['yanShip', 'bondeffect_yan'], ['sargonShip', 'bondeffect_sargon'],
+    ['victoriaShip', 'bondeffect_victoria_2'], ['egirShip', 'bondeffect_egir_2'],
+    ['kazimierzShip', 'bondeffect_kazimierz'], ['kjeragShip', 'bondeffect_kjerag'],
+    ['siracusaShip', 'bondeffect_siracusa'],
+  ];
+  const before = JSON.stringify(bonds);
+  for (const [id, target] of pairs) {
+    for (const layers of [0, 40, 999]) {
+      const record = bondEffectRecord(bonds[id], effects[target], layers);
+      assert.equal(record.effectId, target);
+      assert.equal(record.effectDescRaw, effects[target].descRaw);
+      assert.ok(Array.isArray(effects[target].effectDescParams), target);
+      const text = richTextPlain(formatBondEffect(record, layers));
+      assert.ok(!/\{\d+(?::[^}]+)?\}|NaN|—/.test(text), `${target} @${layers}: ${text}`);
+      assert.equal(record.descRaw, formatBondEffect(record, layers));
+    }
+  }
+  const flame = bondEffectRecord(bonds.kazimierzShip, effects.bondeffect_kazimierz, 40);
+  assert.deepEqual(bondEffectRecord(bonds.yanShip, effects.bondeffect_yan).thresholds, [3, 6, 9]);
+  assert.match(richTextPlain(flame.descRaw), /90%/);
+  assert.match(richTextPlain(flame.descRaw), /120%/);
+  assert.ok(!richTextPlain(flame.descRaw).includes('整备区最右侧'));
+  const normal = bondEffectRecord(bonds.kazimierzShip, effects.bondeffect_kazimierz_2, 40);
+  assert.equal(normal, bonds.kazimierzShip);
+  assert.match(richTextPlain(formatBondEffect(normal, 40)), /90%/);
+  assert.equal(JSON.stringify(bonds), before);
+  assert.equal(bondEffectRecord(bonds.kazimierzShip, undefined), bonds.kazimierzShip);
+});
+
+test('a missing binding stays 0; an official max still caps the number', () => {
+  const missing = { effectDesc: '{0:0%}', effectDescParams: [{ index: 0, format: '0%', base: 'missing', perStack: 'also' }], bb: {} };
+  assert.equal(formatBondEffect(missing, 0), '0%');
+  const capped = { effectDesc: '{0:0%}', effectDescParams: [{ index: 0, format: '0%', base: 'base', perStack: 'growth', max: 2 }], bb: { base: 0.5, growth: 0.1 } };
+  assert.equal(formatBondEffect(capped, 999), '200%');
+});
 
 describe('parseRichText', () => {
   test('styled spans, terms, literal trigger labels, newlines', () => {
@@ -96,5 +138,36 @@ describe('placeholders', () => {
     }
     assert.equal(formatBondEffect(null, 3), '');
     assert.equal(formatBondEffect({ effectDesc: 'x{0:0}', effectDescParams: [{ index: 0, format: '0', base: 'a', perStack: 'b' }], bb: { a: 1, b: 2 } }, 'bad'), 'x1');
+  });
+});
+
+describe('every version\'s 「当前效果」 numbers come from its own keys (§37.208)', () => {
+  const versions = [['default', 'data'], ['act2autochess@V2_1', 'data/versions/act2autochess-v2_1'], ['act1autochess', 'data/versions/act1autochess'],
+    ['act1autochess@V1_1', 'data/versions/act1autochess-v1_1'], ['act3autochess@V3_1', 'data/versions/act3autochess-v3_1']];
+  const bondsOf = (dir) => { const d = JSON.parse(readFileSync(path.join(ROOT, dir, 'bonds.json'), 'utf8')); return d.bonds || d; };
+
+  test('each {i:fmt} names a base and a per-layer key its bond\'s blackboard has (规程: effectDescParamDataDict — they were null, every number read 0)', () => {
+    for (const [v, dir] of versions) {
+      for (const [id, b] of Object.entries(bondsOf(dir))) {
+        for (const p of b.effectDescParams || []) {
+          assert.ok(p.base && p.perStack, `${v} ${id} {${p.index}}: keys`);
+          assert.ok(p.base in (b.bb || {}) && p.perStack in (b.bb || {}), `${v} ${id} {${p.index}}: ${p.base} / ${p.perStack} in bb`);
+        }
+      }
+    }
+  });
+
+  test('规程 坚守 at 40 layers: HP +73 %, 1250 arts damage — not +0 % / 0 (the owner\'s screenshot); 规程\'s descParamMax caps a number', () => {
+    const B = bondsOf('data/versions/act3autochess-v3_1');
+    const plain = (s) => s.replace(/<[^>]*>/g, '');
+    const stead = plain(formatBondEffect(B.steadShip, 40));
+    assert.match(stead, /生命值\+73%/);
+    assert.match(stead, /受到1250点法术伤害/);
+    const slow = B.sargonShip.effectDescParams.find((p) => p.max != null);
+    assert.equal(slow.max, 0.6, '规程\'s descParamMax carried over');
+    // the cap itself (the real slow is 45 % at 999 layers): a number never goes past `max`
+    const capped = { effectDescRaw: '{0:0%}', effectDescParams: [{ index: 0, format: '0%', base: 'b', perStack: 'p', max: 0.6 }], bb: { b: 0.1, p: 0.01 } };
+    assert.equal(formatBondEffect(capped, 30), '40%');
+    assert.equal(formatBondEffect(capped, 100), '60%');
   });
 });

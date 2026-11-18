@@ -134,7 +134,7 @@ import { isStepKey } from '../../shared/plugins/limits.js';
 import { FORGE_SHIM_TEXT, forgeDisplaySlot, forgePanelPage, planForgePanel } from './forgePanels.js';
 import { readForgeBehaviour } from '../../shared/plugins/rules.js';
 
-const APP_RANGE = '>=0.3.0 <0.4.0';
+const APP_RANGE = '>=0.4.0 <0.5.0';
 const DANGER_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 /** Raw zip bytes, headers included, before any entry is inflated. [ASSUMED] 64 KiB of central-directory room on top of the unpacked cap. */
 // [ASSUMED] the largest class ceiling plus header room: the class is read from plugin.json after the zip is opened.

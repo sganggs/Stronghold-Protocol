@@ -283,17 +283,21 @@
 }
 .title-invite .icon { width: .2rem; height: .2rem; }
 .title-invite b { font-size: calc(.2 * var(--t)); letter-spacing: .2em; color: #ffd08a; }
-.title-conn { display: flex; align-items: center; justify-content: center; gap: .1rem; min-height: .32rem; font-size: calc(.14 * var(--t)); color: var(--text-lo); }
+.title-conn { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .1rem; row-gap: .06rem; min-height: .32rem; font-size: calc(.14 * var(--t)); color: var(--text-lo); }
+/* the status words stay on one line: the ping pill that appears once online squeezed 「已连接服务器」 into two (2026-11-12);
+   on a narrow screen the row wraps between its items instead */
+.title-conn > span { white-space: nowrap; }
 /* 统计 (the local stats page) beside the language menu in the top-right corner */
 .title-corner__tools { display: flex; align-items: center; justify-content: flex-end; gap: .1rem; margin-bottom: .1rem; }
 .title-corner__tools .title-lang { margin-bottom: 0; }
-/* language menu (中文 | English | …, ui/lang.js) in the top-right corner; more than four languages make it a list.
+/* language menu (中文 | English | …, ui/lang.js) in the top-right corner; more than five languages make it a listbox.
    The height is max(design, 1.4em) so the buttons still hold their text at 设置 →「文字大小」 大 / 特大 (on a phone
    1rem is clamped at 40 px and .3rem is only 12 px, less than the enlarged label). */
 .title-lang { display: inline-flex; margin-bottom: .1rem; }
 .title-lang button { min-width: .74rem; height: max(.3rem, 1.4em); font-size: calc(.14 * var(--t)); cursor: pointer; }
-.lang-select select { height: max(.38rem, 1.4em); min-width: 1.6rem; padding: 0 .12rem; background: #0a0d0c; border: 0; color: var(--text-hi); font-size: calc(.16 * var(--t)); cursor: pointer; }
-.title-lang.lang-select select { height: max(.3rem, 1.4em); font-size: calc(.14 * var(--t)); }
+.lang-select select, .lang-select .combo__btn { height: max(.38rem, 1.4em); min-height: max(.38rem, 1.4em); min-width: 1.6rem; width: auto; padding: 0 .12rem; background: #0a0d0c; border: 0; color: var(--text-hi); font-size: calc(.16 * var(--t)); cursor: pointer; }
+.title-lang.lang-select select, .title-lang.lang-select .combo__btn { height: max(.3rem, 1.4em); min-height: max(.3rem, 1.4em); font-size: calc(.14 * var(--t)); }
+.lang-select .combo { display: inline-flex; }
 html[data-script="alphabetic"] .title-login .btn--xl { letter-spacing: .3em; }
 .title-conn .ping { height: max(.26rem, 1.6em); font-size: calc(.15 * var(--t)); }
 
@@ -377,3 +381,36 @@ html[data-script="alphabetic"] .title-login .btn--xl { letter-spacing: .3em; }
 .resource-check details { margin-top: .12rem; }
 .resource-check ul { max-height: 28vh; overflow: auto; padding-left: .24rem; }
 .resource-check code { overflow-wrap: anywhere; font-size: calc(.14 * var(--t)); }
+
+/* 规程 start (versions.js startupVersion): the season ground of the 规程 lobby (ui/regulationBackdrop.js) behind the title */
+.title-reg { position: absolute; inset: 0; --reg-ink: #0d0b0a; background: var(--reg-ink); }
+/* …or, with 规程's opening extracted, the opening's last frame (ui/regulationBackdrop.js RegulationStill): the official
+   season screen's ground, key art, skyline and title art on the 1280 × 720 canvas fitted to the screen. Our own title
+   gives way to that art (the h1 stays for screen readers) and the login column starts under it: the art's bottom edge
+   is 34 canvas units below the middle of the screen. */
+.title-reg__still { position: absolute; inset: 0; }
+.title-screen.is-reg-still { --reg-u: min(calc(100vw / 1280), calc(100vh / 720)); justify-content: flex-start; }
+.title-reg-gap { display: block; flex: 0 0 calc(50% - 34 * var(--reg-u)); }
+.title-main--reg { margin-top: .06rem; }
+
+/* 规程's opening (ui/regulationFilm.js) in the entry overlay and its still: the whole screen, not 盟约's 1280 × 720
+   stage (two classes outrank allianceScene.js's `.spa-stage`) */
+.rf, .spa-stage.rf { position: absolute; inset: 0; left: 0; top: 0; width: 100%; height: 100%; transform: none; overflow: hidden; background: #000; }
+.rf--still { background: transparent; }
+/* the season screen's light behind the key art: its mesh beams are not drawn, so the 规程 lobby's drawn sun turns there
+   (centred on the first beam, 123 units above the middle; 1 unit = 0.01rem inside the stage) */
+.rf [data-n="effect_season_on"]::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: calc(50% - 1.23rem);
+  width: 24rem;
+  height: 24rem;
+  transform: translate(-50%, -50%);
+  background: repeating-conic-gradient(from 0deg, rgba(226, 65, 44, .15) 0deg 6deg, transparent 6deg 15deg);
+  -webkit-mask: radial-gradient(closest-side, #000 12%, transparent 62%);
+  mask: radial-gradient(closest-side, #000 12%, transparent 62%);
+  animation: hub-reg-rays 120s linear infinite;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) { .rf [data-n="effect_season_on"]::before { animation: none; } }

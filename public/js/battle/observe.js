@@ -10,6 +10,7 @@
 //     followedScout).
 
 import { PHASE } from '../../../shared/constants.js';
+import { commandDisplayEffects } from '../../../shared/commandDisplay.js';
 import { data } from '../data.js';
 import { t } from '../../../shared/i18n.js';
 
@@ -176,23 +177,36 @@ export function spectateEffects(spec, members) {
   if (!Array.isArray(members) || members.length !== 1 || !isObj(spec)) return undefined;
   const p = Array.isArray(spec.players) ? spec.players.find((x) => isObj(x) && x.playerId === members[0]) : null;
   if (!p || !Array.isArray(p.playerEffects)) return undefined;
+  const band = typeof p.bandId === 'string' ? data.lookup('bands', p.bandId) : null;
+  // The spec's bondEffectOverrides is commandBondOverrides. Skip the opening band row only when those rows exist.
+  const commandRows = typeof p.commandEffectId === 'string' ? commandDisplayEffects({
+    bands: data.list('bands'),
+    originalBandId: p.bandId,
+    commandEffectId: p.commandEffectId,
+    effectOf: (id) => data.lookup('effects', id),
+    progress: p.bandProgress,
+    bonds: data.get('bonds') || {},
+    bondStates: p.bonds || {},
+    effectOverrides: p.bondEffectOverrides || {},
+  }) : null;
   const out = [];
   for (const pe of p.playerEffects) {
     if (!isObj(pe) || typeof pe.id !== 'string' || !pe.id) continue;
     const counter = pe.counter != null ? { counter: pe.counter } : {};
     if (pe.source === 'band') {
-      const band = data.list('bands').find((b) => b && b.effectId === pe.id);
-      if (band) {
-        out.push({ id: pe.id, name: band.effectName || band.name, desc: band.desc || '', iconKind: 'band', iconId: band.iconId || band.bandId, ...counter });
+      const effectBand = data.list('bands').find((b) => b && b.effectId === pe.id);
+      if (effectBand) {
+        if (commandRows && pe.id === band?.effectId) continue;
+        out.push({ id: pe.id, name: effectBand.effectName || effectBand.name, desc: effectBand.desc || '', iconKind: 'band', iconId: effectBand.iconId || effectBand.bandId, ...counter });
         continue;
       }
     }
     const rec = data.lookup('effects', pe.id);
     out.push({ id: pe.id, name: rec?.name || pe.id, desc: rec?.desc || rec?.descRaw || '', iconKind: pe.source || 'choice', iconId: pe.id, ...counter });
   }
-  // Preparation counters captured by the server; refreshing cannot advance them during combat.
-  const band = p.bandProgress && typeof p.bandId === 'string' ? data.lookup('bands', p.bandId) : null;
-  if (band) {
+  if (commandRows) out.unshift(...commandRows);
+  else if (p.bandProgress && band) {
+    // Preparation counters captured by the server; refreshing cannot advance them during combat.
     const id = band.effectId || band.bandId;
     const existing = out.find(e => e.iconKind === 'band' && e.id === id);
     if (existing) Object.assign(existing, p.bandProgress);

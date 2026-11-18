@@ -1,6 +1,9 @@
 // Battle marks of 规程 指令. Targets arrive in the server's PlayerBattleInput; no automatic column selection.
-import { buffsOf, bodyOnTile, fxOn, isOp, onField } from '../support/index.js';
+import { buffsOf, bodyOnTile, bodyInRangeTile, fxOn, isOp, onField } from '../support/index.js';
 import { addShieldLayer, reviveNow } from '../items/battle.js';
+
+/** Blackboard enemy_id of skill_add_pos_effect_enemy (“模拟宝藏”). The payoff is gated on this id, not a band id. */
+const CHEST_ENEMY = 'enemy_9038_achest';
 
 const MARKS = {
   act3autochess_band12_buff(battle, ps, mark, p) {
@@ -56,26 +59,45 @@ const MARKS = {
 
 function installChest(battle, ps, mark) {
   const [r, c] = battle.mapTile(ps, mark.row, mark.col);
-  let alive = true, chest = null;
+  // touched = an enemy overlapped the tile this battle (the mark must not return). spawned = the device stood.
+  let touched = false, spawned = false, chest = null;
   battle.on('battleStart', () => {
-    chest = battle.spawnDevice(mark.enemyId, r, c, { hp: 1, blockCnt: 0, name: battle.data.raw.enemies?.[mark.enemyId]?.name });
-    if (chest) battle.addBuff(chest, { key: 'command:chest', flags: { untargetable: true, invulnerable: true }, persist: true });
+    const rec = battle.data.raw.enemies?.[CHEST_ENEMY];
+    // Ally device, not spawnEnemy: the touch scan walks battle.enemies and must not see the chest itself.
+    // [ASSUMED] blockCnt stays 0. The enemy record's blockCnt is 1, but a device blocker holds an enemy at
+    // radius 0.4472, and the written rule is 触碰, not 阻挡. Enemies walk onto the tile.
+    const hp = rec?.stats?.maxHp > 0 ? rec.stats.maxHp : 100;
+    chest = battle.spawnDevice(CHEST_ENEMY, r, c, { hp, atk: 0, blockCnt: 0, name: rec?.name });
+    if (!chest) return;
+    spawned = true;
+    battle.addBuff(chest, { key: 'command:chest', flags: { untargetable: true, invulnerable: true, noMove: true }, persist: true });
   });
   battle.on('tick', () => {
-    if (!alive || !battle.enemies.some(e => e.alive && bodyOnTile(e, r, c))) return;
-    alive = false;
+    if (touched || !spawned) return;
+    // [ASSUMED] Touch = bodyInRangeTile. A point enemy's 0.1 circle overlaps the chest tile; a huge enemy's
+    // rectangle does. Flyers count — the text does not exclude them. An edge-only graze does not.
+    // A kill on this tick (allies strike before the tick hook) still touched the tile. Dead enemies from
+    // earlier ticks are already compacted out. [ASSUMED] one sample after movement: no enemy here moves
+    // far enough in a 1/30 s tick to cross the overlap and leave it.
+    if (!battle.enemies.some(e => !e.hidden && (e.alive || e.deathAt === battle.time) && bodyInRangeTile(e, r, c))) return;
+    touched = true;
     if (chest?.alive) battle.retreat(chest, { permanent: true });
   });
   battle.on('battleEnd', ({ result }) => {
-    const pp = result.perPlayer[ps.playerId];
-    (pp.commandChests ||= []).push({ id: mark.id, alive });
-    if (alive) pp.coins += mark.coin;
+    const pp = result?.perPlayer?.[ps.playerId];
+    if (!pp) return;
+    const standing = spawned && !touched && !!chest?.alive;
+    // [ASSUMED] A device that never spawned was not touched, so the mark stays for the next battle and pays nothing.
+    (pp.commandChests ||= []).push({ id: mark.id, alive: standing || !spawned });
+    if (!standing) return;
+    const n = Math.trunc(Number(mark.coin));
+    if (n > 0) battle.addCoins(ps.playerId, n);
   });
 }
 
 export function installCommandMarks(battle) {
   for (const ps of battle.players) for (const mark of ps.input.commandMarks || []) {
-    if (mark.enemyId) installChest(battle, ps, mark);
+    if (mark.enemyId === CHEST_ENEMY) installChest(battle, ps, mark);
     for (const b of buffsOf(battle.data.raw.effects?.[mark.tag])) MARKS[b.bbKey]?.(battle, ps, mark, b.p);
   }
 }

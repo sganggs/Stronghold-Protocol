@@ -160,7 +160,7 @@ test('快速配置: the skills, the elite\'s modules (不装备 first) or the �
   assert.deepEqual(mods.map((b) => b.props['data-module']), ['none', 'uniequip_002_inside']);
   mods[0].props.onClick();
   assert.deepEqual(changes, [[INSIDE, { skill: 0 }], [INSIDE, { module: 'none' }]]);
-  const sel = find(card({ quick: 'cult', ...on }), (v) => v.type === 'select');
+  const sel = find(card({ quick: 'cult', ...on }), (v) => v.type?.name === 'ComboBox');
   assert.deepEqual(sel.map((s) => s.props['data-cult']), ['potential', 'cultivate']);
   sel[0].props.onChange({ currentTarget: { value: '3' } });
   assert.deepEqual(sets, [[CHAR(INSIDE), { potential: 3 }]]);

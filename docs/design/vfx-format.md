@@ -560,9 +560,12 @@ Unity draws it first (0.3.1: 瑕光 S3's horses, wings and halo, z +0.23 and 0.5
 a `static_offset` pulled forward (z < 0) or at 0 keeps the flat rule [ASSUMED: the units' renderers sort at their
 feet's depth; an effect whose depth comes from its children's positions alone is not generally judged].
 The verified exception is 魔王 S3's `cetsyr_skill_03_buff_01` / `beijing_01`: its +0.104 depth belongs to a nested
-`scale` helper while `static_offset` is zero. Only this mesh uses the behind-units pass, keeping its authored order 0
-and its siblings' original pass [ASSUMED: a scoped mapping to the two-pass renderer, not full Unity distance sorting;
-history 0.3.4 §37.100].
+`scale` helper while `static_offset` is zero. This standing background must not use the global ground pass: raised
+2D tile rows share the unit layer and would cover it. Only this mesh uses an owner-local `unitBack` draw node at
+the start of `UnitView.root`, sorting after that owner's platform and before its body. Each owner's items are sorted
+and batched independently; finished effects and destroyed owners release the node. Its authored order 0 and its
+siblings' original pass remain unchanged [ASSUMED: a scoped painter-order mapping, not full Unity distance sorting;
+history 0.4.0 §37.106].
 
 ### 33.7 Materials (`descriptor.materials[]`)
 
@@ -1387,7 +1390,7 @@ index.json — version 1 and the version 2 fields (§33.12, §33.15; Phase 3c) �
   then `reborn.mode`'s attacks; null — the sim fx its `triggers` name (a fatal blow, ON_BEFORE_TRY_SET_HP_ZERO:
   'substitute' / 'undying'; a stand-in buff's ON_BUFF_FINISH: 'swap' / 'dollEnd'; ON_SKILL_START: the skill's start;
   ON_OWNER_BORN: the deploy; the one point strike, `talents.js POINT_TRIGGERS`: 新约能天使's `angel2_t_1[target]` → the
-  sim's talent 'airstrike' fx, its attack plan's first hit group at the fx's spot — PR #861, 0.3.4 §37.19), its rows once (a loop for 3 s [ASSUMED]); `attack` — only where a kit fx marks the
+  sim's talent 'airstrike' fx, its attack plan's first hit group at the fx's spot — PR #861, 0.4.0 §37.19), its rows once (a loop for 3 s [ASSUMED]); `attack` — only where a kit fx marks the
   talent's attack ('extraAttack': 守林人's 受选之人 — the attack's casts on the owner, its hits on that attack's target), else
   nothing (8 roster nodes). The forms' modes come from the data (`talents.js formModes`: a RebornTalent's 'form2' →
   `reborn.mode`, a husk's modes, a 傀儡师's 'doll' → the mode its fatal-blow node switches to — 风丸 → Stand, whose attack
@@ -1486,6 +1489,19 @@ index.json — version 1 and the version 2 fields (§33.12, §33.15; Phase 3c) �
     flags — S2 `sleach_skill_02_flag_01` with its ground, S3 `sleach_skill_03_flag_01` with its range loops and its strike
     `sleach_skill_03_range_start_01` / `_02` (the flag model itself — a pole and a skinned cloth of the unported SimSpine
     shader, drawn through the basic fallback — does not show yet [open]).
+    Since 0.4.0 (history §37.202): 旅骨 S1 / S2's alchemy unit and 承曦格雷伊 S2's ball are the same kind of binding. The kit
+    lands the unit at once and emits no attack, so the binding's `fly` draws the projectile from the caster to the tile
+    (`projectile_chr_hbound_s1` / `_s2`, trail `hbound_trail_01`, speed 10; `projectile_chr_greyy2_s2`, trail
+    `greyy2_skill_02_trail`, speed 8). The looping reached effect (`hbound_skill1_range_01` / `hbound_skill2_range_01`,
+    `greyy2_skill_02_range`) is held for the zone's `dur` (`projectile_delay_time`). 旅骨's tick hits
+    (`hbound_skill1_hit_01` / `hbound_skill2_hit_01`, ON_BUFF_TRIGGER, not an onHit) play once per makeZone pulse at the
+    tile [ASSUMED: the client plays them on each enemy in the area; the sim sends no per-enemy fx]. 承曦格雷伊's
+    `greyy2_skill_02_hit_02` plays once when the flight lands; her later zones are the same ball, and the first mark
+    covers them. Since history §37.207 every alchemist's 炼金单元 plays its official effect: 锡人 S1 / S2 add their tick hits
+    (`tinman_skill_01_hit_01` / `tinman_skill_02_hit_01`, `hits`, once a second at the tile), and 引星棘刺 S2's unit — re-sent
+    every second under one zone `key` as it drifts and grows — is a `drift` binding: `thorn2_token_start` and the looping
+    `thorn2_skill_02_token` play once where it lands and follow the zone (playOn `follow` on a moved point); its growing
+    ring stays the procedural zone (the client scales `thorn2_skill_02_range` live; our layer has no live scale).
     A binding at 'point' lies on the field's tile there (OfficialFx ctx.heightAt; before, its owner's height — 锡人's
     flask on the road at his high ground's 0.42), and a flight whose projectile a binding of the shooter's places
     leaves its reached effects to it (SkillFx.bindsReached; before, 锡人's flask also played at the target's HitPoint

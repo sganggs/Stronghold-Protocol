@@ -29,6 +29,7 @@ import { recordId, selfRowOf, loadStats, isModdedRecord, recordsOfSeason } from 
 import { UnofficialMark, VersionTag, isModdedRoom } from '../ui/pluginTag.js';
 import { shownVersion, seasonOf } from '../versions.js';
 import { TestMark } from '../ui/testConsole.js';
+import { ladderName } from '../ui/hud.js';
 import { ResultView, resultBonds } from './result.js';
 import { DIFFICULTY_NAMES, DIFFICULTY_COLORS } from '../../../shared/constants.js';
 import { t } from '../../../shared/i18n.js';
@@ -234,14 +235,25 @@ function Logo() {
   </div>`;
 }
 
-/** The mode pill: the official difficulty plate (its emblem, no text) under the difficulty's name. */
+/**
+ * The result's mode name: 规程's own mode name where it is not its difficulty's (规程等级 n / 极速模拟, as the in-match tag:
+ * the official settlement of a solo 规程等级20 match says 「规程等级20」, BV12ZWP6pE7m 11:40), else the difficulty's.
+ * @param {{ difficulty?: string|null, modeId?: string|null }} r
+ */
+export function modePillName(r) {
+  const d = r?.difficulty;
+  if (!d) return '';
+  return ladderName({ modeId: r.modeId || undefined, difficulty: d }) || (DIFFICULTY_NAMES[d] ? t(DIFFICULTY_NAMES[d]) : d);
+}
+
+/** The mode pill: the official difficulty plate (its emblem, no text) under the mode's name (modePillName). */
 function ModePill({ r }) {
   const d = r.difficulty;
   if (!d) return null;
   const key = String(d).toLowerCase();
   return html`<span class=${cx('smode', `smode--${key}`)} style=${`--d-color:${DIFFICULTY_COLORS[d] || 'var(--text-lo)'}`}>
     <${Sprite} k=${`settle/mode_${key}`} class="smode__bg" fallback=${html`<span class="smode__bg smode__bg--css"><${DifficultyIcon} difficulty=${d} /></span>`} />
-    <b class="smode__name">${DIFFICULTY_NAMES[d] ? t(DIFFICULTY_NAMES[d]) : d}</b>
+    <b class="smode__name">${modePillName(r)}</b>
   </span>`;
 }
 

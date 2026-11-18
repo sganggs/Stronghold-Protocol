@@ -9,6 +9,7 @@
 // (`ops`, synced with room.loadout); the model is ui/loadoutModel.js opsOf / setOps.
 
 import { html, MicroLabel } from '../ui/components.js';
+import { ComboBox } from '../ui/comboBox.js';
 import { data } from '../data.js';
 import { opsOf } from '../ui/loadoutModel.js';
 import { CULTIVATE_EFFECTS, POTENTIAL_MIN, POTENTIAL_MAX, POTENTIAL_DEFAULT, CULTIVATE_DEFAULT } from '../../../shared/potential.js';
@@ -74,16 +75,14 @@ export function CultivationSelects({ charId, ops, onSet, note = null, disabled =
   // a setting off the default stands out (mint); the default stays quiet — it is the same on every row
   return html`<span class=${cx('lo-cult', cur.changed && 'is-changed', note && 'is-moot')} data-char=${charId} title=${note || undefined}>
     ${cur.potentialOn ? html`<span class=${cx('lo-select', 'lo-cult__sel', 'lo-cult__pot', cur.potential !== POTENTIAL_DEFAULT && 'is-off')}>
-      <select value=${String(cur.potential)} aria-label=${t('潜能')} data-cult="potential" disabled=${disabled}
-        onChange=${(e) => set({ potential: Number(e.currentTarget.value) })}>
-        ${POTENTIALS.map((n) => html`<option key=${n} value=${String(n)}>${t('潜能 {n}', { n })}</option>`)}
-      </select>
+      <${ComboBox} value=${String(cur.potential)} label=${t('潜能')} data-cult="potential" disabled=${disabled}
+        options=${POTENTIALS.map((n) => ({ value: String(n), label: t('潜能 {n}', { n }) }))}
+        onChange=${(e) => set({ potential: Number(e.currentTarget.value) })} />
     </span>` : null}
     <span class=${cx('lo-select', 'lo-cult__sel', 'lo-cult__tier', cur.cultivate !== TIERS.length - 1 && 'is-off')} title=${note ? undefined : cultivateName(cur.cultivate)}>
-      <select value=${String(cur.cultivate)} aria-label=${t('练度')} data-cult="cultivate" disabled=${disabled}
-        onChange=${(e) => set({ cultivate: Number(e.currentTarget.value) })}>
-        ${TIERS.map((n) => html`<option key=${n} value=${String(n)}>${t(SHORT_NAMES[n])}</option>`)}
-      </select>
+      <${ComboBox} value=${String(cur.cultivate)} label=${t('练度')} data-cult="cultivate" disabled=${disabled}
+        options=${TIERS.map((n) => ({ value: String(n), label: t(SHORT_NAMES[n]) }))}
+        onChange=${(e) => set({ cultivate: Number(e.currentTarget.value) })} />
     </span>
   </span>`;
 }

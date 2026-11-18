@@ -74,21 +74,24 @@ for (const [engine, executablePath] of engines) test(`${engine}: a waiting-room 
     }), false);
     await waitHost(guest);
 
-    // Both roles expose reachable, non-overlapping controls on a short landscape viewport.
+    // Both roles expose reachable, non-overlapping controls on a short landscape viewport: there the empty 观战席 line
+    // gives its room to the seats and 转为观战 is the eye on one's own card (§37.117; the bar's button is hidden)
     for (const client of [host, guest]) {
       await client.page.setViewport({ width: 844, height: 390 });
       await sleep(500);
-      const geometry = await client.page.$eval('[data-testid="room-spectate"]', (el) => {
+      assert.equal(await client.page.$eval('[data-testid="room-spectate"]', (el) => el.checkVisibility()), false, 'the bar\'s button gives way');
+      const geometry = await client.page.$eval('[data-testid="seat-spectate"]', (el) => {
         const r = el.getBoundingClientRect(), foot = document.querySelector('.rs-foot').getBoundingClientRect();
-        return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, footTop: foot.top,
+        return { w: r.width, h: r.height, left: r.left, right: r.right, top: r.top, bottom: r.bottom, footTop: foot.top,
           width: innerWidth, height: innerHeight, scroll: document.documentElement.scrollHeight };
       });
+      assert.ok(geometry.w > 0 && geometry.h > 0, `shown: ${JSON.stringify(geometry)}`);
       assert.ok(geometry.left >= 0 && geometry.right <= geometry.width, JSON.stringify(geometry));
       assert.ok(geometry.top >= 0 && geometry.bottom <= geometry.footTop + 1 && geometry.bottom <= geometry.height, JSON.stringify(geometry));
       assert.ok(geometry.scroll <= geometry.height + 1, JSON.stringify(geometry));
       await client.shot('mobile');
     }
-    await host.click('[data-testid="room-spectate"]');
+    await host.click('[data-testid="seat-spectate"]');
     await host.click('.modal__actions button', '转为观战');
     await waitRole(host, true);
     await host.shot('mobile-watching');

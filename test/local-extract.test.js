@@ -27,6 +27,33 @@ function py(code) {
 }
 
 describe('extract.py helpers (no UnityPy needed)', { skip: !PY && 'no python3' }, () => {
+  test('规程 water sheets become one quad and low ground outside a piece is kept', () => {
+    const out = py(`import regulation_scenes as r
+quads = [(1, -3.73, 16.52, -8.50, 4.97), (2, -0.57, 19.67, -8.81, 4.65), (3, 0.46, 20.70, -0.60, 12.86)]
+outside = r.place_floor_triangle(3, [9.8, 10.2, 10.0], [-4.2, -4.2, -3.8], [-1, -1, -1])
+dune = r.place_floor_triangle(3, [9.8, 10.2, 10.0], [-4.2, -4.2, -3.8], [1, 1, 1])
+strict = r.place_triangle(1, [3.8, 4.2, 4.0], [-0.2, -0.2, 0.2])
+print(json.dumps({
+  'water': r.water_sheet_quads(quads),
+  'same': r.place_floor_triangle(1, [3.8, 4.2, 4.0], [-0.2, -0.2, 0.2], [-1, -1, -1]) == tuple(strict),
+  'outside': outside, 'dune': dune,
+  'decal': r._is_water_sheet('platform_water', 'Torappu/Scene/DynamicWaterTile', 20, 0),
+  'sheet': r._is_water_sheet('MT_AutochessSand_water', '', 20, 0),
+  'tess': r._is_water_sheet('MT_church_tower_water', 'Torappu/Scene/StylizedWater', 20, 0, 95),
+  'river': r._is_water_surface('MT_church_tower_water', 'Torappu/Scene/StylizedWater'),
+  'bg': r._is_background_sheet('lit', 20, 30),
+}))`);
+    assert.deepEqual(out.water, [[-3.73, -1.5, 20.7, 19.86]]);
+    assert.equal(out.same, true);
+    assert.deepEqual(out.outside, [0, '']);
+    assert.equal(out.dune, null);
+    assert.equal(out.decal, false);
+    assert.equal(out.sheet, true);
+    assert.equal(out.tess, false);
+    assert.equal(out.river, true);
+    assert.equal(out.bg, true);
+  });
+
   test('Windows hot updates select installed current bundles, retain base dependencies and exclude stale copies', () => {
     const out = py(`
 import tempfile

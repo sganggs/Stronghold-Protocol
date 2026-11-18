@@ -12,7 +12,8 @@ kinds / counts and routes must follow the official game; research 08 §6–§7, 
   `clamp(roundHalfEven(n·P(t)/P(new)), 1, 5)` units over the same window, the other movement class not spawned — no
   `k` copies, no kept fly placeholders; verified against all 429 official entry × round compositions and the official
   count distribution (同盟 险境 R3 ≤ 10 enemies, R13 ≈ 37 — the old generator averaged 28 / 81);
-* stats = the PRTS per-round `enemyScale` table only (`data/config.json`, 终极 ×1.15 speed from R3);
+* stats = the PRTS per-round `enemyScale` table only (`data/config.json`, 终极 急行军 speed from R3: ×1.15 on 下半, ×1.30 on 规程 — each
+  season's own effect values, history §37.120);
 * leader pool = `bloodPoint[difficulty]` × the players alive when the fight starts — one pool for every boss field; solo
   × 1 (the owner's decision of 2026-10-06, adopting PR #209: it replaces the fixed pool of DESIGN §20.10, co-op
   bloodPoint whatever the count and solo × 0.25 [ASSUMED] — config `bossHpScale.perPlayer: false`, `solo: 0.25` restores

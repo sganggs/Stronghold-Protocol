@@ -84,9 +84,9 @@ export function phaseBanner(phase, pub, { alive = true, spectator = false } = {}
     // and pendingFunds): an eliminated player or a spectator seat reads 观战中, never 资金已到账 (GitHub #236, PR #237)
     case PHASE.ROUND_START: return { title: t('第 {r} 回合', { r }), micro: `ROUND ${String(r).padStart(2, '0')}`, tone: 'mint',
       sub: spectator || alive === false ? t('观战中') : t('资金已到账') };
-    case PHASE.SP_DRAFT: return { title: t('机变阶段'), micro: 'CONTINGENCY', tone: 'gold', sub: t('依次选择机变') };
-    case PHASE.PREP: return { title: t('休整期'), micro: `ROUND ${String(r).padStart(2, '0')} // REST`, tone: 'mint', sub: t('部署干员，准备迎敌') };
-    case PHASE.COMBAT: return { title: t('作战开始'), micro: 'COMBAT', tone: 'orange', sub: t('各自行动阶段') };
+    case PHASE.SP_DRAFT:
+    case PHASE.PREP:
+    case PHASE.COMBAT: return null;
     case PHASE.UNITE: {
       const names = new Map(sortedPlayers(pub).map((p) => [p.playerId, p.name || t('博士')]));
       const helpers = Array.isArray(pub?.unite?.helpers) ? pub.unite.helpers.map((id) => names.get(id)).filter(Boolean) : [];
@@ -97,6 +97,22 @@ export function phaseBanner(phase, pub, { alive = true, spectator = false } = {}
     case PHASE.SETTLE: return null;
     default: return null;
   }
+}
+
+/**
+ * Stable identity for one eligible shared-draft turn. `draftToken` is local to the mounted match screen and changes
+ * when a distinct SP_DRAFT instance opens; the pick count distinguishes sequential turns even if the same seat turns
+ * up again. Solo is cued too (decision 7 of 2026-10-22, docs/history/0.3.2.md; the owner kept it on 2026-11-14 when
+ * PR #946 dropped it); personal 教鞭 choices have no turn cue. `solo` stays in the options for the callers.
+ * @param {any} pub m.public
+ * @param {any} sp normalizeSp(pub.sp)
+ * @param {{ myId?: string|null, solo?: boolean, alive?: boolean, spectator?: boolean, personal?: boolean, draftToken?: string|number }} [o]
+ * @returns {string|null}
+ */
+export function spTurnCueKey(pub, sp, { myId = null, solo = false, alive = true, spectator = false, personal = false, draftToken = '' } = {}) {
+  if (pub?.phase !== PHASE.SP_DRAFT || !sp || !alive || spectator || personal || typeof myId !== 'string' || !myId
+    || sp.turnPid !== myId || sp.pickOf?.has?.(myId)) return null;
+  return JSON.stringify([draftToken, pub.round ?? null, sp.family ?? null, sp.pickedCount ?? sp.pickOf?.size ?? 0, myId]);
 }
 
 // ---- the round's result box and 战斗结束 sound (GitHub #235; PR #112 by @Convey123) ------------------------------------

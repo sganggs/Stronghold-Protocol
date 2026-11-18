@@ -3,7 +3,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { VERSIONS } from '../../shared/versions.js';
+import { DEFAULT_VERSION, VERSIONS } from '../../shared/versions.js';
 import { buildPlan, charModesFromIndex } from './plan.mjs';
 import { indexAudio } from './audio.mjs';
 import { collectLeaves } from './manifest.mjs';
@@ -28,6 +28,9 @@ export const PRESENTATION_TABLES = ['chess', 'backups', 'tokens', 'enemies', 'it
 // The official prefabs draw an effect/marker instead of a separate Spine (docs/ASSETS.md).
 export const EFFECT_TOKENS = new Set(['token_10039_ulpia_block', 'token_10058_sbell2_icetgt',
   'token_10055_phatm2_mndclv', 'token_10065_demetr_dmtpos', 'token_10071_aglna2_agairp']);
+// Enemies whose official prefab has no Spine renderer: 规程's enemy_9016_acstmr is an icon diamond (as on the default
+// data) and enemy_9036_acweb 淤困之茧 draws its cocoon through effects (tools/assets/coverage.mjs reports both).
+export const NO_SPINE_ENEMIES = new Set(['enemy_9016_acstmr', 'enemy_9036_acweb']);
 // Their defaultskin prefabs have a Front renderer only, as do bard operators.
 export const ONE_FACING_OPERATORS = new Set(['char_291_aglina', 'char_618_acrbot']);
 
@@ -96,6 +99,161 @@ export function versionAudioData(root, base) {
   return out;
 }
 
+/**
+ * Last round of the early 开战 track (rounds 1–7) and the last normal round (8–13). The same split as
+ * public/js/audio.js COMBAT_TRACK_SWITCH_ROUND. Not imported from there: this file is a Node planner.
+ */
+const COMBAT_EARLY_LAST = 7;
+const COMBAT_LATE_LAST = 13;
+
+const bankList = (set) => [...set].map((b) => (typeof b === 'string' && b ? b : 'none')).sort().join(', ') || '(none)';
+
+/** The single bank in `set`, or null when the set is empty, mixed, or a level named no bgm. */
+function onlyBank(set) {
+  if (set.size !== 1) return null;
+  const [bank] = set;
+  return typeof bank === 'string' && bank ? bank : null;
+}
+
+/**
+ * One season's music, from its levels (`waves.json`: `kind`, `bgm` = the official bgmEvent, `bossId`, `usedBy`).
+ * @param {string} season
+ * @param {any[]} levels
+ */
+function analyzeSeasonMusic(season, levels) {
+  const early = new Set();
+  const late = new Set();
+  const bosses = new Map();
+  const unite = new Set();
+  let escaped = 0;
+  for (const lv of levels) {
+    if (!lv || typeof lv !== 'object') continue;
+    const bgm = typeof lv.bgm === 'string' && lv.bgm ? lv.bgm : null;
+    if (lv.kind === 'normal') {
+      for (const u of Array.isArray(lv.usedBy) ? lv.usedBy : []) {
+        if (!u || typeof u !== 'object') continue;
+        if (String(u.modeId || '').startsWith('mode_training')) continue;
+        const round = Number(u.round);
+        if (round >= 1 && round <= COMBAT_EARLY_LAST) early.add(bgm);
+        else if (round > COMBAT_EARLY_LAST && round <= COMBAT_LATE_LAST) late.add(bgm);
+      }
+    } else if (lv.kind === 'boss' || lv.kind === 'hidden') {
+      const ids = Array.isArray(lv.bossId) ? lv.bossId : [lv.bossId];
+      for (const id of ids) {
+        if (typeof id !== 'string' || !/^boss_\d+$/.test(id)) continue;
+        const set = bosses.get(id) ?? new Set();
+        set.add(bgm);
+        bosses.set(id, set);
+      }
+    } else if (lv.kind === 'escaped') {
+      escaped += 1;
+      unite.add(bgm);
+    }
+  }
+  const notes = [];
+  /** @type {{ notes: string[], bosses: Record<string, string>, combat?: { early: string, late: string }, unite?: string|null }} */
+  const spec = { notes, bosses: {} };
+  const earlyBank = onlyBank(early);
+  const lateBank = onlyBank(late);
+  if (earlyBank && lateBank) spec.combat = { early: earlyBank, late: lateBank };
+  else if (early.size || late.size) {
+    notes.push(`season ${season}: 开战 BGM split does not hold (rounds 1–7: ${bankList(early)}; rounds 8–13: ${bankList(late)})`);
+  }
+  for (const id of [...bosses.keys()].sort((a, b) => a.localeCompare(b, 'en', { numeric: true }))) {
+    const bank = onlyBank(bosses.get(id));
+    if (bank) spec.bosses[id] = bank;
+    else notes.push(`season ${season}: boss ${id} BGM does not agree (${bankList(bosses.get(id))})`);
+  }
+  if (escaped) {
+    const bank = onlyBank(unite);
+    if (bank) spec.unite = bank;
+    else if ([...unite].every((b) => b == null)) spec.unite = null;
+    else notes.push(`season ${season}: 联防 BGM does not agree (${bankList(unite)})`);
+  }
+  return spec;
+}
+
+/**
+ * Per-season BGM bank names for the asset plan, from each non-default version's built `waves.json`.
+ * The default season (act2autochess, both sub-versions) is skipped: it stays the top-level `audio.bgm` / `audio.bossBgm`.
+ * Two versions of one season are merged; a disagreement fails that season's split / boss / 联防 check and is a note.
+ * @param {string} root repo root (ignored when `opts.versions` is passed)
+ * @param {{ versions?: { id?: string, season: string, waves: any }[] }} [opts]
+ *   `versions` replaces the registry read (tests). Each `waves` is a built waves object (level id → level).
+ * @returns {{ seasons: Record<string, ReturnType<typeof analyzeSeasonMusic>> }}
+ */
+export function seasonMusicSpec(root, opts = {}) {
+  /** @type {{ season: string, waves: any }[]} */
+  let versions;
+  if (Array.isArray(opts.versions)) versions = opts.versions;
+  else {
+    versions = [];
+    for (const v of VERSIONS) {
+      if (v.season === DEFAULT_VERSION) continue;
+      const file = join(root, 'data', v.dir, 'waves.json');
+      if (!existsSync(file)) continue;
+      versions.push({ season: v.season, waves: JSON.parse(readFileSync(file, 'utf8')) });
+    }
+  }
+  const bySeason = new Map();
+  for (const v of versions) {
+    if (!v || v.season === DEFAULT_VERSION || typeof v.season !== 'string' || !v.season) continue;
+    const waves = v.waves;
+    const levels = waves && typeof waves === 'object' && !Array.isArray(waves) ? Object.values(waves) : [];
+    const bucket = bySeason.get(v.season);
+    if (bucket) bucket.push(...levels);
+    else bySeason.set(v.season, [...levels]);
+  }
+  const seasons = {};
+  for (const [season, levels] of bySeason) seasons[season] = analyzeSeasonMusic(season, levels);
+  return { seasons };
+}
+
+/** `literal(value)` from tools/assets/manifest.mjs, or undefined when `node` is an ordinary object. */
+function literalValue(node) {
+  if (!node || typeof node !== 'object') return undefined;
+  const syms = Object.getOwnPropertySymbols(node);
+  if (syms.length !== 1 || !Object.hasOwn(node, syms[0])) return undefined;
+  return node[syms[0]];
+}
+
+const fileNameOf = (leaf) => {
+  const rel = leaf?.alts?.[0]?.rel;
+  return typeof rel === 'string' ? rel.split('/').pop() : null;
+};
+
+/** A plan leaf `{ intro?, loop }` → basenames. `literal(null)` (联防 with no bgmEvent) stays null. */
+function trackFiles(node) {
+  if (node == null) return null;
+  const unwrapped = literalValue(node);
+  if (unwrapped !== undefined) return unwrapped == null ? null : trackFiles(unwrapped);
+  if (typeof node !== 'object') return null;
+  const loop = fileNameOf(node.loop);
+  if (!loop) return null;
+  const intro = fileNameOf(node.intro);
+  return intro ? { intro, loop } : { loop };
+}
+
+/**
+ * The planned `audio.seasons` as ids → file names (template leaves, not resolved hashed URLs). For the dry-run log.
+ * @param {any} seasons plan.template.audio.seasons
+ * @returns {Record<string, { bgm: any, bossBgm: Record<string, any> }>|null}
+ */
+export function seasonMusicFiles(seasons) {
+  if (!seasons || typeof seasons !== 'object') return null;
+  const out = {};
+  for (const [season, slot] of Object.entries(seasons)) {
+    const bgm = {};
+    if (slot?.bgm && Object.hasOwn(slot.bgm, 'lobby')) bgm.lobby = trackFiles(slot.bgm.lobby);
+    if (Array.isArray(slot?.bgm?.combatAlts)) bgm.combatAlts = slot.bgm.combatAlts.map(trackFiles);
+    if (slot?.bgm && Object.hasOwn(slot.bgm, 'unite')) bgm.unite = trackFiles(slot.bgm.unite);
+    const bossBgm = {};
+    for (const [id, track] of Object.entries(slot?.bossBgm || {})) bossBgm[id] = trackFiles(track);
+    out[season] = { bgm, bossBgm };
+  }
+  return out;
+}
+
 /** Reuse the normal sound plan; local AudioClips fill only absent audio leaves, without a network request. */
 export function versionAudioJobs(root, all) {
   const inputs = { assets07: 'docs/research/07-assets.json', ops03: 'docs/research/03-operators.json',
@@ -107,7 +265,8 @@ export function versionAudioJobs(root, all) {
   const fxPath = localFxIndexPath(root);
   const plan = buildPlan({ ...data, audio: indexAudio(versionAudioData(root, data.audioData)), extraOperators: all.operators,
     extraEnemyIds: Object.keys(all.enemies), extraTokenIds: Object.keys(all.tokens), optionalVoice: true,
-    charModes: existsSync(fxPath) ? charModesFromIndex(JSON.parse(readFileSync(fxPath, 'utf8'))) : null });
+    charModes: existsSync(fxPath) ? charModesFromIndex(JSON.parse(readFileSync(fxPath, 'utf8'))) : null,
+    seasonMusic: seasonMusicSpec(root) });
   const jobs = new Map();
   for (const { leaf } of collectLeaves(plan.template.audio)) {
     if (leaf.alts.some((a) => existsSync(join(root, 'public/assets', a.rel)))) continue;
@@ -149,8 +308,7 @@ export function versionAssetJobs(root) {
     }
     return incomplete(rec?.spine);
   };
-  const enemies = Object.keys(all.enemies).filter((id) => !['enemy_9016_acstmr', 'enemy_9036_acweb'].includes(id)
-    && needsModel('enemies', id));
+  const enemies = Object.keys(all.enemies).filter((id) => !NO_SPINE_ENEMIES.has(id) && needsModel('enemies', id));
   const tokens = Object.keys(all.tokens).filter((id) => id.startsWith('token_') && !EFFECT_TOKENS.has(id) && needsModel('tokens', id));
   const sprites = [];
   const add = (bundles, name, path) => {
