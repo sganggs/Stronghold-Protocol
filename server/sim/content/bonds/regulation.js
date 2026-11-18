@@ -579,8 +579,25 @@ function installLethania(battle, pid, effectId, members) {
       }
     }
   };
+  // 一个乐部's attack-speed aura (talent Aura, buff acltm[atk-spd]): AutochessCreateBuffToSpecifiedChar gives every
+  // 【莱塔尼亚】 operator on the field (bond filter, no range) ATTACK_SPEED + base_attack_speed + attack_speed_per_stack ·
+  // floor(layers / stackStep) for as long as the chorus lives; the chorus itself is not an operator and gets nothing.
+  // Each chorus adds its own buff (disableOverride), so two choruses give +40. The client refreshes the value every
+  // second; here it is recomputed when a chorus spawns or dies and when the layers change (same value: per_stack is 0).
+  // [ASSUMED] only the bond owner's operators: the client's side + map-layer check is read as one player's board.
+  const chorusAura = () => {
+    const tb = talentBb(enemyRaw(battle, CHORUS));
+    const step = num(tb['Aura.stackStep'], 0);
+    const L = S.bondLayers(battle, pid, 'lethaniaShip');
+    const each = num(tb['Aura.base_attack_speed']) + num(tb['Aura.attack_speed_per_stack']) * (step > 0 ? Math.floor(L / step) : 0);
+    const n = battle.allyUnits.filter((u) => u.alive && u.ownerId === pid && u.kind === 'token' && u.defId === CHORUS).length;
+    for (const u of members) {
+      if (n > 0 && each) S.passiveBuff(battle, u, 'bond:lethania:aura', { aspd: n * each });
+      else battle.removeBuff(u, 'bond:lethania:aura');
+    }
+  };
   apply();
-  onLayers(battle, pid, 'lethaniaShip', apply);
+  onLayers(battle, pid, 'lethaniaShip', () => { apply(); chorusAura(); });
   const aliveNotes = () => battle.allyUnits.filter((u) => u.ownerId === pid && u.alive && u.kind === 'token'
     && (u.defId === NOTE || u.defId === CHORUS)).length;
   const summonOne = (anchor) => {
@@ -610,8 +627,7 @@ function installLethania(battle, pid, effectId, members) {
     if (!u) return;
     if (id === NOTE) captureLethaniaBirthMode(battle, u);
     const tb = talentBb(raw);
-    const aspd = num(tb['Aura.base_attack_speed']);
-    if (aspd) S.passiveBuff(battle, u, 'bond:lethania:aura', { aspd });
+    if (id === CHORUS) chorusAura();
     const ratio = num(tb['Bleeding.hp_ratio']);
     const iv = num(tb['Bleeding.interval'], 1);
     if (ratio > 0 && iv > 0) {
@@ -624,6 +640,7 @@ function installLethania(battle, pid, effectId, members) {
   };
   battle.on('death', (c) => {
     const u = c.unit;
+    if (u && u.defId === CHORUS && u.ownerId === pid) chorusAura();
     if (!u || c.reason !== 'killed') return;
     if (u.side === 'enemy') { summonOne(u); return; }
     if (power && u.side === 'ally' && u.kind === 'op' && u.ownerId === pid) summonOne(u);
