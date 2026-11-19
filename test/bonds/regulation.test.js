@@ -132,6 +132,23 @@ function tank(h, pos) {
   assert.ok(e && e.alive, `tank at ${pos}`);
   return e;
 }
+function slowMul(e) {
+  const b = e.findBuff && e.findBuff('bond:sargon:slow');
+  return b && b.mods ? b.mods.moveMul : null;
+}
+function place(e, r, c) {
+  e.x = c;
+  e.y = r;
+}
+/** Sargon piece that does not hit or block, so tile tests read only the bond. */
+function sarPiece(id, o = {}) {
+  return piece(id, ['sargonShip'], {
+    row: o.row ?? 10,
+    col: o.col ?? 4,
+    rangeGrid: o.rangeGrid,
+    stats: { atk: 0, blockCnt: 0, bat: 100 },
+  });
+}
 function yanyou(h) {
   return h.b.allyUnits.filter((u) => u.defId === YANYOU && u.alive).length;
 }
@@ -305,50 +322,29 @@ describe('规程·序列Ⅰ bonds', { concurrency: 1 }, () => {
     close(h.unit('reg_yan_old').s.atk, 500 * 1.23, '盟约 yan atk');
   });
 
-  test('萨尔贡_2: ASPD on skill, slow in range, magic pulses', (t) => {
+  test('萨尔贡_2: ASPD on every member skill; sand starts at the cast', (t) => {
     const main = effectParams('bondeffect_sargon_2', 'act3autochess_bond_eff_sargon');
     assert.equal(main.base_attack_speed, 12);
     assert.equal(main.base_time, 5);
-    const slow = fight(t, {
+    const h = fight(t, {
       bonds: { sargonShip: bond(6, 0) },
-      pieces: [piece('reg_sar', ['sargonShip'], { rangeGrid: [[0, 0], [-1, 0]] })],
+      pieces: [
+        piece('reg_sar', ['sargonShip'], { col: 3, rangeGrid: [[0, 1]], stats: { atk: 0, blockCnt: 0 } }),
+        piece('reg_sar_b', ['sargonShip'], { col: 8, rangeGrid: [[0, 1]], stats: { atk: 0, blockCnt: 0 } }),
+      ],
     });
-    slow.step();
-    const e = tank(slow, [9, 4]);
-    slow.run(1.1);
-    const buff = e.findBuff('bond:sargon:slow');
-    assert.ok(buff, 'slow while in range');
-    close(buff.mods.moveMul, 0.8, 'slow 0.2');
-    const u = slow.unit('reg_sar');
+    h.step();
+    const e = tank(h, [10, 4]);
+    h.run(1.1);
+    assert.equal(e.findBuff('bond:sargon:slow'), null, 'standing in range is not sand before a cast');
+    const u = h.unit('reg_sar');
     assert.ok(u.skill.activate('test', { free: true }));
-    slow.run(1.1);
-    const stacks = u.buffs.filter((b) => b.key === 'bond:sargon');
-    assert.ok(stacks.length >= 1 && stacks.length <= 25);
-    close(stacks[0].mods.aspd, 12, 'aspd');
-    const slowed = e.findBuff('bond:sargon:slow');
-    close(slowed.mods.moveMul, 0.6, 'slow doubles while a skill is up');
-
-    const mag = fight(t, {
-      bonds: { sargonShip: bond(6, 0) },
-      pieces: [piece('reg_sar_m', ['sargonShip'], { rangeGrid: [[0, 0], [-1, 0]] })],
-    });
-    const em = tank(mag, [9, 4]);
-    mag.step(); // the opening swing lands on the first tick; bat 100 holds the next one
-    const hp = em.hp;
-    mag.run(5.2);
-    close(hp - em.hp, 5000, 'magic every 5s');
-
-    const mag2 = fight(t, {
-      bonds: { sargonShip: bond(6, 0) },
-      pieces: [piece('reg_sar_2', ['sargonShip'], { rangeGrid: [[0, 0], [-1, 0]] })],
-    });
-    const e2 = tank(mag2, [9, 4]);
-    mag2.step();
-    assert.ok(mag2.unit('reg_sar_2').skill.activate('test', { free: true }));
-    const hp2 = e2.hp;
-    mag2.run(1.1);
-    close(hp2 - e2.hp, 800, 'magic_2 while the skill is up');
-    assert.equal(!!e2.s.flags.bind, false);
+    for (const id of ['reg_sar', 'reg_sar_b']) {
+      const stacks = h.unit(id).buffs.filter((b) => b.key === 'bond:sargon');
+      assert.equal(stacks.length, 1);
+      close(stacks[0].mods.aspd, 12, id);
+    }
+    close(slowMul(e), 0.6, 'the cast sands the tile in front and the skill doubles it');
   });
 
   test('萨尔贡 swapped to bondeffect_sargon keeps the 盟约 ASPD buff and no tile slow', (t) => {
@@ -367,6 +363,242 @@ describe('规程·序列Ⅰ bonds', { concurrency: 1 }, () => {
     close(stacks[0].mods.aspd, old.base_attack_speed, '盟约 aspd');
     h.run(1.1);
     assert.equal(e.findBuff('bond:sargon:slow'), null);
+  });
+
+  test('萨尔贡_2 流沙: 开技能前没有，最近可走格，离开后停止', (t) => {
+    // (10,3) facing RIGHT, offsets (0,-1)/(0,1)/(0,2) → (10,2) high ground, (10,4) and (10,5) road.
+    // Equal distance would prefer the lower column; the walk filter must skip (10,2).
+    const h = fight(t, {
+      bonds: { sargonShip: bond(6, 0) },
+      pieces: [sarPiece('reg_sar', { col: 3, rangeGrid: [[0, -1], [0, 1], [0, 2]] })],
+    });
+    h.step();
+    const on = tank(h, [10, 4]);
+    const off = tank(h, [10, 2]);
+    const farther = tank(h, [10, 5]);
+    h.run(1.1);
+    assert.equal(slowMul(on), null, 'no slow before a cast');
+    assert.equal(slowMul(off), null, 'no slow off the tile');
+    const hp0 = on.hp;
+    h.run(4.2);
+    assert.equal(on.hp, hp0, 'no 5s magic before a cast');
+    assert.equal(!!on.s.flags.bind, false);
+    const u = h.unit('reg_sar');
+    assert.ok(u.skill.activate('test', { free: true }));
+    close(slowMul(on), 0.6, 'doubled while the caster range covers the sand');
+    assert.equal(slowMul(off), null, 'the nearer tile is not walkable, so it is not sand');
+    assert.equal(slowMul(farther), null, 'one cast lays one tile');
+    u.skill.end('test');
+    close(slowMul(on), 0.8, 'skill end restores the single slow');
+    const hp1 = on.hp;
+    h.run(4.8);
+    assert.equal(on.hp, hp1, 'the 5s pulse waits from entry');
+    assert.equal(!!on.s.flags.bind, false);
+    h.run(0.5);
+    close(hp1 - on.hp, 5000, 'magic at 5s');
+    assert.equal(!!on.s.flags.bind, true, 'bind lands with the 5s hit');
+    place(on, 10, 5);
+    h.step();
+    assert.equal(slowMul(on), null, 'leaving the sand tile clears the slow');
+    assert.equal(!!on.s.flags.bind, true, 'a bind already applied keeps running');
+    const hp2 = on.hp;
+    h.run(5.2);
+    assert.equal(on.hp, hp2, 'no further pulse after leaving');
+    assert.equal(h.b.errorCount, 0);
+  });
+
+  test('萨尔贡_2 流沙: 两段技能两格，光环只覆盖正在施法的干员', (t) => {
+    const h = fight(t, {
+      bonds: { sargonShip: bond(6, 0) },
+      pieces: [
+        sarPiece('reg_sar_a', { col: 3, rangeGrid: [[0, -1], [0, 1], [0, 2]] }),
+        sarPiece('reg_sar_b', { col: 7, rangeGrid: [[0, 1]] }),
+      ],
+    });
+    h.step();
+    const e4 = tank(h, [10, 4]);
+    const e5 = tank(h, [10, 5]);
+    const e6 = tank(h, [10, 6]);
+    const e8 = tank(h, [10, 8]);
+    const a = h.unit('reg_sar_a');
+    const b = h.unit('reg_sar_b');
+    assert.ok(a.skill.activate('test', { free: true }));
+    close(slowMul(e4), 0.6, 'first cast sands (10,4)');
+    assert.equal(slowMul(e5), null);
+    a.skill.end('test');
+    close(slowMul(e4), 0.8, 'tile stays sand after the skill');
+    assert.ok(a.skill.activate('test', { free: true }));
+    close(slowMul(e5), 0.6, 'second cast sands the next walk tile (10,5)');
+    a.skill.end('test');
+    assert.ok(a.skill.activate('test', { free: true }));
+    assert.equal(slowMul(e6), null, 'a third cast lays nothing once every walk tile is sand');
+    a.skill.end('test');
+    assert.ok(b.skill.activate('test', { free: true }));
+    close(slowMul(e8), 0.6, 'B doubles only the sand inside B range');
+    close(slowMul(e4), 0.8, 'A is not casting, so (10,4) stays at the single slow');
+    close(slowMul(e5), 0.8, '(10,5) is outside B range');
+    const hp4 = e4.hp;
+    const hp5 = e5.hp;
+    const hp8 = e8.hp;
+    h.run(1.1);
+    assert.equal(e4.hp, hp4, 'no per-second hit outside the casting range');
+    assert.equal(e5.hp, hp5);
+    close(hp8 - e8.hp, 800, 'per-second magic on sand inside the casting range');
+    b.skill.end('test');
+    assert.ok(a.skill.activate('test', { free: true }));
+    close(slowMul(e4), 0.6, 'A casting doubles sand inside A range');
+    close(slowMul(e8), 0.8, 'B sand is outside A range');
+    const hp4b = e4.hp;
+    const hp8b = e8.hp;
+    h.run(1.1);
+    close(hp4b - e4.hp, 800, 'A aura pulses (10,4)');
+    assert.equal(e8.hp, hp8b, '(10,8) takes no per-second hit from A');
+    assert.equal(h.b.errorCount, 0);
+  });
+
+  test('萨尔贡_2 流沙: 迟钝先到达上限再加倍', (t) => {
+    const at = (layers) => {
+      const h = fight(t, {
+        bonds: { sargonShip: bond(6, layers) },
+        pieces: [sarPiece(`reg_sar_l${layers}`, { col: 3, rangeGrid: [[0, 1]] })],
+      });
+      h.step();
+      const e = tank(h, [10, 4]);
+      const u = h.unit(`reg_sar_l${layers}`);
+      assert.ok(u.skill.activate('test', { free: true }));
+      return { h, e, u };
+    };
+    // L=800: 0.2+0.2 = 0.4, doubled 0.8 → moveMul 0.2. Clamping after the double would leave 0.4.
+    const low = at(800);
+    close(slowMul(low.e), 0.2, 'L800 doubled after the cap', 0.01);
+    low.u.skill.end('test');
+    close(slowMul(low.e), 0.6, 'L800 without the aura is the capped 0.4 slow', 0.01);
+    // L=2000: capped at 0.6, then doubled to 1.2 → moveMul 0. A second cap would leave 0.4.
+    const high = at(2000);
+    close(slowMul(high.e), 0, 'L2000 doubled is not capped again', 0.01);
+    high.u.skill.end('test');
+    close(slowMul(high.e), 0.4, 'L2000 without the aura stays at slow_max', 0.01);
+  });
+
+  test('萨尔贡_2 流沙: 欧氏距离而不是切比雪夫的更小行', (t) => {
+    // From (11,4): (11,6) is dist^2 4, (9,6) is dist^2 8. Chebyshev ties at 2 and the lower row would win.
+    const h = fight(t, {
+      bonds: { sargonShip: bond(6, 0) },
+      pieces: [sarPiece('reg_sar_d', { row: 11, col: 4, rangeGrid: [[0, 2], [-2, 2]] })],
+    });
+    h.step();
+    const near = tank(h, [11, 6]);
+    const far = tank(h, [9, 6]);
+    h.run(1.1);
+    assert.equal(slowMul(near), null);
+    assert.equal(slowMul(far), null);
+    assert.ok(h.unit('reg_sar_d').skill.activate('test', { free: true }));
+    close(slowMul(near), 0.6, 'nearest squared-Euclidean tile');
+    assert.equal(slowMul(far), null, 'the tied Chebyshev tile is not sand');
+  });
+
+  test('萨尔贡_2 流沙: 巨型身体压到流沙格，飞行单位站上同样生效', (t) => {
+    const h = fight(t, {
+      bonds: { sargonShip: bond(6, 0) },
+      pieces: [sarPiece('reg_sar_h', { col: 3, rangeGrid: [[0, -1], [0, 1]] })],
+    });
+    h.step();
+    const huge = h.spawn('reg_huge', {
+      pos: [10, 6],
+      def: { ...enemyRec({ key: 'reg_huge', hp: 1e7, atk: 0, def: 0, res: 0, speed: 0 }), hitArea: { w: 3.2, h: 1 } },
+    });
+    const point = tank(h, [10, 6]);
+    const fly = h.spawn('reg_fly', {
+      pos: [10, 4],
+      def: enemyRec({ key: 'reg_fly', hp: 1e7, atk: 0, def: 0, res: 0, speed: 0, motion: 'FLY' }),
+    });
+    assert.ok(huge && fly);
+    h.run(1.1);
+    assert.equal(slowMul(huge), null, 'a huge body is not slowed before any sand exists');
+    assert.equal(slowMul(point), null);
+    assert.equal(slowMul(fly), null);
+    const u = h.unit('reg_sar_h');
+    assert.ok(u.skill.activate('test', { free: true }));
+    u.skill.end('test');
+    close(slowMul(huge), 0.8, 'the rectangle covers the sand tile');
+    assert.equal(slowMul(point), null, 'the position tile (10,6) is not sand');
+    close(slowMul(fly), 0.8, 'a flyer standing on the sand tile is slowed');
+  });
+
+  test('萨尔贡_2 流沙: 重新进入重新计时', (t) => {
+    const h = fight(t, {
+      bonds: { sargonShip: bond(6, 0) },
+      pieces: [sarPiece('reg_sar_r', { col: 3, rangeGrid: [[0, 1]] })],
+    });
+    h.step();
+    const e = tank(h, [10, 6]);
+    const u = h.unit('reg_sar_r');
+    assert.ok(u.skill.activate('test', { free: true }));
+    u.skill.end('test');
+    assert.equal(slowMul(e), null);
+    place(e, 10, 4);
+    h.step();
+    close(slowMul(e), 0.8, 'entry applies the slow');
+    const hp = e.hp;
+    h.run(4.8);
+    assert.equal(e.hp, hp, 'no pulse 4.8s after entry');
+    place(e, 10, 6);
+    h.step();
+    assert.equal(slowMul(e), null);
+    h.run(1.2);
+    assert.equal(e.hp, hp, 'the original deadline does not fire after leaving');
+    place(e, 10, 4);
+    h.step();
+    h.run(4.8);
+    assert.equal(e.hp, hp, 're-entry waits its own 5s');
+    h.run(0.5);
+    close(hp - e.hp, 5000, 'one pulse after the new 5s');
+    assert.equal(!!e.s.flags.bind, true);
+  });
+
+  test('萨尔贡_2 流沙: 联防列偏移后落在战场格', (t) => {
+    const h = fight(t, {
+      kind: 'unite',
+      players: [{
+        playerId: 'p1', seat: 0, side: 'R', colOffset: 8,
+        bonds: { sargonShip: bond(6, 0) },
+      }],
+      pieces: [sarPiece('reg_sar_u', { row: 10, col: 3, rangeGrid: [[0, 1]] })],
+    });
+    h.step();
+    const u = h.unit('reg_sar_u');
+    assert.ok(u, 'deployed on the shifted board');
+    assert.equal(u.tileR, 10);
+    assert.equal(u.tileC, 11);
+    const e = tank(h, [10, 12]);
+    h.run(1.1);
+    assert.equal(slowMul(e), null);
+    assert.ok(u.skill.activate('test', { free: true }));
+    close(slowMul(e), 0.6, 'sand is the field tile in front of the shifted operator');
+  });
+
+  test('萨尔贡_2: 3 人与 5 人只有攻速，没有流沙', (t) => {
+    for (const count of [3, 5]) {
+      const h = fight(t, {
+        bonds: { sargonShip: bond(count, 0) },
+        pieces: [
+          sarPiece(`reg_sar_c${count}a`, { col: 3, rangeGrid: [[0, 1]] }),
+          sarPiece(`reg_sar_c${count}b`, { col: 8, rangeGrid: [[0, 1]] }),
+        ],
+      });
+      h.step();
+      const e = tank(h, [10, 4]);
+      const a = h.unit(`reg_sar_c${count}a`);
+      assert.ok(a.skill.activate('test', { free: true }));
+      for (const id of [`reg_sar_c${count}a`, `reg_sar_c${count}b`]) {
+        const stacks = h.unit(id).buffs.filter((b) => b.key === 'bond:sargon');
+        assert.equal(stacks.length, 1, `${count} members aspd`);
+        close(stacks[0].mods.aspd, 12, `${count} aspd`);
+      }
+      h.run(5.2);
+      assert.equal(slowMul(e), null, `${count} members lay no sand`);
+      assert.equal(e.hp, 1e7, `${count} members deal no tile magic`);
+    }
   });
 
   test('谢拉格_2: damage mul, cold bonus, giant at start, no wind; ice is the grant test', (t) => {

@@ -12,6 +12,7 @@ import * as S from '../support/index.js';
 import { ursusTempExtra } from '../garrisons.js';
 import { lendItemEffects } from '../items.js';
 import { damageAttackType, isHpLoss } from '../../attack.js';
+import { bodyInKeys } from '../../body.js';
 import { COLS } from '../../constants.js';
 import { tileKeyOf } from '../../targeting.js';
 import { msg } from '../../../../shared/i18n.js';
@@ -304,6 +305,16 @@ function installYan2(battle, pid, effectId, members) {
   });
 }
 
+/**
+ * Slow fraction on sand. The tile slow template clamps by slow_max, then, while the aura buff is present,
+ * adds that fraction to itself with an empty max (no second clamp).
+ */
+function sargonSlow(tileBb, slowKey, layers, aura) {
+  let slow = scaled(tileBb, `${slowKey}.slow_base`, `${slowKey}.slow_per_stack`, layers, `${slowKey}.slow_max`);
+  if (aura) slow += slow;
+  return slow;
+}
+
 function installSargon2(battle, pid, effectId, members) {
   const bb = bbOf('sargonShip', effectId, K.sargon);
   const tile = bbOf('sargonShip', effectId, K.sargonTile);
@@ -324,54 +335,124 @@ function installSargon2(battle, pid, effectId, members) {
     }
   });
   if (!power) return;
+  // One persistent sand tile per member skill cast (ON_SKILL_START → FindNearestTileInRangeToBB, WALK_ONLY,
+  // flag ac_bond_eff_sargon_power[sand]). The tile stays for the battle. No client graphic: nothing in this sim
+  // draws a bond tile (妮芙 fear tiles are a status on the enemy, not a ground overlay).
   const slowKey = 'act3autochess_bond_eff_sargon_power[tile_buff][slow]';
   const magKey = 'act3autochess_bond_eff_sargon_power[tile_buff][mag_damage]';
   const mag2Key = 'act3autochess_bond_eff_sargon_power[tile_buff][mag_damage_2]';
-  const covered = () => {
-    const out = [];
-    for (const e of battle.enemies) {
-      if (!e.alive) continue;
-      if (members.some((m) => S.onField(m) && S.inRange(m, e))) out.push(e);
+  const sand = new Set();
+  const tracked = new Map();
+  // [ASSUMED] skip a tile that is already sand; if every in-range walk tile is sand, the cast lays nothing.
+  // [ASSUMED] nearest is squared Euclidean from the operator tile, then the smaller row, then the smaller col.
+  // The operator's own tile is eligible. FindNearestTileInRangeToBB's metric is not in the tables.
+  // [ASSUMED] non-WALK terrain and hard blocks are skipped; a crate stays eligible (grid.walkable).
+  function nearestSandTile(unit) {
+    const keys = unit.rangeKeySet;
+    if (!keys || !keys.size || unit.tileR == null || unit.tileC == null) return null;
+    const ur = unit.tileR;
+    const uc = unit.tileC;
+    let best = null;
+    for (const k of keys) {
+      const r = (k / COLS) | 0;
+      const c = k - r * COLS;
+      if (sand.has(k) || !battle.grid.walkable(r, c)) continue;
+      const dr = r - ur;
+      const dc = c - uc;
+      const d = dr * dr + dc * dc;
+      if (!best || d < best.d || (d === best.d && (r < best.r || (r === best.r && c < best.c)))) best = { r, c, k, d };
     }
-    return out;
-  };
-  const skillOn = () => members.some((m) => S.onField(m) && m.skill && m.skill.active);
-  const refreshSlow = () => {
-    const L = S.bondLayers(battle, pid, 'sargonShip');
-    let slow = scaled(tile, `${slowKey}.slow_base`, `${slowKey}.slow_per_stack`, L, `${slowKey}.slow_max`);
-    if (skillOn()) slow = Math.min(num(tile[`${slowKey}.slow_max`], slow), slow + slow);
-    const inside = new Set(covered());
-    for (const e of battle.enemies) {
-      if (!e.alive) continue;
-      if (!inside.has(e)) { if (e.findBuff && e.findBuff('bond:sargon:slow')) battle.removeBuff(e, 'bond:sargon:slow'); continue; }
-      battle.addBuff(e, { key: 'bond:sargon:slow', duration: 1.25, refresh: 'replace', mods: { moveMul: Math.max(0, 1 - slow) } });
+    return best;
+  }
+  // [ASSUMED] the aura is this caster's current attack range. Prefab act3autochess_bond_sargon_range is not in the tables.
+  function castingCovers(e) {
+    for (const m of members) {
+      if (!S.onField(m) || !m.skill || !m.skill.active) continue;
+      if (S.inRange(m, e)) return true;
     }
-  };
-  refreshSlow();
-  battle.every(1, refreshSlow);
-  const iv = num(tile[`${magKey}.interval`], 5);
-  if (iv > 0) {
-    battle.every(iv, () => {
-      const L = S.bondLayers(battle, pid, 'sargonShip');
-      const amount = scaled(tile, `${magKey}.magic_damage_base`, `${magKey}.magic_damage_per_stack`, L, `${magKey}.magic_damage_max`);
-      const bind = num(tile[`${magKey}.unmovable_duration`], 0);
-      if (!(amount > 0)) return;
-      for (const e of covered()) {
-        battle.dealDamage({ source: null, target: e, amount, type: 'arts', attackType: 'BUFF', tags: ['bond:sargon', 'periodic'] });
-        if (e.alive && bind > 0) battle.applyStatus(e, 'bind', { duration: bind, source: null });
-      }
+    return false;
+  }
+  function pulse(e, baseKey, perKey, maxKey) {
+    if (!e.alive || battle.finished) return;
+    const amount = scaled(tile, baseKey, perKey, S.bondLayers(battle, pid, 'sargonShip'), maxKey);
+    if (!(amount > 0)) return;
+    battle.dealDamage({
+      source: null, target: e, amount, type: 'arts', attackType: 'BUFF', tags: ['bond:sargon', 'periodic'],
     });
   }
-  // mag_damage_2 triggerInterval is 1s (buff template), and only while the skill aura buff is on the enemy.
-  battle.every(1, () => {
-    if (!skillOn()) return;
-    const L = S.bondLayers(battle, pid, 'sargonShip');
-    const amount = scaled(tile, `${mag2Key}.magic_damage_base`, `${mag2Key}.magic_damage_per_stack`, L, `${mag2Key}.magic_damage_max`);
-    if (!(amount > 0)) return;
-    for (const e of covered()) {
-      battle.dealDamage({ source: null, target: e, amount, type: 'arts', attackType: 'BUFF', tags: ['bond:sargon', 'periodic'] });
+  function applySlow(e, st) {
+    const aura = castingCovers(e);
+    const slow = sargonSlow(tile, slowKey, S.bondLayers(battle, pid, 'sargonShip'), aura);
+    if (st.aura === aura && st.slow === slow && e.findBuff && e.findBuff('bond:sargon:slow')) return;
+    st.aura = aura;
+    st.slow = slow;
+    battle.addBuff(e, {
+      key: 'bond:sargon:slow', duration: Infinity, refresh: 'replace',
+      mods: { moveMul: Math.max(0, 1 - slow) },
+    });
+  }
+  // Per enemy, from the moment it starts occupying any sand tile. mag_damage waits first_trigger_interval, then
+  // interval. The bind is created before the damage filter and is not a derived buff, so leaving does not clear it.
+  // mag_damage_2's 1s comes from the template triggerInterval (no blackboard key) and keeps ticking when the aura is off.
+  function arm(e, st) {
+    const mine = () => tracked.get(e) === st && e.alive && !battle.finished && bodyInKeys(e, sand);
+    const magIv = num(tile[`${magKey}.interval`], 5);
+    const magFirst = num(tile[`${magKey}.first_trigger_interval`], magIv);
+    if (magFirst > 0 && magIv > 0) {
+      const loop = () => {
+        if (!mine()) return;
+        const bind = num(tile[`${magKey}.unmovable_duration`], 0);
+        if (bind > 0) battle.applyStatus(e, 'bind', { duration: bind, source: null });
+        if (e.alive) pulse(e, `${magKey}.magic_damage_base`, `${magKey}.magic_damage_per_stack`, `${magKey}.magic_damage_max`);
+        if (mine()) battle.after(magIv, loop);
+      };
+      battle.after(magFirst, loop);
     }
+    const loop2 = () => {
+      if (!mine()) return;
+      if (castingCovers(e)) pulse(e, `${mag2Key}.magic_damage_base`, `${mag2Key}.magic_damage_per_stack`, `${mag2Key}.magic_damage_max`);
+      if (mine()) battle.after(1, loop2);
+    };
+    battle.after(1, loop2);
+  }
+  // [ASSUMED] a flyer or a hidden enemy on the tile counts; the listener templates do not filter motion or stealth.
+  // A huge enemy counts when any covered tile is sand (bodyInKeys). Two players who sand the same tile each pulse.
+  function leave(e) {
+    if (!tracked.has(e)) return;
+    tracked.delete(e);
+    if (e.findBuff && e.findBuff('bond:sargon:slow')) battle.removeBuff(e, 'bond:sargon:slow');
+  }
+  function scan() {
+    if (!sand.size) return;
+    const seen = new Set();
+    for (const e of battle.enemies) {
+      if (!e) continue;
+      seen.add(e);
+      if (!e.alive || !bodyInKeys(e, sand)) {
+        if (tracked.has(e)) leave(e);
+        continue;
+      }
+      let st = tracked.get(e);
+      if (!st) {
+        st = { aura: null, slow: null };
+        tracked.set(e, st);
+        applySlow(e, st);
+        arm(e, st);
+      } else applySlow(e, st);
+    }
+    for (const e of [...tracked.keys()]) if (!seen.has(e)) leave(e);
+  }
+  battle.on('skillStart', ({ unit }) => {
+    if (!set.has(unit) || !S.onField(unit)) return;
+    const picked = nearestSandTile(unit);
+    if (picked) sand.add(picked.k);
+    if (sand.size) scan();
   });
+  battle.on('skillEnd', ({ unit }) => {
+    if (!set.has(unit) || !sand.size) return;
+    scan();
+  });
+  battle.on('tick', () => { if (sand.size) scan(); });
 }
 
 function installKjerag2(battle, pid, effectId, members) {
