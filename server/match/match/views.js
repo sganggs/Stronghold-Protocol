@@ -5,6 +5,7 @@
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
 import { itemProgress, equippedItemProgress } from '../itemProgress.js';
+import { garrisonShowTags, itemShowTags } from '../showTags.js';
 import { PHASE, GEO } from '../../../shared/constants.js';
 import { TEST_PUBLIC_LOG } from '../../../shared/testMode.js';
 import { boardOrder, pieceDir } from '../board.js';
@@ -133,7 +134,7 @@ export class MatchViews {
         // m.result's own bonds, so their layers would only cost every m.public bytes for the rest of the match
         // (the mode-off bonds with members included, `off: true`, as in m.private — bondsMeta.offBondCounts).
         // A 规程 replacement adds `effectId` and, when that bond has no members yet, a zero row the strip does not draw.
-        bonds: ps.alive ? bondList(this.gd, ps.bondsView(), { off: offBondCounts(ps.gd || this.gd, ps), effectOverrides: commandBondOverrides(ps) }) : [],
+        bonds: ps.alive ? bondList(this.gd, ps.bondsView(), { tempLayers: ps.tempLayers, off: offBondCounts(ps.gd || this.gd, ps), effectOverrides: commandBondOverrides(ps) }) : [],
         fieldId: this.fieldOf(ps),
         status: this.statusOf(ps),
         autoplay: ps.autoplay,
@@ -385,6 +386,8 @@ export class MatchViews {
         // the equipped items (like the sim's UnitInfo): a 变形同构体 wearer shows as a member of the bond it grants
         items: piece.kind === 'chess' && Array.isArray(piece.items) && piece.items.length ? piece.items.map((it) => it.id) : undefined,
         itemProgress: equippedItemProgress(ps, piece),
+        garrisonTags: garrisonShowTags(ps, piece),
+        showTag: piece.kind === 'item' ? itemShowTags(ps, piece) : undefined,
         progress: piece.kind === 'item' ? itemProgress(ps, piece) : undefined,
         standInFor: rec && rec.standInFor ? rec.standInFor : undefined,
         diy,
@@ -456,6 +459,8 @@ export class MatchViews {
         moduleId: lo && typeof lo.moduleId === 'string' ? lo.moduleId : undefined,
         items: piece.kind === 'chess' && Array.isArray(piece.items) && piece.items.length ? piece.items.map((it) => it.id) : undefined,
         itemProgress: equippedItemProgress(ps, piece),
+        garrisonTags: garrisonShowTags(ps, piece),
+        showTag: piece.kind === 'item' ? itemShowTags(ps, piece) : undefined,
         progress: piece.kind === 'item' ? itemProgress(ps, piece) : undefined,
         standInFor: standIn && standIn.standInFor ? standIn.standInFor : undefined,
         diy,

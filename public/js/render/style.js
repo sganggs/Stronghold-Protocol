@@ -1,6 +1,9 @@
 // render/style.js — palette and visual tunables of the battlefield renderer (pure data).
 // Colours follow research 07 §7 (tile palette, tuned by eye) and the UI design system (theme.css).
 
+/** [ASSUMED] UI tuning (2026-11-17), not extracted official constants: smaller, slightly forward on the same pad. */
+export const BENCH_UNIT = Object.freeze({ forward: 0.15, scale: 0.9 });
+
 export const TILE_H = Object.freeze({
   wall: 0.42,      // 'h' high ground
   forbid: 0.3,     // '#' forbidden block (data: HIGH)
@@ -38,6 +41,7 @@ export const TILEKEY_GLYPH = Object.freeze({
   tile_forbidden: '#', tile_road: 'r', tile_floor: 'f', tile_wall: 'h', tile_fence_bound: 'b', tile_fence: 'b',
   tile_achand: 'a', tile_start: 'S', tile_end: 'E', tile_telin: 'I', tile_telout: 'O', tile_mire: 'm',
   tile_smog: 'g', tile_deepsea: 'd', tile_infection: 'i', tile_grass: 'r', tile_hole: '#', tile_duel_grassland: 'w',
+  tile_acempty: '#', // 规程's arena outside its pieces (data/stages.json `arena`): void
 });
 
 export const COLORS = Object.freeze({

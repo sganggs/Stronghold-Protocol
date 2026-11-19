@@ -35,7 +35,11 @@
 //                                               retained team grant gives every player's field the map character of the
 //                                               variant whose common_condition holds for that player's elites on the field
 //                                               (condition_golden_chess_le cnt → 预备干员-医疗, _ge cnt → Touch), spawned at
-//                                               combat start on its stage slot (tokens.spawnMapChar). [ASSUMED] that slot's
+//                                               combat start on its stage slot (tokens.spawnMapChar). A 规程 command replaces
+//                                               that player's own band buffs, but it does not cancel this grant: every player
+//                                               whose match bands include it still gets the character, including a teammate
+//                                               whose live command is another effect and a field kept after the holder leaves
+//                                               (prepMapChars already shows that medic). [ASSUMED] that slot's
 //                                               aggroSeq precedes ordinary initial operators; deploySeq stays the runtime spawn
 // Prep-only bands (economy / shop / grants / layers at prep end or round start) live in bands/meta.js.
 
@@ -256,8 +260,10 @@ export function amedicCharsFor(elites, variants = amedicVariants()) {
 function installMapChars(battle) {
   const variants = amedicVariants();
   if (!variants.length) return;
-  const holders = battle.players.filter((ps) => matchBands(battle, ps.playerId).includes(AMEDIC_BAND)
-    && (!ps.input.commandEffectId || buffsOf(battle.data.raw.effects?.[ps.input.commandEffectId]).some(isMapCharBuff)));
+  // matchBands already carries the retained team grant. Do not also require this player's own
+  // commandEffectId to be the map effect: in 规程 every seat has a command, so that check spawned the
+  // medic only on the holder's half and dropped the one prep still drew for the teammate (issue, round 83).
+  const holders = battle.players.filter((ps) => matchBands(battle, ps.playerId).includes(AMEDIC_BAND));
   if (!holders.length) return;
   battle.on('battleStart', () => {
     const chars = [];

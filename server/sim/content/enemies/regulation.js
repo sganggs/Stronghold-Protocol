@@ -6,11 +6,13 @@
 // Official numbers are read from the enemy record. Points with no blackboard are marked [ASSUMED].
 
 import { hypot, sin, cos } from '../../detmath.js';
+import { ALLY_COLLIDER_RADIUS, PROJECTILE_SPEEDS } from '../../constants.js';
+import { canTargetAlly } from '../../targeting.js';
 import {
-  hurt, elem, areaAllies, auraAllies, remainingRoute, stayRoute, spawnChildren, nthOf, canCast, BOOM_RADIUS, auraBuff, watchDeaths,
+  hurt, elem, areaAllies, areaAlliesInTiles, fieldAllies, targetsNear, auraAllies, remainingRoute, stayRoute, spawnChildren, nthOf, canCast, BOOM_RADIUS, auraBuff, watchDeaths,
   unbalancedNow,
 } from './helpers.js';
-import { skill, stealth, ep, refraction, reborn } from './archetypes.js';
+import { skill, stealth, ep, refraction, reborn, deathBoom } from './archetypes.js';
 
 const num = (v, d) => {
   if (typeof v === 'number' && Number.isFinite(v)) return v;
@@ -108,15 +110,49 @@ function kitLtnclr(ab) {
   }];
 }
 
-/** “投石机”: the first attack is ×scale, then it only melee-attacks. The handbook cross has no radius. */
+/** Target tile plus its orthogonal neighbours. The handbook cross has no radius. [ASSUMED] plus-1. */
+function plusTiles(r, c, n) {
+  const out = [[r, c]];
+  for (let i = 1; i <= n; i++) out.push([r + i, c], [r - i, c], [r, c + i], [r, c - i]);
+  return out;
+}
+
+/**
+ * “投石机” / “榴弹炮”: the first attack throws one snowball (rawRangeRadius 2.5; the built rangeRadius is 0
+ * because applyWay is MELEE). Talent FirstAttack.attack@first_atk_scale. Then melee only.
+ * The cross radius is not on the blackboard. [ASSUMED] plus-1, the target tile and four orthogonal neighbours.
+ * The client draws the existing 'lob' arc from the attack event; the sim shell uses the same speed.
+ */
 function kitWingnt(ab) {
   const scale = tv(ab, 'FirstAttack.attack@first_atk_scale', 1.5);
   return [{
-    hitOut(c, b, e, a) {
-      if (a.used || !c.dmg || !c.dmg.isAttack) return;
-      a.used = true;
-      c.dmg.mul *= scale;
+    spawn(b, e) {
+      const raw = e.def && e.def.raw && e.def.raw.stats;
+      const reach = Number(raw && raw.rawRangeRadius);
+      e.base.rangeRadius = Number.isFinite(reach) && reach > 0 ? reach : 2.5;
+      e.profile.melee = false;
+      e.profile.deferHit = true;
+      e.profile.shot = 'lob';
+    },
+    attack(c, b, e, a) {
+      if (a.thrown) return;
+      a.thrown = true;
+      const atk = e.s.atk * scale;
       e.profile.melee = true;
+      e.profile.deferHit = false;
+      e.base.rangeRadius = 0;
+      for (const t of c.targets) {
+        b.addProjectile({
+          from: e, target: t, speed: PROJECTILE_SPEEDS.lob, visual: 'lob', source: e, hitDead: true,
+          onHit: (hit) => {
+            const r = Math.round(hit.y), col = Math.round(hit.x);
+            b.fx('explode', { x: hit.x, y: hit.y, r: 1, kind: 'snowball', tiles: plusTiles(r, col, 1) });
+            for (const u of areaAlliesInTiles(b, e, r, col, 'plus', 1)) {
+              hurt(b, e, u, atk, 'phys', { isSkill: false, tags: ['splash', 'snowball'] });
+            }
+          },
+        });
+      }
     },
   }];
 }
@@ -221,6 +257,113 @@ function kitBdguad(ab) {
         c.dmg.mul *= Math.max(0, 1 - dr);
       },
     },
+  ];
+}
+
+const SOUL_VORTEX = 'enemy_1428_lrsoul';
+const SOUL_CAP = 3;
+// The atk_boost trigger interval and the laser's lifetime are not on the skill blackboard. [ASSUMED] 1s.
+const LASER_STEP = 1;
+
+function nearestVortex(b, e, range) {
+  let best = null;
+  let bd = range;
+  for (const o of b.enemies) {
+    if (!o || !o.alive || o === e || o.defId !== SOUL_VORTEX) continue;
+    const d = hypot(o.x - e.x, o.y - e.y);
+    if (d > range + 1e-9) continue;
+    if (!best || d < bd - 1e-9 || (Math.abs(d - bd) <= 1e-9 && o.id < best.id)) { best = o; bd = d; }
+  }
+  return best;
+}
+
+/** One straight line through the locked target. [ASSUMED] the dominant axis of wizard → target, the whole row or column. */
+function laserLine(b, e, target) {
+  const horizontal = Math.abs(target.x - e.x) >= Math.abs(target.y - e.y);
+  const line = [];
+  for (const u of fieldAllies(b, e)) {
+    if (horizontal ? Math.abs(u.y - target.y) < 0.5 : Math.abs(u.x - target.x) < 0.5) line.push(u);
+  }
+  return line;
+}
+
+function laserTarget(b, e) {
+  const range = e.base.rangeRadius > 0 ? e.base.rangeRadius : 1.7;
+  let best = null;
+  let bd = Infinity;
+  for (const u of targetsNear(b, e, range)) {
+    const d = hypot(u.x - e.x, u.y - e.y);
+    if (!best || d < bd - 1e-9 || (Math.abs(d - bd) <= 1e-9 && u.id < best.id)) { best = u; bd = d; }
+  }
+  return best;
+}
+
+function laserDamage(b, e, line, scale, ramp) {
+  const amount = e.s.atk * scale * (1 + ramp);
+  let far = null;
+  let fd = -1;
+  for (const u of line) {
+    if (!u || !u.alive) continue;
+    hurt(b, e, u, amount, 'arts', { isSkill: true, tags: ['laser'] });
+    const d = hypot(u.x - e.x, u.y - e.y);
+    if (!far || d > fd) { far = u; fd = d; }
+  }
+  if (far) b.fx('beam', { x: e.x, y: e.y, from: e.id, to: far.id, kind: 'soulLaser' });
+}
+
+/**
+ * 聚焦 / 棱镜魂灵残迹. Pickup radius is not on captureSoul. [ASSUMED] it equals the attack rangeRadius.
+ * Holding any vortex and a target in range spends every stack on Laser. ATK MULTIPLIER ramps by atk_step
+ * up to atk_ladder × stacks (atkPct: the ramp starts at 0). Each tick deals ATK × atk_scale.
+ * Capture is an InstantKill: no player bounty. [ASSUMED] the stage still counts the vortex as gone.
+ */
+function kitLrwzrd(ab) {
+  const sk = ab.sk.Laser;
+  const ladder = bb(sk, 'atk_ladder', 0.25);
+  const scale = bb(sk, 'atk_scale', 0.4);
+  const step = bb(sk, 'atk_step', 0.4);
+  return [
+    {
+      tick(b, e, a, dt) {
+        const ch = e.mem.soulLaser;
+        if (ch) {
+          ch.acc += dt;
+          if (ch.acc + 1e-9 < LASER_STEP) return;
+          ch.acc -= LASER_STEP;
+          ch.ramp = Math.min(ch.cap, ch.ramp + ch.step);
+          laserDamage(b, e, ch.line, ch.scale, ch.ramp);
+          if (ch.ramp + 1e-9 >= ch.cap) {
+            e.mem.soulLaser = null;
+            e.profile.noAttack = false;
+          }
+          return;
+        }
+        if ((e.mem.soulStacks || 0) >= SOUL_CAP || !canCast(e, false, b)) return;
+        const range = e.base.rangeRadius > 0 ? e.base.rangeRadius : 1.7;
+        const soul = nearestVortex(b, e, range);
+        if (!soul) return;
+        e.mem.soulStacks = (e.mem.soulStacks || 0) + 1;
+        soul.bounty = null;
+        b.kill(soul, null);
+      },
+    },
+    timed(sk, (b, e) => {
+      const stacks = e.mem.soulStacks || 0;
+      if (!(stacks > 0) || e.mem.soulLaser) return;
+      const target = laserTarget(b, e);
+      if (!target) return;
+      e.mem.soulStacks = 0;
+      const cap = Math.abs(ladder * stacks);
+      const ramp = Math.min(step, cap);
+      const line = laserLine(b, e, target);
+      laserDamage(b, e, line, scale, ramp);
+      if (ramp + 1e-9 < cap) {
+        e.mem.soulLaser = { acc: 0, ramp, cap, step, scale, line };
+        e.profile.noAttack = true;
+      }
+    }, {
+      cond: (b, e) => (e.mem.soulStacks || 0) > 0 && !e.mem.soulLaser && !!laserTarget(b, e),
+    }),
   ];
 }
 
@@ -398,7 +541,11 @@ function kitDsfull(ab) {
   }];
 }
 
-/** “左手”泰特斯: reborn() plus a silenced ATK cut on the highest-ATK ally. */
+/**
+ * “左手”泰特斯: reborn() plus a silenced ATK cut on the highest-ATK ally. The cut shows on that operator as the 'weaken'
+ * status icon (round 83: a report said it did not seem to work — it did, with nothing drawn on the operator; the official
+ * skill keeps wind_buff_01 on its target meanwhile). Its value stays the additive atkPct of the blackboard.
+ */
 function kitLfkght(ab) {
   const sk = ab.sk.AtkDesWeaken;
   return [
@@ -410,7 +557,7 @@ function kitLfkght(ab) {
         if (!best || u.s.atk > best.s.atk || (u.s.atk === best.s.atk && u.id < best.id)) best = u;
       }
       if (!best) return;
-      b.addBuff(best, { key: 'reg:weaken', duration: bb(sk, 'duration', 25), mods: { atkPct: bb(sk, 'atk', -0.5) } });
+      b.addBuff(best, { key: 'reg:weaken', duration: bb(sk, 'duration', 25), mods: { atkPct: bb(sk, 'atk', -0.5) }, visible: true, status: 'weaken' });
     }, { sil: true }),
   ];
 }
@@ -526,21 +673,158 @@ function kitAchest() {
   }];
 }
 
+/** Recompute the block-count bonus on `u` from the Reborn Creations (`enemy_bloodsucker_block_cnt`) it holds. */
+function syncRebornBlocker(b, u) {
+  if (!u || !u.alive) return;
+  let total = 0;
+  let cap = 6;
+  for (const o of u.blocking || []) {
+    if (!o.alive || o.blockedBy !== u || !(o.mem?.rebornBlockStep > 0)) continue;
+    total += o.mem.rebornBlockStep;
+    if (o.mem.rebornBlockCap > 0) cap = Math.min(cap, o.mem.rebornBlockCap);
+  }
+  total = Math.min(cap, total);
+  if (total > 0) b.addBuff(u, { key: 'reg:rebornBlocker', persist: true, refresh: 'replace', mods: { blockCnt: total } });
+  else b.removeBuff(u, 'reg:rebornBlocker');
+}
+
+/** 大君之触 / 仁慈之触 / 大君之赐 / 慷慨之赐: 90% phys/arts DR (`dmg_res.damage_resistance`; true damage is not in
+ *  that key). No buff template names `dmg_res`, so silence not removing it is [ASSUMED] (the sibling block buff
+ *  `enemy_bloodsucker_block_cnt[control]` is explicitly unsilenceable). +1 blockCnt per blocked copy, capped by
+ *  `max_valid_stack_cnt` (6), recomputed from whoever is actually blocking it. */
+function kitRebornCreation(ab) {
+  const dr = tv(ab, 'dmg_res.damage_resistance', 0.9);
+  const blockStep = tv(ab, 'buff_to_blocker.block_cnt', 1);
+  const blockCap = tv(ab, 'buff_to_blocker.max_valid_stack_cnt', 6);
+  const mul = Math.max(0, 1 - dr);
+  return [{
+    spawn(b, e, a) {
+      a.blocker = null;
+      e.mem.rebornBlockStep = blockStep;
+      e.mem.rebornBlockCap = blockCap;
+      b.addBuff(e, { key: 'reg:rebornCreation', persist: true, mods: { physTakenMul: mul, artsTakenMul: mul } });
+    },
+    blocked(c, b, e, a) {
+      const prev = a.blocker;
+      a.blocker = c.blocker ?? e.blockedBy ?? null;
+      if (prev && prev !== a.blocker) syncRebornBlocker(b, prev);
+      if (a.blocker) syncRebornBlocker(b, a.blocker);
+    },
+    tick(b, e, a) {
+      const cur = e.blockedBy ?? null;
+      if (cur === a.blocker) return;
+      const prev = a.blocker;
+      a.blocker = cur;
+      if (prev) syncRebornBlocker(b, prev);
+      if (cur) syncRebornBlocker(b, cur);
+    },
+    death(c, b, e, a) {
+      const prev = a.blocker;
+      a.blocker = null;
+      if (prev) syncRebornBlocker(b, prev);
+    },
+  }];
+}
+
+/** “喷射罐” / “喷爆罐”: Attack_Begin (0.6 s) -> Attack_Loop (1.0 s, OnAttack at 0) × `Boom.attack@times` (3) -> Attack_End
+ *  (0.267 s), next spray after `Boom.attack@cooldown` (4 s) from spray start [ASSUMED: exact C# channel cadence uses
+ *  1.0 s Attack_Loop × times scaled by ASPD and `cooldown` from spray start; CC or losing the target ends the spray];
+ *  silenced death blast (`Boom.atk_scale` arts + `Boom.freeze` s cold, BOOM_RADIUS [ASSUMED]). */
+function kitWinbom(ab) {
+  const times = Math.max(1, Math.round(tv(ab, 'Boom.attack@times', 3)));
+  const cd = tv(ab, 'Boom.attack@cooldown', 4);
+  const boomScale = tv(ab, 'Boom.atk_scale', 1);
+  const boomCold = tv(ab, 'Boom.freeze', 10);
+  return [
+    {
+      attack(c, b, e, a) {
+        const t = c.targets && c.targets[0];
+        if (!t || !(times > 1)) return;
+        const scale = 100 / Math.max(10, e.s.aspd || 100);
+        a.spray = {
+          target: t,
+          depSeq: c.targetDeployments?.get(t) ?? t.deploySeq,
+          left: times - 1,
+          timer: 1,
+          pendingCd: Math.max(e.s.interval, cd * scale),
+          standUntil: b.time + times * scale,
+        };
+      },
+      tick(b, e, a, dt) {
+        const s = a.spray;
+        if (!s) return;
+        if (s.pendingCd != null) {
+          e.atkCd = s.pendingCd;
+          s.pendingCd = null;
+          e.atkStandUntil = Math.max(e.atkStandUntil, s.standUntil);
+          return;
+        }
+        if (!canCast(e, false, b) || e.s.flags.fear || e.s.flags.disarm || (e.s.flags.tremble && e.blockedBy)) {
+          a.spray = null;
+          b._cutAttackStand(e);
+          return;
+        }
+        const t = s.target;
+        const reach = (e.base.rangeRadius || 1) + ALLY_COLLIDER_RADIUS;
+        const valid = t && t.alive && t.deploySeq === s.depSeq
+          && (e.blockedBy === t ? !!t.deployed : (canTargetAlly(e, t, true) && hypot(t.x - e.x, t.y - e.y) <= reach + 1e-9));
+        if (!valid) {
+          a.spray = null;
+          b._cutAttackStand(e);
+          return;
+        }
+        const rate = Math.max(10, e.s.aspd || 100) / 100;
+        s.timer -= dt * rate;
+        if (s.timer > 1e-9) return;
+        s.timer += 1;
+        s.left--;
+        const depSeq = s.depSeq;
+        const rangedShot = !(e.blockedBy && t === e.blockedBy && (e.base.rangeRadius || 1) < 1);
+        b._ev(['atk', e.id, t.id, rangedShot ? 'enemy' : 'none']);
+        const attackId = ++b._attackSeq;
+        const hit = (tt, isProjectile = false) => {
+          if (!tt || !tt.alive || tt.deploySeq !== depSeq) return;
+          if (!e.alive && !rangedShot) return;
+          b.dealDamage(e, tt, { amount: e.s.atk * (e.profile?.atkScale ?? 1), type: 'arts', isAttack: true, attackId, isProjectile });
+        };
+        if (rangedShot && hypot(t.x - e.x, t.y - e.y) > 0.75) {
+          b.addProjectile({ from: e, target: t, speed: PROJECTILE_SPEEDS.enemy, visual: 'enemy', source: e, onHit: (c) => hit(c.target, true) });
+        } else hit(t);
+        if (s.left <= 0) {
+          a.spray = null;
+          e.atkStandUntil = Math.max(e.atkStandUntil, b.time + 0.267);
+        } else {
+          e.atkStandUntil = Math.max(e.atkStandUntil, b.time + 1 / rate);
+        }
+      },
+    },
+    deathBoom({ scale: boomScale, type: 'arts', status: boomCold > 0 ? { key: 'cold', dur: boomCold } : null }),
+  ];
+}
+
 const same = (kit) => kit;
 
 export const REGULATION_KITS = Object.freeze({
   enemy_1406_chghmr: kitChghmr,
   enemy_1375_ltnclr: kitLtnclr,
   enemy_1375_ltnclr_2: same(kitLtnclr),
+  enemy_1385_winbom: kitWinbom,
+  enemy_1385_winbom_2: same(kitWinbom),
   enemy_1388_wingnt: kitWingnt,
   enemy_1388_wingnt_2: same(kitWingnt),
   enemy_1191_krgrg: kitKrgrg,
   enemy_1191_krgrg_2: same(kitKrgrg),
   enemy_1219_mtrbty: kitMtrbty,
   enemy_1409_bdguad_2: kitBdguad,
+  enemy_1429_lrwzrd: kitLrwzrd,
+  enemy_1429_lrwzrd_2: same(kitLrwzrd),
   enemy_1431_lrmzrd: kitLrmzrd,
   enemy_1431_lrmzrd_2: same(kitLrmzrd),
   enemy_9040_accrit: kitAccrit,
+  enemy_1220_dzoms: kitRebornCreation,
+  enemy_1220_dzoms_2: same(kitRebornCreation),
+  enemy_1221_dzomg: kitRebornCreation,
+  enemy_1221_dzomg_2: same(kitRebornCreation),
   enemy_1222_dpvt: kitDeathrattle,
   enemy_1222_dpvt_2: same(kitDeathrattle),
   enemy_1223_dmech: kitDeathrattle,

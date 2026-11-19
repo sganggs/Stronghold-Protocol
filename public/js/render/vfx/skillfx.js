@@ -104,6 +104,8 @@ export const SKILL_CAST_S = 0.6;
  * 0.1 s in the audit) [ASSUMED].
  */
 export const COVER_AFTER_S = 1;
+/** Battle seconds a launched shell (FX_BINDINGS `launch`) waits past its flight for the kit's explosion to end it. */
+const SHELL_GRACE_S = 0.5;
 /** Kit fx kinds of a token's arrival (server/sim/content/tokens.js burst(), 沙之碑): its own birth effect is that look. */
 const ARRIVAL = new Set(['summonBurst', 'summonStun', 'radiantSword', 'paperDoll', 'obelisk']);
 /** The 驭械术士's kit fx: render/vfx/funnelfx.js decides them (its floating units). */
@@ -1021,7 +1023,11 @@ export class SkillFx {
     for (const field of ['src', 'id']) {
       const U = extra[field] != null ? this.units.get(extra[field]) : null;
       const bind = U ? FX_BINDINGS[U.skillId]?.[kind] : null;
-      if (bind && bind.owner === field && (!bind.during || this._lasts(U))) return bind.attack ? this._boundAttack(U, bind) : this._bound(U, bind, x, y, extra);
+      if (bind && bind.owner === field && (!bind.during || this._lasts(U))) {
+        if (bind.launch) return this._launch(U, bind, x, y, extra);
+        if (bind.ends) this._endShell(U);
+        return bind.attack ? this._boundAttack(U, bind) : this._bound(U, bind, x, y, extra);
+      }
     }
     // a binding whose fx names no owner: the unit whose skill of that id lasts
     for (const sid of BOUND_BY_SKILL[kind] || []) {
@@ -1054,6 +1060,42 @@ export class SkillFx {
     // (3) the frame of the official skill start, (4) a skill-tagged flash while the official loops play
     if (U.startFrame === this.frame && (U.ewin ? U.ewin.draws : U.drawsStart)) return true;
     return extra.skill != null && on && (U.loops.some((h) => h.alive) || !!U.ewin?.loops.some((h) => h.alive));
+  }
+
+  /**
+   * An FX_BINDINGS `launch` entry (涤火杰西卡 S3's shell, history §37.242): the to-tile ability of the owner's mode fires
+   * now — its cast rows on the owner for its facing, its projectile's flying effect straight from the muzzle to the fx's
+   * point over the kit's flight time `extra.t` (else distance / the projectile's speed) — and the shell is kept for the
+   * kit's explosion, which may come first (`ends`: _endShell). False when its trail is not installed (the procedural
+   * shell stays).
+   */
+  _launch(U, bind, x, y, extra) {
+    const src = U.v;
+    const proj = bind.projectile ? this.w.idx?.projectiles?.[lc(bind.projectile)] : null;
+    if (!src || !proj || !Number.isFinite(x) || !Number.isFinite(y)) return false;
+    const main = lc(proj.main);
+    if (!main || !this.w.ofx.lib.has(main)) return false;
+    const now = this.w.ofx.time;
+    const point = { id: `shell:${U.id}:${this.frame}`, x, y, z: 0, alive: true };
+    const a = this.w.modeAbility(src, bind.launch);
+    if (a) this.w._casts(a, src, point, 'all');
+    const t = Number(extra.t);
+    const speed = Number(proj.movement?.speed);
+    const dist = Math.hypot(x - src.x, y - src.y);
+    const dur = Math.min(3, Math.max(0.04, t > 0 ? t : speed > 0 && dist > 0 ? dist / speed : 0.04));
+    const ref = {};
+    this.w._fly(proj, src, point, 'ranged', now, { dur, followUp: true, ref });
+    (U.shells ||= []).push({ ref, until: now + dur + SHELL_GRACE_S });
+    return true;
+  }
+
+  /** An FX_BINDINGS `ends` entry: the owner's oldest shell still in the air stops where it is (it went off). */
+  _endShell(U) {
+    const now = this.w.ofx.time;
+    const list = (U.shells || []).filter((s) => s.until > now);
+    const s = list.shift();
+    U.shells = list;
+    if (s && typeof s.ref.cut === 'function') s.ref.cut();
   }
 
   /** An FX_BINDINGS `attack` entry: that plan attack's rows on the owner now, its hits on the damage that follows. */

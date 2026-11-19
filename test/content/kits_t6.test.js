@@ -314,7 +314,7 @@ test('余: S3 fire wall adds burn to allied arts damage crossing it and clears c
   assert.ok(blocked.length > 0, 'some enemy bullets cleared');
 });
 
-test('浊心斯卡蒂: heals as a bard, S3 = true damage in her + 海嗣 ranges, 鼓舞 +65 % of her ATK, no death from drain', () => {
+test('浊心斯卡蒂: S3 = true damage in her + 海嗣 ranges, 鼓舞 +65 % of her ATK, the 5 % drain reaches 0', () => {
   const h = battle({
     units: [
       { chessId: 'chess_char_6_04_a', row: 11, col: 4, carryState: { sp: 38 } },
@@ -339,17 +339,31 @@ test('浊心斯卡蒂: heals as a bard, S3 = true damage in her + 海嗣 ranges,
   const e1 = enemyAt(h, 'enemy_dummy'), e2 = enemyAt(h, 'enemy_dummy2');
   assert.ok(tide.some((d) => d.tgt === e1.id) && tide.some((d) => d.tgt === e2.id), 'her range + seaborn range');
   assert.ok(near(tide[0].amount, u.s.atk * u.def.skill.bb.atk_scale, 1e-3));
-  h.runUntil(() => !u.skill.active, 30);
-  assert.ok(u.alive && u.hp >= 1, 'drain is not lethal');
-  const hp0 = g.hp;
-  h.run(2);
-  assert.ok(g.hp > hp0, 'bard heal resumes after the skill');
+  assert.ok(h.runUntil(() => !u.alive, u.def.skill.duration + 2), 'the drain knocks her out by the end of S3');
+  assert.ok(h.b.time > 19 && h.b.time < 22, `gone at the last tick, not early (${h.b.time})`);
+  assert.equal(u.hp, 0);
+  assert.equal(u.removeReason, 'killed');
+  checkInvariants(h.b);
+});
+
+test('浊心斯卡蒂 S3: healing that outpaces the 5 % drain keeps her deployed', () => {
+  const h = battle({
+    units: [{ chessId: 'chess_char_6_04_a', row: 11, col: 4, carryState: { sp: 38 } }],
+  });
+  const u = h.unit('chess_char_6_04_a');
+  h.step();
+  assert.ok(h.runUntil(() => u.skill.active, 5));
+  h.b.every(1, () => { if (u.alive) h.b.heal({ source: u, target: u, amount: u.s.maxHp * 0.2 }); });
+  h.run(u.def.skill.duration + 1);
+  assert.ok(u.alive && u.hp > 1, 'still on the field');
+  assert.ok(u.skill && !u.skill.active, 'S3 ended on its own');
   checkInvariants(h.b);
 });
 
 test('浊心斯卡蒂: 海嗣 expires after its duration (25 s) and comes back after its redeploy time', () => {
+  // S2, not the default S3: S3's 流失 now knocks her out, and the re-summon requires her still deployed.
   const h = battle({
-    units: [{ chessId: 'chess_char_6_04_a', row: 11, col: 4 }, { kind: 'token', tokenId: 'token_10017_skadi2_dedant', row: 10, col: 8, ownerUid: 1 }],
+    units: [{ chessId: 'chess_char_6_04_a', skillIndex: 1, row: 11, col: 4 }, { kind: 'token', tokenId: 'token_10017_skadi2_dedant', row: 10, col: 8, ownerUid: 1 }],
     flags: { dpInit: 50 },
   });
   const find = () => h.b.allyUnits.filter((x) => x.defId === 'token_10017_skadi2_dedant' && x.alive);

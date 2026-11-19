@@ -32,11 +32,11 @@
 // Tiers: a bond's upper tier is reached when count ≥ the blackboard threshold (power_bond_char_cnt / ex_bond_char_cnt)
 // or the bond's tier index says so. Members = support.isMember (own bonds, 变形同构体, 调和 enjoying core bonds).
 // Live layers: effects that read L at a moment (stack duration, ammo, deploy buffs, proc damage, cold multiplier) read
-// the live value; standing buffs (炎 ATK, 维多利亚, 阿戈尔 HP, 卡西米尔 cap) are refreshed one tick after a `layerGain`.
+// the live value; standing buffs (炎 ATK, 维多利亚, 阿戈尔 HP, 卡西米尔 cap) are refreshed one tick after a `bondLayersChanged` notification.
 // Two players in one field: everything is per player (own members, own deployments); the 谢拉格 wind and 炎佑 act on
 // every enemy of the field (debuffs on shared enemies help both, research 06 §8.6).
 // Hook priorities: 拉特兰 skillStart −10 (after kits' own ammo changes), 阿戈尔 death 11 (5-tier revive, before 不屈's
-// death 10; every `fatal` saver runs before any death hook), layerGain −100 (after 魔王-style modifiers).
+// death 10; every `fatal` saver runs before any death hook), bondLayersChanged −100 (after the layer write).
 
 import * as S from '../support/index.js';
 import { spawnYanyou } from '../tokens.js';
@@ -145,16 +145,17 @@ function onLayers(battle, pid, bondId, fn) {
   const k = `${pid}|${bondId}`;
   if (!st.refreshers.has(k)) st.refreshers.set(k, []);
   st.refreshers.get(k).push(fn);
-  if (st.hooked.has('layerGain')) return;
-  st.hooked.add('layerGain');
-  battle.on('layerGain', (c) => {
+  if (st.hooked.has('bondLayersChanged')) return;
+  st.hooked.add('bondLayersChanged');
+  const refresh = (c) => {
     const key = `${c.playerId}|${c.bondId}`;
     const list = st.refreshers.get(key);
     if (!list || st.pending.has(key)) return;
     st.pending.add(key);
-    // the gain is recorded after the hook: re-read the live layers next tick
+    // Coalesce changes to the same bond before refreshing its standing effects.
     battle.after(0, () => { st.pending.delete(key); for (const f of list) f(); });
-  }, { priority: -100 });
+  };
+  battle.on('bondLayersChanged', refresh, { priority: -100 });
 }
 
 function onUnitHit(battle, unit, fn) {

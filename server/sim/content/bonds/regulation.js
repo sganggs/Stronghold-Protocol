@@ -9,13 +9,14 @@
 // threshold is not reached on version data, same rule as core.reached.
 
 import * as S from '../support/index.js';
+import { ursusTempExtra } from '../garrisons.js';
 import { lendItemEffects } from '../items.js';
 import { damageAttackType, isHpLoss } from '../../attack.js';
 import { COLS } from '../../constants.js';
 import { tileKeyOf } from '../../targeting.js';
 import { msg } from '../../../../shared/i18n.js';
 import { bbCap } from '../../../../shared/plugins/officialBounds.js';
-import { captureLethaniaBirthMode, lethaniaSummon } from './lethania.js';
+import { captureLethaniaBirthMode, lethaniaSummon, pursueGroundEnemy } from './lethania.js';
 
 const num = S.num;
 
@@ -52,9 +53,12 @@ const GIANT = 'enemy_9024_acsgnt';
 const KJERAG_ICE = 'bond:kjerag:ice';
 // Official abnormal set of act3autochess_bond_eff_siracusa (buff template abnormal_buff[random_creator]).
 const SIRACUSA_STATUS = Object.freeze(['stun', 'fear', 'attract', 'cold', 'palsy', 'groundbind']);
-// Official element gauges. The 炎 template rolls element_type 1..6; the engine has these five.
-// [ASSUMED] 5 → necrosis and 6 → neural again. No sixth gauge exists in the sim.
-const YAN_ELEMENTS = Object.freeze(['neural', 'erosion', 'burn', 'apoptosis', 'necrosis', 'neural']);
+// The 炎 template (act3autochess_bond_eff_yan_power) rolls element_type with RandomSetter over [1, 6): the client
+// computes min + (max − min) · NextDouble() and floors it (FP.AsInt), so 1..5 are equally likely; 6 comes up only when
+// the float cast of NextDouble() rounds to 1 (about 3e-8), and 6 is E_NUM, not an element.
+// Torappu.ElementType: 1 SANITY 神经, 2 WATER 侵蚀, 3 FIRE 灼燃, 4 DARK 凋亡, 5 ANGER 狂躁 (6 is E_NUM, the count).
+// The engine has no 狂躁 gauge; necrosis stands in for it.
+const YAN_ELEMENTS = Object.freeze(['neural', 'erosion', 'burn', 'apoptosis', 'necrosis']);
 
 let legacy = {};
 /** core.js passes its 盟约 installers once they exist. */
@@ -101,25 +105,22 @@ function onLayers(battle, pid, bondId, fn) {
   st.map.get(k).push(fn);
   if (st.hooked) return;
   st.hooked = true;
-  battle.on('layerGain', (c) => {
+  const refresh = (c) => {
     const key = `${c.playerId}|${c.bondId}`;
     const list = st.map.get(key);
     if (!list || st.pending.has(key)) return;
     st.pending.add(key);
     battle.after(0, () => { st.pending.delete(key); for (const f of list) f(); });
-  }, { priority: -100 });
+  };
+  battle.on('bondLayersChanged', refresh, { priority: -100 });
 }
 
-/** Temp layers (乌萨斯 kill node `_isTemp`). Not normal layers; a garrison may convert them later. */
+/** Compatibility reader: every temporary source now uses the battle's ledger. */
 export function tempBondLayers(battle, pid, bondId) {
-  const st = S.battleStore(battle, 'bonds:reg:temp', () => ({}));
-  return num(st[`${pid}|${bondId}`]);
+  return battle.tempLayers(pid, bondId);
 }
 function addTemp(battle, pid, bondId, n) {
-  if (!(n > 0)) return;
-  const st = S.battleStore(battle, 'bonds:reg:temp', () => ({}));
-  const k = `${pid}|${bondId}`;
-  st[k] = num(st[k]) + n;
+  return battle.addTempLayers(pid, bondId, n);
 }
 
 function enemyRaw(battle, id) {
@@ -130,6 +131,90 @@ function talentBb(raw) {
   if (!raw) return {};
   if (raw.talents && raw.talents.bb) return raw.talents.bb;
   return {};
+}
+function skillBb(raw, key) {
+  const sk = (raw && raw.skills || []).find((s) => s && s.prefabKey === key);
+  return (sk && sk.bb) || {};
+}
+
+const GIANT_SIT = 'kjerag:giant:sit';
+
+/**
+ * 不眠雪山 as an allied token. Official summon is a controller trap; one token at battle start stays [ASSUMED].
+ * Starts 覆雪坐定 (noMove, block from BlockEnemy). SwitchMode.interval with no attack switches to 覆雪苏醒
+ * and reuses the Leithania ground pursuit at the record's moveSpeed. An enemy inside Switch2Snowy.range_radius
+ * sits again. [ASSUMED] that 0.8 is the sit condition — the skill blackboard has no other key.
+ * Splash: sitting uses BlockEnemy.attack@ability_range_radius, awake uses PowerAttack.range_radius.
+ * [ASSUMED] which radius belongs to which form; both forms splash (handbook).
+ * FrozenBreak ×atk_scale then clears freeze, sitting only (handbook 覆雪坐定). The template itself has no mode check.
+ * 神迹之声 is not run: spData is INCREASE_WITH_TIME initSp 10 / maxSp 18 / increment 1 (enemy_database,
+ * omitted from the built record) and Attract.range_radius 1.5, but the attract buff's lifetime is only on the prefab.
+ */
+function giantKit(raw) {
+  const tb = talentBb(raw);
+  const st = raw.stats || {};
+  const radius = num(st.rangeRadius, 2.4);
+  const sitSplash = num(tb['BlockEnemy.attack@ability_range_radius'], 1.5);
+  const wakeSplash = num(skillBb(raw, 'PowerAttack').range_radius, 1.1);
+  const wakeAfter = num(tb['SwitchMode.interval'], 5);
+  const sitRange = num(skillBb(raw, 'Switch2Snowy').range_radius, 0.8);
+  const frozenScale = num(tb['FrozenBreak.atk_scale'], 3.5);
+  const sit = (battle, unit) => {
+    unit.mem.kjeragMode = 'sit';
+    unit.mem.kjeragQuiet = 0;
+    unit.profile.splashRadius = sitSplash;
+    // install runs before deploy, while the token is still not alive (battle/status.js addBuff).
+    battle.addBuff(unit, { key: GIANT_SIT, persist: true, refresh: 'replace', allowDead: true, flags: { noMove: true } });
+  };
+  const wake = (battle, unit) => {
+    unit.mem.kjeragMode = 'awake';
+    unit.mem.kjeragQuiet = 0;
+    unit.profile.splashRadius = wakeSplash;
+    battle.removeBuff(unit, GIANT_SIT);
+  };
+  return {
+    trait: {
+      attack: 'ranged',
+      dmgType: 'arts',
+      projectile: 'bolt',
+      canHitFly: true,
+      attackRangeRadius: radius,
+      strictAttackRange: true,
+      splashRadius: sitSplash,
+      splashScale: 1,
+    },
+    install(battle, unit) {
+      unit.motion = 'GROUND';
+      sit(battle, unit);
+      battle.on('attack', (c) => {
+        if (c.attacker === unit && !c.isSkill) unit.mem.kjeragQuiet = 0;
+      }, { owner: unit });
+      battle.on('hit', (c) => {
+        if (c.source !== unit || unit.mem.kjeragMode !== 'sit' || !c.dmg || c.dmg.cancel) return;
+        const t = c.target;
+        if (!t || !t.findBuff || !t.findBuff('freeze')) return;
+        c.dmg.mul *= frozenScale;
+        battle.removeStatus(t, 'freeze');
+      }, { owner: unit });
+      battle.on('tick', ({ dt }) => {
+        if (!unit.alive) return;
+        if (unit.mem.kjeragMode === 'sit') {
+          unit.profile.splashRadius = sitSplash;
+          unit.mem.kjeragQuiet = (unit.mem.kjeragQuiet || 0) + dt;
+          if (unit.mem.kjeragQuiet + 1e-9 >= wakeAfter) wake(battle, unit);
+        } else {
+          unit.profile.splashRadius = wakeSplash;
+          const r2 = sitRange * sitRange;
+          for (const e of battle.enemies) {
+            if (!e.alive || !e.deployed) continue;
+            const dx = e.x - unit.x, dy = e.y - unit.y;
+            if (dx * dx + dy * dy <= r2 + 1e-9) { sit(battle, unit); break; }
+          }
+        }
+        pursueGroundEnemy(battle, unit, dt);
+      }, { owner: unit });
+    },
+  };
 }
 /** Chebyshev radius. [ASSUMED] range id `x-5` is 5 tiles from the anchor, the square the summon node names. */
 function nearestOpen(battle, fromR, fromC, radius) {
@@ -303,17 +388,33 @@ function installKjerag2(battle, pid, effectId, members) {
     const steps = step > 0 ? Math.floor(S.bondLayers(battle, pid, 'kjeragShip') / step) : 0;
     // BondBuff on the enemy talent: ATK / HP scale by floor(layers / stackStep). The official summon is a
     // controller trap on mode change; this remake has no controller, so one allied token at battle start is
-    // [ASSUMED]. SwitchMode and FrozenBreak stay on the enemy record and are not run here.
+    // [ASSUMED]. The token's kit runs SwitchMode and FrozenBreak (giantKit).
     const atkMul = 1 + num(tb['BondBuff.base_atk']) + num(tb['BondBuff.attack_per_stack']) * steps;
     const hpMul = 1 + num(tb['BondBuff.base_max_hp']) + num(tb['BondBuff.max_hp_per_stack']) * steps;
     const st = raw.stats || {};
+    const blockCnt = num(tb['BlockEnemy.block_cnt'], st.blockCnt);
     battle.spawnToken(anchor, GIANT, tile[0], tile[1], {
-      def: raw, anySource: true,
+      def: {
+        ...raw,
+        id: GIANT,
+        profession: 'CASTER',
+        attackKind: 'ranged',
+        dmgType: 'arts',
+        canHitFly: true,
+        projectile: 'bolt',
+        rangeGrid: [[0, 0]],
+      },
+      anySource: true,
+      lethaniaPursuit: true,
+      position: { x: tile[1], y: tile[0] },
       stats: {
         atk: num(st.atk) * atkMul,
         maxHp: num(st.maxHp) * hpMul,
-        blockCnt: num(tb['BlockEnemy.block_cnt'], st.blockCnt),
+        blockCnt,
+        moveSpeed: num(st.moveSpeed, 0.4),
+        rangeRadius: num(st.rangeRadius, 2.4),
       },
+      kit: giantKit(raw),
     });
   }, { once: true });
 }
@@ -460,7 +561,7 @@ function installUrsus(battle, pid, effectId, members) {
     const who = killer && killer.kind === 'token' ? killer.ownerUnit : killer;
     if (!set.has(who)) return;
     const n = six ? num(bb['temp_bond_stack_cnt[power]'], 4) : num(bb.temp_bond_stack_cnt, 2);
-    const extra = num(bb.extra_bond_stack_cnt, 0);
+    const extra = ursusTempExtra(battle, pid);
     addTemp(battle, pid, 'ursusShip', n + (extra > 0 ? extra : 0));
   });
   battle.on('hit', (c) => {
@@ -576,8 +677,25 @@ function installLethania(battle, pid, effectId, members) {
       }
     }
   };
+  // 一个乐部's attack-speed aura (talent Aura, buff acltm[atk-spd]): AutochessCreateBuffToSpecifiedChar gives every
+  // 【莱塔尼亚】 operator on the field (bond filter, no range) ATTACK_SPEED + base_attack_speed + attack_speed_per_stack ·
+  // floor(layers / stackStep) for as long as the chorus lives; the chorus itself is not an operator and gets nothing.
+  // Each chorus adds its own buff (disableOverride), so two choruses give +40. The client refreshes the value every
+  // second; here it is recomputed when a chorus spawns or dies and when the layers change (same value: per_stack is 0).
+  // [ASSUMED] only the bond owner's operators: the client's side + map-layer check is read as one player's board.
+  const chorusAura = () => {
+    const tb = talentBb(enemyRaw(battle, CHORUS));
+    const step = num(tb['Aura.stackStep'], 0);
+    const L = S.bondLayers(battle, pid, 'lethaniaShip');
+    const each = num(tb['Aura.base_attack_speed']) + num(tb['Aura.attack_speed_per_stack']) * (step > 0 ? Math.floor(L / step) : 0);
+    const n = battle.allyUnits.filter((u) => u.alive && u.ownerId === pid && u.kind === 'token' && u.defId === CHORUS).length;
+    for (const u of members) {
+      if (n > 0 && each) S.passiveBuff(battle, u, 'bond:lethania:aura', { aspd: n * each });
+      else battle.removeBuff(u, 'bond:lethania:aura');
+    }
+  };
   apply();
-  onLayers(battle, pid, 'lethaniaShip', apply);
+  onLayers(battle, pid, 'lethaniaShip', () => { apply(); chorusAura(); });
   const aliveNotes = () => battle.allyUnits.filter((u) => u.ownerId === pid && u.alive && u.kind === 'token'
     && (u.defId === NOTE || u.defId === CHORUS)).length;
   const summonOne = (anchor) => {
@@ -607,8 +725,7 @@ function installLethania(battle, pid, effectId, members) {
     if (!u) return;
     if (id === NOTE) captureLethaniaBirthMode(battle, u);
     const tb = talentBb(raw);
-    const aspd = num(tb['Aura.base_attack_speed']);
-    if (aspd) S.passiveBuff(battle, u, 'bond:lethania:aura', { aspd });
+    if (id === CHORUS) chorusAura();
     const ratio = num(tb['Bleeding.hp_ratio']);
     const iv = num(tb['Bleeding.interval'], 1);
     if (ratio > 0 && iv > 0) {
@@ -621,6 +738,7 @@ function installLethania(battle, pid, effectId, members) {
   };
   battle.on('death', (c) => {
     const u = c.unit;
+    if (u && u.defId === CHORUS && u.ownerId === pid) chorusAura();
     if (!u || c.reason !== 'killed') return;
     if (u.side === 'enemy') { summonOne(u); return; }
     if (power && u.side === 'ally' && u.kind === 'op' && u.ownerId === pid) summonOne(u);

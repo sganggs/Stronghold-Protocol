@@ -527,7 +527,7 @@ function installPrefSync({ net, timers, target, notify, key, stateKey, msgType, 
     if (code === roomCode) return;
     roomCode = code;
     // at once, not debounced: 开始模拟 right after the room appears must not overtake it (same socket ⇒ ordered)
-    if (code && gated) { revision++; lastSent = null; T.clearTimeout(timer); timer = null; void flush(); }
+    if (code && (gated || timer != null || (seatBound && s?.room?.content?.vanilla === false))) { revision++; lastSent = null; T.clearTimeout(timer); timer = null; void flush(); }
   }) : null;
   // the room's content set arrived or went (DESIGN §32.6): sent again, checked against the data the room plays now (a
   // setting that is not seat-bound only when its payload changed: `seatBound`)

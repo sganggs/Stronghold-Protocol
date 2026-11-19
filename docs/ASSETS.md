@@ -21,6 +21,12 @@ cooldown. It respects the SFX/mute settings; a stale asynchronous decode cannot 
 All downloaded game assets the client needs are listed in **`data/assets.json`**. Game-art requests must use that manifest.
 The original project icons below are shipped static files, not downloaded game assets.
 
+Bond UI sprites are registered in `docs/research/07-assets.json` under `autochessUi` (`hudBondItem`,
+`bondDetail`, `bondChar`) and `arts.bondBoardIcon`; the asset plan consumes these registrations.
+After updating a checkout, run `npm run assets` to download them and regenerate the manifest. An older or incomplete
+manifest keeps text stages and rarity badges, CSS discs, borders and badge backgrounds, and generic navigation arrows;
+optional decoration disappears. The UI never guesses `/assets/ui/` paths for missing entries.
+
 ## Original project application icons (#413)
 
 By the maintainer's revised decision of 2026-10-10, **沿用 0.2.x 的薄荷绿城堡并精修**.
@@ -311,7 +317,9 @@ containing the plugin JSON and roster; `--only plugin-art/<charId>` narrows the 
 
 ### Re-extracting scenes after an update
 
-Scene extraction version **4** removes complete, exact redundant renderers (GitHub #684, DESIGN §34.24).
+Scene extraction version **5** writes 规程's three level prefabs whole, one group each (scene.json `layout: 'pieces'`,
+DESIGN §37.266); 盟约's scenes are unchanged from version 4. Version **4** removes complete, exact redundant renderers
+(GitHub #684, DESIGN §34.24).
 The official Android `26-04-13-12-31-42_e9b560` m03 scene contains both a base rock (renderer 2048) and its
 `HIDDEN@1` copy (2193); static batching gives the base a different mesh buffer and lightmap UVs. **[ASSUMED]**
 The maintainer's 2026-10-17 correction keeps the normal bake: all submeshes, oriented triangles, UV0, colours,
@@ -324,7 +332,8 @@ ties are described in §34.24; deletion is a remake art correction, not an offic
 After updating, run `node tools/setup.mjs --scenes`, or answer a typed **yes** to setup's existing version-only
 re-extraction prompt. Version-3 scenes still load but contain the redundant geometry; replacing code alone does
 not repair already extracted files. A missing-scene/partial set retains the existing explicit `--scenes` / `--yes`
-gate. `scene.json` mesh version remains 1; the manifest's `scene` record is version 4.
+gate. `scene.json` mesh version remains 1; the manifest's `scene` record is version 5. A 规程 scene of version 4 (cut
+into the 19×21 board) is not drawn by this client — the board stays procedural until it is extracted again.
 
 For inspection without replacing installed assets, the local extractor already supports **both** output options:
 
@@ -1021,3 +1030,28 @@ Forks with another local store may supply `hasResource(url, aliases)` returning 
 null (unverifiable), or reuse the pure plan/summary exports. `fetch` and `caches` adapters are injectable. The API
 rejects on manifest errors or cancellation; closing/switching the UI cancels the current check. The report reflects
 the current cache contents, not permanent availability: browsers can evict files later.
+
+## PRTS 骷髅手指光标
+
+设置 →「骷髅手指光标」默认关闭，只保存本机偏好 `arknightsCursor`。
+使用单个 Canvas 绘制，避免逐帧切换原生 CSS cursor 图片。Canvas 不参与输入或命中判定，保持点击坐标；文字、拖动、缩放、禁用、显式隐藏和其它自定义光标仍使用系统行为。
+
+素材来自 Windows 客户端 `init/mouse/pc_mouse_mgr.ab` 默认 `mouseHandler` 的六块手部 Sprite、RectTransform 枢轴及 `mouse_click_in`／`mouse_click_out` 动画；旧教程 `sprite_pointer` 不再用作新版素材。离线组合 11 姿态到同一透明 PNG，单帧 151×172，记录原版原点、基础缩放 0.44、参考宽度 1280、按下约 66.7 ms／恢复约 166.7 ms 及来源摘要。
+
+显示比例沿用 `0.44 × 视口宽度 / 1280 × 0.9`，最大边 128 CSS px；1920 宽视口为 90×102，热点同倍缩放，不受设置页面 UI 缩放影响。0.9 依据用户两张 3072×1920 截图：同一亮度阈值下官服可见主体约 110×127、本地约 122×142。它是实图标定值，不声称为官方设置的序列化默认值；PCMouseHandler.SetScaler 实际另乘 `0.75 + 0.5 × 设置值`。
+
+图集仅解码一次，直接按姿态 drawImage 到设备像素比对应的 backing store（最多 4 倍），CSS 尺寸和热点不变；不再逐帧生成／解码 PNG，也不再切换原生 cursor URL。指针位置对齐设备像素以免合成时再次模糊，事件坐标不作修改。移动和动画共用单个按需 requestAnimationFrame，移动只改变 transform，姿态不变不重绘；空闲／按住稳定后无持续循环。原版零端点切线使用 smoothstep，连点从当前状态连续转向，减少动态效果时直接切换姿态。窗口及 resolution 变化复用已加载图集和同一 Canvas 更新分辨率。
+
+Canvas 为 inert、aria-hidden、pointer-events:none，可用时以手动 popover 进入顶层；其 backdrop 也不拦截输入，不受页面入场 transform 裁剪。支持迁入全屏根，不能显示 DOM 子项的原生 canvas／video 等全屏元素则回退系统光标。普通区域和主题按钮共用唯一透明原生光标，动画和移动期间不再改动其图片；只有主题变量能实际隐藏原生光标时才绘制手形，避免同其它组件光标重叠。输入文字、抓取／缩放、禁用、显式 none 和主题外自定义光标均隐藏绘制手形并恢复对应原生语义。
+
+真正离窗、失焦、页面隐藏、指针取消／锁定、原生拖放、上下文丢失或关闭设置会停止动画并恢复系统光标；迟到的解码结果不能重新启用。点击控件导致其 DOM 被移除时的 relatedTarget:null 不视为离窗，以免连点时反复隐藏。下载／解码／Canvas2D 失败保留系统回退，不在输入路径自动重试；关闭设置移除 Canvas 与监听器。旧版静态素材仍可绘制为单帧。
+
+原生方案曾在预解码后仍收到闪烁反馈；Mozilla [2084967](https://bugzilla.mozilla.org/show_bug.cgi?id=2084967) 记录了 GTK/Wayland 更换图片光标时先清空导致的短暂偏移／消失，Canvas 方案绕开该逐帧路径。本 PR 尚无 Canvas 版本的浏览器截图复验，不沿用旧原生方案的通过记录。
+
+素材沿用 local-assets 的 `ui/cursor`、CDN、指纹、预载和 ZIP，不引入 Unity／Spine 运行时。安装了 UnityPy/Pillow 的环境可定向提取：
+
+```sh
+<venv>/bin/python tools/local-extract/extract.py --game '<Windows AB root>' --only ui/cursor
+```
+
+正常完整提取也尝试可选 PC 光标，不加入手机客户端的 `EXPECTED_LOCAL_GROUPS`。清单 `groups["ui/cursor"].prts_hand` 记录源包身份／文件名、各 Sprite 像素 SHA-256、源包及输出 SHA-256、帧布局、时间和提取版本 2；本次来源 `anon/f7bcd64480c4566f25d65d642f5fba95.bin`。二进制不入 Git，发布须同步实际文件及清单。Canvas 截图会包含实际手形，定向验证同时保留静止／按下像素与页面截图，并检查连续点击穿透、系统语义、DPR、全屏和 opt-out 清理。

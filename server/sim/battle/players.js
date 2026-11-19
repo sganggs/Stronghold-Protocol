@@ -48,6 +48,12 @@ export class BattlePlayers {
       killed: 0, total: 0, leaked: [], perfect: true, killedInTotal: 0, leakedInTotal: 0,
       layerGains: {}, coins: 0, damageDealt: 0, bossDamage: 0, healingDone: 0, deaths: 0, unitsEnd: [], unitStats: [],
     };
+    // Restore the helper's own-battle temporary layers before installing any content. Unite cannot gain more.
+    if (this.kind === 'unite' && p.tempLayers && typeof p.tempLayers === 'object') {
+      const entries = Object.entries(p.tempLayers).filter(([id, n]) => id && Number.isFinite(n) && n > 0)
+        .map(([id, n]) => [id, Math.min(1e4, Math.floor(n))]).filter(([, n]) => n > 0);
+      if (entries.length) (this._temporaryLayers ||= new Map()).set(ps.playerId, new Map(entries));
+    }
     const late = [];
     for (const u of [...(p.units ?? []), ...(p.commandReserves ?? [])]) {
       try {
@@ -171,6 +177,7 @@ export class BattlePlayers {
     if (inp.commandLayerCapBonus > 0) u.commandLayerCapBonus = inp.commandLayerCapBonus;
     u.items = [...(inp.items ?? [])];
     if (inp.itemProgress) u.itemProgress = inp.itemProgress.map(p => ({ ...p }));
+    if (inp.garrisonTags) u.garrisonTags = structuredClone(inp.garrisonTags);
     u.carry = inp.carryState ?? null;
     // 练度 (自持有, 0.2.2): the owned operator's ×ATK / ×DEF / ×max HP (units.js Πmul) — never a 补位 stand-in's nor a
     // prototype 自选 pick's (another character than the one the player owns)

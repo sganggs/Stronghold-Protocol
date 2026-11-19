@@ -1,5 +1,6 @@
 // Battle marks of 规程 指令. Targets arrive in the server's PlayerBattleInput; no automatic column selection.
-import { buffsOf, bodyOnTile, bodyInRangeTile, fxOn, isOp, onField } from '../support/index.js';
+import { buffsOf, bodyInRangeTile, fxOn, isOp, onField } from '../support/index.js';
+import { roundHalfEven } from '../../detmath.js';
 import { addShieldLayer, reviveNow } from '../items/battle.js';
 
 /** Blackboard enemy_id of skill_add_pos_effect_enemy (“模拟宝藏”). The payoff is gated on this id, not a band id. */
@@ -26,14 +27,19 @@ const MARKS = {
   },
   act3autochess_band19_buff(battle, ps, mark, p) {
     const [r, c] = battle.mapTile(ps, mark.row, mark.col);
-    let used = false;
+    // buff_template_data act3autochess_band19_buff stores `triggered` on each enemy's own buff blackboard
+    // (CURRENT) and fires ON_OWNER_ROOT_TILE_CHANGED with AutoChessCheckPosition on BUFF_OWNER: every enemy
+    // whose root tile enters the marked tile is feared once per mark, rather than consuming the tile globally.
+    const seen = new Set();
     battle.on('tick', () => {
-      if (used) return;
-      const enemy = battle.enemies.find(e => e.alive && bodyOnTile(e, r, c));
-      if (!enemy) return;
-      used = true;
-      battle.applyStatus(enemy, 'fear', { duration: p.fear, source: null });
-      fxOn(battle, 'fear', enemy, `command:${mark.id}`, mark.tag);
+      for (const enemy of battle.enemies) {
+        if (!enemy.alive || enemy.hidden || seen.has(enemy.id)) continue;
+        if (roundHalfEven(enemy.y) !== r || roundHalfEven(enemy.x) !== c) continue;
+        seen.add(enemy.id);
+        if (battle.applyStatus(enemy, 'fear', { duration: p.fear, source: null })) {
+          fxOn(battle, 'fear', enemy, `command:${mark.id}`, mark.tag);
+        }
+      }
     });
   },
   act3autochess_band22_buff(battle, ps, mark) {

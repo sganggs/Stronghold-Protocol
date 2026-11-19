@@ -95,11 +95,16 @@ export class MatchClientCombat {
     return best ? best.playerId : null;
   }
 
-  /** b.start of a field for one recipient (`watch`: not a player of the field). */
+  /**
+   * b.start of a field for one recipient (`watch`: not a player of the field). Whoever is not one of the field's players
+   * — a spectator seat, an eliminated player, a living teammate watching from another field (PR #971) — gets the spec
+   * without the players' funds (_spectatorSpec); everything a battle reads stays, so the replica plays the same battle.
+   */
   _startMsg(f, pid, { watch = false } = {}) {
+    const outsider = this.spectators.has(pid) || !(Array.isArray(f.players) && f.players.includes(pid));
     return {
       t: 'b.start', battleId: f.battleId, fieldId: f.fieldId, kind: f.kind,
-      spec: this.spectators.has(pid) ? this._spectatorSpec(f) : f.spec,
+      spec: outsider ? this._spectatorSpec(f) : f.spec,
       authoritative: !!(!f.done && !f.verifyJob && f.mode === 'client' && f.authority === pid && !watch),
       startAt: f.startAt, serverNow: this.sched.now(), elapsed: Math.round(this._fieldElapsed(f) * 1000) / 1000,
       speed: this.gameSpeed, watch: !!watch, done: !!f.done,

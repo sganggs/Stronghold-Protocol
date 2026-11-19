@@ -234,7 +234,7 @@ test('css: the selected skill\'s frame is square around its icon (GitHub #398 / 
 test('css: the head and the rows share one grid (columns aligned), quick targets grow on a coarse pointer, the detail slides over below 1000 px', () => {
   const css = unscaled(readFileSync(path.join(ROOT, 'public/css/screens/loadout.css'), 'utf8'));
   assert.match(css, /\.lo-list__head, \.lo \.lo-card \{ display: grid; grid-template-columns: var\(--cols\);/);
-  assert.match(css, /\.lo \.lo-card \{[^}]*cursor: pointer;/, 'the whole row shows itself as a click target (RosterRow onRowClick)');
+  assert.match(css, /\.lo \.lo-card \{[^}]*cursor: var\(--sp-cursor-pointer, pointer\);/, 'the whole row shows itself as a click target (RosterRow onRowClick)');
   assert.match(css, /\.sp-coarse \.lo-list \{ --q: max\(\.44rem, 40px\); \}/);
   const block = css.slice(css.indexOf('@media (max-width: 1000px) {\n  .lo-body'));
   assert.match(block, /\.lo-body \{ grid-template-columns: minmax\(0, 1fr\); \}/);

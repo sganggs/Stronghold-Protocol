@@ -825,6 +825,48 @@ test('acrbot S1 swings at an ally in the extended range', () => {
   assert.equal(h.unit(3).hp, h.unit(3).s.maxHp);
 });
 
+test('acrbot takes up to her block count of targets: enemies normally, enemies then allies in S1 (#960)', () => {
+  // charpack char_618_acrbot: _limitTargetNum 0 + _limitedMaxTargetNumToBlockedCnt 1 in both modes → block 3 + talent 1 = 4
+  const plain = battle([op(1, ID.acrbot, 5, 0)]);
+  const a = foe(plain.battle, 9, 6, { hp: 50000, atk: 0 });
+  const b = foe(plain.battle, 9, 7, { hp: 50000, atk: 0 });
+  const far = foe(plain.battle, 9, 8, { hp: 50000, atk: 0 });
+  plain.step();
+  assert.equal(plain.unit(1).stats.attacks, 1);
+  approx(lost(50000, a), 691 * 1.6, 1e-4, 'normal: first enemy');
+  approx(lost(50000, b), 691 * 1.6, 1e-4, 'normal: second enemy in range');
+  assert.equal(far.hp, 50000, 'out of range');
+
+  // S1: two enemies and an ally in range — all three (count 4)
+  const h = battle([op(1, ID.acrbot, 5, 0), op(2, ID.varkis, 7, 0)]);
+  const e1 = foe(h.battle, 9, 6, { hp: 50000, atk: 0 });
+  const e2 = foe(h.battle, 9, 7, { hp: 50000, atk: 0 });
+  h.battle.on('battleStart', () => {
+    const ally = h.unit(2);
+    h.battle.addBuff(ally, { key: 'test:hp', mods: { hpFlat: 20000 } });
+    ally.hp = ally.s.maxHp * 0.5;
+    h.battle.addBuff(ally, { key: 'test:disarm', duration: 30, flags: { disarm: true } });
+    assert.ok(open(h.unit(1)));
+  });
+  h.step();
+  const swing = 691 * 1.6 * 2.6;
+  assert.equal(h.unit(1).stats.attacks, 1);
+  approx(lost(50000, e1), swing, 1e-4, 'S1 e1');
+  approx(lost(50000, e2), swing, 1e-4, 'S1 e2');
+  approx(lost(h.unit(2).s.maxHp * 0.5, h.unit(2)), swing - 258, 1e-4, 'S1 ally');
+
+  // S1 with four enemies in range: the count is spent on them, the ally is spared [ASSUMED: enemies first]
+  const full = battle([op(1, ID.acrbot, 5, 0), op(2, ID.varkis, 7, 0)]);
+  const four = [6, 6, 7, 7].map((c) => foe(full.battle, 9, c, { hp: 50000, atk: 0 }));
+  full.battle.on('battleStart', () => {
+    full.battle.addBuff(full.unit(2), { key: 'test:disarm', duration: 30, flags: { disarm: true } });
+    assert.ok(open(full.unit(1)));
+  });
+  full.step();
+  for (const e of four) approx(lost(50000, e), swing, 1e-4, 'S1 four enemies');
+  assert.equal(full.unit(2).hp, full.unit(2).s.maxHp, 'no room left for the ally');
+});
+
 test('acrbot death splash uses stripped ATK and a retreat does not splash', () => {
   assert.equal(rec('acrbot').talents[0].bb.atk_scale, 1.5);
   assert.equal(rec('acrbot').talents[0].bb.stun, 5);

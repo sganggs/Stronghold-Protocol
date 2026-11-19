@@ -13,6 +13,15 @@ export const paramsOf = b => ({ ...b.bb, ...b.bbStr });
 export const skillRows = ps => Object.values(ps.gd.raw.bands || {}).flatMap(b => b.skills || []);
 export const commandSkill = ps => ps.command ? skillRows(ps).find(s => s.effectId === ps.command.currentEffectId) || null : null;
 
+/** Whether a command row's upgrade condition (`unlockType` / `unlockParam`: to its `next` row) holds for the player now. */
+function isUnlocked(ps, s) {
+  const [a, b] = s.unlockParam;
+  return s.unlockType === 'band_skill_load_by_round' ? ps.m.round >= Number(a)
+    : s.unlockType === 'band_skill_load_by_shop_lv' ? ps.shop.level >= Number(a)
+    : s.unlockType === 'band_skill_load_by_coin_cost' ? ps.stats.gold >= Number(a)
+    : s.unlockType === 'band_skill_load_by_bond_act_count' ? (ps.bonds[a]?.count || 0) >= Number(b) : false;
+}
+
 /**
  * The effect-id map both the battle input and the bond/command displays read.
  * Starts from the opening band's `auto_chess_effect_replace` (that table stays after a swap), then
@@ -57,13 +66,7 @@ export function syncCommand(ps) {
   }
   for (let n = 0; n < 74; n++) {
     const s = commandSkill(ps);
-    if (!s?.next) break;
-    const [a, b] = s.unlockParam;
-    const unlocked = s.unlockType === 'band_skill_load_by_round' ? ps.m.round >= Number(a)
-      : s.unlockType === 'band_skill_load_by_shop_lv' ? ps.shop.level >= Number(a)
-      : s.unlockType === 'band_skill_load_by_coin_cost' ? ps.stats.gold >= Number(a)
-      : s.unlockType === 'band_skill_load_by_bond_act_count' ? (ps.bonds[a]?.count || 0) >= Number(b) : false;
-    if (!unlocked) break;
+    if (!s?.next || !isUnlocked(ps, s)) break;
     const next = skillRows(ps).find(row => row.effectId === s.next);
     if (!next) break;
     const old = ps.command.records[s.effectId];
@@ -123,7 +126,7 @@ export function commandTargets(ps, skill = commandSkill(ps)) {
   for (let row = 9; row <= 12; row++) for (let col = 2; col <= 10; col++) {
     const [r, c] = fieldTile(field, row, col);
     const tile = stage?.tiles?.[stage.rows?.[r]?.[c]];
-    if (!inField(row, col) || !tile || tile.passable !== 'ALL') continue;
+    if (!inField(row, col) || !tile || (skill.targetFilterType === 'PASSABLE' && ['tile_start', 'tile_end'].includes(tile.tileKey)) || tile.passable !== 'ALL') continue;
     if (skill.targetFilterType === 'PASSABLE_AND_BUILDABLE' && (!deploy.has(tileKey(row, col)) || ps.board.has(tileKey(row, col)))) continue;
     if ((ps.commandMarks || []).some(m => m.row === row && m.col === col && (m.persistent || m.round === ps.m.round))) continue;
     out.push({ row, col });
@@ -181,17 +184,48 @@ export function useCommand(ps, effectId, target, ctx) {
   return OK;
 }
 
+// A resolved row with either buff is not a draft card. 变约 stays on the opening band
+// (commandBondOverrides). 追随者们' own per-round choice is the draft that reads this pool.
+const POOL_EXCLUDED_BUFFS = new Set(['auto_chess_effect_replace', 'gain_band_skill_from_pool_in_prep']);
+
+/**
+ * The row a skill-change draft offers of one strategy's command chain (each 规程 band has one chain).
+ * The held chain is left out. Otherwise start at `skills[0]` and walk `next` while that row's unlock
+ * holds — the same rule as syncCommand — and offer the row the player would hold now when it is ACTIVE
+ * or PASSIVE. A chain still on NONE (not yet available, e.g. 但书 before its round) is left out, as is a
+ * resolved row carrying an excluded buff. Official Followers screenshots (PR #940, 2026-11-14) show both
+ * ACTIVE and PASSIVE cards. [ASSUMED] one row per chain at that level; exact server weights are unavailable.
+ */
+function poolRow(ps, band) {
+  const rows = band?.skills || [];
+  if (!rows.length || !ps.command) return null;
+  if (rows.some(r => r.effectId === ps.command.currentEffectId)) return null;
+  let cur = rows[0];
+  const seen = new Set();
+  for (let n = 0; cur?.next && n < 74; n++) {
+    if (seen.has(cur.effectId)) break;
+    seen.add(cur.effectId);
+    if (!isUnlocked(ps, cur)) break;
+    const next = rows.find(r => r.effectId === cur.next) || skillRows(ps).find(r => r.effectId === cur.next);
+    if (!next || seen.has(next.effectId)) break;
+    cur = next;
+  }
+  if (!cur || (cur.type !== 'ACTIVE' && cur.type !== 'PASSIVE')) return null;
+  if ((cur.buffs || []).some(b => POOL_EXCLUDED_BUFFS.has(b.key))) return null;
+  return cur;
+}
+
 /**
  * ITEMS integration: openSkillChangeDraft(player, 'skill_change_1', ctx) opens the 投机骰子 three-command choice.
  * skill_change_2 is the two-command prep choice. Returns false without changing state for an unknown choice or
  * a season without commands. ctx is optional; its RNG is used when supplied. g.commandChoice resolves the first
- * queued draft. [ASSUMED] Pool = all other ACTIVE skill rows, including upgraded rows; no filter exists in the data.
+ * queued draft. Pool = one current ACTIVE or PASSIVE row per other chain (poolRow).
  */
 export function openSkillChangeDraft(player, choiceId, ctx = null) {
   if (!['skill_change_1', 'skill_change_2'].includes(choiceId)) return false;
   syncCommand(player);
   if (!player.command) return false;
-  const pool = skillRows(player).filter(s => s.type === 'ACTIVE' && s.effectId !== player.command.currentEffectId);
+  const pool = Object.values(player.gd.raw.bands || {}).map(b => poolRow(player, b)).filter(Boolean);
   const cards = (ctx?.rng || player.m.rngMeta).shuffle(pool).slice(0, choiceId === 'skill_change_1' ? 3 : 2).map(s => s.effectId);
   if (!cards.length) return false;
   (player.commandDrafts ||= []).push({ id: `command.${player.m.nextUid()}`, choiceId, cards });
@@ -222,11 +256,19 @@ export function commandDraftView(ps) {
   }) };
 }
 
-/** Existing prep keys follow the live row too, so Warfarin's upgrades and command swaps replace old hooks. */
+/** The strategy whose skill rows contain this effect. Unswapped, this is the opening band. */
+function commandOwnerBand(ps, skill) {
+  return Object.values(ps.gd.raw.bands || {}).find(row => row.skills?.some(s => s.effectId === skill?.effectId)) || null;
+}
+
+/** Existing prep keys follow the live row, so Warfarin's upgrades and command swaps replace old hooks. */
 export function commandMetaHandler(ps) {
   const s = commandSkill(ps);
   if (!s) return null;
-  const old = bandMetaHandler(ps.bandId, s);
+  // Buffs come from the live skill. The band id is that skill's owner, so a handler that identifies
+  // the strategy (凯瑟琳's special goods) follows the command in hand. Opening-band 变约 is not read here.
+  const band = commandOwnerBand(ps, s);
+  const old = bandMetaHandler(band?.bandId || ps.bandId, s);
   const out = {};
   const hooks = new Set([...Object.keys(old || {}), ...Object.keys(commandPassive)]);
   for (const hook of hooks) out[hook] = (ctx, ev) => {

@@ -177,7 +177,7 @@
   font: inherit;
   text-align: left;
   color: var(--text-hi);
-  cursor: pointer;
+  cursor: var(--sp-cursor-pointer, pointer);
   background: rgba(223, 230, 226, .04);
   border: 1px solid rgba(223, 230, 226, .14);
   transition: border-color var(--t-fast), box-shadow var(--t-fast);
@@ -272,7 +272,7 @@
   font: inherit;
   text-align: left;
   color: #eef3f1;
-  cursor: pointer;
+  cursor: var(--sp-cursor-pointer, pointer);
   background: #0c1110;
   border: 1px solid rgba(220, 230, 226, .16);
   box-shadow: 0 .04rem .16rem rgba(0, 0, 0, .45);
@@ -374,7 +374,7 @@
   letter-spacing: .04em;
   color: #111816;
   text-align: left;
-  cursor: pointer;
+  cursor: var(--sp-cursor-pointer, pointer);
   background:
     linear-gradient(var(--pl-ink), var(--pl-ink)) left .07rem center / 2px 54% no-repeat,
     linear-gradient(var(--pl-ink), var(--pl-ink)) left .07rem top 23% / .06rem 2px no-repeat,
@@ -679,7 +679,7 @@
 }
 .pcard:hover:not(.is-on), .pcard:focus-visible:not(.is-on) { border-color: #7b7f81; }
 /* the room's read-only view (another doctor's: the host chooses): shown, not chosen */
-.pcard:disabled { cursor: default; }
+.pcard:disabled { cursor: var(--sp-cursor-default, default); }
 .pcard:disabled:hover:not(.is-on) { border-color: #55585a; }
 .pcard.is-on { transform: translateX(-.44rem); border-color: #8f9496; }
 .pcard__glow {
@@ -760,7 +760,7 @@
 }
 .proto-start:hover:not(:disabled), .proto-start:focus-visible { filter: brightness(1.07); }
 .proto-start:focus-visible { outline: 2px solid #eef0ef; outline-offset: 2px; }
-.proto-start:disabled { filter: grayscale(.8) brightness(.6); cursor: default; }
+.proto-start:disabled { filter: grayscale(.8) brightness(.6); cursor: var(--sp-cursor-default, default); }
 .proto-start__mark { flex: none; display: flex; flex-direction: column; align-items: center; gap: 1px; }
 .proto-start__rook { display: inline-flex; align-items: center; gap: 2px; font-size: calc(.36 * var(--t)); font-weight: 300; line-height: 1; }
 .proto-start__rook i { font-style: normal; }
@@ -902,12 +902,12 @@ button.ally-card:hover, button.ally-card:focus-visible { border-color: rgba(93, 
   line-height: 1.2; font-size: calc(.14 * var(--t)); font-weight: 700; letter-spacing: 0; color: rgba(8, 34, 27, .75); }
 .ally-card__bar small:lang(ko) { word-break: keep-all; overflow-wrap: break-word; }
 .ally-card__bar small:lang(ja) { line-break: strict; }
-button.ally-card:disabled { cursor: default; }
+button.ally-card:disabled { cursor: var(--sp-cursor-default, default); }
 button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8); }
 /* the test-room box under 创建同盟 (test mode only) */
 .ally-test { padding: 0 .2rem; }
 .ally-card__bar--join { width: 100%; color: #2a1404; background: linear-gradient(180deg, #ffb24f, #f08a26); }
-.ally-card__bar--join:disabled { filter: grayscale(.6) brightness(.75); cursor: default; }
+.ally-card__bar--join:disabled { filter: grayscale(.6) brightness(.75); cursor: var(--sp-cursor-default, default); }
 .ally-card__bar--join:hover:not(:disabled), .ally-card__bar--join:focus-visible { filter: brightness(1.06); }
 .ally-card__icon { flex: none; display: grid; place-items: center; width: max(.36rem, 22px); height: max(.36rem, 22px); color: currentColor; background: rgba(0, 0, 0, .14); border: 2px solid currentColor; border-radius: 4px; }
 .ally-card__icon .icon { width: 74%; height: 74%; }
@@ -962,7 +962,7 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
   border-radius: 4px;
 }
 .ally-key__spec:hover:not(:disabled), .ally-key__spec:focus-visible { border-color: rgba(255, 255, 255, .5); }
-.ally-key__spec:disabled { opacity: .45; cursor: default; }
+.ally-key__spec:disabled { opacity: .45; cursor: var(--sp-cursor-default, default); }
 .ally-key__spec .icon { width: 1.1em; height: 1.1em; }
 .ally-recent { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .06rem .1rem; min-height: .3rem; margin: 0 .2rem .1rem; font-size: calc(.14 * var(--t)); text-align: center; }
 .code-chip {
@@ -1215,12 +1215,12 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
   border: 2px solid #4a4d4f;
   border: 2px solid color-mix(in srgb, var(--d-color) 45%, #3c3f41);
   border-radius: .08rem;
-  cursor: pointer;
+  cursor: var(--sp-cursor-pointer, pointer);
   transition: background 160ms, border-color 160ms, transform 160ms;
 }
 .ladder__cell:hover:not(:disabled), .ladder__cell:focus-visible { border-color: var(--d-color); }
 .ladder__cell.is-on { color: #111; background: var(--d-color); border-color: #f5f5f5; transform: translateY(-1px); }
-.ladder__cell:disabled { cursor: default; }
+.ladder__cell:disabled { cursor: var(--sp-cursor-default, default); }
 .ladder__side.is-on { transform: translateX(-.44rem); }
 .proto-brief__off { margin: .04rem 0 0; font-size: calc(.14 * var(--t)); color: #9a9f9d; }
 

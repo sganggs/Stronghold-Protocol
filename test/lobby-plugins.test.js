@@ -630,6 +630,50 @@ describe('room content sets (P1c: gameplay plugins)', () => {
     assert.equal(validateC2S({ t: 'room.contentReady', cs: 'AB'.repeat(32) }), 'bad field cs');
     assert.equal(validateC2S({ t: 'room.contentReady', cs: 'ab'.repeat(32), ok: 'no' }), 'bad field ok');
   });
+
+  test('plugins.preview & room.create { plugins }: lobby preview returns content + policy without holding sets, and room.create carries enabled plugins directly into the room', async () => {
+    assert.equal(validateC2S({ t: 'plugins.preview' }), null);
+    assert.equal(validateC2S({ t: 'plugins.preview', version: 'act2autochess', plugins: [{ id: 'data-demo' }] }), null);
+    assert.equal(validateC2S({ t: 'plugins.preview', plugins: [{ id: 'A' }] }), 'bad field plugins');
+    assert.equal(validateC2S({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', plugins: [{ id: 'data-demo' }] }), null);
+    assert.equal(validateC2S({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', plugins: [{ id: 'A' }] }), 'bad field plugins');
+
+    const host = await player('Tex');
+    const heldBefore = srv.contents.stats().held;
+    const defPreview = await ok(host, { t: 'plugins.preview' });
+    assert.deepEqual(defPreview.policy, { rooms: 'host', default: [] });
+    assert.equal(defPreview.content.vanilla, true);
+    assert.equal(srv.contents.stats().held, heldBefore, 'default preview holds no set');
+
+    // Legacy act2-only plugin is refused for default 规程·序列Ⅰ when version is omitted, and resolved cleanly for act2autochess.
+    await refuse(host, { t: 'plugins.preview', plugins: [{ id: 'data-demo' }] }, ERR.VERSION_UNSUPPORTED);
+    const modPreview = await ok(host, { t: 'plugins.preview', version: 'act2autochess', plugins: [{ id: 'data-demo' }] });
+    assert.equal(modPreview.content.vanilla, false);
+    assert.deepEqual(modPreview.content.plugins.map((p) => p.id), ['data-demo']);
+    assert.deepEqual(modPreview.content.kittedExtra, ['char_x_data_demo_guard']);
+    assert.equal(srv.contents.stats().held, heldBefore, 'preview never occupies a room held-set slot');
+    const indexRes = await fetch(`${srv.url}/cs/${modPreview.content.cs.slice(0, 16)}/index.json`);
+    assert.equal(indexRes.status, 200, 'preview content set is servable while in the lobby');
+
+    await ok(host, { t: 'room.create', mode: 'solo', difficulty: 'NORMAL', version: 'act2autochess', plugins: [{ id: 'data-demo' }] });
+    const created = await host.waitFor('room.state', (s) => s.hostId === host.id);
+    assert.equal(created.content.vanilla, false);
+    assert.equal(created.content.cs, modPreview.content.cs);
+    assert.deepEqual(created.content.plugins.map((p) => p.id), ['data-demo']);
+    assert.deepEqual(created.content.kittedExtra, ['char_x_data_demo_guard']);
+    // Plugin DIY operator configured for this room is accepted cleanly.
+    await ok(host, { t: 'room.diy', picks: { chess_char_5_diy1_a: { charId: 'char_x_data_demo_guard' } } });
+    await ok(host, { t: 'room.contentReady', cs: created.content.cs });
+    await ok(host, { t: 'room.start' });
+    await host.waitFor('room.state', (s) => s.inMatch === true);
+    await ok(host, { t: 'g.emote', id: EMOTES[0] });
+    const probe = await host.waitFor('m.toast', (m) => /^probe;/.test(m.text || ''), 5000);
+    assert.match(probe.text, new RegExp(`;cs=${created.content.cs};`));
+    assert.match(probe.text, /;requireCs=true;/);
+    await ok(host, { t: 'g.infoReady' });
+    await host.waitFor('room.state', (s) => s.inMatch === false, 5000);
+    await ok(host, { t: 'room.leave' });
+  });
 });
 
 describe('the server owner\'s policy and the content-set limit (P1c)', () => {
@@ -713,6 +757,20 @@ describe('the server owner\'s policy and the content-set limit (P1c)', () => {
     const no = await b.request({ t: 'room.setPlugins', plugins: [{ id: 'two' }] }, BUILD_MS);
     assert.deepEqual([no.t, no.code], ['error', ERR.PLUGIN_BLOCKED]);
     assert.equal((await b.request({ t: 'room.setPlugins', plugins: [{ id: 'one' }] }, BUILD_MS)).t, 'ok');
+  });
+
+  test('rooms: fixed refuses room.create { plugins } outside the fixed set, and plugins.preview reports fixed policy without consuming maxSets', async () => {
+    const s = await serverWith({ rooms: 'fixed', default: ['one'], limits: { maxSets: 1 } });
+    const a = await player(s, 'A');
+    const prev = await a.request({ t: 'plugins.preview', version: 'act2autochess' }, BUILD_MS);
+    assert.equal(prev.t, 'ok');
+    assert.deepEqual(prev.policy, { rooms: 'fixed', default: ['one'] });
+    assert.deepEqual(prev.content.plugins.map((p) => p.id), ['one']);
+    assert.equal(s.contents.stats().held, 0, 'preview holds no set against maxSets');
+    const refused = await a.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', plugins: [{ id: 'two' }] }, BUILD_MS);
+    assert.deepEqual([refused.t, refused.code], ['error', ERR.PLUGIN_BLOCKED]);
+    assert.equal((await a.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', plugins: [{ id: 'one' }] }, BUILD_MS)).t, 'ok');
+    await a.waitFor('room.state', (st) => st.content?.vanilla === false, BUILD_MS);
   });
 
   test('readPolicy: defaults, every field checked, SP_PLUGINS wins over the file', () => {

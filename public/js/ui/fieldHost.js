@@ -46,7 +46,7 @@ export function hudPadding(kind, size) {
 
 /**
  * HUD geometry (rem) the prep cameras keep clear (they mirror the CSS; test/ui/playtest5-ui.test.js checks the rules):
- * the bond scroller's bottom edge (css/screens/game.css .gm__bonds top 1.36rem + a .bslot's disc and name ≈
+ * the bond scroller's bottom edge (css/screens/game.css .gm__bonds top 1rem + .18rem stage padding + a .bslot's disc and name ≈
  * .8rem, or its 44 px arrow height, whichever is taller; negative margins offset the clip padding) and the shop bar's top edge
  * above the viewport's bottom (css/screens/game-shop.css .shopbar
  * bottom .2rem + .shopbar__row padding .1rem ×2 + card height 2.24rem, plus its 2 px + 1 px borders). The shop bar
@@ -58,7 +58,7 @@ export function hudPadding(kind, size) {
  * css/devices.css).
  */
 export const HUD_REM = Object.freeze({
-  bondStripTop: 1.36, bondStripBottom: 2.16, bondArrowPx: 44,
+  bondStripTop: 1, bondStripBottom: 1.98, bondArrowPx: 44,
   shopBarTop: 2.64, shopBarBorderPx: 3, shopTabTop: 0.8, shopTabBorderPx: 3, cornerTop: 0.8,
 });
 

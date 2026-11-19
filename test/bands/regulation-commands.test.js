@@ -1,10 +1,13 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { loadData } from '../../server/data.js';
+import { DataSource } from '../../server/sim/simdata.js';
 import { setGameData } from '../../server/sim/content/support/index.js';
 import { SharedPool } from '../../server/match/pool.js';
 import { createRegistry } from '../../server/match/effectsMeta.js';
+import { fieldTile } from '../../server/match/board.js';
 import { makeMatch } from '../match/harness.js';
+import { makeBattle, enemyRec } from '../helpers/battleHarness.js';
 import { syncCommand, beginCommandPrep, commandView, openSkillChangeDraft, commandSkill, commandBattleInput, commandBondOverrides, skillRows, reconcileCommandChests, keepsFunds } from '../../server/match/bandCommands.js';
 import { botUseCommand, fieldModel } from '../../server/match/bot.js';
 import { validateC2S } from '../../shared/protocol.js';
@@ -155,19 +158,19 @@ test('zero-state mapped bond reaches own and watched popups but stays off the st
     yield v;
     yield* walk(v.props?.children);
   };
-  const nowText = (popup) => {
-    const section = [...walk(popup)].find((v) => typeof v.props?.class === 'string' && v.props.class.split(/\s+/).includes('bpop__sec--now'));
-    return ([...walk(section)].find((v) => v.type?.name === 'RichText')?.props.text || '').replace(/<[^>]*>/g, '');
+  const effectText = (popup) => {
+    const description = [...walk(popup)].find((v) => v.props?.class === 'bpop__desc');
+    return (description?.props.text || '').replace(/<[^>]*>/g, '');
   };
   const ownPopup = BondPopup({ bondId, entry: own.entry, priv: own.priv, onClose() {} });
-  assert.match(nowText(ownPopup), /周围敌人造成120%攻击力真实伤害/);
-  assert.doesNotMatch(nowText(ownPopup), /召唤整备区最右侧/);
-  assert.ok(!/—/.test(nowText(ownPopup)));
+  assert.match(effectText(ownPopup), /周围敌人造成120%攻击力真实伤害/);
+  assert.doesNotMatch(effectText(ownPopup), /召唤整备区最右侧/);
+  assert.ok(!/—/.test(effectText(ownPopup)));
 
   const teammateId = h.ps('p_1').playerId;
   const watched = popupView({ open: { id: bondId, ownerId: ps.playerId }, pub, priv: h.ps('p_1').privateView(), myId: teammateId, field: null });
   assert.equal(watched.entry.effectId, target);
-  assert.match(nowText(BondPopup({ bondId, entry: watched.entry, priv: watched.priv, owner: watched.name, onClose() {} })), /周围敌人造成120%攻击力真实伤害/);
+  assert.match(effectText(BondPopup({ bondId, entry: watched.entry, priv: watched.priv, owner: watched.name, onClose() {} })), /周围敌人造成120%攻击力真实伤害/);
 
   const emptyStrip = BondStrip({ bonds: priv.bonds, onOpen() {} });
   assert.ok(![...walk(emptyStrip)].some((v) => v.props?.['data-bond'] === bondId));
@@ -475,4 +478,295 @@ test('carried funds and duck substitutions follow the current effect after a com
   const before = structuredClone(spawns);
   ps.m.dispatch(ps, 'onBattleStart', { kind: 'normal', spawns, waveSpawns: structuredClone(spawns), routes: [{ start: [12, 10], end: [9, 2] }] });
   assert.deepEqual(spawns, before);
+});
+
+test('v3_1 raw stages: Nymph PASSABLE excludes red/blue gates and still accepts ordinary ground on all deploy fields', t => {
+  const fields = ['normal', 'bossL', 'bossR'];
+  const rows = [[1, 'aceffect_band_107'], [5, 'aceffect_band_108'], [9, 'aceffect_band_109'], [13, 'aceffect_band_110']];
+  const coverage = {
+    layouts: 0, successfulGroundUses: 0, floorTargets: 0,
+    tile_startCells: 0, tile_startLayouts: 0,
+    tile_endCells: 0, tile_endLayouts: 0,
+    highCells: 0, highLayouts: 0,
+    fenceCells: 0, fenceLayouts: 0,
+    floorCells: 0, floorLayouts: 0,
+  };
+  assert.equal(Object.keys(data.stages).length, 12, 'the test reads all twelve real v3_1 stages');
+
+  for (const [stageId, stage] of Object.entries(data.stages)) for (const field of fields) {
+    const { h, ps } = setup(t, 'band_dance', 1);
+    const teammate = h.ps('p_1');
+    h.m.stageId = stageId;
+    h.m.bossWaves = field === 'normal' ? null : [{ players: field === 'bossL'
+      ? [ps.playerId, teammate.playerId] : [teammate.playerId, ps.playerId], wave: {} }];
+    assert.equal(h.m.deployFieldOf(ps), field, `${stageId} uses the real ${field} deploy-field mapping`);
+
+    const byType = { tile_start: [], tile_end: [], high: [], fence: [], floor: [], ground: [] };
+    for (let row = 9; row <= 12; row++) for (let col = 2; col <= 10; col++) {
+      const [stageRow, stageCol] = fieldTile(field, row, col);
+      const glyph = stage.rows?.[stageRow]?.[stageCol];
+      const tile = glyph == null ? null : stage.tiles?.[glyph];
+      if (!tile) continue;
+      const cell = { row, col, tile };
+      if (tile.tileKey === 'tile_start') byType.tile_start.push(cell);
+      if (tile.tileKey === 'tile_end') byType.tile_end.push(cell);
+      if (tile.height === 'HIGH') byType.high.push(cell);
+      if (tile.tileKey === 'tile_fence_bound') byType.fence.push(cell);
+      if (tile.tileKey === 'tile_floor' && tile.height === 'LOW' && tile.passable === 'ALL') byType.floor.push(cell);
+      if (tile.height === 'LOW' && tile.passable === 'ALL' && !['tile_start', 'tile_end', 'tile_fence_bound'].includes(tile.tileKey)) byType.ground.push(cell);
+    }
+    coverage.layouts++;
+    for (const [type, cellKey, layoutKey] of [
+      ['tile_start', 'tile_startCells', 'tile_startLayouts'], ['tile_end', 'tile_endCells', 'tile_endLayouts'],
+      ['high', 'highCells', 'highLayouts'], ['fence', 'fenceCells', 'fenceLayouts'], ['floor', 'floorCells', 'floorLayouts'],
+    ]) {
+      coverage[cellKey] += byType[type].length;
+      if (byType[type].length) coverage[layoutKey]++;
+    }
+
+    for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+      const [round, effectId] = rows[rowIndex];
+      if (rowIndex) next(ps, round);
+      const view = commandView(ps);
+      assert.equal(view.effectId, effectId, `${stageId}/${field} R${round} uses Nymph ${effectId}`);
+      assert.equal(view.targetFilterType, 'PASSABLE');
+      assert.equal(view.reason, null, 'the command still has an available use before forged-target checks');
+      const targetKeys = new Set(view.targets.map(target => `${target.row},${target.col}`));
+      for (const cell of [...byType.tile_start, ...byType.tile_end]) {
+        assert.equal(cell.tile.height, 'LOW', 'red/blue gate cells are LOW');
+        assert.equal(cell.tile.passable, 'ALL', 'red/blue gate cells pass the existing passable check');
+        assert.ok(!targetKeys.has(`${cell.row},${cell.col}`), `${stageId}/${field} excludes ${cell.tile.tileKey} at ${cell.row},${cell.col}`);
+        const funds = ps.funds, uses = view.usesLeft, markCount = ps.commandMarks.length;
+        assert.equal(ps.useCommand(effectId, { row: cell.row, col: cell.col }).error, 'BAD_TARGET', 'a forged gate target is refused');
+        assert.equal(ps.funds, funds, 'a refused gate does not spend funds');
+        assert.equal(commandView(ps).usesLeft, uses, 'a refused gate does not consume a command use');
+        assert.equal(ps.commandMarks.length, markCount, 'a refused gate creates no tile mark');
+      }
+      for (const cell of [...byType.high, ...byType.fence]) {
+        assert.ok(['FLY_ONLY', 'NONE'].includes(cell.tile.passable), 'HIGH/fence cells remain excluded by the existing passable check');
+        assert.ok(!targetKeys.has(`${cell.row},${cell.col}`), `${stageId}/${field} leaves HIGH/fence excluded by the existing passable rule`);
+      }
+
+      const floorTarget = byType.floor.find(cell => targetKeys.has(`${cell.row},${cell.col}`));
+      if (byType.floor.length) {
+        assert.ok(floorTarget, `${stageId}/${field} keeps an ordinary tile_floor target`);
+        coverage.floorTargets++;
+      }
+      const ground = floorTarget || byType.ground.find(cell => targetKeys.has(`${cell.row},${cell.col}`));
+      if (ground) {
+        assert.ok(view.targets.some(target => target.row === ground.row && target.col === ground.col));
+        assert.ok(ps.useCommand(effectId, { row: ground.row, col: ground.col }).ok, `${stageId}/${field} accepts a legal ground tile at R${round}`);
+        coverage.successfulGroundUses++;
+      }
+    }
+  }
+
+  assert.equal(coverage.layouts, 36, 'all twelve maps are checked on normal, bossL and bossR');
+  assert.ok(coverage.tile_startCells && coverage.tile_endCells && coverage.highCells && coverage.fenceCells && coverage.floorCells);
+  assert.equal(coverage.floorTargets, coverage.floorLayouts * rows.length, 'every tier keeps tile_floor targetable in each map-field layout that contains it');
+  assert.ok(coverage.successfulGroundUses > 0, 'real PlayerState commands accept ordinary ground tiles');
+  t.diagnostic(`raw data/versions/act3autochess-v3_1/stages.json coverage: ${coverage.layouts} map-field layouts; `
+    + `tile_start ${coverage.tile_startCells} cells/${coverage.tile_startLayouts} layouts; `
+    + `tile_end ${coverage.tile_endCells} cells/${coverage.tile_endLayouts} layouts; `
+    + `HIGH ${coverage.highCells} cells/${coverage.highLayouts} layouts; `
+    + `tile_fence_bound ${coverage.fenceCells} cells/${coverage.fenceLayouts} layouts; `
+    + `tile_floor ${coverage.floorCells} cells/${coverage.floorLayouts} layouts; `
+    + `${coverage.successfulGroundUses} legal ground uses`);
+});
+
+test('skill-change drafts offer at most one current unlocked row per strategy chain and never another tier of the held command', t => {
+  const { ps } = setup(t, 'band_random', 1);
+  const bandOf = id => Object.values(data.bands).find(b => b.skills?.some(s => s.effectId === id))?.bandId;
+  const capturePool = choiceId => {
+    let seen = null;
+    const rng = { shuffle(arr) { seen = [...arr]; return [...arr]; } };
+    ps.commandDrafts = [];
+    assert.equal(openSkillChangeDraft(ps, choiceId, { rng }), true);
+    return seen;
+  };
+
+  // 琳琅诗怀雅 starts on NONE aceffect_band_53 until cumulative gold reaches 60. Gold 0 therefore
+  // offers no row. The previous pool started at the first ACTIVE row and offered aceffect_band_54 early.
+  for (const [round, gold, wantDance, wantShield, wantRich] of [
+    [1, 0, 'aceffect_band_107', 'aceffect_band_37', null],
+    [4, 60, 'aceffect_band_108', 'aceffect_band_37', 'aceffect_band_54'],
+    [9, 119, 'aceffect_band_109', 'aceffect_band_38', 'aceffect_band_54'],
+    [12, 120, 'aceffect_band_110', 'aceffect_band_38', 'aceffect_band_55'],
+  ]) {
+    ps.stats.gold = gold;
+    next(ps, round);
+    for (const choiceId of ['skill_change_1', 'skill_change_2']) {
+      const pool = capturePool(choiceId);
+      const bands = pool.map(s => bandOf(s.effectId));
+      assert.equal(new Set(bands).size, bands.length, `R${round} ${choiceId} has at most one row per chain`);
+      assert.deepEqual(pool.filter(s => bandOf(s.effectId) === 'band_dance').map(s => s.effectId), [wantDance]);
+      assert.deepEqual(pool.filter(s => bandOf(s.effectId) === 'band_shield').map(s => s.effectId), [wantShield]);
+      assert.deepEqual(pool.filter(s => bandOf(s.effectId) === 'band_rich').map(s => s.effectId), wantRich ? [wantRich] : []);
+    }
+    for (let i = 0; i < 40; i++) {
+      ps.commandDrafts = [];
+      assert.equal(openSkillChangeDraft(ps, 'skill_change_1'), true);
+      const cards = ps.commandDrafts[0].cards;
+      assert.equal(new Set(cards.map(bandOf)).size, cards.length, 'a draft never shows two levels of the same command');
+    }
+  }
+
+  for (const [bandId, round, gold] of [['band_dance', 1, 0], ['band_dance', 9, 0], ['band_shield', 1, 0], ['band_rich', 4, 60]]) {
+    ps.bandId = bandId; ps.stats.gold = gold;
+    next(ps, round);
+    const pool = capturePool('skill_change_1');
+    assert.equal(pool.some(s => bandOf(s.effectId) === bandId), false, `holding ${bandId} excludes its entire chain`);
+  }
+});
+
+test('skill-change pool offers the unlocked active or passive row and omits locked, replacement and followers rows', t => {
+  const { ps } = setup(t, 'band_dance', 1);
+  const bandOf = id => Object.values(data.bands).find(b => b.skills?.some(s => s.effectId === id))?.bandId;
+  const excluded = new Set(['auto_chess_effect_replace', 'gain_band_skill_from_pool_in_prep']);
+  const replaceIds = ['aceffect_band_83', 'aceffect_band_69', 'aceffect_band_66', 'aceffect_band_67', 'aceffect_band_68', 'aceffect_band_62', 'aceffect_band_104', 'aceffect_band_65'];
+  const capturePool = () => {
+    let seen = null;
+    const rng = { shuffle(arr) { seen = [...arr]; return [...arr]; } };
+    ps.commandDrafts = [];
+    assert.equal(openSkillChangeDraft(ps, 'skill_change_1', { rng }), true);
+    return seen;
+  };
+  const assertShape = (label) => {
+    const pool = capturePool();
+    const bands = pool.map(s => bandOf(s.effectId));
+    assert.equal(new Set(bands).size, bands.length, `${label}: one row per chain`);
+    assert.ok(pool.every(s => s.type === 'ACTIVE' || s.type === 'PASSIVE'), `${label}: only ACTIVE and PASSIVE`);
+    assert.ok(pool.every(s => !(s.buffs || []).some(b => excluded.has(b.key))), `${label}: no 变约 or followers-prep row`);
+    assert.equal(pool.some(s => s.effectId === 'aceffect_band_72'), false, `${label}: 追随者们 is not a card`);
+    for (const id of replaceIds) assert.equal(pool.some(s => s.effectId === id), false, `${label}: ${id} stays out`);
+    assert.equal(pool.some(s => bandOf(s.effectId) === ps.bandId), false, `${label}: held chain stays out`);
+    return pool;
+  };
+  const row = (pool, bandId) => pool.filter(s => bandOf(s.effectId) === bandId).map(s => s.effectId);
+
+  ps.shop.level = 1;
+  ps.stats.gold = 0;
+  ps.bonds = {};
+  next(ps, 1);
+  let pool = assertShape('R1');
+  assert.ok(pool.some(s => s.effectId === 'aceffect_band_22' && s.type === 'PASSIVE'), '众志合一 is offered');
+  assert.ok(pool.some(s => s.effectId === 'aceffect_band_12' && s.type === 'PASSIVE'), '以己之长 is offered');
+  assert.deepEqual(row(pool, 'band_takecare'), ['aceffect_band_31']);
+  assert.deepEqual(row(pool, 'band_jenga'), []);
+  assert.deepEqual(row(pool, 'band_mess'), []);
+  assert.deepEqual(row(pool, 'band_protect'), []);
+  assert.deepEqual(row(pool, 'band_rich'), []);
+  assert.deepEqual(row(pool, 'band_iberia'), []);
+  assert.deepEqual(row(pool, 'band_egir'), []);
+
+  next(ps, 3);
+  assert.deepEqual(row(assertShape('R3'), 'band_jenga'), [], '但书 stays out through round 3');
+
+  next(ps, 4);
+  pool = assertShape('R4');
+  assert.deepEqual(row(pool, 'band_jenga'), ['aceffect_band_89']);
+  assert.deepEqual(row(pool, 'band_mess'), ['aceffect_band_112']);
+  assert.deepEqual(row(pool, 'band_protect'), ['aceffect_band_94']);
+
+  ps.stats.gold = 59;
+  assert.deepEqual(row(assertShape('gold 59'), 'band_rich'), []);
+  ps.stats.gold = 60;
+  assert.deepEqual(row(assertShape('gold 60'), 'band_rich'), ['aceffect_band_54']);
+  ps.stats.gold = 120;
+  assert.deepEqual(row(assertShape('gold 120'), 'band_rich'), ['aceffect_band_55']);
+
+  ps.shop.level = 2;
+  assert.deepEqual(row(assertShape('shop 2'), 'band_takecare'), ['aceffect_band_31']);
+  ps.shop.level = 3;
+  assert.deepEqual(row(assertShape('shop 3'), 'band_takecare'), ['aceffect_band_32']);
+  assert.deepEqual(row(assertShape('egir shop 3'), 'band_egir'), []);
+  ps.shop.level = 4;
+  assert.deepEqual(row(assertShape('egir shop 4'), 'band_egir'), [], '歌蕾蒂娅 unlocks into a 变约 row and stays out');
+  ps.shop.level = 5;
+  assert.deepEqual(row(assertShape('shop 5'), 'band_takecare'), ['aceffect_band_33']);
+
+  ps.bonds = { iberiaShip: { count: 3, active: true } };
+  assert.deepEqual(row(assertShape('iberia 3'), 'band_iberia'), []);
+  ps.bonds = { iberiaShip: { count: 4, active: true } };
+  assert.deepEqual(row(assertShape('iberia 4'), 'band_iberia'), ['aceffect_band_85']);
+
+  ps.bandId = 'band_amiya';
+  next(ps, 4);
+  pool = assertShape('holding 众志合一');
+  assert.deepEqual(row(pool, 'band_amiya'), []);
+  assert.deepEqual(row(pool, 'band_dance'), ['aceffect_band_108']);
+});
+
+test('a passive command taken from the skill-change pool applies in prep and in battle', t => {
+  const offerFirst = (ps, effectId) => {
+    const rng = {
+      shuffle(arr) {
+        const copy = [...arr];
+        const i = copy.findIndex(s => s.effectId === effectId);
+        assert.ok(i >= 0, `${effectId} is in the pool`);
+        assert.equal(copy[i].type, 'PASSIVE');
+        const [row] = copy.splice(i, 1);
+        return [row, ...copy];
+      },
+    };
+    ps.commandDrafts = [];
+    assert.equal(openSkillChangeDraft(ps, 'skill_change_1', { rng }), true);
+    const draft = ps.commandDrafts[0];
+    assert.equal(draft.cards[0], effectId);
+    assert.ok(ps.pickCommand(draft.id, 0).ok);
+    assert.equal(ps.command.currentEffectId, effectId);
+    assert.equal(ps.bandId, 'band_dance');
+  };
+
+  const prep = setup(t, 'band_dance', 1);
+  prep.ps.shop.level = 1;
+  offerFirst(prep.ps, 'aceffect_band_31');
+  const piece = grant(prep.ps, 3);
+  prep.ps._detach(prep.ps.find(piece.uid));
+  prep.ps.board.set('10,5', piece);
+  const bondId = data.chess[piece.id].bonds[0];
+  prep.ps.bonds = { [bondId]: { active: true, count: 1 } };
+  prep.ps.layers = {};
+  prep.ps.m.dispatch(prep.ps, 'onPrepEnd', {});
+  assert.equal(prep.ps.layers[bondId], 1, '华法琳 level 1 adds one layer at prep end');
+  prep.ps.bonds[bondId].active = false;
+  prep.ps.layers = {};
+  prep.ps.m.dispatch(prep.ps, 'onPrepEnd', {});
+  assert.deepEqual(prep.ps.layers, {}, 'regulation 华法琳 does not grow an inactive bond');
+
+  const fight = setup(t, 'band_dance', 1);
+  offerFirst(fight.ps, 'aceffect_band_12');
+  const input = fight.ps.battleInput();
+  assert.equal(input.commandEffectId, 'aceffect_band_12');
+  assert.equal(input.bandId, 'band_dance');
+  const eliteId = Object.values(data.chess).find(c => c.isGolden && !c.isDiy && c.position === 'MELEE').chessId;
+  const normalId = Object.values(data.chess).find(c => !c.isGolden && !c.isDiy && c.position === 'MELEE').chessId;
+  const battleData = new DataSource({
+    ...data,
+    enemies: { ...data.enemies, test_enemy: enemyRec({ key: 'test_enemy', hp: 100000, speed: 0 }) },
+  }, null);
+  const h = makeBattle({
+    data: battleData, content: 'full', autoFinish: false, timeLimit: 2,
+    players: [{
+      playerId: 'p1', seat: 0, side: 'L', bonds: {},
+      bandId: input.bandId, commandEffectId: input.commandEffectId,
+      units: [
+        { uid: 1, kind: 'chess', chessId: normalId, row: 10, col: 5 },
+        { uid: 2, kind: 'chess', chessId: eliteId, row: 10, col: 6 },
+      ],
+    }],
+  });
+  h.step();
+  const normal = h.unit(1), elite = h.unit(2);
+  assert.equal(normal.s.atk, normal.base.atk);
+  const buff = elite.findBuff('band:band_dance:attributes');
+  assert.ok(buff);
+  assert.equal(buff.mods.atkPct, 0.16);
+  assert.equal(buff.mods.aspd, 16);
+  const target = h.spawn('test_enemy', { pos: [10, 9] });
+  target.base.def = 900; target.base.res = 0; target.markDirty();
+  const damage = { type: 'phys', amount: 500 };
+  h.b.emit('hit', { source: normal, target, dmg: damage });
+  assert.equal(damage.type, 'arts');
+  assert.equal(h.b.errorCount, 0);
 });

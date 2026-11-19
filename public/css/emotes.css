@@ -41,7 +41,7 @@
 }
 .ewheel__btn.has-sprite:hover:not(:disabled), .ewheel__btn.has-sprite.is-on { color: #fff; filter: brightness(1.18); border: 0; }
 .ewheel__btn.has-sprite:disabled { opacity: 1; color: rgba(242, 242, 242, .45); }
-.ewheel__btn.is-cooling { cursor: default; }
+.ewheel__btn.is-cooling { cursor: var(--sp-cursor-default, default); }
 .ewheel__label { white-space: nowrap; }
 
 /* ---- panel: one page per theme ----------------------------------------------------------------------------- */
@@ -84,7 +84,7 @@
 .ewheel__panel.has-cell .ewheel__item:hover:not(:disabled) { background-color: transparent; filter: brightness(1.35); }
 .ewheel__item:active:not(:disabled) { transform: scale(.9); }
 .ewheel__item:focus-visible { outline: 2px solid var(--mint-500); outline-offset: 1px; }
-.ewheel__item:disabled { opacity: .45; cursor: default; }
+.ewheel__item:disabled { opacity: .45; cursor: var(--sp-cursor-default, default); }
 
 /* pager: ‹ dots › in the strip under the cells */
 .ewheel__dots { position: absolute; left: .15rem; width: 2.82rem; top: 1.99rem; height: .12rem; display: flex; align-items: center; justify-content: center; gap: .1rem; }
@@ -103,7 +103,7 @@
 .ewheel__nav.is-prev { left: .7rem; }
 .ewheel__nav.is-next { right: .7rem; }
 .ewheel__nav:hover:not(:disabled) { color: #fff; }
-.ewheel__nav:disabled { opacity: .18; cursor: default; }
+.ewheel__nav:disabled { opacity: .18; cursor: var(--sp-cursor-default, default); }
 
 /* ---- bubble beside the sender's avatar (picture only) ------------------------------------------------------ */
 /* emoji_bubble_bkg is 108×97: plate x 22–97, y 8–85, tail tip at x 9, y ≈ 46 (pointing left, toward the avatar). */

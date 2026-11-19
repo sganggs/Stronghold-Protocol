@@ -54,7 +54,7 @@ import { itemTextForbidsDiy } from '../shared/itemRules.js';
 import { loadProfile, pinnedShaOf, tableSpecError, TABLE_NAMES } from './versions/profiles.mjs';
 import { applyAdapters } from './versions/adapters.mjs';
 import { normalizeMirror, sourceOfProfile } from './versions/sources.mjs';
-import { composeRegulationStage, placeRegulationTemplate } from './versions/layouts.mjs';
+import { composeRegulationStage, placeRegulationTemplate, regulationArena } from './versions/layouts.mjs';
 
 // ===== CLI & IO ==================================================================================
 
@@ -364,6 +364,7 @@ async function loadContext() {
   const enemyDataLevelId = ac.constData.enemyDataLevelId ? templateIdOf(ac.constData.enemyDataLevelId) : null;
   if (enemyDataLevelId) levelSrc.set(enemyDataLevelId, ac.constData.enemyDataLevelId);
   const levels = {};
+  const arenas = {};
   // Sequential download to stay polite to GitHub; cached files load instantly.
   for (const id of [...levelSrc.keys()].sort(naturalCmp)) levels[id] = await loadGamedata(levelPath(levelSrc.get(id)));
   // 规程 builds every player's field in one scene: its stages are an atlas of three pieces and its round templates the
@@ -373,6 +374,8 @@ async function loadContext() {
       if (stageIds.includes(id)) {
         const pieces = [];
         for (const n of [1, 2, 3]) pieces.push(await loadGamedata(levelPath(id).replace(/\.json$/, `/level_${id}_sub_0${n}.json`)));
+        // the client draws the official arena (the stage's `arena`); the sim keeps the composed 19×21 level
+        arenas[id] = regulationArena(levels[id], pieces);
         levels[id] = composeRegulationStage(levels[id], pieces);
       } else levels[id] = placeRegulationTemplate(levels[id]);
     }
@@ -389,7 +392,7 @@ async function loadContext() {
 
   return {
     act, ac, charTable, skillTable, rangeTable, uniequip, battleEquip, handbook, enemyDb,
-    levels, templateIds: [...templateIds].sort(naturalCmp), stageIds, enemyDataLevelId, research,
+    levels, arenas, templateIds: [...templateIds].sort(naturalCmp), stageIds, enemyDataLevelId, research,
     manifest: await loadManifest(),
   };
 }
@@ -2222,7 +2225,7 @@ const TILE_LEGEND = {
   g: { tileKey: 'tile_smog', special: 'smog', desc: '排气格栅：其上干员不会成为敌方远程攻击目标' },
   d: { tileKey: 'tile_deepsea', special: 'deepsea', desc: '深水区：不可部署（拒绝部署），敌人持续受伤、减速、减攻速' },
   i: { tileKey: 'tile_infection', special: 'infection', desc: '活性源石：单位受持续真实伤害，攻击力与攻速提升' },
-  z: { tileKey: 'tile_speedup', special: 'speedup', desc: '加速地块（规程）：站上的地面单位攻速 +attack_speed、移速 ×move_speed（官方 25 / 1.5）；飞行单位不吃地面地形' },
+  z: { tileKey: 'tile_speedup', special: 'speedup', desc: '加速地块（规程）：我方地面干员/召唤物攻速 +attack_speed，敌方地面单位移速 ×move_speed（官方 25 / 1.5）；离开后保留，重生清除；飞行单位不吃' },
   w: { tileKey: 'tile_duel_grassland', special: 'duelGrass', desc: '隐匿地块（规程）：双方地面单位获得隐匿；敌人被阻挡时显形，解除阻挡立即恢复，离开地块清除' },
 };
 
@@ -2236,6 +2239,7 @@ function tileGlyph(t) {
     case 'tile_wall': return 'h';
     case 'tile_fence_bound': case 'tile_fence': return 'b';
     case 'tile_achand': return bbKeys.has('isValidHand') ? 'a' : 'A';
+    case 'tile_acempty': return '.'; // 规程's arena: the cells between its pieces (stage `arena` only)
     case 'tile_acbag': return 'A'; // 规程's 5-slot equipment row where 盟约 has its temp row (tools/versions/layouts.mjs)
     case 'tile_start': return 'S';
     case 'tile_end': return 'E';
@@ -2256,6 +2260,7 @@ const DEVICE_ROLES = {
   trap_1105_accrate: 'crate', trap_1106_achplat: 'platform', trap_032_mound: 'mound', trap_013_blower: 'blower',
   trap_098_mire: 'mireController', trap_042_tidectrl: 'tideController', trap_1104_aclasert: 'turret',
   trap_1112_acblzd: 'coldWind', trap_036_storm: 'sandstorm', trap_040_canoe: 'waterPlatform',
+  trap_196_cnnon: 'cannon',
   trap_1107_acblock: 'sealedFloor', trap_218_fttree: 'bush', trap_039_dstnta: 'bossSpawn',
 };
 /** Roles that block ground movement while active ([ASSUMED] for platform/mound). */
@@ -2356,6 +2361,60 @@ const UNITE_STAGE_NAMES = { 1: '联防阵地（1名玩家）', 2: '联防阵地�
  * #41); since 0.2.1 the 联防 field is the round's battlefield again (server/match/unite.js, the owner's decision of
  * 2026-10-07), and the two records stay as the official level data — sim tests use them as a plain two-halves road.
  */
+/**
+ * A level's map as legend rows (row 0 = the bottom) and the legend of the glyphs it uses.
+ * @param {string} stageId (warnings) @param {any} lv an official level
+ */
+function glyphGrid(stageId, lv) {
+  const map = lv.mapData?.map || [];
+  const tiles = lv.mapData?.tiles || [];
+  const H = map.length, W = map[0]?.length || 0;
+  const tileAt = (r, c) => tiles[map[H - 1 - r]?.[c]];
+  const rows = [];
+  const glyphTiles = {};
+  for (let r = 0; r < H; r++) {
+    let line = '';
+    for (let c = 0; c < W; c++) {
+      const t = tileAt(r, c);
+      const g = t ? tileGlyph(t) : '?';
+      if (g === '?') warn(`stage ${stageId}: unknown tile at (${r},${c}) ${t?.tileKey}`);
+      line += g;
+      if (t && !glyphTiles[g]) {
+        const { bb } = flattenBB(t.blackboard);
+        const buildable = effectiveBuildable(t);
+        glyphTiles[g] = {
+          tileKey: t.tileKey, height: t.heightType === 'HIGHLAND' ? 'HIGH' : 'LOW', buildable,
+          ...(buildable !== t.buildableType ? { buildableType: t.buildableType } : {}),
+          passable: t.passableMask, groundPassable: t.passableMask === 'ALL', flyPassable: t.passableMask !== 'NONE',
+          special: TILE_LEGEND[g]?.special || null, bb,
+        };
+      }
+    }
+    rows.push(line);
+  }
+  return { rows, glyphTiles };
+}
+
+/**
+ * 规程's arena for the client (tools/versions/layouts.mjs regulationArena): the 36×55 level as legend rows with its own
+ * legend, its regions, and the level's devices where the arena has them — the scene objects a view draws on its piece
+ * (key, alias, role, pos, dir, hidden, active, rangeTiles in arena cells; stats and skill stay on the stage's own
+ * `devices`). null for every other stage.
+ */
+function arenaRecord(ctx, stageId, arena) {
+  if (!arena) return null;
+  const { rows, glyphTiles } = glyphGrid(stageId, arena.level);
+  const H = rows.length, W = rows[0]?.length ?? 0;
+  const devices = (arena.level.predefines?.tokenInsts || []).map((t) => {
+    const d = deviceRecord(ctx, t);
+    const rangeTiles = d.rangeGrid && d.pos
+      ? rotateGrid(d.rangeGrid, d.dir).map(([dr, dc]) => [d.pos[0] + dr, d.pos[1] + dc]).filter(([r, c]) => r >= 0 && r < H && c >= 0 && c < W)
+      : null;
+    return { key: d.key, alias: d.alias, role: d.role, pos: d.pos, dir: d.dir, hidden: d.hidden, active: deviceActiveAtStart(stageId, d), rangeTiles };
+  });
+  return { size: [H, W], rows, tiles: glyphTiles, regions: arena.regions, devices };
+}
+
 function buildStages(ctx, modesById) {
   const researchStages = ctx.research.maps?.stages || {};
   const out = {};
@@ -2369,28 +2428,7 @@ function buildStages(ctx, modesById) {
     const H = map.length, W = map[0]?.length || 0;
     if (H !== 19 || W !== 21) warn(`stage ${stageId}: unexpected size ${H}x${W}`);
     const tileAt = (r, c) => tiles[map[H - 1 - r]?.[c]];
-    const rows = [];
-    const glyphTiles = {};
-    for (let r = 0; r < H; r++) {
-      let line = '';
-      for (let c = 0; c < W; c++) {
-        const t = tileAt(r, c);
-        const g = t ? tileGlyph(t) : '?';
-        if (g === '?') warn(`stage ${stageId}: unknown tile at (${r},${c}) ${t?.tileKey}`);
-        line += g;
-        if (t && !glyphTiles[g]) {
-          const { bb } = flattenBB(t.blackboard);
-          const buildable = effectiveBuildable(t);
-          glyphTiles[g] = {
-            tileKey: t.tileKey, height: t.heightType === 'HIGHLAND' ? 'HIGH' : 'LOW', buildable,
-            ...(buildable !== t.buildableType ? { buildableType: t.buildableType } : {}),
-            passable: t.passableMask, groundPassable: t.passableMask === 'ALL', flyPassable: t.passableMask !== 'NONE',
-            special: TILE_LEGEND[g]?.special || null, bb,
-          };
-        }
-      }
-      rows.push(line);
-    }
+    const { rows, glyphTiles } = glyphGrid(stageId, lv);
     const devices = (lv.predefines?.tokenInsts || []).map((t) => deviceRecord(ctx, t));
     for (const d of devices) d.active = deviceActiveAtStart(stageId, d);
     const mapChars = (lv.predefines?.characterInsts || []).map((c) => ({
@@ -2464,6 +2502,7 @@ function buildStages(ctx, modesById) {
       devices, mapChars, special, runes, globalBuffs,
       deployTiles: { normal: deployIn(9, 12, 2, 10), bossLeft: deployIn(1, 5, 2, 10), bossRight: deployIn(1, 5, 10, 18) },
       groundPaths, groundPathsWithDevices,
+      ...(ctx.arenas?.[stageId] ? { arena: arenaRecord(ctx, stageId, ctx.arenas[stageId]) } : {}),
       options: { characterLimit: o.characterLimit ?? 8, moveMultiplier: o.moveMultiplier ?? 0.5 },
       config: flattenBB(o.configBlackBoard).bbStr,
     };

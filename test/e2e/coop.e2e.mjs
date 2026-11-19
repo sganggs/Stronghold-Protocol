@@ -539,7 +539,12 @@ async function openBond(c) {
   assert.ok(name && name.length > 0, 'bond popup has a name');
   await sleep(300);
   await c.shot('bond');
-  await c.click('.bpop__close');
+  const outside = await c.page.$eval('.bpop', el => {
+    const rect = el.getBoundingClientRect();
+    return { x: rect.left + rect.width / 2, y: Math.min(innerHeight - 1, rect.bottom + 4) };
+  });
+  await c.page.mouse.click(outside.x, outside.y);
+  await c.page.waitForSelector('.bpop', { hidden: true, timeout: 4000 });
   c.note(`bond popup ${name}`);
   return true;
 }

@@ -951,6 +951,13 @@ continue to use 第二期下半; this change adds no version-specific authoring 
 | `server/match/host/` | the match hosts: `index.js` (one worker or child process per `cs`, the watchdog, the limits), `entry.js` (inside the worker: the bytes checked against `cs`, the data installed before the match code is imported), `proxy.js` (the lobby's room.match for a hosted match: Promise answers) |
 | `public/js/content.js` | the page's copy of the room's content set: downloaded, checked, handed to `data.js` and the battle runner, `room.contentReady` |
 
+**From the lobby** (PR #949, DESIGN §37.267). `plugins.preview { version?, plugins? }` (heavy rate-limit bucket) resolves a
+set for the lobby without holding it (at most 8 unheld sets stay cached, `MAX_KEPT`) and answers `ok` with `content` and the
+policy summary `policy { rooms, default }`; `plugins` left out = the server owner's defaults. `room.create { …, plugins? }`
+creates the room with that selection (left out: the defaults, as before); `rooms: off` / `fixed` apply as for
+`room.setPlugins`. The page installs the previewed set before its settings sync, so the 自选 / loadout pickers show the
+plugin operators; a lobby preview never sends `room.contentReady`.
+
 **Switching** (`room.setPlugins { plugins: [{ id, settings? }] }`). The host chooses plugins by id. The server adds what
 they require (shown as 「自动」), orders them (`shared/plugins/order.js`) and splits them by class: the cosmetic ones, and
 a content plugin's own `assets`, form the room's visual set `vs`; the content ones form its content set. `settings` are

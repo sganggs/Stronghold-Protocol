@@ -29,3 +29,14 @@ export const DELAYS = Object.freeze({
  * the remake's (50 s per turn per the owner's 2026-10-10 official-play report). It is also the step's only countdown (m.public.deadline = draft.turnDeadline). × timerScale.
  */
 export const BAND_TURN_SECONDS = 50;
+
+/** Replace the round's temporary balance with a detached, bounded copy of the own-field result. */
+export function applyTempLayers(gd, ps, result) {
+  const balance = {};
+  for (const [id, amount] of Object.entries(result?.tempLayerGains ?? {})) {
+    if (!gd.bond(id) || !Number.isFinite(amount) || amount < 1) continue;
+    balance[id] = Math.min(10000, Math.floor(amount));
+  }
+  if (Object.keys(balance).length) ps.tempLayers = balance;
+  else delete ps.tempLayers;
+}

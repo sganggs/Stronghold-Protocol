@@ -132,6 +132,15 @@ function bondSteps(battle, it) {
   for (const b of ids(it.bbStr.bond_id)) if (S.bondActive(battle, it.unit.ownerId, b)) sum += S.bondLayers(battle, it.unit.ownerId, b);
   return Math.floor(sum / div);
 }
+function onLayerChange(battle, fn) {
+  let pending = false;
+  const defer = () => {
+    if (pending) return;
+    pending = true;
+    battle.after(0, () => { pending = false; fn(); });
+  };
+  battle.on('bondLayersChanged', defer, { priority: -100 });
+}
 
 /**
  * bond_allinrange (garrison_237): each operator on bond_range_id gets the grant on their own active bonds.
@@ -261,8 +270,9 @@ function applyStackMax(battle, it) {
     if (!S.isOp(t) || t.ownerId !== it.unit.ownerId || !S.onField(t)) continue;
     if (bySelf && t === it.unit) continue;
     if (bySelf && !S.unitBonds(t).some((b) => mine.has(b))) continue;
-    // [ASSUMED] filter_bond_ids is an AND: the operator has every listed bond.
-    if (need.length && !need.every((b) => S.unitBonds(t).includes(b))) continue;
+    // filter_bond_ids is ANY: AutoChessFilterCharacterBondIds._FilterBondId returns true on the first listed bond the
+    // operator has, 调和 included through IsManiAffectedBond (garrison_227 / 228: 【谢拉格】 or 【灵巧】).
+    if (need.length && !need.some((b) => S.isMember(battle, t, b))) continue;
     if (!global && !S.onKeys(t, keys)) continue;
     for (const inst of battle._garInstances || []) {
       if (inst.unit !== t || !Number.isFinite(inst.cap)) continue;
@@ -491,7 +501,7 @@ export const REGULATION_INSTALLERS = {
     // [ASSUMED] the bonus is recomputed when the layer band changes and replaced, not stacked.
     const run = () => { for (const it of list) refreshAura(battle, it); };
     onBattleStart(battle, run);
-    battle.on('layerGain', run);
+    onLayerChange(battle, run);
   },
   act3autochess_gar_effect_block_eprecoverspeed_inrange(battle, list) {
     const arm = () => {
@@ -501,6 +511,7 @@ export const REGULATION_INSTALLERS = {
       }
     };
     onBattleStart(battle, arm);
+    onLayerChange(battle, arm);
     battle.on('tick', ({ dt }) => {
       if (!(dt > 0)) return;
       for (const it of list) {

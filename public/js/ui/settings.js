@@ -62,6 +62,7 @@ import { data } from '../data.js';
 import { askPersistStorage, importSupport, storagePersisted } from '../assetCache.js';
 import { assetImport, pruneImportedAssets } from '../assetPack.js';
 import { cosmetics } from '../cosmetics.js';
+import { applyCursor } from './cursor.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -88,6 +89,7 @@ settingsStore.subscribe((s) => {
   audio.setVoiceLang(s.voiceLang, s.voiceOverrides);
   audio.setVoiceNative(s.voiceNative);
   applyTextSize(s.textSize);
+  applyCursor(s.arknightsCursor);
   applyUiTheme(s.uiTheme);
   syncThemeVoiceVolume();
 });
@@ -96,6 +98,7 @@ audio.setVoiceLang(settingsStore.get().voiceLang, settingsStore.get().voiceOverr
 audio.setVoiceNative(settingsStore.get().voiceNative);
 // before the first render (main.js boot renders after its imports ran): the stored step is on screen without a flash
 applyTextSize(settingsStore.get().textSize);
+applyCursor(settingsStore.get().arknightsCursor);
 
 /** @param {Partial<ReturnType<typeof sanitizeSettings>>} patch */
 export function updateSettings(patch) {
@@ -122,10 +125,10 @@ function Slider({ label, micro, value, onInput, icon }) {
   </label>`;
 }
 
-function Toggle({ label, micro, value, onChange }) {
+function Toggle({ label, micro, value, onChange, testId }) {
   return html`<div class="set-row">
     <span class="set-row__label">${label}<${MicroLabel}>${micro}<//></span>
-    <button type="button" class=${`set-toggle${value ? ' is-on' : ''}`} role="switch" aria-checked=${value ? 'true' : 'false'}
+    <button type="button" class=${`set-toggle${value ? ' is-on' : ''}`} role="switch" data-testid=${testId} aria-checked=${value ? 'true' : 'false'}
       onClick=${() => onChange(!value)}><i></i><span>${value ? tc('toggle', '开启') : tc('toggle', '关闭')}</span></button>
   </div>`;
 }
@@ -523,6 +526,8 @@ export function SettingsModal({ open, onClose }) {
       <p class="set-hint">${t('在选中单位的详情中显示叙拉古、萨尔贡效果的剩余时间；萨尔贡显示层数与下一层到期时间。官方界面没有这些数字。')}</p>
       <${Toggle} label=${t('作战统计')} micro="COMBAT STATS" value=${s.combatMetrics} onChange=${(v) => updateSettings({ combatMetrics: v })} />
       <p class="set-hint">${t('打开后，对局左下角可以查看自己干员的伤害、治疗和 DPS / HPS。官方界面没有这个窗口。改变玩法的插件对局在 Worker 里演算，统计不到，按钮不显示。')}</p>
+      <${Toggle} label=${t('作战中查看队友')} micro="WATCH IN BATTLE" value=${s.watchDuringBattle} onChange=${(v) => updateSettings({ watchDuringBattle: v })} />
+      <p class="set-hint">${t('打开后，自己的作战还没结束时也能点队友前往查看，最终攻势和隐秘核心里也能看另一组。查看时本机要多演算一场战斗，较慢的设备可能卡顿。')}</p>
       <div class="set-row">
         <span class="set-row__label">${t('部署时收起商店')}<${MicroLabel}>DEPLOY FOLD<//></span>
         <div class="set-seg" role="group" aria-label=${t('部署时收起商店')} data-testid="deploy-fold-level">
@@ -564,6 +569,8 @@ export function SettingsModal({ open, onClose }) {
       </div>
       <p class="set-hint set-textsize-note">${t('调整界面文字大小，棋盘保持原比例。')}</p>
       <${ScreenFitSection} />
+      <${Toggle} label=${t('骷髅手指光标')} micro="PRTS CURSOR" value=${s.arknightsCursor} testId="arknights-cursor" onChange=${v => updateSettings({ arknightsCursor: v })} />
+      <p class="set-hint">${t('使用明日方舟的骷髅手指光标；文字输入、拖动和缩放仍保留系统光标。')}</p>
       <${ThemeSection} activeId=${s.uiTheme || ''} />
       <${Toggle} label=${t('主题动画')} micro="THEME MOTION" value=${s.themeMotion} onChange=${(v) => updateSettings({ themeMotion: v })} />
       <p class="set-hint" data-testid="theme-motion-hint">${t('规程里乌萨斯齐心团、可露希尔主题界面的循环动画（倒计时与按钮的闪光等）。关闭后只显示静态画面，适合配置较低的设备；系统开启“减少动态效果”时也不播放。')}</p>

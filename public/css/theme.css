@@ -12,6 +12,7 @@
 
 :root {
   color-scheme: dark;
+  cursor: var(--sp-cursor-default, auto);
 
   /* surfaces */
   --bg-0: #0c0f0e;
@@ -173,7 +174,13 @@ body {
 
 input, textarea, [contenteditable], .selectable { -webkit-user-select: text; user-select: text; }
 button, input, select, textarea { font: inherit; color: inherit; }
-button { cursor: pointer; }
+input:is(:not([type]), [type="text"], [type="search"], [type="password"], [type="email"], [type="url"], [type="tel"], [type="number"]),
+textarea, [contenteditable="true"] { cursor: text; }
+a[href], summary { cursor: var(--sp-cursor-pointer, pointer); }
+button { cursor: var(--sp-cursor-pointer, pointer); }
+/* The opt-in hand is an inert canvas; its top-layer backdrop must never catch input. */
+.sp-cursor-canvas[hidden] { display: none !important; }
+.sp-cursor-canvas::backdrop { background: transparent; pointer-events: none; }
 img { max-width: 100%; }
 h1, h2, h3, h4, p { margin: 0; }
 :focus { outline: none; }

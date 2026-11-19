@@ -29,7 +29,7 @@
 .slogo__txt { display: block; font-family: var(--font-display); font-size: calc(.15 * var(--t)); line-height: .95; letter-spacing: .02em; font-weight: 600; }
 
 /* ---- radar intro ---- */
-.sintro { position: absolute; inset: 0; background: #040606; cursor: pointer; animation: sintro-out 360ms ease-in 1140ms forwards; }
+.sintro { position: absolute; inset: 0; background: #040606; cursor: var(--sp-cursor-pointer, pointer); animation: sintro-out 360ms ease-in 1140ms forwards; }
 .sintro::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .35) 0 1px, transparent 1px 4px); }
 .sintro__aim { position: absolute; left: 5.67rem; top: 1.47rem; width: 7.86rem; height: 7.86rem; animation: sintro-spin 1500ms var(--ease-out) both; }
 .sintro__ring { position: absolute; left: 6.03rem; top: 1.83rem; width: 7.14rem; height: 7.14rem; animation: sintro-ring 700ms var(--ease-out) both; }
@@ -241,7 +241,7 @@ small.selite { width: auto; height: auto; font-family: var(--font-display); font
 .sbond b { font-family: var(--font-display); font-size: calc(.3 * var(--t)); line-height: 1; color: #f2f6f5; }
 .sbonds__none { font-family: var(--font-display); font-size: calc(.16 * var(--t)); color: #7d8583; letter-spacing: .1em; }
 img.sbonds__none { width: .64rem; height: .12rem; }
-.sbonds__more { position: absolute; right: -.06rem; top: 50%; width: .3rem; height: .5rem; margin-top: -.25rem; display: grid; place-items: center; background: none; border: 0; color: #e8eeec; cursor: pointer; }
+.sbonds__more { position: absolute; right: -.06rem; top: 50%; width: .3rem; height: .5rem; margin-top: -.25rem; display: grid; place-items: center; background: none; border: 0; color: #e8eeec; cursor: var(--sp-cursor-pointer, pointer); }
 .sbonds__more .icon { width: .3rem; height: .3rem; }
 
 /* the level settlement: LV, the bar, 获得卫戍认证 and 每日防卫目标 */
@@ -273,7 +273,7 @@ img.sbonds__none { width: .64rem; height: .12rem; }
 .slv__gain--off { color: #ff8a5c; }
 
 .settle__next { position: absolute; left: 14.77rem; top: 9.42rem; width: 4rem; height: 1rem; isolation: isolate; display: flex; align-items: center; justify-content: center; gap: .28rem;
-  padding: 0; border: 0; cursor: pointer; color: #062a20; background: transparent; font-size: .4rem; font-weight: 700; letter-spacing: .06em;
+  padding: 0; border: 0; cursor: var(--sp-cursor-pointer, pointer); color: #062a20; background: transparent; font-size: .4rem; font-weight: 700; letter-spacing: .06em;
   animation: snext-in 460ms var(--ease-out) 1400ms both; }
 /* btn_next_bg.png is 297×86; the face (white frame + green) is rows 1–68, columns 1–268, with the machine at the
    right and the shadow below. Fit only the official image to that face; the art-less fallback keeps the CSS button. */
@@ -368,7 +368,7 @@ span.settle__nexticon .icon { width: .34rem; height: .34rem; }
   background: linear-gradient(90deg, rgba(220, 230, 226, .1), rgba(220, 230, 226, .02)); font-size: calc(.25 * var(--t)); color: #dfe6e3; white-space: nowrap; }
 .steam__rowbg { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; object-fit: fill; }
 .steam__ico { width: .28rem; height: .28rem; object-fit: contain; }
-.sbtn { position: absolute; isolation: isolate; top: 9.55rem; height: 1.03rem; display: flex; align-items: center; justify-content: center; gap: .16rem; padding: 0 .2rem; border: 0; cursor: pointer; white-space: nowrap; }
+.sbtn { position: absolute; isolation: isolate; top: 9.55rem; height: 1.03rem; display: flex; align-items: center; justify-content: center; gap: .16rem; padding: 0 .2rem; border: 0; cursor: var(--sp-cursor-pointer, pointer); white-space: nowrap; }
 .sbtn--ghost { left: 12.18rem; width: 2.57rem; background: transparent; color: #e2e8e6; font-size: calc(.3 * var(--t)); }
 .sbtn--ghost .icon { width: .3rem; height: .3rem; padding: .03rem; border-radius: .05rem; background: #e2e8e6; color: #2a2f2e; }
 .sbtn--primary { left: 15.12rem; width: 4.08rem; background: transparent; color: #062a20; font-size: calc(.38 * var(--t)); font-weight: 700; letter-spacing: .04em; }

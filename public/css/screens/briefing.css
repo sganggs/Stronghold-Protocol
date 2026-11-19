@@ -319,13 +319,30 @@
 .brief--reg .brief-bond { min-width: 0; width: auto; }
 .brief--reg .brief-bond .bond { --disc: .62rem; }
 .brief--reg .brief-bond .bond__name { font-size: calc(.16 * var(--t)); }
-.brief--reg .reg-banned__group { display: flex; align-items: center; gap: .08rem; min-width: 0; padding: .08rem .16rem; }
+/* 本局禁用干员 at the official proportions (recording BV1hmWL6fEmQ 0:13, 1280×720: the bond disc ≈ 70 px, portraits ≈ 87 px
+   in rows of at most 7, 14 px apart): each portrait grey in a light frame, the red 禁用 corner (ui/matchInfo.js
+   BannedThumb, ui/outer img_chess_banned) over its top-right third, the tier mark on its bottom-left. */
+.brief--reg .reg-banned__group { display: flex; align-items: flex-start; gap: .2rem; min-width: 0; padding: .1rem .16rem; }
 .brief--reg .reg-banned__disc { flex: none; }
-.brief--reg .reg-banned__disc .bond { --disc: .7rem; }
+.brief--reg .reg-banned__disc .bond { --disc: 1.05rem; }
 .brief--reg .reg-banned__ops, .brief--reg .reg-banned__rest {
-  display: flex; flex-wrap: wrap; gap: .06rem; min-width: 0;
+  --ban-ut: 1.3rem; --ban-gap: .17rem;
+  display: grid; grid-template-columns: repeat(auto-fill, var(--ban-ut)); gap: var(--ban-gap);
+  flex: 1 1 auto; min-width: 0; max-width: calc(7 * var(--ban-ut) + 6 * var(--ban-gap));
 }
-.brief--reg .reg-banned__ops .uthumb, .brief--reg .reg-banned__rest .uthumb { --ut: .72rem; }
+.brief--reg .reg-banned__ops .uthumb, .brief--reg .reg-banned__rest .uthumb { --ut: var(--ban-ut); }
+.uthumb--banned .uthumb__art { clip-path: none; border-color: rgba(214, 220, 218, .6); box-shadow: 0 .03rem .06rem rgba(0, 0, 0, .55); }
+/* five classes: stays bottom-left under a theme's chess_level_icon_1 slot rule (ui-theme.css moves the chip to its own spot) */
+.brief--reg .reg-banned .uthumb.uthumb--banned .uthumb__tier { top: auto; bottom: calc(var(--ut) * -.04); left: calc(var(--ut) * -.04); }
+.uthumb--banned .uthumb__tier { --tier-h: calc(var(--ut) * .26); }
+.uthumb__ban {
+  position: absolute; top: 1px; right: 1px; width: 34%; height: 34%; pointer-events: none;
+  background: var(--ban) top right / 100% 100% no-repeat;
+}
+.uthumb__ban.is-plain {
+  display: grid; place-items: start end; padding: 0 .02rem; font-size: calc(var(--ut) * .14); font-weight: 900; color: #ff8a80;
+  background: linear-gradient(225deg, #6b1616 50%, transparent 50%);
+}
 .brief--reg .reg-stage { flex: none; min-width: 0; }
 .brief--reg .reg-preview { position: relative; flex: none; min-width: 0; min-height: 1.2rem; max-height: 2.4rem; overflow: hidden; }
 .brief--reg .reg-preview > .reg-map { max-height: 2.4rem; overflow: hidden; }
@@ -342,7 +359,7 @@
 .reg-preview__zoom {
   position: absolute; right: .04rem; bottom: .04rem; z-index: 1;
   width: max(.36rem, 28px); height: max(.36rem, 28px); display: grid; place-items: center;
-  padding: 0; border: 0; color: #fff; background: rgba(0, 0, 0, .55); cursor: pointer;
+  padding: 0; border: 0; color: #fff; background: rgba(0, 0, 0, .55); cursor: var(--sp-cursor-pointer, pointer);
 }
 .reg-preview__zoom .icon { width: .22rem; height: .22rem; }
 .modal__box.reg-mapdlg { width: min(8rem, calc(100vw - .4rem)); max-width: calc(100vw - .4rem); }
@@ -363,7 +380,7 @@
 .brief--reg .brief-boss.reg-boss {
   position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: .08rem;
   width: 100%; margin: 0; padding: .04rem; border: 0; background: transparent; color: inherit;
-  font: inherit; text-align: start; cursor: pointer;
+  font: inherit; text-align: start; cursor: var(--sp-cursor-pointer, pointer);
 }
 .brief--reg .reg-boss .brief-boss__art { width: .84rem; height: .84rem; }
 .brief--reg .reg-boss .brief-boss__tag {

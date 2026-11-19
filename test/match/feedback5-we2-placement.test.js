@@ -131,6 +131,37 @@ test('#26 Mon3tr\'s 重构体: only on a ground tile of her attack range — dat
   m.dispose();
 });
 
+test('#26 moving 凯尔希·思衡托 preserves an outside-bound anchor unless her final attack range covers it', () => {
+  const { m, ps } = prep({ [T5A]: { charId: KALTS2, skillIndex: 2 } }, 2102, 'act1autochess_m03');
+  try {
+    const kal = placeDiy(m, ps, T5A, [12, 5]);
+    const anchor = stackOf(ps, kal, ANCHOR);
+    const map = ps.deployMap();
+    // Real map, high tile outside the original range, and two legal owner destinations: one retains it, one covers it.
+    const at = [...map].find(([key, cls]) => cls === 'ranged' && !ps.summonExcluded(anchor).has(key));
+    assert.ok(at);
+    const [ar, ac] = parseKey(at[0]);
+    assert.deepEqual(m.handle('p_0', { t: 'g.move', uid: anchor.uid, to: { area: 'board', row: ar, col: ac }, dir: 'LEFT' }), { ok: true });
+    const candidates = [...map].filter(([key, cls]) => cls === 'melee' && key !== '12,5').map(([key]) => ({ key,
+      covered: ps.summonExcluded(anchor, { key, piece: kal, dir: 'RIGHT' }).has(at[0]) }));
+    for (const covered of [false, true]) {
+      const dest = candidates.find(c => c.covered === covered);
+      assert.ok(dest, `owner destination covered=${covered}`);
+      const [row, col] = parseKey(dest.key);
+      assert.deepEqual(m.handle('p_0', { t: 'g.move', uid: kal.uid, to: { area: 'board', row, col } }), { ok: true });
+      if (!covered) {
+        assert.equal(ps.board.get(at[0]), anchor);
+        assert.equal(anchor.dir, 'LEFT');
+      } else {
+        assert.equal(ps.board.get(at[0]), undefined);
+        assert.equal(stackOf(ps, kal, ANCHOR), anchor);
+        assert.equal(anchor.count, 1);
+      }
+      checkInvariants(m);
+    }
+  } finally { m.dispose(); }
+});
+
 test('#26 凯尔希·思衡托\'s 战术锚点 (S3): only on a ranged tile outside her attack range; re-oriented so that her range covers it, it goes back to the hand', () => {
   const rec = DATA.backups.tokens[ANCHOR];
   assert.deepEqual([rec.position, rec.ownerRangeOutside, rec.rangedTilesOnly, rec.ownerRange], ['RANGED', true, true, false]);

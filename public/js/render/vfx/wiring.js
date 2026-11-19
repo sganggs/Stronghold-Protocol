@@ -414,6 +414,23 @@ export class FxWiring {
     return modeVariant(modes, 'Default', this._facing(v)) || modes.find((x) => x.name === 'Default') || modes[0];
   }
 
+  /**
+   * The ability of a unit's attack mode now (mode(): its skill's mode, the facing variant) whose node ends in `/node`, or
+   * null — a to-tile sub-ability the kit fires itself (SkillFx._launch: 涤火杰西卡 S3's ExtraBomb).
+   */
+  modeAbility(v, node) {
+    const u = typeof node === 'string' && node ? this.unitOf(v) : null;
+    const m = u ? this.mode(u, v, true) : null;
+    const end = '/' + node;
+    const walk = (a, depth) => {
+      if (!a || depth > 4) return null;
+      if (typeof a.node === 'string' && a.node.endsWith(end)) return a;
+      for (const s of Array.isArray(a.abilities) ? a.abilities : []) { const hit = walk(s, depth + 1); if (hit) return hit; }
+      return null;
+    };
+    return m ? walk(m.attack, 0) : null;
+  }
+
   /** The facing a mode variant is chosen by: an operator's deploy direction, else left / right by its facing. */
   _facing(v) {
     const d = typeof v?.dir === 'string' ? v.dir.toUpperCase() : null;
@@ -1006,7 +1023,8 @@ export class FxWiring {
    * meanwhile covered (no procedural spark) [ASSUMED: the sim keeps its own flight time for the damage]. The hit plays the
    * projectile's onHit and `o.hits`, the attack's own hit rows (R12); the damage or heal the sim lands for the shot before
    * the drawn hit is the shot's (`_expect`, R3 / R9; not for a drawn follow-up shot, `o.followUp`). `o.dur`: a flight
-   * time of its own (a shot flown for show, R16). Returns the battle seconds until the hit.
+   * time of its own (a shot flown for show, R16). `o.ref`: an object that gets `cut()`, ending the flight where it is
+   * now (a kit shell that went off before its end point: SkillFx._launch). Returns the battle seconds until the hit.
    */
   _fly(proj, src, tgt, kind, time, o = {}) {
     const su = this.unitOf(src), tu = this.unitOf(tgt);
@@ -1076,6 +1094,7 @@ export class FxWiring {
       important: true,
       track: (fx) => {
         if (flight.done) return;
+        if (flight.cut) { finish(fx); return; }   // o.ref.cut(): it stops where its last tick put it
         if (flight.back) { if (!this._stepBack(flight, fx.time, src, sSkin)) { finish(fx); return; } } else step(Math.min(flight.dur, fx.time));
         // direction of travel (Unity frame): yaw in the board plane, pitch with the climb
         const p = flight.pos, q = flight.next;
@@ -1104,6 +1123,10 @@ export class FxWiring {
     }
     if (handle || flight.rope) this.flights.add(flight);
     else this._arrive(proj, tgt, to0, t0 + hitAt, rows, src);
+    if (o.ref && typeof o.ref === 'object') {
+      // the next track tick finishes the flight at the point it has reached (its trail stops there)
+      o.ref.cut = () => { if (!flight.done) flight.cut = true; };
+    }
     return hitAt;
   }
 

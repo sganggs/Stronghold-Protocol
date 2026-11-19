@@ -145,11 +145,21 @@ field that includes that player's board, and a 联防 helper's half. A leaker's 
 untouched chest there is not at risk. Treasure marks (`enemy_9038_achest`) persist until a validated battle receipt
 says an enemy touched them. While one stands, its board tile refuses operators and the prep view shows the chest.
 
+Nymph's `MAP_TILE` / `PASSABLE` targets exclude `tile_start` and `tile_end`: passability alone does not make a red
+or blue gate a legal command target. The private target list and use-time validation share `commandTargets`;
+a forged gate target is refused before spending funds or a use, and creates no mark. Ordinary ground remains
+eligible. Source: [official play recording in the PR #940 follow-up](https://github.com/sganggs/Stronghold-Protocol/pull/940#issuecomment-6881784894), 2026-11-15.
+
 ITEMS integration: import `openSkillChangeDraft(player, choiceId, ctx?)` from `server/match/bandCommands.js`, or call
 `ctx.openSkillChangeDraft(choiceId)` in a meta handler. `skill_change_1` queues three cards; `skill_change_2` queues two.
-It returns false for unknown choices or commandless data. `[ASSUMED]` the missing official pool is all other ACTIVE
-rows, including upgraded rows. `commandDraft` exposes the first queued draft; `g.commandChoice {choiceId,idx}` takes a
-card. Ready waits for these choices, while bots and the prep deadline resolve them deterministically.
+It returns false for unknown choices or commandless data. The pool is one row per other strategy chain, at the
+level the player would hold now: start at `skills[0]` and walk `next` while that row's unlock holds (the same rule
+as the held command). Official Followers screenshots (PR #940, 2026-11-14) include both ACTIVE and PASSIVE cards.
+A chain still on a NONE row is left out, as is the held chain. A resolved row whose buffs include
+`auto_chess_effect_replace` (变约 stays on the opening band) or `gain_band_skill_from_pool_in_prep` (追随者们' own
+per-round choice) is left out. `[ASSUMED]` exact server weights are unavailable. `commandDraft` exposes the first
+queued draft; `g.commandChoice {choiceId,idx}` takes a card. Ready waits for these choices, while bots and the prep
+deadline resolve them deterministically.
 
 ### 1.2 机变 (SP draft)
 Family = weighted pick from `choices.schedule[modeId].rounds[r].families`; cards: co-op 6 shared (each player takes 1,
@@ -270,9 +280,11 @@ The [official 初雪 counterexample](research/regulation-core-ban-video-20261114
 
 ### 1.4 Watching fields
 Client-side combat (the default, DESIGN §14 Spectating; `Match._watchClient`): `g.watch` answers with the field's
-`b.start` (a display replica fast-forwarded to the field clock); an alive player may not watch another normal field
-while its own normal battle runs (`WRONG_PHASE 'own battle running'`) nor the other pair's boss field (`BAD_TARGET 'other
-group hidden'`); eliminated players watch anything. Whatever is watched, the viewer's bond strip shows the bonds of the
+`b.start` (a display replica fast-forwarded to the field clock). Living players may view an existing teammate's normal field while their own battle continues, or the other pair's boss / hidden field. Viewing never transfers authority; eliminated players retain their existing spectating permissions.
+While the own battle still runs, the client allows this only with the setting 「作战中查看队友」 (`watchDuringBattle`, off by
+default: watching runs a second simulation in the page; DESIGN §37.268); the server does not check the setting. Everyone
+outside a field (spectator seats, eliminated players, living watchers) gets its spec without the players' funds
+(`_spectatorSpec`); the 规程 `bench` stays, the battle summons from it. Whatever is watched, the viewer's bond strip shows the bonds of the
 player on screen from that player's `m.public players[].bonds` (§5) plus the replica's live layers (DESIGN §20.15) — no
 extra message. On a shared field (联防 / a pair's boss field) the client remembers the teammate picked with 前往查看
 (the `g.watch` request still names the field) and frames that player's half; a viewer who does not fight on the field
@@ -282,7 +294,7 @@ screen (the runner's `ownerOps`, its field meta predating their deploy). A clien
 player) sends no `g.watch` (it would be refused with `BAD_TARGET 'no such field'`). A reload / reconnect while watching a
 teammate's battle after the own one gets the watched field again (`_resendBattle`, `b.start watch: true`); the fresh
 screen adopts it as the watched field once per battle (`battle/observe.js resumedWatch`: a living player's teammate
-normal battle in COMBAT, first seen while watching nothing), so the observing pill, 返回战场 and the own row work again.
+normal / boss / hidden battle in the matching phase, first seen while watching nothing), so the observing pill, 返回战场 and the own row work again.
 Before a co-op match, a seated human can switch to a free spectator seat without leaving the room (#76). Another connected human must remain seated; a disconnected seat does not count, and the switch is refused (`NOT_READY`, detail `at least one player must remain seated`) rather than handing the host to that seat. Bots do not keep a room alive. A host hands over by the existing connected-human-first rule when someone online remains. The spectator record keeps that seat's `content` and `contentGen`, so a loadout sent while watching a room that needs its content stays stamped with the room's cs. Returning to a free player seat retains session preferences but requires readiness and any content consent again (the new seat's content report starts over); an active version vote is cancelled by either change of player membership. Running matches do not allow this role change. A full spectator strip answers `ROOM_FULL` with detail `no free spectator seat`; a solo room stays `ROOM_FULL` with detail `solo room`.
 
 Spectator seats (a remake feature, community report #26; server/lobby.js): `opts.spectators` / `addSpectator(id)` register
@@ -296,8 +308,7 @@ The rest of this section is the legacy server-run mode
 `g.watch { fieldId }`: any live field during COMBAT / 联防; while no battle field is up (PREP, drafts, SETTLE)
 `'n:<pid>'` keeps the viewer scouting that board and pushes `prepFieldMeta` again when it changes (GitHub #87) — during a battle phase an `'n:<pid>'` id must name a live field
 (`BAD_TARGET 'no such field'` otherwise, and the viewer keeps its stream). In the
-最终攻势 / 隐秘核心 a player fighting in a boss field may only watch its own field ("两名参与者会处于同一个战场，但无法查看
-另一组队友的战场情况" → `BAD_TARGET 'other group hidden'`); eliminated / departed players spectate any field.
+最终攻势 / 隐秘核心 living players can view either existing boss group and return to their own field; eliminated / departed players retain their existing spectating permissions.
 
 ### 1.5 AI player (bot.js)
 
@@ -934,8 +945,10 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
   one stack of deploy-limit copies (凯瑟琳 2 of her 3 devices); each copy is placed and turned like any piece (no deploy
   slot — the PRTS token pages give 部署占用数 0), only while its owner is on the board. Withdrawing / selling / merging the
   owner removes its summons; moving it to another tile (a move, a swap, or a summon dragged onto it — that summon stays
-  where it was dropped) sends its placed summons back onto their stack ("移动干员时，其所属召唤物全部退场并重置至手牌区";
-  `PlayerState._liftTokensOf`). A stack that overflowed into temp and was removed at a prep deadline comes back at the
+  where it was dropped) keeps each placed summon whose tile is still legal for the owner's final position and sends only
+  the others back onto their stack (PR #969's official recording of the new client, accepted for all five versions by the
+  maintainer on 2026-11-18; the PRTS help line "移动干员时，其所属召唤物全部退场并重置至手牌区" describes the older client;
+  `PlayerState._liftOutOfRange` after the move). A stack that overflowed into temp and was removed at a prep deadline comes back at the
   next round start (§手牌区 "干员所属召唤物会于下一回合返还": `PlayerState.startRound` tops every board owner's summons up
   to the deploy limit, `grantTokensFor`). A summon whose text reads "只能部署在召唤者攻击范围内" (tokens.json `ownerRange`:
   the tacticians' 援军, 伺夜 狼群 / 缪尔赛思 流形 — choosing the tactical point; player report #9 after 0.1.0) only goes on
@@ -1422,3 +1435,11 @@ it returns false for another location or a failed stow (reattaching on failure),
 The Stainless `SERVER_UPGRADE_SELF_EQUIP` handler walks a snapshot of carried items, upgrades valid normal items,
 returns each one and restores its old id if the return fails. UID, metadata and stock provenance remain attached to
 the original item. See [the match rule and footage](design/match.md#stainless-upgraded-equipment-return).
+
+
+临时盟约层数结算（维护者 2026-11-18 确认）：休整期结束到下一次进入休整期共用一个临时池。
+写入战后余额时仅保留已知盟约的有限正数，向下取整并封顶 10000；空结果清除旧余额。
+装备、盟约与驻守的普通／Boss 战斗通过 `tempLayerGains` 保存余额；本人战斗结束及 SETTLE 都不转换。
+联防输入 `tempLayers` 继承本人余额并冻结，不再叠加，也不重新记为收益；Boss 本身没有联防。
+下一次进入休整期时由 `onPrepStart` 转换器读取、消耗，然后清除余额，多功能补剂同样适用。
+完整 API 和来源见 [临时层数约定](design/engine.md#temporary-bond-layers)。

@@ -618,12 +618,18 @@ const BY_BUFF = {
     S.on('deploy', (c) => { if (c.unit === u) add(u.deploySeq); });
   },
   // 多功能补剂: each non-proc damage adds temp_stack_count_add layers to each of the carrier's own active bonds, capped
-  // per bond at temp_stack_count_max. Live battle layers only — not gainLayers, so the match does not keep them.
+  // per carrier/bond at temp_stack_count_max. The shared temporary ledger owns gameplay, display and conversion.
   act3autochess_equip_acarm131_global_buff(battle, u, p, S) {
     const add = Math.floor(num(p.temp_stack_count_add));
     const cap = Math.floor(num(p.temp_stack_count_max));
     if (!(add > 0) || !(cap > 0)) return;
-    const got = new Map();
+    // Borrowing may expire and be granted again; neither earned layers nor the per-battle cap resets.
+    const rt = runtime(battle);
+    rt.supplementCounts ||= new WeakMap();
+    if (!rt.supplementCounts.has(u)) rt.supplementCounts.set(u, new Map());
+    const sources = rt.supplementCounts.get(u);
+    if (!sources.has(S.tag)) sources.set(S.tag, new Map());
+    const got = sources.get(S.tag);
     const player = () => battle.getPlayer(u.ownerId);
     onDamageEnemies(S, u, (_t, c) => {
       if (isProc(c.dmg)) return;
@@ -636,19 +642,11 @@ const BY_BUFF = {
         const have = got.get(id) || 0;
         const n = Math.min(add, cap - have);
         if (n <= 0) continue;
-        b.layers = num(b.layers) + n;
-        got.set(id, have + n);
+        const actual = battle.addTempLayers(u.ownerId, id, n);
+        got.set(id, have + actual);
       }
     });
-    S.onDispose(() => {
-      const ps = player();
-      if (!ps || !ps.bonds) return;
-      for (const [id, n] of got) {
-        const b = ps.bonds[id];
-        if (b) b.layers = Math.max(0, num(b.layers) - n);
-      }
-      got.clear();
-    });
+    // Disposing the scope only unsubscribes future damage triggers. Earned layers belong to the round pool.
   },
   // 伊比利亚骨刺刀: each non-proc damage also deals 1 + double_damage arts hits of atk_scale × ATK. Not bond-gated.
   act3autochess_equip_acarm133_global_buff(battle, u, p, S) {

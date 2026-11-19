@@ -2,11 +2,17 @@
 // 无法被友方治疗 is the unyield profession. The equipment-slot sentence is not simulated (no equip grid here).
 // 荒蛮之心 splashes from the stripped base ATK. S1 cleanses 异常 already on her and refuses new ones
 // [ASSUMED: the immunity covers a stun she is opened under, and every 异常 while the skill runs].
-// She swings at allies in range: appended when the swing already has an enemy, and forced on the tick when it does not.
+// Targets (the client's selectors in charpack char_618_acrbot, both modes: _limitTargetNum 0 with
+// _limitedMaxTargetNumToBlockedCnt 1, _allowZeroBlockCntLimit 0): every attack takes up to her block count of targets,
+// never fewer than 1 — the profile's hitAllBlocked (`trait` below; GitHub #960: she hit one target). Default picks from
+// the enemies (targetSide 2), 大丑的愤怒's mode from enemies and allies (targetSide 7): during S1 the swing adds the other
+// allies in range after the enemies the engine picked, up to the same count, and with no enemy the tick swings at the
+// allies [ASSUMED: enemies first (blocked ones first, acquireTargets' order), then allies nearest first].
 
 import { alliesInGridOf, batMod, num, statBuff, talentBb, traitBb } from '../shared/tier1.js';
 import { ABNORMAL, cleanseAbnormal } from '../shared/tier6.js';
 import { descOf, kitSkills, posDur } from '../shared/version.js';
+import { hypot } from '../../../detmath.js';
 
 const S1 = 'skchr_acrbot_1';
 
@@ -26,8 +32,15 @@ function acrbot(_bb, chess, def) {
     };
     return { id, kind: 'instant' };
   });
+  /** Targets one swing of hers takes (ai.js targetCount for a hitAllBlocked profile). */
+  const swingCount = (unit) => Math.max(1, Math.floor(Math.max(1, Math.floor(unit.s.blockCnt)) + (unit.s.maxTargets || 0)));
+  /** The other allies in her range, nearest first (ties by id), not already in `taken`. */
+  const alliesNear = (battle, unit, taken) => alliesInGridOf(battle, unit)
+    .filter((a) => a !== unit && a.alive && !taken.includes(a))
+    .sort((a, b) => hypot(a.x - unit.x, a.y - unit.y) - hypot(b.x - unit.x, b.y - unit.y) || a.id - b.id);
   return {
     skills, skill,
+    trait: { hitAllBlocked: true },
     install(battle, unit) {
       statBuff(battle, unit, 'acrbot:chief', {
         rangeExtend: num(t1.ability_range_forward_extend),
@@ -52,18 +65,17 @@ function acrbot(_bb, chess, def) {
         if (ctx.attacker !== unit) return;
         const sk = unit.skill;
         if (!sk?.active || sk.id !== S1) return;
-        const targets = ctx.targets || [];
-        if (!targets.some((t) => t && t.side === 'enemy')) return;
-        for (const a of alliesInGridOf(battle, unit)) {
-          if (a !== unit && !targets.includes(a)) targets.push(a);
-        }
-        ctx.targets = targets;
+        const n = swingCount(unit);
+        const next = [];
+        for (const t of ctx.targets || []) if (t && t !== unit && t.alive && !next.includes(t)) next.push(t);
+        for (const a of alliesNear(battle, unit, next)) { if (next.length >= n) break; next.push(a); }
+        if (next.length) ctx.targets = next.slice(0, n);
       }, { owner: unit });
       battle.on('tick', () => {
         if (!unit.alive || !unit.deployed || unit.atkCd !== 0 || !unit.canAct || unit.s.flags.disarm) return;
         const sk = unit.skill;
         if (!sk?.active || sk.id !== S1) return;
-        const allies = alliesInGridOf(battle, unit).filter((a) => a !== unit);
+        const allies = alliesNear(battle, unit, []).slice(0, swingCount(unit));
         if (!allies.length) return;
         if (battle.forceAttack(unit, allies)) unit.atkCd = unit.s.interval;
       }, { owner: unit });

@@ -8,7 +8,7 @@ import { deriveSeed } from '../../sim/rng.js';
 import { withBounties } from '../waves.js';
 import { planUnite } from '../unite.js';
 import { FieldRunner, DeadBattle } from '../fields.js';
-import { DELAYS } from './common.js';
+import { DELAYS, applyTempLayers } from './common.js';
 import { previewPlayer } from '../preview.js';
 import { morphBattleOpt } from '../../../shared/plugins/rules.js';
 import { reconcileCommandChests } from '../bandCommands.js';
@@ -154,7 +154,11 @@ export class MatchCombat {
         this.lastResults.set(pid, pp || { killed: 0, total: 0, leaked: [], perfect: true, layerGains: {}, coins: 0, damageDealt: 0, unitsEnd: [], unitStats: [] });
         // the views show the layers the battle reached until settle() makes them persistent (DESIGN §20.15)
         const ps = this.players.get(pid);
-        if (ps) reconcileCommandChests(ps, pp);
+        if (ps) {
+          reconcileCommandChests(ps, pp);
+          applyTempLayers(this.gd, ps, pp);
+          ps.dirty();
+        }
         const gains = pp && pp.layerGains && typeof pp.layerGains === 'object' ? pp.layerGains : null;
         if (ps && gains && Object.keys(gains).length) { ps.pendingLayerGains = { ...gains }; ps.dirty(); }
       }

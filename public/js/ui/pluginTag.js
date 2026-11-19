@@ -12,8 +12,10 @@
 //     row [ASSUMED placement]); nothing for 第二期下半. Not unofficial: an official version is the original game.
 // Texts go through t() (docs/I18N.md).
 
-import { useState } from '../../vendor/hooks.module.js';
+import { useEffect, useState } from '../../vendor/hooks.module.js';
 import { html, Icon } from './components.js';
+import { createStore, useStore } from '../store.js';
+import { installedCount, lobbyPreview } from '../content.js';
 import { t } from '../../../shared/i18n.js';
 import { rulePhrases } from '../../../shared/plugins/rules.js';
 import { DEFAULT_VERSION, versionById } from '../../../shared/versions.js';
@@ -102,6 +104,76 @@ export function PluginTag({ room, myId }) {
     <${Icon} name=${f.count ? 'edit' : 'check'} />${f.count ? t('插件 ×{n}', { n: f.count }) : t('原版')}${f.modded ? html`<b class="plugtag__mod">${t('非官方')}</b>` : null}${rulesText ? html`<span class="plugtag__rules" data-testid="plugin-rules">${rulesText}</span>` : null}
   </button>
   ${Panel ? html`<${Panel} open=${true} room=${room} myId=${myId} onClose=${() => setPanel(null)} />` : null}`;
+}
+
+/**
+ * What the lobby's previewed plugins are for this browser (content.js `lobbyPreview`), in the same shape as
+ * `roomPluginFacts` so the shared 插件 panel can render and edit both.
+ * @param {any} preview @param {number} [installed]
+ */
+export function lobbyPluginFacts(preview, installed = 0) {
+  const c = preview?.content;
+  const list = Array.isArray(c?.plugins) ? c.plugins.filter((p) => p && typeof p.id === 'string') : [];
+  const policyRooms = preview?.policy?.rooms || 'host';
+  return {
+    count: list.length,
+    plugins: list,
+    on: new Set(list.map((p) => p.id)),
+    auto: new Set(list.filter((p) => p.auto).map((p) => p.id)),
+    chosen: list.filter((p) => !p.auto).map((p) => p.id),
+    editable: installed > 0 && policyRooms === 'host',
+    policyRooms,
+    inMatch: false,
+    warnings: Array.isArray(c?.warnings) ? c.warnings.filter((w) => w && typeof w.code === 'string') : [],
+    vs: typeof c?.vs === 'string' ? c.vs : null,
+    modded: !!c && c.vanilla === false,
+    cs: typeof c?.cs === 'string' ? c.cs : null,
+    modes: Array.isArray(c?.modes) ? c.modes.filter((m) => m && typeof m.id === 'string') : [],
+    modeId: null,
+    dataBytes: Number.isFinite(c?.dataBytes) ? c.dataBytes : 0,
+    rules: c?.rules && typeof c.rules === 'object' && !Array.isArray(c.rules) ? c.rules : null,
+    status: preview?.status || 'idle',
+    error: preview?.error || null,
+  };
+}
+
+/** Store for the shared lobby plugin panel modal so content reloads inside 自选编队 never close it. */
+export const lobbyPluginModal = createStore({ open: false, onOpenDiy: null });
+export const openLobbyPlugins = (onOpenDiy = null) => lobbyPluginModal.set({ open: true, onOpenDiy });
+export const closeLobbyPlugins = () => lobbyPluginModal.set({ open: false, onOpenDiy: null });
+
+/** Mounted once at root (main.js): lazy-loads and renders LobbyPluginPanel above overlays. */
+export function LobbyPluginHost() {
+  const st = useStore((s) => s, Object.is, lobbyPluginModal);
+  const inRoom = useStore((s) => !!s.room);
+  const [Panel, setPanel] = useState(null);
+  useEffect(() => {
+    if (st.open && !Panel) {
+      import('./pluginPanel.js').then((m) => setPanel(() => m.LobbyPluginPanel), (err) => console.warn('[plugins] the panel did not load', err));
+    }
+  }, [st.open, Panel]);
+  useEffect(() => { if (inRoom && st.open) closeLobbyPlugins(); }, [inRoom, st.open]);
+  if (!st.open || inRoom || !Panel) return null;
+  return html`<${Panel} open=${true} onOpenDiy=${st.onOpenDiy} onClose=${closeLobbyPlugins} />`;
+}
+
+/**
+ * The lobby's plugin tag (screens/lobby.js, screens/diy.js): lets the player switch room plugins before creating a
+ * room so plugin operators can be configured in 大厅 → 干员调配 → 自选编队 and carried into the created room.
+ * @param {{ class?: string, testId?: string, onOpenDiy?: (() => void) | false | null }} [props]
+ */
+export function LobbyPluginTag({ class: cls = '', testId = 'lobby-plugin-tag', onOpenDiy = null } = {}) {
+  const installed = useStore(installedCount);
+  const preview = useStore((s) => s, Object.is, lobbyPreview);
+  if (!installed) return null;
+  const f = lobbyPluginFacts(preview, installed);
+  const rulesText = ruleLine(f.rules);
+  const label = f.count ? t('插件 ×{n}', { n: f.count }) : t('原版');
+  const aria = [label, rulesText].filter(Boolean).join(' · ');
+  return html`<button type="button" class=${cx('plugtag', f.count && 'is-modded', f.modded && 'is-unofficial', rulesText && 'plugtag--rules', cls)} data-testid=${testId} onClick=${() => openLobbyPlugins(onOpenDiy)}
+      title=${f.modded ? t('大厅已启用改变玩法的插件（非官方），创建房间时将自动带入') : t('大厅插件')} aria-label=${aria}>
+    <${Icon} name=${f.count ? 'edit' : 'check'} />${label}${f.modded ? html`<b class="plugtag__mod">${t('非官方')}</b>` : null}${rulesText ? html`<span class="plugtag__rules" data-testid="lobby-plugin-rules">${rulesText}</span>` : null}
+  </button>`;
 }
 
 /**

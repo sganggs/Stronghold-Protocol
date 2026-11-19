@@ -96,6 +96,13 @@ function skadi2(bb, chess, def) {
           const sk = unit.skill;
           const on = !!(sk && sk.active);
           if (on && isDef) {
+            // 特性变为: the tide replaces the 吟游者 regen at once. The last trait:bard buff would otherwise
+            // keep ticking for its 0.75 s refresh and leave a sliver of HP at the end of S3 (issue #975).
+            const regenKey = `trait:bard:${unit.id}`;
+            for (const a of battle.allyUnits) {
+              const b = a.findBuff(regenKey);
+              if (b) battle.removeBuff(a, b);
+            }
             const val = unit.s.atk * num(bb.atk);
             for (const a of allies) if (a !== unit) inspire(battle, a, val, unit);
             if (n % 2 === 0) {
@@ -103,8 +110,10 @@ function skadi2(bb, chess, def) {
               if (dmg > 0) for (const src of [unit, ...toks]) for (const e of enemiesIn(battle, src)) {
                 battle.dealDamage(unit, e, { amount: dmg, type: 'true', isSkill: true, tags: ['skill', 'tide'] });
               }
+              // 流失 hp_ratio of max HP each second (skill text / blackboard). It is ordinary 流失: the tick that
+              // reaches 0 knocks her out (loseHp → kill). A 1 HP floor left her deployed after S3 (issue #975).
               const loss = unit.s.maxHp * num(bb.hp_ratio);
-              if (loss > 0) { if (unit.hp - loss >= 1) battle.loseHp(unit, loss, { source: unit, silent: true }); else unit.hp = Math.min(unit.hp, 1); }
+              if (loss > 0) battle.loseHp(unit, loss, { source: unit, silent: true });
             }
             return;
           }
