@@ -25,11 +25,13 @@
 //   for that hit): one stack more (at most limited_stack_cnt, s2_limited_stack_cnt while S2 runs), DEF ×(1 − |def| × stacks)
 //   (FINAL_SCALER), def_dec_duration s from the last hit; at s2_limited_stack_cnt stacks the target is 停顿 (sluggish) for as
 //   long as it keeps them; every 0.1 s a 【手段】 above limited_stack_cnt whose 贝洛内 is not in S2 (or not on the field) drops
-//   back to limited_stack_cnt, keeping its time. One 【手段】 per enemy: several 贝洛内 (a shared field) share its stacks and
-//   the higher per-stack value [ASSUMED: the client keeps one per source and only the highest reduction acts]. And every
-//   damage of his ×(1 + add-on), the add-on linear from min_add_on_scale at min_hp_ratio of the target's HP to
-//   max_add_on_scale at max_hp_ratio and below (DamageScaleAccordingToHpRatio, the target's HP before the hit). FGT-Y stage 3:
-//   8 % per stack, +50 % at most.
+//   back to limited_stack_cnt, keeping its time. One 【手段】 per enemy per 贝洛内 (demetr_t1[def_dec] CheckContainsBuff /
+//   AssignBuffBlackboardFromOthers with the source filter): stacks, the timer and the S2 cap are that source's own. Only the
+//   strongest reduction acts (the core's overrideEffectKey demetr_buff_01, priorityBBKeys ["def"] — PRTS 「仅防御减少量最高者
+//   生效」): DEF ×(1 − |def| × stacks) of that one, not a sum and not a product. A lone 贝洛内 keeps the single MEANS_KEY
+//   buff. And every damage of his ×(1 + add-on), the add-on linear from min_add_on_scale at min_hp_ratio of the target's HP
+//   to max_add_on_scale at max_hp_ratio and below (DamageScaleAccordingToHpRatio, the target's HP before the hit). FGT-Y
+//   stage 3: 8 % per stack, +50 % at most.
 // - T2 街头直觉 (bb init_prob / dec_prob / trig_cnt): from every deployment — a 【移动】 is one (demetr_s3_t[born_sync]) —
 //   physical and arts dodge init_prob, −dec_prob each second trig_cnt times (80 % → 40 %), then stays.
 // - S1 家主的余裕 (AUTO, attack SP 4; data DEFAULT): the next attack strikes its target twice for atk_scale × ATK physical
@@ -71,7 +73,7 @@ const X2 = Object.freeze([[2, -1], [2, 0], [2, 1], [1, -2], [1, -1], [1, 0], [1,
   [0, 2], [-1, -2], [-1, -1], [-1, 0], [-1, 1], [-1, 2], [-2, -1], [-2, 0], [-2, 1]]);
 /** "因返回而部署时获得短暂的不死" (PRTS 备注; no number): his return clip, Skill_3_Back 0.5 s [ASSUMED]. */
 export const RETURN_UNDYING = 0.5;
-/** 【手段】 on an enemy (one per enemy) and its 停顿 at the S2 cap; the 【手段】 refresh tick (PRTS 备注 "每0.1秒自然更新一次"). */
+/** 【手段】 on an enemy (one per source; a lone 贝洛内 keeps MEANS_KEY, each further one is MEANS_KEY#id) and its 停顿 at the S2 cap; the 【手段】 refresh tick (PRTS 备注 "每0.1秒自然更新一次"). */
 export const MEANS_KEY = 'talent:demetr:means';
 export const MEANS_SLUG_KEY = 'talent:demetr:means:sluggish';
 const MEANS_TICK = 0.1;
@@ -93,31 +95,102 @@ export function bondKit() {
   };
 }
 
-/** Put / refresh 【手段】 on `e` (the stack rule of demetr_t1[def_dec]) and its 停顿 at the S2 cap. */
+const isMeans = (b) => b.key === MEANS_KEY || (typeof b.key === 'string' && b.key.startsWith(`${MEANS_KEY}#`));
+const meansRecs = (e) => e.buffs.filter(isMeans);
+const recOfSrc = (e, unit) => meansRecs(e).find((b) => b.data?.src === unit) ?? null;
+const cutOf = (d) => d.pct * d.stacks;
+
+/** The key of this source's 【手段】: the only one on the enemy stays MEANS_KEY. */
+function meansKey(e, unit) {
+  const cur = recOfSrc(e, unit);
+  if (cur) return cur.key;
+  return e.findBuff(MEANS_KEY) ? `${MEANS_KEY}#${unit.id}` : MEANS_KEY;
+}
+
+/**
+ * DEF multiplier of every 【手段】 on `e`: only the largest |def| × stacks multiplies (the rest stay ×1, so they do not
+ * compound). An equal cut keeps the earlier buff — the resulting DEF is the same either way.
+ */
+function syncCuts(e) {
+  const recs = meansRecs(e);
+  if (!recs.length) return;
+  let best = recs[0], bestCut = cutOf(best.data);
+  for (let i = 1; i < recs.length; i++) {
+    const c = cutOf(recs[i].data);
+    if (c > bestCut) { best = recs[i]; bestCut = c; }
+  }
+  const win = Math.max(0, 1 - bestCut);
+  let dirty = false;
+  for (const r of recs) {
+    const want = r === best ? win : 1;
+    if (!r.mods || r.mods.defMul !== want) { r.mods = { defMul: want }; dirty = true; }
+  }
+  if (dirty) e.markDirty();
+}
+
+/**
+ * 停顿 while any source's own stacks are at its S2 cap (demetr_t1[def_dec_core] creates sluggish[inf] when cur_stack
+ * equals s2_limited_stack_cnt). One buff, not a product of several [ASSUMED: the DB buff sluggish[inf] is same-key and
+ * does not stack]. It lasts as long as the longest such 【手段】.
+ */
+function syncSluggish(battle, e) {
+  let dur = 0, src = null;
+  for (const r of meansRecs(e)) {
+    const d = r.data;
+    if (!d || !(d.stacks >= d.cap8) || !(r.timeLeft > dur)) continue;
+    dur = r.timeLeft;
+    src = d.src;
+  }
+  if (!(dur > 1e-6)) {
+    if (e.findBuff(MEANS_SLUG_KEY)) battle.removeBuff(e, MEANS_SLUG_KEY);
+    return;
+  }
+  battle.addBuff(e, { key: MEANS_SLUG_KEY, duration: dur, refresh: 'replace', source: src, status: 'sluggish', mods: { moveMul: 0.2 }, visible: true, tags: ['talent'] });
+}
+
+function onMeansExpire({ battle, unit }) {
+  syncCuts(unit);
+  syncSluggish(battle, unit);
+}
+
+/** Write this source's 【手段】 (refresh resets its own timer; a cap drop passes the time it had left). */
+function writeMeans(battle, e, unit, data, dur) {
+  battle.addBuff(e, {
+    key: meansKey(e, unit), duration: dur, refresh: 'replace', source: unit,
+    mods: { defMul: 1 }, data: { ...data, src: unit }, tags: ['talent'], onExpire: onMeansExpire,
+  });
+}
+
+/** Put / refresh this 贝洛内's 【手段】 on `e` (demetr_t1[def_dec], filtered to its source) and retarget the DEF cut. */
 function applyMeans(battle, unit, e, p) {
-  const cur = e.findBuff(MEANS_KEY);
+  const cur = recOfSrc(e, unit);
   const old = cur?.data?.stacks ?? 0;
   const cap = s2On(unit) ? p.cap8 : p.cap5;
   const stacks = old < cap ? old + 1 : old;
-  const other = cur && cur.data?.src !== unit && up(cur.data?.src) ? num(cur.data?.pct) : 0;
-  const pct = Math.max(p.pct, other);
-  setMeans(battle, e, unit, { stacks, pct, cap5: p.cap5, cap8: p.cap8 }, p.dur);
+  writeMeans(battle, e, unit, { stacks, pct: p.pct, cap5: p.cap5, cap8: p.cap8 }, p.dur);
+  syncCuts(e);
+  syncSluggish(battle, e);
 }
-function setMeans(battle, e, src, data, dur) {
-  battle.addBuff(e, { key: MEANS_KEY, duration: dur, refresh: 'replace', source: src, mods: { defMul: Math.max(0, 1 - data.pct * data.stacks) }, data: { ...data, src }, tags: ['talent'] });
-  if (data.stacks >= data.cap8) battle.addBuff(e, { key: MEANS_SLUG_KEY, duration: dur, refresh: 'replace', source: src, status: 'sluggish', mods: { moveMul: 0.2 }, visible: true, tags: ['talent'] });
-  else battle.removeBuff(e, MEANS_SLUG_KEY);
-}
-/** The 0.1 s update of every 【手段】 (battle-wide, once): above the normal cap without its 贝洛内 in S2 ⇒ back to it. */
+
+/** The 0.1 s update of every 【手段】 (battle-wide, once): above its own normal cap without its 贝洛内 in S2 ⇒ back to it. */
 function installMeansTick(battle) {
   once(battle, 'demetr:means', () => battle.every(MEANS_TICK, () => {
     for (const e of battle.enemies) {
       if (!e.alive) continue;
-      const b = e.findBuff(MEANS_KEY);
-      const d = b?.data;
-      if (!d || !(d.stacks > d.cap5)) continue;
-      if (d.src && d.src.alive && d.src.deployed && s2On(d.src)) continue;
-      setMeans(battle, e, d.src, { stacks: d.cap5, pct: d.pct, cap5: d.cap5, cap8: d.cap8 }, b.timeLeft);
+      const pending = [];
+      for (const b of meansRecs(e)) {
+        const d = b.data;
+        if (!d || !(d.stacks > d.cap5)) continue;
+        if (up(d.src) && s2On(d.src)) continue;
+        pending.push(b);
+      }
+      if (!pending.length) continue;
+      for (const b of pending) {
+        const d = b.data;
+        writeMeans(battle, e, d.src, { stacks: d.cap5, pct: d.pct, cap5: d.cap5, cap8: d.cap8 }, b.timeLeft);
+      }
+      syncCuts(e);
+      syncSluggish(battle, e);
     }
   }));
 }
