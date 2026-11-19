@@ -198,7 +198,7 @@ so old imports keep working: `public/js/ui/gameLogic.js` (`public/js/ui/gameLogi
 | `packs/` | content packs installed as folders, `packs/<id>/pack.json` + files (PACKS.md); empty in the repository but for its readme |
 | `plugins/` | a server's plugins, `plugins/<id>/plugin.json` + files (PLUGINS.md); git-ignored but for its readme, its guide for AI agents (`plugins/AGENTS.md`) and the templates (`plugins/_template/cosmetic/`, `plugins/_template/content/`, `plugins/_template/script/`, `plugins/_template/ui/`) |
 | `schemas/` | JSON Schemas of manifests, asset overlays, compact records, DSL, UI messages and community catalogues (PLUGINS.md §15), for editors and AI agents |
-| `tools/` | `build-data.mjs`, `build-i18n.mjs`, `i18n.mjs` (UI strings, language packs), `packs.mjs` (content packs), `plugin.mjs` (plugins: list, check, pack, new, test, errors, surface, import-forge, install, catalog), `setup.mjs` / `fetch-assets.mjs` / `tools/assets/` (art and audio), `tools/local-extract/` (art from a local game client: `extract.py`; `--only theme` writes a theme pack, `--only shopdocs` runs the recovered producer in `tools/local-extract/legacy/` for the canvas shop's `prefabs.json` / `card.json` / `shop.json` (DESIGN §37.272), `fonts.py` + `--only font` the theme's font bytes (kept local: no package ships them), `legacy/DATA-REPRO.md` their recovery record), `vendor.mjs`, `golden.mjs`, `check-imports.mjs`, `package.mjs` / `package-update.mjs` (the release zips, the update package, the example asset pack), `doctor.mjs`; sweeps: `matchrun.mjs`, `simrun.mjs`, `botbench.mjs`, `balance.mjs` |
+| `tools/` | `build-data.mjs`, `build-i18n.mjs`, `i18n.mjs` (UI strings, language packs), `packs.mjs` (content packs), `plugin.mjs` (plugins: list, check, pack, new, test, errors, surface, import-forge, install, catalog), `setup.mjs` / `fetch-assets.mjs` / `tools/assets/` (art and audio), `tools/local-extract/` (art from a local game client: `extract.py`; `--only theme` writes a theme pack, `--only shopdocs` runs the recovered producer in `tools/local-extract/legacy/` for the canvas shop's `prefabs.json` / `card.json` / `shop.json` (DESIGN §37.240), `fonts.py` + `--only font` the theme's font bytes (kept local: no package ships them), `legacy/DATA-REPRO.md` their recovery record), `vendor.mjs`, `golden.mjs`, `check-imports.mjs`, `package.mjs` / `package-update.mjs` (the release zips, the update package, the example asset pack), `doctor.mjs`; sweeps: `matchrun.mjs`, `simrun.mjs`, `botbench.mjs`, `balance.mjs` |
 | `test/` | `node:test` suites by area: `test/content/` (kits, enemies, bonds, items), `test/sim/` (the engine), `test/match/` (match engine, bots), `test/ui/`, `test/render/`, `test/golden/` (the stored digests), `test/plugins/` and `test/studio/` (the plugin system, the studio), `test/helpers/` (`battleHarness.js`; `designDocs.js`, the design document in § order for the doc tests), `test/e2e/` (browser and bot runs) |
 | `types/` | JSDoc typedefs of the type-checked slice (`types/README.md`) |
 | `docs/` | the documents; `docs/DESIGN.md` the index of the design document, `docs/design/` its current rules, `docs/history/` its per-release revisions; `docs/research/` the research on the official mode |
@@ -243,15 +243,17 @@ public/assets/ ─────────▶ public/js/render/, public/js/audio
   per run, heapUsed after GC): the loader's own allocation drops from 34.3 MiB to 26.0 MiB — the ten adopted files are
   5.19 MB of JSON and are not parsed again. In a browser the absolute numbers differ; the saving is the same second copy
   that no longer exists.
-- **The shop canvas.** The regulation shop can be painted from a theme pack (DESIGN §37.240, §37.272): a local-client
+- **The shop canvas.** The regulation shop can be painted from a theme pack (DESIGN §37.240): a local-client
   extraction writes `public/assets/local/themes/<id>/prefabs.json`, `card.json` and `shop.json` plus the manifest groups
-  `themes/<id>` and `fonts` (`tools/local-extract/extract.py --only theme` / `--only shopdocs` / `--only font`;
-  `public/assets/local/` and `data/local-assets.json` stay git-ignored). The `fonts` group and
-  `public/assets/local/fonts/` stay local: no package ships them (`tools/package.mjs` `FONT_ART_PREFIX`,
-  `withoutHeldFonts`, `holdBackStagedFonts`), so a host of a release package serves no local face and the canvas falls
-  back to the system stack. In the browser the chain is: the group entries →
+  `themes/<id>` and `fonts` (`tools/local-extract/extract.py --only theme` / `--only shopdocs`; the required font job runs
+  in a full extract or alone with `--only font`; `public/assets/local/` and `data/local-assets.json` stay git-ignored).
+  `fonts` is a required local-extract group (§37.240); the faces and `public/assets/local/fonts/` stay local and no
+  package ships them (`tools/package.mjs` `FONT_ART_PREFIX`, `withoutHeldFonts`; the staged manifest keeps an empty
+  group, `holdBackStagedFonts`), so a host of a release package serves no local face and the canvas falls back to the
+  system stack. In the browser the chain is: the group entries →
   `public/js/ui/prefab/shopDocs.js` `themeShopDocs` (the three documents) and `themeFonts` (the `@font-face` sheet) →
-  `public/js/ui/shop/adapter/model.js` (`m.private` → the render model) → `public/js/ui/shop/scene.js` →
+  `public/js/ui/shop/adapter/model.js` (`m.private` → the render model; the operator card's portrait follows the shop
+  owner's outfit through `ownerSkin`, §37.240) → `public/js/ui/shop/scene.js` →
   `public/js/render/shop/cardStage.js` (WebGL2). `public/js/ui/shop/gate.js` decides from the installed group and the
   preloaded runtime whether the canvas replaces `public/js/ui/shopBar.js` (plus the spectator / stand-in / DIY
   cases; a promotion reward keeps the canvas and draws its three 0-price cards inside the same frame); without the

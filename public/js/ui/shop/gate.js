@@ -2,7 +2,7 @@
 //
 // The gate is the product's own capability test, not a theme id, version or rollout flag:
 //   the installed official group carries prefabs.json + card.json + shop.json
-//   → the runtime preloaded → no spectator/stand-in/DIY (a rewardOffer stays in the same shop).
+//   → the runtime preloaded; the rewardOffer stays in the same shop.
 // A theme without the WebGL shop documents simply keeps the DOM bar; selecting ac_s_closur is the release
 // (rollback = switch theme). Reasons are diagnostic (logged / surfaced in metrics), never shown to the player.
 
@@ -26,9 +26,11 @@ export function shopCapability(groups, themeId) {
 }
 
 /**
- * @param {{ themeId?: string|null, groups?: Record<string, any>|null, priv?: any,
- *   spectator?: boolean, runtime?: 'idle'|'loading'|'ready'|'failed' }} input
+ * @param {{ themeId?: string|null, groups?: Record<string, any>|null,
+ *   runtime?: 'idle'|'loading'|'ready'|'failed' }} input
  *   `groups` overrides data.get('local').groups (tests/dev); `runtime` is preloadShopRuntime's status.
+ *   The call site still passes `priv` and `spectator`; neither is an input: a spectator seat has no m.private, so
+ *   game.js shows no shop at all, and stand-ins / DIY are resolved by the card model (adapter/model.js).
  * @returns {{ on: boolean, reason: string|null }}
  */
 export function shopWebglGate(input = {}) {
@@ -41,15 +43,10 @@ export function shopWebglGate(input = {}) {
   const runtime = input.runtime || 'idle';
   if (runtime !== 'ready') return { on: false, reason: runtime === 'failed' ? 'failed' : 'loading' };
 
-  if (input.spectator) return { on: false, reason: 'spectator' };
-
-  const priv = input.priv || null;
-  // The promotion reward is not a separate screen: the same shop frame renders the offer's last three
-  // cards at price 0, so rewardOffer must not close the WebGL shop.
-
-  if (priv && Array.isArray(priv.standIns) && priv.standIns.length > 0) return { on: false, reason: 'standin' };
-
-  if (priv && priv.diy && typeof priv.diy === 'object' && Object.keys(priv.diy).length > 0) return { on: false, reason: 'diy' };
+  // 观战: a spectator seat has no m.private, so game.js never shows a shop at all (old bar nor canvas). The shop gate
+  // therefore has nothing to exclude here; a watched teammate's shop would be a new read-only view, not this gate.
+  // 补位 (m.private.standIns) and 自选编队 (m.private.diy) are normal play: the card model resolves their composed
+  // records (adapter/model.js ownStandIn / ownDiyRecord). The official card carries no extra badge for either.
 
   return { on: true, reason: null };
 }

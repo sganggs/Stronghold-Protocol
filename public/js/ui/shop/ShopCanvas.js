@@ -5,7 +5,7 @@
 //    old ShopBar both resolve their card through that root),
 //  - forwards m.private pushes as `update()` calls (the renderer stays a pure function of the model),
 //  - implements the prefab's two-tap flow (first tap arms + opens the detail, second tap acts) and
-//  - disposes the host when the gate closes (theme switch, flag off, spectator, reward offer …).
+//  - disposes the host when the gate closes (theme switch, group capability lost, failed runtime, …).
 //
 // It never calls actions.* directly: every action goes through the props the game screen passes, so the
 // existing toasts, error tone, pending guards and server round-trip stay in one place.
@@ -19,6 +19,8 @@ import { t } from '../../../../shared/i18n.js';
 import { data } from '../../data.js';
 import { mergeHint } from '../shopBar.js';
 import { shopBlockReason, mergeProgress, handFull } from '../gameLogic.js';
+import { useStore } from '../../store.js';
+import { skinsStore, ownerSkin } from '../skins.js';
 import { createShopHost } from './host.js';
 
 /** Taps inside the shop, its detail panel or a dialog do not disarm (the old ShopBar's useTwoTap rule). */
@@ -98,8 +100,9 @@ export function shopRewardIndex(priv, index) {
 }
 
 /**
- * The renderer's per-slot merge flags. Only chess cards participate; items/empty slots are false for now
- * (the item merge path is not guessed here). The view is rebuilt on every priv/data update and language remount.
+ * The renderer's per-slot merge flags. Operator and equipment cards both participate: an equipment card merges
+ * with the same item (mergeable / upgradeNum), and a fusion component also lights the repeated FX when its fuse
+ * partner (canFuse / fuseWith, two different items) is already owned (the official card's hasFusePartner).
  * @param {any} priv
  * @param {(kind: string, id: string) => any} lookup data.lookup
  * @returns {Record<number, { hasSame: boolean, canComb: boolean, hasFusePartner: boolean }>}
@@ -128,7 +131,11 @@ export function shopCardFlags(priv, lookup) {
       flags[index] = {
         hasSame: ownItemCount(slot.id) > 0,
         canComb: record.mergeable === true && record.isGolden !== true && upgradeNum > 1 && !!target && !!lookup('items', target),
-        hasFusePartner: false,
+        // Two different equipment fuse (规程 only, canFuse / fuseWith / fuseResult): owning the partner lights the
+        // same repeated FX as a mergeable duplicate does, which is what the official card's hasFusePartner reports.
+        hasFusePartner: record.canFuse === true
+          && typeof record.fuseWith === 'string'
+          && ownItemCount(record.fuseWith) > 0,
       };
       return;
     }
@@ -199,6 +206,9 @@ export function ShopCanvas(props) {
   const armedAtRef = useRef(0);
   const levelArmedRef = useRef(false);
   const failedRef = useRef(false);
+  // The shop owner's outfit choices (§37.273): the card portrait follows them exactly like the DOM card's
+  // `OperatorImage` does through the same store.
+  const localSkins = useStore((s) => s.skins, Object.is, skinsStore);
 
   // The arm timestamp is read, never recomputed: viewOf() must report when the tap happened, otherwise every
   // priv push restarts the confirm strip's clip clock.
@@ -233,6 +243,8 @@ export function ShopCanvas(props) {
       armedAt: a ? armedAtRef.current : 0,
       cardFlags: shopCardFlagsWithHand(displayPriv, (kind, id) => data.lookup(kind, id), p.config),
       controls: controlReasons(),
+      // The owner is this seat, so the local selection is what the DOM card resolves for it (§37.273).
+      ownerSkin: (charId) => ownerSkin(charId, { localSkins }),
     };
   };
 
@@ -259,6 +271,12 @@ export function ShopCanvas(props) {
       failHost(err);
     }
   };
+
+  // A skin selection is card content: repaint the mounted host when it changes (the DOM card follows the
+  // same store live). Kept apart from the model push below, which also disarms a stale card.
+  useEffect(() => {
+    pushView();
+  }, [localSkins]);
 
   useEffect(() => {
     const el = hostEl.current;

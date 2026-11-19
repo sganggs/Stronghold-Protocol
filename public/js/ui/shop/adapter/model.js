@@ -6,6 +6,8 @@
 
 import { data } from '../../../data.js';
 import { chessPortraitUrl, profMarkUrl, itemIconUrl, localItemIconUrl, bondIconUrl, uiUrl } from '../../assetUrls.js';
+import { ownDiyRecord } from '../../gameLogic/diy.js';
+import { ownStandIn } from '../../gameLogic/standIn.js';
 import { DEFAULT_SKIN_COLORS } from '../../../../../shared/uiTheme.js';
 import { AutoChessBattleShopSlot, AutoChessBattleShopViewModel } from '../model.js';
 
@@ -15,12 +17,26 @@ import { AutoChessBattleShopSlot, AutoChessBattleShopViewModel } from '../model.
  * @param {number} index slot index (the buy index)
  * @param {any} priv m.private
  * @param {{ armedSlotId?: number|null, armedAt?: number, cardFlags?: any,
- *   colors?: Record<string, string>, urlOf?: (file: string) => string|null }} [opts]
+ *   colors?: Record<string, string>, urlOf?: (file: string) => string|null,
+ *   ownerSkin?: (charId: string) => string|null }} [opts]
+ *   `ownerSkin` is the shop owner's outfit choice (§37.273): the DOM card's `OperatorImage` follows the same
+ *   selection; without the resolver a card keeps the operator's own portrait.
  */
 /** Official card garrison tint: normal -> colour 1, tier 5 -> colour 2, tier 6 -> colour 3. */
 export function garrisonTintFor(colors, tier) {
   const garrisonColors = [(colors || {}).garrisonIconColor1, (colors || {}).garrisonIconColor2, (colors || {}).garrisonIconColor3];
   return garrisonColors[tier >= 6 ? 2 : (tier === 5 ? 1 : 0)] || '#FFFFFF';
+}
+
+/**
+ * The operator portrait a card draws (§37.273): the owner's outfit picture when the caller resolved one,
+ * else the operator's own — the same order as the DOM card's `OperatorImage`.
+ * @param {any} m the composed asset manifest
+ * @param {any} record chess.json record (null for an item slot)
+ * @param {string|null} [skin] the shop owner's skinId for that operator
+ */
+export function cardPortraitFile(m, record, skin = null) {
+  return record ? chessPortraitUrl(m, record, { skin }) : null;
 }
 
 export function cardModelFromSlot(slot, index, priv, opts = {}) {
@@ -31,7 +47,19 @@ export function cardModelFromSlot(slot, index, priv, opts = {}) {
   // The padded item sprite of the local-client extraction (official m_Rect canvas) when it is there; the
   // fetched items entry is the trimmed mirror copy the DOM slots show with object-fit: contain.
   const local = data.get('local') || null;
-  const record = kind === 'item' ? data.lookup('items', id) : data.lookup('chess', id);
+  const baseRecord = kind === 'item' ? data.lookup('items', id) : data.lookup('chess', id);
+  // 0.2.0 自选编队: a filled DIY slot is its owner's picked operator (the DOM card's `ownDiyRecord`), not the slot's
+  // faceless base record. The composed record keeps the slot's tier/price and brings the operator's name, art, class
+  // and bonds; the official card has no extra badge, so the canvas draws it like any other operator card.
+  const diyRecord = kind === 'chess' && baseRecord && baseRecord.isDiy
+    ? ownDiyRecord(baseRecord, priv, { chess: data.get('chess'), backups: data.get('backups') })
+    : null;
+  // 0.2.0 补位: a chess the player marked as not owned shows its stand-in body (the DOM card's `ownStandIn`), while the
+  // record keeps the chess's identity (ids, tier, bonds, price, merge) — the official 补位 view.
+  const standIn = kind === 'chess' && !diyRecord && baseRecord
+    ? ownStandIn(baseRecord, priv, data.get('backups'))
+    : null;
+  const record = diyRecord || standIn || baseRecord;
   const colors = { ...DEFAULT_SKIN_COLORS, ...(opts.colors || {}) };
   const tier = Number((record && record.tier) || 1);
   const price = Number(slot && slot.price) || 0;
@@ -48,6 +76,8 @@ export function cardModelFromSlot(slot, index, priv, opts = {}) {
   const garrison = firstGarrison ? data.lookup('garrisons', firstGarrison) : null;
   const garrisonIcon = garrison && garrison.eventTypeIcon ? uiUrl(m, `garrisonTypeIcon/${garrison.eventTypeIcon}`) : null;
   const profession = kind === 'chess' && record ? String(record.profession || '') : '';
+  const portraitSkin = kind === 'chess' && typeof opts.ownerSkin === 'function'
+    ? opts.ownerSkin((record && record.charId) || id) : null;
   return {
     slotId: index + 1,
     id,
@@ -73,7 +103,7 @@ export function cardModelFromSlot(slot, index, priv, opts = {}) {
     iconFile: kind === 'item' && record ? (localItemIconUrl(local, record) || itemIconUrl(m, record)) : null,
     // Content the card view paints (all URLs resolved from data + assetUrls, never from a theme path).
     profession,
-    portraitFile: kind === 'chess' && record ? chessPortraitUrl(m, record) : null,
+    portraitFile: kind === 'chess' ? cardPortraitFile(m, record, portraitSkin) : null,
     profMarkFile: profession ? profMarkUrl(m, profession) : null,
     bondList: bonds,
     bondColor: colors.bondColor || '#000000',
@@ -91,7 +121,8 @@ export function cardModelFromSlot(slot, index, priv, opts = {}) {
  * @param {any} priv m.private push (`funds`, `deployCap`, `deployCount`, `shop`)
  * @param {{ selectSlot?: any, refreshSeq?: number, unfold?: boolean, avalid?: boolean,
  *   show?: boolean, armedSlotId?: number|null, armedAt?: number, maxLevel?: number,
- *   colors?: Record<string, string>, urlOf?: (file: string) => string|null, cardFlags?: any }} [opts]
+ *   colors?: Record<string, string>, urlOf?: (file: string) => string|null, cardFlags?: any,
+ *   ownerSkin?: (charId: string) => string|null }} [opts]
  */
 export function shopModelFromPrivate(priv, opts = {}) {
   const shop = (priv && priv.shop) || {};
@@ -106,7 +137,7 @@ export function shopModelFromPrivate(priv, opts = {}) {
     if (slot == null && layout && index >= layout.chess + layout.item) return;
     cards.push(cardModelFromSlot(slot, index, priv, {
       armedSlotId: opts.armedSlotId, armedAt: opts.armedAt, cardFlags: opts.cardFlags,
-      colors: opts.colors, urlOf: opts.urlOf,
+      colors: opts.colors, urlOf: opts.urlOf, ownerSkin: opts.ownerSkin,
     }));
   });
   const selectSlot = opts.selectSlot instanceof AutoChessBattleShopSlot

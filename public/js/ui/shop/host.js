@@ -287,6 +287,7 @@ export async function createShopHost(opts = {}) {
       armedAt: nextView.armedAt,
       refreshSeq,
       cardFlags: nextView.cardFlags || null,
+      ownerSkin: nextView.ownerSkin || null,
     });
   }
 

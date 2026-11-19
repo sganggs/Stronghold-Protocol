@@ -433,8 +433,8 @@ function MatchScreen() {
   const hasOffers = !!pub?.offers?.length;
   const editable = !offerBlocksPrep(pub?.offers) && phase === PHASE.PREP && !!priv && alive && !priv.ready && !watchingOther && !hasPersonalChoice;
   const showShop = !!priv && alive && (phase === PHASE.PREP || phase === PHASE.SP_DRAFT || phase === PHASE.ROUND_START) && !watchingOther;
-  // which shop renders here: the gate is fail-closed (official theme/pack capability, preloaded runtime,
-  // spectator, reward offer, stand-ins, DIY); anything but `on` keeps the existing ShopBar.
+  // which shop renders here: the gate is fail-closed (official theme/pack capability, preloaded runtime);
+  // stand-ins and DIY are resolved by the card model, a spectator has no shop to draw.
   const webglShopOn = shopWebglGate({
     themeId: playerSettings.uiTheme,
     groups: shopWebglGroups,

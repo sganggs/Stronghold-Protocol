@@ -76,19 +76,18 @@ test('runtime: idle/loading/failed keep the old bar', () => {
   assert.deepEqual(shopWebglGate({ ...ok, runtime: undefined }), { on: false, reason: 'loading' });
 });
 
-test('spectator / stand-in / DIY keep the old bar; a rewardOffer stays in the shop', () => {
-  assert.deepEqual(shopWebglGate({ ...ok, spectator: true }), { on: false, reason: 'spectator' });
+test('stand-in and DIY are part of normal play; a spectator has no shop either way; a rewardOffer stays in the shop', () => {
+  assert.deepEqual(shopWebglGate({ ...ok, spectator: true }), { on: true, reason: null });
   const reward = { ...PRIV, shop: { ...PRIV.shop, rewardOffer: { source: 'merge', slots: [{ kind: 'chess', id: 'x', price: 0 }] } } };
   assert.deepEqual(shopWebglGate({ ...ok, priv: reward }), { on: true, reason: null });
-  assert.deepEqual(shopWebglGate({ ...ok, priv: { ...PRIV, standIns: ['chess_char_1_01_a'] } }), { on: false, reason: 'standin' });
-  assert.deepEqual(shopWebglGate({ ...ok, priv: { ...PRIV, diy: { chess_char_1_01_a: { charId: 'char_1' } } } }), { on: false, reason: 'diy' });
+  assert.deepEqual(shopWebglGate({ ...ok, priv: { ...PRIV, standIns: ['chess_char_1_01_a'] } }), { on: true, reason: null });
+  assert.deepEqual(shopWebglGate({ ...ok, priv: { ...PRIV, diy: { chess_char_1_01_a: { charId: 'char_1' } } } }), { on: true, reason: null });
   assert.deepEqual(shopWebglGate({ ...ok, priv: { ...PRIV, diy: {} } }), { on: true, reason: null });
 });
 
-test('reason order is fixed: theme, pack, capability, runtime, spectator, standin, diy', () => {
+test('reason order is fixed: theme, pack, capability, runtime', () => {
   assert.equal(shopWebglGate({ themeId: 'terminal', groups: {} }).reason, 'theme');
   assert.equal(shopWebglGate({ ...ok, groups: {} }).reason, 'pack');
   assert.equal(shopWebglGate({ ...ok, groups: groupsFor(['prefabs.json']) }).reason, 'capability');
   assert.equal(shopWebglGate({ ...ok, runtime: 'failed', spectator: true }).reason, 'failed');
-  assert.equal(shopWebglGate({ ...ok, spectator: true, priv: { ...PRIV, standIns: ['x'] } }).reason, 'spectator');
 });

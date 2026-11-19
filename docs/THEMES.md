@@ -199,14 +199,16 @@ DOM bar, and dropping a `shop.json` into a custom pack mounts nothing (the gate 
 A pack that wants to approach the official shop look writes the same slots and colours as the sections above.
 
 Fonts are not part of a theme pack at all. The canvas declares `@font-face` from the host's `data/local-assets.json`
-`fonts` group, which comes from the local-client extraction (`tools/local-extract/fonts.py`, `--only font`) into
-`public/assets/local/fonts/`. The maintainer's decision is that those faces are not distributed: the directory is
-git-ignored and in no package — the full, update and asset packages hold the folder and its manifest group back
-(`tools/package.mjs` `FONT_ART_PREFIX`, `withoutHeldFonts`, `holdBackStagedFonts`) — so a host built from a package
-serves no local face, while a machine that ran the extraction itself still uses it. `theme.json` accepts pictures and
-audio; an imported official pack keeps png / jpg / webp / ogg / mp3 / json / atlas / skel. A face that is missing or
-fails to load falls back to the existing font stack; it never blocks the theme, the shop or the match.
-`tools/local-extract/FONT-PROVENANCE.md` is the provenance and records that decision.
+`fonts` group, which comes from the local-client extraction (`tools/local-extract/fonts.py`) into
+`public/assets/local/fonts/`. That group is one of the required local-extract groups (§37.240): a full extraction runs the
+font job and fails without the install's `Arknights_Data`; `--only font` runs it alone. The maintainer's decision is that
+those faces are not distributed: the directory is git-ignored and in no package — the full, update and asset packages hold
+the folder and its files back (`tools/package.mjs` `FONT_ART_PREFIX`, `withoutHeldFonts`) and the staged
+`data/local-assets.json` keeps the group as an empty object (`holdBackStagedFonts`), so a host built from a package serves
+no local face but is not reported as an incomplete extraction, and the canvas falls back to the system stack.
+`theme.json` accepts pictures and audio; an imported official pack keeps png / jpg / webp / ogg / mp3 / json / atlas /
+skel. A face that is missing or fails to load falls back to the existing font stack; it never blocks the theme, the shop
+or the match. `tools/local-extract/FONT-PROVENANCE.md` is the provenance and records that decision.
 
 ## 规程 HUD from the official prefabs
 
@@ -227,7 +229,9 @@ theme or an older local pack without that prefab keeps the CSS card fallback.
 `frame_lv1_obj`, `frame_lv2_obj`, `frame_lv3_obj` and `chess_level_5/6_obj`. RectTransform values go through
 `ui/prefab/layout.js`; the card size, price anchor, tier box, name, profession mark, bonds, item watermark and item icon
 follow the prefab coordinates for that theme. The operator card shows the profession mark and name, then vertical bonds;
-it does not show the sub-profession. An item card shows its watermark, icon and name; its effect stays in the detail panel.
+it does not show the sub-profession. Its portrait is the shop owner's outfit picture when one is chosen, else the
+operator's own (§37.240: the canvas card reads the same `ownerSkin` selection as the DOM card's `OperatorImage`). An item
+card shows its watermark, icon and name; its effect stays in the detail panel. An item card shows its watermark, icon and name; its effect stays in the detail panel.
 可露希尔's card has a `bkg` Image under the frame (155×187 centred on the 157×207 card) whose sprite the game sets at run time; [ASSUMED] it is drawn as its colour, white (`--scard-under*`, `cardBacking`, §37.235), so the frame's cut corner and side margins are light as in the official preview, not our dark green card fill. ac_n_initial's `bkg` is the sprite `bg_black` (155×187, the official dark card with fine lines), drawn as it is under its
 hollow frame (§37.237; §37.235 took only its white colour and painted the 卫戍协议终端 cards white). 乌萨斯齐心团 has no `bkg`
 and keeps the dark face. The backing belongs to the official theme's own look: it is drawn only while that theme is the
