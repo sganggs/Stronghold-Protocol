@@ -94,6 +94,10 @@ function tagged(dmg, tag) {
   return !!dmg && Array.isArray(dmg.tags) && dmg.tags.includes(tag);
 }
 function rider(dmg) {
+  // ADDITION is excluded (the member template's FilterDamageModifier + IfNot) so the extra arts hit does not chain.
+  // Element and periodic hits are also skipped: the template does not filter them, but emitting the extra arts
+  // synchronously from `damaged` nests past MAX_HOOK_DEPTH in real fights (溯光星源 and other on-hit chains) and
+  // the engine then skips handlers. Left out until that extra hit can be scheduled without dropping the chain.
   if (!dmg || isHpLoss(dmg) || dmg.type === 'element' || dmg.type === 'elemental') return true;
   if (damageAttackType(dmg) === 'ADDITION' || tagged(dmg, 'addition') || tagged(dmg, 'dot') || tagged(dmg, 'periodic')) return true;
   return false;
@@ -848,6 +852,44 @@ export function installExtra(battle) {
   }
 }
 
+const ARCANE_REVEAL = 'bond:arcane:reveal';
+
+/** Max arcane layers in this battle, and whether any player's prep count reached `need`. Pair / 联防 share one Battle. */
+function arcaneArea(battle, need) {
+  let maxLayers = 0;
+  let met = false;
+  for (const p of battle.players || []) {
+    const pid = p.playerId;
+    const layers = S.bondLayers(battle, pid, 'arcaneShip');
+    if (layers > maxLayers) maxLayers = layers;
+    if (reached(battle, pid, 'arcaneShip', need)) met = true;
+  }
+  return { maxLayers, met };
+}
+
+/**
+ * 隐匿失效 while a powered arcane member's range covers the enemy. The ability prefab
+ * (act3autochess_bond_mag_power[immune_invisible]) is not in the tables.
+ * [ASSUMED] leaving the range restores 隐匿: the effect text conditions 失效 on standing in range,
+ * the same way an operator module's 「攻击范围内敌人的隐匿效果失效」 does. Not a dispel.
+ */
+function syncArcaneStealth(battle) {
+  const need = bondBb('arcaneShip', K.arcane).power_bond_char_cnt;
+  const members = [];
+  for (const p of battle.players || []) {
+    if (!reached(battle, p.playerId, 'arcaneShip', need)) continue;
+    for (const m of S.bondMembers(battle, p.playerId, 'arcaneShip', { fieldOnly: true })) members.push(m);
+  }
+  for (const e of battle.enemies || []) {
+    if (!e) continue;
+    const held = typeof e.findBuff === 'function' && e.findBuff(ARCANE_REVEAL);
+    const inside = e.alive && e.s?.flags?.stealth && members.some((m) => S.inRange(m, e));
+    if (inside) {
+      if (!held) battle.addBuff(e, { key: ARCANE_REVEAL, flags: { reveal: true }, duration: Infinity, refresh: 'replace' });
+    } else if (held) battle.removeBuff(e, ARCANE_REVEAL);
+  }
+}
+
 /**
  * 奥术 on a season whose first env_gbuff_new is the act3 arts rider (atk_base, no base_damage_scale).
  * Called from addon/battle.js. Default data returns immediately.
@@ -857,19 +899,28 @@ export function installArcaneExtra(battle) {
   const sample = bondBb('arcaneShip', K.arcane);
   // a season without the act3 rider (第一期 has no 奥术 at all: null) keeps its own path
   if (!sample || sample.base_damage_scale != null || sample.atk_base == null) return;
+  const enemy0 = bondBb('arcaneShip', K.arcaneEnemy);
+  // Power clauses (RES shred, 隐匿失效) exist only once some player in this battle reached 3. Skipping the
+  // listener and the 0.2 s poll otherwise keeps battles that never meet it off this scheduler.
+  if (!arcaneArea(battle, enemy0.power_bond_char_cnt).met) return;
   battle.on('damaged', (c) => {
     const t = c.target, dmg = c.dmg;
+    // Enemy template act3autochess_bond_eff_arcane_power[enemy]: ANY_ATTACK_EXCEPT_ELEMENT, cancelled hits
+    // dropped, source and the continuous shared mask not filtered. The buff stays when the MAX char count
+    // in this battle is ≥ power_bond_char_cnt (_useMaxBondCharCntInCurArea). The floor uses the MAX layers
+    // in this battle (_useMaxBondStackCntInCurArea), not the hitter's.
     if (!t || t.side !== 'enemy' || !t.alive || !dmg || dmg.type === 'element' || dmg.type === 'elemental' || isHpLoss(dmg)) return;
-    const src = c.source;
-    const pid = src && src.ownerId;
-    if (!pid || !S.bondActive(battle, pid, 'arcaneShip')) return;
     const enemy = bondBb('arcaneShip', K.arcaneEnemy);
-    if (!reached(battle, pid, 'arcaneShip', enemy.power_bond_char_cnt)) return;
-    const L = S.bondLayers(battle, pid, 'arcaneShip');
+    const area = arcaneArea(battle, enemy.power_bond_char_cnt);
+    if (!area.met) return;
+    const L = area.maxLayers;
     const floor = Math.max(num(enemy.magic_res_max_min, -100), num(enemy.magic_res_max_base, -30) + num(enemy.magic_res_max_per_stack) * L);
-    const hits = (t.mem.arcaneResHits || 0) + 1;
-    t.mem.arcaneResHits = hits;
-    const acc = Math.max(floor, hits * num(enemy.magic_res_add, -1));
+    // The template stores magic_resistance and adds magic_res_add when it is still above the floor.
+    // A later, deeper floor (the other player's layers rose) steps by one, it does not replay every past hit.
+    const prev = num(t.mem.arcaneResAcc, 0);
+    if (!(prev > floor)) return;
+    const acc = Math.max(floor, prev + num(enemy.magic_res_add, -1));
+    t.mem.arcaneResAcc = acc;
     const effective = num(t.base?.res) + acc;
     const shown = Math.min(100, Math.max(0, effective));
     const official = (100 - effective) / 100;
@@ -878,17 +929,10 @@ export function installArcaneExtra(battle) {
     if (engine > 0 && Math.abs(official - engine) > 1e-9) mods.artsTakenMul = official / engine;
     S.passiveBuff(battle, t, 'bond:arcane:res', mods);
   });
+  battle.every(0.2, () => syncArcaneStealth(battle));
   battle.on('statusApplied', (c) => {
     if (!c || c.status !== 'stealth' || !c.target || c.target.side !== 'enemy') return;
-    for (const p of battle.players || []) {
-      const pid = p.playerId;
-      if (!reached(battle, pid, 'arcaneShip', bondBb('arcaneShip', K.arcane).power_bond_char_cnt)) continue;
-      const members = S.bondMembers(battle, pid, 'arcaneShip', { fieldOnly: true });
-      if (members.some((m) => S.inRange(m, c.target))) {
-        battle.removeStatus(c.target, 'stealth');
-        return;
-      }
-    }
+    syncArcaneStealth(battle);
   });
 }
 

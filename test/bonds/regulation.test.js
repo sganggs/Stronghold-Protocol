@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { loadData } from '../../server/data.js';
 import { setGameData } from '../../server/sim/content/support/index.js';
 import { acquireTargets } from '../../server/sim/ai.js';
+import { enemyStealthed } from '../../server/sim/targeting.js';
 import { makeBattle, chessRec, enemyRec } from '../helpers/battleHarness.js';
 import { payKjeragIce, tempBondLayers, EFFECT_KEYED_BONDS } from '../../server/sim/content/bonds/regulation.js';
 import { bondBb } from '../../server/sim/content/bonds/addon/battle.js';
@@ -1637,7 +1638,63 @@ describe('规程·序列Ⅰ bonds', { concurrency: 1 }, () => {
     assert.ok(res);
     close(res.mods.resFlat, -2, 'the phys hit and the rider each drop RES');
     h.b.applyStatus(tnk, 'stealth', { duration: 5, source: null });
-    assert.equal(!!tnk.s.flags.stealth, false);
+    assert.equal(enemyStealthed(tnk), false, 'applied inside the range: 隐匿失效');
+    assert.equal(!!tnk.s.flags.stealth, true, '失效, not a dispel');
+  });
+
+  test('奥术 RES uses the area max, including a sourceless hit', (t) => {
+    const h = fight(t, {
+      players: [
+        { playerId: 'p1', seat: 0, side: 'L', colOffset: 0, bonds: { arcaneShip: bond(3, 0, 2) } },
+        { playerId: 'p2', seat: 1, side: 'R', colOffset: 0, bonds: { arcaneShip: bond(2, 200, 1) } },
+      ],
+      pieces: [
+        piece('reg_ar_lo', ['arcaneShip'], { ownerId: 'p1', col: 4, skill: null }),
+        piece('reg_ar_hi', ['arcaneShip'], { ownerId: 'p2', col: 5, skill: null }),
+      ],
+    });
+    h.step();
+    const e = tank(h, [9, 2]);
+    const src = h.unit('reg_ar_lo');
+    for (let i = 0; i < 35; i++) h.b.dealDamage({ source: src, target: e, amount: 1, type: 'phys' });
+    const res = e.findBuff('bond:arcane:res');
+    assert.ok(res, 'the low-layer player who has 3 members still shreds');
+    // 35 phys hits plus the rider's arts hit each: 70 steps. Floor at layers 200 is −40, at layers 0 is −30.
+    close(res.mods.resFlat, -40, 'cap is the max layers in this battle, not the hitter\'s 0');
+    const bare = tank(h, [8, 2]);
+    h.b.dealDamage({ source: null, target: bare, amount: 1, type: 'true' });
+    const bareRes = bare.findBuff('bond:arcane:res');
+    assert.ok(bareRes, 'a sourceless hit shreds once anyone in the battle has 3');
+    close(bareRes.mods.resFlat, -1, 'one qualifying hit');
+
+    const low = fight(t, {
+      players: [
+        { playerId: 'p1', seat: 0, side: 'L', colOffset: 0, bonds: { arcaneShip: bond(2, 200, 1) } },
+        { playerId: 'p2', seat: 1, side: 'R', colOffset: 0, bonds: { arcaneShip: bond(2, 200, 1) } },
+      ],
+      pieces: [piece('reg_ar_no', ['arcaneShip'], { skill: null })],
+    });
+    low.step();
+    const quiet = tank(low, [9, 2]);
+    low.b.dealDamage({ source: low.unit('reg_ar_no'), target: quiet, amount: 50, type: 'phys' });
+    assert.equal(quiet.findBuff('bond:arcane:res'), null, 'two players at 2 do not sum to 3');
+  });
+
+  test('奥术 隐匿 already on an enemy fails inside the range and returns outside it', (t) => {
+    const h = fight(t, {
+      bonds: { arcaneShip: bond(3, 0, 2) },
+      pieces: [piece('reg_ar_st', ['arcaneShip'], { rangeGrid: [[0, 0], [-1, 0]], skill: null })],
+    });
+    h.step();
+    const e = tank(h, [9, 8]);
+    h.b.applyStatus(e, 'stealth', { duration: 8, source: null });
+    assert.equal(enemyStealthed(e), true, 'outside the range, 隐匿 holds');
+    e.x = 4;
+    h.run(0.3);
+    assert.equal(enemyStealthed(e), false, 'an enemy that walks in is not hidden');
+    e.x = 8;
+    h.run(0.3);
+    assert.equal(enemyStealthed(e), true, 'leaving the range restores 隐匿');
   });
 
   test('精准 迅捷 灵巧 坚守 助力 use the season blackboards', (t) => {
