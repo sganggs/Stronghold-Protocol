@@ -87,11 +87,31 @@ test('regulation keys stay off the default kit maps and carry fly / beFactor', (
   assert.ok(gd.enemy('enemy_9030_acpara'));
 });
 
-test('械 below half health spawns an untargetable armor pair; the hidden form does not', () => {
+test('hidden 械 summons an untargetable armor pair the moment it enters', () => {
+  const h = fight();
+  const boss = put(h, MECH_2, [9, 8]);
+  const armors = living(h, ARMOR);
+  assert.equal(armors.length, 2);
+  for (const a of armors) {
+    assert.equal(a.s.flags.untargetable, true);
+    assert.equal(Math.round(a.y), 9);
+    assert.equal(a.mem.regBossId, boss.id);
+    assert.equal(a.mem.regLaunch, undefined);
+  }
+  const xs = armors.map((a) => Math.round(a.x)).sort((a, b) => a - b);
+  assert.deepEqual(xs, [7, 9]);
+  // LaunchArmor (cd 10, init 10) starts the pair that is already on the field.
+  h.run(10);
+  assert.equal(living(h, ARMOR).length, 2);
+  for (const a of living(h, ARMOR)) assert.equal(a.mem.regLaunch, true);
+});
+
+test('械 below half health spawns an untargetable armor pair; hidden 械 does not spawn another', () => {
   const ratio = V.enemies[MECH].talents.bb['Armor.hp_ratio'];
   assert.equal(ratio, 0.5);
   const h = fight();
   const e = put(h, MECH, [9, 8]);
+  assert.equal(living(h, ARMOR).length, 0);
   e.hp = e.s.maxHp * 0.49;
   h.step(2);
   const armors = living(h, ARMOR);
@@ -100,9 +120,10 @@ test('械 below half health spawns an untargetable armor pair; the hidden form d
   assert.equal(V.enemies[MECH_2].talents.bb['Armor.hp_ratio'], undefined);
   const h2 = fight();
   const hidden = put(h2, MECH_2, [9, 8]);
+  assert.equal(living(h2, ARMOR).length, 2);
   hidden.hp = hidden.s.maxHp * 0.49;
   h2.step(2);
-  assert.equal(living(h2, ARMOR).length, 0);
+  assert.equal(living(h2, ARMOR).length, 2);
 });
 
 test('茧 volley hits the highest-HP operators and evade stacks from missing health', () => {
