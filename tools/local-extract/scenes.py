@@ -35,6 +35,7 @@ import json
 import re
 import struct
 from pathlib import Path
+from scene_transport import write_scene_bins
 
 SAND = ['arts/maps/map_autochesssand/res.ab', 'arts/maps/map_survivaloasis_city/res.ab', 'arts/maps/map_yumen/res.ab']
 SHORE = ['arts/maps/map_doss_shore/res.ab']
@@ -429,6 +430,7 @@ def hidden_groups(raw, objects):
     return out
 
 
+
 def export_scene(stage_id, deps, scene_path, ab_root, out_root, manifest, log, material_info, shader_deps=()):
     """Write one stage's scene (see the module docstring). Returns the number of files written (0 on failure)."""
     import aklz4  # noqa: F401  (registers the LZ4AK decoder)
@@ -697,9 +699,10 @@ def export_scene(stage_id, deps, scene_path, ab_root, out_root, manifest, log, m
                         'bounds': [round(v, 3) for v in (min(xs), min(ys), min(zs), max(xs), max(ys), max(zs))]})
         blob += data
     n = 0
-    (out_dir / 'scene.bin').write_bytes(bytes(blob))
-    manifest.setdefault(sub, {})['bin'] = {'path': f'/assets/local/{sub}/scene.bin', 'kind': 'SceneData', 'bytes': len(blob)}
-    n += 1
+    bin_parts = write_scene_bins(out_dir, blob)
+    for part in bin_parts:
+        manifest.setdefault(sub, {})[part['key']] = {'path': f'/assets/local/{sub}/{part["name"]}', 'kind': 'SceneData', 'bytes': part['bytes']}
+    n += len(bin_parts)
 
     # lightmap pages: light RGB + the shadow mask's R as alpha
     pages = {}
@@ -799,6 +802,8 @@ def export_scene(stage_id, deps, scene_path, ab_root, out_root, manifest, log, m
            'lightRange': LIGHT_RANGE, 'lightEncoding': LIGHT_ENCODING, **({'env': env_doc} if env_doc else {}),
            'materials': dict(sorted(materials.items())), 'groups': sorted({rec['group'] for rec in records}),
            'chunks': records, 'binBytes': len(blob)}
+    if len(bin_parts) > 1:
+        doc['binParts'] = [part['bytes'] for part in bin_parts]
     (out_dir / 'scene.json').write_text(json.dumps(doc, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
     manifest[sub]['scene'] = {'path': f'/assets/local/{sub}/scene.json', 'kind': 'Scene', 'chunks': len(records),
                               'version': SCENE_EXTRACT_VERSION}

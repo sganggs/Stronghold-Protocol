@@ -46,6 +46,7 @@ test('opaque albedo keeps hidden RGB, native cutouts and shared texture identity
   assert.equal(result.status, 0, result.stderr);
 });
 
+
 function py(code) {
   const src = `import sys, json, struct\nsys.path.insert(0, ${JSON.stringify(TOOL)})\nimport scenes as s\n${code}`;
   const r = spawnSync(PY, ['-I', '-B', '-c', src], { encoding: 'utf8', env: ENV });
@@ -407,6 +408,27 @@ print(json.dumps({
   });
 });
 
+test('scene transport writer splits exact bytes and leaves small legacy files unchanged', { skip: !PY && 'no Python' }, () => {
+  const out = py(`import tempfile, hashlib
+from pathlib import Path
+with tempfile.TemporaryDirectory() as tmp:
+    folder = Path(tmp)
+    raw = b'abc' * 5000001
+    parts = s.write_scene_bins(folder, raw)
+    joined = b''.join((folder / p['name']).read_bytes() for p in parts)
+    small = s.write_scene_bins(folder, b'abc')
+    rejected = False
+    try:
+        s.write_scene_bins(folder, b'')
+    except ValueError:
+        rejected = True
+    print(json.dumps({'parts': parts, 'same': hashlib.sha256(raw).digest() == hashlib.sha256(joined).digest(), 'small': small, 'emptyRejected': rejected}))`);
+  assert.deepEqual(out.parts.map(p => [p.key, p.bytes]), [['bin', 15000000], ['bin1', 3]]);
+  assert.equal(out.same, true);
+  assert.deepEqual(out.small, [{ key: 'bin', bytes: 3, name: 'scene.bin' }]);
+  assert.equal(out.emptyRejected, true);
+});
+
 describe('scene chunks (load.js)', () => {
   test('parseSceneChunks: typed-array views per chunk; a record that does not fit the buffer rejects the scene', () => {
     const { doc, bin } = fakeScene(PARTS);
@@ -514,6 +536,31 @@ describe('scene chunks (load.js)', () => {
       assert.ok(lit.images.data.TX_N && lit.images.data.TX_M && lit.images.env, 'the normal / gloss maps and the reflection atlas');
       assert.ok(lit.images.tex.TX_E && !lit.images.data.TX_E, 'emission is an sRGB colour map');
       assert.ok(!lit.images.tex.TX_N && !lit.images.tex.TX_M, 'data maps stay out of the sRGB textures');
+      resetBoardPack();
+      const wholeFetch = globalThis.fetch;
+      const cuts = [0, 4, 17, 39, 60, 85, 112, bin.byteLength];
+      const parts = cuts.slice(1).map((end,i) => end-cuts[i]);
+      json = { ...doc, binParts:parts };
+      const binaries = new Map(parts.map((_,i) => {
+        const path = i ? `/s/scene${i}.bin` : '/s/scene.bin';
+        urls[`${group}|${i ? `bin${i}` : 'bin'}`] = path;
+        return [path,bin.slice(cuts[i],cuts[i+1])];
+      }));
+      globalThis.fetch = async u => binaries.has(u) ? new Response(binaries.get(u)) : wholeFetch(u);
+      const split = await loadScenePack(store, 'act2autochess_m02');
+      assert.ok(split, 'seven transport parts restore the existing mesh layout across attribute boundaries');
+      assert.deepEqual(split.chunks.map(c => [...c.index]), pack.chunks.map(c => [...c.index]));
+      assert.deepEqual(split.chunks.map(c => [...c.position]), pack.chunks.map(c => [...c.position]));
+      resetBoardPack();
+      const requested = [];
+      globalThis.fetch = async u => {
+        requested.push(u);
+        return u === '/s/scene3.bin' ? new Response(null,{status:404})
+          : binaries.has(u) ? new Response(binaries.get(u)) : wholeFetch(u);
+      };
+      assert.equal(await loadScenePack(store, 'act2autochess_m02'), null, 'missing part keeps the fallback board');
+      assert.ok(!requested.includes('/s/scene4.bin'),'stop requesting after the first missing part');
+      globalThis.fetch = wholeFetch;
       resetBoardPack();
       json = { ...doc, version: SCENE_VERSION + 1 };
       assert.equal(await loadScenePack(store, 'act2autochess_m02'), null, 'unknown version → the procedural board');
