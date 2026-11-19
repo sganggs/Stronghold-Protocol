@@ -640,7 +640,7 @@ export function SettingsModal({ open, onClose }) {
       <p class="set-hint">${touchUi ? t('触屏操作：点击单位选中（撤退 / 出售）· 长按单位或卡牌查看详情 · 拖动部署后滑动选择朝向') : t('右键查看详情')}</p>
     ` },
   ];
-  return html`<${Modal} open=${open} onClose=${onClose} class="setdlg settings-modal" title=${t('设置')} micro="SETTINGS" width="min(max(10.4rem, 760px), calc(100vw - 32px))"
+  return html`<${Modal} open=${open} onClose=${onClose} class="setdlg settings-modal" title=${t('设置')} micro="SETTINGS" width="min(max(10.4rem, 32px, calc(760px * var(--sp-ui, 1))), calc(100vw - 32px))"
                         actions=${html`<${Button} variant="secondary" icon="book" class="set-guide" onClick=${() => openGuide(0)}>${t('玩法说明')}<//>
                         <${Button} variant="primary" icon="check" onClick=${onClose}>${t('完成')}<//>`}>
     <${SettingsBrowser} categories=${SETTINGS_CATEGORIES} entries=${entries} />

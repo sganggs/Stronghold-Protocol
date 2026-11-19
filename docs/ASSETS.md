@@ -1072,8 +1072,12 @@ with a 16,000,000-byte resource-pack cap, including ZIP framing and its manifest
 Loader/exporter policy is separate from the format: `sceneTransport.js` and `scene_transport.py` currently allow
 60,000,000 total bytes and 256 parts. The total preserves the previous four-by-15-MB budget. The part-count budget
 bounds request/metadata work while permitting smaller pieces; neither value is an official game or browser limit.
-The Python writer accepts `part_bytes`, `max_bytes` and `max_parts` keyword budgets. Default exports use 15 MB pieces;
-small scenes retain `scene.bin` alone, and existing single-file resources keep their original loading path.
+The Python writer accepts `part_bytes`, `max_bytes` and `max_parts` keyword budgets. **By default a scene stays one
+`scene.bin`** (no `binParts`), as before: the release packages allow 256 MiB per file and one request is cheaper. A
+deployment with a small per-file limit sets `SP_SCENE_PART_BYTES=15000000` (at most 15,000,000) while extracting, and
+every scene above that size is written in parts; a later export with fewer parts removes the stale `sceneN.bin` files
+and their manifest keys (`scene_transport.py` `write_scene_bins` / `record_scene_bins`). Existing single-file resources
+keep their original loading path. An old client reads only `scene.bin`, so a split scene needs the matching page too.
 
 The loader validates the complete declaration before allocating or requesting binary parts. It allocates the full
 destination once, awaits each part, checks its exact size, writes it at the next offset and releases the temporary

@@ -1,6 +1,6 @@
 import { useId, useLayoutEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, MicroLabel } from './components.js';
-import { t, N_ } from '../../../shared/i18n.js';
+import { t, tc, N_ } from '../../../shared/i18n.js';
 import { matchesSetting, settingsSearchText } from './settingsSearch.js';
 
 /** Keep the real controls mounted while categories/search change, including imports and diagnostic reports. */
@@ -39,7 +39,7 @@ export function SettingsBrowser({ categories, entries }) {
   const matched = new Set(entries.filter(entry => {
     const text = indexed.get(entry.id);
     const group = categories.find(c => c.id === entry.category);
-    return text != null && text.length > 0 && matchesSetting(`${t(group.label)} ${group.micro} ${text}`, query);
+    return text != null && text.length > 0 && matchesSetting(`${tc('settings-category', group.label)} ${group.micro} ${text}`, query);
   }).map(entry => entry.id));
   const show = entry => searching ? matched.has(entry.id)
     : category === entry.category && (indexed.get(entry.id) == null || indexed.get(entry.id).length > 0);
@@ -73,7 +73,7 @@ export function SettingsBrowser({ categories, entries }) {
           aria-selected=${activeTab === c.id} tabIndex=${activeTab === c.id ? 0 : -1} data-settings-tab=${c.id}
           class=${`settings-nav__item${activeTab === c.id ? ' is-on' : ''}`} onClick=${() => { if (c.id !== 'search') choose(c.id); }}>
           <span class="settings-nav__index num" aria-hidden="true">${c.id === 'search' ? matched.size : String(i + (searching ? 0 : 1)).padStart(2, '0')}</span>
-          <span>${t(c.label)}<${MicroLabel}>${c.micro}<//></span>
+          <span>${tc('settings-category', c.label)}<${MicroLabel}>${c.micro}<//></span>
         </button>`)}
       </nav>
       <div ref=${content} class="settings-content" id=${panelId} role="tabpanel" aria-labelledby=${tabId(activeTab)} tabIndex="0">
@@ -81,7 +81,7 @@ export function SettingsBrowser({ categories, entries }) {
           ? matched.size ? t('找到 {n} 项设置', { n: matched.size }) : t('没有找到匹配的设置，请尝试其它关键词。') : ''}</p>
         ${categories.map(c => html`<section key=${c.id} class="settings-category set-list" data-settings-category=${c.id}
           hidden=${searching ? !entries.some(entry => entry.category === c.id && matched.has(entry.id)) : category !== c.id}>
-          ${searching ? html`<h3 class="settings-category__title">${t(c.label)}<${MicroLabel}>${c.micro}<//></h3>` : null}
+          ${searching ? html`<h3 class="settings-category__title">${tc('settings-category', c.label)}<${MicroLabel}>${c.micro}<//></h3>` : null}
           ${entries.filter(entry => entry.category === c.id).map(entry => html`<div key=${entry.id} class="settings-entry set-list"
             data-setting-id=${entry.id} hidden=${!show(entry)}>${entry.render(show(entry))}</div>`)}
         </section>`)}

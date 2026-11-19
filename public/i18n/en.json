@@ -1383,6 +1383,7 @@
   "无法读取插件列表": "Could not load the plugin list",
   "自动": "Auto",
   "外观": "Cosmetic",
+  "settings-category::外观": "Appearance",
   "非官方": "Unofficial",
   "作者 {names}": "by {names}",
   "本服务器已不再提供": "No longer on this server",

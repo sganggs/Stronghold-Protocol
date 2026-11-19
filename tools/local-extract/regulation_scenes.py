@@ -437,9 +437,7 @@ def _write(stage_id, chunks, materials, mat_tex, light, images, out_root, manife
         log(f'  warn {stage_id}: no regulation triangle')
         return 0
     bin_parts = scenes.write_scene_bins(out_dir, blob)
-    for part in bin_parts:
-        manifest.setdefault(sub, {})[part['key']] = {'path': f'/assets/local/{sub}/{part["name"]}', 'kind': 'SceneData', 'bytes': part['bytes']}
-    written = len(bin_parts)
+    written = scenes.record_scene_bins(manifest.setdefault(sub, {}), sub, bin_parts)
     lightmaps = 0
     for index, image in enumerate(images):
         try:
@@ -480,7 +478,6 @@ def _write(stage_id, chunks, materials, mat_tex, light, images, out_root, manife
            'chunks': records, 'binBytes': len(blob)}
     if len(bin_parts) > 1:
         doc['binParts'] = [part['bytes'] for part in bin_parts]
-
     if tile_depth:
         doc['tileDepthHeights'] = tile_depth
     (out_dir / 'scene.json').write_text(json.dumps(doc, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')

@@ -1237,7 +1237,7 @@
 .release-notes-body a { color: var(--mint); text-decoration: underline; }
 
 /* Settings: category navigation and search share the same mounted controls. */
-.modal__box.settings-modal { height: min(max(8.8rem, 560px), calc(100dvh - 32px)); max-height: calc(100dvh - 32px); max-width: calc(100vw - 32px); }
+.modal__box.settings-modal { height: min(max(8.8rem, 32px, calc(560px * var(--sp-ui, 1))), calc(100dvh - 32px)); max-height: calc(100dvh - 32px); max-width: calc(100vw - 32px); }
 .settings-modal > .modal__body { display: flex; flex: 1; min-height: 0; overflow: hidden; }
 .settings-browser { display: flex; flex-direction: column; gap: 14px; flex: 1; min-width: 0; min-height: 0; }
 .settings-search { display: flex; align-items: stretch; gap: 8px; flex: none; }

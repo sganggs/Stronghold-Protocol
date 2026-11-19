@@ -408,24 +408,40 @@ print(json.dumps({
   });
 });
 
-test('scene transport writer splits exact bytes and leaves small legacy files unchanged', { skip: !PY && 'no Python' }, () => {
-  const out = py(`import tempfile, hashlib
+test('scene transport writer: one scene.bin by default, parts only on request, a shorter export drops stale parts', { skip: !PY && 'no Python' }, () => {
+  const out = py(`import tempfile, hashlib, os
 from pathlib import Path
+os.environ.pop('SP_SCENE_PART_BYTES', None)
 with tempfile.TemporaryDirectory() as tmp:
     folder = Path(tmp)
     raw = b'abc' * 5000001
-    parts = s.write_scene_bins(folder, raw)
+    whole = s.write_scene_bins(folder, raw)
+    parts = s.write_scene_bins(folder, raw, part_bytes=15000000)
     joined = b''.join((folder / p['name']).read_bytes() for p in parts)
+    entry = {'scene': {}}
+    s.record_scene_bins(entry, 'x', parts)
+    keys_split = sorted(entry)
+    os.environ['SP_SCENE_PART_BYTES'] = '15000000'
+    by_env = s.write_scene_bins(folder, raw)
+    del os.environ['SP_SCENE_PART_BYTES']
     small = s.write_scene_bins(folder, b'abc')
+    s.record_scene_bins(entry, 'x', small)
+    left = sorted(p.name for p in folder.iterdir())
     rejected = False
     try:
         s.write_scene_bins(folder, b'')
     except ValueError:
         rejected = True
-    print(json.dumps({'parts': parts, 'same': hashlib.sha256(raw).digest() == hashlib.sha256(joined).digest(), 'small': small, 'emptyRejected': rejected}))`);
+    print(json.dumps({'whole': whole, 'parts': parts, 'byEnv': len(by_env), 'same': hashlib.sha256(raw).digest() == hashlib.sha256(joined).digest(),
+                      'small': small, 'keysSplit': keys_split, 'keysAfter': sorted(entry), 'left': left, 'emptyRejected': rejected}))`);
+  assert.deepEqual(out.whole, [{ key: 'bin', bytes: 15000003, name: 'scene.bin' }], 'one file unless a part size is asked for');
   assert.deepEqual(out.parts.map(p => [p.key, p.bytes]), [['bin', 15000000], ['bin1', 3]]);
+  assert.equal(out.byEnv, 2, 'SP_SCENE_PART_BYTES splits too');
   assert.equal(out.same, true);
+  assert.deepEqual(out.keysSplit, ['bin', 'bin1', 'scene']);
   assert.deepEqual(out.small, [{ key: 'bin', bytes: 3, name: 'scene.bin' }]);
+  assert.deepEqual(out.keysAfter, ['bin', 'scene'], 'the stale bin1 key is dropped');
+  assert.deepEqual(out.left, ['scene.bin'], 'the stale scene1.bin is removed');
   assert.equal(out.emptyRejected, true);
 });
 

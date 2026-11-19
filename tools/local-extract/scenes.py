@@ -35,7 +35,7 @@ import json
 import re
 import struct
 from pathlib import Path
-from scene_transport import write_scene_bins
+from scene_transport import write_scene_bins, record_scene_bins
 
 SAND = ['arts/maps/map_autochesssand/res.ab', 'arts/maps/map_survivaloasis_city/res.ab', 'arts/maps/map_yumen/res.ab']
 SHORE = ['arts/maps/map_doss_shore/res.ab']
@@ -700,9 +700,7 @@ def export_scene(stage_id, deps, scene_path, ab_root, out_root, manifest, log, m
         blob += data
     n = 0
     bin_parts = write_scene_bins(out_dir, blob)
-    for part in bin_parts:
-        manifest.setdefault(sub, {})[part['key']] = {'path': f'/assets/local/{sub}/{part["name"]}', 'kind': 'SceneData', 'bytes': part['bytes']}
-    n += len(bin_parts)
+    n += record_scene_bins(manifest.setdefault(sub, {}), sub, bin_parts)
 
     # lightmap pages: light RGB + the shadow mask's R as alpha
     pages = {}
