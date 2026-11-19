@@ -522,7 +522,8 @@ sliding, so a block — which freezes velocity — still turns it with the front
 ### Local preferences and recovery (§28.14, §28.18–20)
 
 Settings uses six categories: interface, audio, battle display, controls, appearance, and resources/feedback.
-The modal keeps a stable size while the navigation and content scroll independently. Up/Down and Home/End move
+The modal keeps a stable size while the navigation and content scroll independently. Its 560 px height floor follows
+the interface-size factor and remains capped by the viewport. Up/Down and Home/End move
 between category tabs. Each opening starts at Interface with an empty search. Search matches the actual localized
 labels, explanations and English micro labels across all available controls, groups results by category, and lets
 players edit those same controls. Matching is literal, case-insensitive and NFKC-normalized; whitespace-separated
