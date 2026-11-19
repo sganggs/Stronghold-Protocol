@@ -615,22 +615,26 @@ function layerAllowanceOf(p, gd) {
   const lineup = new Set(Object.keys(p.bonds && typeof p.bonds === 'object' ? p.bonds : {}));
   for (const u of units) for (const b of gd.chess(u.chessId)?.bonds || []) lineup.add(b);
   let extra = false;
+  // times copies of the trait, each capped by max_add_count_per_battle, plus the 规程 指令 cap raises of their holders
   const credit = (g, times, bonus = 0) => {
     const bb = g.bb || {};
     if (Number.isFinite(bb.extra_cnt)) { extra = true; return; }
     if (!Number.isFinite(bb.bond_add_count) && !Number.isFinite(bb.bond_add_count_multi)) return;
     const s = g.bbStr || {};
     const bonds = s.bond_type === 'bond_by_id' ? String(s.bond_id ?? '').split(',').map((x) => x.trim()).filter((x) => gd.bond(x)) : [...lineup];
-    const cap = Number(bb.max_add_count_per_battle) > 0 ? Number(bb.max_add_count_per_battle) + bonus : Infinity;
-    for (const b of bonds) out.set(b, (out.get(b) || 0) + cap * times);
+    const cap = Number(bb.max_add_count_per_battle) > 0 ? Number(bb.max_add_count_per_battle) * times + bonus : Infinity;
+    for (const b of bonds) out.set(b, (out.get(b) || 0) + cap);
   };
+  // a handed-out trait is installed on its receiver, whose cap the receiver's own 指令 raise lifts (garrisons/battle.js
+  // makeInstance: `unit.commandLayerCapBonus`); any operator may receive it, so every holder's raise counts
+  const raises = units.reduce((n, x) => n + (Number(x.commandLayerCapBonus) || 0), 0);
   for (const u of units) {
     for (const gid of gd.chess(u.chessId)?.garrisonIds || []) {
       const g = gd.garrison(gid);
       if (!g || g.eventType !== 'IN_BATTLE') continue;
       if (g.effectKey !== 'ADD_BOND') { credit(g, 1, u.commandLayerCapBonus || 0); continue; }
       const given = gd.garrison(g.bbStr?.give_garrison_id);
-      if (given && given.eventType === 'IN_BATTLE') credit(given, units.length);
+      if (given && given.eventType === 'IN_BATTLE') credit(given, units.length, raises);
     }
   }
   if (extra) for (const b of out.keys()) out.set(b, Infinity);

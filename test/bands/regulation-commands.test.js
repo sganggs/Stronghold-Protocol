@@ -770,3 +770,24 @@ test('a passive command taken from the skill-change pool applies in prep and in 
   assert.equal(damage.type, 'arts');
   assert.equal(h.b.errorCount, 0);
 });
+
+test('坚雷 on the receiver of a handed-out layer trait: the result audit allows its raised cap (round 83 audit)', async () => {
+  const { getVersionData } = await import('../../server/data.js');
+  const { GameData } = await import('../../server/match/gamedata.js');
+  const { specBounds } = await import('../../server/match/fields.js');
+  const { buildBattleSpec } = await import('../../server/sim/spec.js');
+  const gdReg = new GameData(getVersionData('act3autochess@V3_1', { log: () => {} }), 'mode_multi_hard');
+  // 荒芜拉普兰德 精锐 (garrison_79_b) hands every 【叙拉古】 operator 「每击倒一名敌人 … +4（每场战斗至多叠加40层）」
+  // (garrison_145_a); the second operator, a normal 荒芜拉普兰德, also holds its own 「… +2（每场战斗至多叠加20层）」
+  // (garrison_79_a) and carries a 坚雷 raise of 9 — the sim raises both its traits (garrisons/battle.js makeInstance)
+  const allowance = (raise) => {
+    const spec = buildBattleSpec({ battleId: 'a', fieldId: 'n:p', kind: 'normal', seed: 1, round: 9, timeLimit: 60,
+      players: [{ playerId: 'p', bonds: { siracusaShip: { layers: 10 } }, units: [
+        { uid: 1, kind: 'chess', chessId: 'chess_char_6_06_b', row: 10, col: 3, items: [] },
+        { uid: 2, kind: 'chess', chessId: 'chess_char_6_06_a', row: 10, col: 4, items: [], ...(raise ? { commandLayerCapBonus: raise } : {}) },
+      ] }], spawns: [], flags: { layerGainsEnabled: true } });
+    return specBounds(spec, gdReg).players.get('p').layerAllow.get('siracusaShip');
+  };
+  assert.equal(allowance(0), 40 * 2 + 20, 'two receivers × 40 + the own trait 20');
+  assert.equal(allowance(9), 40 * 2 + 20 + 9 + 9, 'the raised operator: its own trait 29 and the received one 49');
+});
