@@ -444,14 +444,16 @@ then the lower renderer id. Existing extracted scenes require re-extraction; mes
 stage (`tools/versions/layouts.mjs composeRegulationStage`). The build also writes the arena itself (`stages.json`
 `arena`, DATA §12; `regulationArena`), and extractor version 5 writes the three prefabs whole, one group each
 (`regulation_scenes.py`, scene.json `layout: 'pieces'`). The client draws the one piece a view shows
-(`render/arenaView.js arenaField`): the prep, normal and pen cameras a player block (hand row 7, equipment row 8, the road
+(`render/arenaView.js arenaField`): the prep and normal cameras a player block (hand row 7, equipment row 8, the road
 rows 9–12 cols 0–10 — the sim's cells, tile for tile — and its preview pen **beside the road**, rows 8–12 cols 12–18),
 联防 the `sub_02` board (rows 8–13), the boss, hidden and Final Assault prep cameras a boss field (rows 0–12, its pen
 rows 7–11 cols 7–13). Outside the piece the grid is void; the arena devices standing on the piece move with it and keep
 the stats of the stage's device of the same key; `config.enemy_place_rect` becomes the piece's pen rect, so
 `render/pen.js` lays the preview out there and the pen camera fits it. `board3d/scene.js` draws only that piece's group,
 shifted to its rows; a pieces scene with the composed stage, or a stage that names a piece with an older cut scene, falls
-back to the procedural board. The view's field switches when the camera's kind does. **[ASSUMED]** seat s draws the
+back to the procedural board. The view's field switches when the camera's kind does, except the pen detour: it keeps the originating
+normal or boss piece and its pen rectangle, including a stage refresh while the pen is open. Returning restores the
+remembered framing, side and shop state. **[ASSUMED]** seat s draws the
 block whose `ownerSeat` is s (the blocks are the same piece; the renderer passes no seat, so the first block); the key
 light is `sub_01`'s; the pen camera is fitted to the pen rect instead of the official `enemy_camera_param`.
 

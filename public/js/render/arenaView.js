@@ -19,7 +19,9 @@
 // blocks are the same piece, so this only picks which copy of the arena's devices is drawn.
 
 /** View of a camera kind ('prep' | 'normal' | 'pen' | 'unite' | 'boss' | 'hidden' | 'bossPrep'). */
-export function arenaViewOf(kind) {
+export function arenaViewOf(kind, from = null) {
+  // Previewing enemies is a camera detour within the originating piece, including boss prep.
+  if (kind === 'pen') return arenaViewOf(from);
   if (kind === 'unite') return 'unite';
   if (kind === 'boss' || kind === 'hidden' || kind === 'bossPrep') return 'boss';
   return 'normal';
