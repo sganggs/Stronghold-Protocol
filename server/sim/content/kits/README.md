@@ -358,7 +358,10 @@ Each item is a mistake this project already made once. Tick every one for every 
   “生命回复速度”属性，不受治疗加成和禁疗影响」; 分支特性信息 吟游者) is an hpRegen / hpRegenRatio buff on the target, never
   `battle.heal`: 禁疗 and 无法被友方治疗 (`noHeal`) do not stop it and no 治疗加成 scales it (attack/heal.js `mode: 'regen'`).
   Examples: 安洁莉娜 兼职工作, the 吟游者 trait (professions.js `bardRegen`), 调香师, 瑕光 S2, 铃兰 S3, 锡人;
-  `test/content/feedback5-regen.test.js` (GitHub #96 / #137). A per-second 「恢复…生命」 without such a note stays a heal.
+  `test/content/feedback5-regen.test.js` (GitHub #96 / #137). A blackboard key `hp_recovery_per_sec` or
+  `hp_recovery_per_sec_by_max_hp_ratio` is that attribute's own name (PRTS 术语释义), so such a skill or talent raises
+  生命回复速度 whatever its description says (e.g. 宴 S1, 乌有 S1; round 83 audit). Without such a key or note,
+  a per-second 「恢复…生命」 stays a heal.
 
 ## Old references
 
