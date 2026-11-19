@@ -375,7 +375,9 @@ test('乌有: S1 window, ambush, merchant retreat, S2 branches', (t) => {
   const foe = amb.spawn(DOG, { pos: [10, 5], mods: { hpMul: 10 } });
   assert.ok(amb.runUntil(() => amb.hooksOf('hit').some((c) => c.source === n && c.dmg?.isAttack), 3));
   const hit = amb.hooksOf('hit').find((c) => c.source === n && c.dmg?.isAttack);
-  near(hit.dmg.mul, 1.55);
+  // 出其不意 atk_scale is this attack's ATK, on amount before DEF. Against DEF 0 the two readings match; mul stays 1.
+  near(hit.dmg.amount, n.s.atk * 1.55);
+  near(hit.dmg.mul ?? 1, 1);
   const stun = foe.findBuff('stun');
   assert.ok(stun && stun.timeLeft <= 4 + 1e-6 && stun.timeLeft > 3, `stun ${stun?.timeLeft}`);
 

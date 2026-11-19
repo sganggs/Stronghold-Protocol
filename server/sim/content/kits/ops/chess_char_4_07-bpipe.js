@@ -43,7 +43,9 @@ export default withDefaults({
             sortEnemyTargets(battle, unit, extra, c.profile?.priority ?? null);
             if (extra[0]) c.targets = [...c.targets, extra[0]];
           }, { owner: unit });
-          battle.on('hit', (c) => { if (c.source === unit && c.dmg.isAttack && unit.mem.bpBoost) c.dmg.mul *= num(t0.atk_scale, 1.3); }, { owner: unit });
+          battle.on('hit', (c) => { // 攻击力提升至 atk_scale, before DEF
+            if (c.source === unit && c.dmg.isAttack && unit.mem.bpBoost) c.dmg.amount *= num(t0.atk_scale, 1.3);
+          }, { owner: unit });
           battle.on('attack', (c) => { if (c.attacker === unit) unit.mem.bpBoost = false; }, { owner: unit });
         } },
         { install(battle, unit) { // 军事传统: every 先锋 of the team starts with +6 SP

@@ -165,7 +165,7 @@ export default {
             if (s.length) ctx.targets = [s[0], ...ctx.targets.filter((t) => t !== s[0])].slice(0, Math.max(1, ctx.targets.length));
           }, { owner: unit });
           battle.on('hit', (ctx) => {
-            if (ctx.source === unit && ctx.target.side === 'enemy' && ctx.target.s.flags.sleep) ctx.dmg.mul *= mercy;
+            if (ctx.source === unit && ctx.target.side === 'enemy' && ctx.target.s.flags.sleep) ctx.dmg.amount *= mercy; // 攻击力提升至 atk_scale, before DEF
           }, { owner: unit });
           // (a lone sleeper is found by the engine's own target search: `trait.hitSleep` makes sleepers targetable
           // and damageable for her only)

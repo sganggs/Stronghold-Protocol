@@ -71,7 +71,7 @@ function nearestAlly(b, src, from, range, seen) {
 
 // --- CRITIC ----------------------------------------------------------------------------------------------
 
-/** 战线推进者: the first attack after each block is ×sheltr ×(1+atk). PowerHit is not a cooldown. */
+/** 战线推进者: the first attack after each block has ATK ×sheltr ×(1+atk), before DEF. PowerHit is not a cooldown. */
 function kitChghmr(ab) {
   const sheltr = tv(ab, 'DmgUp.sheltr_atk_scale', 2.5);
   const atk = bb(ab.sk.PowerHit, 'atk', 0.8);
@@ -81,7 +81,7 @@ function kitChghmr(ab) {
     hitOut(c, b, e, a) {
       if (!a.armed || !c.dmg || !c.dmg.isAttack) return;
       a.armed = false;
-      c.dmg.mul *= sheltr * (1 + atk);
+      c.dmg.amount *= sheltr * (1 + atk);
     },
   }];
 }

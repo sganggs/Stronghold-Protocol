@@ -53,7 +53,7 @@ function aurora(_bb, chess, def) {
         const sk = unit.skill;
         return !!sk && !sk.active && sk.sp <= sk.spCost * spRatio + 1e-9;
       }, { hpRegenRatio: ratio }, { flags: { disarm: true } });
-      // A frozen target takes atk_scale × base ATK instead of the skilled ATK, and is not chilled again.
+      // A frozen target takes atk_scale × base ATK instead of the skilled ATK (undo the skill ATK% before DEF), and is not chilled again.
       battle.on('hit', (c) => {
         if (c.source !== unit || !c.dmg?.isAttack) return;
         const sk = unit.skill;
@@ -62,7 +62,7 @@ function aurora(_bb, chess, def) {
         if (!t?.s?.flags?.freeze) return;
         const sb = skillBbOf(chess, S2);
         const atk = num(sb.atk), scale = num(sb.atk_scale, 1), denom = 1 + atk;
-        if (denom > 1e-6) c.dmg.mul *= scale / denom;
+        if (denom > 1e-6) c.dmg.amount *= scale / denom;
       }, { owner: unit });
     },
   };

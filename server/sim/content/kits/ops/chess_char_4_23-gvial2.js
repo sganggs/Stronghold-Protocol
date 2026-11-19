@@ -56,8 +56,8 @@ export default withDefaults({
         } },
       ],
       install(battle, unit) {
-        const s = num(tb.atk_scale, 0); // module (elite): ×1.1 against blocked enemies
-        if (s > 0) battle.on('hit', (c) => { if (c.source === unit && c.dmg.isAttack && c.target.blockedBy === unit) c.dmg.mul *= s; }, { owner: unit });
+        const s = num(tb.atk_scale, 0); // module (elite): ATK raised to atk_scale against blocked enemies, before DEF
+        if (s > 0) battle.on('hit', (c) => { if (c.source === unit && c.dmg.isAttack && c.target.blockedBy === unit) c.dmg.amount *= s; }, { owner: unit });
         const yr = num(tb.hp_ratio, 0), yd = num(tb.damage_resistance, 0); // module CEN-Y: 生命值高于50%时受到的物理伤害降低20%
         if (yr > 0 && yd > 0) battle.on('hit', (c) => { if (c.target === unit && c.dmg.type === 'phys' && unit.hpRatio > yr) c.dmg.mul *= 1 - yd; }, { owner: unit });
         if (!S3) return;

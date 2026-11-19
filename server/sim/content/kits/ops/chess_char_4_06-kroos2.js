@@ -27,11 +27,11 @@ export default withDefaults({
         onStart({ unit }) { unit.mem.kroosHits = 0; },
       },
       talents: [{ install(battle, unit) {
-        // 中的: the ×1.5 is rolled before mitigation; the stun (and the S2 "击中目标" count) only for shots that landed
+        // 中的: atk_scale is this attack's ATK (before DEF). The stun (and the S2 "击中目标" count) only for shots that landed.
         const crits = new WeakSet();
         battle.on('hit', (c) => {
           if (c.source !== unit || !c.dmg.isAttack || c.target.side !== 'enemy') return;
-          if (battle.rng.chance(num(t0.prob, 0.2))) { c.dmg.mul *= num(t0.atk_scale, 1.5); crits.add(c.dmg); }
+          if (battle.rng.chance(num(t0.prob, 0.2))) { c.dmg.amount *= num(t0.atk_scale, 1.5); crits.add(c.dmg); }
         }, { owner: unit });
         battle.on('damaged', (c) => {
           if (c.source !== unit || !c.dmg || !c.dmg.isAttack || c.target.side !== 'enemy') return;

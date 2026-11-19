@@ -162,7 +162,7 @@ export default {
         sk.activate('SP_FULL');
       }, { owner: unit });
     };
-    // S2: the pack's empowered next attack (armed by the cast; ×scale on its hits; a kill pays once)
+    // S2: the pack's empowered next attack (armed by the cast; atk_scale on its ATK, before DEF; a kill pays once)
     const installGift = (battle, unit) => {
       // the cast: ready, the pack on the field in either form, no unused gift on it (PRTS 备注 「仅场上存在狼群，且狼群未获得此技能的
       // 充能时可触发技能」 — the words of S1's, whose 备注 counts the 战术点形态 [ASSUMED the same for S2])
@@ -179,7 +179,7 @@ export default {
       }, { owner: unit, priority: -100 });
       battle.on('hit', (ctx) => {
         const g = ctx.source?.mem?.vigilGiftOn;
-        if (g && ctx.dmg.isAttack && ctx.source === wolfOf(unit)) ctx.dmg.mul *= g.scale;
+        if (g && ctx.dmg.isAttack && ctx.source === wolfOf(unit)) ctx.dmg.amount *= g.scale;
       }, { owner: unit });
       battle.on('kill', (ctx) => {
         const g = ctx.killer?.mem?.vigilGiftOn;

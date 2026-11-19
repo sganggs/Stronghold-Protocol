@@ -94,9 +94,9 @@ export default withDefaults({
             c.dmg.mul *= 1 - num(t0.damage_resistance, 0.25);
           }, { owner: unit });
         } },
-        { install(battle, unit) { // 弱肉强食: ×1.3 against enemies of weight ≤ 3
+        { install(battle, unit) { // 弱肉强食: ATK raised to atk_scale against enemies of weight ≤ 3, before DEF
           battle.on('hit', (c) => {
-            if (c.source === unit && c.dmg.isAttack && c.target.side === 'enemy' && c.target.s.massLevel <= num(t1.value, 3)) c.dmg.mul *= num(t1.atk_scale, 1.3);
+            if (c.source === unit && c.dmg.isAttack && c.target.side === 'enemy' && c.target.s.massLevel <= num(t1.value, 3)) c.dmg.amount *= num(t1.atk_scale, 1.3);
           }, { owner: unit });
         } },
       ],

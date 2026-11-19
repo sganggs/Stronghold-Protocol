@@ -790,14 +790,17 @@ const BY_BUFF = {
       });
     }
   },
-  // 动能单手弩: on a hit, prob to multiply that damage by atk_scale ("提升至130%"). [ASSUMED] the same hit-mul slot
-  // as 精准狙击镜, so it stacks multiplicatively with other hit multipliers. Element gauges and item procs are skipped.
+  // 动能单手弩 / 动能轰击弩: prob to raise that attack's ATK to atk_scale ("该次攻击力提升至130%"), before DEF.
+  // Template act3autochess_equip_acarm150_global_buff is ON_CALCULATE_DAMAGE → Dice → AtkScaleUp
+  // (_atkScaleKey atk_scale, _overwriteAtkScale false: multiply the attack's existing scale). The live
+  // blackboard is 1.3, so _cancelIfAtkScaleZero does not come up; a 0 scale still zeroes the hit.
+  // Element gauges and item procs are skipped.
   act3autochess_equip_acarm150_global_buff(battle, u, p, S) {
     const pr = num(p.prob), sc = num(p.atk_scale, 1);
     if (!(pr > 0) || sc === 1) return;
     S.on('hit', (c) => {
       if (c.source !== u || !c.dmg || c.dmg.type === 'element' || isProc(c.dmg)) return;
-      if (chance(battle, pr)) c.dmg.mul *= sc;
+      if (chance(battle, pr)) c.dmg.amount *= sc;
     });
   },
   // 汲取者之喙: heal self heal_scale × the damage dealt. can_double (the fused 镰) doubles that while the skill is on.
