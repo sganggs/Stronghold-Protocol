@@ -150,7 +150,8 @@ describe('selected operator shortcuts', { skip: !ENABLED && 'set SP_E2E=1 and CH
       await page.mouse.up();
       await page.keyboard.press('Escape');
       await page.click('.gm__gear');
-      await page.waitForSelector('.modal .set-keys');
+      await page.click('[data-settings-tab="controls"]');
+      await page.waitForSelector('.modal .set-keys', { visible: true });
       await inert('a dialog blocks selected shortcuts');
       await page.keyboard.press('Escape');
       await page.waitForSelector('.modal', { hidden: true });

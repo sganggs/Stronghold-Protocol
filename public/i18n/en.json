@@ -2579,5 +2579,15 @@
   "用 Safari 打开本站，点击浏览器的分享按钮。": "Open this site in Safari and tap the browser's Share button.",
   "选择“添加到主屏幕”；若出现“作为网页 App 打开”，请保持开启。": "Choose Add to Home Screen. If Open as Web App appears, leave it turned on.",
   "点击“添加”，再从主屏幕打开游戏并横置手机。": "Tap Add, then open the game from the Home Screen and turn your phone sideways.",
-  "点击“添加”，再从主屏幕打开游戏并横置平板。": "Tap Add, then open the game from the Home Screen and turn your iPad sideways."
+  "点击“添加”，再从主屏幕打开游戏并横置平板。": "Tap Add, then open the game from the Home Screen and turn your iPad sideways.",
+  "战斗显示": "Battle display",
+  "资源与反馈": "Resources & feedback",
+  "设置分类": "Settings categories",
+  "搜索设置": "Search settings",
+  "搜索设置名称或说明": "Search setting names or descriptions",
+  "清空搜索": "Clear search",
+  "搜索结果": "Search results",
+  "找到 {n} 项设置": "Settings found: {n}",
+  "没有找到匹配的设置，请尝试其它关键词。": "No matching settings. Try another keyword.",
+  "操作": "Controls"
 }

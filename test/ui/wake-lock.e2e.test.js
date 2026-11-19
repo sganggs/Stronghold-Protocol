@@ -97,6 +97,7 @@ describe('App screen wake lock', { skip: !ENABLED && 'set SP_E2E=1 (and have Chr
   }
   async function settings(page) {
     await page.click('.title-settings, .gm__gear');
+    await page.click('[data-settings-tab="controls"]');
     await page.waitForSelector('.modal');
   }
   async function toggle(page, on) {

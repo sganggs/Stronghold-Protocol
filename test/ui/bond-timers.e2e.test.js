@@ -47,7 +47,7 @@ describe('#746 bond timer settings and selected-unit card', { skip: !ENABLED && 
       await inject(page, rows); await page.click('.ff-unit.is-ally');
       await page.waitForSelector('.dpanel');
       assert.equal(await page.$('.dbond-times'), null);
-      await page.click('.gm__gear'); await page.waitForSelector('.modal');
+      await page.click('.gm__gear'); await page.waitForSelector('.modal'); await page.click('[data-settings-tab="battle"]');
       const state = await page.evaluate(label => {
         const all = [...document.querySelectorAll('.set-row')];
         const i = all.findIndex(r => r.querySelector('.set-row__label')?.textContent.startsWith(label));
@@ -64,7 +64,7 @@ describe('#746 bond timer settings and selected-unit card', { skip: !ENABLED && 
       assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('sp.pref.settings')).bondTimers), true);
       await page.reload({ waitUntil: 'networkidle0' }); await page.waitForSelector('.ff-unit.is-ally');
       await inject(page, rows); await page.click('.ff-unit.is-ally'); await page.waitForSelector('.dbond-times');
-      await page.click('.gm__gear'); await page.waitForSelector('.modal'); await toggle(page); await page.keyboard.press('Escape');
+      await page.click('.gm__gear'); await page.waitForSelector('.modal'); await page.click('[data-settings-tab="battle"]'); await toggle(page); await page.keyboard.press('Escape');
       assert.equal(await page.$('.dpanel'), null);
       await page.click('.ff-unit.is-ally'); await page.waitForSelector('.dpanel');
       assert.equal(await page.$('.dbond-times'), null, 'disabled even with the unit card open');
