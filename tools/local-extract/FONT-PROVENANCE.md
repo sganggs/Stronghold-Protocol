@@ -1,6 +1,7 @@
 # FONT-PROVENANCE — autochess local font bytes (internal only)
 
-> Scope: `tools/local-extract/fonts.py` + `extract.py --only font`, and the `fonts` group it writes into
+> Scope: `tools/local-extract/fonts.py`, the font job of `extract.py` (a required part of a full extraction since
+> §37.274, and `--only font` on its own), and the `fonts` group it writes into
 > `data/local-assets.json`. This page is provenance, not a licence declaration for redistribution.
 
 ## What ships and what does not
@@ -17,28 +18,32 @@
     `--only font`, keeps its copy;
   - the asset pack's plan (`assetPackPlan` → `withoutHeldFonts` → `public/js/assetPack.js planFromManifests`) drops the
     `fonts` group before the importer's plan is taken: the pack holds neither the files nor that group;
-  - the stage's copy of `data/local-assets.json` loses `groups.fonts` (`holdBackStagedFonts`, the same rule as
-    `holdBackStagedThemes`), so a host built from a package serves no local `@font-face` and the canvas shop draws with
-    the system font stack.
-- Local extraction is unchanged: `--only font` still writes `public/assets/local/fonts/` and this machine's
+  - the stage's copy of `data/local-assets.json` keeps `groups.fonts` as an empty object (`holdBackStagedFonts`, the
+    same rule as `holdBackStagedThemes`): the faces are gone, but the key stays because `fonts` is one of the required
+    local-extract groups (§37.274), so a host built from a package serves no local `@font-face`, the canvas shop draws
+    with the system font stack, and setup does not report the extraction as incomplete.
+- Local extraction: a full extract (`extract.py` without `--only`) **must** write these faces — it runs the font job
+  and fails, non-zero, without the install's `Arknights_Data` or when no pinned face is listed; `--only font` runs that
+  job alone (and keeps its old exit-code rule). Both paths still write `public/assets/local/fonts/` and this machine's
   `data/local-assets.json` `fonts` group, and the runtime on that machine still reads it (`themeFonts`). Only the
-  package copies are trimmed; `tools/local-extract/fonts.py` and the client runtime were not changed.
+  package copies are trimmed; the client runtime did not change.
 - The other local-client extractions under `public/assets/local/` (themes, scenes, meshes) are different: they DO ship
   when the packaging machine extracted them (可露希尔 is held to its own importable pack). This page only records the
   font part; see [DEPLOY.md](../../docs/DEPLOY.md) and [ASSETS.md](../../docs/ASSETS.md).
 
-**Consequence.** "No font binaries in git" and "the fonts are not distributed" now agree: a release zip built from a
-checkout that ran the extraction carries no font binary and no `fonts` entry, and a host of such a package falls back to
-the system faces.
+**Consequence.** "No font binaries in git" and "the fonts are not distributed" still agree: a release zip built from a
+checkout that ran the extraction carries no font binary and an empty `fonts` group, and a host of such a package falls
+back to the system faces.
 
 ## Decision (maintainer)
 
 **Fonts are not published.** No package — full, update, asset or theme — carries `public/assets/local/fonts/` or the
 `fonts` group of the shipped `data/local-assets.json`, and `THIRD-PARTY-NOTICES.md` gets no entry for these faces: a
 package that does not ship them is not a redistribution. The faces are extracted only on the machine that runs the game
-client (`--only font`), and a host without them falls back to the system fonts, as
-[THEMES.md](../../docs/THEMES.md) and [ARCHITECTURE.md](../../docs/ARCHITECTURE.md) record. The pinned bytes and the
-licence note below remain the provenance of that extraction; they are no longer inputs to a packaging decision.
+client (a full extraction must write them, §37.274; `--only font` does it alone), and a host without them falls back to
+the system fonts, as [THEMES.md](../../docs/THEMES.md) and [ARCHITECTURE.md](../../docs/ARCHITECTURE.md) record. The
+pinned bytes and the licence note below remain the provenance of that extraction; they are no longer inputs to a
+packaging decision.
 
 This document does not edit `THIRD-PARTY-NOTICES.md`. That file lists the downloaded `public/fonts/` faces and the
 Google-Fonts-loaded ones; no locally extracted face is a package input.

@@ -33,8 +33,9 @@
 // when this machine extracted them. The one extraction it never carries is public/assets/local/fonts/ (FONT_ART_PREFIX):
 // the maintainer's decision is that the locally extracted official faces are not distributed — the update zip is the
 // full stage's diff, so it has none either, the asset pack's plan drops their manifest group (withoutHeldFonts), and
-// the staged data/local-assets.json loses groups.fonts (holdBackStagedFonts) so a release host reads no face and the
-// canvas shop falls back to the system fonts. `--only font` on the machine still writes them for the runtime there.
+// the staged data/local-assets.json keeps an empty groups.fonts (holdBackStagedFonts) so a release host reads no face,
+// the canvas shop falls back to the system fonts, and the required-group check still finds the key. `--only font` on
+// the machine still writes them for the runtime there.
 // Missing scenes are not an error: the board keeps the metal tiles, and the
 // summary says so. Nothing else on disk ships, so art the data no longer lists (焰狐龙梓兰, left out of
 // 自选 in 0.2.0, or files of an old mapping) never ships even when this machine still has it. FULL_ZIP_JP_VOICE (below)
@@ -207,7 +208,8 @@ export const FX_ART_PREFIX = 'public/assets/local/fx/';
  * distributed: no package — full, update, asset or theme — carries this folder or the manifest group; the extraction
  * stays local and the client falls back to the system faces when the host has none. The full zip's plan holds them
  * back (`fontHeld`), the asset pack's plan drops the group (withoutHeldFonts), the update zip is the full stage's
- * diff, and the staged data/local-assets.json loses the group (holdBackStagedFonts).
+ * diff, and the staged data/local-assets.json keeps an empty group (holdBackStagedFonts) — the key is one of the
+ * required local-extract groups, the faces are not.
  */
 export const FONT_ART_PREFIX = 'public/assets/local/fonts/';
 /** The data/local-assets.json group of those faces (fonts.py writes it in place of the manifest's groups). */
@@ -917,10 +919,15 @@ export function holdBackStagedFonts(stage, log = () => {}) {
   const file = path.join(stage, 'data', 'local-assets.json');
   if (!isFile(file)) return false;
   const doc = readJson(file);
+  if (!doc) return false;
+  // The faces leave the package, but the group key stays as an empty group: `fonts` is one of the required
+  // local-extract groups (§37.274), so a release host must not look like an incomplete extraction.
   const next = withoutHeldFonts(doc);
-  if (!doc || next === doc) return false;
-  fs.writeFileSync(file, JSON.stringify(next));
-  log(`data/local-assets.json: without ${HELD_LOCAL_GROUPS.join(', ')} (locally extracted faces are in no package; the client falls back to the system fonts)`);
+  const held = { ...(next || {}), groups: { ...((next && next.groups) || {}), fonts: {} } };
+  if (JSON.stringify(held) === JSON.stringify(doc)) return false;
+  fs.writeFileSync(file, JSON.stringify(held));
+  log('data/local-assets.json: the fonts group is empty (locally extracted faces are in no package; the client '
+    + 'falls back to the system fonts)');
   return true;
 }
 

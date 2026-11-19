@@ -55,6 +55,9 @@ aklz4.py registers a decoder for it. This script pulls the art the web sources l
     only with an explicit --only fx (a plain run leaves them out): the Phase 1a sample by default, --fx-set used for
     every effect the units reference, --fx-keys <k1,k2> for named prefabs; textures are WebP quality 90 by default,
     --fx-texture-format png selects lossless PNG
+  - the three pinned official font faces the canvas shop's texts ask for (fonts.py FONT_SPECS)
+    → public/assets/local/fonts/ + manifest groups.fonts. Required: a plain run extracts them, and without the
+    install's Arknights_Data directory it fails (--only font runs that job alone). The bytes are never packaged
   - the three official 卫戍协议 in-match UI themes (autochess_themes.py: ac_n_initial 卫戍协议终端, ac_n_iron 乌萨斯齐心团,
     ac_s_closur 「全能的」可露希尔) → themes/<id>/theme.json (spTheme 1), layout.json, sprites/*.webp, voice/*.mp3.
     Opt-in like fx: --only theme or --only theme/<id>, read from --themes <backup or AB root>. Not in
@@ -88,8 +91,8 @@ Usage:
 
 Writes <out>/**.png|.webp|.skel|.atlas and data/local-assets.json (manifest of what was extracted). With --only, just
 the jobs whose output subdir one of the prefixes names run (`enemy` selects `spine/enemy` as `spine/enemy` does), and
-their groups replace those of the existing manifest (every other group is kept as is; a full run keeps an earlier
-groups.fonts, since only --only font writes it).
+their groups replace those of the existing manifest (every other group is kept as is; a full run writes the
+required groups.fonts itself, and --only font does it alone; an earlier fonts group is kept either way).
 Everything is (c) Hypergryph; for private, non-commercial fan use only.
 """
 import argparse
@@ -755,8 +758,8 @@ def previous_groups(old_groups, only):
     """Groups of the previous manifest a run keeps before the merge.
 
     After --only every earlier group is kept (only the ones that re-ran are replaced). A full run writes the expected
-    groups, so it keeps the groups it does not write: the partial char packs merged below, and fonts — written only by
-    --only font, so a full extract must not drop an earlier local font group.
+    groups, so it keeps the groups it does not write: the partial char packs merged below, and a font group an
+    earlier --only font (or the cursor job) left behind, in case this run could not write it.
     """
     if only:
         return old_groups
@@ -1172,8 +1175,8 @@ def list_theme_files(out_root, manifest, log, theme_ids):
 def expected_local_groups():
     """Group keys a full extract writes into data/local-assets.json (no --only; fx stays out — fx.py FX_GROUPS).
 
-    One key per JOBS output subdir, plus spine/enemy/<id>, spine/token/<id>, scene/<stageId>, scene/tex and 规程's
-    opening (season_entry.SUB).
+    One key per JOBS output subdir, plus spine/enemy/<id>, spine/token/<id>, scene/<stageId>, scene/tex, 规程's
+    opening (season_entry.SUB) and the pinned official font faces (`fonts`, written by every full extract; §37.274).
     Derived maps and WebP copies are files inside those groups, not new keys. Sorted. setup's
     tools/local-extract/expected.mjs is this list; test/setup-local-freshness.test.js keeps the copy honest.
     `extract.py --print-jobs` prints it and needs no game client.
@@ -1184,6 +1187,7 @@ def expected_local_groups():
     keys += [f'{scenes.SCENE_SUB}/{sid}' for sid, _deps in scenes.SCENES]
     keys.append(scenes.TEX_SUB)
     keys.append(season_entry.SUB)
+    keys.append('fonts')
     if len(keys) != len(set(keys)):
         raise RuntimeError('expected local groups are not unique')
     return sorted(keys)
@@ -1429,7 +1433,7 @@ def extract(args, ab_root, game_arg=None, game_data=None):
     cursor_on = wants_sub(args.only, cursor.SUB)
     versions_on = client and (not args.only or 'versions' in args.only)
     entry_on = client and wants_sub(args.only, season_entry.SUB)
-    font_on = client and 'font' in args.only
+    font_on = client and (not args.only or 'font' in args.only)
     if not jobs and not enemy_ids and not token_ids and not stage_ids and not reg_ids and not fx_on and not art_on and not versions_on and not theme_ids and not entry_on and not font_on and not shopdoc_ids and not cursor_on:
         print(f'--only {args.only}: no job matches', file=sys.stderr)
         return 2
@@ -1487,11 +1491,15 @@ def extract(args, ab_root, game_arg=None, game_data=None):
         font_game = game_data if game_data is not None else fonts.locate_game_data(game_arg, ab_root)
         if font_game is None:
             fonts_ok = False
-            print('skip fonts: no Arknights_Data directory (pass --game <install directory>); local font fallback '
-                  'stays active', file=sys.stderr)
+            print('fonts: the pinned official faces are required, and a full extract cannot read them without '
+                  'the install\'s Arknights_Data; pass --game <install directory> (a bare AssetBundle root has no '
+                  'font assets). --only theme / --only shopdocs runs need no client and still work', file=sys.stderr)
         else:
             total += fonts.export_fonts(font_game, out_root, manifest, print, only=None)
             fonts_ok = bool(manifest.get('fonts'))
+            if not fonts_ok:
+                print('fonts: none of the pinned official faces was listed; a full extract must list them '
+                      '(the client is missing them or their bytes failed the pinned SHA-256)', file=sys.stderr)
     old, old_chars = {}, {}
     if Path(args.manifest).exists():
         try:
@@ -1511,6 +1519,8 @@ def extract(args, ab_root, game_arg=None, game_data=None):
         doc['chars'] = operators.merge_chars(old_chars, chars)
     Path(args.manifest).write_text(json.dumps(doc, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
     ok = bool(total) or (font_on and fonts_ok)
+    if font_on and not fonts_ok:
+        ok = False
     print(f'done: {total} files extracted, manifest {args.manifest} ({count} entries)')
     if not ok:
         print('nothing was extracted: no file was written and no font was listed (check --only, --game and the '

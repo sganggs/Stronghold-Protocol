@@ -1,7 +1,8 @@
 // test/tools/local-extract-fonts.test.js — fonts.py: write a pinned font, keep a local file with the same hash,
 // never overwrite a conflicting one, skip a missing source; --only font's non-zero exit when nothing was written and
 // main() handing it the install's Arknights_Data rather than the temporary hot-update root; a full extract keeping an
-// earlier groups.fonts (extract.py previous_groups); and --only shopdocs registering and printing the archived
+// earlier groups.fonts (extract.py previous_groups); §37.274's requirement that a plain extract writes the font group
+// (it fails without the install's Arknights_Data); and --only shopdocs registering and printing the archived
 // producer's prefabs.json / card.json / shop.json with --themes required.
 //
 // The extraction runs in a temporary directory with fonts._read_fonts (and the pinned FONT_SPECS) monkeypatched, so
@@ -75,7 +76,7 @@ elif scenario == 'conflict':
     fonts._read_fonts = source(DATA)
 elif scenario == 'missing':
     fonts._read_fonts = lambda game_data: {}
-elif scenario not in ('full-run', 'font-exit', 'hot-update', 'shopdocs', 'theme-files'):
+elif scenario not in ('full-run', 'full-fonts', 'font-exit', 'hot-update', 'shopdocs', 'theme-files'):
     raise SystemExit('unknown scenario ' + scenario)
 
 if scenario == 'full-run':
@@ -116,6 +117,50 @@ elif scenario == 'font-exit':
         extract.fonts.export_fonts = keep
         codes['kept'] = extract.extract(make_args(), str(work / 'fake-ab'), None, game2)
     result = {'codes': codes, 'logs': printed.getvalue().splitlines()}
+elif scenario == 'full-fonts':
+    # §37.274: fonts are a required group, so a plain extract runs the font job and fails without it.
+    import argparse, contextlib, importlib.util, io
+    spec = importlib.util.spec_from_file_location('extract', str(tool / 'extract.py'))
+    extract = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(extract)
+    # A full run with a bare AB root: no bundle job is needed to reach the font requirement.
+    extract.select_jobs = lambda only: []
+    extract.spine_ids = lambda *a, **k: []
+    extract.scene_ids = lambda *a, **k: []
+    extract.regulation_ids = lambda *a, **k: []
+    extract.fx_selected = lambda *a, **k: False
+    extract.versions.export = lambda *a, **k: 0
+
+    def make_args():
+        return argparse.Namespace(only=[], themes=[], out=str(work / 'out'), manifest=str(work / 'manifest.json'),
+                                  plugin_root='.', plugin_art=False, scenes=[], fx_set='sample', fx_keys='',
+                                  fx_jobs=0, fx_add_only=False, fx_texture_format='webp', game=None)
+
+    codes, errs = {}, {}
+
+    def run(name, game_data):
+        err, out = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stderr(err), contextlib.redirect_stdout(out):
+            codes[name] = extract.extract(make_args(), str(work / 'fake-ab'), None, game_data)
+        errs[name] = err.getvalue()
+
+    # A bare AssetBundle root has no Arknights_Data: the required faces cannot be read, so the run fails.
+    extract.fonts.locate_game_data = lambda raw, root: None
+    run('no_game', None)
+    # With the install's Arknights_Data and the pinned faces listed, the same full run succeeds.
+    game2 = work / 'client' / 'Arknights_Data'
+    game2.mkdir(parents=True)
+
+    def keep(game, out_root, manifest, log, only=None):
+        manifest.setdefault('fonts', {})['FakeFont-One'] = {'path': '/assets/local/fonts/FakeFont-One.ttf'}
+        return 0
+
+    extract.fonts.export_fonts = keep
+    run('listed', game2)
+    # Nothing listed: still required, so the run fails even though the state file was written.
+    extract.fonts.export_fonts = lambda *a, **k: 0
+    run('unlisted', game2)
+    result = {'codes': codes, 'errs': errs}
 elif scenario == 'hot-update':
     # main() resolves Arknights_Data from --game / the located install before client_bundles yields its temporary
     # hot-update root, so --only font never takes the temporary root for the install directory.
@@ -276,6 +321,14 @@ test('fonts.export_fonts skips a font whose source is missing, without writing o
 test('--only font exits non-zero when nothing was written, and only a listed font group counts as extracted', { skip: !PY && 'no python' }, () => {
   const result = runDriver('font-exit');
   assert.deepEqual(result.codes, { no_game: 1, nothing: 1, kept: 0 });
+});
+
+test('a plain extract runs the font job and fails without the pinned faces (§37.274)', { skip: !PY && 'no python' }, () => {
+  const result = runDriver('full-fonts');
+  assert.deepEqual(result.codes, { no_game: 1, listed: 0, unlisted: 1 }, 'fonts are required by a full extract');
+  assert.match(result.errs.no_game, /fonts: the pinned official faces are required/);
+  assert.match(result.errs.no_game, /pass --game <install directory>/);
+  assert.match(result.errs.unlisted, /fonts: none of the pinned official faces was listed/);
 });
 
 test('main() hands --only font the install Arknights_Data, not the temporary hot-update AB root', { skip: !PY && 'no python' }, () => {
