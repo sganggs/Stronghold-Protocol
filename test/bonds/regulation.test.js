@@ -512,6 +512,34 @@ describe('规程·序列Ⅰ bonds', { concurrency: 1 }, () => {
     assert.equal(found, true);
   });
 
+  test('叙拉古_2: a successful abnormal waits create_cd; a missed roll does not', (t) => {
+    const h = fight(t, {
+      bonds: { siracusaShip: bond(6, 0) },
+      pieces: [piece('reg_sir_cd', ['siracusaShip'])],
+    });
+    h.step();
+    const u = h.unit('reg_sir_cd');
+    const e = tank(h, [9, 8]);
+    const orig = h.b.rng;
+    let mode = 'fail';
+    let calls = 0;
+    h.b.rng = Object.assign(() => { calls++; return mode === 'fail' ? 0.99 : 0; }, orig);
+    const hit = () => h.b.dealDamage({ source: u, target: e, amount: 10, type: 'phys', canDodge: false });
+    hit();
+    assert.equal(abnormal(e), false, 'a missed dice applies nothing');
+    const missed = calls;
+    mode = 'ok';
+    hit();
+    assert.equal(abnormal(e), true, 'the miss did not start create_cd');
+    const landed = calls;
+    assert.ok(landed > missed, 'the successful roll consumes rng');
+    hit();
+    assert.equal(calls, landed, 'create_cd 0.2 blocks the next roll');
+    h.run(0.2);
+    hit();
+    assert.ok(calls > landed, 'the window is cur_time >= next_time');
+  });
+
   test('叙拉古 swapped to bondeffect_siracusa deploys in stealth and has no abnormal pulse', (t) => {
     const h = fight(t, {
       bondId: 'siracusaShip', effectId: 'bondeffect_siracusa',
@@ -801,24 +829,57 @@ describe('规程·序列Ⅰ bonds', { concurrency: 1 }, () => {
     h.b.dealDamage({ source: u, target: e, amount: 10, type: 'phys' });
     assert.equal(e.mem.iberia.stacks, 2);
 
-    let splashed = false;
-    const hs = fight(t, {
+    const low = fight(t, {
       seed: 1,
       bonds: { iberiaShip: bond(1, 0, 1) },
       pieces: [piece('reg_ib2', ['iberiaShip'])],
     });
-    hs.step();
-    const src = hs.unit('reg_ib2');
-    const primary = tank(hs, [9, 8]);
-    const other = tank(hs, [9, 9]);
-    const start = other.hp;
-    for (let i = 0; i < 40 && other.hp === start; i++) {
-      hs.b.dealDamage({ source: src, target: primary, amount: 10, type: 'phys' });
-      hs.run(0.21);
+    low.step();
+    const src = low.unit('reg_ib2');
+    const primary = tank(low, [9, 8]);
+    const near = tank(low, [9, 9]);
+    const far = tank(low, [9, 9.6]);
+    const near0 = near.hp, far0 = far.hp;
+    low.b.dealDamage({ source: src, target: primary, amount: 10, type: 'phys', canDodge: false });
+    for (let i = 0; i < 40; i++) {
+      low.b.dealDamage({ source: src, target: primary, amount: 10, type: 'phys', canDodge: false });
+      low.run(0.21);
     }
-    splashed = other.hp < start;
-    assert.equal(splashed, true);
-    assert.ok(start - other.hp >= 3 * src.s.atk - 1, 'splash is 3× atk arts');
+    assert.equal(near.hp, near0, 'below six there is no splash');
+    assert.equal(far.hp, far0, 'below six there is no splash');
+    assert.equal(primary.findBuff('bond:iberia:slow'), null, 'below six the speed buff is behind is_power');
+    const dot = tank(low, [8, 8]);
+    low.b.dealDamage({ source: src, target: dot, amount: 10, type: 'phys', canDodge: false });
+    assert.equal(dot.mem.iberia.stacks, 1);
+    const dotHp = dot.hp;
+    low.run(1.1);
+    close(dotHp - dot.hp, 0.11 * src.s.atk, 'below six the DoT is not doubled');
+  });
+
+  test('伊比利亚: six-member splash is radius 1 and one target', (t) => {
+    const sp = fight(t, {
+      seed: 1,
+      bonds: { iberiaShip: bond(6, 0) },
+      pieces: [piece('reg_ib_sp', ['iberiaShip'])],
+    });
+    sp.step();
+    const ssrc = sp.unit('reg_ib_sp');
+    const p = tank(sp, [9, 8]);
+    const a = tank(sp, [9, 9]);
+    const b = tank(sp, [9, 7]);
+    const outside = tank(sp, [9, 9.6]);
+    let saw = false;
+    for (let i = 0; i < 80 && !saw; i++) {
+      const a0 = a.hp, b0 = b.hp, f0 = outside.hp;
+      sp.b.dealDamage({ source: ssrc, target: p, amount: 10, type: 'phys', canDodge: false });
+      const da = a0 - a.hp, db = b0 - b.hp, df = f0 - outside.hp;
+      if (da === 0 && db === 0 && df === 0) { sp.run(0.21); continue; }
+      saw = true;
+      assert.equal(df, 0, 'splash radius is the template literal 1, not range_radius 1.7');
+      assert.equal((da > 0 ? 1 : 0) + (db > 0 ? 1 : 0), 1, 'damage_target_cnt defaults to 1');
+      close(Math.max(da, db), 3 * ssrc.s.atk, 'splash is 3× atk arts');
+    }
+    assert.equal(saw, true, 'six members still splash');
   });
 
   test('莱塔尼亚: no opening summon; a killed enemy summons an owned note at its death tile center', (t) => {

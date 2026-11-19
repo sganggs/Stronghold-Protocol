@@ -435,10 +435,17 @@ function installSiracusa2(battle, pid, effectId, members) {
   });
   if (!six) return;
   const prob = num(bb.prob, 0);
+  // siracusa_power EnsureBlackboardDefaultValue create_cd 0.2, overrideIfExists. Not on the bond blackboard.
+  // The add runs only after Dice succeeds (no AlwaysNext), so a miss does not start the window.
+  const createCd = 0.2;
+  const nextAt = new WeakMap();
   battle.on('damaged', (c) => {
     const u = c.source, t = c.target, dmg = c.dmg;
     if (!set.has(u) || !t || t.side !== 'enemy' || !t.alive || rider(dmg) || tagged(dmg, 'bond:siracusa')) return;
+    const now = battle.time;
+    if (now + 1e-9 < num(nextAt.get(u), 0)) return;
     if (!(battle.rng() < prob)) return;
+    nextAt.set(u, now + createCd);
     const L = S.bondLayers(battle, pid, 'siracusaShip');
     const dur = scaled(bb, 'ab_buff_duration_base', 'ab_buff_duration_per_stack', L, 'ab_buff_duration_max');
     const status = SIRACUSA_STATUS[Math.floor(battle.rng() * SIRACUSA_STATUS.length)];
@@ -630,23 +637,36 @@ function installIberia(battle, pid, effectId, members) {
     st.until = now + num(bb.dot_duration, 10);
     st.atk = num(who.s.atk);
     st.power = six;
-    const slowMax = num(bb[`${speedKey}.max_stack_cnt`], 20);
-    st.slow = Math.min(slowMax, st.slow + 1);
-    st.slowUntil = now + num(bb[`${speedKey}.speed_duration`], 10);
-    const move = num(bb[`${speedKey}.move_speed`], -0.04);
-    battle.addBuff(t, {
-      key: 'bond:iberia:slow', duration: num(bb[`${speedKey}.speed_duration`], 10), refresh: 'replace',
-      // [ASSUMED] move_speed is an additive attribute-style factor (1 + value × stacks), floored at 0.
-      mods: { moveMul: Math.max(0, 1 + move * st.slow) },
-    });
-    const prob = num(bb.prob_base) + num(bb.prob_per_stack) * S.bondLayers(battle, pid, 'iberiaShip');
-    if (battle.rng() < prob) {
-      const radius = num(bb.range_radius, 1);
-      const amount = num(bb.atk_scale, 0) * st.atk;
-      if (amount > 0) {
-        for (const e of battle.enemies) {
-          if (!e.alive || e === t || !inRadius(e, t.x, t.y, radius)) continue;
-          battle.dealDamage({ source: who, target: e, amount, type: 'arts', isSplash: true, tags: ['bond:iberia', 'addition'] });
+    // Speed and the splash sit after FilterByBlackboardValue is_power. The DoT above does not.
+    if (six) {
+      const slowMax = num(bb[`${speedKey}.max_stack_cnt`], 20);
+      st.slow = Math.min(slowMax, st.slow + 1);
+      st.slowUntil = now + num(bb[`${speedKey}.speed_duration`], 10);
+      const move = num(bb[`${speedKey}.move_speed`], -0.04);
+      battle.addBuff(t, {
+        key: 'bond:iberia:slow', duration: num(bb[`${speedKey}.speed_duration`], 10), refresh: 'replace',
+        // [ASSUMED] move_speed is an additive attribute-style factor (1 + value × stacks), floored at 0.
+        mods: { moveMul: Math.max(0, 1 + move * st.slow) },
+      });
+      const prob = num(bb.prob_base) + num(bb.prob_per_stack) * S.bondLayers(battle, pid, 'iberiaShip');
+      if (battle.rng() < prob) {
+        // AOEDamage _radius is the literal 1. range_radius on the bond blackboard is not read here.
+        // damage_target_cnt defaults to 1 (EnsureBlackboardDefaultValue, overrideIfExists) and is not on the bond bb.
+        const amount = num(bb.atk_scale, 0) * st.atk;
+        if (amount > 0) {
+          const hits = [];
+          for (const e of battle.enemies) {
+            if (!e.alive || e === t || !inRadius(e, t.x, t.y, 1)) continue;
+            hits.push(e);
+          }
+          // [ASSUMED] RANDOM walks battle.enemies order. One roll when more than one candidate.
+          if (hits.length > 1) {
+            const i = Math.floor(battle.rng() * hits.length);
+            hits.splice(0, hits.length, hits[i]);
+          }
+          for (const e of hits) {
+            battle.dealDamage({ source: who, target: e, amount, type: 'arts', isSplash: true, tags: ['bond:iberia', 'addition'] });
+          }
         }
       }
     }
