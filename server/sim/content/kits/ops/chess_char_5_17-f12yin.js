@@ -22,6 +22,14 @@ export default {
     return {
       skills: lazySkills({
         skchr_f12yin_1: () => ({ kind: instantKind(chess, def), attack: { atkScale: num(bb.atk_scale, 1), maxTargets: Math.max(1, num(bb.max_target, 2)) } }),
+        // 横扫架势: the `skill` spec, also keyed so it still runs when S3 is the chess default (规程).
+        skchr_f12yin_2: () => ({
+          kind: 'toggle',
+          allyTargets: false,
+          mods: mods({ atkPct: num(bb.atk), defPct: num(bb.def), blockCnt: num(bb.block_cnt), hpRegenRatio: num(bb.hp_recovery_per_sec_by_max_hp_ratio) }),
+          targeting: skillGrid(chess, def) ? { rangeGrid: skillGrid(chess, def) } : undefined,
+          attack: { hitAllBlocked: true },
+        }),
         skchr_f12yin_3: () => ({
           kind: 'duration',
           mods: mods({ atkPct: num(bb.atk), batPct: batPct(bb.base_attack_time, chess) }),

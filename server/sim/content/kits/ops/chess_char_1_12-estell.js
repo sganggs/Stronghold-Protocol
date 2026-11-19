@@ -15,9 +15,15 @@ export default {
     const t = talentBb(chess, 0);
     const grid = talentGrid(chess, 0);
     const tb = traitBb(chess);
+    // 舍身突击 is `skill` on the season where it is the default, and also keyed: 规程's default is the β型,
+    // so a selected S2 must still find this spec (selectSkillSpec only falls back to `skill` for the default).
+    const rush = { kind: 'duration', mods: { atkPct: num(bb.atk) }, flags: { noHeal: true } };
     return {
-      skill: { kind: 'duration', mods: { atkPct: num(bb.atk) }, flags: { noHeal: true } },
-      skills: { 'skcom_atk_up[2]': { kind: 'duration', mods: { atkPct: num(skillBbOf(chess, 'skcom_atk_up[2]').atk) } } },
+      skill: rush,
+      skills: {
+        skchr_estell_2: rush,
+        'skcom_atk_up[2]': { kind: 'duration', mods: { atkPct: num(skillBbOf(chess, 'skcom_atk_up[2]').atk) } },
+      },
       talents: [{ install(battle, unit) {
         battle.on('death', (ctx) => {
           const e = ctx.unit;

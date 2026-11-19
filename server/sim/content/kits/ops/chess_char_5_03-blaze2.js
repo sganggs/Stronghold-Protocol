@@ -33,6 +33,11 @@ export default {
   // [ASSUMED: no duration in the data]). Module PRI-Y (elite): SP +0.2/s while an enemy in range is in an element burst.
   chess_char_5_03_a: (bb, chess, def) => {
     const t0 = talent(chess, 0), t1 = talent(chess, 1), tb = traitBb(chess), tm = talent(chess, -1);
+    const talentBbs = (chess?.talents || []).map((t) => t?.bb).filter((b) => b && typeof b === 'object');
+    // 规程 default module: hidden talent { duration, atk } — 灼燃爆发后 10 秒攻击力 +10%. 盟约 has neither key.
+    const meltBuff = talentBbs.find((b) => b.atk != null && b.duration != null && b.damage_scale == null) ?? {};
+    // 规程 module 003 绝处重燃: a second index -1 { damage_scale, ep_damage_ratio, sp }. talent() keeps only the first -1.
+    const rally = talentBbs.find((b) => b.damage_scale != null && b.ep_damage_ratio != null && b.sp != null) ?? {};
     const sid = selectedId(chess, def);
     const lose = num(bb.lose_hp_scale);
     const burnTiles = (battle, unit) => {
@@ -112,6 +117,8 @@ export default {
             elementHit(battle, unit, c.target, unit.s.atk * num(t0.ep_damage_scale), 'blazeMelt', 'burn');
             // 绝处重燃: "倒地期间…无法被治疗" — the meltdown heal does not reach her while downed
             if (!unit.mem.downed) battle.heal(unit, unit, unit.s.maxHp * num(t0.hp_ratio), { self: true });
+            const buffAtk = num(meltBuff.atk), buffDur = num(meltBuff.duration);
+            if (buffAtk > 0 && buffDur > 0 && on(unit)) battle.addBuff(unit, { key: 'blaze2:meltAtk', duration: buffDur, mods: { atkPct: buffAtk }, refresh: 'replace' });
             battle.fx('meltdown', { x: c.target.x, y: c.target.y, id: c.target.id });
           }, { owner: unit });
         } },
@@ -121,6 +128,7 @@ export default {
             if (c.unit !== unit || c.prevented || unit.mem.downed) return;
             c.prevented = true;
             unit.mem.downed = true;
+            unit.mem.blazeDownedThisHit = true;
             if (unit.skill?.active) unit.skill.end('downed');
             battle.releaseBlocked(unit);
             const dep = unit.deploySeq;
@@ -133,11 +141,26 @@ export default {
                 battle.removeBuff(u, buff);
                 u.mem.downed = false;
                 for (const e of battle.foesInRadius(u.x, u.y, NEARBY_RADIUS)) if (e.alive) battle.applyStatus(e, 'stun', { duration: num(t1.stun), source: u });
+                if (num(rally.sp) > 0 && u.skill) u.skill.gainSp(num(rally.sp), 'talent');
                 battle.fx('revive', { x: u.x, y: u.y, id: u.id, r: NEARBY_RADIUS });
               },
             });
             battle.fx('downed', { x: unit.x, y: unit.y, id: unit.id });
           }, { owner: unit, priority: -50 });
+          // 规程 module 003: each hit taken while downed deals damage_scale × ATK arts, and ep_damage_ratio of that as burn.
+          const scale = num(rally.damage_scale), ratio = num(rally.ep_damage_ratio);
+          if (scale > 0) battle.on('damaged', (c) => {
+            // fatal runs before damaged, so the hit that downs her is not yet "while downed".
+            if (unit.mem.blazeDownedThisHit) { unit.mem.blazeDownedThisHit = false; return; }
+            if (!unit.mem.downed || unit.mem.blazeRallying || c.target !== unit || !c.source || c.source.side !== 'enemy' || !c.source.alive) return;
+            unit.mem.blazeRallying = true;
+            try {
+              const dealt = battle.dealDamage(unit, c.source, { amount: unit.s.atk * scale, type: 'arts', tags: ['talent', 'blazeRally'] });
+              if (dealt > 0 && ratio > 0 && c.source.alive) battle.dealDamage(unit, c.source, { type: 'element', element: 'burn', amount: dealt * ratio, tags: ['talent', 'blazeRally'] });
+            } finally {
+              unit.mem.blazeRallying = false;
+            }
+          }, { owner: unit });
         } },
       ],
       install(battle, unit) {

@@ -26,6 +26,8 @@ export default {
           kind: 'duration', activateOnDeploy: true, duration: num(s.bb.duration, 20), spCost: 0, spType: 'none', trigger: 'NEVER',
           mods: { atkPct: num(s.bb.atk) },
         }),
+        // 涌潮悲歌: the `skill` spec, also keyed so it still runs when it is not the chess default (规程).
+        skchr_skadi_3: (s) => ({ kind: 'duration', mods: { atkPct: num(s.bb.atk), defPct: num(s.bb.def), hpPct: num(s.bb.max_hp) } }),
       }),
       talents: [
         { install(battle, unit) { // "编入队伍时": every Abyssal Hunter of this player, for the whole battle

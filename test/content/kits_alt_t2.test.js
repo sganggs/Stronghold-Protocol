@@ -756,7 +756,10 @@ test('every tier-2 loadout (skill × module, normal & elite) fights 30 s with it
           });
           const u = h.unit(id);
           assert.equal(u.skill.id, s.skillId);
-          assert.equal(u.kit.skillSource ?? 'kit', s.isDefault ? 'kit' : 'skills', `${id} ${s.skillId}`);
+          // a default skill may also sit in `skills` (another version makes it an alternate: round 83 K4) — authored either way
+          const src = u.kit.skillSource ?? 'kit';
+          if (s.isDefault) assert.ok(src === 'kit' || src === 'skills', `${id} ${s.skillId}: ${src}`);
+          else assert.equal(src, 'skills', `${id} ${s.skillId}`);
           h.run(30);
           assert.equal(h.b.errors.length, 0, `${id} S${s.index + 1} module ${moduleId}: ${JSON.stringify(h.b.errors[0])}`);
           checkInvariants(h.b);

@@ -65,11 +65,10 @@ function pasngr(bb, chess, def) {
       onStart({ unit, skill }) { skill.spec.attack.chain = chainOf(unit, { count: Math.max(1, Math.floor(num(bb['attack@max_target'], 5))) }); },
     },
   };
-  return {
-    skills,
-    skill: {
-      kind: 'charges',
-      onStart({ battle, unit }) {
+  // 辉煌裂片 stays reachable when S1 is the chess default (规程). Same object as `skill`.
+  const storm = {
+    kind: 'charges',
+    onStart({ battle, unit }) {
         const keys = skillGrid ? absoluteRangeKeys(skillGrid, unit.tileR, unit.tileC, unit.dir, unit.s.rangeExtend) : unit.rangeKeys;
         const cands = enemiesIn(battle, unit, keys);
         if (!cands.length) return;
@@ -90,7 +89,11 @@ function pasngr(bb, chess, def) {
           if (e) strike(battle, unit, e, scale);
         }, { owner: unit });
       },
-    },
+  };
+  skills.skchr_pasngr_3 = storm;
+  return {
+    skills,
+    skill: storm,
     talents: [
       { install(battle, unit) { // 机理分析
         const thr = num(t0.hp_ratio, 0.8), ds = bv(t0, 'damage_scale', 1), dur = bv(t0, 'duration', 3);

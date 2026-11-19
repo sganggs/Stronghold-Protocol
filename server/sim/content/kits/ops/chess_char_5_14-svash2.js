@@ -86,6 +86,16 @@ export default {
             battle.fx('aoe', { x: unit.x, y: unit.y, id: unit.id, r: 1, skill: 'svash2Plan' });
           },
         }),
+        // 御敌的锋锐: the `skill` spec, also keyed so it still runs when S3 is the chess default (规程).
+        skchr_svash2_2: () => ({
+          kind: 'charges',
+          onStart({ battle, unit }) {
+            slash(battle, unit, unit.s.atk);
+            const { left, pick } = waitingArea(battle, unit);
+            cutCost(pick, num(bb.cost));
+            for (const a of left) a.mem.svashCasts = Math.min(maxStacks, num(a.mem.svashCasts) + 1);
+          },
+        }),
         skchr_svash2_3: () => ({
           kind: 'duration',
           targeting: skillRange(chess, def, { canHitFly: true }),

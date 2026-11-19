@@ -48,7 +48,11 @@ test('skills map: each alternate spec is built from its OWN record whichever ski
     const d0 = ds.getChess(id);
     const kit = KITS[r.chessId](d0.skill.bb, d0.raw, d0);
     const alts = r.skills.filter((s) => !s.isDefault).map((s) => s.skillId);
-    assert.deepEqual(Object.keys(kit.skills ?? {}).sort(), alts.slice().sort(), `${id} skills keys`);
+    // every alternate is in `skills`; a default skill may be there too (another version makes it an alternate: round 83 K4)
+    const defaults = r.skills.filter((s) => s.isDefault).map((s) => s.skillId);
+    const keys = Object.keys(kit.skills ?? {});
+    for (const sid of alts) assert.ok(keys.includes(sid), `${id} skills keys: ${sid}`);
+    for (const k of keys) assert.ok(alts.includes(k) || defaults.includes(k), `${id} skills keys: unknown ${k}`);
     for (const sid of alts) {
       const dS = LD(id, sid);
       assert.equal(skillSpecSource(dS, KITS), 'skills', `${id} ${sid}`);
