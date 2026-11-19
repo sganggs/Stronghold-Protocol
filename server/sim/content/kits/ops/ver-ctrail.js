@@ -70,7 +70,7 @@ function ctrail(_bb, chess) {
       if (airScale !== 1) {
         battle.on('hit', (ctx) => {
           if (ctx.source !== unit || !up(unit) || !unit.s.flags.liftoff || !ctx.dmg?.isAttack) return;
-          ctx.dmg.mul *= airScale;
+          ctx.dmg.amount *= airScale; // the talent raises ATK before DEF / RES mitigation
         }, { owner: unit });
       }
       battle.on('beforeAttack', (ctx) => {

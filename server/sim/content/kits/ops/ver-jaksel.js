@@ -83,7 +83,7 @@ function jaksel(_bb, chess) {
         const scale = num(s2['attack@atk_scale']);
         if (!target || !(scale > 0)) return;
         battle.dealDamage(unit, target, {
-          amount: unit.s.atk * scale, type: 'phys', tags: ['jaksel:counter'],
+          amount: unit.s.atk * scale, type: 'phys', isSkill: true, tags: ['skill', 'jaksel:counter'],
         });
       }, { owner: unit });
     },

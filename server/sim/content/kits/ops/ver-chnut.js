@@ -34,7 +34,8 @@ function chnut(_bb, chess, def) {
         unit.mem.chnutDirect = true;
         try {
           battle.heal({ source: unit, target: patient, amount: unit.s.atk });
-          battle.healElement({ target: patient, amount: unit.s.atk * num(sbb.trait_scale, 1) * ground });
+          // 「回复量提升至」 multiplies the trait's base ep_heal_ratio, then the ground-unit talent.
+          battle.healElement({ target: patient, amount: unit.s.atk * ratio * num(sbb.trait_scale, 1) * ground });
         } finally {
           unit.mem.chnutDirect = false;
         }

@@ -91,7 +91,7 @@ function ju(_bb, chess, def) {
         const mul = num(t0.atk_scale);
         battle.on('hit', (ctx) => {
           if (ctx.source !== unit || !ctx.dmg?.isAttack || !ctx.target) return;
-          if ((ctx.target.weight ?? 0) >= gate) ctx.dmg.mul *= mul;
+          if ((ctx.target.weight ?? 0) >= gate) ctx.dmg.amount *= mul; // module talent raises ATK before DEF / RES
         }, { owner: unit });
       }
       battle.on('beforeAttack', (ctx) => {

@@ -39,11 +39,11 @@ function liesel(_bb, chess) {
             // [ASSUMED] the expanded radius applies to this instant cast, and one enemy can take several strikes' splashes.
             const mul = hasTalent && cluster.length >= minN ? boost : 1;
             const amount = unit.s.atk * scale * mul;
-            battle.dealDamage(unit, e, { amount, type: 'arts', tags: ['liesel:cast'] });
+            battle.dealDamage(unit, e, { amount, type: 'arts', isSkill: true, tags: ['skill', 'liesel:cast'] });
             hit.add(e.id);
             for (const o of cluster) {
               if (o === e || !o.alive) continue;
-              battle.dealDamage(unit, o, { amount, type: 'arts', isSplash: true, tags: ['liesel:cast'] });
+              battle.dealDamage(unit, o, { amount, type: 'arts', isSkill: true, isSplash: true, tags: ['skill', 'liesel:cast'] });
               hit.add(o.id);
             }
           }
@@ -55,7 +55,7 @@ function liesel(_bb, chess) {
             if (!up(unit) || ++ticks > dotDur) { sc.cancel(); return; }
             for (const foe of b.enemies) {
               if (!hit.has(foe.id) || !foe.alive) continue;
-              b.dealDamage(unit, foe, { amount: snap * dotScale, type: 'arts', tags: ['liesel:dot', 'dot'] });
+              b.dealDamage(unit, foe, { amount: snap * dotScale, type: 'arts', isSkill: true, tags: ['skill', 'liesel:dot', 'dot'] });
             }
           }, { owner: unit });
         },

@@ -46,7 +46,7 @@ function installMinos(battle, unit, scale) {
       for (const s of list) if (s.scale > best && up(s.unit)) best = s.scale;
       if (!(best > 1) && best !== 0) return;
       if (!(best > 0) || ctx.target.hpRatio > atk.hpRatio) return;
-      dmg.mul *= best;
+      dmg.amount *= best; // the talent raises ATK before DEF / RES mitigation
     });
   }
   list.push({ unit, scale });
