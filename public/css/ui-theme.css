@@ -74,9 +74,11 @@ html[data-sp-slot~="help_battle"]:not([data-sp-slice~="help_battle"]) .edrawer {
   background-image: var(--sp-img-help_battle);
   background-size: contain; background-position: center; background-repeat: no-repeat;
 }
+/* the picture over the panel's own fill (.mpop__panel background-color): a colour is not an <image>, so the old
+   `var(--sp-img-…), rgba(…)` list was dropped whole and an unsliced picture never showed (round 83) */
 html[data-sp-slot~="round_start"] .mpop--round .mpop__panel {
-  background-image: var(--sp-img-round_start), rgba(36, 38, 38, .9);
-  background-size: 100% 100%, auto; background-repeat: no-repeat;
+  background-image: var(--sp-img-round_start);
+  background-size: 100% 100%; background-repeat: no-repeat;
 }
 html[data-sp-slot~="effect_choose_self_select"] .spov__inner {
   background-image: var(--sp-img-effect_choose_self_select);
@@ -197,8 +199,8 @@ html[data-sp-slot~="detail_panel"] .dpanel {
   background-size: 100% 100%; background-repeat: no-repeat;
 }
 html[data-sp-slot~="prep_ready"]:not([data-sp-slice~="prep_ready"]) .readybtn:not(.readybtn--pf) {
-  background-image: var(--sp-img-prep_ready), rgba(10, 14, 12, .9);
-  background-size: 100% 100%, auto; background-repeat: no-repeat;
+  background-image: var(--sp-img-prep_ready);
+  background-size: 100% 100%; background-repeat: no-repeat;
 }
 
 /* 9-slice. No fill keyword: the centre stays the element's own background. */
@@ -447,6 +449,25 @@ html[data-sp-slice~="bossDamage"] .capsule--boss[data-banner="bossDamage"] {
   border-width: var(--sp-slice-px-bossDamage);
   border-image-source: var(--sp-banner-bossDamage);
   border-image-slice: var(--sp-slice-bossDamage);
+}
+/* 卫戍协议终端（官方贴图） (ac_n_initial): the ready button, the 联防 plate and the result box are drawn as the game draws
+   these sliced Images (prefabs.json panel_prep_ready / banner/help_battle / banner/round_result `bg`): the whole sprite,
+   centre too, with nothing of ours under or around it. ready_bg ends in a glow 5–11 units wide, round_bg and bg_all in
+   a soft shadow 66 units wide; our fill under the border and our box-shadow made that margin a dark ring round the ready
+   button and a dark box round the plates (GitHub #963). A custom theme keeps the hollow slice over our fill. */
+html[data-sp-theme="ac_n_initial"][data-sp-slice~="prep_ready"] .readybtn:not(.readybtn--pf),
+html[data-sp-theme="ac_n_initial"][data-sp-slice~="coop"] .mpop[data-banner="coop"] .mpop__panel,
+html[data-sp-theme="ac_n_initial"][data-sp-slice~="round_result"] .rdialog__box,
+html[data-sp-theme="ac_n_initial"][data-sp-slice~="battleEnd"] .rdialog[data-banner="battleEnd"] .rdialog__box,
+html[data-sp-theme="ac_n_initial"][data-sp-slice~="perfect"] .rdialog[data-banner="battleEnd"][data-perfect="1"] .rdialog__box {
+  background: none; box-shadow: none;
+}
+html[data-sp-theme="ac_n_initial"][data-sp-slice~="prep_ready"] .readybtn:not(.readybtn--pf) { border-image-slice: var(--sp-slice-prep_ready) fill; }
+html[data-sp-theme="ac_n_initial"][data-sp-slice~="coop"] .mpop[data-banner="coop"] .mpop__panel { border-image-slice: var(--sp-slice-coop) fill; }
+html[data-sp-theme="ac_n_initial"][data-sp-slice~="round_result"] .rdialog__box { border-image-slice: var(--sp-slice-round_result) fill; }
+html[data-sp-theme="ac_n_initial"][data-sp-slice~="battleEnd"] .rdialog[data-banner="battleEnd"] .rdialog__box { border-image-slice: var(--sp-slice-battleEnd) fill; }
+html[data-sp-theme="ac_n_initial"][data-sp-slice~="perfect"] .rdialog[data-banner="battleEnd"][data-perfect="1"] .rdialog__box {
+  border-image-slice: var(--sp-slice-perfect) fill;
 }
 
 /* Regulation card: the frame sprite's centre is the face (乌萨斯齐心团 / 可露希尔). Full-bleed, not the hollow 9-slice.

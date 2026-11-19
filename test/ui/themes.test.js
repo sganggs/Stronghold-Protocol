@@ -296,10 +296,11 @@ test('theme paint rules are gated, and the sheets load after the device sheet', 
     assert.match(selector, /html\[data-sp-/, selector.trim());
   }
   // a slice on the element itself keeps the element's own background in the centre (no fill); only the ::before frames
-  // fill: they draw the whole picture, sliced instead of stretched, over that background (§37.204)
+  // fill: they draw the whole picture, sliced instead of stretched, over that background (§37.204) — and the official
+  // 卫戍协议终端 pack's ready button / 联防 plate / result box, drawn whole as the game's sliced Images (GitHub #963)
   for (const [, selector, body] of clean.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     if (!/border-image[^;}]*\bfill\b/.test(body)) continue;
-    for (const one of selector.split(',')) assert.match(one.trim(), /::before$/, one.trim());
+    for (const one of selector.split(',')) assert.match(one.trim(), /::before$|^html\[data-sp-theme="ac_n_initial"\]\[data-sp-slice~="(?:prep_ready|coop|round_result|battleEnd|perfect)"\] /, one.trim());
   }
   // a theme portrait never makes the 盟约 shop row taller than its cards (§37.233: the empty band under them)
   const hasChar = /\.shopbar:not\(\.shopbar--reg\) \.funds\.has-char\s*\{([^{}]*)\}/.exec(clean);

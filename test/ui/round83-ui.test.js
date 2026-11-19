@@ -32,3 +32,25 @@ test('规程 shop on a short landscape screen: the scroll box leaves room for th
   assert.match(row, /pointer-events:\s*none/, 'the transparent band does not take taps meant for the field');
   assert.match(block, /\.shopbar--reg \.shopbar__row > \* \{\s*pointer-events:\s*auto;\s*\}/, 'the cards still take taps');
 });
+
+/** The comma-separated layers of a CSS value, commas inside parentheses kept. */
+function topLevelLayers(value) {
+  const out = [];
+  let depth = 0, cur = '';
+  for (const ch of value) {
+    if (ch === '(') depth++;
+    else if (ch === ')') depth--;
+    if (ch === ',' && depth === 0) { out.push(cur); cur = ''; } else cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
+
+test('theme pictures: no colour inside a background-image list (the whole declaration would be dropped; round 83)', () => {
+  const css = read('public/css/ui-theme.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  for (const [, value] of css.matchAll(/background-image:\s*([^;}]+)/g)) {
+    for (const layer of topLevelLayers(value)) {
+      assert.doesNotMatch(layer.trim(), /^(rgba?|hsla?)\(|^#[0-9a-f]{3,8}$/i, `not an <image>: ${value.trim()}`);
+    }
+  }
+});
