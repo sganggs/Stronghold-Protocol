@@ -157,6 +157,26 @@ function kitWingnt(ab) {
   }];
 }
 
+/** 雪怪小队: the same frozen-target amp as 雪怪小队破冰者, at this row's atkup.atk_scale. Regulation-only, so it stays off SPECIAL_KITS. */
+function kitSnsbr(ab) {
+  const scale = tv(ab, 'atkup.atk_scale', 1);
+  return [{
+    hitOut(c) {
+      if (!c.dmg || !c.dmg.isAttack || !c.target || !c.target.s.flags.freeze) return;
+      c.dmg.amount *= scale;
+    },
+  }];
+}
+
+/** 冰爆源石虫·α: the 冰爆源石虫 death blast. boom.freeze is the cold duration. Radius is rawRangeRadius. */
+function kitSnslime(ab, e) {
+  const scale = tv(ab, 'boom.atk_scale', 0);
+  const cold = tv(ab, 'boom.freeze', 0);
+  const raw = e.def && e.def.raw && e.def.raw.stats && e.def.raw.stats.rawRangeRadius;
+  const r = typeof raw === 'number' && raw > 0 ? raw : undefined;
+  return [deathBoom({ scale, r, status: cold > 0 ? { key: 'cold', dur: cold } : null })];
+}
+
 /** 冰原卫法者: silenced death boom (cold and freeze); unbalanced self HP loss is not silenced. */
 function kitKrgrg(ab) {
   const scale = tv(ab, 'boom.atk_scale', 1);
@@ -562,6 +582,25 @@ function kitLfkght(ab) {
   ];
 }
 
+/** 沸血骑士团精锐: each other enemy knock-down adds enhance.atk and enhance.attack_speed, up to enhance.max_stack_cnt.
+ *  A leak is not a knock-down [ASSUMED]: the line says 死亡, and the other 规程 death hooks count reason 'killed' only. */
+function kitWdkght(ab) {
+  const atk = tv(ab, 'enhance.atk', 0.1);
+  const aspd = tv(ab, 'enhance.attack_speed', 5);
+  const cap = tv(ab, 'enhance.max_stack_cnt', 10);
+  return [{
+    spawn(b, e) { watchDeaths(b, e); },
+    otherDeath(c, b, e) {
+      const v = c.unit;
+      if (c.reason !== 'killed' || !v || v === e || v.side !== 'enemy') return;
+      b.addBuff(e, {
+        key: 'reg:wdkght', refresh: 'stack', stacks: 1, maxStacks: cap, persist: true,
+        mods: { atkPct: atk, aspd },
+      });
+    },
+  }];
+}
+
 function kitHarchn(ab) {
   const key = sv(ab.tS, 'deathrattle.enemy_key');
   const cnt = tv(ab, 'deathrattle.cnt', 4);
@@ -814,6 +853,8 @@ export const REGULATION_KITS = Object.freeze({
   enemy_1388_wingnt_2: same(kitWingnt),
   enemy_1191_krgrg: kitKrgrg,
   enemy_1191_krgrg_2: same(kitKrgrg),
+  enemy_1064_snsbr: kitSnsbr,
+  enemy_1067_snslime_2: kitSnslime,
   enemy_1219_mtrbty: kitMtrbty,
   enemy_1409_bdguad_2: kitBdguad,
   enemy_1429_lrwzrd: kitLrwzrd,
@@ -841,8 +882,14 @@ export const REGULATION_KITS = Object.freeze({
   enemy_1437_dsfull: kitDsfull,
   enemy_1437_dsfull_2: same(kitDsfull),
   enemy_1104_lfkght_3: kitLfkght,
+  enemy_1104_lfkght: same(kitLfkght),
+  enemy_1103_wdkght_2: kitWdkght,
   enemy_1133_harchn: kitHarchn,
   enemy_1133_harchn_2: same(kitHarchn),
+  enemy_1131_sbeast: same(kitHarchn),
+  enemy_1131_sbeast_2: same(kitHarchn),
+  enemy_1132_sarchn: same(kitHarchn),
+  enemy_1132_sarchn_2: same(kitHarchn),
   enemy_9030_acpara: kitAcpara,
   enemy_9034_acblk: kitAcblk,
   enemy_9039_acrefm: kitAcrefm,

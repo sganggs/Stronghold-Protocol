@@ -431,6 +431,120 @@ test('刺胄之弹 / 余音 hits leave out the 补给线 share where the season 
   }
 });
 
+test('锋盔骑士团学徒 weakens the highest ATK after its own 25 s cooldown and revives once', () => {
+  const KEY = 'enemy_1104_lfkght';
+  const chess = {
+    ...CHESS,
+    t_hit: chessRec({ id: 't_hit', profession: 'SNIPER', projectile: 'none', stats: { atk: 600, maxHp: 1e7, def: 0, res: 0, blockCnt: 0 }, rangeGrid: [[0, 0]], skill: null }),
+  };
+  const h = makeBattle({
+    content: 'generic', extraContent: [enemiesMod, bossesMod], seed: 1, autoFinish: false, timeLimit: 40,
+    defs: { enemies: V.enemies, chess },
+    units: [{ chessId: 't_hit', row: 9, col: 2 }, { chessId: 't_gun', row: 9, col: 3 }],
+  });
+  const e = put(h, KEY, [9, 12]);
+  const hit = h.unit('t_hit');
+  h.run(24);
+  assert.ok(!hit.findBuff('reg:weaken'), 'still inside the 25 s initial cooldown');
+  h.run(2);
+  const buff = hit.findBuff('reg:weaken');
+  assert.ok(buff, 'the cut lands after 25 s');
+  assert.equal(buff.status, 'weaken');
+  assert.ok(near(hit.s.atk, 300), 'ATK -50 % from this row, not from 左手');
+  assert.ok(!h.unit('t_gun').findBuff('reg:weaken'));
+  h.b.kill(e, null);
+  assert.equal(e.alive, true);
+  assert.equal(e.s.flags.untargetable, true);
+  assert.equal(h.b.errors.length, 0);
+});
+
+test('沙地兽 and 岩蛛 death-split the pinned child and count; silence stops it', () => {
+  const cases = [
+    ['enemy_1131_sbeast', 'enemy_1137_plasm', 2],
+    ['enemy_1131_sbeast_2', 'enemy_1138_tumor', 2],
+    ['enemy_1132_sarchn', 'enemy_1137_plasm', 3],
+    ['enemy_1132_sarchn_2', 'enemy_1138_tumor', 3],
+  ];
+  for (const [key, child, n] of cases) {
+    assert.equal(V.enemies[key].talents.bbStr['deathrattle.enemy_key'], child, key);
+    assert.equal(V.enemies[key].talents.bb['deathrattle.cnt'], n, key);
+    const h = fight();
+    const e = put(h, key, [9, 8]);
+    h.b.kill(e, null);
+    h.run(0.3);
+    assert.equal(living(h, child).length, n, key);
+    assert.equal(h.b.errors.length, 0, key);
+  }
+  const silenced = fight();
+  const e = put(silenced, 'enemy_1131_sbeast', [9, 8]);
+  silenced.b.applyStatus(e, 'silence', { duration: 30 });
+  silenced.b.kill(e, null);
+  silenced.run(0.3);
+  assert.equal(living(silenced, 'enemy_1137_plasm').length, 0);
+});
+
+test('雪怪小队 deals atkup.atk_scale only against a frozen target', () => {
+  const KEY = 'enemy_1064_snsbr';
+  const scale = V.enemies[KEY].talents.bb['atkup.atk_scale'];
+  assert.equal(scale, 1.5);
+  const h = fight({ units: [{ chessId: 't_wall', row: 9, col: 5 }], captureNoisy: true, hooks: ['damaged'] });
+  h.step(1);
+  const wall = h.unit('t_wall');
+  const e = put(h, KEY, [9, 5]);
+  assert.equal(h.runUntil(() => e.stats.attacks >= 1, 8), true);
+  const first = h.hooksOf('damaged').find((c) => c.source === e);
+  assert.ok(near(first.amount, e.s.atk));
+  h.b.applyStatus(wall, 'freeze', { duration: 30 });
+  assert.equal(h.runUntil(() => e.stats.attacks >= 2, 8), true);
+  const second = h.hooksOf('damaged').filter((c) => c.source === e)[1];
+  assert.ok(near(second.amount, e.s.atk * scale));
+  assert.equal(h.b.errors.length, 0);
+});
+
+test('冰爆源石虫·α death blast is physical ATK×boom within rawRangeRadius and applies cold', () => {
+  const KEY = 'enemy_1067_snslime_2';
+  const rec = V.enemies[KEY];
+  const h = fight({
+    units: [
+      { chessId: 't_wall', row: 10, col: 6, uid: 1 },
+      { chessId: 't_gun', row: 10, col: 4, uid: 2 },
+    ],
+  });
+  h.step(1);
+  const nearW = h.unit('t_wall');
+  const far = h.allies().find((u) => u.uid === 2);
+  const e = put(h, KEY, [10, 7.6]);
+  h.b.kill(e, null);
+  assert.ok(near(nearW.stats.taken, rec.stats.atk * rec.talents.bb['boom.atk_scale']));
+  assert.equal(far.stats.taken, 0, 'past rawRangeRadius 1.9');
+  assert.equal(nearW.s.flags.cold, true);
+  assert.equal(h.b.errors.length, 0);
+});
+
+test('沸血骑士团精锐 gains ATK and ASPD per enemy knock-down, capped at 10; a leak does not count', () => {
+  const KEY = 'enemy_1103_wdkght_2';
+  const bb = V.enemies[KEY].talents.bb;
+  assert.equal(bb['enhance.atk'], 0.1);
+  assert.equal(bb['enhance.attack_speed'], 5);
+  assert.equal(bb['enhance.max_stack_cnt'], 10);
+  const h = fight();
+  const e = put(h, KEY, [9, 8]);
+  h.step(1);
+  const baseAtk = e.s.atk;
+  const baseAspd = e.s.aspd;
+  h.b.kill(put(h, 'enemy_1000_gopro_2', [9, 12]), null);
+  assert.ok(near(e.s.atk, baseAtk * 1.1));
+  assert.equal(e.s.aspd, baseAspd + 5);
+  for (let i = 0; i < 12; i++) h.b.kill(put(h, 'enemy_1000_gopro_2', [9, 12]), null);
+  assert.ok(near(e.s.atk, baseAtk * 2));
+  assert.equal(e.s.aspd, baseAspd + 50);
+  const leaked = put(h, 'enemy_1000_gopro_2', [9, 12]);
+  h.b.leak(leaked);
+  assert.ok(near(e.s.atk, baseAtk * 2));
+  assert.equal(e.s.aspd, baseAspd + 50);
+  assert.equal(h.b.errors.length, 0);
+});
+
 test('规程 round multipliers use its own 攻坚装备 / 补给线II / 急行军 values on 下半\'s stack schedule', () => {
   const r7 = V.config.modes.mode_multi_abyss.enemyScale['7'], d7 = getData().config.modes.mode_multi_abyss.enemyScale['7'];
   assert.deepEqual([d7.kAtk, d7.kHp], [r7.kAtk, r7.kHp], 'same stack counts');
