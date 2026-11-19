@@ -264,7 +264,7 @@ fields' `startAt` / `lastProgressAt` and the boss start by the paused time and r
 
 `drawDisabledBonds` retains the covenant result `{ drawn, staticOff, banned }`. With
 `config.version.rules.bondDraw === 'regulation'`, SINGLE also returns `choice: { groups: [ids, ids], picked: null }`;
-MULTI greys half the available cores immediately. `Match.bondChoice` is settled by `pickBondGroup` during INFO_CHECK.
+MULTI greys cores by difficulty from the version config (`bans.core`: 标准 0, 险境 / 绝境 / 终极 5; `server/match/pool.js`, DESIGN §37.128), and add-ons 2 below 险境, 5 from 险境 (§37.119). `Match.bondChoice` is settled by `pickBondGroup` during INFO_CHECK.
 `g.bondGroup { idx, setupRevision }` refuses stale revisions, non-integer/out-of-range indices, repeated choices,
 spectators, co-op, reroll votes and other phases. It responds with the ordinary intent acknowledgement.
 The choice rebuilds the provisional shared pool and every player's 自选 stock; no shop or chess acquisition runs

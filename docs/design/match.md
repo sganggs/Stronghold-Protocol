@@ -193,11 +193,13 @@ Per match: pick stage (weighted among the mode's `config.modes[m].stages`, weigh
 
 规程 uses `config.version.rules.bondDraw = 'regulation'` (owner's official play, 2026-11-09;
 the regulation `mode_training_2` stage-info tutorial). Available cores have positive weight and are not in the mode's
-fixed inactive list. MULTI greys `floor(n/2)` cores; SINGLE shuffles two disjoint groups of `floor(n/2)` and chooses one
-in INFO_CHECK (`g.bondGroup { idx: 0|1, setupRevision }`), greying the other. Level 1 has 4 + 4. [ASSUMED] Levels 5–20
-use 5 + 5, 标准 co-op greys 4 of 8, and an odd leftover stays active. A bot prefers its plan/strategy core, otherwise
-the seeded first group; [ASSUMED] a human leaving the briefing without a choice keeps that first group.
-Add-on counts stay editable in `config.bans`: [ASSUMED] FUNNY/FAST 1, NORMAL/HARD/ABYSS 4, TRAINING 0.
+fixed inactive list. MULTI greys `config.bans[difficulty].core` cores (标准 0, 险境 / 绝境 / 终极 5 — the official co-op
+briefings, DESIGN §37.128); SINGLE shuffles two disjoint groups of `floor(n/2)` and chooses one in INFO_CHECK
+(`g.bondGroup { idx: 0|1, setupRevision }`), greying the other. Level 1 has 4 + 4. [ASSUMED] Levels 5–20 use 5 + 5, and
+an odd leftover stays active. A bot prefers its plan/strategy core, otherwise the seeded first group; [ASSUMED] a human
+leaving the briefing without a choice keeps that first group. Add-ons greyed (`config.bans[difficulty].addon`): 2 below
+险境 (FUNNY / FAST), 5 from 险境 (NORMAL / HARD / ABYSS), TRAINING 0 (the recordings, DESIGN §37.119; the modes no
+recording showed [ASSUMED] alike).
 An operator with a core bond is excluded when all its core bonds are grey/inactive; one without a core bond when all its
 add-ons are. Grey add-ons never take out an operator of a lit core (owner's official play, 2026-11-13: a lit core bond
 never loses a member); one lit core keeps the six operators of two or three cores (owner, 2026-11-13). The same
