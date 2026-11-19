@@ -573,7 +573,9 @@ const BY_BUFF = {
   },
   // 灵巧涡轮手套: after deploy, +attack_speed ASPD per second, cap atk_speed_layer_max. [ASSUMED] "失去该效果" clears the
   // stacks when damage is taken (a 流失 is not 受到伤害) and they build again; a new deployment starts from zero.
+  // A lent copy does not tick: the official child buff is created only when autochess_share_equip_flag is not set.
   act3autochess_equip_acarm132_global_buff(battle, u, p, S) {
+    if (S.lent) return;
     const step = num(p.attack_speed);
     const cap = Math.max(1, Math.floor(num(p.atk_speed_layer_max, 20)));
     if (!step) return;
@@ -1390,6 +1392,7 @@ export function installItem(battle, u, itemId, { lent = false } = {}) {
   const copies = lent ? 0 : [...gm.values()].filter((g) => !g.lent && g.id === itemId).length;
   const tag = lent ? '@lend' : copies ? `#${(rt.copySeq = (rt.copySeq || 0) + 1)}` : '';
   const S = new Scope(battle, u, `item:${itemId}${tag}`);
+  S.lent = lent;
   const key = itemKeyOf(itemId);
   const grant = { gid, id: itemId, key, lent, scope: S, timer: null, dispose: null };
   grant.dispose = () => {
