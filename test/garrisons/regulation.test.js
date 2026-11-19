@@ -534,6 +534,17 @@ test('SERVER_ADD_BOND_BOARD_EQUIP_CHAR: an equipped operator adds count to each 
   assert.equal(bare.L('victoriaShip'), 0);
 });
 
+test('garrison_61 pool holds the four operators the text names, including 安哲拉', () => {
+  const s = setup();
+  const pool = s.m.gd.choices.pools.pool_chess_glady;
+  const names = pool.items.map((id) => s.m.gd.chess(id).name);
+  assert.deepEqual(names, ['斯卡蒂', '幽灵鲨', '深巡', '安哲拉']);
+  for (const id of ['garrison_61_a', 'garrison_61_b']) {
+    const desc = s.m.gd.garrison(id).desc;
+    for (const n of names) assert.ok(desc.includes(n), `${id} ${desc}`);
+  }
+});
+
 test('known-type max: round chess gains and coin cost clamp only when the blackboard has max', () => {
   const method = setup();
   give(method.m, method.ps, 'chess_char_3_06_a', 'board', [10, 4]);

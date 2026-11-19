@@ -623,14 +623,22 @@ test('pools: resolving by the normal item\'s effectId and the operator\'s charId
   assert.deepEqual(equip.filter((i) => i.shopExcluded).map((i) => i.effectId).sort(), ['eff_acarm042', 'eff_acarm043', 'eff_acarm044', 'eff_acarm045', 'eff_acarm072']);
 });
 
-test('pools: 歌蕾蒂娅\'s pool_chess_glady holds the three operators her garrison_39 names in each version (第一期: 安哲拉, not 深巡)', () => {
-  const want = { '': '斯卡蒂 幽灵鲨 深巡', 'versions/act2autochess-v2_1': '斯卡蒂 幽灵鲨 深巡', 'versions/act1autochess': '斯卡蒂 幽灵鲨 安哲拉', 'versions/act1autochess-v1_1': '斯卡蒂 幽灵鲨 安哲拉' };
-  for (const [dir, names] of Object.entries(want)) {
+test('pools: pool_chess_glady holds the operators that version\'s 歌蕾蒂娅 text names', () => {
+  // 下半 garrison_39 names three (深巡). 第一期 garrison_39 names 安哲拉 instead of 深巡.
+  // 规程 garrison_61 names all four: 幽灵鲨、安哲拉、深巡或斯卡蒂.
+  const want = {
+    '': { names: '斯卡蒂 幽灵鲨 深巡', g: ['garrison_39_a', 'garrison_39_b'] },
+    'versions/act2autochess-v2_1': { names: '斯卡蒂 幽灵鲨 深巡', g: ['garrison_39_a', 'garrison_39_b'] },
+    'versions/act1autochess': { names: '斯卡蒂 幽灵鲨 安哲拉', g: ['garrison_39_a', 'garrison_39_b'] },
+    'versions/act1autochess-v1_1': { names: '斯卡蒂 幽灵鲨 安哲拉', g: ['garrison_39_a', 'garrison_39_b'] },
+    'versions/act3autochess-v3_1': { names: '斯卡蒂 幽灵鲨 深巡 安哲拉', g: ['garrison_61_a', 'garrison_61_b'] },
+  };
+  for (const [dir, spec] of Object.entries(want)) {
     const d = join(ROOT, 'data', dir);
     const chess = readJson(d, 'chess');
     const got = readJson(d, 'choices').pools.pool_chess_glady.items.map((id) => chess[id]?.name);
-    assert.deepEqual(got, names.split(' '), dir || 'data/');
-    for (const g of ['garrison_39_a', 'garrison_39_b']) {
+    assert.deepEqual(got, spec.names.split(' '), dir || 'data/');
+    for (const g of spec.g) {
       const desc = readJson(d, 'garrisons')[g].desc;
       for (const n of got) assert.ok(desc.includes(n), `${dir || 'data/'} ${g} names ${n}: ${desc}`);
     }

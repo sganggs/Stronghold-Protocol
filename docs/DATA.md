@@ -947,7 +947,8 @@ every file system and URL).
   carries the 鸭爵 effect, unused there: V1_1 has no 鸭爵 band).
 - **`pools`** (optional): `{ <pool id>: [charId…] }` replaces the operators the build writes for a hand-written chess
   pool where the version's trait text names others. Both 上半 profiles set `pool_chess_glady` to 斯卡蒂 / 幽灵鲨 / 安哲拉
-  (`garrison_39`: 「斯卡蒂、幽灵鲨或安哲拉」; 下半: 深巡); V2_1 and the default have none.
+  (`garrison_39`: 「斯卡蒂、幽灵鲨或安哲拉」; 下半: 深巡). 规程 sets it to 斯卡蒂 / 幽灵鲨 / 深巡 / 安哲拉
+  (`garrison_61`: 「幽灵鲨、安哲拉、深巡或斯卡蒂」). V2_1 and the default have none.
 - **规程 `config.version.rules.equipHand`**: `true` only in the act3autochess-v3_1 profile. The official season's
   `maxDeckChessCnt` 10 / `maxDeckEquipmentChessCnt` 5 and separate client hand areas define character and equipment
   rows. Hidden overflow policy is [ASSUMED] by the owner (2026-11-09); see [META](META.md#regulation-equipment-row-and-overflow).
@@ -999,7 +1000,7 @@ there):
   operator there), so `pool_char_pinus` is empty). A profile's `pools` replaces the operators of a hand-written chess pool
   where the version's trait text names others: both 第一期 builds list 斯卡蒂 / 幽灵鲨 / 安哲拉 in `pool_chess_glady`, as
   their `garrison_39` says (下半: 深巡, who is shop chess in 第一期 too, so the charId lookup alone kept him; DESIGN
-  §35.22.3).
+  §35.22.3). 规程 lists 斯卡蒂 / 幽灵鲨 / 深巡 / 安哲拉, as its `garrison_61` says.
 - `TRIGGER_DEVIATIONS` (`server/plugins/officialUnitBuilder.js`) by the operator's `charId` and skill id, and like
   `STANDIN_TRIGGER_DEVIATIONS` applied only over an official `TAKE_DAMAGE` row — the row they override (DESIGN §21.29,
   §22.10). Every 下半 entry meets one (V2_1: all but 雷蛇's, who joined with V2_2); in 上半 none applies.

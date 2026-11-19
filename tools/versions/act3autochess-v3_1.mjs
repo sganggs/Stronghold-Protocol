@@ -37,6 +37,10 @@ export default Object.freeze({
     tacticDraft: 'act3autochess-v3_1',
     bountyDrafts: 'act3autochess-v3_1',
   }),
+  // garrison_61 names 幽灵鲨、安哲拉、深巡或斯卡蒂. The shared default is 下半's three (深巡, no 安哲拉).
+  pools: Object.freeze({
+    pool_chess_glady: Object.freeze(['char_263_skadi', 'char_143_ghost', 'char_4137_udflow', 'char_218_cuttle']),
+  }),
   // Pool members follow this season's official trait/bond text. Exact server-side weights are unpublished:
   // [ASSUMED] 小概率 = 10% total, split equally within the common/rare category; specials are uniform.
   equipmentPools: Object.freeze({
