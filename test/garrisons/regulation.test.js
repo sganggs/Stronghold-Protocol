@@ -57,6 +57,7 @@ function rec(id, garrisonIds, o = {}) {
   return {
     ...chessRec({
       id, charId: o.charId || id, bonds: o.bonds || [], rangeGrid: o.rangeGrid, position: o.position, profession: o.profession,
+      subProfessionId: o.subProfessionId,
     }),
     garrisonIds,
   };
@@ -820,18 +821,54 @@ test('erosion recovery rate is the layer band, and a tick shortens the lock', ()
   near(quiet.b._garInstances.find((x) => x.gid === 'garrison_65_a')._epRate, 0);
 });
 
-test('ex_bond_cnt adds extra on garrison and item gains only, from an on-field carrier', () => {
+test('ex_bond_cnt adds extra on garrison and item gains only, from the carrier who holds it', () => {
   const gain = (reason, source) => {
     const h = battle(
-      [{ id: 'op', g: ['garrison_235_a'], row: 10, col: 4 }],
+      [
+        { id: 'op', g: ['garrison_235_a'], row: 10, col: 4 },
+        { id: 'other', row: 10, col: 5 },
+      ],
       { emptyShip: B(0) },
     );
-    return h.b.addLayers('p1', 'emptyShip', 1, reason, { source: source === 'op' ? h.unit('op') : source });
+    const src = source === 'op' ? h.unit('op') : source === 'other' ? h.unit('other') : source;
+    return h.b.addLayers('p1', 'emptyShip', 1, reason, { source: src });
   };
   assert.equal(gain('garrison', 'op'), 2);
   assert.equal(gain('item', 'op'), 2);
   assert.equal(gain('bond', 'op'), 1);
   assert.equal(gain('garrison', { ownerId: 'nope' }), 1);
+  assert.equal(gain('garrison', 'other'), 1, 'another ally is not the buff owner');
+  assert.equal(gain('garrison', null), 1, 'a gain with no source is not the buff owner');
+
+  const both = battle([
+    { id: 'op', g: ['garrison_235_a'], row: 10, col: 4 },
+    { id: 'other', g: ['garrison_235_b'], row: 10, col: 5 },
+  ], { emptyShip: B(0) });
+  assert.equal(both.b.addLayers('p1', 'emptyShip', 1, 'garrison', { source: both.unit('op') }), 2);
+  assert.equal(both.b.addLayers('p1', 'emptyShip', 1, 'garrison', { source: both.unit('other') }), 3);
+});
+
+test('garrison_124 grants 不屈 on a 傀儡 swap; a charger selfdead does not', () => {
+  const h = battle(
+    [{ id: 'op', g: ['garrison_124_a'], row: 10, col: 4, bonds: ['indomShip'], profession: 'SPECIAL', subProfessionId: 'dollkeeper' }],
+    { indomShip: B(0) },
+  );
+  const u = h.unit('op');
+  h.b.dealDamage(null, u, { amount: 1e9, type: 'true' });
+  assert.ok(u.alive && u.deployed && u.trait.doll, 'a lethal hit on the body switches to the substitute');
+  assert.equal(lg(h, 'indomShip'), 0, 'the swap is noticed on the next tick, not inside the hit');
+  h.step(1);
+  assert.equal(lg(h, 'indomShip'), 2);
+
+  const charger = battle(
+    [{ id: 'op', g: ['garrison_223_a'], row: 10, col: 4, bonds: ['kazimierzShip'], profession: 'PIONEER', subProfessionId: 'charger' }],
+    { kazimierzShip: B(0) },
+  );
+  const c = charger.unit('op');
+  c.trait.doll = true;
+  charger.step(1);
+  assert.equal(lg(charger, 'kazimierzShip'), 0, '历阵锐枪芬 has no 替身 or 傀儡 text');
+  assert.equal(charger.b.allyUnits.filter((x) => x !== c && x.deployed).length, 0);
 });
 
 test('first damaging hit applies cold once per enemy', () => {

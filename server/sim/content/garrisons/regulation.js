@@ -460,10 +460,13 @@ export const REGULATION_INSTALLERS = {
   },
   act3autochess_gar_effect_ursusexbondcnt() {},
   act3autochess_gar_effect_ex_bond_cnt(battle, list) {
+    // AutoChessAddCharacterExtraBondCnt sits on the buff owner. Only that operator's own
+    // 卫戍 / 装备 gains grow, and two carriers do not add onto the same gain.
     battle.on('layerGain', (ctx) => {
       if (ctx.reason !== 'garrison' && ctx.reason !== 'item') return;
-      if (ctx.source && ctx.source.ownerId != null && ctx.source.ownerId !== ctx.playerId) return;
+      if (!ctx.source) return;
       for (const it of list) {
+        if (ctx.source !== it.unit) continue;
         if (it.unit.ownerId !== ctx.playerId || !S.onField(it.unit)) continue;
         ctx.n += S.num(it.bb.extra_cnt, 0);
       }
