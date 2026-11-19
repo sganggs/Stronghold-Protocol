@@ -65,8 +65,9 @@ SCENE_VERSION = 1
 # scene extracted before this still loads. setup / doctor compare this with expected.mjs and ask once when an
 # existing record is older (DESIGN §34.12). 3: emission maps are lossless too, so a version-2 extract (normal and
 # gloss only) is stale and that same prompt asks again. 4: remove exact redundant renderers (#684, §34.24). 5: 规程's
-# three pieces are written whole (regulation_scenes.py, scene.json layout 'pieces').
-SCENE_EXTRACT_VERSION = 5
+# three pieces are written whole (regulation_scenes.py, scene.json layout 'pieces'). 6: preserve opaque albedo RGB
+# beneath zero alpha in a lossless RGB companion; keep the original shared alpha atlas.
+SCENE_EXTRACT_VERSION = 6
 # display-space light value that a lightmap page's 1.0 stands for (decode_rgbm; scene.json lightRange, with
 # lightEncoding 'gamma'). The pages of the eleven scenes stay below 2.8.
 LIGHT_RANGE = 3.0
@@ -358,6 +359,47 @@ def save_image(img, out_dir, stem, sub, lossless=False):
     except Exception:
         pass
     return entry
+
+
+def opaque_albedo(img, info):
+    """Remove unused alpha only for opaque albedo with fully transparent texels.
+
+    Some native atlases store useful RGB under alpha=0 (ice uses alpha as shader data).
+    An opaque RGB companion avoids losing that RGB in browser image/GPU conversion.
+    Never flatten cutout, blended, water, or independent data textures. The caller passes
+    the already encoded albedo so its RGB, including the existing lossy fit, stays exact.
+    """
+    keywords = set(info.get('keywords') or [])
+    if info.get('kind') == 'water' or str(info.get('shader', '')).endswith('/Trap/Shadow') or keywords.intersection({
+            '_ALPHATEST_ON', '_ALPHABLEND_ON', '_ALPHAPREMULTIPLY_ON'}):
+        return None
+    if 'A' not in img.getbands() or img.getchannel('A').getextrema()[0] != 0:
+        return None
+    return img.convert('RGB')
+
+
+def export_opaque_albedo(info, out_root, manifest):
+    """Bind a lossless RGB companion without overwriting the native RGBA resource."""
+    from PIL import Image
+    name = info.get('map')
+    entry = manifest.get(TEX_SUB, {}).get(name)
+    if not name or not entry:
+        return 0
+    folder = Path(out_root) / TEX_SUB
+    source = folder / Path(entry['path']).name
+    with Image.open(source) as encoded:
+        rgb = opaque_albedo(encoded, info)
+    if rgb is None:
+        return 0
+    companion = name + '_opaque_rgb'
+    records = manifest.setdefault(TEX_SUB, {})
+    count = 0
+    if companion not in records or not (folder / Path(records[companion]['path']).name).is_file():
+        records[companion] = {**save_image(rgb, folder, companion, TEX_SUB, lossless=True),
+                              'kind': 'Texture2D', 'derivedFrom': name, 'channels': 'RGB'}
+        count = 1
+    info['map'] = companion
+    return count
 
 
 def hidden_groups(raw, objects):
@@ -744,11 +786,12 @@ def export_scene(stage_id, deps, scene_path, ab_root, out_root, manifest, log, m
                 tex = pptr.read()
                 tname = re.sub(r'[^A-Za-z0-9_.\-\[\]]+', '_', tex.m_Name or f'tex_{pptr.m_PathID}')
                 materials[name][key] = tname
-                if tname in manifest.get(TEX_SUB, {}):
-                    continue
-                img = normal_rgb(tex.image) if key == 'normalMap' else tex.image
-                manifest.setdefault(TEX_SUB, {})[tname] = {**save_image(img, tex_dir, tname, TEX_SUB, key in LOSSLESS_MAPS), 'kind': 'Texture2D'}
-                n += 1
+                if tname not in manifest.get(TEX_SUB, {}):
+                    img = normal_rgb(tex.image) if key == 'normalMap' else tex.image
+                    manifest.setdefault(TEX_SUB, {})[tname] = {**save_image(img, tex_dir, tname, TEX_SUB, key in LOSSLESS_MAPS), 'kind': 'Texture2D'}
+                    n += 1
+                if key == 'map':
+                    n += export_opaque_albedo(info, out_root, manifest)
             except Exception as e:
                 log(f'  warn {stage_id}: texture {slot} of {name}: {e}')
 

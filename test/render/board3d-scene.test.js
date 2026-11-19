@@ -41,6 +41,11 @@ for (const dir of existsSync(path.join(ROOT, 'data/versions')) ? readdirSync(pat
 }
 const manifest = (() => { try { return JSON.parse(readFileSync(path.join(ROOT, 'data/local-assets.json'), 'utf8')); } catch { return null; } })();
 
+test('opaque albedo keeps hidden RGB, native cutouts and shared texture identity', { skip: !HAS_PIL && 'no Pillow' }, () => {
+  const result = spawnSync(PY, ['-I', '-B', path.join(ROOT, 'test/local-extract/opaque-albedo.py')], { encoding: 'utf8', env: ENV });
+  assert.equal(result.status, 0, result.stderr);
+});
+
 function py(code) {
   const src = `import sys, json, struct\nsys.path.insert(0, ${JSON.stringify(TOOL)})\nimport scenes as s\n${code}`;
   const r = spawnSync(PY, ['-I', '-B', '-c', src], { encoding: 'utf8', env: ENV });
@@ -123,7 +128,7 @@ describe('scenes.py (no UnityPy needed)', { skip: !PY && 'no python3' }, () => {
     const { scenes } = JSON.parse(r.stdout);
     assert.equal(scenes.sub, 'scene');
     assert.equal(scenes.tex, SCENE_TEX_GROUP);
-    assert.equal(scenes.version, 5, 'manifest scene-record version; scene.json stays SCENE_VERSION');
+    assert.equal(scenes.version, 6, 'manifest scene-record version; scene.json stays SCENE_VERSION');
     const ids = scenes.stages.map((x) => x.id);
     const battlefields = Object.keys(stages).filter((id) => /^act\dautochess_m\d+$/.test(id)).sort();
     assert.deepEqual([...ids].sort(), battlefields, 'every battlefield has a scene');
@@ -168,7 +173,7 @@ print(json.dumps({'n': n, 'layout': doc['layout'], 'grid': doc['pieceGrid'], 'pi
     assert.deepEqual(out.table, { 1: 'sub_01', 2: 'sub_02', 3: 'sub_03' });
     assert.deepEqual(out.groups, ['sub_01', 'sub_02', 'sub_03'], 'one group per piece; an empty chunk is not written');
     assert.deepEqual(out.bounds, [[4, 2, -0.4, 5, 3, 0], [-3, -5, -0.4, -2, -4, 0], [10, 11, -0.4, 11, 12, 0]], 'piece-local, unshifted');
-    assert.deepEqual(out.record, { path: '/assets/local/scene/act3autochess_m01/scene.json', kind: 'Scene', chunks: 3, version: 5 });
+    assert.deepEqual(out.record, { path: '/assets/local/scene/act3autochess_m01/scene.json', kind: 'Scene', chunks: 3, version: 6 });
   });
 
   test('规程 lightmap atlas: three pages share one 2 × 2 atlas (row 0 at the bottom, flipY), page UVs land inside their cell', () => {
@@ -343,7 +348,7 @@ print(json.dumps({
   'lossless': lossless.get('webp'), 'lossy': lossy.get('webp'), 'match': match,
 }))`);
     assert.equal(out.mesh, SCENE_VERSION);
-    assert.equal(out.ver, 5);
+    assert.equal(out.ver, 6);
     assert.deepEqual(out.metro, ['map', 'normalMap', 'glossMap', 'emissionMap']);
     assert.deepEqual(out.floor, ['map', 'normalMap', 'glossMap']);
     assert.deepEqual(out.cut, ['map', 'normalMap', 'glossMap', 'emissionMap']);
