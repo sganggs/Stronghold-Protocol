@@ -1026,7 +1026,8 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
   decision of 2026-10-06, adopting PR #209 by @qingjingshenghuo (players' observation: bloodPoint is one player's share),
   which replaces the fixed pool of 「保持固定血量」 (config `bossHpScale.perPlayer: false` with `solo: 0.25` restores it;
   its optional × alive / 4, `aliveScaling`, stays off); leaders are never scaled by `enemyScale`, their parts and escorts
-  keep their own HP. The merged team LP loses leaks (`lpr`), the overtime drain
+  keep their own HP. The merged team LP loses leaks (`lpr`; 规程 1 per counted leak, the leader too —
+  config.finalAssault.leakCostOne, the maintainer 2026-11-20), the overtime drain
   (the boss level's 120 real-second countdown for all-human teams; `bossTurnHpReduceTime` 150 real seconds only with
   a non-departed AI teammate at fight start. The first deduction follows one complete real second after that threshold;
   `gd.bossOvertimeDue` receives the fight's frozen threshold — DESIGN §29.1)

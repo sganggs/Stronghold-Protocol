@@ -3444,7 +3444,9 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
     dp: { init: 10, perSec: 1, max: 99 },
     unite: { maxHelpers: 2, helperOrder: 'unitsOnField>activeBond>undownedUnits; pair: unitsOnField>activeBond>activeLayers>undownedUnits, first = right field (PRTS 帮助)', layerGainsEnabled: false, keepsHpSpPositions: true, leakedEnemyFullHp: true,
       templates: { 1: templateIdOf(act.constData.escapedBattleTemplateMapSinglePlayer), 2: templateIdOf(act.constData.escapedBattleTemplateMapMultiPlayer) } },
-    finalAssault: { pairing: 'seatOrderPairs', oddPlayerAlone: true, movableBossPerAlivePlayerSide: true, layerGainsEnabled: PROFILE.config.finalAssault?.layerGainsEnabled === true },
+    finalAssault: { pairing: 'seatOrderPairs', oddPlayerAlone: true, movableBossPerAlivePlayerSide: true, layerGainsEnabled: PROFILE.config.finalAssault?.layerGainsEnabled === true,
+      // written only when set (规程), so the covenant builds keep their bytes
+      ...(PROFILE.config.finalAssault?.leakCostOne === true ? { leakCostOne: true } : {}) },
     ...(diyBringField || {}),
     timers: {
       infoCheck: step('INFO_CHECK')?.time ?? 25, infoCheckHint: step('INFO_CHECK')?.hintTime ?? 5,

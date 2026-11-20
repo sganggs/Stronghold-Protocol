@@ -106,7 +106,7 @@ import { commandSkill, commandView, keepsFunds } from './bandCommands.js';
 import { computeBonds, pieceBonds } from './bondsMeta.js';
 import { isFlyKey, bountySpawns } from './waves.js';
 import { previewPlayer } from './preview.js';
-import { bossPoolHp, SharedBossPool, bossLayerGainsEnabled } from './finalAssault.js';
+import { bossPoolHp, SharedBossPool, bossLayerGainsEnabled, bossFieldFlags } from './finalAssault.js';
 import { GEO, REHEARSAL_MAX_CANDIDATES } from '../../shared/constants.js';
 import { mitigate } from '../sim/attack.js';
 import { HOVER_KEYS } from '../sim/content/enemies.js';
@@ -1952,7 +1952,7 @@ function bossCandidateOpts(m, ps, byUid, plan) {
     sharedBoss: new SharedBossPool(hp),
     // the spec the host's browser rebuilds the pool from (buildBattleSpec reads `boss`, not the live pool object)
     boss: { poolHp: hp, poolMax: hp },
-    flags: { layerGainsEnabled: bossLayerGainsEnabled(m.gd), ...m.gd.dp, enemyScale: m.gd.enemyScale(m.round) },
+    flags: { ...bossFieldFlags(m.gd), ...m.gd.dp, enemyScale: m.gd.enemyScale(m.round) },
     fieldId: `rb:${ps.playerId}`,
     enemyOverrides: wave.overrides,
     waveId: wave.templateId,

@@ -70,7 +70,9 @@ export default Object.freeze({
     rules: Object.freeze({ equipHand: true, bondDraw: 'regulation' }),
     // Boss and hidden fields keep permanent IN_BATTLE layer gains (maintainer 2026-11-19). 联防 stays off.
     // Omitted on the covenant profiles, so their built config.finalAssault.layerGainsEnabled stays false.
-    finalAssault: Object.freeze({ layerGainsEnabled: true }),
+    // leakCostOne: every enemy that reaches a goal in the Final Assault / Hidden Core costs the team 1 LP (boss and minions
+    // alike), not its lifePointReduce — the maintainer's first-hand answer of 2026-11-20 (「漏怪扣血都是1」「最终攻势也都是1」).
+    finalAssault: Object.freeze({ layerGainsEnabled: true, leakCostOne: true }),
     // Income per round, read at every prep start on official recordings (round 84; the round-start banner 「获得 +X」
     // equals the counter): base min(3 + round, 11) — R1–R8 4…11, R9 on 11 — on BV1fnWn6QEf9 (solo 规程等级1, all 14
     // rounds, no extra source), BV12ZWP6pE7m (规程等级20) and BV13LWM6BEvY p1 / p8 (co-op 终极); 极速模拟 min(5 + round,
