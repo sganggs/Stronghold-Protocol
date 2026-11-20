@@ -91,3 +91,8 @@ test('reason order is fixed: theme, pack, capability, runtime', () => {
   assert.equal(shopWebglGate({ ...ok, groups: groupsFor(['prefabs.json']) }).reason, 'capability');
   assert.equal(shopWebglGate({ ...ok, runtime: 'failed', spectator: true }).reason, 'failed');
 });
+
+test('the gate reads the theme group and the runtime only, so priv is optional', () => {
+  assert.deepEqual(shopWebglGate({ themeId: 'ac_s_closur', groups: groupsFor(), runtime: 'ready' }), { on: true, reason: null });
+  assert.deepEqual(shopWebglGate({ themeId: 'ac_s_closur', groups: groupsFor(), runtime: 'ready', priv: null }), { on: true, reason: null });
+});

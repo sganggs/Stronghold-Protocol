@@ -84,3 +84,11 @@ test('sold equipment/operator cards are not flagged', () => {
   const flags = shopCardFlags(priv([sold], [{ kind: 'item', id: 'chess_item_1_01_e_a', uid: 'i1' }]), lookup);
   assert.deepEqual(flags[0], { hasSame: false, canComb: false, hasFusePartner: false });
 });
+
+test('an owned equipment counts from the hand, the temp row and an equipped piece', () => {
+  const s = [slot('chess_item_1_01_e_a', 'item')];
+  const flagsFor = (pieces) => shopCardFlags({ funds: 10, shop: { slots: s }, board: [], hand: [], temp: [], ...pieces }, lookup);
+  assert.equal(flagsFor({ hand: [{ kind: 'item', id: 'chess_item_1_01_e_a' }] })[0].hasSame, true, 'the same item in the hand');
+  assert.equal(flagsFor({ temp: [{ kind: 'item', id: 'chess_item_1_01_e_a' }] })[0].hasSame, true, 'the same item in the temp row');
+  assert.equal(flagsFor({ board: [{ kind: 'chess', id: 'chess_char_1_01_a', items: [{ id: 'chess_item_1_01_e_a' }] }] })[0].hasSame, true, 'the same item on an operator');
+});

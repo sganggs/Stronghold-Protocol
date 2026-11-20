@@ -85,7 +85,7 @@ if scenario == 'full-run':
     extract = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(extract)
     old = {'fonts': {'a': {'path': '/x'}}, 'ui/common': {'b': {}}, 'char/x': {'c': {}},
-           'themes/ac_s_closur': {'d': {}}}
+           'themes/ac_s_closur': {'d': {}}, 'ui/cursor': {'e': {}}, 'spine/char/char_1/front': {'f': {}}}
     kept = extract.previous_groups(old, [])
     result = {'kept': sorted(kept), 'partial': sorted(extract.previous_groups(old, ['ui/common'])),
               'merged': sorted(extract.merge_manifest(kept, {}, set())), 'logs': []}
@@ -357,9 +357,9 @@ test('--only shopdocs registers prefabs.json / card.json / shop.json, prints the
 
 test('previous_groups: a full extract keeps an earlier groups.fonts, an --only run keeps every group', { skip: !PY && 'no python' }, () => {
   const result = runDriver('full-run');
-  assert.deepEqual(result.kept, ['char/x', 'fonts']);
-  assert.deepEqual(result.partial, ['char/x', 'fonts', 'themes/ac_s_closur', 'ui/common']);
-  assert.deepEqual(result.merged, ['char/x', 'fonts']);
+  assert.deepEqual(result.kept, ['char/x', 'fonts', 'spine/char/char_1/front', 'ui/cursor']);
+  assert.deepEqual(result.partial, ['char/x', 'fonts', 'spine/char/char_1/front', 'themes/ac_s_closur', 'ui/common', 'ui/cursor']);
+  assert.deepEqual(result.merged, ['char/x', 'fonts', 'spine/char/char_1/front', 'ui/cursor']);
 });
 
 test('list_theme_files lists the files a theme producer left out, keeping the listed ones as they are', { skip: !PY && 'no python' }, () => {

@@ -628,3 +628,22 @@ test('a --assets build of a development version needs --allow-dev', { skip: !has
     fs.rmSync(out, { recursive: true, force: true });
   }
 });
+
+test('the staged manifest gains an empty fonts group even when it had none (§37.274)', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-package-nofonts-'));
+  try {
+    const stage = path.join(dir, 'stage');
+    const data = path.join(stage, 'data');
+    fs.mkdirSync(data, { recursive: true });
+    fs.writeFileSync(path.join(data, 'local-assets.json'), JSON.stringify({
+      version: 1, count: 1, groups: { g: { a: { path: '/assets/local/g/a.png' } } },
+    }));
+    assert.equal(holdBackStagedFonts(stage), true);
+    const staged = JSON.parse(fs.readFileSync(path.join(data, 'local-assets.json'), 'utf8'));
+    assert.deepEqual(Object.keys(staged.groups), ['g', 'fonts']);
+    assert.deepEqual(staged.groups.fonts, {}, 'the required key exists, empty');
+    assert.equal(holdBackStagedFonts(stage), false, 'idempotent');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

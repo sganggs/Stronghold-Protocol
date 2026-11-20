@@ -49,3 +49,20 @@ test('garrison file/colour and the unchanged model are stable', () => {
   });
   assert.notEqual(file, shopModelPaintKey(model()));
 });
+
+test('a late localized operator name and its bond row change the repaint key', () => {
+  const base = model();
+  assert.equal(shopModelPaintKey(base), shopModelPaintKey(model()), 'an unchanged model is stable');
+  const named = shopModelPaintKey({ ...base, slots: [{ ...base.slots[0], name: 'Lemuen' }] });
+  assert.notEqual(named, shopModelPaintKey(base), 'a late localized operator name repaints');
+  const bond = (name, iconFile = '/b.png') => ({ id: 'yan', name, iconFile });
+  const before = shopModelPaintKey({ ...base, slots: [{ ...base.slots[0], bondList: [bond('炎')] }] });
+  assert.notEqual(before, shopModelPaintKey(base), 'a bond row is part of the key');
+  assert.notEqual(before, shopModelPaintKey({ ...base, slots: [{ ...base.slots[0], bondList: [bond('Yan')] }] }), 'a localized bond name repaints');
+  assert.notEqual(before, shopModelPaintKey({ ...base, slots: [{ ...base.slots[0], bondList: [bond('炎', '/other.png')] }] }), 'a late bond icon repaints');
+  assert.equal(
+    shopModelPaintKey({ ...base, slots: [{ ...base.slots[0], bondList: [] }] }),
+    shopModelPaintKey({ ...base, slots: [{ ...base.slots[0], bondList: '' }] }),
+    'an empty bond row is the same key either way',
+  );
+});
