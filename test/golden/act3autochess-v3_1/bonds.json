@@ -2057,7 +2057,7 @@
           "coins": 0,
           "dmg": 46698,
           "bossDmg": 0,
-          "heal": 3360,
+          "heal": 3361,
           "deaths": 1,
           "layerGains": {"arcaneShip":4,"preciShip":4}
         }
@@ -2065,9 +2065,9 @@
       "units": [
         ["p1",1,"op","chess_char_4_13_a",2,null,3565.1,1,2,0,0,0,0,0,0],
         ["p1",2,"op","chess_char_4_16_a",1,null,3256,1,5,1,1065,0,0,0,1],
-        ["p1",3,"op","chess_char_1_05_a",0,null,1925,1,7,2,7547,2084,0,52,8],
+        ["p1",3,"op","chess_char_1_05_a",0,null,1925,1,7,2,7547,2085,0,52,8],
         ["p1",4,"op","chess_char_2_09_a",1,null,1056,1,1,0,506,0,0,9,0],
-        ["p1",5,"op","chess_char_2_10_a",1,null,1293.6,1,3,0,0,0,3360,22,1],
+        ["p1",5,"op","chess_char_2_10_a",1,null,1293.6,1,3,0,0,0,3361,22,1],
         ["p1",6,"op","chess_char_4_12_a",1,null,1338.7,1,4,3,9102,0,0,19,1],
         ["p1",7,"op","chess_char_4_17_a",1,null,1412.4,1,6,1,4635,1276,0,23,7],
         ["p1",8,"op","chess_char_4_18_a",1,null,0,0,8,3,20309,1518,0,27,1],
@@ -2080,16 +2080,16 @@
         ["p1","~7","token","token_10008_cqbw_box",null,null,1000,0,26,0,161,0,0,0,0]
       ],
       "enemies": {
-        "enemy_1220_dzoms": [4,3,1,41,5298],
+        "enemy_1220_dzoms": [4,3,1,42,5298],
         "enemy_1221_dzomg": [1,1,0,1043,2700],
         "enemy_1223_dmech": [4,4,0,23,21600],
         "enemy_1224_dsuply": [1,1,0,410,6300],
         "enemy_1225_dkmage": [1,1,0,3360,10800]
       },
-      "hooks": [1,26,2560,180,173,362,381,22,11,19,19,26,0,10803,50,8,11,1,1,12,2,0,0],
-      "events": {"atk":253,"deploy":15,"die":18,"dmg":376,"engage":5,"fx":56,"heal":22,"layer":2,"leak":1,"rate":4,"skill":52,"spawn":26,"status":62},
+      "hooks": [1,26,2560,180,173,362,382,22,11,19,19,26,0,10803,50,8,11,1,1,12,2,0,0],
+      "events": {"atk":253,"deploy":15,"die":18,"dmg":377,"engage":5,"fx":56,"heal":22,"layer":2,"leak":1,"rate":4,"skill":52,"spawn":26,"status":62},
       "fx": {"aoe":27,"buff":1,"garrison":1,"link":1,"shield":2,"summon":12,"telegraph":7,"thorns":5},
-      "snaps": "c04544fb ee1aac4b 4ffa98fb df594a34 dcb34365 465fefdb 0a85e80f dd4b094e 4344e9e6"
+      "snaps": "c04544fb 5f9a9666 2fd39d0a 2c5fa1b1 31970888 568e2012 d60a4c66 be2f1cd3 5fcd0ff3"
     },
     "bond-victoriaShip-high": {
       "about": "维多利亚 high: tier 2 layers 999; chess_char_4_14_b chess_char_3_22_b chess_char_1_05_b chess_char_2_09_b chess_char_2_10_b chess_char_3_15_b chess_char_5_21_b chess_char_5_23_b token_10032_jesca2_jckshd token_10041_cathy_catsld token_10041_cathy_catsld token_10066_closur_ourbase token_10026_bgsnow_subbow",

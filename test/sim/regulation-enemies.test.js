@@ -674,3 +674,330 @@ test('规程 round multipliers use its own 攻坚装备 / 补给线II / 急行�
   assert.equal(V.config.modes.mode_multi_abyss.enemyScale['2'].speed, 1, '急行军 from round 3');
 });
 
+// --- round 84: the companions whose abilities come from their PRTS pages (regulation.js kitGunsho … kitDsdivi) ---------
+
+const T_WALL1 = chessRec({ id: 't_wall1', profession: 'TANK', stats: { atk: 0, maxHp: 1e7, def: 0, res: 0, blockCnt: 1 }, rangeGrid: [[0, 0]], skill: null });
+/** A target that never hits the enemy (its range is its own tile): no zero-damage hits that would count as 受到伤害. */
+const T_POST = chessRec({ id: 't_post', profession: 'SNIPER', projectile: 'none', stats: { atk: 0, maxHp: 1e7, def: 0, res: 0, blockCnt: 0 }, rangeGrid: [[0, 0]], skill: null });
+const walkLeft = (y, x) => ({ motion: 'WALK', start: [y, x], end: [9, 2], checkpoints: [] });
+const byUid = (h, uid) => h.allies().find((u) => u.uid === uid);
+const bySource = (h, e) => h.hooksOf('damaged').filter((c) => c.source === e);
+
+test('速射轻弩手 / 劲弩手 直击: three 100 % ATK physical bolts at the first ally in its row or column, after initCooldown 2 s and then every cooldown + clip (PRTS)', () => {
+  for (const key of ['enemy_1403_gunsho', 'enemy_1403_gunsho_2']) {
+    const rec = V.enemies[key];
+    const sk = rec.skills.find((s) => s.prefabKey === 'CrossAttack');
+    assert.deepEqual([sk.initCooldown, sk.cooldown], [2, 5], key);
+    const h = fight({
+      units: [
+        { chessId: 't_gun', row: 9, col: 5, uid: 1 },   // the nearest in its row: the direction, and the first a bolt meets
+        { chessId: 't_gun', row: 9, col: 3, uid: 2 },   // behind it on the same line
+        { chessId: 't_gun', row: 10, col: 6, uid: 3 },  // on neither line
+      ],
+      hooks: ['damaged'], captureNoisy: true,
+    });
+    h.step(1);
+    const first = byUid(h, 1), behind = byUid(h, 2), off = byUid(h, 3);
+    const e = put(h, key, [9, 8]);
+    h.run(1.9);
+    assert.equal(bySource(h, e).length, 0, `${key}: nothing inside the initial cooldown`);
+    h.run(1.5);
+    const hits = bySource(h, e);
+    assert.equal(hits.length, 3, key);
+    for (const c of hits) {
+      assert.equal(c.target, first, key);
+      assert.equal(c.type, 'phys', key);
+      assert.ok(near(c.amount, rec.stats.atk), `${key}: ${c.amount}`);
+    }
+    assert.equal(behind.stats.taken, 0, `${key}: the first ally takes every bolt`);
+    assert.equal(off.stats.taken, 0, key);
+    // an attack-class skill: its clip (Skill 1.567 s) on the cast event, its cooldown counted from the clip's end
+    assert.deepEqual(h.eventsOf('cast').filter((ev) => ev[1] === e.id).map((ev) => ev[4]), [1.567], key);
+    h.run(5);
+    assert.equal(bySource(h, e).length, 3, `${key}: not again before cooldown + clip`);
+    h.run(1.2);
+    assert.equal(bySource(h, e).length, 6, `${key}: the second volley`);
+    assert.equal(h.b.errors.length, 0, key);
+  }
+});
+
+test('无畏掷弹兵: once, the first damage while not silenced and not blocked throws four 200 % ATK bombs (1.1 blast), then speed +0.7 and weight −2 (PRTS)', () => {
+  const KEY = 'enemy_1405_boomer_2';
+  const rec = V.enemies[KEY];
+  const bomb = rec.skills.find((s) => s.prefabKey === 'Bomb');
+  assert.deepEqual([bomb.bb.atk_scale, bomb.bb.projectile_range], [2, 1.1]);
+  assert.deepEqual([rec.talents.bb['Light.move_speed'], rec.talents.bb['Light.mass_level']], [0.7, -2]);
+  const h = fight({
+    defs: { enemies: V.enemies, chess: { ...CHESS, t_post: T_POST } },
+    units: [
+      { chessId: 't_post', row: 9, col: 5, uid: 1 },   // the first on the left: its bomb bursts here
+      { chessId: 't_post', row: 9, col: 4, uid: 2 },   // 1.0 from that burst: inside 1.1
+      { chessId: 't_post', row: 9, col: 3, uid: 3 },   // 2.0 from it: outside
+      { chessId: 't_post', row: 11, col: 8, uid: 4 },  // the first upwards (row + 1)
+      { chessId: 't_post', row: 10, col: 9, uid: 5 },  // diagonal: no bomb flies there
+    ],
+    hooks: ['damaged'], captureNoisy: true,
+  });
+  h.step(1);
+  const e = put(h, KEY, [9, 8]);
+  h.step(1);
+  const speed0 = e.s.moveSpeed, mass0 = e.weight;
+  h.b.applyStatus(e, 'silence', { duration: 0.3 });
+  h.b.dealDamage(null, e, { amount: 10, type: 'true' });
+  h.run(1);
+  assert.equal(e.findBuff('reg:boomerBomb'), null, 'silenced: no 掷弹模式');
+  assert.equal(bySource(h, e).length, 0);
+  h.b.dealDamage(null, e, { amount: 10, type: 'true' });
+  assert.equal(e.s.flags.unblockable, true, '掷弹模式: cannot be blocked');
+  assert.equal(e.s.flags.disarm, true, '掷弹模式: cannot attack');
+  h.run(1);
+  const atk = rec.stats.atk * 2;
+  for (const uid of [1, 2, 4]) assert.ok(near(byUid(h, uid).stats.taken, atk), `uid ${uid}: ${byUid(h, uid).stats.taken}`);
+  for (const uid of [3, 5]) assert.equal(byUid(h, uid).stats.taken, 0, `uid ${uid}`);
+  h.run(0.6);
+  assert.ok(near(e.s.moveSpeed, speed0 + 0.7), `${speed0} → ${e.s.moveSpeed}`);
+  assert.equal(e.weight, mass0 - 2);
+  assert.ok(!e.s.flags.unblockable, 'blockable again');
+  const n = bySource(h, e).length;
+  h.b.dealDamage(null, e, { amount: 10, type: 'true' });
+  h.run(1.5);
+  assert.equal(bySource(h, e).length, n, 'only once');
+
+  const blocked = fight({ units: [{ chessId: 't_wall', row: 9, col: 6 }] });
+  blocked.step(1);
+  const b2 = put(blocked, KEY, [9, 6]);
+  blocked.step(1);
+  assert.ok(b2.blockedBy);
+  blocked.b.dealDamage(null, b2, { amount: 10, type: 'true' });
+  assert.equal(b2.findBuff('reg:boomerBomb'), null, 'blocked: no 掷弹模式');
+  assert.equal(h.b.errors.length + blocked.b.errors.length, 0);
+});
+
+test('萨卡兹子裔补给车: each 重生造物 gets ATK +10 % per cart of a kind (5 at most) and that many 10 % 凋亡 riders on its attacks; 改装 counts apart; silence stops a cart (PRTS)', () => {
+  const CART = 'enemy_1224_dsuply', CART_2 = 'enemy_1224_dsuply_2', TOUCH = 'enemy_1220_dzoms';
+  const bb = V.enemies[CART].talents.bb;
+  assert.deepEqual([bb['aura.enemy_dsuply_t[attr_buff].atk'], bb['aura.enemy_dsuply_t[attr_buff].max_valid_stack_cnt'], bb['aura.ep_damage_ratio']], [0.1, 5, 0.1]);
+  const h = fight({ units: [{ chessId: 't_wall', row: 9, col: 5 }], hooks: ['damaged'], captureNoisy: true });
+  h.step(1);
+  const z = put(h, TOUCH, [9, 5]);
+  h.step(2);
+  const a0 = z.s.atk;
+  assert.equal(a0, V.enemies[TOUCH].stats.atk);
+  const carts = [put(h, CART, [12, 8]), put(h, CART, [12, 9])];
+  put(h, CART_2, [12, 10]);
+  h.step(2);
+  assert.ok(near(z.s.atk, a0 * 1.3), `2 + 1 carts: ${z.s.atk}`);
+  const from = bySource(h, z).length;
+  assert.equal(h.runUntil(() => bySource(h, z).length >= from + 3, 6), true);
+  const hit = bySource(h, z).slice(from);
+  const phys = hit.find((c) => c.type === 'phys');
+  assert.ok(near(phys.amount, z.s.atk), 'the boosted ATK hits (wall DEF 0)');
+  const riders = hit.filter((c) => c.type === 'element' && c.dmg.element === 'apoptosis').map((c) => c.amount).sort((p, q) => p - q);
+  assert.equal(riders.length, 2, 'one 凋亡 instance per cart kind');
+  assert.ok(near(riders[0], z.s.atk * 0.1) && near(riders[1], z.s.atk * 0.2), riders.join(', '));
+  h.b.applyStatus(carts[0], 'silence', { duration: 30 });
+  h.run(0.3);
+  assert.ok(near(z.s.atk, a0 * 1.2), `a silenced cart counts for nothing: ${z.s.atk}`);
+  for (let i = 0; i < 6; i++) put(h, CART, [12, 3 + i * 0.5]);
+  h.step(2);
+  assert.ok(near(z.s.atk, a0 * (1 + 0.5 + 0.1)), `at most 5 stacks of a kind: ${z.s.atk}`);
+  assert.equal(carts[0].profile.canTarget({ isFlying: true }), false, '不会攻击飞行单位');
+  assert.equal(h.b.errors.length, 0);
+});
+
+test('新生血裔: melee arts at ATK × (1 + 0.2 × the enemies its target blocks), heals 220 % of the damage dealt, leaves a 血珀 (PRTS)', () => {
+  const KEY = 'enemy_1360_dfello';
+  const rec = V.enemies[KEY];
+  assert.deepEqual([rec.talents.bb['DamageUp.scale_ratio'], rec.talents.bb['DamageUp.add_on'], rec.talents.bb['vampire.heal_scale']], [0.2, 1, 2.2]);
+  const h = fight({ units: [{ chessId: 't_wall', row: 9, col: 5 }], hooks: ['damaged', 'heal'], captureNoisy: true });
+  h.step(1);
+  const wall = h.unit('t_wall');
+  const e = put(h, KEY, [9, 5]);
+  put(h, 'enemy_1000_gopro_2', [9, 5]);
+  h.step(2);
+  assert.equal(wall.blocking.length, 2);
+  e.hp = e.s.maxHp * 0.5;
+  assert.equal(h.runUntil(() => bySource(h, e).length >= 1, 5), true);
+  const c = bySource(h, e)[0];
+  assert.equal(c.type, 'arts');
+  assert.ok(near(c.amount, rec.stats.atk * 1.4), `${c.amount}`);
+  const healed = h.hooksOf('heal').filter((x) => x.target === e);
+  assert.equal(healed.length, 1);
+  assert.ok(near(healed[0].amount, c.amount * 2.2), `${healed[0].amount}`);
+  const total = h.b.total;
+  h.b.kill(e, null);
+  h.step(1);
+  const seeds = living(h, 'enemy_1367_dseed');
+  assert.equal(seeds.length, 1, 'one 血珀 (Summon.cnt)');
+  assert.equal(seeds[0].counted, false);
+  assert.equal(h.b.total, total);
+  assert.equal(h.b.errors.length, 0);
+});
+
+test('萨卡兹子裔轰击者 / 毁击者: the shell lands where the target stood and blows up 4 s later on every ally within 1.1 (PRTS)', () => {
+  for (const key of ['enemy_1361_dthrow', 'enemy_1361_dthrow_2']) {
+    const rec = V.enemies[key];
+    assert.deepEqual([rec.talents.bb['Attack.attack@projectile_delay_time'], rec.talents.bb['Attack.attack@projectile_radius']], [4, 1.1], key);
+    const h = fight({
+      units: [
+        { chessId: 't_gun', row: 9, col: 7, uid: 1 },   // the target (nearest)
+        { chessId: 't_gun', row: 10, col: 7, uid: 2 },  // 1.0 from it
+        { chessId: 't_gun', row: 11, col: 7, uid: 3 },  // 2.0 from it, out of the dthrow's reach too
+      ],
+      hooks: ['damaged'], captureNoisy: true,
+    });
+    h.step(1);
+    const e = put(h, key, [9, 8.5]);
+    assert.equal(h.runUntil(() => h.eventsOf('atk').some((ev) => ev[1] === e.id), 5), true, key);
+    const t0 = h.b.time;
+    assert.equal(h.eventsOf('atk').find((ev) => ev[1] === e.id)[3], 'bomb', key);
+    h.run(3.9);
+    assert.equal(bySource(h, e).length, 0, `${key}: nothing before the 4 s fuse`);
+    h.runUntil(() => h.b.time >= t0 + 4.5, 2);
+    for (const uid of [1, 2]) assert.ok(near(byUid(h, uid).stats.taken, rec.stats.atk), `${key} uid ${uid}: ${byUid(h, uid).stats.taken}`);
+    assert.equal(byUid(h, 3).stats.taken, 0, key);
+    assert.equal(h.b.errors.length, 0, key);
+  }
+});
+
+test('萨卡兹骸骨卫士长: an ally that damages it loses 40 ASPD for 5 s, neither stacked nor restarted by more hits; a 无来源 hit names nobody (PRTS)', () => {
+  const KEY = 'enemy_1363_spnshd_2';
+  assert.deepEqual([V.enemies[KEY].talents.bb['Summon.attack_speed'], V.enemies[KEY].talents.bb['Summon.duration']], [-40, 5]);
+  const chess = { ...CHESS, t_post: T_POST, t_hit: chessRec({ id: 't_hit', profession: 'SNIPER', projectile: 'none', stats: { atk: 100, maxHp: 1e7, def: 0, res: 0, blockCnt: 0, bat: 1 }, rangeGrid: BIG, skill: null }) };
+  const h = fight({ defs: { enemies: V.enemies, chess }, units: [{ chessId: 't_hit', row: 9, col: 4 }, { chessId: 't_post', row: 10, col: 4 }] });
+  h.step(1);
+  const u = h.unit('t_hit');
+  const aspd0 = u.s.aspd;
+  const e = put(h, KEY, [9, 8]);
+  assert.equal(h.runUntil(() => !!u.findBuff('reg:spnshdSlow'), 5), true);
+  const t0 = h.b.time;
+  const first = u.findBuff('reg:spnshdSlow');
+  assert.equal(u.s.aspd, aspd0 - 40);
+  h.run(4.5);
+  assert.ok(e.stats.taken > 0);
+  assert.equal(u.findBuff('reg:spnshdSlow'), first, 'the same instance (later hits do not restart it)');
+  assert.equal(u.s.aspd, aspd0 - 40, 'not stacked');
+  h.runUntil(() => u.findBuff('reg:spnshdSlow') !== first, 1);
+  assert.ok(h.b.time - t0 <= 5.05, `the first one ran out after ${h.b.time - t0} s`);
+  const post = h.unit('t_post');
+  assert.equal(post.findBuff('reg:spnshdSlow'), null, 'an ally that never hit it');
+  h.b.dealDamage(null, e, { amount: 10, type: 'true' });
+  assert.equal(post.findBuff('reg:spnshdSlow'), null, 'a 无来源 hit names nobody');
+  assert.equal(h.b.errors.length, 0);
+});
+
+test('狂暴凶豕兽: weight 2; rush layers +33.3 % after the 3 s predelay; the crash on a low-ground ally and the first hit while rushing deal move speed × 800 / × 600; the hit ends the rush (PRTS)', () => {
+  const KEY = 'enemy_1309_mhboar_2';
+  const bb = V.enemies[KEY].talents.bb;
+  assert.deepEqual([bb['Crash.atk_scale'], bb['FirstAttack.atk_scale'], bb['Rush.mhboar_t_predelay.predelay']], [800, 600, 3]);
+  const h = fight({
+    defs: { enemies: V.enemies, chess: { ...CHESS, t_wall1: T_WALL1 } },
+    units: [{ chessId: 't_wall1', row: 9, col: 6 }, { chessId: 't_wall', row: 9, col: 3 }],
+  });
+  const extra = [];
+  h.b.on('damaged', (c) => {
+    const tag = c.dmg && c.dmg.tags.find((t) => t === 'boarCrash' || t === 'boarRush');
+    if (tag) extra.push({ tag, amount: c.amount, speed: c.source.s.moveSpeed, target: c.target, calc: c.dmg.calculation, way: c.dmg.applyWay });
+  });
+  h.step(1);
+  const low = h.unit('t_wall1'), wall = h.unit('t_wall');
+  const e = h.spawn(KEY, { pos: [9, 10], route: walkLeft(9, 10) });
+  assert.equal(e.blockWeight, 2);
+  const base = e.s.moveSpeed;
+  h.run(3.15);
+  assert.ok(near(e.s.moveSpeed, base), 'every try inside the predelay fails');
+  h.run(0.3);
+  assert.ok(near(e.s.moveSpeed, base * (1 + bb['Rush.mhboar_t[trigger].move_speed'])), `the first layer: ${e.s.moveSpeed}`);
+  assert.equal(h.runUntil(() => e.blockedBy === wall, 20), true, 'the blockCnt-3 wall blocks it');
+  const crash = extra.filter((x) => x.tag === 'boarCrash');
+  assert.equal(crash.length, 1, 'the blockCnt-1 ally it passed: once');
+  assert.equal(crash[0].target, low);
+  assert.ok(near(crash[0].amount, crash[0].speed * 800), `${crash[0].amount} vs ${crash[0].speed}`);
+  assert.deepEqual([crash[0].calc, crash[0].way], ['precomputed', 'MELEE']);
+  assert.ok(crash[0].speed > base * 2, 'it had accelerated by then');
+  assert.equal(h.runUntil(() => extra.some((x) => x.tag === 'boarRush'), 6), true);
+  const rush = extra.find((x) => x.tag === 'boarRush');
+  assert.equal(rush.target, wall);
+  assert.ok(near(rush.amount, rush.speed * 600));
+  h.step(1);
+  assert.ok(near(e.s.moveSpeed, base), 'the hit ended the rush and its layers');
+  h.run(4);
+  assert.ok(near(e.s.moveSpeed, base), 'blocked: no new rush');
+  assert.equal(extra.filter((x) => x.tag === 'boarRush').length, 1);
+
+  const s = fight();
+  const b2 = s.spawn(KEY, { pos: [9, 10], route: { motion: 'WALK', start: [9, 10], end: [9, 2], steps: [{ t: 'move', p: [9, 9.9] }, { t: 'wait', s: 999 }] } });
+  s.run(5);
+  assert.ok(b2.findBuff('reg:boarRush'), 'layers while rushing in place');
+  s.b.applyStatus(b2, 'stun', { duration: 1 });
+  s.run(0.15);
+  assert.equal(b2.findBuff('reg:boarRush'), null, '晕眩 ends the rush');
+  assert.equal(h.b.errors.length + s.b.errors.length, 0);
+});
+
+test('神勇的帕拉杜利斯 冲锋: with an ally ahead in its row it marks that tile, charges unblockable and hits the first ground ally for 200 % ATK once, then walks and fights again (PRTS)', () => {
+  const KEY = 'enemy_10163_mnctur_2';
+  const rec = V.enemies[KEY];
+  const rush = rec.skills.find((s) => s.prefabKey === 'rush');
+  assert.deepEqual([rush.initCooldown, rush.cooldown, rec.talents.bb['CollideChar.atk_scale_collide']], [5, 10, 2]);
+  const h = fight({ units: [{ chessId: 't_wall', row: 9, col: 4 }], hooks: ['damaged'], captureNoisy: true });
+  h.step(1);
+  const wall = h.unit('t_wall');
+  const e = h.spawn(KEY, { pos: [9, 8], route: walkLeft(9, 8) });
+  h.run(4.8);
+  assert.equal(e.findBuff('reg:mncturMark'), null, 'inside the initial cooldown');
+  assert.equal(h.runUntil(() => !!e.findBuff('reg:mncturRun'), 2), true, 'the charge starts after the 1 s mark');
+  assert.equal(e.s.flags.unblockable, true);
+  assert.equal(e.s.flags.disarm, true);
+  const charge = h.eventsOf('fx').find((ev) => ev[1] === 'charge' && ev[4].id === e.id);
+  assert.ok(charge && charge[4].tx === 4 && charge[4].ty === 9, 'at the marked tile');
+  assert.equal(h.runUntil(() => bySource(h, e).length >= 1, 10), true);
+  const hit = bySource(h, e)[0];
+  assert.equal(hit.target, wall);
+  assert.ok(hit.dmg.tags.includes('mncturRush'));
+  assert.ok(near(hit.amount, rec.stats.atk * 2), `${hit.amount}`);
+  assert.ok(Math.hypot(e.x - wall.x, e.y - wall.y) <= 0.45 + 1e-6);
+  h.step(1);
+  assert.equal(e.findBuff('reg:mncturRun'), null, 'back to its initial mode');
+  assert.equal(e.blockedBy, wall);
+  assert.equal(h.runUntil(() => bySource(h, e).length >= 2, 6), true);
+  assert.ok(near(bySource(h, e)[1].amount, rec.stats.atk), 'a normal attack');
+  assert.equal(bySource(h, e).filter((c) => c.dmg.tags.includes('mncturRush')).length, 1);
+  assert.equal(h.b.errors.length, 0);
+});
+
+test('诡核 / 异光体集养者: below half HP after a hit, one split of its own key around its tile centre with its HP ratio, uncounted and unable to split; silence waits; once (PRTS)', () => {
+  for (const key of ['enemy_1436_dsdivi', 'enemy_1436_dsdivi_2']) {
+    const rec = V.enemies[key];
+    assert.equal(rec.talents.bb['0.hp_ratio'], 0.5, key);
+    assert.equal(rec.skills[0].bb.offset_bound, 0.3, key);
+    const h = fight();
+    const e = put(h, key, [9, 8]);
+    h.step(1);
+    h.b.dealDamage(null, e, { amount: e.s.maxHp * 0.3, type: 'true' });
+    assert.equal(h.enemies().length, 1, `${key}: still above half`);
+    h.b.dealDamage(null, e, { amount: e.s.maxHp * 0.3, type: 'true' });
+    const kids = h.enemies().filter((o) => o !== e);
+    assert.equal(kids.length, 1, key);
+    const k = kids[0];
+    assert.equal(k.defId, key);
+    assert.ok(Math.abs(k.x - 8) <= 0.3 + 1e-9 && Math.abs(k.y - 9) <= 0.3 + 1e-9, `${key}: ${k.x}, ${k.y}`);
+    assert.ok(near(k.hpRatio, e.hpRatio), `${key}: ${k.hpRatio}`);
+    assert.equal(k.counted, false);
+    h.b.dealDamage(null, k, { amount: 1, type: 'true' });
+    h.b.dealDamage(null, e, { amount: 1, type: 'true' });
+    assert.equal(h.enemies().length, 2, `${key}: neither splits again`);
+    assert.equal(h.b.errors.length, 0, key);
+  }
+  const s = fight();
+  const e = put(s, 'enemy_1436_dsdivi', [9, 8]);
+  s.step(1);
+  s.b.applyStatus(e, 'silence', { duration: 1 });
+  s.b.dealDamage(null, e, { amount: e.s.maxHp * 0.6, type: 'true' });
+  assert.equal(s.enemies().length, 1, 'silenced: no split');
+  s.run(1.2);
+  assert.equal(s.enemies().length, 1, 'no new modifier yet');
+  s.b.dealDamage(null, e, { amount: 1, type: 'true' });
+  assert.equal(s.enemies().length, 2, 'the next hit after the silence splits it');
+  assert.equal(s.b.errors.length, 0);
+});
