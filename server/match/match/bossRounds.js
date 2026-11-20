@@ -9,7 +9,7 @@ import { PHASE, GEO } from '../../../shared/constants.js';
 import { createRng, deriveSeed } from '../../sim/rng.js';
 import { creditedKillsOf } from '../../sim/spec.js';
 import { buildBossWave, bountySpawns } from '../waves.js';
-import { pairPlayers, bossPairSalt, bossPoolHp, SharedBossPool, CreditPool, hiddenEligible, BOSS_HIT_STEPS, bossFieldFlags } from '../finalAssault.js';
+import { pairPlayers, bossPairSalt, bossPoolHp, SharedBossPool, CreditPool, hiddenEligible, BOSS_HIT_STEPS, bossLayerGainsEnabled } from '../finalAssault.js';
 import { cleanLeaderOps, syncFieldLeaderOps, leaderTopRows } from '../leaderRank.js';
 import { FieldRunner, HeadlessPacer, syntheticResult, BOSS_SILENCE_MS, CATCHUP_TICKS_PER_INTERVAL } from '../fields.js';
 import { FLOW_TICKER_PRIORITY, BOSS_CLOCK_MS, DELAYS, applyTempLayers, commitBattleLayerGains } from './common.js';
@@ -106,7 +106,7 @@ export class MatchBoss {
         routes: wave.routes,
         sharedBoss: this.bossPool,
         // the round's enemy effects for the leaders' mid-fight summons (server/sim/content/bosses.js summonMods)
-        flags: { ...bossFieldFlags(this.gd), ...this.gd.dp, enemyScale: this.gd.enemyScale(this.round) },
+        flags: { layerGainsEnabled: bossLayerGainsEnabled(this.gd), ...this.gd.dp, enemyScale: this.gd.enemyScale(this.round) },
         fieldId,
         enemyOverrides: wave.overrides,
         waveId: wave.templateId,

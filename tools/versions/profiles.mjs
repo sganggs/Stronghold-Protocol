@@ -23,8 +23,7 @@
 //             { id, family, rules } ({} = the default's rules); equipHand: true separates the 5-slot equipment row
 //             from the 10-slot character hand, with hidden overflow (规程 only); optional `finalAssault:
 //             { layerGainsEnabled }` is copied into config.finalAssault (omitted = false). 规程 sets it true so boss
-//             and hidden fields keep IN_BATTLE layer gains. 联防 is not part of this switch. `finalAssault.leakCostOne: true`
-//             (规程) makes every leak in the Final Assault / Hidden Core cost 1 LP instead of the enemy's lifePointReduce.
+//             and hidden fields keep IN_BATTLE layer gains. 联防 is not part of this switch.
 //             Optional `economy: { incomeBase, incomeCap, modeIncome?: { [modeId]: { base, cap } } }` — a measured income
 //             curve min(base + round, cap) (omitted = 下半's [ASSUMED] min(3 + round, 12)); a mode entry writes
 //             modes[modeId].economy.income, merged over the season's by match/gamedata.js (规程 极速模拟).

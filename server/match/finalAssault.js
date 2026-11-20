@@ -20,8 +20,7 @@
 //     teams with AI teammates retain the official bossTurnHpReduceTime grace to 150 s (history §29.1, maintainer
 //     decision). The team loses bossOvertimeDrainPerSec (1) LP per real second (gamedata.js bossOvertimeDue);
 //     m.public.deadline = the 120 s countdown, m.public.overtimeAt = the
-//     drain start. Minion / boss leaks cost their `lpr` (规程: 1 each, config.finalAssault.leakCostOne — the maintainer,
-//     2026-11-20; the spec flag `leakCostOne` makes the sim record that cost); team LP 0 ⇒ defeat (all fields force-ended; PRTS 卫戍协议：盟约 下半
+//     drain start. Minion / boss leaks cost their `lpr`; team LP 0 ⇒ defeat (all fields force-ended; PRTS 卫戍协议：盟约 下半
 //     "…使目标生命值扣除至0，则无视倒计时直接失败"); pool 0 ⇒ victory. The first of the two the server registers decides
 //     (Match._finalEnding): a report that arrives after the team LP ran out credits nothing (user playtest #6 item 5).
 //   * Pool HP is a float that never keeps float dust: the hit that would leave less than BOSS_POOL_MIN_HP (1) takes the
@@ -58,22 +57,6 @@ export const BOSS_HIT_STEPS = [0.2, 0.5, 0.8];
  */
 export function bossLayerGainsEnabled(gd) {
   return gd?.config?.finalAssault?.layerGainsEnabled === true;
-}
-
-/**
- * Whether every enemy that reaches a goal in this version's Final Assault / Hidden Core costs the team 1 LP (boss and
- * minions alike) instead of its lifePointReduce: config.finalAssault.leakCostOne (规程 only; the maintainer's first-hand
- * answer of 2026-11-20). The boss field specs pass it as the flag `leakCostOne`, which the sim's leak record and LP meter
- * read; absent on the covenant versions, whose specs keep their shape.
- * @param {{ config?: { finalAssault?: { leakCostOne?: boolean } } }} gd
- */
-export function bossLeakCostOne(gd) {
-  return gd?.config?.finalAssault?.leakCostOne === true;
-}
-
-/** The boss / hidden field flags of `gd`: layer gains, plus `leakCostOne` only when the version sets it. */
-export function bossFieldFlags(gd) {
-  return { layerGainsEnabled: bossLayerGainsEnabled(gd), ...(bossLeakCostOne(gd) ? { leakCostOne: true } : {}) };
 }
 
 /**

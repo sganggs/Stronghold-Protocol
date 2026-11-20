@@ -871,9 +871,7 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
             keepRuntime = true;
           } else if (!takeSource(key, sourcePlayerId) && !takeDerived(key, sourcePlayerId)) return bad('leak source');
         } else if (sourcePlayerId !== pid && !B.players.has(sourcePlayerId)) sourcePlayerId = pid;
-        // a leak-costs-one boss / hidden field (规程, spec flag leakCostOne) charges 1 per counted leak, the leader included,
-        // 0 for an uncounted one, whatever the client wrote — the same cost the sim records (Battle._recordLeak)
-        const lpr = spec.flags && spec.flags.leakCostOne ? (counted || l.boss ? 1 : 0) : finiteIn(l.lpr, 0, 1000) ? l.lpr : 1;
+        const lpr = finiteIn(l.lpr, 0, 1000) ? l.lpr : 1;
         const e = { enemyKey: key, mods, lpr, sourcePlayerId, tag: src ? (src.tag ?? null) : (typeof l.tag === 'string' ? l.tag : null), counted, spawned: true };
         if (keepRuntime) e.uniteRuntime = true; // stored only after the derived take succeeded, and only for a 联防 spec
         if (l.boss) e.boss = true;

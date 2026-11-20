@@ -243,9 +243,7 @@ export class LocalBossPool {
 
 /**
  * LP meter of a battle: cumulative LP the field cost its team so far — enemy leaks weighted by `lpr` (data
- * lifePointReduce; 0 for harmless units, 1 when absent; with the flag `leakCostOne` (规程) 1 per counted leak, boss
- * included, 0 for an uncounted one — the same cost Battle._recordLeak writes) plus leader "扣除目标生命" effects (the
- * sim's 'lpLoss' hook).
+ * lifePointReduce; 0 for harmless units, 1 when absent) plus leader "扣除目标生命" effects (the sim's 'lpLoss' hook).
  * Boss / hidden fields report it as b.progress.leaks; the server charges the team LP with the deltas.
  * @returns {{ lp: number, detach: () => void }}
  */
@@ -255,8 +253,7 @@ export function attachLpMeter(battle) {
   const h1 = battle.on('enemyLeak', (ctx) => {
     const e = ctx && ctx.enemy;
     if (!e) return;
-    const lpr = battle.flags && battle.flags.leakCostOne ? (e.counted || e.isBoss ? 1 : 0)
-      : Number.isFinite(e.lpr) && e.lpr >= 0 ? e.lpr : 1;
+    const lpr = Number.isFinite(e.lpr) && e.lpr >= 0 ? e.lpr : 1;
     meter.lp += lpr;
   }, { priority: -1000, owner: 'lpMeter' });
   const h2 = battle.on('lpLoss', (ctx) => {

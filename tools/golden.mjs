@@ -611,8 +611,7 @@ export function fieldScenarios() {
         id: `${hidden ? 'hidden' : 'boss'}-${bossId}-${solo ? 'solo' : 'pair'}`, family: 'fields', kind: hidden ? 'hidden' : 'boss', modeId, round, stageId, seed,
         rect: { ...GEO.BOSS_RECT }, timeLimit: Infinity, routes: wave.routes, waveId: wave.templateId, enemyOverrides: wave.overrides,
         // IN_BATTLE layers as the match runs these fields: config.finalAssault.layerGainsEnabled (规程 on, 盟约 off)
-        // the match's boss flags (finalAssault.js bossFieldFlags): leakCostOne only where the version sets it (规程)
-        flags: { layerGainsEnabled: data.config.finalAssault?.layerGainsEnabled === true, ...(data.config.finalAssault?.leakCostOne === true ? { leakCostOne: true } : {}), ...gd.dp, enemyScale: gd.enemyScale(round) }, bossId, boss: { poolHp: pool, poolMax: pool }, fieldId: 'b1', cap: 200,
+        flags: { layerGainsEnabled: data.config.finalAssault?.layerGainsEnabled === true, ...gd.dp, enemyScale: gd.enemyScale(round) }, bossId, boss: { poolHp: pool, poolMax: pool }, fieldId: 'b1', cap: 200,
         players, spawns: wave.spawns.map((s) => ({ ...s })),
         about: `${data.bosses[bossId].name} ${solo ? 'solo' : 'pair'} pool ${pool}: ${players.map((p) => placeName(p.units).join(' ')).join(' | ')}`,
       });
