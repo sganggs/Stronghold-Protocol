@@ -26,8 +26,12 @@ import { createShopHost } from './host.js';
 /** Taps inside the shop, its detail panel or a dialog do not disarm (the old ShopBar's useTwoTap rule). */
 const KEEP_ARMED = '[data-shop-webgl], .dpanel, .modal';
 
-/** Game-data files whose localized copies feed the card model. */
-const LOCALE_FILES = Object.freeze(['chess', 'items', 'bonds', 'garrisons', 'assets']);
+/**
+ * Game-data files whose localized or late-arriving copies feed the card model: the record names and bonds,
+ * the item icons, the garrison icons/colours, the imported theme group (`local`), and the stand-in / DIY
+ * records (`backups`, read by adapter/model.js through ownStandIn / ownDiyRecord).
+ */
+export const LOCALE_FILES = Object.freeze(['chess', 'items', 'bonds', 'garrisons', 'assets', 'backups', 'local']);
 
 /** The same refresh affordability rule the ctrl panel paints (free refresh, special recruit, or funds). */
 export function shopCanRefresh(priv) {

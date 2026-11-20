@@ -10,7 +10,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { shopMountKey } from '../../public/js/ui/shop/ShopCanvas.js';
+import { LOCALE_FILES, shopMountKey } from '../../public/js/ui/shop/ShopCanvas.js';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const LANGS = ['en', 'ja', 'ko', 'zh-TW'];
@@ -61,4 +61,10 @@ test('the shop mount key changes with the language and defaults to zh', () => {
   assert.notEqual(shopMountKey('zh'), shopMountKey('en'), 'a language switch remounts the host');
   assert.equal(shopMountKey(null), 'zh');
   assert.equal(shopMountKey(undefined), 'zh');
+});
+
+test('the card model watches every data file it reads', () => {
+  for (const name of ['chess', 'items', 'bonds', 'garrisons', 'assets', 'backups', 'local']) {
+    assert.ok(LOCALE_FILES.includes(name), `${name} repaints the canvas when it arrives`);
+  }
 });
