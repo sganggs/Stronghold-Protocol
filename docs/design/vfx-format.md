@@ -1892,3 +1892,9 @@ Sources: local official v3 index/prefabs; `pkgrps/btl_pfb_tokens_0.ab` mode `_re
 `SwitchToMelee/Range`; `skill_table.json` (`skchr_wildmn_2`, `skchr_yu_3`, `skchr_mlyss_3`); official client
 `CastEffectOptions.CreateEffect`, `ParticleEffect.FaceTo`, `YuS3EffectBehaviour.OnPlay` and
 `YuS3EffectWithEdgeBehaviour` (addresses and replay evidence in history §34.31). No sim rules change.
+
+### MAP10 盐坨子炮
+
+`CannonFx` 按装置持有待机、出生、落点标记、发射、飞弹、命中和销毁效果；战斗沿快照时钟。
+提取器读取显式 SpecialPoint0／FixedMuzzle 绑定及 projectile 引用，按需更新索引并保留其它单位记录。
+原始 clip 的首姿炮口注册仍标记为显示适配，详见[研究](../research/cannon-native-20261120.md)。

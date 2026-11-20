@@ -39,6 +39,7 @@
 // 领主's ranged-kind 'atk' on the enemy it blocks is its Combat blow (`_combatKind`); a sim-melee attack whose official
 // ability shoots flies its projectile for show (蒂比: `attack`); a chain's line stays CHAIN_LINE_S (`chain`).
 
+import { CannonFx, CANNON_UNIT } from './cannonfx.js';
 import { spawnPoint, mountPoint, unitPoint, spawnKind, mountKind, spawnRotation, mountRotation, graphicRotation } from './mounts.js';
 import { projectileParts, paracurve, arcHeight, wobble } from './flight.js';
 import { GROUND_SPAWNS } from './effect.js';
@@ -245,6 +246,7 @@ export class FxWiring {
     this.skills = new SkillFx(this);
     this.talents = new TalentFx(this);
     this.funnels = new FunnelFx(this);
+    this.cannons = new CannonFx(this);
   }
 
   get index() { return this.idx; }
@@ -327,6 +329,7 @@ export class FxWiring {
 
   /** The battle's units' effect keys (for preloading; `generic` false: the units' own only). */
   keysFor(views, generic = true) {
+    views = Array.isArray(views) ? views : [...views];
     const keys = new Set();
     const g = generic ? this.idx?.generic : null;
     if (g) {
@@ -368,6 +371,7 @@ export class FxWiring {
     for (const k of this.skills.keys(views)) keys.add(k);
     for (const k of this.talents.keys(views)) keys.add(k);
     for (const k of this.funnels.keys(views)) keys.add(k);   // the 驭械术士's floating units (render/vfx/funnelfx.js)
+    for (const k of this.cannons.keys(views)) keys.add(k);
     return [...keys].map(lc).filter((k) => k && this.ofx.lib.has(k));
   }
 
@@ -1487,6 +1491,7 @@ export class FxWiring {
     this.skills.release(v);
     this.talents.release(v);
     this.funnels.release(v);
+    this.cannons.release(v);
   }
 
   /** b.ev ['skill', id, on] (SkillFx.skill): true when the official layer shows the skill (no procedural burst / aura). */
@@ -1508,9 +1513,11 @@ export class FxWiring {
   sync(views) {
     if (!this.idx) return;
     const list = Array.isArray(views) ? views : [...views];   // (render/app.js passes the views Map's iterator)
-    this.skills.sync(list);
-    this.talents.sync(list);
-    this.funnels.sync(list);
+    this.cannons.sync(list);
+    const actors = list.filter(v=>v.info?.defId !== CANNON_UNIT);
+    this.skills.sync(actors);
+    this.talents.sync(actors);
+    this.funnels.sync(actors);
   }
 
   /**
@@ -1520,6 +1527,7 @@ export class FxWiring {
    */
   simFx(kind, x, y, extra) {
     if (!this.idx) return false;
+    if (this.cannons.simFx(kind,x,y,extra)) return true;
     const t = this.talents.fx(kind, extra, x, y);
     // the floating units stand for the kit's 'drone' / 'drones' / 'droneLock' / 'overload' (render/vfx/funnelfx.js)
     const f = this.funnels.simFx(kind, x, y, extra);
@@ -1529,6 +1537,7 @@ export class FxWiring {
   /** b.ev 'die': the unit's own death effect or the generic one. */
   death(v) {
     if (!v) return false;
+    if (v.info?.defId===CANNON_UNIT) { const drew=this.cannons.release(v,true); this.release(v); return drew; }
     this.release(v);
     if (!this.ofx.active || !this.idx) return false;
     const u = this.unitOf(v);
@@ -1562,7 +1571,7 @@ export class FxWiring {
    * (TalentFx.deployed, once per life: an enemy's AppearSyncedTalent auras, its birth effects). Returns true when drawn.
    */
   spawned(v) {
-    if (!v || !this.idx) return false;
+    if (!v || !this.idx || v.info?.defId === CANNON_UNIT) return false;
     return this.talents.deployed(v);
   }
 
@@ -1584,6 +1593,7 @@ export class FxWiring {
     this.skills.clear();
     this.talents.clear();
     this.funnels.clear();
+    this.cannons.clear();
     this.forms.clear();
     this.lastTargets.clear();
     this.picks.clear();

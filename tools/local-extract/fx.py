@@ -73,9 +73,15 @@ SKILLS = 'battle/prefabs/[uc]skills.ab'
 ENEMY_GLOB = 'battle/enm_pfb_*.ab'
 TOKEN_GLOB = 'pkgrps/btl_pfb_tokens_*.ab'
 
+# MAP10's fixed trap uses animated FX rather than a skeletal/transform animation on the frame mesh.
+CANNON_UNIT = 'trap_196_cnnon'
+CANNON_FX = tuple('trap_cnnon_' + suffix for suffix in
+                  ('idle', 'start', 'attack_start', 'buff', 'lockon', 'trail_1', 'trail_2', 'explode_1', 'explode_2', 'explode_hit', 'destroyed'))
+
 # The Phase 1a sample (handoff/vfx-feasibility.md): these effect keys, every effect the sample units reference, the
 # generic keys (FX_GENERIC + every buff_* of buff.ab) and a few prefabs that cover the rarer features of the format
 FX_SAMPLE_KEYS = [
+    *CANNON_FX,
     'common_hit_01', 'common_firemagic_hit_01', 'common_enemy_hit_01', 'common_char_die_01', 'common_enemy_die_01',
     'common_char_birth_01', 'buff_stun', 'buff_frozen', 'buff_autochess_frozen', 'buff_sleep', 'buff_burn', 'buff_cold',
     'inside_attack_01_start_front', 'inside_attack_01_trail_front', 'inside_attack_01_hit',
@@ -84,7 +90,7 @@ FX_SAMPLE_KEYS = [
     'amgoat_skill_03_trail', 'amgoat_skill_03_hit', 'amgoat_skill_03_buff',
     'lazerd_attack_01_start', 'lazerd_attack_01_trail', 'lazerd_attack_01_hit', 'enemy_tidmag_attack_01_hit',
 ]
-FX_SAMPLE_UNITS = ['char_498_inside', 'char_253_greyy', 'char_108_silent', 'char_134_ifrit', 'char_180_amgoat',
+FX_SAMPLE_UNITS = [CANNON_UNIT, 'char_498_inside', 'char_253_greyy', 'char_108_silent', 'char_134_ifrit', 'char_180_amgoat',
                    'enemy_1041_lazerd', 'enemy_1041_lazerd_2', 'enemy_1161_tidmag', 'enemy_1161_tidmag_2']
 # one prefab per rare feature (DESIGN §33.13): mesh shape, ribbon / particle trails, rate over
 # distance, orbital velocity, velocity alignment, horizontal billboard, custom-data shader, clips on GameObject.active /
@@ -2379,7 +2385,7 @@ def unit_roots(env, root, gos, mbs_of, gkey, go_of, deref, head, general_of, cla
     return out
 
 
-def skin_points(env, rel, prefab, graphic, container=None):
+def skin_points(env, rel, prefab, graphic, container=None, bound_mounts=False):
     """Mount points under a skin root (an operator's chararts defaultskin, placed under the charpack's Graphic) or
     under a unit prefab (an enemy / token: its own Graphic subtree): name → {facing ('front' | 'back' | 'all'):
     {pos (unit-root frame, Unity units and axes), bone (BoneFollower bone or null), path, rot (the point's local
@@ -2400,7 +2406,23 @@ def skin_points(env, rel, prefab, graphic, container=None):
     if root is None:
         return None
     base = trs_matrix(graphic['pos'], graphic['rot'], graphic['scale']) if graphic else trs_matrix([0, 0, 0], [0, 0, 0, 1], [1, 1, 1])
-    points = {}
+    points, aliases = {}, {}
+    if bound_mounts:
+        # Mesh devices bind arbitrary GameObject names (the cannon's Special0 is named after its mesh).
+        def bindings(go):
+            for c in env.tt(go).get('m_Component', []):
+                f, o = env.resolve(go.assets_file, c.get('component'))
+                if o is None or f == 'builtin' or o.type.name != 'MonoBehaviour':
+                    continue
+                d = env.tt(o)
+                for field, name in [('_muzzleTransform', 'Muzzle'), ('_hitTransform', 'HitPoint'),
+                                    ('_headTransform', 'HeadPoint'), ('_specialPoint0', 'SpecialPoint0')]:
+                    tf, to = env.resolve(o.assets_file, d.get(field))
+                    if to is not None and tf != 'builtin':
+                        aliases.setdefault((tf, to.path_id), []).append(name)
+            for child in go_children(env, go):
+                bindings(child)
+        bindings(root)
 
     def walk(go, m, facing, path):
         gd = env.tt(go)
@@ -2415,11 +2437,20 @@ def skin_points(env, rel, prefab, graphic, container=None):
                 bf = env.tt(co)
                 bone = bf.get('boneName') or None
                 follow_rot = bool(bf.get('followBoneRotation', 1))   # spine-unity's default: true
-        if trs is not None and MOUNT_NAME.search(name):
+        tf, to = None, None
+        if bound_mounts:
+            for c in gd.get('m_Component', []):
+                cf, co = env.resolve(go.assets_file, c.get('component'))
+                if co is not None and cf != 'builtin' and co.type.name == 'Transform':
+                    tf, to = cf, co
+                    break
+        bound = aliases.get((tf, to.path_id), []) if to else []
+        if trs is not None and (MOUNT_NAME.search(name) or bound):
             pt = {'pos': mat_point(m2), 'bone': bone, 'path': path + name, 'rot': [f6(x) for x in trs[1]]}
             if bone:
                 pt['followRot'] = follow_rot
-            points.setdefault(name, {})[f2 or 'all'] = pt
+            for alias in [name, *bound]:
+                points.setdefault(alias, {})[f2 or 'all'] = pt
         for k in go_children(env, go):
             walk(k, m2, f2, '' if go is root else f'{path}{name}/')
     walk(root, base, None, '')
@@ -2983,7 +3014,7 @@ def crawl_units(ab_root, cabs, unit_ids, gd, eff, enemy_idx, token_idx, log):
                     if (Path(ab_root) / arts).exists() else None
                 src = f'{arts} defaultskin'
             else:
-                pts, src = skin_points(env, rel, uid, None), f'{rel} {uid}'
+                pts, src = skin_points(env, rel, uid, None, bound_mounts=uid == CANNON_UNIT), f'{rel} {uid}'
             if pts:
                 skins[uid] = {'source': src, 'graphic': u.get('graphic'), 'points': pts}
                 u['skin'] = uid
@@ -3094,7 +3125,7 @@ def game_data(root):
             for s in (form or {}).get('skills') or []:
                 if isinstance(s, dict) and (s.get('prefabId') or s.get('skillId')):
                     skills.setdefault(cid, set()).add(s.get('prefabId') or s.get('skillId'))
-    toks = sorted(set(tokens) | set(backups.get('tokens') or {}))
+    toks = sorted(set(tokens) | set(backups.get('tokens') or {}) | {CANNON_UNIT})
     token_skills = {}
     for src in (backups.get('tokens') or {}, tokens):
         for tid, rec in src.items():
@@ -3235,7 +3266,7 @@ def export_fx(ab_root, out_root, manifest, log, selection='sample', keys=None, j
     t0 = time.time()
     gd = game_data(root)
     if keys:
-        unit_ids = []
+        unit_ids = [CANNON_UNIT] if set(keys) & set(CANNON_FX) else []
     elif selection == 'sample':
         unit_ids = list(FX_SAMPLE_UNITS)
     else:
@@ -3307,7 +3338,10 @@ def export_fx(ab_root, out_root, manifest, log, selection='sample', keys=None, j
             units, projectiles, skills, skins = ({**v, **(prev.get(k) or {})} for k, v in
                                                zip(('units', 'projectiles', 'skills', 'skins'), (units, projectiles, skills, skins)))
         else:
-            units, projectiles, skills, skins = (prev.get(x) or {} for x in ('units', 'projectiles', 'skills', 'skins'))
+            needed = {p for u in units.values() for p in u.get('projectiles', [])}
+            projectiles = {**(prev.get('projectiles') or {}), **{k: v for k, v in projectiles.items() if k in needed}}
+            units, skins = ({**(prev.get(k) or {}), **v} for k, v in (('units', units), ('skins', skins)))
+            skills = prev.get('skills') or {}
         summaries = {**(prev.get('prefabs') or {}), **summaries}
         old_textures = (_read_json(out / 'textures.json') or {}).get('textures') or {}
         tex_all = {**textures, **old_textures} if add_only else {**old_textures, **textures}

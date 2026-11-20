@@ -210,7 +210,7 @@ export const DEVICE_BOX = Object.freeze({
   sealedFloor: { size: 0.92, height: 0.05, top: 'sealed', side: 'forbidSide' },
   blower: { size: 0.86, height: 0.28, top: 'blowerTop', side: 'forbidSide' },
   turret: { size: 0.72, height: 0.34, top: 'turretTop', side: 'forbidSide' },
-  cannon: { size: 0.55, height: 0.62, top: 'turretTop', side: 'forbidSide' },
+  cannon: { cannon: true, size: 0.55, height: 0.62, top: 'turretTop', side: 'forbidSide' },
 });
 /** Box prop of a battle device unit by its defId (sim `spawnDevice`: stage device keys). */
 export function deviceBoxOf(defId) {
