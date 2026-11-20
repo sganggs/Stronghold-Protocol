@@ -396,7 +396,8 @@ export function canPlace(ctx, uid, target) {
     if (out && out.has(tileKey(row, col))) return no('BAD_TILE', t('只能部署在召唤者攻击范围外'));
     if (src.area === 'board') {
       // board → board: move or swap (the occupant must be legal on the source tile — the mover's own summon excepted:
-      // recompute returns it to the hand if the owner's final placement range leaves it outside)
+      // recompute returns it when the owner's final range leaves it outside, or the tile it lands on is one it cannot
+      // stand on). This view does not move the occupant; the next server snapshot does.
       const ownSummon = occ && occ.piece.kind === 'token' && occ.piece.ownerUid === piece.uid;
       if (occ && !ownSummon && !unitAllowed(ctx, occ.piece, src.row, src.col)) return no('BAD_TILE', t('交换后的单位无法部署在原位置'));
       return { ok: true, action: occ ? 'swap' : 'move' };

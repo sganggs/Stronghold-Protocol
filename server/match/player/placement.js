@@ -1,5 +1,5 @@
 // server/match/player/placement.js — PlayerState methods: g.move — placement legality on the deploy field (board.js),
-// the summon ranges of 狼群 / 流形 (ownerRange) and the summons an owner's move or re-orientation leaves out of range,
+// the summon ranges of 狼群 / 流形 (ownerRange) and the summons an owner's move or re-orientation leaves illegal,
 // operator / summon moves onto the board, back to the hand, between hand and temp, swaps and re-orientation in place.
 // Installed on PlayerState.prototype by server/match/PlayerState.js (a method container: never instantiated; `this` is
 // the player state).
@@ -126,11 +126,15 @@ export class PlayerPlacement {
   }
 
   /**
-   * Range-bound summons left outside their owner's attack range (the owner re-oriented in place, promoted, its loadout
-   * changed or moved) go back onto their stack — a summon still on a legal tile stays, preserving its facing and
-   * identity (2026-11-12 original-game recording, docs/research/summon-pr-20261117.md).
+   * Summons whose final tile is illegal go back onto their stack — outside the owner's placement range, or on a tile
+   * the summon cannot stand on (the deploy check: position class, water, a blocked tile, a chest mark). A summon still
+   * on a legal tile stays, preserving its facing and identity (2026-11-12 original-game recording,
+   * docs/research/summon-pr-20261117.md; GitHub #984 is the tile-class case, a melee summon swapped onto a ranged tile).
    * [QoL] Shared placement adopts this newer-client behavior across seasons; historical clients were not re-tested.
    * Check after both pieces of a swap reach their final tiles.
+   * A range or exclusion miss keeps that toast even when the tile class is also wrong. [ASSUMED] A tile the summon
+   * cannot stand on, with the range still satisfied, uses the tile toast below; the wording is this project's, not an
+   * official string. The swap itself stays allowed (the same path as an own summon left out of range).
    * A passive lift (`allowTemp`) with no stack
    * joins the expandable temp queue, including past the five visible slots (PRTS 卫戍协议/帮助 §手牌区); it does not
    * wait until the next round. The player's own in-place re-orientation still refuses with `HAND_FULL` when a lifted
@@ -140,15 +144,22 @@ export class PlayerPlacement {
    */
   _liftOutOfRange() {
     const back = [], gone = [], backOut = [], goneOut = [], backAdjacent = [], goneAdjacent = [];
+    const backTile = [], goneTile = [];
     for (const [k, p] of [...this.board]) {
       if (p.kind !== 'token') continue;
+      const [r, c] = parseKey(k);
+      if (this._legal(p, r, c)) continue;
       const range = this.summonRange(p);
       const out = this.summonExcluded(p);
       const inside = !!(out && out.has(k));
-      if (!inside && (!range || range.has(k))) continue;
+      const rangeBad = inside || !!(range && !range.has(k));
       this.board.delete(k);
       const ok = this._returnToken(p, null, { allowTemp: true });
-      const returned = inside ? (ok ? backOut : goneOut) : summonPlacementGrid(p.id) ? (ok ? backAdjacent : goneAdjacent) : (ok ? back : gone);
+      let returned;
+      if (!rangeBad) returned = ok ? backTile : goneTile;
+      else if (inside) returned = ok ? backOut : goneOut;
+      else if (summonPlacementGrid(p.id)) returned = ok ? backAdjacent : goneAdjacent;
+      else returned = ok ? back : gone;
       returned.push(this.gd.token(p.id)?.name || p.id);
     }
     if (back.length) this.m.toast(this, 'warn', msg('{names}只能部署在召唤者攻击范围内，已退回整备区', { names: back.map(dn) }));
@@ -158,13 +169,18 @@ export class PlayerPlacement {
     if (goneOut.length) this.m.toast(this, 'warn', msg('{names}只能部署在召唤者攻击范围外，整备区已满，下回合返还', { names: goneOut.map(dn) }));
     if (backAdjacent.length) this.m.toast(this, 'warn', msg('{names}只能部署在召唤者相邻四格，已退回整备区', { names: backAdjacent.map(dn) }));
     if (goneAdjacent.length) this.m.toast(this, 'warn', msg('{names}只能部署在召唤者相邻四格，整备区已满，下回合返还', { names: goneAdjacent.map(dn) }));
-    return back.length + gone.length + backOut.length + goneOut.length + backAdjacent.length + goneAdjacent.length;
+    if (backTile.length) this.m.toast(this, 'warn', msg('{names}不能部署在该地块，已退回整备区', { names: backTile.map(dn) }));
+    if (goneTile.length) this.m.toast(this, 'warn', msg('{names}不能部署在该地块，整备区已满，下回合返还', { names: goneTile.map(dn) }));
+    return back.length + gone.length + backOut.length + goneOut.length + backAdjacent.length + goneAdjacent.length
+      + backTile.length + goneTile.length;
   }
 
   /**
    * Whether every range-bound summon of `owner` that the range from (ownerKey, dir) leaves out can go back onto its
    * stack or into a free hand / temp slot (_reorient refuses otherwise: the player's own re-orientation never costs a
    * summon, like withdrawing one into a full hand gives HAND_FULL).
+   * Tile class is not re-checked here: an in-place turn does not move the summon, and a summon already on a tile it
+   * cannot stand on was lifted by _liftOutOfRange on the recompute that left it there.
    */
   _roomForOutOfRange(owner, ownerKey, dir) {
     const at = { key: ownerKey, piece: owner, dir };
@@ -187,8 +203,8 @@ export class PlayerPlacement {
     if (occ === piece) return this._reorient(piece, dir);
     if (loc.area === 'board') {
       // board → board: move or swap (the occupant must be legal on the source tile and keeps its own facing); an
-      // own summon may swap onto a tile outside the owner's final range: recompute returns it to its stack. All
-      // other summons stay unless the final layout leaves them out of range.
+      // own summon may swap onto a tile it cannot stand on (outside the owner's final range, or the wrong tile
+      // class): recompute returns it to its stack. All other summons stay unless the final layout leaves them illegal.
       if (occ) {
         const [sr, sc] = parseKey(loc.key);
         const ownSummon = occ.kind === 'token' && occ.ownerUid === piece.uid;

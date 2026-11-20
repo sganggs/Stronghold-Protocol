@@ -964,6 +964,8 @@
   "{names}只能部署在召唤者攻击范围内，整备区已满，下回合返还": "{names} can only be deployed within the summoner's attack range; the Bench is full, so they come back next round",
   "{names}只能部署在召唤者攻击范围外，已退回整备区": "{names} can only be deployed outside the summoner's attack range and returned to the Bench",
   "{names}只能部署在召唤者攻击范围外，整备区已满，下回合返还": "{names} can only be deployed outside the summoner's attack range; the Bench is full, so they come back next round",
+  "{names}不能部署在该地块，已退回整备区": "{names} cannot be deployed on that tile and returned to the Bench",
+  "{names}不能部署在该地块，整备区已满，下回合返还": "{names} cannot be deployed on that tile; the Bench is full, so they come back next round",
   "【{label}】层数达成，下回合开始时获得{gain}资金": "[{label}] stack milestone reached: +{gain} Funds at the start of the next round",
   "【{label}】层数达成，获得{gain}资金": "[{label}] stack milestone reached: +{gain} Funds",
   "【奇迹】下次刷新不消耗资金": "[Marvel] Your next refresh is free",

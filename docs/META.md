@@ -948,7 +948,11 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
   where it was dropped) keeps each placed summon whose tile is still legal for the owner's final position and sends only
   the others back onto their stack (PR #969's official recording of the new client, accepted for all five versions by the
   maintainer on 2026-11-18; the PRTS help line "移动干员时，其所属召唤物全部退场并重置至手牌区" describes the older client;
-  `PlayerState._liftOutOfRange` after the move). A stack that overflowed into temp and was removed at a prep deadline comes back at the
+  `PlayerState._liftOutOfRange` after the move). A summon left on a tile it cannot stand on is returned the same way
+  (GitHub #984: 幻影 `position: MELEE` swapped onto the ranged tile its owner left). `_legal` is `canPlace` plus the range
+  rules, so a ranged-only tile, water and a blocked tile are covered. The swap stays allowed; the client does not predict
+  the return. An in-place re-orientation does not re-check tile class (`_roomForOutOfRange`): facing does not move the
+  summon. A stack that overflowed into temp and was removed at a prep deadline comes back at the
   next round start (§手牌区 "干员所属召唤物会于下一回合返还": `PlayerState.startRound` tops every board owner's summons up
   to the deploy limit, `grantTokensFor`). A summon whose text reads "只能部署在召唤者攻击范围内" (tokens.json `ownerRange`:
   the tacticians' 援军, 伺夜 狼群 / 缪尔赛思 流形 — choosing the tactical point; player report #9 after 0.1.0) only goes on
@@ -960,7 +964,9 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
   place (or promoted) a summon its new range leaves out goes back onto its stack with a toast (`_liftOutOfRange` in
   `recompute`) — one still inside stays [ASSUMED]. A re-orientation that would leave such a summon with no stack and no
   free hand / temp slot is refused (HAND_FULL, like withdrawing a summon into a full hand); in the other cases (a
-  promotion, an owner moved while hand and temp are full) the summon leaves the board and its stack waits in the expandable temp queue (`_returnToken`), so no out-of-range placement reaches the battle. The client lights and accepts
+  promotion, an owner moved while hand and temp are full) the summon leaves the board and its stack waits in the
+  expandable temp queue (`_returnToken`), so no illegal placement (out of range, or a tile the summon cannot stand on)
+  reaches the battle. The client lights and accepts
   the same tiles (`ui/gameLogic.js summonRange`), the bot plans inside them. Battle side: SIM.md §1.1 token pieces.
 * **Bonds**: bondsMeta.js (BOARD distinct, BOARD_AND_DECK, 绝技 elites, 调和 +1 — the state and the views mark it
   `harmony: 1`, DESIGN §21.26 —, 独行 downward, 助力 upper tiers, 变形同构体 grants). Σ activated layers for the hidden
