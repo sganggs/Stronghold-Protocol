@@ -24,6 +24,9 @@
 //             from the 10-slot character hand, with hidden overflow (规程 only); optional `finalAssault:
 //             { layerGainsEnabled }` is copied into config.finalAssault (omitted = false). 规程 sets it true so boss
 //             and hidden fields keep IN_BATTLE layer gains. 联防 is not part of this switch.
+//             Optional `economy: { incomeBase, incomeCap, modeIncome?: { [modeId]: { base, cap } } }` — a measured income
+//             curve min(base + round, cap) (omitted = 下半's [ASSUMED] min(3 + round, 12)); a mode entry writes
+//             modes[modeId].economy.income, merged over the season's by match/gamedata.js (规程 极速模拟).
 //   expect    the counts validateAll checks, and maxMB, the size limit of the 15 built files (omitted = 6); triggerDeviations
 //             'default' (every deliberate deviation meets its official
 //             TAKE_DAMAGE row), 'present' (those of the operators the version has) or 'none' (no TAKE_DAMAGE row at all)

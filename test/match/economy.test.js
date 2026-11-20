@@ -36,6 +36,20 @@ test('income = min(3 + r, 12) in every mode; funds are lost at prep end (band_ca
   h2.m.dispose();
 });
 
+test('规程 income: min(3 + r, 11), 极速模拟 min(5 + r, 11) (official recordings, round 84); 下半 unchanged', async () => {
+  const { getVersionData } = await import('../../server/data.js');
+  const v3 = getVersionData('act3autochess@V3_1', { log: { warn() {}, error() {}, info() {} } });
+  for (const modeId of ['mode_single_1', 'mode_single_20', 'mode_multi_funny', 'mode_multi_normal', 'mode_multi_abyss']) {
+    assert.ok(v3.config.modes[modeId], modeId);
+    const gd = new GameData(v3, modeId);
+    for (let r = 1; r <= 15; r++) assert.equal(gd.income(r), Math.min(3 + r, 11), `规程 ${modeId} R${r}`);
+  }
+  const fast = new GameData(v3, 'mode_single_funny');
+  assert.deepEqual([1, 2, 3, 4, 5, 6, 7, 8, 9].map((r) => fast.income(r)), [6, 7, 8, 9, 10, 11, 11, 11, 11], '规程 极速模拟');
+  const def = new GameData(DATA, 'mode_single_funny');
+  assert.equal(def.income(9), 12, 'the default data keeps its own curve');
+});
+
 test('upgrade price: base per mode, −1 per round start (floor 0), resets to the next base after a level-up; MAX_LEVEL', () => {
   const h = makeMatch({ mode: 'solo', difficulty: 'NORMAL', seed: 4 }).start();
   h.toPrep(1);

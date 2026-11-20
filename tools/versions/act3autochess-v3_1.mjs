@@ -71,6 +71,11 @@ export default Object.freeze({
     // Boss and hidden fields keep permanent IN_BATTLE layer gains (maintainer 2026-11-19). 联防 stays off.
     // Omitted on the covenant profiles, so their built config.finalAssault.layerGainsEnabled stays false.
     finalAssault: Object.freeze({ layerGainsEnabled: true }),
+    // Income per round, read at every prep start on official recordings (round 84; the round-start banner 「获得 +X」
+    // equals the counter): base min(3 + round, 11) — R1–R8 4…11, R9 on 11 — on BV1fnWn6QEf9 (solo 规程等级1, all 14
+    // rounds, no extra source), BV12ZWP6pE7m (规程等级20) and BV13LWM6BEvY p1 / p8 (co-op 终极); 极速模拟 min(5 + round,
+    // 11) on BV1MyWn6TEBq (one match, R1 6 … R6–R9 11). 下半's cap 12 was never measured past R3.
+    economy: Object.freeze({ incomeBase: 3, incomeCap: 11, modeIncome: Object.freeze({ mode_single_funny: Object.freeze({ base: 5, cap: 11 }) }) }),
   }),
   // 155 shop chess (310 records) and 465 effects against 下半's 133 / 361: 6.4 MB built, so the limit is 7 MB, not 6
   expect: Object.freeze({ bonds: 26, bands: 61, visibleNonDiy: 141, triggerDeviations: 'present', maxMB: 7 }),

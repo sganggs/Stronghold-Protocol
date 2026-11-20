@@ -3295,7 +3295,11 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
   const multipliers = addendum.enemyStatMultipliers || DEFAULT_ENEMY_MULTIPLIERS;
   if (!addendum.enemyStatMultipliers) warn('config: using built-in enemy multiplier table (research 01 _criticAddendum missing)');
   const enemySteps = enemyStepsOf(act);
-  const incomeCap = addendum.incomePerRound?.CAP ?? 12;
+  // A profile's measured curve (规程: recordings) replaces the research addendum's [ASSUMED] cap.
+  const measuredIncome = PROFILE.config.economy || null;
+  const incomeCap = measuredIncome?.incomeCap ?? addendum.incomePerRound?.CAP ?? 12;
+  const incomeBase = measuredIncome?.incomeBase ?? 3;
+  const incomeCurve = (base, cap) => Array.from({ length: 16 }, (_, r) => (r === 0 ? 0 : Math.min(base + r, cap)));
   const DIFF_KEYS = { FUNNY: 'bloodPoint', NORMAL: 'bloodPointNormal', HARD: 'bloodPointHard', ABYSS: 'bloodPointAbyss' };
 
   const modes = {};
@@ -3356,6 +3360,9 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
       bossWeights: Object.fromEntries(Object.values(rounds).filter((x) => x.isBoss && !x.isHidden).flatMap((x) => Object.keys(x.bossTemplates)).map((b) => [b, act.bossInfoDict[b].weight])),
       hiddenBossWeights: Object.fromEntries(Object.values(rounds).filter((x) => x.isHidden).flatMap((x) => Object.keys(x.bossTemplates)).map((b) => [b, act.bossInfoDict[b].weight])),
     };
+    // a mode with its own measured curve (规程 极速模拟): GameData merges a mode's economy over the season's
+    const modeIncome = measuredIncome?.modeIncome?.[modeId];
+    if (modeIncome) modes[modeId].economy = { income: incomeCurve(modeIncome.base, modeIncome.cap), incomeFormula: `min(${modeIncome.base} + round, ${modeIncome.cap})` };
   }
 
   const priceTable = act.shopCharChessInfoData || {};
@@ -3394,8 +3401,10 @@ function buildConfig(ctx, waves, stages, bands, chess, items) {
     seasonName: '卫戍协议：盟约',
     modes,
     economy: {
-      income: Array.from({ length: 16 }, (_, r) => (r === 0 ? 0 : Math.min(3 + r, incomeCap))),
-      incomeFormula: `min(3 + round, ${incomeCap})`, incomeCap, incomeCapAlternative: 10, incomeAssumedAfterRound: 3,
+      income: incomeCurve(incomeBase, incomeCap),
+      incomeFormula: `min(${incomeBase} + round, ${incomeCap})`, incomeCap,
+      // [ASSUMED] markers of the unmeasured curve (下半: only R1–R3 seen); null when the profile measured it
+      incomeCapAlternative: measuredIncome ? null : 10, incomeAssumedAfterRound: measuredIncome ? null : 3,
       leftoverFundsLost: true, leftoverFundsKeptByBands: ac.constData?.noMoneyTipsBand || ['band_cannot'],
       chessPrice, chessSell, chessStatus,
       refreshPrice: act.constData.shopRefreshPrice,

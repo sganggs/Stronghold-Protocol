@@ -106,7 +106,7 @@ Top level: `{ season, seasonName, modes, economy, lpCapPerRound, bossOvertimeAft
 
 | Field | Example | Meaning |
 |---|---|---|
-| `income` | `[0,4,5,6,…,12]` | index = round (index 0 unused): `min(3+r, 12)`; `incomeCap` 12, `incomeCapAlternative` 10, `incomeAssumedAfterRound` 3 |
+| `income` | `[0,4,5,6,…,12]` | index = round (index 0 unused): `min(3+r, 12)`; `incomeCap` 12, `incomeCapAlternative` 10, `incomeAssumedAfterRound` 3 (下半: only R1–R3 measured). 规程 measured it on recordings (profile `config.economy`): `min(3+r, 11)`, the two markers null; its 极速模拟 carries `modes.mode_single_funny.economy.income` = `min(5+r, 11)`, merged over the season's by `GameData` |
 | `leftoverFundsLost`, `leftoverFundsKeptByBands` | `true`, `["band_cannot"]` | |
 | `chessPrice[tier]` / `chessSell[tier]` | `{"normal":2,"golden":2}` / `{"normal":1,"golden":1}` | |
 | `chessStatus[tier]` | `{"normal":{"phase":1,"level":55,"skillLevel":4,"equipLevel":0,…},"golden":{…}}` | training status per tier |
