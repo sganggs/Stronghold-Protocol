@@ -66,6 +66,7 @@ describe('界面主题 (headless Chrome)', { skip: !ENABLED && 'set SP_E2E=1 (an
     await page.goto(`${base}/dev/game-mock.html?shot=1&phase=PREP`, { waitUntil: 'networkidle0', timeout: 60000 });
     await page.waitForSelector('.shopbar__row', { timeout: 60000 });
     await page.click('button.gm__gear[aria-label="设置"]');
+    await page.click('[data-settings-tab="appearance"]');
     await page.waitForSelector('[data-testid="theme-import-zip"]', { timeout: 10000 });
     const input = await page.$('[data-testid="theme-import-zip"]');
     await input.uploadFile(zipPath);

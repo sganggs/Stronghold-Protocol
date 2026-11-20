@@ -50,6 +50,9 @@ token, image or voice line drops that key and keeps the rest.
 Images: `.png` `.jpg` `.jpeg` `.webp` (animated WebP and APNG play in the browser). Audio: `.ogg` `.mp3`.
 `slice` is four integers, CSS pixels, top / right / bottom / left, drawn as `border-image` with no `fill` so the
 centre stays the element's own fill. A banner may be a path or the same `{ "src", "slice" }` object as an image.
+The official 卫戍协议终端 pack (`ac_n_initial`) is the exception on the ready button, the 联防 plate and the result box:
+there its sliced sprites are drawn as the game draws them, whole (`fill`), with none of our fill or shadow under or
+round them, so ready_bg's glow and round_bg's / bg_all's soft shadow lie over the field (GitHub #963).
 `character` is optional. It is either `{ "image" }` (a path or `{ "src", "slice" }`) or
 `{ "spine": { "skel", "atlas", "textures" }, "anims": { "idle", "voice": { "cn_001": "Happy" } } }`, not both.
 A bad character drops that key and keeps the pack. A bad `anims` drops only `anims`.

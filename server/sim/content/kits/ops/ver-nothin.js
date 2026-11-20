@@ -54,7 +54,7 @@ function nothin(_bb, chess, def) {
       onHitBy(battle, unit, ({ target, dmg }) => {
         if (!isMainHit(dmg)) return;
         if (unit.mem.nothinAmbush) {
-          if (ambush !== 1) dmg.mul *= ambush;
+          if (ambush !== 1) dmg.amount *= ambush; // 攻击力提升至 atk_scale, before DEF
           if (stun > 0 && target.alive) battle.applyStatus(target, 'stun', { duration: stun, source: unit });
           unit.mem.nothinAmbush = false;
         }

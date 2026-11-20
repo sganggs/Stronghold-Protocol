@@ -264,7 +264,7 @@ fields' `startAt` / `lastProgressAt` and the boss start by the paused time and r
 
 `drawDisabledBonds` retains the covenant result `{ drawn, staticOff, banned }`. With
 `config.version.rules.bondDraw === 'regulation'`, SINGLE also returns `choice: { groups: [ids, ids], picked: null }`;
-MULTI greys half the available cores immediately. `Match.bondChoice` is settled by `pickBondGroup` during INFO_CHECK.
+MULTI greys cores by difficulty from the version config (`bans.core`: 标准 0, 险境 / 绝境 / 终极 5; `server/match/pool.js`, DESIGN §37.128), and add-ons 2 below 险境, 5 from 险境 (§37.119). `Match.bondChoice` is settled by `pickBondGroup` during INFO_CHECK.
 `g.bondGroup { idx, setupRevision }` refuses stale revisions, non-integer/out-of-range indices, repeated choices,
 spectators, co-op, reroll votes and other phases. It responds with the ordinary intent acknowledgement.
 The choice rebuilds the provisional shared pool and every player's 自选 stock; no shop or chess acquisition runs
@@ -858,7 +858,8 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
 
 ## 3. Rules implemented (summary; details in each module header)
 
-* **Economy**: income `config.economy.income[r]` (= min(3+r, 12)); bounty coins / pending funds credited at the next
+* **Economy**: income `config.economy.income[r]` (= min(3+r, 12); 规程 min(3+r, 11) and its 极速模拟 min(5+r, 11), from
+  official recordings — a mode's `economy` merges over the season's); bounty coins / pending funds credited at the next
   round start; leftover funds lost at prep end except `leftoverFundsKeptByBands`. Chess price by tier (2/3/3/3/4/4),
   items by `price`, refresh 1 (free refreshes first), sell +1 (elite too; items cannot be sold, only destroyed).
 * **Shop**: `shopSlots[level]` chess slots + item slot(s), copy-weighted rolls over remaining pool copies of unbanned,
@@ -948,7 +949,11 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
   where it was dropped) keeps each placed summon whose tile is still legal for the owner's final position and sends only
   the others back onto their stack (PR #969's official recording of the new client, accepted for all five versions by the
   maintainer on 2026-11-18; the PRTS help line "移动干员时，其所属召唤物全部退场并重置至手牌区" describes the older client;
-  `PlayerState._liftOutOfRange` after the move). A stack that overflowed into temp and was removed at a prep deadline comes back at the
+  `PlayerState._liftOutOfRange` after the move). A summon left on a tile it cannot stand on is returned the same way
+  (GitHub #984: 幻影 `position: MELEE` swapped onto the ranged tile its owner left). `_legal` is `canPlace` plus the range
+  rules, so a ranged-only tile, water and a blocked tile are covered. The swap stays allowed; the client does not predict
+  the return. An in-place re-orientation does not re-check tile class (`_roomForOutOfRange`): facing does not move the
+  summon. A stack that overflowed into temp and was removed at a prep deadline comes back at the
   next round start (§手牌区 "干员所属召唤物会于下一回合返还": `PlayerState.startRound` tops every board owner's summons up
   to the deploy limit, `grantTokensFor`). A summon whose text reads "只能部署在召唤者攻击范围内" (tokens.json `ownerRange`:
   the tacticians' 援军, 伺夜 狼群 / 缪尔赛思 流形 — choosing the tactical point; player report #9 after 0.1.0) only goes on
@@ -960,7 +965,9 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
   place (or promoted) a summon its new range leaves out goes back onto its stack with a toast (`_liftOutOfRange` in
   `recompute`) — one still inside stays [ASSUMED]. A re-orientation that would leave such a summon with no stack and no
   free hand / temp slot is refused (HAND_FULL, like withdrawing a summon into a full hand); in the other cases (a
-  promotion, an owner moved while hand and temp are full) the summon leaves the board and its stack waits in the expandable temp queue (`_returnToken`), so no out-of-range placement reaches the battle. The client lights and accepts
+  promotion, an owner moved while hand and temp are full) the summon leaves the board and its stack waits in the
+  expandable temp queue (`_returnToken`), so no illegal placement (out of range, or a tile the summon cannot stand on)
+  reaches the battle. The client lights and accepts
   the same tiles (`ui/gameLogic.js summonRange`), the bot plans inside them. Battle side: SIM.md §1.1 token pieces.
 * **Bonds**: bondsMeta.js (BOARD distinct, BOARD_AND_DECK, 绝技 elites, 调和 +1 — the state and the views mark it
   `harmony: 1`, DESIGN §21.26 —, 独行 downward, 助力 upper tiers, 变形同构体 grants). Σ activated layers for the hidden
@@ -1006,7 +1013,7 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
 * **SETTLE**: LP −min(counted leaks, 10) (after 联防: survivors attributed to their source, same cap); IN_BATTLE layer
   gains applied, each bond up to `BOND_LAYER_CAP` (999, `layerGainRoom`, as `PlayerState.addLayers`); kill-bounty coins (paid by the Battle to the killer — a 联防 helper included; a death no operator caused pays the card's owner, in 联防 the helper whose half it fell on: `Battle._bountyPayee`) and perfect-bounty coins
   (own phase perfect) go to pending funds; bounty rounds decrement; LP ≤ 0 ⇒ eliminated (all copies back to the pool).
-* **Final Assault / Hidden Core**: finalAssault.js header. Boards are passed in board coordinates; the sim maps board
+* **Final Assault / Hidden Core**: finalAssault.js header. Permanent IN_BATTLE layer gains follow `config.finalAssault.layerGainsEnabled` (规程 true, 盟约 false) and are kept in `_finishFinal` the same way SETTLE keeps a normal battle's gains. 联防 stays off. Hidden-core eligibility still uses the layer sum frozen at the end of the boss round's prep. Boards are passed in board coordinates; the sim maps board
   rows 9–12 onto boss rows 2–5 (`BOSS_ROW_OFFSET` −7, matching every stage's boss rows) and mirrors the right side.
   Pairing uses a separate seeded shuffle before Final Assault prep (salt `boss-pairs`) and a new one before Hidden Core
   prep (salt `boss-pairs:15`, `finalAssault.js bossPairSalt`: pairs and sides drawn anew, GitHub #845, DESIGN §35.27);

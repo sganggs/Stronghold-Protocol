@@ -270,6 +270,11 @@ function kitMech(ab) {
   const squadN = squad ? Math.min(bb(squad, 'cnt', 4), bb(squad, 'batch_max_target', 2)) : 0;
   return [
     {
+      // Hidden 械 (enemy_9029_acfnc_2 description): 「出场时召唤冲击之械」. The base form has
+      // Armor.hp_ratio and summons only after it falls under that ratio; the hidden record has no hp_ratio.
+      spawn(b, e) {
+        if (e.defId === MECH_2) spawnArmorPair(b, e);
+      },
       tick(b, e, a) {
         if (!halfRatio || a.armed || !(e.hpRatio < halfRatio)) return;
         a.armed = true;

@@ -318,7 +318,11 @@ containing the plugin JSON and roster; `--only plugin-art/<charId>` narrows the 
 
 ### Re-extracting scenes after an update
 
-Scene extraction version **5** writes 规程's three level prefabs whole, one group each (scene.json `layout: 'pieces'`,
+Scene extraction version **6** binds a lossless RGB companion for opaque albedo images containing zero-alpha
+texels with useful RGB. The original RGBA resource remains unchanged for transparent consumers. Cutout, blended,
+water, trap-shadow and independent data textures keep their original channels. RGB comes from the already encoded
+albedo, so this does not change its decoded colour or lighting. This is a compatibility workaround for a reported
+Edge snow-surface disappearance, not proof of a browser or GPU root cause. Version **5** writes 规程's three level prefabs whole, one group each (scene.json `layout: 'pieces'`,
 DESIGN §37.266); 盟约's scenes are unchanged from version 4. Version **4** removes complete, exact redundant renderers
 (GitHub #684, DESIGN §34.24).
 The official Android `26-04-13-12-31-42_e9b560` m03 scene contains both a base rock (renderer 2048) and its
@@ -333,7 +337,7 @@ ties are described in §34.24; deletion is a remake art correction, not an offic
 After updating, run `node tools/setup.mjs --scenes`, or answer a typed **yes** to setup's existing version-only
 re-extraction prompt. Version-3 scenes still load but contain the redundant geometry; replacing code alone does
 not repair already extracted files. A missing-scene/partial set retains the existing explicit `--scenes` / `--yes`
-gate. `scene.json` mesh version remains 1; the manifest's `scene` record is version 5. A 规程 scene of version 4 (cut
+gate. `scene.json` mesh version remains 1; the manifest's `scene` record is version 6. A 规程 scene of version 4 (cut
 into the 19×21 board) is not drawn by this client — the board stays procedural until it is extracted again.
 
 For inspection without replacing installed assets, the local extractor already supports **both** output options:
@@ -1056,3 +1060,36 @@ Canvas 为 inert、aria-hidden、pointer-events:none，可用时以手动 popove
 ```
 
 正常完整提取也尝试可选 PC 光标，不加入手机客户端的 `EXPECTED_LOCAL_GROUPS`。清单 `groups["ui/cursor"].prts_hand` 记录源包身份／文件名、各 Sprite 像素 SHA-256、源包及输出 SHA-256、帧布局、时间和提取版本 2；本次来源 `anon/f7bcd64480c4566f25d65d642f5fba95.bin`。二进制不入 Git，发布须同步实际文件及清单。Canvas 截图会包含实际手形，定向验证同时保留静止／按下像素与页面截图，并检查连续点击穿透、系统语义、DPR、全屏和 opt-out 清理。
+
+
+### Variable-length scene-binary transport
+
+Large scenes can declare an ordered, nonempty `scene.json.binParts` array of byte lengths, for example
+`[15000000, 15000000, 2194384]`. The loader derives manifest keys `bin`, `bin1`, `bin2`, ... from array indices;
+`binBytes` is the complete original mesh length. The format has variable part counts.
+Each part is at most 15,000,000 bytes to fit deployments
+with a 16,000,000-byte resource-pack cap, including ZIP framing and its manifest.
+
+Loader/exporter policy is separate from the format: `sceneTransport.js` and `scene_transport.py` currently allow
+60,000,000 total bytes and 256 parts. The total preserves the previous four-by-15-MB budget. The part-count budget
+bounds request/metadata work while permitting smaller pieces; neither value is an official game or browser limit.
+The Python writer accepts `part_bytes`, `max_bytes` and `max_parts` keyword budgets. **By default a scene stays one
+`scene.bin`** (no `binParts`), as before: the release packages allow 256 MiB per file and one request is cheaper. A
+deployment with a small per-file limit sets `SP_SCENE_PART_BYTES=15000000` (at most 15,000,000) while extracting, and
+every scene above that size is written in parts; a later export with fewer parts removes the stale `sceneN.bin` files
+and their manifest keys (`scene_transport.py` `write_scene_bins` / `record_scene_bins`). Existing single-file resources
+keep their original loading path. An old client reads only `scene.bin`, so a split scene needs the matching page too.
+
+The loader validates the complete declaration before allocating or requesting binary parts. It allocates the full
+destination once, awaits each part, checks its exact size, writes it at the next offset and releases the temporary
+reference before requesting the next. Missing, truncated, oversized or failed parts stop loading; incomplete bytes
+never reach the mesh parser. Allocation failure keeps the procedural-board fallback. Chunk offsets and the scene
+mesh version continue to address the completed byte-identical buffer.
+
+The loader retains the destination plus the current part, rather than all part buffers plus a second full copy.
+Network/cache storage and garbage-collection timing can add memory beyond these live references. Geometry is still
+parsed after the complete binary is loaded; this transport change does not introduce progressive scene rendering.
+
+The reporting fork's small-pack cap motivates the 15 MB piece size; upstream accepts 256 MiB per ZIP entry.
+Actual unmodified #977 MAP05 / MAP10 / MAP12 binaries are 19,614,492 / 31,660,444 / 32,194,384 bytes. Validation
+can repartition existing bytes without rerunning Unity extraction.

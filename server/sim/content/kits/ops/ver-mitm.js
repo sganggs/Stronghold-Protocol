@@ -147,7 +147,7 @@ function mitm(_bb, chess) {
           }
           const amount = unit.s.atk * num(sbb.aoe_damage_scale, 1);
           for (const e of battle.enemiesOnTiles(keys, unit, { canHitFly: true })) {
-            battle.dealDamage(unit, e, { amount, type: 'phys', tags: ['mitm:blast'] });
+            battle.dealDamage(unit, e, { amount, type: 'phys', isSkill: true, tags: ['skill', 'mitm:blast'] });
           }
           battle.retreat(car, { reason: 'expired', permanent: true });
         },

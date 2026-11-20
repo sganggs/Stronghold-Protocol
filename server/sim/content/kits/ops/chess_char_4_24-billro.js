@@ -50,6 +50,18 @@ export default withDefaults({
           },
           onEnd({ battle, unit }) { unit.mem.billroCharged = false; battle.removeBuff(unit, 'billro:s1guard'); },
         }),
+        // 沙缚镣锁: the `skill` spec, also keyed so it still runs when S3 is the chess default (规程).
+        skchr_billro_2: () => ({
+          kind: 'duration',
+          mods: { batPct: batFlat(def, bb.base_attack_time) },
+          onStart({ battle, unit, skill }) {
+            const charged = isCharged(skill);
+            unit.mem.billroCharged = charged;
+            if (charged) battle.addBuff(unit, { key: 'billro:charged', mods: { atkPct: num(bb.atk, 0.1) } });
+            battle.fx(charged ? 'sandChainsCharged' : 'sandChains', { x: unit.x, y: unit.y, id: unit.id, charged: charged || undefined });
+          },
+          onEnd({ battle, unit }) { unit.mem.billroCharged = false; battle.removeBuff(unit, 'billro:charged'); },
+        }),
         skchr_billro_3: () => ({
           kind: 'duration',
           targeting: g ? { rangeGrid: g } : undefined,

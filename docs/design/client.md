@@ -462,14 +462,16 @@ then the lower renderer id. Existing extracted scenes require re-extraction; mes
 stage (`tools/versions/layouts.mjs composeRegulationStage`). The build also writes the arena itself (`stages.json`
 `arena`, DATA §12; `regulationArena`), and extractor version 5 writes the three prefabs whole, one group each
 (`regulation_scenes.py`, scene.json `layout: 'pieces'`). The client draws the one piece a view shows
-(`render/arenaView.js arenaField`): the prep, normal and pen cameras a player block (hand row 7, equipment row 8, the road
+(`render/arenaView.js arenaField`): the prep and normal cameras a player block (hand row 7, equipment row 8, the road
 rows 9–12 cols 0–10 — the sim's cells, tile for tile — and its preview pen **beside the road**, rows 8–12 cols 12–18),
 联防 the `sub_02` board (rows 8–13), the boss, hidden and Final Assault prep cameras a boss field (rows 0–12, its pen
 rows 7–11 cols 7–13). Outside the piece the grid is void; the arena devices standing on the piece move with it and keep
 the stats of the stage's device of the same key; `config.enemy_place_rect` becomes the piece's pen rect, so
 `render/pen.js` lays the preview out there and the pen camera fits it. `board3d/scene.js` draws only that piece's group,
 shifted to its rows; a pieces scene with the composed stage, or a stage that names a piece with an older cut scene, falls
-back to the procedural board. The view's field switches when the camera's kind does. **[ASSUMED]** seat s draws the
+back to the procedural board. The view's field switches when the camera's kind does, except the pen detour: it keeps the originating
+normal or boss piece and its pen rectangle, including a stage refresh while the pen is open. Returning restores the
+remembered framing, side and shop state. **[ASSUMED]** seat s draws the
 block whose `ownerSeat` is s (the blocks are the same piece; the renderer passes no seat, so the first block); the key
 light is `sub_01`'s; the pen camera is fitted to the pen rect instead of the official `enemy_camera_param`.
 
@@ -538,6 +540,22 @@ Explicit false and unmarked raw displacements face the travel direction. Normal 
 sliding, so a block — which freezes velocity — still turns it with the front cut. The nine-field tuple is unchanged.
 
 ### Local preferences and recovery (§28.14, §28.18–20)
+
+Settings uses six categories: interface, audio, battle display, controls, appearance, and resources/feedback.
+The modal keeps a stable size while the navigation and content scroll independently; its 560 px height floor (and the
+760 px width) follow the interface-size factor and stay capped by the viewport. Up/Down and Home/End move
+between category tabs. Each opening starts at Interface with an empty search. Search matches the actual localized
+labels, explanations and English micro labels across all available controls, groups results by category, and lets
+players edit those same controls. Matching is literal, case-insensitive and NFKC-normalized; whitespace-separated
+words all have to match. Dynamic theme/plugin names and conditional FX availability update the index as rendered
+text changes. Empty conditional sections are excluded. Clicking a category clears search; clearing search returns
+to the previous category. Escape in a nonempty search field clears it before the next Escape closes the dialog.
+Category and search changes preserve mounted sections, including pending theme imports and diagnostics. Hidden
+shortcut editors release keyboard capture. Queries and categories last for this opening; saved preferences retain
+the existing settings store and localStorage keys.
+
+Setting labels and section captions share regular-weight typography. Language uses the standard label/control row;
+screen-fit, theme, shortcut, plugin and resource captions use the same plain heading layout with their actions.
 
 Room seat cards isolate their internal layers so remove-player / AI buttons remain below the top-bar settings
 dialog and its backdrop, including after entry animations finish (#888, [0.4.0](../history/0.4.0.md)).
@@ -1295,3 +1313,17 @@ is a remake UI choice, not a claim about official-game spacing. No equipment cap
 临时层显示统一读取 Battle 临时账本的 detached snapshot，经 InPageSimHost／Worker／runner 传递，包含 Boss 新增和联防继承的临时层。
 卡片保留普通层数与金色 `+N`，顶部条显示金色合计。只展示当前战场所属玩家的临时值，本人战斗结束和 SETTLE 保留，下一次进入休整期才清除；切换战场时读取对应玩家的池；
 有临时值时普通基数取该场战斗的普通副本，避免较新的结算视图把已转换收益重复加入合计。
+
+
+### Map-owned terrain effects and depth
+
+Regulation's concealment, active Originium and mire glyphs use the Tile `_effect` prefabs from the official
+`battle/prefabs/[uc]tiles.ab`: `mapeff_079_dikuai_01`, `map_promote_01`, `mapeff_mud_ground_01`. A separate
+OfficialFx instance holds these map loops, so battle clear/finish does not remove them. Their original ZTest is
+preserved; a heightfield of the current drawn board cells supplies the independent effect canvas with tile-top
+and wall depth, including the bench in front of MAP09's lowest concealment tile. Hidden cells contribute zero.
+The depth geometry is reused until stage, view/area or tier changes. A missing or pending effect keeps its fallback;
+quality/mode changes and view teardown cancel outstanding handles. No extra dash/teleport particles are invented.
+Fresh pieces export `tileDepthHeights` per group from MapSettings.highlandHeight for wall and bench occlusion.
+Re-extract scenes to get that optional metadata; older packs keep the existing board-height approximation. This is
+not an exact reconstruction of decorative meshes and does not change unit positions, simulation or battle ownership.

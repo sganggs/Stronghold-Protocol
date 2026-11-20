@@ -370,18 +370,21 @@ const ITEM_HANDLERS = {
       if (!got) toastNothing(ctx, ev);
     },
   },
-  // 紧急调度券 (规程 key): take `count` chess out of the shop.
+  // 紧急调度券 (规程 key): take `count` chess out of the shop. Grant first and clear the slot only when the
+  // copy is actually gained. A displayed chess whose pool is empty stays (the same failure the 盟约 override handles
+  // for use_equip_reward_random_char_chess_in_shop; that override does not bind this key).
   use_equip_take_shop: {
     onEquip(ctx, ev) {
       const n = Math.max(1, int(paramsOf(ctx, ev.item).count, 1));
+      const tried = new Set();
       for (let k = 0; k < n; k++) {
         const slots = ctx.shopSlots();
-        const idx = slots.map((s, i) => (s && s.kind === 'chess' && !s.sold ? i : -1)).filter((i) => i >= 0);
+        const idx = slots.map((s, i) => (s && s.kind === 'chess' && !s.sold && !tried.has(i) ? i : -1)).filter((i) => i >= 0);
         if (!idx.length) break;
         const i = ctx.rng.pick(idx);
-        const id = slots[i].id;
-        ctx.setShopSlot(i, null);
-        ctx.grantChess(id);
+        const got = ctx.grantChess(slots[i].id);
+        if (got) ctx.setShopSlot(i, null);
+        else { tried.add(i); k--; }
       }
     },
   },

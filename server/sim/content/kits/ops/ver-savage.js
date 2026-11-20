@@ -30,7 +30,7 @@ function savage(_bb, chess, def) {
     install(battle, unit) {
       const scale = num(tb.atk_scale);
       if (tb.atk_scale != null && scale !== 1) onHitBy(battle, unit, ({ target, dmg }) => {
-        if (dmg.isAttack && target?.blockedBy === unit) dmg.mul *= scale;
+        if (dmg.isAttack && target?.blockedBy === unit) dmg.amount *= scale; // 攻击力提升至 atk_scale, before DEF
       });
       const atk = num(t0.atk), defv = num(t0.def), cnt = num(t0.cnt, 2);
       if (atk || defv) toggleBuff(battle, unit, 'savage:valley', () => highlandNear(battle, unit) >= cnt, { atkPct: atk, defPct: defv });

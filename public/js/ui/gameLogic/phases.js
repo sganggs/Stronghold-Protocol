@@ -42,6 +42,18 @@ export const isCombatPhase = (phase) => COMBAT_PHASES.has(phase);
 export const showDeadPill = (alive, phase) => !alive && !COMBAT_PHASES.has(phase) && phase !== PHASE.SETTLE;
 export const isBossPhase = (phase) => phase === PHASE.FINAL_ASSAULT || phase === PHASE.HIDDEN_CORE;
 
+/**
+ * The bond strip's frozen state (「层数叠加已禁用」). 联防 is always frozen. Boss and hidden fields are frozen
+ * only when config.finalAssault.layerGainsEnabled is not true (盟约). 规程 leaves them live, like a normal battle.
+ * @param {string|null|undefined} phase
+ * @param {any} config loaded match config (`data.get('config')`)
+ */
+export function bondLayersFrozen(phase, config) {
+  if (phase === PHASE.UNITE) return true;
+  if (!isBossPhase(phase)) return false;
+  return config?.finalAssault?.layerGainsEnabled !== true;
+}
+
 /** Pregame enter steps except 协议启动. No list → the two covenant steps. @param {any} config */
 export function pregameSteps(config) {
   const steps = config?.timers?.enterSteps;

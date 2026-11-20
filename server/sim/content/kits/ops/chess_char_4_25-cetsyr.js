@@ -122,10 +122,12 @@ export default withDefaults({
               return;
             }
             const keep = S3 && skillActive(unit); // S3: “微尘”不再消失
+            const healScale = num(t0.heal_scale); // 规程: 受到微尘时立刻恢复攻击力×heal_scale；盟约无此键
             for (const a of battle.alliesInRadius(unit.x, unit.y, num(t0.range_radius, 1.15), unit.ownerId)) {
               if (a === unit || a.kind !== 'op' || a.findBuff(`cetsyr:mote:${unit.id}`)) continue;
               if (!keep && !takeMote()) break;
               battle.addBuff(a, { key: `cetsyr:mote:${unit.id}`, duration: num(t0.talent_duration, 6), visible: true, source: unit });
+              if (healScale > 0) battle.heal(unit, a, unit.s.atk * healScale, { tags: ['talent'] });
               battle.fx('mote', { x: a.x, y: a.y, id: a.id });
             }
           });

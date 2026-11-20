@@ -14,7 +14,8 @@
 //   mirrored 'bossR', board (r, c) = stage tile (r − 7, c) / (r − 7, 20 − c)) like the server's deploy map
 //   (server/match/board.js field; user playtest #5 item 7) — board coordinates stay the same.
 //   Hand = 10 slots (index = col). Temp slots are server-filled only (no move target).
-//   Dropping onto an occupied tile/slot swaps (both pieces must be legal at their new spots);
+//   Dropping onto an occupied tile/slot swaps (both pieces must be legal at their new spots; the mover's own
+//   summon is the exception, and the server snapshot returns it when its new tile is illegal);
 //   an EQUIP item dropped onto a chess piece equips it (tokens can't carry items); an Arts (MAGIC) item
 //   dropped on a field tile is used there (g.art). Deploy cap counts chess pieces on the board only
 //   (summons don't use a slot, research 00 §8 #11). Only PREP, alive and not-ready players may edit.
@@ -25,7 +26,7 @@
 // re-exported below, so existing imports keep working.
 
 export { clamp, tileKey } from './gameLogic/shared.js';
-export { phaseMode, isCombatPhase, showDeadPill, isBossPhase, pregameStepCount, pregameStepIndex } from './gameLogic/phases.js';
+export { phaseMode, isCombatPhase, showDeadPill, isBossPhase, bondLayersFrozen, pregameStepCount, pregameStepIndex } from './gameLogic/phases.js';
 export { prepCamera, prepCameraFor, foldCamera, deployFoldsShop, deployZoomStep, deployZoomRemember, prepDeployCamera, deployFieldOf, fieldTile, boardTileOf, ownerBandId, teamFrameIds } from './gameLogic/camera.js';
 export { phaseBanner, spTurnCueKey, prepCapsuleLabel, countdownState, phaseTotalSeconds, deployOrder, roundStartReplay } from './gameLogic/phases.js';
 export { RESULT_BOX_MS, ownRoundLoss, battleOverSfx, roundResultBox, uniteResultBox, battleResultBox } from './gameLogic/phases.js';

@@ -12,6 +12,7 @@ import * as S from '../support/index.js';
 import { ursusTempExtra } from '../garrisons.js';
 import { lendItemEffects } from '../items.js';
 import { damageAttackType, isHpLoss } from '../../attack.js';
+import { bodyInKeys } from '../../body.js';
 import { COLS } from '../../constants.js';
 import { tileKeyOf } from '../../targeting.js';
 import { msg } from '../../../../shared/i18n.js';
@@ -94,9 +95,39 @@ function tagged(dmg, tag) {
   return !!dmg && Array.isArray(dmg.tags) && dmg.tags.includes(tag);
 }
 function rider(dmg) {
+  // 伊比利亚 still uses this narrower gate (element, addition, dot, periodic, 流失). The 奥术 rider does not:
+  // act3autochess_bond_eff_arcane filters cancelled modifiers and attack type ADDITION only (arcaneRider).
   if (!dmg || isHpLoss(dmg) || dmg.type === 'element' || dmg.type === 'elemental') return true;
   if (damageAttackType(dmg) === 'ADDITION' || tagged(dmg, 'addition') || tagged(dmg, 'dot') || tagged(dmg, 'periodic')) return true;
   return false;
+}
+/**
+ * True when act3autochess_bond_eff_kazimierz_power[ex_damage] must not append true damage.
+ * Two FilterDamageModifier nodes: a cancelled modifier, then attack type ADDITION followed by IfNot.
+ * 流失 is not an output-damage modifier. Element, dot and periodic are not excluded.
+ */
+function kazimierzRiderSkips(dmg) {
+  if (!dmg || dmg.cancel || isHpLoss(dmg)) return true;
+  // The 'addition' tag marks our riders that the official client deals as ADDITION (as in arcaneRiderSkips).
+  if (damageAttackType(dmg) === 'ADDITION' || tagged(dmg, 'addition') || tagged(dmg, 'bond:kazimierz')) return true;
+  return false;
+}
+/** Element and periodic hits already sit near MAX_HOOK_DEPTH. Deal the rider on the next tick. */
+function kazimierzRiderDefers(dmg) {
+  return dmg.type === 'element' || dmg.type === 'elemental' || tagged(dmg, 'dot') || tagged(dmg, 'periodic');
+}
+/** True when act3autochess_bond_eff_arcane must not append an arts hit. */
+function arcaneRiderSkips(dmg) {
+  // First FilterDamageModifier only rejects a cancelled modifier. 流失 is not an output-damage modifier.
+  if (!dmg || dmg.cancel || isHpLoss(dmg)) return true;
+  // Second filter is attack type ADDITION, then IfNot. The appended hit is itself ADDITION and tagged so it
+  // cannot schedule another rider even if a later hook rewrites the attack type.
+  if (damageAttackType(dmg) === 'ADDITION' || tagged(dmg, 'addition') || tagged(dmg, 'bond:arcane')) return true;
+  return false;
+}
+/** Element and periodic hits are inside chains that already sit near MAX_HOOK_DEPTH. Deal those next tick. */
+function arcaneRiderDefers(dmg) {
+  return dmg.type === 'element' || dmg.type === 'elemental' || tagged(dmg, 'dot') || tagged(dmg, 'periodic');
 }
 function onLayers(battle, pid, bondId, fn) {
   const st = S.battleStore(battle, 'bonds:reg:layers', () => ({ map: new Map(), pending: new Set(), hooked: false }));
@@ -216,6 +247,28 @@ function giantKit(raw) {
     },
   };
 }
+/**
+ * WALK tile for a 莱塔尼亚 note (SummonEnemyWithRuntimeRoute, _summonOnNearestPassableTile, _motionMode WALK,
+ * _avoidHighland false). Passable is the tile's WALK mask (`pass === 'ALL'`), not the pathfinding obstacle bit:
+ * a 射击台 hard-block and a crate stay valid landings, and highland is not filtered again. A FLY-only wall,
+ * a hole, or a tile outside the rect is not. The death tile wins when it is already that mask.
+ * [ASSUMED] distance is Manhattan; a tie keeps the earlier row, then the earlier column (the scan order).
+ */
+function nearestWalkTile(battle, fromR, fromC) {
+  const grid = battle.grid;
+  // ignoreObstacles: the summon node reads the map mask. 射击台 / 阻隔工事 are pathing obstacles, not this filter.
+  if (grid.walkable(fromR, fromC, true)) return [fromR, fromC];
+  const R = battle.rect;
+  let best = null, bestD = Infinity;
+  for (let r = R.r0; r <= R.r1; r++) {
+    for (let c = R.c0; c <= R.c1; c++) {
+      if (!grid.walkable(r, c, true)) continue;
+      const d = Math.abs(r - fromR) + Math.abs(c - fromC);
+      if (d < bestD) { bestD = d; best = [r, c]; }
+    }
+  }
+  return best;
+}
 /** Chebyshev radius. [ASSUMED] range id `x-5` is 5 tiles from the anchor, the square the summon node names. */
 function nearestOpen(battle, fromR, fromC, radius) {
   const R = battle.rect;
@@ -236,7 +289,7 @@ function inRadius(u, x, y, r) {
   return dx * dx + dy * dy <= r * r + 1e-9;
 }
 
-function handSwitch(battle, dead, bondId, { meleeOnly = false, cap = Infinity, counter } = {}) {
+function handSwitch(battle, dead, bondId, { meleeOnly = false, cap = Infinity, counter, onSwitched } = {}) {
   const st = S.battleStore(battle, 'bonds:reg:switch', () => ({ n: {}, taken: new Set() }));
   const pid = dead.ownerId;
   const key = counter || bondId;
@@ -254,9 +307,25 @@ function handSwitch(battle, dead, bondId, { meleeOnly = false, cap = Infinity, c
     if (!spawned) { dead.removed = false; continue; }
     st.taken.add(slotKey);
     st.n[`${pid}|${key}`] = num(st.n[`${pid}|${key}`]) + 1;
+    if (typeof onSwitched === 'function') onSwitched(spawned, dead);
     return true;
   }
   return false;
+}
+/**
+ * 阿戈尔_2 attr_extend: the devoured ATK / block / HP on the dying operator (GT 0 only) are added onto
+ * whoever was switched in. Hand pieces are 阿戈尔 members, so attr_other (non-members) is the same mods.
+ * The bond HP% buff is not part of this copy. 卡西米尔 does not pass onSwitched.
+ */
+function copyEgirDevour(battle, spawned, dead) {
+  const buff = typeof dead.findBuff === 'function' ? dead.findBuff('bond:egir:devour') : null;
+  const mods = buff && buff.mods;
+  if (!mods) return;
+  const next = {};
+  if (num(mods.atkFinal) > 0) next.atkFinal = num(mods.atkFinal);
+  if (num(mods.blockCnt) > 0) next.blockCnt = num(mods.blockCnt);
+  if (num(mods.hpFlat) > 0) next.hpFlat = num(mods.hpFlat);
+  if (Object.keys(next).length) S.passiveBuff(battle, spawned, 'bond:egir:devour', next);
 }
 
 // =====================================================================================================================
@@ -300,6 +369,16 @@ function installYan2(battle, pid, effectId, members) {
   });
 }
 
+/**
+ * Slow fraction on sand. The tile slow template clamps by slow_max, then, while the aura buff is present,
+ * adds that fraction to itself with an empty max (no second clamp).
+ */
+function sargonSlow(tileBb, slowKey, layers, aura) {
+  let slow = scaled(tileBb, `${slowKey}.slow_base`, `${slowKey}.slow_per_stack`, layers, `${slowKey}.slow_max`);
+  if (aura) slow += slow;
+  return slow;
+}
+
 function installSargon2(battle, pid, effectId, members) {
   const bb = bbOf('sargonShip', effectId, K.sargon);
   const tile = bbOf('sargonShip', effectId, K.sargonTile);
@@ -320,54 +399,124 @@ function installSargon2(battle, pid, effectId, members) {
     }
   });
   if (!power) return;
+  // One persistent sand tile per member skill cast (ON_SKILL_START → FindNearestTileInRangeToBB, WALK_ONLY,
+  // flag ac_bond_eff_sargon_power[sand]). The tile stays for the battle. No client graphic: nothing in this sim
+  // draws a bond tile (妮芙 fear tiles are a status on the enemy, not a ground overlay).
   const slowKey = 'act3autochess_bond_eff_sargon_power[tile_buff][slow]';
   const magKey = 'act3autochess_bond_eff_sargon_power[tile_buff][mag_damage]';
   const mag2Key = 'act3autochess_bond_eff_sargon_power[tile_buff][mag_damage_2]';
-  const covered = () => {
-    const out = [];
-    for (const e of battle.enemies) {
-      if (!e.alive) continue;
-      if (members.some((m) => S.onField(m) && S.inRange(m, e))) out.push(e);
+  const sand = new Set();
+  const tracked = new Map();
+  // [ASSUMED] skip a tile that is already sand; if every in-range walk tile is sand, the cast lays nothing.
+  // [ASSUMED] nearest is squared Euclidean from the operator tile, then the smaller row, then the smaller col.
+  // The operator's own tile is eligible. FindNearestTileInRangeToBB's metric is not in the tables.
+  // [ASSUMED] non-WALK terrain and hard blocks are skipped; a crate stays eligible (grid.walkable).
+  function nearestSandTile(unit) {
+    const keys = unit.rangeKeySet;
+    if (!keys || !keys.size || unit.tileR == null || unit.tileC == null) return null;
+    const ur = unit.tileR;
+    const uc = unit.tileC;
+    let best = null;
+    for (const k of keys) {
+      const r = (k / COLS) | 0;
+      const c = k - r * COLS;
+      if (sand.has(k) || !battle.grid.walkable(r, c)) continue;
+      const dr = r - ur;
+      const dc = c - uc;
+      const d = dr * dr + dc * dc;
+      if (!best || d < best.d || (d === best.d && (r < best.r || (r === best.r && c < best.c)))) best = { r, c, k, d };
     }
-    return out;
-  };
-  const skillOn = () => members.some((m) => S.onField(m) && m.skill && m.skill.active);
-  const refreshSlow = () => {
-    const L = S.bondLayers(battle, pid, 'sargonShip');
-    let slow = scaled(tile, `${slowKey}.slow_base`, `${slowKey}.slow_per_stack`, L, `${slowKey}.slow_max`);
-    if (skillOn()) slow = Math.min(num(tile[`${slowKey}.slow_max`], slow), slow + slow);
-    const inside = new Set(covered());
-    for (const e of battle.enemies) {
-      if (!e.alive) continue;
-      if (!inside.has(e)) { if (e.findBuff && e.findBuff('bond:sargon:slow')) battle.removeBuff(e, 'bond:sargon:slow'); continue; }
-      battle.addBuff(e, { key: 'bond:sargon:slow', duration: 1.25, refresh: 'replace', mods: { moveMul: Math.max(0, 1 - slow) } });
+    return best;
+  }
+  // [ASSUMED] the aura is this caster's current attack range. Prefab act3autochess_bond_sargon_range is not in the tables.
+  function castingCovers(e) {
+    for (const m of members) {
+      if (!S.onField(m) || !m.skill || !m.skill.active) continue;
+      if (S.inRange(m, e)) return true;
     }
-  };
-  refreshSlow();
-  battle.every(1, refreshSlow);
-  const iv = num(tile[`${magKey}.interval`], 5);
-  if (iv > 0) {
-    battle.every(iv, () => {
-      const L = S.bondLayers(battle, pid, 'sargonShip');
-      const amount = scaled(tile, `${magKey}.magic_damage_base`, `${magKey}.magic_damage_per_stack`, L, `${magKey}.magic_damage_max`);
-      const bind = num(tile[`${magKey}.unmovable_duration`], 0);
-      if (!(amount > 0)) return;
-      for (const e of covered()) {
-        battle.dealDamage({ source: null, target: e, amount, type: 'arts', attackType: 'BUFF', tags: ['bond:sargon', 'periodic'] });
-        if (e.alive && bind > 0) battle.applyStatus(e, 'bind', { duration: bind, source: null });
-      }
+    return false;
+  }
+  function pulse(e, baseKey, perKey, maxKey) {
+    if (!e.alive || battle.finished) return;
+    const amount = scaled(tile, baseKey, perKey, S.bondLayers(battle, pid, 'sargonShip'), maxKey);
+    if (!(amount > 0)) return;
+    battle.dealDamage({
+      source: null, target: e, amount, type: 'arts', attackType: 'BUFF', tags: ['bond:sargon', 'periodic'],
     });
   }
-  // mag_damage_2 triggerInterval is 1s (buff template), and only while the skill aura buff is on the enemy.
-  battle.every(1, () => {
-    if (!skillOn()) return;
-    const L = S.bondLayers(battle, pid, 'sargonShip');
-    const amount = scaled(tile, `${mag2Key}.magic_damage_base`, `${mag2Key}.magic_damage_per_stack`, L, `${mag2Key}.magic_damage_max`);
-    if (!(amount > 0)) return;
-    for (const e of covered()) {
-      battle.dealDamage({ source: null, target: e, amount, type: 'arts', attackType: 'BUFF', tags: ['bond:sargon', 'periodic'] });
+  function applySlow(e, st) {
+    const aura = castingCovers(e);
+    const slow = sargonSlow(tile, slowKey, S.bondLayers(battle, pid, 'sargonShip'), aura);
+    if (st.aura === aura && st.slow === slow && e.findBuff && e.findBuff('bond:sargon:slow')) return;
+    st.aura = aura;
+    st.slow = slow;
+    battle.addBuff(e, {
+      key: 'bond:sargon:slow', duration: Infinity, refresh: 'replace',
+      mods: { moveMul: Math.max(0, 1 - slow) },
+    });
+  }
+  // Per enemy, from the moment it starts occupying any sand tile. mag_damage waits first_trigger_interval, then
+  // interval. The bind is created before the damage filter and is not a derived buff, so leaving does not clear it.
+  // mag_damage_2's 1s comes from the template triggerInterval (no blackboard key) and keeps ticking when the aura is off.
+  function arm(e, st) {
+    const mine = () => tracked.get(e) === st && e.alive && !battle.finished && bodyInKeys(e, sand);
+    const magIv = num(tile[`${magKey}.interval`], 5);
+    const magFirst = num(tile[`${magKey}.first_trigger_interval`], magIv);
+    if (magFirst > 0 && magIv > 0) {
+      const loop = () => {
+        if (!mine()) return;
+        const bind = num(tile[`${magKey}.unmovable_duration`], 0);
+        if (bind > 0) battle.applyStatus(e, 'bind', { duration: bind, source: null });
+        if (e.alive) pulse(e, `${magKey}.magic_damage_base`, `${magKey}.magic_damage_per_stack`, `${magKey}.magic_damage_max`);
+        if (mine()) battle.after(magIv, loop);
+      };
+      battle.after(magFirst, loop);
     }
+    const loop2 = () => {
+      if (!mine()) return;
+      if (castingCovers(e)) pulse(e, `${mag2Key}.magic_damage_base`, `${mag2Key}.magic_damage_per_stack`, `${mag2Key}.magic_damage_max`);
+      if (mine()) battle.after(1, loop2);
+    };
+    battle.after(1, loop2);
+  }
+  // [ASSUMED] a flyer or a hidden enemy on the tile counts; the listener templates do not filter motion or stealth.
+  // A huge enemy counts when any covered tile is sand (bodyInKeys). Two players who sand the same tile each pulse.
+  function leave(e) {
+    if (!tracked.has(e)) return;
+    tracked.delete(e);
+    if (e.findBuff && e.findBuff('bond:sargon:slow')) battle.removeBuff(e, 'bond:sargon:slow');
+  }
+  function scan() {
+    if (!sand.size) return;
+    const seen = new Set();
+    for (const e of battle.enemies) {
+      if (!e) continue;
+      seen.add(e);
+      if (!e.alive || !bodyInKeys(e, sand)) {
+        if (tracked.has(e)) leave(e);
+        continue;
+      }
+      let st = tracked.get(e);
+      if (!st) {
+        st = { aura: null, slow: null };
+        tracked.set(e, st);
+        applySlow(e, st);
+        arm(e, st);
+      } else applySlow(e, st);
+    }
+    for (const e of [...tracked.keys()]) if (!seen.has(e)) leave(e);
+  }
+  battle.on('skillStart', ({ unit }) => {
+    if (!set.has(unit) || !S.onField(unit)) return;
+    const picked = nearestSandTile(unit);
+    if (picked) sand.add(picked.k);
+    if (sand.size) scan();
   });
+  battle.on('skillEnd', ({ unit }) => {
+    if (!set.has(unit) || !sand.size) return;
+    scan();
+  });
+  battle.on('tick', () => { if (sand.size) scan(); });
 }
 
 function installKjerag2(battle, pid, effectId, members) {
@@ -435,10 +584,18 @@ function installSiracusa2(battle, pid, effectId, members) {
   });
   if (!six) return;
   const prob = num(bb.prob, 0);
+  // siracusa_power EnsureBlackboardDefaultValue create_cd 0.2, overrideIfExists. Not on the bond blackboard.
+  // The add runs only after Dice succeeds (no AlwaysNext), so a miss does not start the window.
+  // FilterAbilityFamily ATTACK_OR_COMBAT is not applied: this engine has no ability-family field on damage.
+  const createCd = 0.2;
+  const nextAt = new WeakMap();
   battle.on('damaged', (c) => {
     const u = c.source, t = c.target, dmg = c.dmg;
     if (!set.has(u) || !t || t.side !== 'enemy' || !t.alive || rider(dmg) || tagged(dmg, 'bond:siracusa')) return;
+    const now = battle.time;
+    if (now + 1e-9 < num(nextAt.get(u), 0)) return;
     if (!(battle.rng() < prob)) return;
+    nextAt.set(u, now + createCd);
     const L = S.bondLayers(battle, pid, 'siracusaShip');
     const dur = scaled(bb, 'ab_buff_duration_base', 'ab_buff_duration_per_stack', L, 'ab_buff_duration_max');
     const status = SIRACUSA_STATUS[Math.floor(battle.rng() * SIRACUSA_STATUS.length)];
@@ -477,18 +634,46 @@ function installKazimierz2(battle, pid, effectId, members) {
   if (typeof legacy.kazimierz === 'function') legacy.kazimierz(battle, pid, bb, members);
   const six = reached(battle, pid, 'kazimierzShip', bb.power_bond_char_cnt);
   if (!six) return;
-  const set = new Set(members);
-  const window = num(bb.ex_damage_duration, 0);
+  // act3autochess_bond_eff_kazimierz_power: ON_BUFF_START and ON_SKILL_CAST_SUCCEED both CreateBuff
+  // [ex_damage] (overrideType EXTEND, maxStackCnt 1, lifeTimeType LIMITED, durationKey ex_damage_duration,
+  // lifeTime 20 when the key is missing). EXTEND resets the remaining time to the full duration
+  // (the same meaning as op-zuole.js), it does not add the two windows together.
+  // lifeTime 20 is the fallback; the 规程 blackboard stores ex_damage_duration 30.
+  const duration = num(bb.ex_damage_duration, 20);
+  const until = new WeakMap();
+  const member = (u) => !!u && u.ownerId === pid && S.isMember(battle, u, 'kazimierzShip');
+  const open = (u, at) => { if (duration > 0 && u) until.set(u, at + duration); };
+  for (const u of members) if (S.onField(u)) open(u, num(u.deployedAt, battle.time));
+  battle.on('deploy', ({ unit, move }) => {
+    // A tile move also emits deploy (battle/tiles.js). ON_BUFF_START is a new deployment
+    // (battle start, redeploy, handSwitch spawn), not a move.
+    if (move || !member(unit)) return;
+    open(unit, battle.time);
+  });
+  // ON_SKILL_CAST_SUCCEED: skillStart is emitted only after Skill.activate succeeds.
+  battle.on('skillStart', ({ unit }) => {
+    if (!member(unit)) return;
+    open(unit, battle.time);
+  });
   battle.on('damaged', (c) => {
     const u = c.source, t = c.target, dmg = c.dmg;
-    if (!set.has(u) || !t || t.side !== 'enemy' || !t.alive || rider(dmg) || tagged(dmg, 'bond:kazimierz')) return;
-    const fresh = window > 0 && battle.time <= num(u.deployedAt, -Infinity) + window + 1e-9;
-    const casting = !!(u.skill && u.skill.active);
-    if (!fresh && !casting) return;
-    const scale = scaled(bb, 'ex_atk_scale_base', 'ex_atk_scale_per_stack', S.bondLayers(battle, pid, 'kazimierzShip'), 'ex_atk_scale_max');
+    // [ASSUMED] an alive enemy. The template's target is MODIFIER_TARGET and has no side node.
+    if (!member(u) || !t || t.side !== 'enemy' || !t.alive || kazimierzRiderSkips(dmg)) return;
+    const end = until.get(u);
+    if (end == null || battle.time > end + 1e-9) return;
+    // _finalAbs on the scale. per_stack is 0 on the 规程 blackboard, so this stays 0.65.
+    const scale = Math.abs(scaled(bb, 'ex_atk_scale_base', 'ex_atk_scale_per_stack', S.bondLayers(battle, pid, 'kazimierzShip'), 'ex_atk_scale_max'));
     if (!(scale > 0)) return;
-    battle.dealDamage({ source: u, target: t, amount: scale * num(u.s.atk), type: 'true', attackType: 'ADDITION',
-      tags: ['addition', 'bond:kazimierz'] });
+    const amount = scale * num(u.s.atk);
+    const deal = () => {
+      if (!t.alive || t.removed) return;
+      battle.dealDamage({ source: u, target: t, amount, type: 'true', attackType: 'ADDITION',
+        tags: ['addition', 'bond:kazimierz'] });
+    };
+    // [ASSUMED] one tick later for element / dot / periodic, same hook-depth accommodation as the 奥术 rider.
+    // The amount is snapshotted while the window is open; the deferred hit does not re-test the window.
+    if (kazimierzRiderDefers(dmg)) battle.after(0, deal, { owner: u });
+    else deal();
   });
   const ops = new Set(members.filter((u) => S.isOp(u) && S.isGroundOp(u)));
   battle.on('death', (c) => {
@@ -534,7 +719,10 @@ function installEgir2(battle, pid, effectId, members) {
   battle.on('death', (c) => {
     const u = c.unit;
     if (!u || c.reason !== 'killed' || c.revivedBy || !ops.has(u) || u.alive || u.removed) return;
-    handSwitch(battle, u, 'egirShip', { meleeOnly: false, cap, counter: 'egir2' });
+    handSwitch(battle, u, 'egirShip', {
+      meleeOnly: false, cap, counter: 'egir2',
+      onSwitched: (spawned, dead) => copyEgirDevour(battle, spawned, dead),
+    });
   }, { priority: 0 });
 }
 
@@ -556,10 +744,14 @@ function installUrsus(battle, pid, effectId, members) {
   const set = new Set(members);
   const six = reached(battle, pid, 'ursusShip', bb.power_bond_char_cnt);
   battle.on('death', (c) => {
-    if (c.reason !== 'killed' || !c.unit || c.unit.side !== 'enemy') return;
+    // act3autochess_bond_eff_ursus ON_TARGET_KILLED has no side, faction or unit-type filter.
+    // The bond text 「击倒其他单位」 excludes the credited member's own finish. The template node
+    // itself has no self-exclusion node; that reading is the published description.
+    if (c.reason !== 'killed' || !c.unit) return;
+    const dead = c.unit;
     const killer = c.killer;
     const who = killer && killer.kind === 'token' ? killer.ownerUnit : killer;
-    if (!set.has(who)) return;
+    if (!who || who === dead || !set.has(who)) return;
     const n = six ? num(bb['temp_bond_stack_cnt[power]'], 4) : num(bb.temp_bond_stack_cnt, 2);
     const extra = ursusTempExtra(battle, pid);
     addTemp(battle, pid, 'ursusShip', n + (extra > 0 ? extra : 0));
@@ -630,23 +822,36 @@ function installIberia(battle, pid, effectId, members) {
     st.until = now + num(bb.dot_duration, 10);
     st.atk = num(who.s.atk);
     st.power = six;
-    const slowMax = num(bb[`${speedKey}.max_stack_cnt`], 20);
-    st.slow = Math.min(slowMax, st.slow + 1);
-    st.slowUntil = now + num(bb[`${speedKey}.speed_duration`], 10);
-    const move = num(bb[`${speedKey}.move_speed`], -0.04);
-    battle.addBuff(t, {
-      key: 'bond:iberia:slow', duration: num(bb[`${speedKey}.speed_duration`], 10), refresh: 'replace',
-      // [ASSUMED] move_speed is an additive attribute-style factor (1 + value × stacks), floored at 0.
-      mods: { moveMul: Math.max(0, 1 + move * st.slow) },
-    });
-    const prob = num(bb.prob_base) + num(bb.prob_per_stack) * S.bondLayers(battle, pid, 'iberiaShip');
-    if (battle.rng() < prob) {
-      const radius = num(bb.range_radius, 1);
-      const amount = num(bb.atk_scale, 0) * st.atk;
-      if (amount > 0) {
-        for (const e of battle.enemies) {
-          if (!e.alive || e === t || !inRadius(e, t.x, t.y, radius)) continue;
-          battle.dealDamage({ source: who, target: e, amount, type: 'arts', isSplash: true, tags: ['bond:iberia', 'addition'] });
+    // Speed and the splash sit after FilterByBlackboardValue is_power. The DoT above does not.
+    if (six) {
+      const slowMax = num(bb[`${speedKey}.max_stack_cnt`], 20);
+      st.slow = Math.min(slowMax, st.slow + 1);
+      st.slowUntil = now + num(bb[`${speedKey}.speed_duration`], 10);
+      const move = num(bb[`${speedKey}.move_speed`], -0.04);
+      battle.addBuff(t, {
+        key: 'bond:iberia:slow', duration: num(bb[`${speedKey}.speed_duration`], 10), refresh: 'replace',
+        // [ASSUMED] move_speed is an additive attribute-style factor (1 + value × stacks), floored at 0.
+        mods: { moveMul: Math.max(0, 1 + move * st.slow) },
+      });
+      const prob = num(bb.prob_base) + num(bb.prob_per_stack) * S.bondLayers(battle, pid, 'iberiaShip');
+      if (battle.rng() < prob) {
+        // AOEDamage _radius is the literal 1. range_radius on the bond blackboard is not read here.
+        // damage_target_cnt defaults to 1 (EnsureBlackboardDefaultValue, overrideIfExists) and is not on the bond bb.
+        const amount = num(bb.atk_scale, 0) * st.atk;
+        if (amount > 0) {
+          const hits = [];
+          for (const e of battle.enemies) {
+            if (!e.alive || e === t || !inRadius(e, t.x, t.y, 1)) continue;
+            hits.push(e);
+          }
+          // [ASSUMED] RANDOM walks battle.enemies order. One roll when more than one candidate.
+          if (hits.length > 1) {
+            const i = Math.floor(battle.rng() * hits.length);
+            hits.splice(0, hits.length, hits[i]);
+          }
+          for (const e of hits) {
+            battle.dealDamage({ source: who, target: e, amount, type: 'arts', isSplash: true, tags: ['bond:iberia', 'addition'] });
+          }
         }
       }
     }
@@ -715,10 +920,14 @@ function installLethania(battle, pid, effectId, members) {
     const R = battle.rect;
     const deathTile = tileKeyOf(anchor);
     if (deathTile < 0) return;
-    const row = Math.max(R.r0, Math.min(R.r1, Math.floor(deathTile / COLS)));
-    const col = Math.max(R.c0, Math.min(R.c1, deathTile % COLS));
+    const row0 = Math.max(R.r0, Math.min(R.r1, Math.floor(deathTile / COLS)));
+    const col0 = Math.max(R.c0, Math.min(R.c1, deathTile % COLS));
+    const spot = nearestWalkTile(battle, row0, col0);
+    if (!spot) return;
+    const [row, col] = spot;
     // [ASSUMED] the note and the chorus are allied tokens built from the enemy record (they are not in tokens.json).
-    // They appear at the death cell center, even on non-deployable floor, another pursuer, an ally, or a downed body.
+    // They may share the tile with another pursuer, an ally, a 射击台, or a downed body. A death tile whose
+    // mask is not WALK (highland wall, a hole) uses the nearest WALK tile instead of the death-cell centre.
     const u = battle.spawnToken(pid, id, row, col, {
       ...lethaniaSummon(id, raw), lethaniaPursuit: true, position: { x: col, y: row },
     });
@@ -739,18 +948,54 @@ function installLethania(battle, pid, effectId, members) {
   battle.on('death', (c) => {
     const u = c.unit;
     if (u && u.defId === CHORUS && u.ownerId === pid) chorusAura();
-    if (!u || c.reason !== 'killed') return;
+    // HP_ZERO and HP_ZERO_WITH_NO_SOURCE both arrive as reason 'killed'. FALLDOWN is 'falldown'; the engine
+    // does not emit it yet (nothing sends a unit into a hole), so this listener stays quiet until one exists.
+    if (!u || (c.reason !== 'killed' && c.reason !== 'falldown')) return;
     if (u.side === 'enemy') { summonOne(u); return; }
     if (power && u.side === 'ally' && u.kind === 'op' && u.ownerId === pid) summonOne(u);
   });
 }
 
+// Bard trait rhythm (professions.js BARD_REGEN_IV / BARD_REGEN_DUR). The 聚合 ability prefab
+// (act3autochess_bond_doc_ability) is not in the tables, so the aura reuses it [ASSUMED]: short enough
+// to follow ATK, layers and the live range, and gone within half a second of leaving that range.
+const DOC_REGEN_IV = 0.25;
+const DOC_REGEN_DUR = 0.5;
+
+/** 「我方单位」for 聚合 recovery: this player's operators and summons. */
+function docRecoverTarget(u, pid) {
+  // [ASSUMED] 装置 (kind device) and a unit that is not this player's ally (a 变约 on the other side) are not 「我方单位」.
+  return !!u && u.alive && !u.removed && u.deployed && u.ownerId === pid && u.side === 'ally'
+    && (u.kind === 'op' || u.kind === 'token');
+}
+
 function installDoc(battle, pid, effectId, members) {
   const bb = bbOf('docShip', effectId, K.doc);
   const three = reached(battle, pid, 'docShip', bb.power_bond_char_cnt);
-  battle.every(1, () => {
+  const sheltered = new Set(); // this player's operators holding 庇护 from this installer
+  // Official template act3autochess_bond_eff_doc writes HP_RECOVERY_PER_SEC from the member's current ATK.
+  // That is 生命回复速度, not a heal (PRTS 禁疗: changing 生命回复速度 is not a healing ability), so
+  // 武者 / 收割者 / 不屈者 profile.noHeal and healFree do not stop it (GitHub #983). One buff per member
+  // so overlapping members add, the way two bards do. Not bardRegen(): its hook would let 魔王 scale 聚合.
+  // Covered = the member's current attack range, skill-widened grids included (rangeKeySet). The member
+  // itself only when its own tile is in that range.
+  battle.every(DOC_REGEN_IV, () => {
     const L = S.bondLayers(battle, pid, 'docShip');
     const healR = num(bb.heal_base) + num(bb.heal_per_stack) * L;
+    if (!(healR > 0)) return;
+    for (const m of members) {
+      if (!S.onField(m)) continue;
+      const v = healR * num(m.s.atk);
+      if (!(v > 0)) continue;
+      const key = `bond:doc:regen:${m.id}`;
+      for (const a of battle.allyUnits) {
+        if (!docRecoverTarget(a, pid) || !S.inRange(m, a)) continue;
+        battle.addBuff(a, { key, duration: DOC_REGEN_DUR, source: m, mods: { hpRegen: v } });
+      }
+    }
+  });
+  battle.every(1, () => {
+    const L = S.bondLayers(battle, pid, 'docShip');
     const epR = num(bb.ep_heal_base) + num(bb.ep_heal_per_stack) * L;
     const res = three ? num(bb.damage_res_base) + num(bb.damage_res_per_stack) * L : 0;
     const covered = new Map();
@@ -758,11 +1003,12 @@ function installDoc(battle, pid, effectId, members) {
       if (!S.onField(m)) continue;
       const atk = num(m.s.atk);
       for (const a of battle.allyUnits) {
-        if (!a.alive || a.ownerId !== pid || !S.isOp(a) || !S.inRange(m, a)) continue;
-        // [ASSUMED] overlapping members each heal; HP and element recovery stack.
-        if (healR > 0) battle.heal({ source: m, target: a, amount: healR * atk });
-        if (epR > 0) battle.healElement({ target: a, amount: epR * atk });
-        if (res > 0) {
+        if (!a.alive || a.ownerId !== pid || !S.inRange(m, a)) continue;
+        // The engine has no EP_RECOVERY_PER_SEC (element gauges do not tick down by themselves).
+        // [ASSUMED] keep a 1 s healElement of the same ratio, on the same 「我方单位」as the HP aura.
+        if (epR > 0 && docRecoverTarget(a, pid)) battle.healElement({ target: a, amount: epR * atk });
+        // 庇护 stays 「所有干员」only, strongest of overlapping members, not summed (§37.272).
+        if (res > 0 && S.isOp(a)) {
           const prev = covered.get(a) || 0;
           if (res > prev) covered.set(a, res);
         }
@@ -771,6 +1017,15 @@ function installDoc(battle, pid, effectId, members) {
     for (const [a, v] of covered) {
       // [ASSUMED] 庇护 is damage_res as damage taken (strongest of overlapping members, not summed).
       S.passiveBuff(battle, a, 'bond:doc:res', { dmgTakenMul: Math.max(0, 1 - v) });
+      sheltered.add(a);
+    }
+    // 「【聚合】干员攻击范围内的所有干员获得一定比例的庇护」: an operator no member covers any more (it left the range, the
+    // range shrank when a skill ended, the member fell) loses it at the next check (GitHub #976 review, round 83).
+    // [ASSUMED] still the 1 s check; the ability prefab that holds the official aura is not in the tables.
+    for (const a of sheltered) {
+      if (covered.has(a)) continue;
+      battle.removeBuff(a, 'bond:doc:res');
+      sheltered.delete(a);
     }
   });
 }
@@ -818,6 +1073,44 @@ export function installExtra(battle) {
   }
 }
 
+const ARCANE_REVEAL = 'bond:arcane:reveal';
+
+/** Max arcane layers in this battle, and whether any player's prep count reached `need`. Pair / 联防 share one Battle. */
+function arcaneArea(battle, need) {
+  let maxLayers = 0;
+  let met = false;
+  for (const p of battle.players || []) {
+    const pid = p.playerId;
+    const layers = S.bondLayers(battle, pid, 'arcaneShip');
+    if (layers > maxLayers) maxLayers = layers;
+    if (reached(battle, pid, 'arcaneShip', need)) met = true;
+  }
+  return { maxLayers, met };
+}
+
+/**
+ * 隐匿失效 while a powered arcane member's range covers the enemy. The ability prefab
+ * (act3autochess_bond_mag_power[immune_invisible]) is not in the tables.
+ * [ASSUMED] leaving the range restores 隐匿: the effect text conditions 失效 on standing in range,
+ * the same way an operator module's 「攻击范围内敌人的隐匿效果失效」 does. Not a dispel.
+ */
+function syncArcaneStealth(battle) {
+  const need = bondBb('arcaneShip', K.arcane).power_bond_char_cnt;
+  const members = [];
+  for (const p of battle.players || []) {
+    if (!reached(battle, p.playerId, 'arcaneShip', need)) continue;
+    for (const m of S.bondMembers(battle, p.playerId, 'arcaneShip', { fieldOnly: true })) members.push(m);
+  }
+  for (const e of battle.enemies || []) {
+    if (!e) continue;
+    const held = typeof e.findBuff === 'function' && e.findBuff(ARCANE_REVEAL);
+    const inside = e.alive && e.s?.flags?.stealth && members.some((m) => S.inRange(m, e));
+    if (inside) {
+      if (!held) battle.addBuff(e, { key: ARCANE_REVEAL, flags: { reveal: true }, duration: Infinity, refresh: 'replace' });
+    } else if (held) battle.removeBuff(e, ARCANE_REVEAL);
+  }
+}
+
 /**
  * 奥术 on a season whose first env_gbuff_new is the act3 arts rider (atk_base, no base_damage_scale).
  * Called from addon/battle.js. Default data returns immediately.
@@ -827,19 +1120,28 @@ export function installArcaneExtra(battle) {
   const sample = bondBb('arcaneShip', K.arcane);
   // a season without the act3 rider (第一期 has no 奥术 at all: null) keeps its own path
   if (!sample || sample.base_damage_scale != null || sample.atk_base == null) return;
+  const enemy0 = bondBb('arcaneShip', K.arcaneEnemy);
+  // Power clauses (RES shred, 隐匿失效) exist only once some player in this battle reached 3. Skipping the
+  // listener and the 0.2 s poll otherwise keeps battles that never meet it off this scheduler.
+  if (!arcaneArea(battle, enemy0.power_bond_char_cnt).met) return;
   battle.on('damaged', (c) => {
     const t = c.target, dmg = c.dmg;
+    // Enemy template act3autochess_bond_eff_arcane_power[enemy]: ANY_ATTACK_EXCEPT_ELEMENT, cancelled hits
+    // dropped, source and the continuous shared mask not filtered. The buff stays when the MAX char count
+    // in this battle is ≥ power_bond_char_cnt (_useMaxBondCharCntInCurArea). The floor uses the MAX layers
+    // in this battle (_useMaxBondStackCntInCurArea), not the hitter's.
     if (!t || t.side !== 'enemy' || !t.alive || !dmg || dmg.type === 'element' || dmg.type === 'elemental' || isHpLoss(dmg)) return;
-    const src = c.source;
-    const pid = src && src.ownerId;
-    if (!pid || !S.bondActive(battle, pid, 'arcaneShip')) return;
     const enemy = bondBb('arcaneShip', K.arcaneEnemy);
-    if (!reached(battle, pid, 'arcaneShip', enemy.power_bond_char_cnt)) return;
-    const L = S.bondLayers(battle, pid, 'arcaneShip');
+    const area = arcaneArea(battle, enemy.power_bond_char_cnt);
+    if (!area.met) return;
+    const L = area.maxLayers;
     const floor = Math.max(num(enemy.magic_res_max_min, -100), num(enemy.magic_res_max_base, -30) + num(enemy.magic_res_max_per_stack) * L);
-    const hits = (t.mem.arcaneResHits || 0) + 1;
-    t.mem.arcaneResHits = hits;
-    const acc = Math.max(floor, hits * num(enemy.magic_res_add, -1));
+    // The template stores magic_resistance and adds magic_res_add when it is still above the floor.
+    // A later, deeper floor (the other player's layers rose) steps by one, it does not replay every past hit.
+    const prev = num(t.mem.arcaneResAcc, 0);
+    if (!(prev > floor)) return;
+    const acc = Math.max(floor, prev + num(enemy.magic_res_add, -1));
+    t.mem.arcaneResAcc = acc;
     const effective = num(t.base?.res) + acc;
     const shown = Math.min(100, Math.max(0, effective));
     const official = (100 - effective) / 100;
@@ -848,30 +1150,33 @@ export function installArcaneExtra(battle) {
     if (engine > 0 && Math.abs(official - engine) > 1e-9) mods.artsTakenMul = official / engine;
     S.passiveBuff(battle, t, 'bond:arcane:res', mods);
   });
+  battle.every(0.2, () => syncArcaneStealth(battle));
   battle.on('statusApplied', (c) => {
     if (!c || c.status !== 'stealth' || !c.target || c.target.side !== 'enemy') return;
-    for (const p of battle.players || []) {
-      const pid = p.playerId;
-      if (!reached(battle, pid, 'arcaneShip', bondBb('arcaneShip', K.arcane).power_bond_char_cnt)) continue;
-      const members = S.bondMembers(battle, pid, 'arcaneShip', { fieldOnly: true });
-      if (members.some((m) => S.inRange(m, c.target))) {
-        battle.removeStatus(c.target, 'stealth');
-        return;
-      }
-    }
+    syncArcaneStealth(battle);
   });
 }
 
 /** Extra arts hit of the act3 奥术 rider. addon calls this only when base_damage_scale is absent. */
 export function arcaneRider(battle, ctx, bb) {
   const dmg = ctx.dmg, src = ctx.source, t = ctx.target;
-  if (!src || !t || !dmg || rider(dmg) || tagged(dmg, 'bond:arcane')) return;
+  if (!src || !t || !dmg || arcaneRiderSkips(dmg)) return;
   const scale = Math.abs(num(bb.atk_base) + num(bb.atk_per_stack) * S.bondLayers(battle, src.ownerId, 'arcaneShip'));
   if (!(scale > 0)) return;
-  battle.dealDamage({
-    source: src, target: t, amount: scale * num(src.s.atk), type: 'arts', attackType: 'ADDITION',
-    tags: ['addition', 'bond:arcane'],
-  });
+  // Snapshot ATK now: the official node applies during the modifier event, not a tick later.
+  const amount = scale * num(src.s.atk);
+  const deal = () => {
+    if (!t.alive || t.removed) return;
+    battle.dealDamage({
+      source: src, target: t, amount, type: 'arts', attackType: 'ADDITION',
+      tags: ['addition', 'bond:arcane'],
+    });
+  };
+  // after(0) is flushed at the next tick's scheduled phase, after this emit has unwound. Ordinary hits stay
+  // in this chain: deferring them would move every 3+ 奥术 fight by one tick. A rider hit is ADDITION, so it
+  // does not enter deal() again.
+  if (arcaneRiderDefers(dmg)) battle.after(0, deal, { owner: src });
+  else deal();
 }
 
 /**

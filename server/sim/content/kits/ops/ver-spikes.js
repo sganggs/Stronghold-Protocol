@@ -45,7 +45,7 @@ function spikes(_bb, chess, def) {
         if (drones.length) ctx.targets = drones.concat(rest);
       }, { owner: unit });
       if (scale !== 1) onHitBy(battle, unit, ({ target, dmg }) => {
-        if (dmg.isAttack && isMainHit(dmg) && drone(target)) dmg.mul *= scale;
+        if (dmg.isAttack && isMainHit(dmg) && drone(target)) dmg.amount *= scale; // 攻击力+N% is atk_scale on this attack, before DEF
       });
     },
   };

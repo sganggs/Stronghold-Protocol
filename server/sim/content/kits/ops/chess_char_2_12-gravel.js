@@ -22,9 +22,8 @@ export default {
   // second (PRTS: "防御力加成每秒更新一次"). Trait note: every normal attack hits twice at 50 % (GRAVEL_HIT_DMG_MUL above).
   chess_char_2_12_a: (bb, chess) => {
     const t = talentBb(chess, 0);
-    return {
-      trait: { hits: GRAVEL_HITS, hitDmgMul: GRAVEL_HIT_DMG_MUL },
-      skill: {
+    // 鼠群 stays reachable when 影袭 is the chess default (规程).
+    const rats = {
         kind: 'duration', activateOnDeploy: true, duration: num(bb.duration, 10), spCost: 0, spType: 'none', trigger: 'NEVER',
         onStart({ battle, unit }) {
           const total = unit.s.maxHp * num(bb.hp_ratio);
@@ -45,8 +44,12 @@ export default {
           battle.fx('shield', { x: unit.x, y: unit.y, id: unit.id });
         },
         onEnd({ battle, unit }) { battle.removeBuff(unit, 'gravel:rats'); },
-      },
+    };
+    return {
+      trait: { hits: GRAVEL_HITS, hitDmgMul: GRAVEL_HIT_DMG_MUL },
+      skill: rats,
       skills: {
+        skchr_gravel_2: rats,
         skchr_gravel_1: {
           kind: 'duration', activateOnDeploy: true, duration: num(bb.duration), spCost: 0, spType: 'none', trigger: 'NEVER',
           onStart({ battle, unit }) {

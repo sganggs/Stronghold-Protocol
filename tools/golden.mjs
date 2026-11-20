@@ -610,7 +610,8 @@ export function fieldScenarios() {
       scenarios.push({
         id: `${hidden ? 'hidden' : 'boss'}-${bossId}-${solo ? 'solo' : 'pair'}`, family: 'fields', kind: hidden ? 'hidden' : 'boss', modeId, round, stageId, seed,
         rect: { ...GEO.BOSS_RECT }, timeLimit: Infinity, routes: wave.routes, waveId: wave.templateId, enemyOverrides: wave.overrides,
-        flags: { layerGainsEnabled: false, ...gd.dp, enemyScale: gd.enemyScale(round) }, bossId, boss: { poolHp: pool, poolMax: pool }, fieldId: 'b1', cap: 200,
+        // IN_BATTLE layers as the match runs these fields: config.finalAssault.layerGainsEnabled (规程 on, 盟约 off)
+        flags: { layerGainsEnabled: data.config.finalAssault?.layerGainsEnabled === true, ...gd.dp, enemyScale: gd.enemyScale(round) }, bossId, boss: { poolHp: pool, poolMax: pool }, fieldId: 'b1', cap: 200,
         players, spawns: wave.spawns.map((s) => ({ ...s })),
         about: `${data.bosses[bossId].name} ${solo ? 'solo' : 'pair'} pool ${pool}: ${players.map((p) => placeName(p.units).join(' ')).join(' | ')}`,
       });

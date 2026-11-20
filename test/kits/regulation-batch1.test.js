@@ -122,8 +122,14 @@ describe('regulation batch 1 kits', { concurrency: 1 }, () => {
     const wolf = foe(h2, [10, 8], { hpMul: 80, atkMul: 1, speedMul: 1 });
     assert.ok(h2.runUntil(() => wolf.blockedBy === j, 8), 'wolf blocked');
     const before = wolf.hp;
+    let counterDamage = null;
+    h2.battle.on('hit', ({ source, target, dmg }) => {
+      if (source === j && target === wolf) counterDamage = dmg;
+    });
     assert.ok(h2.runUntil(() => wolf.hp < before - 0.5, 8), 'counter landed');
     close(before - wolf.hp, j.s.atk * s2['attack@atk_scale'], 0.05, 'jaksel counter');
+    assert.equal(counterDamage?.isSkill, true, 'the counter is skill damage, not an attack');
+    assert.equal(counterDamage?.isAttack, false);
     const aspd = j.findBuff('jaksel:evadeAspd');
     assert.ok(aspd, 'evade aspd');
     assert.equal(aspd.mods.aspd, talent['charge_atk_speed_on_evade.attack_speed']);

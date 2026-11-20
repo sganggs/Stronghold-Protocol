@@ -53,7 +53,7 @@ function mantic(_bb, chess, def) {
       if (bonus) onHitBy(battle, unit, ({ dmg }) => {
         if (!unit.mem.manticReveal || !dmg.isAttack || !isMainHit(dmg)) return;
         unit.mem.manticReveal = false;
-        dmg.mul *= 1 + bonus;
+        dmg.amount *= 1 + bonus; // 当次攻击的攻击力+atk, before DEF
       });
       battle.on('tick', () => {
         if (!up(unit) || unit.findBuff(HIDE) || unit.mem.manticSeen == null) return;

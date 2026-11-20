@@ -112,6 +112,7 @@ describe('cosmetic plugins in the browser (P1a)', { skip: !ENABLED && 'set SP_E2
       for (const c of [host, guest]) assert.doesNotMatch(String(await avatarOf(c, personalId)), /^\/p\//, `${c.label}: the personal plugin is off`);
       // the guest switches it on in 设置 → 外观插件: the guest's page only
       await guest.click('.room-screen [data-testid="settings-btn"]');
+      await guest.click('[data-settings-tab="appearance"]');
       await guest.page.waitForSelector('[data-testid="personal-plugins"] [data-plugin="my-skin"]', { timeout: 10000 });
       await guest.page.$eval('[data-testid="personal-plugins"]', (e) => e.scrollIntoView({ block: 'center' }));
       await guest.click('[data-testid="personal-plugins"] [data-plugin="my-skin"] button[role="switch"]');
@@ -170,6 +171,7 @@ describe('cosmetic plugins in the browser (P1a)', { skip: !ENABLED && 'set SP_E2
       assert.match(await c.page.$eval('[data-testid="plugin-panel"]', (e) => e.textContent), /本服务器没有可在房间中使用的插件/);
       await c.click('.modal__actions button', '完成');
       await c.click('.room-screen [data-testid="settings-btn"]');
+      await c.click('[data-settings-tab="appearance"]');
       await c.page.waitForSelector('.set-list', { timeout: 10000 });
       assert.equal(await c.page.$('[data-testid="personal-plugins"]'), null, 'no 外观插件 section');
       await sleep(500);

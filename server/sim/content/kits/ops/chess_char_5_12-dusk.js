@@ -55,6 +55,8 @@ export default {
     };
     return {
       skills: lazySkills({
+        // 工笔入化: the `skill` spec, also keyed so it still runs when S2 is the chess default (规程).
+        skchr_dusk_1: () => ({ kind: 'charges', attack: { atkScale: num(bb.atk_scale, 1), splashRadius: DUSK_SPLASH_RADIUS } }),
         skchr_dusk_2: () => ({
           kind: 'duration', mods: mods({ atkPct: num(bb.atk), aspd: num(bb.attack_speed) }),
           targeting: skillRange(chess, def, { allInRange: true }),

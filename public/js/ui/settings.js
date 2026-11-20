@@ -37,6 +37,7 @@ import { audio } from '../audio.js';
 import { openGuide } from './guide.js';
 import { detectFeatures, isIOS } from './device.js';
 import { LangToggle, machineTranslationNote } from './lang.js';
+import { SettingsBrowser } from './settingsBrowser.js';
 import { t, tc, tParts, N_ } from '../../../shared/i18n.js';
 import { errorCount, currentBattle, diagnosticsText } from '../diag.js';
 import { copyText } from './clipboard.js';
@@ -168,13 +169,13 @@ const HOTKEY_NAMES = { buy: N_('购买鼠标指向的商品'), refresh: N_('刷�
  * attached keyboard still uses it).
  * @param {{ keys: Record<string, string>, touchUi: boolean }} props
  */
-function HotkeySection({ keys, touchUi }) {
+function HotkeySection({ keys, touchUi, active = true }) {
   const [waiting, setWaiting] = useState(null); // the action waiting for its new key
   const [note, setNote] = useState(null);       // { text, warn }: the result line
   // a layout effect: the key listener is on as soon as the key shows that it waits (an Esc right after the click must
   // end the wait, never reach the dialog's own Esc)
   useLayoutEffect(() => {
-    if (!waiting) return undefined;
+    if (!waiting || !active) return undefined;
     const name = t(HOTKEY_NAMES[waiting]);
     const onKey = (e) => {
       const r = captureHotkey(e);
@@ -207,7 +208,8 @@ function HotkeySection({ keys, touchUi }) {
     window.addEventListener('keydown', onKey, true);
     window.addEventListener('pointerdown', onDown, true);
     return () => { window.removeEventListener('keydown', onKey, true); window.removeEventListener('pointerdown', onDown, true); };
-  }, [waiting]);
+  }, [waiting, active]);
+  useLayoutEffect(() => { if (!active) setWaiting(null); }, [active]);
 
   const status = note ? note.text : waiting ? t('请按下「{action}」的新按键（Esc 取消）', { action: t(HOTKEY_NAMES[waiting]) }) : '';
   const list = html`<ul class="set-keys__list">
@@ -230,7 +232,7 @@ function HotkeySection({ keys, touchUi }) {
   </ul>
   <p class=${cx('set-keys__note', note?.warn && 'is-warn')} role="status" aria-live="polite">${status}</p>`;
   return html`<section class="set-keys" aria-labelledby="set-keys-title">
-    <${SetHead} id="set-keys-title" icon="key" title=${t('快捷键')} micro="HOTKEYS">
+    <${SetHead} id="set-keys-title" title=${t('快捷键')} micro="HOTKEYS">
       <${Button} variant="ghost" size="sm" icon="refresh" class="set-keys__reset" disabled=${isDefaultHotkeys(keys)}
         onClick=${() => { setWaiting(null); updateSettings({ keys: DEFAULT_HOTKEYS }); setNote({ text: t('已恢复默认快捷键') }); }}>${t('恢复默认')}<//>
     <//>
@@ -271,7 +273,7 @@ function DiagSection() {
     setNote(ok ? 'copied' : 'refused');
   };
   return html`<section class="set-diag" aria-labelledby="set-diag-title">
-    <${SetHead} id="set-diag-title" icon="warn" title=${t('问题反馈')} micro="DIAGNOSTICS">
+    <${SetHead} id="set-diag-title" title=${t('问题反馈')} micro="DIAGNOSTICS">
       <${Button} variant="ghost" size="sm" icon="copy" class="set-diag__copy" data-testid="diag-copy" onClick=${copy}>${t('复制诊断信息')}<//>
     <//>
     <p class="set-hint">${t('遇到问题时，复制诊断信息并粘贴到 GitHub issue 中，开发者就能看到出错时的情况。诊断信息只在本机生成，不会自动上传；玩家名和房间号会被替换。')}</p>
@@ -310,7 +312,7 @@ function CosmeticSection() {
   if (!list.length) {
     if (!hasAnySkinChoices()) return null;
     return html`<section class="set-plugins" aria-labelledby="set-skins-title" data-testid="personal-plugins">
-      <${SetHead} id="set-skins-title" icon="image" title=${t('外观插件')} micro="COSMETIC PLUGINS" />
+      <${SetHead} id="set-skins-title" title=${t('外观插件')} micro="COSMETIC PLUGINS" />
       <${OtherSkinsRow} value=${s.otherSkins !== false} onSet=${(v) => updateSettings({ otherSkins: v })} />
     </section>`;
   }
@@ -323,7 +325,7 @@ function CosmeticSection() {
   }));
   const flip = (id, on) => { const r = setPersonalPlugin(id, on); if ('error' in r) toast(describeError(r.error), 'warn'); };
   return html`<section class="set-plugins" aria-labelledby="set-plugins-title" data-testid="personal-plugins">
-    <${SetHead} id="set-plugins-title" icon="image" title=${t('外观插件')} micro="COSMETIC PLUGINS" />
+    <${SetHead} id="set-plugins-title" title=${t('外观插件')} micro="COSMETIC PLUGINS" />
     <p class="set-hint">${t('只改变你自己看到的画面和声音，不影响其他博士，也不影响战斗；插件为非官方制作。')}</p>
     <${OtherSkinsRow} value=${s.otherSkins !== false} onSet=${(v) => updateSettings({ otherSkins: v })} />
     ${winners.map((w) => html`<p key=${w.name} class="set-hint set-theme-win">${t('{token} 由「{name}」生效', { token: w.name, name: pluginName(list.find((p) => p.id === w.pluginId) || { id: w.pluginId }) })}</p>`)}
@@ -376,7 +378,7 @@ function UiPluginSection() {
     toast(r.error === 'PLUGIN_LIMIT' ? t('最多同时开启 {n} 个界面插件', { n: UI_LIMITS.maxPlugins }) : describeError(r.error), 'warn');
   };
   return html`<section class="set-plugins" aria-labelledby="set-ui-plugins-title" data-testid="ui-plugins">
-    <${SetHead} id="set-ui-plugins-title" icon="dots" title=${t('界面插件')} micro="UI PLUGINS" />
+    <${SetHead} id="set-ui-plugins-title" title=${t('界面插件')} micro="UI PLUGINS" />
     <p class="set-hint">${t('只改变这个浏览器里的界面，不能替你操作对局，也不影响其他博士；插件为非官方制作。')}</p>
     ${!list.length ? html`<p class="set-hint">${t('本服务器没有可开启的界面插件')}</p>` : list.map((p) => {
       const on = onIds.has(p.id);
@@ -447,7 +449,7 @@ function StorageSection() {
     } finally { setPruning(false); }
   };
   return html`<section class="set-storage" aria-labelledby="set-storage-title" data-testid="storage-section">
-    <${SetHead} id="set-storage-title" icon="copy" title=${t('素材存储')} micro="STORAGE">
+    <${SetHead} id="set-storage-title" title=${t('素材存储')} micro="STORAGE">
       <span class="set-storage__actions">
         ${importSupport().ok ? html`<${Button} variant="ghost" size="sm" icon="refresh" data-testid="storage-prune" disabled=${pruning || importing}
           loading=${pruning} onClick=${prune}>${t('清理旧版本素材')}<//>` : null}
@@ -463,15 +465,22 @@ function StorageSection() {
   </section>`;
 }
 
-/** The result screen's button plate. A missing sprite falls back to the same CSS wash. */
-/** A settings block title in the S.W.E.E.P. section-caption shape. `children` are the row's actions. */
-function SetHead({ id, title, micro, icon = null, children }) {
-  return html`<div class="set-keys__head sw-sec__head">
-    ${icon ? html`<span class="sw-sec__glyph" aria-hidden="true"><${Icon} name=${icon} /></span>` : null}
-    <span class="set-row__label sw-sec__name" id=${id || undefined}><i>[</i> ${title} <i>]</i>${micro ? html`<${MicroLabel}>${micro}<//>` : null}</span>
+/** A settings block title uses the same typography as a setting label. `children` are its actions. */
+function SetHead({ id, title, micro, children }) {
+  return html`<div class="set-keys__head">
+    <span class="set-row__label" id=${id || undefined}>${title}${micro ? html`<${MicroLabel}>${micro}<//>` : null}</span>
     ${children || null}
   </div>`;
 }
+
+const SETTINGS_CATEGORIES = [
+  { id: 'interface', label: N_('界面'), micro: 'INTERFACE' },
+  { id: 'audio', label: N_('声音'), micro: 'AUDIO' },
+  { id: 'battle', label: N_('战斗显示'), micro: 'BATTLE' },
+  { id: 'controls', label: N_('操作'), micro: 'CONTROLS' },
+  { id: 'appearance', label: N_('外观'), micro: 'APPEARANCE' },
+  { id: 'resources', label: N_('资源与反馈'), micro: 'RESOURCES' },
+];
 
 export function SettingsModal({ open, onClose }) {
   const s = useSettings();
@@ -491,18 +500,21 @@ export function SettingsModal({ open, onClose }) {
     return () => { live = false; off(); };
   }, [open]);
   const fxTier = resolveOfficialFx(s.officialFx, true);
-  return html`<${Modal} open=${open} onClose=${onClose} class="setdlg" title=${t('设置')} micro="SETTINGS" width="7.4rem"
-                        actions=${html`<${Button} variant="secondary" icon="book" class="set-guide" onClick=${() => openGuide(0)}>${t('玩法说明')}<//>
-                        <${Button} variant="primary" icon="check" onClick=${onClose}>${t('完成')}<//>`}>
-    <div class="set-list">
-      <${SetHead} icon="book" title=${t('语言')} micro="LANGUAGE" />
-      <div class="set-row set-row--lang">
+  const entries = [
+    { id: 'language', category: 'interface', render: () => html`
+      <div class="set-row">
+        <span class="set-row__label">${t('语言')}<${MicroLabel}>LANGUAGE<//></span>
         <${LangToggle} class="set-lang" />
       </div>
       ${mtNote ? html`<p class="set-hint set-lang-note" data-testid="lang-mt-note">${mtNote}</p>` : null}
-      <${SetHead} icon="music" title=${t('声音')} micro="SOUND" />
+    ` },
+    { id: 'bgm', category: 'audio', render: () => html`
       <${Slider} label=${t('背景音乐')} micro="BGM" icon="play" value=${s.bgm} onInput=${(v) => updateSettings({ bgm: v })} />
+    ` },
+    { id: 'voiceVolume', category: 'audio', render: () => html`
       <${Slider} label=${t('干员语音')} micro="VOICE" icon="mic" value=${s.voice} onInput=${(v) => updateSettings({ voice: v })} />
+    ` },
+    { id: 'voiceLanguage', category: 'audio', render: () => html`
       <div class="set-row">
         <span class="set-row__label">${t('语音语言')}<${MicroLabel}>VOICE LANGUAGE<//></span>
         <div class="set-voice">
@@ -514,20 +526,38 @@ export function SettingsModal({ open, onClose }) {
             title=${t('有本土语言配音时使用')} onClick=${() => updateSettings({ voiceNative: !s.voiceNative })}>${tc('voice-lang', '本土语言')}</button>
         </div>
       </div>
+    ` },
+    { id: 'sfx', category: 'audio', render: () => html`
       <${Slider} label=${t('音效')} micro="SFX" icon="signal" value=${s.sfx}
                  onInput=${(v) => { updateSettings({ sfx: v }); if (!tested) { setTested(true); setTimeout(() => setTested(false), 400); audio.sfx('click'); } }} />
+    ` },
+    { id: 'muted', category: 'audio', render: () => html`
       <${Toggle} label=${t('静音')} micro="MUTE" value=${s.muted} onChange=${(v) => updateSettings({ muted: v })} />
+    ` },
+    { id: 'damageNumbers', category: 'battle', render: () => html`
       <${Toggle} label=${t('显示伤害数字')} micro="DAMAGE NUMBERS" value=${s.damageNumbers} onChange=${(v) => updateSettings({ damageNumbers: v })} />
+    ` },
+    { id: 'officialDamageNumbers', category: 'battle', render: () => html`
       <${Toggle} label=${t('官方伤害数字')} micro="OFFICIAL NUMBERS" value=${s.officialDamageNumbers} onChange=${(v) => updateSettings({ officialDamageNumbers: v })} />
       <p class="set-hint">${t('只显示达到官方暴击条件的红色数字。关闭时仍显示每一次命中。')}</p>
+    ` },
+    { id: 'ammoCount', category: 'battle', render: () => html`
       <${Toggle} label=${t('显示弹药与能量数量')} micro="AMMO & ENERGY" value=${s.ammoEnergyCount} onChange=${(v) => updateSettings({ ammoEnergyCount: v })} />
       <p class="set-hint">${t('弹药类技能开启时，在弹药条下方显示剩余弹药 / 总弹药数（如 13/14）；秘术师的血条下方显示储存的攻击能量 / 上限（如 2/3）。官方界面没有这些数字。')}</p>
+    ` },
+    { id: 'bondTimers', category: 'battle', render: () => html`
       <${Toggle} label=${t('盟约效果剩余时间')} micro="BOND TIMERS" value=${s.bondTimers} onChange=${(v) => updateSettings({ bondTimers: v })} />
       <p class="set-hint">${t('在选中单位的详情中显示叙拉古、萨尔贡效果的剩余时间；萨尔贡显示层数与下一层到期时间。官方界面没有这些数字。')}</p>
+    ` },
+    { id: 'combatMetrics', category: 'battle', render: () => html`
       <${Toggle} label=${t('作战统计')} micro="COMBAT STATS" value=${s.combatMetrics} onChange=${(v) => updateSettings({ combatMetrics: v })} />
       <p class="set-hint">${t('打开后，对局左下角可以查看自己干员的伤害、治疗和 DPS / HPS。官方界面没有这个窗口。改变玩法的插件对局在 Worker 里演算，统计不到，按钮不显示。')}</p>
+    ` },
+    { id: 'watchDuringBattle', category: 'battle', render: () => html`
       <${Toggle} label=${t('作战中查看队友')} micro="WATCH IN BATTLE" value=${s.watchDuringBattle} onChange=${(v) => updateSettings({ watchDuringBattle: v })} />
       <p class="set-hint">${t('打开后，自己的作战还没结束时也能点队友前往查看，最终攻势和隐秘核心里也能看另一组。查看时本机要多演算一场战斗，较慢的设备可能卡顿。')}</p>
+    ` },
+    { id: 'prepDeployFold', category: 'controls', render: () => html`
       <div class="set-row">
         <span class="set-row__label">${t('部署时收起商店')}<${MicroLabel}>DEPLOY FOLD<//></span>
         <div class="set-seg" role="group" aria-label=${t('部署时收起商店')} data-testid="deploy-fold-level">
@@ -536,6 +566,8 @@ export function SettingsModal({ open, onClose }) {
         </div>
       </div>
       <p class="set-hint">${t('拖动及选择朝向时：关闭保持原视角；适度缩小保留七成大小的商店，镜头适度放大；完全收起使用原有放大视角。结束后恢复原状。')}</p>
+    ` },
+    { id: 'wakeLock', category: 'controls', render: () => html`
       <${Toggle} label=${t('全屏时保持屏幕常亮')} micro="SCREEN WAKE LOCK" value=${s.fullscreenWakeLock} onChange=${(v) => updateSettings({ fullscreenWakeLock: v })} />
       <p class="set-hint" data-testid="wake-lock-hint">${tParts(isIOS()
         ? N_('全屏期间始终保持屏幕常亮（{support}）；iOS低电量模式下可能不生效。')
@@ -545,6 +577,8 @@ export function SettingsModal({ open, onClose }) {
           <button type="button" class="set-hint__help" aria-describedby="wake-lock-requirements">${t('需要环境支持')}<${Icon} name="info" /></button>
         <//>`,
       })}</p>
+    ` },
+    { id: 'quality', category: 'battle', render: () => html`
       <div class="set-row">
         <span class="set-row__label">${t('画面质量')}<${MicroLabel}>QUALITY<//></span>
         <div class="set-seg" role="radiogroup">
@@ -552,6 +586,8 @@ export function SettingsModal({ open, onClose }) {
             class=${s.quality === id ? 'is-on' : ''} onClick=${() => updateSettings({ quality: id })}>${t(label)}</button>`)}
         </div>
       </div>
+    ` },
+    { id: 'officialFx', category: 'battle', render: () => html`
       ${fxOk ? html`<div class="set-row" data-testid="official-fx">
         <span class="set-row__label">${t('官方特效')}<${MicroLabel}>OFFICIAL FX<//></span>
         <div class="set-seg" role="radiogroup" aria-label=${t('官方特效')}>
@@ -560,6 +596,8 @@ export function SettingsModal({ open, onClose }) {
         </div>
       </div>
       <p class="set-hint">${t('使用服主从自己的游戏客户端提取的官方战斗特效（普攻、弹道、命中、状态、阵亡、部署，干员、召唤物和敌人的技能与天赋，以及秘术师储存的能量），连到这台服务器的玩家看到的都是服主提取的这一份；提取里没有的或对战中没有时机的（如只在游戏内部条件下触发的天赋效果）仍为本作的特效。精简：半分辨率贴图、粒子减半，适合手机。只在 3D 棋盘上显示。')}</p>` : null}
+    ` },
+    { id: 'textSize', category: 'interface', render: () => html`
       <div class="set-row">
         <span class="set-row__label">${t('文字大小')}<${MicroLabel}>TEXT SIZE<//></span>
         <div class="set-seg set-textsize" role="radiogroup" aria-label=${t('文字大小')} data-testid="text-size">
@@ -568,19 +606,44 @@ export function SettingsModal({ open, onClose }) {
         </div>
       </div>
       <p class="set-hint set-textsize-note">${t('调整界面文字大小，棋盘保持原比例。')}</p>
+    ` },
+    { id: 'screenFit', category: 'interface', render: () => html`
       <${ScreenFitSection} />
+    ` },
+    { id: 'cursor', category: 'appearance', render: () => html`
       <${Toggle} label=${t('骷髅手指光标')} micro="PRTS CURSOR" value=${s.arknightsCursor} testId="arknights-cursor" onChange=${v => updateSettings({ arknightsCursor: v })} />
       <p class="set-hint">${t('使用明日方舟的骷髅手指光标；文字输入、拖动和缩放仍保留系统光标。')}</p>
+    ` },
+    { id: 'theme', category: 'appearance', render: () => html`
       <${ThemeSection} activeId=${s.uiTheme || ''} />
+    ` },
+    { id: 'themeMotion', category: 'appearance', render: () => html`
       <${Toggle} label=${t('主题动画')} micro="THEME MOTION" value=${s.themeMotion} onChange=${(v) => updateSettings({ themeMotion: v })} />
       <p class="set-hint" data-testid="theme-motion-hint">${t('规程里乌萨斯齐心团、可露希尔主题界面的循环动画（倒计时与按钮的闪光等）。关闭后只显示静态画面，适合配置较低的设备；系统开启“减少动态效果”时也不播放。')}</p>
-      <${HotkeySection} keys=${s.keys} touchUi=${touchUi} />
+    ` },
+    { id: 'hotkeys', category: 'controls', render: active => html`
+      <${HotkeySection} active=${active} keys=${s.keys} touchUi=${touchUi} />
+    ` },
+    { id: 'cosmeticPlugins', category: 'appearance', render: () => html`
       <${CosmeticSection} />
+    ` },
+    { id: 'uiPlugins', category: 'appearance', render: () => html`
       <${UiPluginSection} />
+    ` },
+    { id: 'storage', category: 'resources', render: () => html`
       <${StorageSection} />
+    ` },
+    { id: 'diagnostics', category: 'resources', render: () => html`
       <${DiagSection} />
+    ` },
+    { id: 'inputHint', category: 'controls', render: () => html`
       <p class="set-hint">${touchUi ? t('触屏操作：点击单位选中（撤退 / 出售）· 长按单位或卡牌查看详情 · 拖动部署后滑动选择朝向') : t('右键查看详情')}</p>
-    </div>
+    ` },
+  ];
+  return html`<${Modal} open=${open} onClose=${onClose} class="setdlg settings-modal" title=${t('设置')} micro="SETTINGS" width="min(max(10.4rem, 32px, calc(760px * var(--sp-ui, 1))), calc(100vw - 32px))"
+                        actions=${html`<${Button} variant="secondary" icon="book" class="set-guide" onClick=${() => openGuide(0)}>${t('玩法说明')}<//>
+                        <${Button} variant="primary" icon="check" onClick=${onClose}>${t('完成')}<//>`}>
+    <${SettingsBrowser} categories=${SETTINGS_CATEGORIES} entries=${entries} />
   <//>`;
 }
 

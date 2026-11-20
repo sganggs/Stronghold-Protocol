@@ -48,6 +48,11 @@ const moves = (h, u) => h.hooksOf('deploy').filter((c) => c.unit === u && c.move
 const bondOf = (h) => h.b.allyUnits.find((a) => a.kind === 'token' && a.defId === BOND && a.alive) ?? null;
 const noSp = (h, u) => h.b.addBuff(u, { key: 'test:noSp', flags: { noSp: true } });   // 阻回: the MANUAL skill stays off
 const meansOf = (e) => e.findBuff(MEANS_KEY)?.data?.stacks ?? 0;
+/** Every 【手段】 on an enemy: the lone source keeps MEANS_KEY; each further 贝洛内 is MEANS_KEY#id. */
+const meansRecs = (e) => e.buffs.filter((b) => b.key === MEANS_KEY || (typeof b.key === 'string' && b.key.startsWith(`${MEANS_KEY}#`)));
+const recOf = (e, u) => meansRecs(e).find((b) => b.data?.src === u) ?? null;
+const hold = (h, u, key) => h.b.addBuff(u, { key, flags: { disarm: true } });
+const cutMul = (pct, stacks) => Math.max(0, 1 - pct * stacks);
 function done(h) {
   checkInvariants(h.b);
   assert.equal(h.b.errors.length, 0, JSON.stringify(h.b.errors[0]));
@@ -374,4 +379,136 @@ test('S3 清算: a lethal hit while it runs ⇒ 不死 / untargetable / no block
     assert.equal(moves(h, u).length, 0, `S${skill + 1}: no 【移动】`);
     done(h);
   }
+});
+
+test('two 贝洛内 on one enemy: one 【手段】 each (stacks, timer); only the higher DEF cut acts; one 贝洛内 stays on MEANS_KEY', () => {
+  // A: E2 7 % per stack. B: FGT-Y stage 3, 8 % per stack. Shared stacks would become 5 × 8 % on B's first hit.
+  const { h, u: a } = field({
+    tier: 5, elite: true, mod: null, skill: 2, row: 10, col: 5,
+    others: [{ uid: 2, dir: 'LEFT', elite: true, row: 10, col: 7, diy: { slot: 'chess_char_6_diy2_a', charId: DEMETR, skillIndex: 2, uniEquipId: FGTY } }],
+  });
+  const b = h.unit(2);
+  noSp(h, a);
+  noSp(h, b);
+  const pa = -talentOf(a, 0)['attack@def'];
+  const pb = -talentOf(b, 0)['attack@def'];
+  assert.deepEqual([pa, pb], [0.07, 0.08]);
+  hold(h, b, 'test:holdB');
+  const e = h.spawn('enemy_armor', { pos: [10, 6] });
+  assert.ok(h.runUntil(() => meansOf(e) === 5, 20), 'A reaches 5');
+  hold(h, a, 'test:holdA');
+  approx(e.s.def, 1000 * cutMul(pa, 5), 'A alone: DEF ×(1 − 7 % × 5)');
+  assert.equal(meansRecs(e).length, 1, 'one source keeps a single buff');
+  assert.equal(e.findBuff(MEANS_KEY)?.data?.src, a);
+  const leftA = e.findBuff(MEANS_KEY).timeLeft;
+  h.run(3);
+  const afterWait = recOf(e, a).timeLeft;
+  assert.ok(afterWait < leftA - 2.5 && afterWait > leftA - 3.5, `A's timer ran: ${leftA} → ${afterWait}`);
+  h.b.removeBuff(b, 'test:holdB');
+  const n0 = atkHits(h, b).length;
+  assert.ok(h.runUntil(() => atkHits(h, b).length > n0, 8), 'B lands one hit');
+  hold(h, b, 'test:holdB');
+  const ra = recOf(e, a), rb = recOf(e, b);
+  assert.ok(ra && rb && ra !== rb, 'one 【手段】 per 贝洛内');
+  assert.equal(ra.data.stacks, 5, 'A stays at 5');
+  assert.equal(rb.data.stacks, 1, 'B starts at 1');
+  assert.ok(rb.timeLeft > 9 && ra.timeLeft < 8, `timers stay apart (A ${ra.timeLeft}, B ${rb.timeLeft})`);
+  approx(e.s.def, 1000 * cutMul(pa, 5), 'the higher cut is A\'s 35 %, not 5 × 8 % and not a product');
+  assert.ok(Math.abs(ra.mods.defMul - cutMul(pa, 5)) < 1e-9 && Math.abs(rb.mods.defMul - 1) < 1e-9, 'only the winner multiplies DEF');
+  // B catches up to 5 × 8 %: that cut (40 %) overtakes A's 35 %.
+  h.b.removeBuff(b, 'test:holdB');
+  assert.ok(h.runUntil(() => (recOf(e, b)?.data?.stacks ?? 0) >= 5, 15), 'B reaches 5');
+  hold(h, b, 'test:holdB');
+  assert.equal(recOf(e, a).data.stacks, 5, 'A still 5');
+  assert.equal(recOf(e, b).data.stacks, 5, 'B capped at 5');
+  approx(e.s.def, 1000 * cutMul(pb, 5), 'now B\'s 40 %');
+  assert.ok(Math.abs(e.s.def - 1000 * cutMul(pa, 5) * cutMul(pb, 5)) > 50, 'the two cuts do not multiply');
+  done(h);
+
+  // a single 贝洛内 is unchanged: one MEANS_KEY, 5 stacks, DEF ×(1 − 7 % × 5), gone 10 s after the last hit
+  const one = field({ tier: 5, elite: true, mod: null, skill: 2 });
+  noSp(one.h, one.u);
+  const e1 = one.h.spawn('enemy_armor', { pos: [10, 6] });
+  assert.ok(one.h.runUntil(() => meansOf(e1) === 5, 20));
+  assert.equal(meansRecs(e1).length, 1);
+  assert.equal(e1.findBuff(MEANS_KEY)?.key, MEANS_KEY);
+  approx(e1.s.def, 1000 * 0.65, 'single source DEF');
+  one.h.b.retreat(one.u);
+  one.h.run(9.5);
+  assert.equal(meansOf(e1), 5);
+  one.h.run(0.6);
+  assert.equal(e1.findBuff(MEANS_KEY), null);
+  done(one.h);
+});
+
+test('two 贝洛内: S2 ending or leaving drops only that source\'s stacks; 停顿 follows the source still at 8', () => {
+  const { h, u: a } = field({
+    tier: 5, elite: false, skill: 1, row: 10, col: 5,
+    others: [{ uid: 2, dir: 'LEFT', elite: false, row: 10, col: 7, diy: { slot: 'chess_char_5_diy2_a', charId: DEMETR, skillIndex: 1 } }],
+  });
+  const b = h.unit(2);
+  const pct = -talentOf(a, 0)['attack@def'];
+  assert.equal(pct, 0.07);
+  assert.equal(-talentOf(b, 0)['attack@def'], pct);
+  hold(h, b, 'test:holdB');
+  const e = h.spawn('enemy_armor', { pos: [10, 6] });
+  a.skill.gainSp(999);
+  b.skill.gainSp(999);
+  assert.ok(h.runUntil(() => a.skill.active && meansOf(e) === 8 && e.findBuff(MEANS_SLUG_KEY), 20), 'A at 8 with 停顿');
+  hold(h, a, 'test:holdA');
+  h.b.removeBuff(b, 'test:holdB');
+  const n0 = atkHits(h, b).length;
+  assert.ok(h.runUntil(() => atkHits(h, b).length >= n0 + 3, 15), 'B lands 3');
+  hold(h, b, 'test:holdB');
+  h.run(0.25); // the old shared buff would have fallen back to 5 within 0.1 s of B's hit
+  assert.equal(recOf(e, a)?.data?.stacks, 8, 'A stays at 8 while his S2 is on');
+  assert.equal(recOf(e, b)?.data?.stacks, 3, 'B\'s own stacks');
+  assert.ok(e.findBuff(MEANS_SLUG_KEY), '停顿 while A is at 8');
+  approx(e.s.def, 1000 * cutMul(pct, 8), 'DEF follows A\'s 8, not 8 + 3');
+  a.skill.end('test');
+  h.run(0.2);
+  assert.equal(recOf(e, a).data.stacks, 5, 'A back to 5 on the 0.1 s tick');
+  assert.equal(recOf(e, b).data.stacks, 3, 'B unchanged');
+  assert.equal(e.findBuff(MEANS_SLUG_KEY), null, '停顿 ends with A\'s cap');
+  approx(e.s.def, 1000 * cutMul(pct, 5), 'DEF is now A\'s 5');
+  // both at 8: ending A's S2 leaves B's 8 and the 停顿
+  h.b.removeBuff(a, 'test:holdA');
+  h.b.removeBuff(b, 'test:holdB');
+  a.skill.gainSp(999);
+  b.skill.gainSp(999); // ignored while B's S2 is still up; refills him if the 15 s already ended
+  assert.ok(h.runUntil(() => a.skill.active && b.skill.active && recOf(e, a)?.data?.stacks === 8 && recOf(e, b)?.data?.stacks === 8, 25), 'both at 8');
+  hold(h, a, 'test:holdA');
+  hold(h, b, 'test:holdB');
+  a.skill.end('test');
+  h.run(0.2);
+  assert.equal(recOf(e, a).data.stacks, 5, 'only A drops');
+  assert.equal(recOf(e, b).data.stacks, 8, 'B keeps 8 while his S2 is on');
+  assert.ok(e.findBuff(MEANS_SLUG_KEY), '停顿 follows B');
+  approx(e.s.def, 1000 * cutMul(pct, 8), 'DEF follows B');
+  done(h);
+
+  // leaving the field drops only that source (from 8 back to 5). B is below 8, so 停顿 ends.
+  const left = field({
+    tier: 5, elite: false, skill: 1, row: 10, col: 5,
+    others: [{ uid: 2, dir: 'LEFT', elite: false, row: 10, col: 7, diy: { slot: 'chess_char_5_diy2_a', charId: DEMETR, skillIndex: 1 } }],
+  });
+  const a2 = left.u, b2 = left.h.unit(2);
+  hold(left.h, b2, 'test:holdB');
+  const e2 = left.h.spawn('enemy_armor', { pos: [10, 6] });
+  a2.skill.gainSp(999);
+  assert.ok(left.h.runUntil(() => a2.skill.active && recOf(e2, a2)?.data?.stacks === 8, 20), 'A at 8');
+  hold(left.h, a2, 'test:holdA');
+  left.h.b.removeBuff(b2, 'test:holdB');
+  const n1 = atkHits(left.h, b2).length;
+  assert.ok(left.h.runUntil(() => atkHits(left.h, b2).length >= n1 + 2, 12), 'B at least 2');
+  hold(left.h, b2, 'test:holdB');
+  const bStacks = recOf(e2, b2).data.stacks;
+  assert.ok(bStacks >= 2 && bStacks < 8, `B has his own stacks (${bStacks})`);
+  left.h.b.retreat(a2);
+  left.h.run(0.2);
+  assert.equal(recOf(e2, a2).data.stacks, 5, 'the one who left is back at 5');
+  assert.equal(recOf(e2, b2).data.stacks, bStacks, 'the other source is untouched');
+  assert.equal(e2.findBuff(MEANS_SLUG_KEY), null, '停顿 ends when the source at 8 has left');
+  approx(e2.s.def, 1000 * cutMul(pct, 5), 'DEF follows the remaining higher cut');
+  done(left.h);
 });

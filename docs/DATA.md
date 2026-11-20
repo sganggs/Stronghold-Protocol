@@ -106,7 +106,7 @@ Top level: `{ season, seasonName, modes, economy, lpCapPerRound, bossOvertimeAft
 
 | Field | Example | Meaning |
 |---|---|---|
-| `income` | `[0,4,5,6,…,12]` | index = round (index 0 unused): `min(3+r, 12)`; `incomeCap` 12, `incomeCapAlternative` 10, `incomeAssumedAfterRound` 3 |
+| `income` | `[0,4,5,6,…,12]` | index = round (index 0 unused): `min(3+r, 12)`; `incomeCap` 12, `incomeCapAlternative` 10, `incomeAssumedAfterRound` 3 (下半: only R1–R3 measured). 规程 measured it on recordings (profile `config.economy`): `min(3+r, 11)`, the two markers null; its 极速模拟 carries `modes.mode_single_funny.economy.income` = `min(5+r, 11)`, merged over the season's by `GameData` |
 | `leftoverFundsLost`, `leftoverFundsKeptByBands` | `true`, `["band_cannot"]` | |
 | `chessPrice[tier]` / `chessSell[tier]` | `{"normal":2,"golden":2}` / `{"normal":1,"golden":1}` | |
 | `chessStatus[tier]` | `{"normal":{"phase":1,"level":55,"skillLevel":4,"equipLevel":0,…},"golden":{…}}` | training status per tier |
@@ -134,7 +134,7 @@ Top level: `{ season, seasonName, modes, economy, lpCapPerRound, bossOvertimeAft
 | `hiddenCore` | `{"single":350,"multi":1200,"minTeamLpExclusive":1,"difficulties":["NORMAL","HARD","ABYSS"],"checkedAfterRound":14}` | Σ activated layers must be **>** threshold and LP **>** 1 (PRTS; the community's measurement 路标月报#2, GitHub #645) |
 | `dp` | `{"init":10,"perSec":1,"max":99}` | |
 | `unite` | `{"maxHelpers":2,"helperOrder":"unitsOnField>activeBond>undownedUnits; pair: unitsOnField>activeBond>activeLayers>undownedUnits, first = right field (PRTS 帮助)","layerGainsEnabled":false,"templates":{"1":"act1autochess_escaped_single","2":"act1autochess_escaped_multi"},…}` | 联防; `helperOrder` documents the rule `server/match/unite.js helperOrder` implements (research 08 §5; ties → seat) |
-| `finalAssault` | `{"pairing":"seatOrderPairs","oddPlayerAlone":true,"movableBossPerAlivePlayerSide":true,"layerGainsEnabled":false}` | |
+| `finalAssault` | `{"pairing":"seatOrderPairs","oddPlayerAlone":true,"movableBossPerAlivePlayerSide":true,"layerGainsEnabled":false}` | `layerGainsEnabled` is false in every covenant build. The 规程 profile sets it true, so Final Assault and Hidden Core keep permanent IN_BATTLE gains. `unite.layerGainsEnabled` stays false in every version. |
 | `timers` | `{"infoCheck":25,"infoCheckHint":5,"bandDraft":50,"bandDraftHint":15,"bandTurn":50,"battleCheck":3,"spFirst":30,"spTurn":16,"soloPrepTimeData":300,"soloSpTimeData":150,"chatCd":1,"chatBubble":3,"broadcastDelay":1,"enterSteps":[…]}` | seconds |
 | `bans[difficulty]` | `{"core":3,"addon":4}` (FUNNY `{0,1}`) + `rule` | per-match disabled-bond draw (research 01 A2) |
 | `bandDraft` | `{"skipsPerPlayer":1,"order":"random","duplicatesAllowed":true,"timeoutBandId":"band_bldsk"}` | |
@@ -947,7 +947,8 @@ every file system and URL).
   carries the 鸭爵 effect, unused there: V1_1 has no 鸭爵 band).
 - **`pools`** (optional): `{ <pool id>: [charId…] }` replaces the operators the build writes for a hand-written chess
   pool where the version's trait text names others. Both 上半 profiles set `pool_chess_glady` to 斯卡蒂 / 幽灵鲨 / 安哲拉
-  (`garrison_39`: 「斯卡蒂、幽灵鲨或安哲拉」; 下半: 深巡); V2_1 and the default have none.
+  (`garrison_39`: 「斯卡蒂、幽灵鲨或安哲拉」; 下半: 深巡). 规程 sets it to 斯卡蒂 / 幽灵鲨 / 深巡 / 安哲拉
+  (`garrison_61`: 「幽灵鲨、安哲拉、深巡或斯卡蒂」). V2_1 and the default have none.
 - **规程 `config.version.rules.equipHand`**: `true` only in the act3autochess-v3_1 profile. The official season's
   `maxDeckChessCnt` 10 / `maxDeckEquipmentChessCnt` 5 and separate client hand areas define character and equipment
   rows. Hidden overflow policy is [ASSUMED] by the owner (2026-11-09); see [META](META.md#regulation-equipment-row-and-overflow).
@@ -999,7 +1000,7 @@ there):
   operator there), so `pool_char_pinus` is empty). A profile's `pools` replaces the operators of a hand-written chess pool
   where the version's trait text names others: both 第一期 builds list 斯卡蒂 / 幽灵鲨 / 安哲拉 in `pool_chess_glady`, as
   their `garrison_39` says (下半: 深巡, who is shop chess in 第一期 too, so the charId lookup alone kept him; DESIGN
-  §35.22.3).
+  §35.22.3). 规程 lists 斯卡蒂 / 幽灵鲨 / 深巡 / 安哲拉, as its `garrison_61` says.
 - `TRIGGER_DEVIATIONS` (`server/plugins/officialUnitBuilder.js`) by the operator's `charId` and skill id, and like
   `STANDIN_TRIGGER_DEVIATIONS` applied only over an official `TAKE_DAMAGE` row — the row they override (DESIGN §21.29,
   §22.10). Every 下半 entry meets one (V2_1: all but 雷蛇's, who joined with V2_2); in 上半 none applies.

@@ -55,7 +55,8 @@
 //     流形) sends one stack (deployLimit copies — 凯瑟琳 2) to the hand, placed by hand like any piece (no deploy slot);
 //     withdrawing/selling/merging the owner removes its tokens (an elite that takes a merged copy's tile gets a fresh
 //     stack of its own, like any deployment), moving it on the board (also when a summon dragged onto
-//     it swaps it away) keeps its placed summons on legal tiles, returning only those outside the final placement range
+//     it swaps it away) keeps its placed summons on legal tiles, returning those the final layout leaves illegal —
+//     outside the placement range, or on a tile the summon cannot stand on (GitHub #984: position class, water, blocked)
 //     (2026-11-12 owner-reported official QoL; the old PRTS help still describes recalling all of them);
 //     a summon stack removed from temp at a prep deadline comes back at the next round start (startRound tops every
 //     board owner's summons up to the deploy limit, "干员所属召唤物会于下一回合返还"). In battle a skill's summon takes its
@@ -66,7 +67,7 @@
 //     (or a promotion) leaves outside goes back onto its stack (recompute → _liftOutOfRange) [ASSUMED: kept when still
 //     inside]. A re-orientation that would leave such a summon with no stack and no free hand / temp slot is refused
 //     (HAND_FULL); elsewhere (a promotion, an owner moved with no room) it leaves the board and its stack joins
-//     the expandable temp queue — no out-of-range placement reaches the battle.
+//     the expandable temp queue — no illegal placement reaches the battle.
 //   * Facing (DESIGN §3, research 09 §1.2): every board piece has `dir` ∈ UP|RIGHT|DOWN|LEFT (server/sim/dir.js), set
 //     by g.move {…, dir} (absent ⇒ RIGHT) and kept across rounds. g.move onto the piece's OWN tile re-orients it in
 //     place; a swap keeps the occupant's dir; a piece put on the board by an effect (a merge elite taking a consumed

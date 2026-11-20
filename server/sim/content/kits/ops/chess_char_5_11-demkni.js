@@ -55,6 +55,15 @@ export default {
           attack: { dmgType: 'heal', heal: { mode: 'single', hpAtMost: HALF_HP }, healScale: num(bb.heal_scale, 1), projectile: 'none' },
           onHit({ battle, target }) { if (target) battle.fx('healAoe', { x: target.x, y: target.y, id: target.id, r: 0.5 }); },
         }),
+        // 药物配置: the `skill` spec, also keyed so it still runs when S1 is the chess default (规程).
+        skchr_demkni_2: () => ({
+          kind: 'instant', heal: true, trigger: NEVER,
+          onStart({ battle, unit }) {
+            const amt = unit.s.atk * num(bb.heal_scale, 1);
+            for (const a of zone(battle, unit)) if (a.hp < a.s.maxHp - 1e-6) battle.heal(unit, a, amt);
+            battle.fx('healAoe', { x: unit.x, y: unit.y, id: unit.id, r: 2.5 });
+          },
+        }),
         skchr_demkni_3: () => ({
           kind: 'duration',
           onStart({ unit }) { unit.mem.calcAcc = 0; unit.mem.calcAura = AURA_IV; },

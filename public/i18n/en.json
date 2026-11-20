@@ -964,6 +964,8 @@
   "{names}只能部署在召唤者攻击范围内，整备区已满，下回合返还": "{names} can only be deployed within the summoner's attack range; the Bench is full, so they come back next round",
   "{names}只能部署在召唤者攻击范围外，已退回整备区": "{names} can only be deployed outside the summoner's attack range and returned to the Bench",
   "{names}只能部署在召唤者攻击范围外，整备区已满，下回合返还": "{names} can only be deployed outside the summoner's attack range; the Bench is full, so they come back next round",
+  "{names}不能部署在该地块，已退回整备区": "{names} cannot be deployed on that tile and returned to the Bench",
+  "{names}不能部署在该地块，整备区已满，下回合返还": "{names} cannot be deployed on that tile; the Bench is full, so they come back next round",
   "【{label}】层数达成，下回合开始时获得{gain}资金": "[{label}] stack milestone reached: +{gain} Funds at the start of the next round",
   "【{label}】层数达成，获得{gain}资金": "[{label}] stack milestone reached: +{gain} Funds",
   "【奇迹】下次刷新不消耗资金": "[Marvel] Your next refresh is free",
@@ -1383,6 +1385,7 @@
   "无法读取插件列表": "Could not load the plugin list",
   "自动": "Auto",
   "外观": "Cosmetic",
+  "settings-category::外观": "Appearance",
   "非官方": "Unofficial",
   "作者 {names}": "by {names}",
   "本服务器已不再提供": "No longer on this server",
@@ -2582,5 +2585,15 @@
   "用 Safari 打开本站，点击浏览器的分享按钮。": "Open this site in Safari and tap the browser's Share button.",
   "选择“添加到主屏幕”；若出现“作为网页 App 打开”，请保持开启。": "Choose Add to Home Screen. If Open as Web App appears, leave it turned on.",
   "点击“添加”，再从主屏幕打开游戏并横置手机。": "Tap Add, then open the game from the Home Screen and turn your phone sideways.",
-  "点击“添加”，再从主屏幕打开游戏并横置平板。": "Tap Add, then open the game from the Home Screen and turn your iPad sideways."
+  "点击“添加”，再从主屏幕打开游戏并横置平板。": "Tap Add, then open the game from the Home Screen and turn your iPad sideways.",
+  "战斗显示": "Battle display",
+  "资源与反馈": "Resources & feedback",
+  "设置分类": "Settings categories",
+  "搜索设置": "Search settings",
+  "搜索设置名称或说明": "Search setting names or descriptions",
+  "清空搜索": "Clear search",
+  "搜索结果": "Search results",
+  "找到 {n} 项设置": "Settings found: {n}",
+  "没有找到匹配的设置，请尝试其它关键词。": "No matching settings. Try another keyword.",
+  "操作": "Controls"
 }

@@ -12,20 +12,22 @@ export default {
   chess_char_2_07_a: (bb, chess) => {
     const t = talentBb(chess, 0);
     const tb = traitBb(chess);
-    return {
-      skill: {
-        kind: 'duration', mods: { atkPct: num(bb.atk) },
-        onStart({ battle, unit }) {
-          if (unit.mem.undying) battle.off(unit.mem.undying);
-          unit.mem.undying = battle.on('fatal', (c) => { if (c.unit === unit && unit.skill?.active) c.prevented = true; }, { owner: unit, priority: 10 });
-        },
-        onEnd({ battle, unit, reason }) {
-          if (unit.mem.undying) battle.off(unit.mem.undying);
-          unit.mem.undying = null;
-          if (reason !== 'death' && unit.alive && num(bb.stun) > 0) battle.applyStatus(unit, 'stun', { duration: num(bb.stun), source: unit });
-        },
+    // 肉斩骨断 stays reachable when it is no longer the chess default (规程 selects 攻击力强化·γ型).
+    const cleave = {
+      kind: 'duration', mods: { atkPct: num(bb.atk) },
+      onStart({ battle, unit }) {
+        if (unit.mem.undying) battle.off(unit.mem.undying);
+        unit.mem.undying = battle.on('fatal', (c) => { if (c.unit === unit && unit.skill?.active) c.prevented = true; }, { owner: unit, priority: 10 });
       },
-      skills: { 'skcom_atk_up[3]': { kind: 'duration', mods: { atkPct: num(bb.atk) } } },
+      onEnd({ battle, unit, reason }) {
+        if (unit.mem.undying) battle.off(unit.mem.undying);
+        unit.mem.undying = null;
+        if (reason !== 'death' && unit.alive && num(bb.stun) > 0) battle.applyStatus(unit, 'stun', { duration: num(bb.stun), source: unit });
+      },
+    };
+    return {
+      skill: cleave,
+      skills: { skchr_ghost_2: cleave, 'skcom_atk_up[3]': { kind: 'duration', mods: { atkPct: num(bb.atk) } } },
       talents: [{ install(battle, unit) {
         statBuff(battle, unit, 'talent:ghost', { hpPct: num(t.max_hp), hpRegenRatio: num(t.hp_recovery_per_sec_by_max_hp_ratio) });
         if (num(tb.atk_scale, 1) !== 1) onHitBy(battle, unit, ({ target, dmg }) => { if (dmg.isAttack && target.blockedBy) dmg.amount *= num(tb.atk_scale, 1); });

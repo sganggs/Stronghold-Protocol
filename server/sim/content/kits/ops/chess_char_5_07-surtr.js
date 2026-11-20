@@ -69,6 +69,8 @@ export default {
           // "干员退场后…原地留下一个“倒地干员”…自动部署至该位置"; Battle.isDown, GitHub #60). With her death animation
           // (`dying`): PRTS Touch(卫戍协议) 超脱 备注 counts it as a knock-out ("如史尔特尔的天赋效果").
           const wait = num(t1['surtr_t_2[withdraw].interval'], 8);
+          // 规程 module 余烬: 期间攻击速度+N. Absent on 盟约, so the buff stays flags-only there.
+          const emberAs = num(t1['surtr_t_2[withdraw].attack_speed']);
           battle.on('deploy', (c) => { if (c.unit === unit) unit.mem.ember = false; }, { owner: unit });
           battle.on('fatal', (c) => {
             if (c.unit !== unit || c.prevented) return;
@@ -76,7 +78,10 @@ export default {
             if (unit.mem.ember) return;
             unit.mem.ember = true;
             const dep = unit.deploySeq;
-            battle.addBuff(unit, { key: 'surtr:ember', status: 'healFree', flags: { noHeal: true, healFree: true } });
+            battle.addBuff(unit, {
+              key: 'surtr:ember', status: 'healFree', flags: { noHeal: true, healFree: true },
+              ...(emberAs ? { mods: { aspd: emberAs } } : {}),
+            });
             battle.fx('ember', { x: unit.x, y: unit.y, id: unit.id });
             battle.after(wait, () => { if (unit.alive && unit.deploySeq === dep) battle.retreat(unit, { reason: 'retreat', dying: true }); }, { owner: unit });
           }, { owner: unit, priority: -60 });

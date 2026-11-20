@@ -41,6 +41,12 @@ for (const dir of existsSync(path.join(ROOT, 'data/versions')) ? readdirSync(pat
 }
 const manifest = (() => { try { return JSON.parse(readFileSync(path.join(ROOT, 'data/local-assets.json'), 'utf8')); } catch { return null; } })();
 
+test('opaque albedo keeps hidden RGB, native cutouts and shared texture identity', { skip: !HAS_PIL && 'no Pillow' }, () => {
+  const result = spawnSync(PY, ['-I', '-B', path.join(ROOT, 'test/local-extract/opaque-albedo.py')], { encoding: 'utf8', env: ENV });
+  assert.equal(result.status, 0, result.stderr);
+});
+
+
 function py(code) {
   const src = `import sys, json, struct\nsys.path.insert(0, ${JSON.stringify(TOOL)})\nimport scenes as s\n${code}`;
   const r = spawnSync(PY, ['-I', '-B', '-c', src], { encoding: 'utf8', env: ENV });
@@ -123,7 +129,7 @@ describe('scenes.py (no UnityPy needed)', { skip: !PY && 'no python3' }, () => {
     const { scenes } = JSON.parse(r.stdout);
     assert.equal(scenes.sub, 'scene');
     assert.equal(scenes.tex, SCENE_TEX_GROUP);
-    assert.equal(scenes.version, 5, 'manifest scene-record version; scene.json stays SCENE_VERSION');
+    assert.equal(scenes.version, 6, 'manifest scene-record version; scene.json stays SCENE_VERSION');
     const ids = scenes.stages.map((x) => x.id);
     const battlefields = Object.keys(stages).filter((id) => /^act\dautochess_m\d+$/.test(id)).sort();
     assert.deepEqual([...ids].sort(), battlefields, 'every battlefield has a scene');
@@ -168,7 +174,7 @@ print(json.dumps({'n': n, 'layout': doc['layout'], 'grid': doc['pieceGrid'], 'pi
     assert.deepEqual(out.table, { 1: 'sub_01', 2: 'sub_02', 3: 'sub_03' });
     assert.deepEqual(out.groups, ['sub_01', 'sub_02', 'sub_03'], 'one group per piece; an empty chunk is not written');
     assert.deepEqual(out.bounds, [[4, 2, -0.4, 5, 3, 0], [-3, -5, -0.4, -2, -4, 0], [10, 11, -0.4, 11, 12, 0]], 'piece-local, unshifted');
-    assert.deepEqual(out.record, { path: '/assets/local/scene/act3autochess_m01/scene.json', kind: 'Scene', chunks: 3, version: 5 });
+    assert.deepEqual(out.record, { path: '/assets/local/scene/act3autochess_m01/scene.json', kind: 'Scene', chunks: 3, version: 6 });
   });
 
   test('规程 lightmap atlas: three pages share one 2 × 2 atlas (row 0 at the bottom, flipY), page UVs land inside their cell', () => {
@@ -343,7 +349,7 @@ print(json.dumps({
   'lossless': lossless.get('webp'), 'lossy': lossy.get('webp'), 'match': match,
 }))`);
     assert.equal(out.mesh, SCENE_VERSION);
-    assert.equal(out.ver, 5);
+    assert.equal(out.ver, 6);
     assert.deepEqual(out.metro, ['map', 'normalMap', 'glossMap', 'emissionMap']);
     assert.deepEqual(out.floor, ['map', 'normalMap', 'glossMap']);
     assert.deepEqual(out.cut, ['map', 'normalMap', 'glossMap', 'emissionMap']);
@@ -400,6 +406,43 @@ print(json.dumps({
       assert.equal(out.mode, null);
     }
   });
+});
+
+test('scene transport writer: one scene.bin by default, parts only on request, a shorter export drops stale parts', { skip: !PY && 'no Python' }, () => {
+  const out = py(`import tempfile, hashlib, os
+from pathlib import Path
+os.environ.pop('SP_SCENE_PART_BYTES', None)
+with tempfile.TemporaryDirectory() as tmp:
+    folder = Path(tmp)
+    raw = b'abc' * 5000001
+    whole = s.write_scene_bins(folder, raw)
+    parts = s.write_scene_bins(folder, raw, part_bytes=15000000)
+    joined = b''.join((folder / p['name']).read_bytes() for p in parts)
+    entry = {'scene': {}}
+    s.record_scene_bins(entry, 'x', parts)
+    keys_split = sorted(entry)
+    os.environ['SP_SCENE_PART_BYTES'] = '15000000'
+    by_env = s.write_scene_bins(folder, raw)
+    del os.environ['SP_SCENE_PART_BYTES']
+    small = s.write_scene_bins(folder, b'abc')
+    s.record_scene_bins(entry, 'x', small)
+    left = sorted(p.name for p in folder.iterdir())
+    rejected = False
+    try:
+        s.write_scene_bins(folder, b'')
+    except ValueError:
+        rejected = True
+    print(json.dumps({'whole': whole, 'parts': parts, 'byEnv': len(by_env), 'same': hashlib.sha256(raw).digest() == hashlib.sha256(joined).digest(),
+                      'small': small, 'keysSplit': keys_split, 'keysAfter': sorted(entry), 'left': left, 'emptyRejected': rejected}))`);
+  assert.deepEqual(out.whole, [{ key: 'bin', bytes: 15000003, name: 'scene.bin' }], 'one file unless a part size is asked for');
+  assert.deepEqual(out.parts.map(p => [p.key, p.bytes]), [['bin', 15000000], ['bin1', 3]]);
+  assert.equal(out.byEnv, 2, 'SP_SCENE_PART_BYTES splits too');
+  assert.equal(out.same, true);
+  assert.deepEqual(out.keysSplit, ['bin', 'bin1', 'scene']);
+  assert.deepEqual(out.small, [{ key: 'bin', bytes: 3, name: 'scene.bin' }]);
+  assert.deepEqual(out.keysAfter, ['bin', 'scene'], 'the stale bin1 key is dropped');
+  assert.deepEqual(out.left, ['scene.bin'], 'the stale scene1.bin is removed');
+  assert.equal(out.emptyRejected, true);
 });
 
 describe('scene chunks (load.js)', () => {
@@ -509,6 +552,31 @@ describe('scene chunks (load.js)', () => {
       assert.ok(lit.images.data.TX_N && lit.images.data.TX_M && lit.images.env, 'the normal / gloss maps and the reflection atlas');
       assert.ok(lit.images.tex.TX_E && !lit.images.data.TX_E, 'emission is an sRGB colour map');
       assert.ok(!lit.images.tex.TX_N && !lit.images.tex.TX_M, 'data maps stay out of the sRGB textures');
+      resetBoardPack();
+      const wholeFetch = globalThis.fetch;
+      const cuts = [0, 4, 17, 39, 60, 85, 112, bin.byteLength];
+      const parts = cuts.slice(1).map((end,i) => end-cuts[i]);
+      json = { ...doc, binParts:parts };
+      const binaries = new Map(parts.map((_,i) => {
+        const path = i ? `/s/scene${i}.bin` : '/s/scene.bin';
+        urls[`${group}|${i ? `bin${i}` : 'bin'}`] = path;
+        return [path,bin.slice(cuts[i],cuts[i+1])];
+      }));
+      globalThis.fetch = async u => binaries.has(u) ? new Response(binaries.get(u)) : wholeFetch(u);
+      const split = await loadScenePack(store, 'act2autochess_m02');
+      assert.ok(split, 'seven transport parts restore the existing mesh layout across attribute boundaries');
+      assert.deepEqual(split.chunks.map(c => [...c.index]), pack.chunks.map(c => [...c.index]));
+      assert.deepEqual(split.chunks.map(c => [...c.position]), pack.chunks.map(c => [...c.position]));
+      resetBoardPack();
+      const requested = [];
+      globalThis.fetch = async u => {
+        requested.push(u);
+        return u === '/s/scene3.bin' ? new Response(null,{status:404})
+          : binaries.has(u) ? new Response(binaries.get(u)) : wholeFetch(u);
+      };
+      assert.equal(await loadScenePack(store, 'act2autochess_m02'), null, 'missing part keeps the fallback board');
+      assert.ok(!requested.includes('/s/scene4.bin'),'stop requesting after the first missing part');
+      globalThis.fetch = wholeFetch;
       resetBoardPack();
       json = { ...doc, version: SCENE_VERSION + 1 };
       assert.equal(await loadScenePack(store, 'act2autochess_m02'), null, 'unknown version → the procedural board');
@@ -1271,4 +1339,32 @@ describe('extracted scenes (when scene bundles were extracted here)', { skip: !O
       board.destroy();
     }
   });
+});
+
+
+test('native terrain depth uses finite MapSettings highland height and ignores malformed objects', { skip: !HAS_PIL && 'no Pillow' }, () => {
+  const out = py(`import regulation_scenes as rs
+from types import SimpleNamespace as N
+class Obj:
+    type = N(name='MonoBehaviour')
+    def __init__(self, tree): self.tree = tree
+    def read_typetree(self): return self.tree
+values = [None, True, -1, 5, float('inf'), 0.4, 0]
+results = [rs.tile_depth_height([Obj({'_mapSettings': {'highlandHeight': v}})]) for v in values]
+results.append(rs.tile_depth_height([Obj({'_mapSettings': None}), Obj({'_mapSettings': {'highlandHeight': 0.4}})]))
+print(json.dumps(results))`);
+  assert.deepEqual(out, [null, null, null, null, null, 0.4, 0, 0.4]);
+});
+
+
+test('terrain fallback visibility is safe before the first board build and restores missing effects', () => {
+  const board = Object.create(BoardScene.prototype);
+  assert.doesNotThrow(() => board.setNativeTerrain(new Set()));
+  board.meshes = {duelGrass:{visible:true}, infection:{visible:true}, mire:{visible:true}};
+  board.setNativeTerrain(new Set(['w', 'i']));
+  assert.equal(board.meshes.duelGrass.visible,false);
+  assert.equal(board.meshes.infection.visible,false);
+  assert.equal(board.meshes.mire.visible,true);
+  board.setNativeTerrain(new Set());
+  assert.ok(Object.values(board.meshes).every(m=>m.visible));
 });

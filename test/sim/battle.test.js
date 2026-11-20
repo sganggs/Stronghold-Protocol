@@ -592,22 +592,13 @@ test('temporary layer ledger: actual gains/removals, independent caps, hooks, sn
   assert.deepEqual(next.tempLayersSnapshot(), {});
 });
 
-test('boss temporary gains survive as receipts; unite inherits a frozen own-battle pool', () => {
+test('boss and hidden battles report temporary gains with permanent gains disabled', () => {
   for (const kind of ['boss', 'hidden']) {
     const b = makeBattle({ content: 'none', kind, flags: { layerGainsEnabled: false }, autoFinish: false }).b;
     assert.equal(b.addTempLayers('p1', 'yanShip', 7), 7);
     assert.equal(b.effectiveBondLayers('p1', 'yanShip'), 7);
     assert.equal(b.result().perPlayer.p1.tempLayerGains.yanShip, 7);
   }
-  const b = makeBattle({ content: 'none', kind: 'unite', autoFinish: false, players: [
-    { playerId: 'p1', units: [], bonds: { yanShip: { layers: 100 } }, tempLayers: { yanShip: 20 } },
-  ] }).b;
-  assert.equal(b.tempLayers('p1', 'yanShip'), 20);
-  assert.equal(b.effectiveBondLayers('p1', 'yanShip'), 120);
-  assert.equal(b.addTempLayers('p1', 'yanShip', 7), 0);
-  assert.equal(b.removeTempLayers('p1', 'yanShip', 7), 0);
-  assert.equal(b.tempLayers('p1', 'yanShip'), 20);
-  assert.equal(b.result().perPlayer.p1.tempLayerGains, undefined, 'carried layers are not paid a second time');
 });
 
 test('temporary layer ledgers isolate players with the same bond id', () => {

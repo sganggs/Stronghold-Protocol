@@ -41,7 +41,8 @@
 // enemies still standing (/sim/spec.js uniteLeft; user playtest #6 item 7) as state().uniteLeft { [playerId]: n },
 // published whenever it changes (it falls as the helpers kill them), and its authority reports it as b.progress `left`.
 // Live bond layers (DESIGN §20.15): every battle simulated here keeps the bonds whose layers grew in it (IN_BATTLE gains,
-// Battle.addLayers — normal battles only) as absolute counts per player, published as state().bondLayers
+// Battle.addLayers — whenever the field's layerGainsEnabled flag is on, including a 规程 boss / hidden field) as absolute
+// counts per player, published as state().bondLayers
 // { [playerId]: { [bondId]: n } } (every battle of the round: the own one, the teammates' replicas) whenever one grows;
 // the bond strip of the player on screen — the own one, or a watched teammate's — shows them live (ui/watchBonds.js).
 //
@@ -409,7 +410,7 @@ export function createBattleRunner(deps) {
   /**
    * Re-read an entry's live bond layers (DESIGN §20.15): per player of its spec, the bonds whose layers in the battle's
    * live copy (Battle.addLayers, clamped at BOND_LAYER_CAP like the client's AddBondCount) exceed the spec's start
-   * count. Nothing to do when the battle disables gains (联防, boss rounds).
+   * count. A field with gains disabled (联防, 盟约 boss / hidden) never moves the permanent copy, so it publishes nothing.
    */
   function noteLayers(e) {
     const b = e.battle;

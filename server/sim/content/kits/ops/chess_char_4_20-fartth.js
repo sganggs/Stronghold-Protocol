@@ -32,6 +32,9 @@ export default withDefaults({
     return {
       skills: alt(def, {
         'skcom_quickattack[3]': () => ({ kind: 'duration', mods: { atkPct: num(bb.atk), aspd: num(bb.attack_speed), taunt } }),
+        // 光羽箭: the `skill` spec, also keyed so a non-default selection (规程) does not fall through to generic.
+        skchr_fartth_3: () => ({ kind: 'duration', mods: { atkPct: num(bb.atk), taunt: num(t1.taunt_level, -1) }, targeting: { rangeGrid: LINE },
+          onStart({ battle, unit }) { battle.fx('featherArrow', { x: unit.x, y: unit.y, id: unit.id }); } }),
         skchr_fartth_2: () => ({
           kind: 'duration',
           mods: { aspd: num(bb.attack_speed), taunt },

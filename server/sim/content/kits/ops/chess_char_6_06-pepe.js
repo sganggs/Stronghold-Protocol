@@ -100,7 +100,7 @@ function pepe(bb, chess, def) {
           for (const a of battle.allyUnits) if (live(a) && a.kind === 'op' && a.def?.profession === 'WARRIOR') battle.addBuff(a, { key: 'pepe:lotus', mods: { atkPct: atk }, duration: 0.75, refresh: 'replace' });
         });
       } },
-      { install(battle, unit) { // elite module: ≥ cnt enemies in the splash area ⇒ this attack ×1.15
+      { install(battle, unit) { // elite module: ≥ cnt enemies in the splash area ⇒ this attack's ATK × atk_scale_e, before DEF
         const sc = num(tb.atk_scale_e, 1), cnt = num(tb.cnt, Infinity);
         if (!(sc > 1)) return;
         battle.on('beforeAttack', (ctx) => {
@@ -109,7 +109,7 @@ function pepe(bb, chess, def) {
           const r = num(ctx.profile?.splashRadius, 1);
           unit.mem.pepeBoost = !!t && battle.foesInRadius(t.x, t.y, r).length >= cnt;
         }, { owner: unit });
-        battle.on('hit', (ctx) => { if (ctx.source === unit && ctx.dmg.isAttack && unit.mem.pepeBoost) ctx.dmg.mul *= sc; }, { owner: unit });
+        battle.on('hit', (ctx) => { if (ctx.source === unit && ctx.dmg.isAttack && unit.mem.pepeBoost) ctx.dmg.amount *= sc; }, { owner: unit });
         battle.on('attack', (ctx) => { if (ctx.attacker === unit) unit.mem.pepeBoost = false; }, { owner: unit, priority: -100 });
       } },
     ],

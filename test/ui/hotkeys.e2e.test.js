@@ -45,7 +45,8 @@ describe('rebindable shortcuts (设置 → 快捷键)', { skip: !ENABLED && 'set
     try {
       const problems = await open(page);
       await page.click('.gm__gear');
-      await page.waitForSelector('.modal .set-keys');
+      await page.click('[data-settings-tab="controls"]');
+      await page.waitForSelector('.modal .set-keys', { visible: true });
       await page.waitForFunction(() => !document.querySelector('.modal__box')?.getAnimations().some((a) => a.playState === 'running'));
       await page.$eval('.set-keys', (el) => el.scrollIntoView({ block: 'start' }));
       await page.screenshot({ path: `${OUT}/hotkeys-desktop.png` });
@@ -107,7 +108,8 @@ describe('rebindable shortcuts (设置 → 快捷键)', { skip: !ENABLED && 'set
       await page.reload({ waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.ff-piece');
       await page.click('.gm__gear');
-      await page.waitForSelector('.modal .set-keys');
+      await page.click('[data-settings-tab="controls"]');
+      await page.waitForSelector('.modal .set-keys', { visible: true });
       assert.equal(await keyOf(page, 'retreat'), 'W');
       await page.click('.set-keys__reset');
       await keyIs(page, 'retreat', 'Q');
@@ -120,7 +122,8 @@ describe('rebindable shortcuts (设置 → 快捷键)', { skip: !ENABLED && 'set
     try {
       const problems = await open(page, { width: 640, height: 360, touch: true });
       await page.tap('.gm__gear');
-      await page.waitForSelector('.modal .set-keys');
+      await page.click('[data-settings-tab="controls"]');
+      await page.waitForSelector('.modal .set-keys', { visible: true });
       assert.match(await page.$eval('.set-keys .set-hint', (el) => el.textContent), /快捷键需要实体键盘/);
       assert.equal(await page.$eval('.set-keys__more', (el) => el.open), false, 'the list is folded on a touch-only device');
       // (tap once the dialog's entrance animation is over: a tap during it lands where the summary is about to be)
@@ -236,7 +239,8 @@ describe('rebindable shortcuts (设置 → 快捷键)', { skip: !ENABLED && 'set
     await page.keyboard.press('Escape');
 
     await page.click('.gm__gear');
-    await page.waitForSelector('.modal .set-keys');
+    await page.click('[data-settings-tab="controls"]');
+    await page.waitForSelector('.modal .set-keys', { visible: true });
     await page.hover(card(3));
     await inert('the settings dialog blocks buying');
     await page.keyboard.press('Escape');
@@ -277,7 +281,8 @@ describe('rebindable shortcuts (设置 → 快捷键)', { skip: !ENABLED && 'set
     });
     const problems = await open(page);
     await page.click('.gm__gear');
-    await page.waitForSelector('.modal .set-keys');
+    await page.click('[data-settings-tab="controls"]');
+    await page.waitForSelector('.modal .set-keys', { visible: true });
     assert.equal(await keyOf(page, 'retreat'), 'W');
     assert.equal(await keyOf(page, 'buy'), 'Q', 'migration uses the free default, keeping W for retreat');
     await page.click('.set-key[data-action="buy"]');
@@ -298,7 +303,8 @@ describe('rebindable shortcuts (设置 → 快捷键)', { skip: !ENABLED && 'set
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForSelector('.ff-piece');
     await page.click('.gm__gear');
-    await page.waitForSelector('.modal .set-keys');
+    await page.click('[data-settings-tab="controls"]');
+    await page.waitForSelector('.modal .set-keys', { visible: true });
     assert.equal(await keyOf(page, 'buy'), 'B');
     assert.equal(await keyOf(page, 'retreat'), 'W');
     assert.deepEqual(problems, []);

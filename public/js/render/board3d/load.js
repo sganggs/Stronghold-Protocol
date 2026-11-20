@@ -15,6 +15,7 @@
 
 import { resolveUvTable } from './atlas.js';
 import { parseObj } from './obj.js';
+import { readSceneBuffer } from './sceneTransport.js';
 
 export const THREE_URL = '/vendor/three.module.js';
 
@@ -330,8 +331,11 @@ export function loadScenePack(assets, stageId) {
     if (!(await sceneListed(assets, stageId)) || typeof assets.image !== 'function') return null;
     const url = (g, n) => { const u = assets.localUrl(g, n); return typeof u === 'string' && u ? u : null; }; // as in loadBoardPack
     const group = sceneGroup(stageId);
-    const [doc, buf] = await Promise.all([fetchJson(url(group, 'scene')), fetchBuffer(url(group, 'bin'))]);
-    if (!isObj(doc) || doc.version !== SCENE_VERSION || !buf) return null;
+    const doc = await fetchJson(url(group, 'scene'));
+    if (!isObj(doc) || doc.version !== SCENE_VERSION) return null;
+    const buf = doc.binParts === undefined ? await fetchBuffer(url(group, 'bin'))
+      : await readSceneBuffer(doc, key => { const u = url(group, key); return u ? fetchBuffer(u) : null; });
+    if (!buf) return null;
     const chunks = parseSceneChunks(doc, buf);
     if (!chunks || !chunks.length) return null;
     const img = async (u) => {

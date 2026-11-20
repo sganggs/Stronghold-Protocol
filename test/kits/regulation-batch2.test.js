@@ -276,7 +276,7 @@ test('chnut S1 heals HP by ATK and element by trait scale times the ground talen
   h.step();
   assert.ok(open(h.unit(1)));
   assert.equal(h.unit(2).hp, 1319);
-  approx(h.unit(2).elem.burn, 1000 - 319 * 2 * 1.13, 1e-4, 'S1 element');
+  approx(h.unit(2).elem.burn, 1000 - 319 * 0.5 * 2 * 1.13, 1e-4, 'S1 element');
 });
 
 test('chnut S2 boosts the second heal of the same patient', () => {

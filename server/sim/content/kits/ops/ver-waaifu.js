@@ -44,7 +44,7 @@ function waaifu(_bb, chess, def) {
       if (prob > 0) onHitBy(battle, unit, ({ target, dmg }) => {
         if (!dmg.isAttack || !isMainHit(dmg) || !target?.alive) return;
         if (!battle.rng.chance(prob)) return;
-        dmg.mul *= scale; // 提升至160%: atk_scale is the attack's scale
+        dmg.amount *= scale; // 提升至160%: atk_scale is this attack's ATK, before DEF
         battle.push(target, force, { from: unit });
       });
       // [ASSUMED] the refund is paid on a manual retreat only, not when she is knocked out.

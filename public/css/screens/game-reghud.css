@@ -377,9 +377,14 @@
 }
 @media (max-height: 430px) {
   .shopbar--reg .shopbar__cluster { --reg-k-max: 1; }
+  /* The scroll box clips: the armed card lifts .16rem and grows 8 % (game-shop.css .scard.is-armed), so its top — the
+     tier mark and the cost — was cut on short landscape phones (GitHub #963). The band above the cards keeps it inside;
+     the band lets taps through to the field (only the row's children take them). */
   .shopbar--reg .shopbar__row {
     max-height: 46vh; overflow-x: hidden; overflow-y: auto;
+    padding-top: .3rem; margin-top: -.3rem; pointer-events: none;
   }
+  .shopbar--reg .shopbar__row > * { pointer-events: auto; }
   .shopbar--reg .scard { width: 1.2rem; height: 1.45rem; }
   /* the upgrade stage at the cards' height (1.45 / 1.9) */
   .shopbar--reg .lvcard.lvcard--up { --up-k: .763; }

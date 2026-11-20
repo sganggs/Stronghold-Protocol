@@ -156,6 +156,8 @@ test('联防 inherits each helper temporary pool unchanged, without sharing or r
   t.after(() => h.m.dispose());
   h.toPrep(1);
   const m = h.m, p1 = h.ps('p_0'), p2 = h.ps('p_1');
+  p1.layers.yanShip = 100;
+  p1.recompute();
   m.lastResults.set(p1.playerId, { unitsEnd: [], tempLayerGains: { yanShip: 12 } });
   m.lastResults.set(p2.playerId, { unitsEnd: [], tempLayerGains: { yanShip: 24 } });
   const { players } = uniteBattleOpts(m, { helpers: [p1, p2], leaked: [] }, 60);
@@ -168,6 +170,7 @@ test('联防 inherits each helper temporary pool unchanged, without sharing or r
     assert.equal(b.removeTempLayers(p.playerId, 'yanShip', 99), 0);
     assert.equal(b.result().perPlayer[p.playerId].tempLayerGains, undefined);
   }
+  assert.equal(b.effectiveBondLayers(p1.playerId, 'yanShip'), 112);
   players[0].tempLayers.yanShip = 0;
   assert.equal(b.tempLayers(p1.playerId, 'yanShip'), 12, 'battle has its own copied pool');
 });

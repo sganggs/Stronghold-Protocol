@@ -194,6 +194,38 @@ test('灵巧涡轮手套: ASPD per second, damage clears the stacks and they bui
   }
 });
 
+test('灵巧涡轮手套: a fully shielded hit keeps the stacks; a lent copy does not tick', () => {
+  const id = A('2_10');
+  const p = bb(id, 'act3autochess_equip_acarm132_global_buff');
+  const h = fight({ items: [id], foes: [] });
+  h.step(1);
+  const u = unit(h);
+  h.run(1.05);
+  assert.equal(u.s.aspd, 100 + p.attack_speed);
+  h.b.addBuff(u, { key: 'test:shield', shieldHits: 1 });
+  h.b.dealDamage(u, u, { amount: 50, type: 'true' });
+  assert.equal(u.hp, u.s.maxHp, 'shield absorbed the hit');
+  assert.equal(u.s.aspd, 100 + p.attack_speed, 'no real HP loss, stacks stay');
+  h.b.dealDamage(u, u, { amount: 50, type: 'true' });
+  assert.equal(u.s.aspd, 100, 'HP loss clears the stacks');
+
+  const h2 = fight({
+    ops: { source: op('source'), receiver: op('receiver') },
+    units: [
+      { chessId: 'source', row: 10, col: 4, items: [id] },
+      { chessId: 'receiver', row: 10, col: 5 },
+    ],
+    foes: [],
+  });
+  h2.step(1);
+  const source = h2.unit('source');
+  const receiver = h2.unit('receiver');
+  assert.equal(lendItemEffects(h2.b, source, receiver, { duration: 5 }), 1);
+  h2.run(1.05);
+  assert.equal(receiver.s.aspd, 100, 'lent glove does not gain ASPD');
+  assert.equal(source.s.aspd, 100 + p.attack_speed, 'the owner still ticks');
+});
+
 test('乌萨斯呼吸器: the deployment in progress is layer 1', () => {
   const p = bb(A('3_12'), 'act3autochess_equip_acarm138_global_buff');
   const h = fight({ items: [A('3_12')], foes: [] });
@@ -201,6 +233,35 @@ test('乌萨斯呼吸器: the deployment in progress is layer 1', () => {
   const s = unit(h).s;
   assert.equal(s.blockCnt, 2 + p.block_cnt_cell);
   close(s.atk, 500 * (1 + p.atk_cell), 'atk');
+});
+
+test('乌萨斯呼吸器: a lent copy is one cell and a later deploy does not stack it', () => {
+  const id = A('3_12');
+  const p = bb(id, 'act3autochess_equip_acarm138_global_buff');
+  assert.ok(p.layer_max > 1, 'the record can stack, so a deploy listener would be visible');
+  const h = fight({
+    ops: { source: op('source'), receiver: op('receiver') },
+    units: [
+      { chessId: 'source', row: 10, col: 4, items: [id] },
+      { chessId: 'receiver', row: 10, col: 5 },
+    ],
+    foes: [],
+  });
+  h.step(1);
+  const source = h.unit('source');
+  const receiver = h.unit('receiver');
+  const ownerBlock = source.s.blockCnt;
+  const ownerAtk = source.s.atk;
+  assert.equal(lendItemEffects(h.b, source, receiver, { duration: 5 }), 1);
+  assert.equal(receiver.s.blockCnt, 2 + p.block_cnt_cell, 'lent block is one cell');
+  close(receiver.s.atk, 500 * (1 + p.atk_cell), 'lent atk is one multiplier cell');
+  assert.equal(source.s.blockCnt, ownerBlock, 'lending does not change the owner layer');
+  close(source.s.atk, ownerAtk, 'owner atk');
+  receiver.deploySeq += 1;
+  h.b.emit('deploy', { unit: receiver });
+  assert.equal(receiver.s.blockCnt, 2 + p.block_cnt_cell, 'a later deploy does not add a lent layer');
+  close(receiver.s.atk, 500 * (1 + p.atk_cell), 'lent atk stays one cell');
+  assert.equal(source.s.blockCnt, ownerBlock, 'the owner layer is still untouched');
 });
 
 test('多功能补剂: shared temporary layers, per-carrier cap and no permanent-layer mutation', () => {
@@ -885,6 +946,33 @@ test('prep: passbook, dice, documents, dolls, letter, identity, pager, beacon, m
       const gained = chessHeld(ps).filter((p) => !before.has(p.uid));
       assert.equal(gained.length, n);
       assert.equal(ps.shop.slots.filter((s) => s && s.kind === 'chess').length, 3 - n);
+    });
+  }
+  for (const id of quals(A('2_02'))) {
+    withPrep(33, ({ m, ps, equip }) => {
+      const dry = XING;
+      ps.shop.slots = [slot('chess', dry)];
+      m.pool.take(m.gd.baseIdOf(dry), m.pool.left(m.gd.baseIdOf(dry)));
+      const t = give(m, ps, XIA, 'hand');
+      const before = chessHeld(ps).length;
+      assert.deepEqual(equip(giveItem(m, ps, id), t), OK);
+      assert.equal(chessHeld(ps).length, before, 'nothing is granted from an empty pool');
+      assert.equal(ps.shop.slots[0] && ps.shop.slots[0].id, dry, 'the shop chess stays when it cannot be granted');
+    });
+    withPrep(34, ({ m, ps, equip }) => {
+      const dry = XING;
+      const other = [...m.pool.entries.keys()].find((cid) => cid !== m.gd.baseIdOf(dry) && m.pool.left(cid) > 0);
+      assert.ok(other, 'a second shop chess still has a pool copy');
+      ps.shop.slots = [slot('chess', dry), slot('chess', other)];
+      m.pool.take(m.gd.baseIdOf(dry), m.pool.left(m.gd.baseIdOf(dry)));
+      const t = give(m, ps, XIA, 'hand');
+      const before = new Set(chessHeld(ps).map((p) => p.uid));
+      assert.deepEqual(equip(giveItem(m, ps, id), t), OK);
+      const gained = chessHeld(ps).filter((p) => !before.has(p.uid));
+      assert.equal(gained.length, 1);
+      assert.equal(gained[0].id, other);
+      assert.equal(ps.shop.slots[0] && ps.shop.slots[0].id, dry);
+      assert.equal(ps.shop.slots[1], null);
     });
   }
   withPrep(19, ({ m, ps, equip }) => {
