@@ -31,7 +31,7 @@
 // files data/assets.json lists, public/fonts, and the local-client extraction (public/assets/local/,
 // data/local-assets.json) when present, including the battlefield scenes under public/assets/local/scene/
 // when this machine extracted them. The one extraction it never carries is public/assets/local/fonts/ (FONT_ART_PREFIX):
-// the maintainer's decision is that the locally extracted official faces are not distributed — the update zip is the
+// the locally extracted official faces are not distributed — the update zip is the
 // full stage's diff, so it has none either, the asset pack's plan drops their manifest group (withoutHeldFonts), and
 // the staged data/local-assets.json keeps an empty groups.fonts (holdBackStagedFonts) so a release host reads no face,
 // the canvas shop falls back to the system fonts, and the required-group check still finds the key. `--only font` on
@@ -204,15 +204,15 @@ export const FX_ART_PREFIX = 'public/assets/local/fx/';
 
 /**
  * The locally extracted official font faces (tools/local-extract/fonts.py, `--only font`: the three pinned faces under
- * this folder plus their `fonts` group in data/local-assets.json). The maintainer's decision is that fonts are not
- * distributed: no package — full, update, asset or theme — carries this folder or the manifest group; the extraction
+ * this folder plus their `fonts` group in data/local-assets.json). Fonts are not distributed: no package (full,
+ * update, asset) carries this folder or the manifest group; the extraction
  * stays local and the client falls back to the system faces when the host has none. The full zip's plan holds them
  * back (`fontHeld`), the asset pack's plan drops the group (withoutHeldFonts), the update zip is the full stage's
  * diff, and the staged data/local-assets.json keeps an empty group (holdBackStagedFonts) — the key is one of the
  * required local-extract groups, the faces are not.
  */
 export const FONT_ART_PREFIX = 'public/assets/local/fonts/';
-/** The data/local-assets.json group of those faces (fonts.py writes it in place of the manifest's groups). */
+/** The data/local-assets.json group of those faces (the group `fonts.py` adds to the manifest). */
 export const HELD_LOCAL_GROUPS = Object.freeze(['fonts']);
 
 /**
@@ -911,8 +911,9 @@ export function holdBackStagedThemes(stage, log = () => {}) {
 
 /**
  * The staged data/local-assets.json without the locally extracted `fonts` group: no package ships those faces, so a host
- * built from one reads no face for the canvas shop and falls back to the system fonts (public/js/ui/prefab/shopDocs.js
- * themeFonts, unchanged: this machine's own manifest keeps the group for its runtime). Returns whether the file changed.
+ * built from one reads no face for the canvas shop and falls back to the system fonts. Only the staged copy changes;
+ * this machine's manifest keeps the group for its runtime (public/js/ui/prefab/shopDocs.js themeFonts). Returns
+ * whether the file changed.
  * @param {string} stage @param {(m: string) => void} [log]
  */
 export function holdBackStagedFonts(stage, log = () => {}) {
@@ -921,7 +922,8 @@ export function holdBackStagedFonts(stage, log = () => {}) {
   const doc = readJson(file);
   if (!doc) return false;
   // The faces leave the package, but the group key stays as an empty group: `fonts` is one of the required
-  // local-extract groups (§37.274), so a release host must not look like an incomplete extraction.
+  // local-extract groups (tools/local-extract/expected.mjs; setup's assessLocal), so a release host must not look
+  // like an incomplete extraction.
   const next = withoutHeldFonts(doc);
   const held = { ...(next || {}), groups: { ...((next && next.groups) || {}), fonts: {} } };
   if (JSON.stringify(held) === JSON.stringify(doc)) return false;
@@ -1400,7 +1402,7 @@ export function buildUpdate(root, p, bases, { out, install = true, force = false
   // a path no update deletes (a per-machine name such as node_modules/x/.env.example) stays behind, named in the summary
   // …nor a file this zip holds back on purpose (a voice dub with FULL_ZIP_JP_VOICE / FULL_ZIP_OPTIONAL_VOICE off): the manifest still lists it
   // …nor a locally extracted font face (FONT_ART_PREFIX): the faces are not published, but deleting a base's copy or a
-  // host's own `--only font` result is not an update's job. `p.fontHeld` names this machine's faces; the prefix also
+  // host's own `--only font` extraction: an update deletes neither. `p.fontHeld` names this machine's faces; the prefix also
   // covers a face a base shipped while this packaging machine no longer has the extraction.
   const heldBack = new Set([...(p.held || []), ...(p.fontHeld || [])]);
   const diff = diffBases(next, bases, {

@@ -1,12 +1,5 @@
 
 
-
-
-
-
-
-
-
 import { threeStateToggleOf, TwoPhaseButtonWidget, AutoChessShopLevelView, ShopCostView, TwoStateBiAnimationSwitcher, UIBiAnimClipSwitchTween } from './widgets.js';
 import { scriptsOf, resolveScriptRefs, cloneNode, findPath, setActive, setText } from './prefab.js';
 import { ThreeStateToggleState } from './model.js';
@@ -20,7 +13,7 @@ function repath(node, basePath, name = node.name) {
 }
 
 export class AutoChessStylizedShopUpgradePanel {
-  
+
   constructor({ scene, root }) {
     this.scene = scene;
     this.root = root;
@@ -32,8 +25,6 @@ export class AutoChessStylizedShopUpgradePanel {
     this.stageToggle = threeStateToggleOf(root, this.index);
 
     const levels = scriptsOf(root, 'AutoChessShopLevelView');
-
-
 
     this.curLevelView = new AutoChessShopLevelView({
       images: levels[0] ? resolveScriptRefs(levels[0], this.index).refs._levelImages : [], spritePrefix: 'upgrade_lv',
@@ -48,7 +39,6 @@ export class AutoChessStylizedShopUpgradePanel {
     this.confirmSwitcher = switcherRefs
       ? new TwoStateBiAnimationSwitcher({ anims: switcherRefs.anims })
       : null;
-
 
     const anims = (switcherRefs && switcherRefs.anims) || {};
     const inName = (anims._animSelect && anims._animSelect.clip) || 'btn_upgrade_doublecheck_in';
@@ -66,8 +56,6 @@ export class AutoChessStylizedShopUpgradePanel {
       this.confirmTween.onAfterHide = () => this._settleConfirm(false);
     }
 
-
-
     const doubleText = findPath(root, 'group_normal/text_double_check');
     if (doubleText && doubleText.text) doubleText.text = { ...doubleText.text, color: '#FFFFFFFF' };
     this.btnClick = new TwoPhaseButtonWidget({
@@ -80,7 +68,6 @@ export class AutoChessStylizedShopUpgradePanel {
     this.upgradePlaying = 0;
   }
 
-  
   initCost() {
     if (this.costView || !this.refs._costHolder) return;
     const costDoc = this.scene.cardDoc && this.scene.cardDoc.sub && this.scene.cardDoc.sub.cost_view;
@@ -92,13 +79,11 @@ export class AutoChessStylizedShopUpgradePanel {
     this.costView = new ShopCostView({ root: cost });
   }
 
-  
   renderShopLevel(data) {
     this.curLevelView.Render(data.level, data.skinId, true);
     if (data.level < data.maxLevel) this.nextLevelView.Render(data.level + 1, data.skinId, true);
   }
 
-  
   renderCost(data) {
     if (!this.costView) this.initCost();
     if (!this.costView) return;
@@ -106,7 +91,6 @@ export class AutoChessStylizedShopUpgradePanel {
     this.costView.SetPriceColor(data.upgradeCostColor);
   }
 
-  
   renderUpgradeState(data) {
     const maxed = data.level >= data.maxLevel;
     const affordable = data.coinCount >= data.upgradeCost;
@@ -128,15 +112,12 @@ export class AutoChessStylizedShopUpgradePanel {
     if (data.level > this.upgradeCurrLevel && this.upgradeCurrLevel > 0) this.playUpgradeAnim();
     this.upgradeCurrLevel = data.level;
 
-
     const slot = data.selectSlot;
     const upgrading = !!(slot && slot.isUpgrade);
     if (this.btnClick) {
       if (upgrading) this.btnClick.ConfirmPreClick();
       else this.btnClick.Reset();
     }
-
-
 
     const doubleNode = findPath(this.root, 'group_normal/text_double_check');
     if (doubleNode) {
@@ -145,7 +126,6 @@ export class AutoChessStylizedShopUpgradePanel {
     }
   }
 
-  
   _settleConfirm(show) {
     if (!this.confirmBasePath) return;
     const name = show ? this.confirmClips.inName : this.confirmClips.outName;
@@ -159,25 +139,21 @@ export class AutoChessStylizedShopUpgradePanel {
     });
   }
 
-  
   animClip(field) {
     const anim = (this.anims && this.anims[field]) || null;
     return anim && anim.clip ? anim.clip : null;
   }
 
-  
   showUpgradeAnim() {
     const anim = this.anims && this.anims._upgradeAnim;
     if (anim && anim.on) setActive(anim.on, true);
   }
 
-  
   hideUpgradeAnim() {
     const anim = this.anims && this.anims._upgradeAnim;
     if (anim && anim.on) setActive(anim.on, false);
   }
 
-  
   playUpgradeAnim() {
     const anim = this.anims && this.anims._upgradeAnim;
     if (!anim || !anim.clip) return null;
@@ -193,19 +169,14 @@ export class AutoChessStylizedShopUpgradePanel {
     return { clip: anim.clip, on: anim.on };
   }
 
-  
   onDisable() {
     this.upgradePlaying = 0;
   }
 
-  
   Render(data) {
     this.initCost();
     this.renderShopLevel(data);
     this.renderUpgradeState(data);
-
-
-
 
     setText(findPath(this.root, 'group_normal/text_tip'), t('升级'));
     setText(findPath(this.root, 'group_disable/text_tip'), t('升级'));
@@ -214,17 +185,14 @@ export class AutoChessStylizedShopUpgradePanel {
     return this;
   }
 
-  
   EventOnFirstClick() {
     return { message: 106, slotId: 'upgrade' };
   }
 
-  
   EventOnUpgrade() {
     return { message: 104 };
   }
 
-  
   EventOnUpgradeNotEnough() {
     return { toast: 'AUTO_CHESS_SHOP_UPGRADE_COIN_TIPS' };
   }

@@ -105,8 +105,9 @@ function fontFaceRule(face) {
 }
 
 /**
- * Install the manifest font faces once (the family names the shop documents ask for). A face this module cannot
- * write safely is left out: its text falls back like a missing face.
+ * Install the manifest's @font-face rules once (themeFonts): every face is declared, which fetches nothing until
+ * text uses the family; loadDocumentFonts decides which of them to await. A face this module cannot write safely
+ * is left out, so its text falls back like a missing face.
  * @param {{ family: string, url: string, weight?: number }[]} faces
  * @param {Document|null} [doc]
  * @returns {boolean} whether the sheet carries at least one face

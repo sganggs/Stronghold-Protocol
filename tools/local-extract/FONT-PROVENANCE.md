@@ -1,7 +1,7 @@
 # FONT-PROVENANCE — autochess local font bytes (internal only)
 
 > Scope: `tools/local-extract/fonts.py`, the font job of `extract.py` (a required part of a full extraction since
-> §37.274, and `--only font` on its own), and the `fonts` group it writes into
+> §37.240, and `--only font` on its own), and the `fonts` group it writes into
 > `data/local-assets.json`. This page is provenance, not a licence declaration for redistribution.
 
 ## What ships and what does not
@@ -20,7 +20,7 @@
     `fonts` group before the importer's plan is taken: the pack holds neither the files nor that group;
   - the stage's copy of `data/local-assets.json` keeps `groups.fonts` as an empty object (`holdBackStagedFonts`, the
     same rule as `holdBackStagedThemes`): the faces are gone, but the key stays because `fonts` is one of the required
-    local-extract groups (§37.274), so a host built from a package serves no local `@font-face`, the canvas shop draws
+    local-extract groups (§37.240), so a host built from a package serves no local `@font-face`, the canvas shop draws
     with the system font stack, and setup does not report the extraction as incomplete.
 - Local extraction: a full extract (`extract.py` without `--only`) **must** write these faces — it runs the font job
   and fails, non-zero, without the install's `Arknights_Data` or when no pinned face is listed; `--only font` runs that
@@ -40,7 +40,7 @@ back to the system faces.
 **Fonts are not published.** No package — full, update, asset or theme — carries `public/assets/local/fonts/` or the
 `fonts` group of the shipped `data/local-assets.json`, and `THIRD-PARTY-NOTICES.md` gets no entry for these faces: a
 package that does not ship them is not a redistribution. The faces are extracted only on the machine that runs the game
-client (a full extraction must write them, §37.274; `--only font` does it alone), and a host without them falls back to
+client (a full extraction must write them, §37.240; `--only font` does it alone), and a host without them falls back to
 the system fonts, as [THEMES.md](../../docs/THEMES.md) and [ARCHITECTURE.md](../../docs/ARCHITECTURE.md) record. The
 pinned bytes and the licence note below remain the provenance of that extraction; they are no longer inputs to a
 packaging decision.

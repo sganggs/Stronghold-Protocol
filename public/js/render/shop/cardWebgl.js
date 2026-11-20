@@ -1,99 +1,19 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+// The card entry point: card document -> records -> cardStage, plus the model-to-node filler and the
+// price/name content the card view paints.
 import { buildRecords as buildRecordSet, cardSize, propagateTransforms, relayoutAnimatedSizes } from './cardRecords.js';
-import { create as createStage, fontMetrics as stageFontMetrics, sliceQuads as stageSliceQuads, UNITY_FONT_METRICS } from './cardStage.js';
-
-
-export function normalizeDraw(draw) {
-  const d = draw || {};
-  const dst = Number.isFinite(Number(d.dst)) ? Number(d.dst) : d.blend === 'add' ? 1 : 10;
-  const blend = Number.isFinite(Number(d.blend)) ? Number(d.blend) : d.blend === 'add' ? 'add' : d.blend === 'alpha' ? 'alpha' : dst === 1 ? 'add' : 'alpha';
-  return {
-    tint: d.tint || '#FFFFFF',
-    blend,
-    dst,
-    intensity: Number.isFinite(Number(d.intensity)) ? Number(d.intensity) : 1,
-    colIntensity: Number.isFinite(Number(d.colIntensity)) ? Number(d.colIntensity) : 1,
-    channel: Number.isFinite(Number(d.channel)) ? Number(d.channel) : 0,
-    rgbCtrl: !!d.rgbCtrl,
-    base: d.base || null,
-    baseFile: d.baseFile || null,
-    tile: Array.isArray(d.tile) ? d.tile : [1, 1],
-    offset: Array.isArray(d.offset) ? d.offset : [0, 0],
-    speed: Array.isArray(d.speed) ? d.speed : [0, 0],
-    mask: d.mask || null,
-    maskFile: d.maskFile || null,
-    maskTile: Array.isArray(d.maskTile) ? d.maskTile : [1, 1],
-    maskOffset: Array.isArray(d.maskOffset) ? d.maskOffset : [0, 0],
-    maskInvert: !!d.maskInvert,
-    dissolve: d.dissolve || null,
-    alphaClip: !!d.alphaClip,
-  };
-}
-
-
-export function sliceQuads(image, box, unit) {
-  const sl = Array.isArray(image?.slice) ? image.slice : null;
-  if (!sl || sl.length !== 4) return null;
-  const [top, right, bottom, left] = sl.map(Number);
-  return stageSliceQuads({ top, right, bottom, left, spriteW: Number(image.w) || 0, spriteH: Number(image.h) || 0 },
-    box?.x ?? 0, box?.y ?? 0, box?.w ?? 0, box?.h ?? 0, Number(unit) || 1);
-}
-
-
-export function stencilSteps(stencil) {
-  if (!stencil) return [];
-  if (stencil.mode === 'write') {
-    return [{ test: 'always', op: 'replace', writeMask: true, colorWrite: false }, { writeMask: true, colorWrite: true }];
-  }
-  const steps = [{ test: 'equal', op: 'keep', writeMask: false, colorWrite: true }];
-  if (stencil.clean) steps.push({ clean: true });
-  return steps;
-}
-
-
-export function fontMetrics(family, px, measure) {
-  const probe = typeof measure === 'function' ? { measureText: measure } : measure;
-  const fallback = { measureText: () => ({ width: 0 }) };
-  return stageFontMetrics(family, px, probe || fallback);
-}
-
-export { UNITY_FONT_METRICS };
-
+import { create as createStage } from './cardStage.js';
 
 export function buildRecords(card, pack, opts = {}) {
   const doc = card && card.root ? card : { root: card };
-  void pack;
   if (opts.pose && opts.pose.active instanceof Map) {
     for (const [node, value] of opts.pose.active) if (node) node.active = !!value;
   }
   const built = buildRecordSet(doc.root, doc, { size: opts.size || (Array.isArray(doc.size) ? doc.size : null) });
 
-
-
   const unit = Number(opts.unit) > 0 ? Number(opts.unit) : 1;
+  // Canvas pad in prefab units around the card grid: the default leaves the single-card page outline room. The
+  // shop passes 0 because the row pitch (162 units) already carries the gap; a horizontal pad would widen the
+  // canvas and overlap the neighbour.
   const pad = Array.isArray(opts.pad) ? opts.pad : [0, 0];
   relayoutAnimatedSizes(built, doc);
   propagateTransforms(built);
@@ -112,14 +32,11 @@ export function buildRecords(card, pack, opts = {}) {
     boxes.set(rec.node.path || rec.node.name, { ...box, alpha, shown: rec.active });
   }
 
-
-
   const draws = built.order.filter((rec) => rec.active && rec.alpha > 0 && drawsShape(rec.node, doc));
   if (!opts.only?.length && !opts.skip?.length) return { ...built, records: draws, boxes };
   const order = draws.filter((rec) => (!opts.only?.length || opts.only.includes(rec.node.name)) && !opts.skip?.includes(rec.node.name));
   return { ...built, order, records: order, boxes };
 }
-
 
 export function roleBoxes(doc, built) {
   const out = new Map();
@@ -132,7 +49,6 @@ export function roleBoxes(doc, built) {
   }
   return out;
 }
-
 
 export function drawsShape(node, card) {
   if (!node) return false;
@@ -151,14 +67,11 @@ export function drawsShape(node, card) {
   return !(image.external || (image.sprite && !image.file));
 }
 
-
 export function createCardRenderer({ canvas, card = null, view = null, pad = null, search = '', particles = null, resolveUrl = null, cardTime = null, cardStill = null, particleTime = null, onError = null, debugStats = false }) {
   const pads = { left: 4, right: 4, top: 6, bottom: 1, ...(pad || {}) };
   const [cardW, cardH] = cardSize(card || {});
   let forcedTime = null;
   let current = [];
-
-
 
   const stageCard = { ...(card || {}), size: [cardW, cardH] };
   const hostView = {
@@ -177,7 +90,6 @@ export function createCardRenderer({ canvas, card = null, view = null, pad = nul
   });
   if (!stage) throw new Error('WebGL2 is not available');
 
-
   const resize = (widthCss, w = cardW, h = cardH, ratio = 1) => {
     const baseW = Number(w) || cardW;
     const baseH = Number(h) || cardH;
@@ -190,11 +102,11 @@ export function createCardRenderer({ canvas, card = null, view = null, pad = nul
     gl: stage.gl,
     stage,
     resize,
-    
+
     pad: () => [stage.metrics.padPx.left, stage.metrics.padPx.top],
-    
+
     unit: () => stage.metrics.unitPx,
-    
+
     get textures() { return stage.textures; },
     texture: (url) => stage.textures.get(url) || null,
     /**
@@ -207,12 +119,9 @@ export function createCardRenderer({ canvas, card = null, view = null, pad = nul
       else if (time !== undefined && Number.isFinite(Number(time))) forcedTime = Number(time);
       stage.draw(0);
     },
-    setForcedTime(time) {
-      forcedTime = time == null ? null : Number(time);
-      return forcedTime;
-    },
-    clearForcedTime() { forcedTime = null; },
-    
+
+    // Kept for the host paint loop: particles advance and draw inside stage.draw(), so this is a no-op and must
+    // not be read as "particles are off".
     drawParticles() { return 0; },
     destroy() { stage.destroy(); },
     get lost() { return !!stage.lost; },
@@ -220,33 +129,12 @@ export function createCardRenderer({ canvas, card = null, view = null, pad = nul
   };
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 export function priceColour(price, srcPrice) {
   const p = Number(price);
   const s = Number(srcPrice);
   if (!Number.isFinite(p) || !Number.isFinite(s) || s === p) return '#FFC600';
   return p < s ? '#59F4CA' : '#FF5454';
 }
-
 
 function contentNode(root, name) {
   const stack = [root];
@@ -259,11 +147,9 @@ function contentNode(root, name) {
   return null;
 }
 
-
 function cloneNode(node) {
   return typeof structuredClone === 'function' ? structuredClone(node) : JSON.parse(JSON.stringify(node));
 }
-
 
 function applyCostFace(costRoot, model) {
   const price = String(model.price);
@@ -281,7 +167,6 @@ function applyCostFace(costRoot, model) {
   if (greyText) greyText.text = { ...(greyText.text || {}), text: price };
 }
 
-
 export function fillCardContent(card, model = {}, options = {}) {
   const root = card && card.root;
   if (!root) return card;
@@ -290,9 +175,6 @@ export function fillCardContent(card, model = {}, options = {}) {
 
   if (model2.portraitUrl) {
     const portrait = contentNode(root, 'char_portrait');
-
-
-
 
     if (portrait) {
       portrait.image = { type: 'simple', color: '#FFFFFF', file: model2.portraitUrl, sprite: 'char_portrait', w: 180, h: 360 };
@@ -324,7 +206,6 @@ export function fillCardContent(card, model = {}, options = {}) {
     garrison.active = !!icon;
     if (icon) {
 
-
       garrison.image = {
         ...(garrison.image || {}),
         file: model2.garrison.url,
@@ -353,9 +234,6 @@ export function fillCardContent(card, model = {}, options = {}) {
   const rowTemplate = subs.bond_item && subs.bond_item.root;
   if (bondList && rowTemplate) {
     const rows = (Array.isArray(model2.bonds) ? model2.bonds : []).filter(Boolean).slice(0, options.bondRows || 3);
-
-
-
 
     const rowH = Number(rowTemplate.rect?.sizeDelta?.[1]) || 18;
     const rowW = Number(rowTemplate.rect?.sizeDelta?.[0]) || 154;

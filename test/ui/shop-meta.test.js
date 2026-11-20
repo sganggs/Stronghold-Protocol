@@ -82,7 +82,7 @@ test('explicit tintTargets/pathIdMap override wins over a loader', async () => {
   assert.equal(meta.pathIdMap, null);
 });
 
-test('loader injection fills the tables (W62 adapter shape)', async () => {
+test('loader injection fills the tables (the adapter shape)', async () => {
   const meta = await resolveShopMeta({
     options: {
       loadPrefabMeta: async () => ({

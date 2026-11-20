@@ -116,27 +116,12 @@ export async function preloadShopRuntime(opts = {}) {
 // failed entry removes itself so the next call retries, and a ready entry evicts the same theme's older revisions.
 
 /**
- * @param {{ container: HTMLElement, priv: any, view?: any, options?: any, callbacks?: any }} opts
- *   `view`: `{ state?, unfold?, avalid?, selectSlot?, armedSlotId?, armedAt?, refreshSeq?, cardFlags?,
- *     controls? }`
- *   `view.controls`: `{ refresh?: string|null, freeze?: string|null, levelUp?: string|null }` — the block
- *     reason per control hotspot (ShopCanvas's shopBlockReason wording); a non-empty reason disables the
- *     hotspot and becomes its tooltip. Absent → no control gating (the dev page and old callers).
- *   `options`: `{ themeBase?, fonts?, fontTimeoutMs?, spineMode?, dpr?, particles?, still?, cardTime?,
- *     particleTime?, arrowAt?, status?, cardParticles? }`
- *   `callbacks`: `{ onCard?, onCardDetail?, onOpen?, onClose?, onRefresh?, onFreeze?, onLevelUp?, onFail? }`
- *     `onCardDetail(index)` is the card hotspot's contextmenu (the caller opens the detail without arming);
- *     `onFail(err)` is the host's own fatal path (WebGL context lost / a render throw in the frame loop).
- *     The caller owns the fallback: `update()` rethrows a render failure so its try/catch can run once.
- * @returns {Promise<any>} the host handle
- */
-/**
  * The model fields the canvas draws. `shopSignature` (adapter/model.js) is only the row's identity — a
  * purchase (sold), a freeze, a price shift or a level-up deliberately does not change it (it drives the
  * refresh clip) — so the immediate-repaint key must cover the painted model itself. Without this, a frozen
  * toggle or a bought card whose id stays put waits for the rAF's dirty flag, which a hidden tab, a fold or a
  * reward offer may never run. garrisonTint is part of the painted model: a theme pack whose colours
- * finish loading after the first frame must repaint without a disable→unfold cycle (W94/W98).
+ * finish loading after the first frame must repaint without a disable→unfold cycle.
  */
 export function shopModelPaintKey(model) {
   if (!model) return '';
@@ -164,7 +149,21 @@ export function shopModelPaintKey(model) {
   ].join('|');
 }
 
-
+/**
+ * @param {{ container: HTMLElement, priv: any, view?: any, options?: any, callbacks?: any }} opts
+ *   `view`: `{ state?, unfold?, avalid?, selectSlot?, armedSlotId?, armedAt?, refreshSeq?, cardFlags?,
+ *     controls? }`
+ *   `view.controls`: `{ refresh?: string|null, freeze?: string|null, levelUp?: string|null }` — the block
+ *     reason per control hotspot (ShopCanvas's shopBlockReason wording); a non-empty reason disables the
+ *     hotspot and becomes its tooltip. Absent → no control gating (the dev page and old callers).
+ *   `options`: `{ themeBase?, fonts?, fontTimeoutMs?, spineMode?, dpr?, particles?, still?, cardTime?,
+ *     particleTime?, arrowAt?, status?, cardParticles? }`
+ *   `callbacks`: `{ onCard?, onCardDetail?, onOpen?, onClose?, onRefresh?, onFreeze?, onLevelUp?, onFail? }`
+ *     `onCardDetail(index)` is the card hotspot's contextmenu (the caller opens the detail without arming);
+ *     `onFail(err)` is the host's own fatal path (WebGL context lost / a render throw in the frame loop).
+ *     The caller owns the fallback: `update()` rethrows a render failure so its try/catch can run once.
+ * @returns {Promise<any>} the host handle
+ */
 export async function createShopHost(opts = {}) {
   const container = opts.container;
   if (!container) throw new Error('createShopHost: container required');
@@ -199,9 +198,9 @@ export async function createShopHost(opts = {}) {
     try { shopDocs.installThemeFontFaces(runtime.faceList); } catch { /* a document without head is not fatal */ }
   }
 
-  // Stage B prefab metadata (tint targets / status path map). W62's adapter derives it from the shop/card
-  // documents (per-node pathID + full colorGroup); an explicit option overrides it. Until the documents
-  // carry that data the adapter returns empty tables, so the renderer behaves exactly as in Stage A.
+  // Prefab metadata (tint targets / status path map): adapter/prefabMeta.js buildShopMeta derives it from the
+  // shop/card documents (per-node pathID + full colorGroup); an explicit option overrides it. The tables stay
+  // empty until the documents carry that data, and the renderer works without them.
   const hasMetaOverride = !!(options.prefabMeta || options.tintTargets || options.pathIdMap || options.loadPrefabMeta);
   const meta = await resolveShopMeta({
     options: hasMetaOverride
@@ -404,6 +403,10 @@ export async function createShopHost(opts = {}) {
    * Card hotspots by slot index. Only a slot that currently holds a card gets one: an empty or sold slot is not
    * focusable, cannot be tapped and is not a target for the buy hotkey (game.js resolves it through
    * `[data-shop-slot]`). The map entry is removed again when a slot empties.
+   *
+   * The hotspot is `<button data-shop-slot=N>` inside the `[data-shop-webgl]` root ShopCanvas assigns to
+   * `barRef`: game.js matches `:is(.shopbar,[data-shop-webgl]) [data-shop-slot]` and requires
+   * `barRef.current.contains(card)`. N is the 0-based display index; the model slotId is N + 1.
    */
   const cardEls = new Map();
 
@@ -565,7 +568,6 @@ export async function createShopHost(opts = {}) {
       JSON.stringify(view.controls || null),
     ].join('|');
   }
-
 
   function update(nextPriv, nextView = {}) {
     if (dead) return null;

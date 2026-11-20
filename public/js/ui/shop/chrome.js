@@ -1,17 +1,9 @@
 
 
-
-
-
-
-
-
-
 import { ShopDisplayStatus } from './model.js';
 import { TwoStateToggle, AutoChessShopLevelView, ShopMoneyView, UIBiAnimClipSwitchTween } from './widgets.js';
 import { scriptsOf, resolveScriptRefs, cloneNode, findPath, setActive, setText } from './prefab.js';
 import { t } from '../../../../shared/i18n.js';
-
 
 function repath(node, basePath, name = node.name) {
   node.name = name;
@@ -21,7 +13,7 @@ function repath(node, basePath, name = node.name) {
 }
 
 export class AutoChessStylizedShopChromePanel {
-  
+
   constructor({ scene, root, components }) {
     this.scene = scene;
     this.root = root;
@@ -32,13 +24,11 @@ export class AutoChessStylizedShopChromePanel {
     this.refs = resolveScriptRefs(chrome, this.index).refs;
     this.anims = resolveScriptRefs(chrome, this.index).anims;
 
-
     const toggle = scriptsOf(root, 'TwoStateToggle')[0];
     const toggleRefs = toggle ? resolveScriptRefs(toggle, this.index).refs : {};
     this.enableToggle = new TwoStateToggle({ unselect: toggleRefs._unselect, select: toggleRefs._select });
 
     const level = scriptsOf(root, 'AutoChessShopLevelView')[0];
-
 
     this.levelView = new AutoChessShopLevelView({
       images: level ? resolveScriptRefs(level, this.index).refs._levelImages : [],
@@ -48,12 +38,8 @@ export class AutoChessStylizedShopChromePanel {
     this.status = ShopDisplayStatus.NONE;
     this.moneyView = null;
     this.moneyRoot = null;
-    
+
     this.foldShow = true;
-
-
-
-
 
     const loc = (anim) => (anim && anim.clip
       ? { name: anim.clip, basePath: root.path, doc: scene.panelDoc }
@@ -67,7 +53,6 @@ export class AutoChessStylizedShopChromePanel {
     this.foldSwitchTween.Reset(false);
   }
 
-  
   initMoney() {
     if (this.moneyView || !this.refs._moneyHolder) return;
     const doc = this.scene.moneyDoc;
@@ -79,19 +64,16 @@ export class AutoChessStylizedShopChromePanel {
     this.moneyView = new ShopMoneyView({ root: money });
   }
 
-  
   calcShopDisplayStatus(data) {
     if (!data.isAvailable) return ShopDisplayStatus.DISABLE;
     return data.isUnfold ? ShopDisplayStatus.UNFOLD : ShopDisplayStatus.FOLD;
   }
 
-  
   _renderShopStatus(status) {
     this.status = status;
     this.foldShow = status === ShopDisplayStatus.UNFOLD;
 
     if (status === ShopDisplayStatus.DISABLE) this.foldSwitchTween.Reset(false);
-
 
     const statusClip = status === ShopDisplayStatus.FOLD ? 'shop_fold'
       : (status === ShopDisplayStatus.UNFOLD ? 'shop_unfold' : 'shop_disable');
@@ -112,12 +94,10 @@ export class AutoChessStylizedShopChromePanel {
     setActive(disable, status === ShopDisplayStatus.DISABLE);
   }
 
-  
   playFold(show, force = true) {
     this.foldSwitchTween.set_isShow(!!show, force);
   }
 
-  
   Render(data) {
     this.initMoney();
 
@@ -127,7 +107,6 @@ export class AutoChessStylizedShopChromePanel {
     if (this.moneyView) this.moneyView.Render(data.coinCount, data.isGoldCountUp);
 
     this.levelView.Render(data.level, data.skinId, false);
-
 
     setText(this.refs._charRemainNum, String(Number(data.remainCharCnt) || 0));
     const remainPrefix = findPath(this.root, 'panel_remaining_available_character/text_prefix');
@@ -140,7 +119,6 @@ export class AutoChessStylizedShopChromePanel {
     setText(findPath(this.root, 'btn_close/text'), unfolded ? t('收起') : t('展开'));
     const arrow = findPath(this.root, 'btn_close/open_arrow');
     if (arrow) arrow.rot = unfolded ? 0 : 180;
-
 
     const rootText = findPath(this.root, 'root_text_unfold');
     if (rootText) {
@@ -165,17 +143,14 @@ export class AutoChessStylizedShopChromePanel {
     return this;
   }
 
-  
   EventOnEnabledClick() {
     return { message: 101, isOpen: true };
   }
 
-  
   EventOnUnfoldClick() {
     return { message: 101, isOpen: false };
   }
 
-  
   EventOnDisabledClick() {
     return { toast: 'AUTO_CHESS_SHOP_DISABLE_TIPS' };
   }

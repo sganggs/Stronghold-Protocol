@@ -438,8 +438,6 @@ function MatchScreen() {
   const webglShopOn = shopWebglGate({
     themeId: playerSettings.uiTheme,
     groups: shopWebglGroups,
-    priv,
-    spectator,
     runtime: webglShop.status,
   });
   const layersDisabled = bondLayersFrozen(phase, data.get('config'));
@@ -2083,8 +2081,12 @@ function MatchScreen() {
           reward=${phase === PHASE.PREP && !rewardMin ? priv?.shop?.rewardOffer || null : null}
           onReward=${(i) => actions.reward(i)} onRewardLater=${() => setRewardMin(true)} onArm=${setArmedCard} />`) : null}
 
-      ${phase === PHASE.PREP && priv?.shop?.rewardOffer && !webglShopOn.on ? html`<${RewardOverlay} priv=${priv} minimized=${rewardMin || barCollapsed}
-        onMinimize=${(m) => { setRewardMin(m); if (!m) setCollapsed(false); }} />` : null}
+      ${phase === PHASE.PREP && priv?.shop?.rewardOffer && !webglShopOn.on
+        // Canvas mode draws a pending rewardOffer as the last REWARD_SLOT_COUNT slots of the shop row
+        // (ShopCanvas.shopRewardRow); the overlay must not draw the same pick again.
+        ? html`<${RewardOverlay} priv=${priv} minimized=${rewardMin || barCollapsed}
+        onMinimize=${(m) => { setRewardMin(m); if (!m) setCollapsed(false); }} />`
+        : null}
 
       ${combat || mode === 'settle' ? html`<${CombatHud} pub=${pub} myId=${myId} watching=${watchingNow} hud=${hud} myDone=${!!myDone && alive}
         spectating=${!alive} spectator=${spectator} onWatch=${watchField}

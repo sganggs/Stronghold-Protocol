@@ -1,10 +1,5 @@
 
 
-
-
-
-
-
 import { twoStateToggleOf, threeStateToggleOf, ShopCostView } from './widgets.js';
 import { setText, setActive, scriptsOf, resolveScriptRefs, cloneNode, findPath } from './prefab.js';
 import { t } from '../../../../shared/i18n.js';
@@ -36,7 +31,6 @@ export class AutoChessStylizedShopCtrlPanel {
     this.costView = null;
   }
 
-
   initCost() {
     if (this.costView || !this.refs._refreshCostHolder) return;
     const costDoc = this.scene.cardDoc && this.scene.cardDoc.sub && this.scene.cardDoc.sub.cost_view;
@@ -48,14 +42,11 @@ export class AutoChessStylizedShopCtrlPanel {
     this.costView = new ShopCostView({ root: cost });
   }
 
-
   _renderRefreshCost(data) {
     if (!this.costView) this.initCost();
 
-
     if (this.costView) this.costView.Render(data.refreshCost, data.coinCount);
   }
-
 
   Render(data) {
     this.initCost();
@@ -68,7 +59,6 @@ export class AutoChessStylizedShopCtrlPanel {
 
     setText(this.refs._freeCnt, String(Math.max(0, Number(data.freeRefreshCnt) || 0)));
     if (this.specToggle) this.specToggle.set_selected(data.isSpecRefresh);
-
 
     if (this.freezeToggle) {
       const state = data.isSpecialRecruit ? 0 : (data.isFrozen ? 2 : 1);
@@ -86,21 +76,17 @@ export class AutoChessStylizedShopCtrlPanel {
     return this;
   }
 
-
   EventOnRefresh() {
     return { message: 102 };
   }
-
 
   EventOnFreeze() {
     return { message: 103 };
   }
 
-
   get refreshHotspot() {
     return this.refs._btnRefresh || null;
   }
-
 
   get freezeHotspot() {
     return findPath(this.root, 'btn_frozen/hotspot');

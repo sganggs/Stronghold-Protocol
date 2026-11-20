@@ -1,49 +1,23 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+// The card prefab's Unity particle systems: emission and bursts from the document, a seeded LCG per emitter
+// (deterministic frames), a masked quad path and the TV glow's point-sprite path.
 export const WORLD_TO_PX = 100;
 
-// reference/card/particles.js:12/369: point smoke/star sprites cap at 64 px; the TV emitter is 138 px here
-// without this cap, which overexposes the TV and the card (W94/W98).
+// Point smoke/star sprites cap at 64 px; the TV emitter serializes 138 px, and without the cap it overexposes
+// the TV and the card.
+// without this cap, which overexposes the TV and the card.
 export const MAX_POINT_PX = 64;
 const MAX_QUAD_PX = MAX_POINT_PX;
 
-// reference/card/particles.js:175-177/369: `maxPx` is ParticleSystemRenderer.maxParticleSize in world units
+// `maxPx` is ParticleSystemRenderer.maxParticleSize in world units
 // (100 px each) and falls back to the point cap. The TV spec serializes maxParticleSize 20, so the point cap is
-// the 64 px limit W98 hard-coded — derived here the way the reference derives it.
+// the 64 px limit hard-coded there — derived here the way the reference derives it.
 export function pointMaxSize(system, scale) {
   const s = Number(scale) > 0 ? Number(scale) : 1;
   const maxPx = Number(system && system.maxPx) > 0 ? Number(system.maxPx) : MAX_POINT_PX;
   return Math.min(MAX_POINT_PX, maxPx * s);
 }
 
-// reference/card/particles.js:373: one square size for both axes, clamped between 1 px and the point cap.
+// One square size for both axes, clamped between 1 px and the point cap.
 export function pointSizeOf(system, particle, scale) {
   const s = Number(scale) > 0 ? Number(scale) : 1;
   return Math.max(1, Math.min(pointMaxSize(system, s), Number(particle && particle.sizePx) * s));
@@ -51,8 +25,9 @@ export function pointSizeOf(system, particle, scale) {
 
 const BURST_EPS = 1e-6;
 
+// Colour keys and gradients are serialized in linear space; the quad pass gamma-encodes them before upload
+// (linearToGamma), the point pass does not (the reference bakes _TintColor in spawn).
 const COLOR_GAMMA = true;
-
 
 const QUAD_VERT = `#version 300 es
   in vec2 aPos;
@@ -106,7 +81,7 @@ const QUAD_FRAG = `#version 300 es
     outColor = vec4(rgb * uTint.rgb * vColor.rgb, alpha * uTint.a * vColor.a);
   }`;
 
-// reference/card/particles.js:14-34: the TV glow is a point sprite, not a textured quad. Chrome sizes the point
+// The TV glow is a point sprite, not a textured quad: gl_PointSize is in device px, so dpr is applied once.
 // in device px through gl_PointSize and shader-side sampling uses gl_PointCoord, so this path has no ST, mask,
 // channel, tint uniform or V flip — the colour arrives already multiplied by `_TintColor` and the alpha ramp.
 const POINT_VERT = `#version 300 es
@@ -143,7 +118,6 @@ function compile(gl, type, src) {
   return sh;
 }
 
-
 export function rangeOf(minMax, fallback) {
   if (!minMax) return [fallback, fallback];
   const num = (value, dflt) => (value == null || !Number.isFinite(Number(value)) ? dflt : Number(value));
@@ -162,9 +136,7 @@ export function rangeOf(minMax, fallback) {
   return [c, c];
 }
 
-
 export const curveRange = rangeOf;
-
 
 export function keysOf(module) {
   if (!module) return null;
@@ -173,7 +145,6 @@ export function keysOf(module) {
   if (Array.isArray(module.keys)) return module.keys;
   return null;
 }
-
 
 export function sampleCurve(keys, t) {
   if (!keys || !keys.length) return 1;
@@ -203,7 +174,6 @@ export function rgba(hex, fallback = [1, 1, 1, 1]) {
   return [parseInt(m[1].slice(0, 2), 16) / 255, parseInt(m[1].slice(2, 4), 16) / 255, parseInt(m[1].slice(4, 6), 16) / 255, a];
 }
 
-
 export function sampleGradient(keys, t) {
   if (!Array.isArray(keys) || !keys.length) return null;
   const u = Math.max(0, Math.min(1, Number(t) || 0));
@@ -221,7 +191,6 @@ export function sampleGradient(keys, t) {
   return keys[keys.length - 1][1];
 }
 
-
 export function gradientOf(startColor) {
   if (!startColor) return null;
   const colors = Array.isArray(startColor.colorKeys) && startColor.colorKeys.length ? startColor.colorKeys : null;
@@ -232,7 +201,6 @@ export function gradientOf(startColor) {
   return { colors, alphas };
 }
 
-
 export function colorPair(startColor) {
   if (!startColor) return [[1, 1, 1, 1], [1, 1, 1, 1]];
   if (startColor.mode === 'twoColors') return [rgba(startColor.min || startColor.color), rgba(startColor.max || startColor.color)];
@@ -240,9 +208,7 @@ export function colorPair(startColor) {
   return [single, single];
 }
 
-
 export const colourPair = colorPair;
-
 
 export function materialByName(card, name) {
   if (!name) return null;
@@ -255,14 +221,12 @@ export function materialByName(card, name) {
   return null;
 }
 
-
 export function tintOf(material) {
   if (!material || material.name !== 'particle_tv_glow') return [1, 1, 1];
   const color = material.colors && material.colors._TintColor;
   if (!Array.isArray(color) || color.length < 3) return [0.5, 0.5, 0.5];
   return [Number(color[0]), Number(color[1]), Number(color[2])];
 }
-
 
 export function alphaKeysOf(colorModule) {
   if (!colorModule) return null;
@@ -271,13 +235,9 @@ export function alphaKeysOf(colorModule) {
   return null;
 }
 
-
 export function isDrawable(spec) {
   return Number(spec && spec.renderMode != null ? spec.renderMode : 0) !== 5;
 }
-
-
-
 
 export function linearToGamma(value) {
   const v = Math.max(0, Math.min(1, Number(value) || 0));
@@ -296,7 +256,6 @@ function tintColorOf(material) {
   if (!Array.isArray(color) || color.length < 4) return [1, 1, 1, 1];
   return [Number(color[0]), Number(color[1]), Number(color[2]), Number(color[3])];
 }
-
 
 export function materialSlots(card, name) {
   const material = card ? materialByName(card, name) : null;
@@ -323,7 +282,6 @@ export function materialSlots(card, name) {
   };
 }
 
-
 export function componentMap(data) {
   const map = new Map();
   if (!data) return map;
@@ -339,7 +297,8 @@ export function componentMap(data) {
   return map;
 }
 
-
+// A prefab with no uiparticles record was not authored with the UI particle exporter; another renderer draws
+// it, so this one must not (prepare then sets bake = false).
 export function nativePrefabsOf(data) {
   const out = new Set();
   if (!data) return out;
@@ -349,15 +308,11 @@ export function nativePrefabsOf(data) {
   return out;
 }
 
-
 export function nodeScaleOf(node) {
   const scale = node && Array.isArray(node.scale) ? node.scale : null;
   if (!scale) return [1, 1];
   return [Math.abs(Number(scale[0]) || 1), Math.abs(Number(scale[1]) || 1)];
 }
-
-
-
 
 function burstCountOf(curve) {
   if (curve == null) return 0;
@@ -385,7 +340,6 @@ function burstOf(burst) {
   };
 }
 
-
 export function emissionOf(spec) {
   const modules = (spec && spec.modules) || {};
   const source = modules.emission || null;
@@ -401,14 +355,12 @@ export function emissionOf(spec) {
   return { enabled, rate, rateDistance, bursts, duration, looping, prewarm };
 }
 
-
 export function pathVariants(path) {
   const parts = String(path || '').split('/').filter(Boolean);
   const out = [];
   for (let i = 0; i < Math.min(3, parts.length); i += 1) out.push(parts.slice(i).join('/'));
   return out;
 }
-
 
 export function matchNode(system, node) {
   const path = nodePathOf(node);
@@ -444,7 +396,6 @@ export function prepare(spec, index, card, options = {}) {
   const drawable = Number(spec.renderMode != null ? spec.renderMode : 0) !== 5;
   const canEmit = drawable && emission.enabled && max > 0
     && (emission.rate[1] > 0 || emission.rateDistance[1] > 0 || emission.bursts.length > 0);
-
 
   const component = options.components instanceof Map && spec.pathId != null
     ? (options.components.get(String(spec.pathId)) || options.components.get(Number(spec.pathId)) || null)
@@ -512,7 +463,6 @@ export function prepare(spec, index, card, options = {}) {
     max,
     sizeKeys: keysOf(sizeModule),
 
-
     alphaKeys: alphaKeysOf(modules.color),
     shape: shape ? {
       type: Number(shape.type),
@@ -540,7 +490,6 @@ export function prepare(spec, index, card, options = {}) {
     active: false,
   };
 }
-
 
 export function systemsOf(card, mounted) {
   const mountedSet = new Set(Array.isArray(mounted) ? mounted : []);
@@ -583,7 +532,6 @@ function between(state, range) {
   return range[0] + (range[1] - range[0]) * randomOf(state);
 }
 
-
 export function spawn(system, age = 0, state = system) {
   const shape = system.shape;
   let x = 0;
@@ -600,8 +548,6 @@ export function spawn(system, age = 0, state = system) {
     x = lx * Math.cos(a) - ly * Math.sin(a);
     y = lx * Math.sin(a) + ly * Math.cos(a);
   } else if (shape && (shape.type === 8 || shape.type === 4 || shape.type === 9 || shape.type === 7)) {
-
-
 
     const radius = shape.radius * WORLD_TO_PX;
     const theta = randomOf(state) * Math.PI * 2;
@@ -653,14 +599,12 @@ export function spawn(system, age = 0, state = system) {
   };
 }
 
-
 function prewarmState(system, state) {
   const rate = (system.rate[0] + system.rate[1]) / 2;
   const life = (system.life[0] + system.life[1]) / 2;
   const steady = Math.min(system.max, Math.ceil(rate * life));
   for (let i = 0; i < steady; i += 1) state.alive.push(spawn(system, randomOf(state) * system.life[1], state));
 }
-
 
 export function prewarm(system) {
   return prewarmState(system, system);
@@ -672,8 +616,6 @@ export function stepOne(system, p, dt) {
   const u = p.age / p.life;
   const sizeCurve = system.sizeKeys ? sampleCurve(system.sizeKeys, u) : 1;
   const alphaCurve = system.alphaKeys ? sampleCurve(system.alphaKeys, u) : 1;
-
-
 
   let noiseX = 0;
   let noiseY = 0;
@@ -689,7 +631,6 @@ export function stepOne(system, p, dt) {
   p.alpha = p.colour[3] * alphaCurve;
   return true;
 }
-
 
 function fireBursts(system, state, from, to, step = 0) {
   const emission = system.emission;
@@ -718,7 +659,6 @@ function fireBursts(system, state, from, to, step = 0) {
   }
 }
 
-
 export function advanceEmitter(system, state, step, distance) {
   const emission = system.emission;
   if (!emission || emission.enabled === false) {
@@ -740,7 +680,7 @@ export function advanceEmitter(system, state, step, distance) {
   const curT = prevT + step;
   const emitting = emission.looping || prevT < emission.duration;
 
-  // reference/card/particles.js:340-355 emits first and only then advances every alive particle. Spawning
+  // The emitter emits first and only then advances every alive particle. Spawning
   // after the step let a fresh particle reach the draw with spawn()'s placeholder `alpha = 1`, which painted
   // one full-brightness frame per respawn (the TV glow flashed white every 0.4 s instead of fading 0→1→0).
   if (emitting && (emission.rate[0] > 0 || emission.rate[1] > 0)) {
@@ -787,7 +727,6 @@ function emitterState(system, seed) {
   };
 }
 
-
 function normalizeNodes(nodes) {
   const out = [];
   if (!nodes) return out;
@@ -817,14 +756,12 @@ function normalizeNodes(nodes) {
   return out;
 }
 
-
 export function createSimulation(systems) {
-  
+
   const emitters = new Map();
   let unitPx = 1;
   const keyOf = (system, nodePath) => `${system.key}@${nodePath}`;
 
-  
   const advance = (dt, nodes, pixels) => {
     unitPx = Number(pixels) > 0 ? Number(pixels) : 1;
     const list = normalizeNodes(nodes);
@@ -870,7 +807,6 @@ export function createSimulation(systems) {
     }
     for (const key of [...emitters.keys()]) if (!next.has(key)) emitters.delete(key);
 
-
     const bySystem = new Map();
     for (const state of next.values()) {
       const list = bySystem.get(state.system);
@@ -910,7 +846,6 @@ export function createSimulation(systems) {
     return sum;
   };
 
-  
   const report = (node = null) => {
     const path = nodePathOf(node);
     const pathOf = (state) => (state.node ? nodePathOf(state.node) : (state.nodePath || null));
@@ -952,7 +887,6 @@ export function createSimulation(systems) {
   };
 }
 
-
 export function advanceSystems(systems, dt, rects, unitPx) {
   const pixels = Number(unitPx) > 0 ? Number(unitPx) : 1;
   const step = Math.min(0.1, Math.max(0, Number(dt) || 0));
@@ -979,7 +913,6 @@ export function advanceSystems(systems, dt, rects, unitPx) {
   }
   return systems.reduce((sum, system) => sum + system.alive.length, 0);
 }
-
 
 export function create(canvas, card, textures, mounted) {
   const gl = canvas.getContext('webgl2');
@@ -1034,7 +967,7 @@ export function create(canvas, card, textures, mounted) {
   const aColor = gl.getAttribLocation(program, 'aColor');
   const buffer = gl.createBuffer();
 
-  // reference/card/particles.js:208-221: the TV glow gets the reference's own point program. A driver that
+  // The TV glow gets its own point program. A driver that
   // refuses the program (or an attribute) leaves the TV on the quad path instead of dropping the effect.
   let point = null;
   {
@@ -1093,19 +1026,14 @@ export function create(canvas, card, textures, mounted) {
   const isMounted = (system) => system.site !== 'sub' || mountedMatch(String(system.path || ''));
   let clock = 0;
 
-  
-  // The stage owns the emitters but not the GL objects they draw with: release the program and the
-  // vertex buffer here so a disposed host leaves nothing behind.
   const advance = (dt, nodes, unitPx) => {
     if (destroyed) return { step: 0, emitters: 0 };
     clock += Math.min(0.1, Math.max(0, Number(dt) || 0));
     return simulation.advance(dt, nodes, unitPx);
   };
 
-  
-  // reference/card/particles.js:359-409: one gl.POINTS draw per TV emitter, with that emitter's own material
-  // texture, the reference's single square size, and the colour that already carries `_TintColor` (baked in
-  // spawn). No ST / mask / channel / V flip and no gamma: exactly the reference fragment.
+  // One gl.POINTS draw per TV emitter, with that emitter's own material texture, the single square size, and the
+  // colour that already carries `_TintColor` (baked in spawn). No ST / mask / channel / V flip and no gamma.
   const drawPointSprites = (system, state) => {
     if (!point) return 0;
     const texture = textures(system.file || system.baseFile);
@@ -1130,6 +1058,8 @@ export function create(canvas, card, textures, mounted) {
     if (!n) return 0;
     gl.useProgram(point.program);
     gl.enable(gl.BLEND);
+    // SrcAlpha, One with alpha on ONE_MINUS_SRC_ALPHA: the same additive rule as the card pass, so a masked-out
+    // particle cannot add its RGB. Both the quad and the point pass use it.
     gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.colorMask(true, true, true, true);
     gl.uniform2f(point.view, canvas.width, canvas.height);
@@ -1204,8 +1134,6 @@ export function create(canvas, card, textures, mounted) {
       gl.useProgram(program);
       gl.enable(gl.BLEND);
 
-
-
       gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       gl.colorMask(true, true, true, true);
       gl.uniform2f(U.view, canvas.width, canvas.height);
@@ -1255,7 +1183,7 @@ export function create(canvas, card, textures, mounted) {
   return {
     advance,
     draw,
-    
+
     has: (node) => simulation.has(node),
     aliveCount: () => systems.filter(isMounted).reduce((sum, system) => sum + system.alive.length, 0),
     report: (node) => simulation.report(node).filter((row) => {
@@ -1268,6 +1196,5 @@ export function create(canvas, card, textures, mounted) {
     get simulation() { return simulation; },
   };
 }
-
 
 export const CardParticles = { create };

@@ -1,30 +1,12 @@
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 import { SimpleLayoutContent, UIButton, UIViewStatusDriver } from './widgets.js';
 import { scriptsOf, resolveScriptRefs, findPath } from './prefab.js';
-
 
 const MOUNT_PATHS = [
   'root/panel_main/btn_card/group_frame/frame_obj_container',
   'root/panel_main/btn_card/root_tier/chess_level_obj_container',
 ];
-
 
 /**
  * The theme colours to render a card with. The card model carries both the resolved fields and the theme
@@ -89,9 +71,8 @@ function resetMounts(view) {
   for (const [node, children] of view.__mountBases || []) node.children = [...children];
 }
 
-
 export class CardListAdapter {
-  
+
   constructor({ scene, row, buildCard }) {
     this.scene = scene;
     this.row = row;
@@ -104,25 +85,22 @@ export class CardListAdapter {
     this.views = [];
   }
 
-  
   GetCount() {
     return this.slotList.length;
   }
 
-  
   GetView(position) {
     const view = this.scene.cardViews && this.scene.cardViews[position];
     return view ? view.root : null;
   }
 
-  
   TraverseCards() {
     return (this.scene.cardViews || []).filter(Boolean);
   }
 }
 
 export class AutoChessStylizedShopSlotsPanel {
-  
+
   constructor({ scene, root }) {
     this.scene = scene;
     this.root = root;
@@ -140,13 +118,12 @@ export class AutoChessStylizedShopSlotsPanel {
     this.refreshSeq = null;
     this.lastRefresh = null;
     this.refreshAnim = null;
-    
+
     this.views = [];
-    
+
     this.cardAnims = new Map();
   }
 
-  
   _initIfNot() {
     if (this.adapter) return;
     this.adapter = new CardListAdapter({
@@ -157,13 +134,11 @@ export class AutoChessStylizedShopSlotsPanel {
     this.slotList.set_adapter(this.adapter);
   }
 
-  
   playRefreshClip(isSpecial) {
     const anim = isSpecial ? this.anims._refreshSpecAnim : this.anims._refreshAnim;
     return (anim && anim.clip) || null;
   }
 
-  
   animate(view, clipName) {
     const clip = (this.scene.cardDoc.clips || {})[clipName];
     if (!clip || !view || !view.root) return false;
@@ -176,7 +151,6 @@ export class AutoChessStylizedShopSlotsPanel {
     return true;
   }
 
-  
   restore(view, now = performance.now()) {
     const anims = this.cardAnims.get(view.root);
     if (!anims) return;
@@ -187,7 +161,6 @@ export class AutoChessStylizedShopSlotsPanel {
     }
   }
 
-  
   startCardAnims(view, model, { fresh = false, refresh = false } = {}) {
     const prev = view.__prev || { armed: false, frozen: false };
 
@@ -199,7 +172,6 @@ export class AutoChessStylizedShopSlotsPanel {
     if (model.isFrozen && !prev.frozen && !fresh) this.animate(view, 'card_frozen');
   }
 
-  
   tickCards(now = performance.now()) {
     let any = false;
     for (const [root, anims] of [...this.cardAnims]) {
@@ -217,7 +189,6 @@ export class AutoChessStylizedShopSlotsPanel {
     return any;
   }
 
-  
   activeCardAnims() {
     const out = {};
     for (const [root, anims] of this.cardAnims) {
@@ -226,19 +197,16 @@ export class AutoChessStylizedShopSlotsPanel {
     return out;
   }
 
-  
   cardButtons() {
     return this.views.map((view) => view.button).filter(Boolean);
   }
 
-  
   setHover(index) {
     this.views.forEach((view, position) => {
       if (view.button) view.button.setHover(position === index);
     });
   }
 
-  
   snapshot() {
     const scene = this.scene;
     const panel = {};
@@ -270,7 +238,6 @@ export class AutoChessStylizedShopSlotsPanel {
     };
   }
 
-  
   Render(data) {
     this._initIfNot();
 
@@ -289,7 +256,6 @@ export class AutoChessStylizedShopSlotsPanel {
     return this;
   }
 
-  
   reconcile(slots, data, refresh) {
     const prev = this.views;
     const next = [];
@@ -314,9 +280,6 @@ export class AutoChessStylizedShopSlotsPanel {
           tintTargets: this.scene.tintTargets.card,
         });
 
-
-
-
       }
       view.index = index;
       const renderModel = cardRenderModel(model);
@@ -324,8 +287,6 @@ export class AutoChessStylizedShopSlotsPanel {
 
       resetMounts(view);
       view.RenderView({ model: renderModel, selectSlot: data.selectSlot || model.selectSlot || null, isSpecialRecruit: !!data.isSpecialRecruit });
-
-
 
       if (this.scene.statusEnabled && !view.statusDriver && this.scene.pathIdMap) {
         view.statusDriver = UIViewStatusDriver.fromPathIdMap(this.scene.pathIdMap, {

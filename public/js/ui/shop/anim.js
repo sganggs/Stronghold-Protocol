@@ -1,14 +1,6 @@
 
 
-
-
-
-
-
-
-
 import { syncActive } from '../../render/shop/cardRecords.js';
-
 
 export function resolveRecord(records, path, basePath) {
   if (!path) return null;
@@ -25,7 +17,6 @@ export function resolveRecord(records, path, basePath) {
   return null;
 }
 
-
 function activeAtKey(keys, t) {
   let value = keys[0][1];
   for (const key of keys) {
@@ -34,7 +25,6 @@ function activeAtKey(keys, t) {
   }
   return Number(value) > 0.5;
 }
-
 
 export function applyActiveCurves(records, clip, t, basePath) {
   let hits = 0;
@@ -47,7 +37,6 @@ export function applyActiveCurves(records, clip, t, basePath) {
   }
   return hits;
 }
-
 
 export function applyClipsFrame(records, clips, applyClip) {
   for (const entry of clips || []) {

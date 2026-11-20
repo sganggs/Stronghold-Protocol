@@ -1,5 +1,5 @@
-// test/ui/shop-paint-key.test.js — W98: a late theme colour must repaint without a fold/unfold.
-// The host's model key covers the painted card fields; garrisonTint is one of them.
+// test/ui/shop-paint-key.test.js — what the host's repaint key covers: a late theme colour, operator name or
+// bond row repaints without a fold/unfold.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

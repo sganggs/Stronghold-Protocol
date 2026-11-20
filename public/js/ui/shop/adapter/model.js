@@ -11,17 +11,6 @@ import { ownStandIn } from '../../gameLogic/standIn.js';
 import { DEFAULT_SKIN_COLORS } from '../../../../../shared/uiTheme.js';
 import { AutoChessBattleShopSlot, AutoChessBattleShopViewModel } from '../model.js';
 
-/**
- * One shop card model (the fields the ported AutoChessBattleShopCardView reads).
- * @param {any} slot m.private shop slot `{ kind, id, price, basePrice, sold, frozen }`
- * @param {number} index slot index (the buy index)
- * @param {any} priv m.private
- * @param {{ armedSlotId?: number|null, armedAt?: number, cardFlags?: any,
- *   colors?: Record<string, string>, urlOf?: (file: string) => string|null,
- *   ownerSkin?: (charId: string) => string|null }} [opts]
- *   `ownerSkin` is the shop owner's outfit choice (§37.273): the DOM card's `OperatorImage` follows the same
- *   selection; without the resolver a card keeps the operator's own portrait.
- */
 /** Official card garrison tint: normal -> colour 1, tier 5 -> colour 2, tier 6 -> colour 3. */
 export function garrisonTintFor(colors, tier) {
   const garrisonColors = [(colors || {}).garrisonIconColor1, (colors || {}).garrisonIconColor2, (colors || {}).garrisonIconColor3];
@@ -39,6 +28,17 @@ export function cardPortraitFile(m, record, skin = null) {
   return record ? chessPortraitUrl(m, record, { skin }) : null;
 }
 
+/**
+ * One shop card model (the fields the ported AutoChessBattleShopCardView reads).
+ * @param {any} slot m.private shop slot `{ kind, id, price, basePrice, sold, frozen }`
+ * @param {number} index slot index (the buy index)
+ * @param {any} priv m.private
+ * @param {{ armedSlotId?: number|null, armedAt?: number, cardFlags?: any,
+ *   colors?: Record<string, string>, urlOf?: (file: string) => string|null,
+ *   ownerSkin?: (charId: string) => string|null }} [opts]
+ *   `ownerSkin` is the shop owner's outfit choice (§37.273): the DOM card's `OperatorImage` follows the same
+ *   selection; without the resolver a card keeps the operator's own portrait.
+ */
 export function cardModelFromSlot(slot, index, priv, opts = {}) {
   const shop = (priv && priv.shop) || {};
   const kind = slot && slot.kind === 'item' ? 'item' : 'chess';
@@ -48,14 +48,14 @@ export function cardModelFromSlot(slot, index, priv, opts = {}) {
   // fetched items entry is the trimmed mirror copy the DOM slots show with object-fit: contain.
   const local = data.get('local') || null;
   const baseRecord = kind === 'item' ? data.lookup('items', id) : data.lookup('chess', id);
-  // 0.2.0 自选编队: a filled DIY slot is its owner's picked operator (the DOM card's `ownDiyRecord`), not the slot's
+  // DIY lineup: a filled DIY slot is its owner's picked operator (the DOM card's `ownDiyRecord`), not the slot's
   // faceless base record. The composed record keeps the slot's tier/price and brings the operator's name, art, class
   // and bonds; the official card has no extra badge, so the canvas draws it like any other operator card.
   const diyRecord = kind === 'chess' && baseRecord && baseRecord.isDiy
     ? ownDiyRecord(baseRecord, priv, { chess: data.get('chess'), backups: data.get('backups') })
     : null;
-  // 0.2.0 补位: a chess the player marked as not owned shows its stand-in body (the DOM card's `ownStandIn`), while the
-  // record keeps the chess's identity (ids, tier, bonds, price, merge) — the official 补位 view.
+  // Stand-in: a chess the player marked as not owned shows its stand-in body (the DOM card's `ownStandIn`), while the
+  // record keeps the chess's identity (ids, tier, bonds, price, merge).
   const standIn = kind === 'chess' && !diyRecord && baseRecord
     ? ownStandIn(baseRecord, priv, data.get('backups'))
     : null;
@@ -79,6 +79,8 @@ export function cardModelFromSlot(slot, index, priv, opts = {}) {
   const portraitSkin = kind === 'chess' && typeof opts.ownerSkin === 'function'
     ? opts.ownerSkin((record && record.charId) || id) : null;
   return {
+    // 1-based: AutoChessBattleShopSlot.slotId is the C# index the prefab confirm strip selects by. The display
+    // index (`[data-shop-slot]`, ShopCanvas a.index, shopRewardIndex) is 0-based; both call sites add 1 here.
     slotId: index + 1,
     id,
     name: (record && record.name) || id,
@@ -89,6 +91,8 @@ export function cardModelFromSlot(slot, index, priv, opts = {}) {
     currCoin: Number(priv && priv.funds) || 0,
     isChar: kind !== 'item',
     isEmpty: !slot || !!slot.sold,
+    // Per-slot frozen OR the toggle, the same precedence as the DOM bar slotFrozen (shopBar.js, GitHub #354): a
+    // 猎头顾问 copy stays frozen while the toggle is off.
     isFrozen: !!(slot && (slot.frozen || shop.frozen)),
     isHandFull: !!(flags && flags.isHandFull),
     hasSame: !!(flags && flags.hasSame),

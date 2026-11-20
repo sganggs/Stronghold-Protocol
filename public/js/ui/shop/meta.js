@@ -9,7 +9,7 @@
 //     The shape UIViewStatusDriver.fromPathIdMap reads: a GAME_OBJECT status action needs the target
 //     node's path, which the status description only names by prefab pathID.
 //
-// W62's extractor writes per-node pathID and the full _colorElements; adapter/prefabMeta.js (also W62)
+// The shop extractor writes per-node pathID and the full _colorElements; adapter/prefabMeta.js
 // derives these tables from the shop/card documents. This module is the host's consumption contract and
 // validator only: it never fetches the lab's metadata JSON files and never guesses a pid→path mapping.
 
@@ -61,7 +61,7 @@ function normaliseStatusEntry(entry) {
 }
 
 /**
- * Validate/normalise a prefab-meta object (W62 output or an explicit override).
+ * Validate/normalise a prefab-meta object (buildShopMeta output or an explicit override).
  * @param {any} raw
  * @returns {{ tintTargets: { card: string[], panel: string[] }|null, pathIdMap: { statusEntries: any[] }|null,
  *   stats: { tintCard: number, tintPanel: number, pathIds: number, dropped: number } }}
@@ -94,9 +94,9 @@ export function normaliseShopMeta(raw) {
 
 /**
  * Resolve the metadata the host hands to ShopScene, in priority order:
- *   1. `options.prefabMeta`            an object (W62 `buildShopMeta()` output or a test fixture)
+ *   1. `options.prefabMeta`            an object (buildShopMeta() output or a test fixture)
  *   2. `options.tintTargets`/`pathIdMap` explicit partial overrides
- *   3. `options.loadPrefabMeta`        an injected async loader (W62's adapter module)
+ *   3. `options.loadPrefabMeta`        an injected async loader (adapter/prefabMeta.js)
  *   4. nothing                         → both tables null (Stage A behaviour; renderer keeps working)
  *
  * A loader that throws is treated as "not available": the host must never fail to mount over optional

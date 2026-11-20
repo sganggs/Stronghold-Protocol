@@ -312,7 +312,7 @@ test('the locally extracted fonts are in no package: the full plan holds them ba
     const local = JSON.parse(fs.readFileSync(path.join(dir, 'data/local-assets.json'), 'utf8'));
     const staged = JSON.parse(fs.readFileSync(path.join(stage, 'data/local-assets.json'), 'utf8'));
     assert.deepEqual(Object.keys(staged.groups), ['g', 'spine/token/token_x', 'fonts']);
-    assert.deepEqual(staged.groups.fonts, {}, 'the required key stays, the faces do not (§37.274)');
+    assert.deepEqual(staged.groups.fonts, {}, 'the required key stays, the faces do not (§37.240)');
     assert.equal(staged.count, local.count - 2);
     assert.equal(local.groups.fonts['Font-One'].path, '/assets/local/fonts/Font-One.otf', 'this machine keeps its group for the runtime');
     const shipped = withoutHeldFonts(local);
@@ -629,7 +629,7 @@ test('a --assets build of a development version needs --allow-dev', { skip: !has
   }
 });
 
-test('the staged manifest gains an empty fonts group even when it had none (§37.274)', () => {
+test('the staged manifest gains an empty fonts group even when it had none (§37.240)', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-package-nofonts-'));
   try {
     const stage = path.join(dir, 'stage');

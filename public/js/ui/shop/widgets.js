@@ -1,24 +1,7 @@
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 import { setActive, setText, setSprite, scriptsOf, resolveScriptRefs, findPath } from './prefab.js';
 import { ThreeStateToggleState } from './model.js';
-
 
 export function twoStateToggleOf(node, index) {
   const entry = scriptsOf(node, 'TwoStateToggle')[0];
@@ -27,15 +10,12 @@ export function twoStateToggleOf(node, index) {
   return new TwoStateToggle({ unselect: refs._unselect || null, select: refs._select || null });
 }
 
-
 export function threeStateToggleOf(node, index) {
   const entry = scriptsOf(node, 'ThreeStateToggle')[0];
   if (!entry) return null;
   const { refs } = resolveScriptRefs(entry, index);
   return new ThreeStateToggle({ unselect: refs._unselect || null, firstSelect: refs._firstSelect || null, secondSelect: refs._secondSelect || null });
 }
-
-
 
 export class TwoStateToggle {
   constructor({ unselect = null, select = null } = {}) {
@@ -45,7 +25,6 @@ export class TwoStateToggle {
     this.inited = false;
   }
 
-  
   set_selected(value) {
     const on = !!value;
     if (this.inited && this.selected === on) return;
@@ -55,13 +34,10 @@ export class TwoStateToggle {
     setActive(this.unselect, !on);
   }
 
-  
   toggle() {
     this.set_selected(!this.selected);
   }
 }
-
-
 
 export class ThreeStateToggle {
   constructor({ unselect = null, firstSelect = null, secondSelect = null } = {}) {
@@ -72,7 +48,6 @@ export class ThreeStateToggle {
     this.inited = false;
   }
 
-  
   _changeState(next) {
     const state = Number(next);
     if (this.inited && this.state === state) return;
@@ -83,22 +58,18 @@ export class ThreeStateToggle {
     setActive(this.secondSelect, state === ThreeStateToggleState.SECOND_SELECT);
   }
 
-  
   set_state(state) {
     this._changeState(state);
   }
 
-  
   toggle() {
     this._changeState(this.state === ThreeStateToggleState.UNSELECT
       ? ThreeStateToggleState.FIRST_SELECT : ThreeStateToggleState.UNSELECT);
   }
 }
 
-
-
 export class FadeSwitchTween {
-  
+
   constructor({ scene, node, duration = 0.16, activeAlpha = 1, key = null, ignoreTimeScale = true,
     dontDisableGameObject = false, onAfterShow = null, onAfterHide = null } = {}) {
     this.scene = scene;
@@ -119,7 +90,6 @@ export class FadeSwitchTween {
     return this.isShowing;
   }
 
-  
   Reset(show) {
     this.scene.motion.cancel(this.key, 'reset');
     this.isTweening = false;
@@ -129,7 +99,6 @@ export class FadeSwitchTween {
     this._write();
   }
 
-  
   set_isShow(show) {
     if (show) this.Show(); else this.Hide();
   }
@@ -187,14 +156,12 @@ export class FadeSwitchTween {
   }
 }
 
-
 export class UIBiAnimClipSwitchTween {
-  
+
   static builder(clipOn, clipOff) {
     return { clipOn, clipOff, durationOn: 0, durationOff: 0, easeOn: 1, easeOff: 1, tweenFromStart: true };
   }
 
-  
   constructor({ scene, key = 'ui-bi-anim', clipOn = null, clipOff = null, target = null,
     inactivateTargetIfHide = false, onAfterShow = null, onAfterHide = null } = {}) {
     this.scene = scene;
@@ -214,15 +181,12 @@ export class UIBiAnimClipSwitchTween {
     return this.isShowing;
   }
 
-  
   set_isShow(show, force = false) {
     if (show) this.Show(force); else this.Hide(force);
   }
 
-  
   Show(force = false) {
     if (this.released) return;
-
 
     if (this.isShowing && !force) return;
     this.isShowing = true;
@@ -230,7 +194,6 @@ export class UIBiAnimClipSwitchTween {
     this._play(this.clipOn, 'onAfterShow');
   }
 
-  
   Hide(force = false) {
     if (this.released) return;
     if (!this.isShowing && !force) return;
@@ -240,7 +203,6 @@ export class UIBiAnimClipSwitchTween {
     });
   }
 
-  
   Reset(show) {
     this.scene.motion.cancel(this.key, 'reset');
     this.isTweening = false;
@@ -283,22 +245,18 @@ export class UIBiAnimClipSwitchTween {
   }
 }
 
-
-
 export class AnimationWrapper {
-  
+
   constructor({ clips = {}, ownerPath = null, play = null } = {}) {
     this.clips = clips || {};
     this.ownerPath = ownerPath;
     this.play = play;
   }
 
-  
   clip(name) {
     return (this.clips && this.clips[name]) || null;
   }
 
-  
   sampleAt(name, t) {
     const clip = this.clip(name);
     return clip ? { clip, t } : null;
@@ -313,7 +271,6 @@ export class AnimationWrapper {
     return clip ? { clip, t: Number(clip.len) || 0 } : null;
   }
 
-  
   Play(name) {
     const clip = this.clip(name);
     if (!clip) return 0;
@@ -321,17 +278,14 @@ export class AnimationWrapper {
     return Number(clip.len) || 0;
   }
 
-  
   PlayWithTween(name) {
     this.Play(name);
     return { name, duration: Number(this.clip(name)?.len) || 0, kill: () => {} };
   }
 }
 
-
-
 export class UIViewStatusDriver {
-  
+
   constructor({ entries = [], resolveClip = null, applyClip = null } = {}) {
     this.entries = entries || [];
     this.resolveClip = resolveClip;
@@ -341,7 +295,6 @@ export class UIViewStatusDriver {
     this.history = [];
   }
 
-  
   static fromPathIdMap(map, { prefab, root }) {
     const byName = new Map();
     for (const entry of (map && map.statusEntries) || []) {
@@ -364,7 +317,6 @@ export class UIViewStatusDriver {
     return (this.entries || []).some((e) => e && e.statusName === statusName);
   }
 
-  
   SetStatus(statusName) {
     const entry = (this.entries || []).find((e) => e && e.statusName === statusName);
     if (!entry) {
@@ -395,14 +347,11 @@ export class UIViewStatusDriver {
   }
 }
 
-
 function rgbaCss(color, fallback) {
   if (!color) return fallback;
   const hex = (v) => Math.max(0, Math.min(255, Math.round(Number(v) * 255))).toString(16).padStart(2, '0');
   return `#${hex(color.r)}${hex(color.g)}${hex(color.b)}${hex(color.a)}`.toUpperCase();
 }
-
-
 
 export class UIAtlasImage {
   constructor(node) {
@@ -418,8 +367,6 @@ export class UIAtlasImage {
   }
 }
 
-
-
 export class SimpleLayoutContent {
   constructor(node) {
     this.node = node;
@@ -431,7 +378,6 @@ export class SimpleLayoutContent {
     this.render();
   }
 
-  
   render() {
     if (!this.adapter) return;
     const count = Number(this.adapter.GetCount()) || 0;
@@ -442,26 +388,22 @@ export class SimpleLayoutContent {
     }
   }
 
-  
   refresh() {
     this.render();
   }
 }
 
-
-
 export const LEVEL_SPRITES_DISABLED = false;
 
 export class AutoChessShopLevelView {
-  
+
   constructor({ images = [], spritePrefix = 'shop_level', color = null } = {}) {
     this.images = images.filter(Boolean);
     this.spritePrefix = spritePrefix;
-    
+
     this.color = color;
   }
 
-  
   Render(level, skinId = '', isUpgrade = false) {
     const n = Math.max(1, Math.min(6, Math.round(Number(level) || 1)));
     void skinId;
@@ -475,10 +417,8 @@ export class AutoChessShopLevelView {
   }
 }
 
-
-
 export class ShopCostView {
-  
+
   constructor({ root, index } = {}) {
     this.root = root;
     this.index = index;
@@ -502,12 +442,10 @@ export class ShopCostView {
     this.enoughNum = this.costNum;
   }
 
-  
   _enoughIndex() {
     return this.enoughToggle && this.enoughToggle.selected ? 0 : 1;
   }
 
-  
   Render(cost, total) {
     const price = Number(cost) || 0;
     const coin = Number(total) || 0;
@@ -518,7 +456,6 @@ export class ShopCostView {
     return this;
   }
 
-  
   SetPriceColor(color) {
     // The C# cost view keeps two numbers: the normal (enough) number carries the calculated price colour,
     // while the grey (not enough) number stays #C0C5C3. Selecting the grey group must not turn its number red.
@@ -533,7 +470,6 @@ export class ShopCostView {
   }
 }
 
-
 function nodeByPath(root, path) {
   let node = root;
   for (const part of String(path).split('/').filter(Boolean)) {
@@ -542,8 +478,6 @@ function nodeByPath(root, path) {
   }
   return node;
 }
-
-
 
 export class ShopMoneyView {
   constructor({ root } = {}) {
@@ -558,17 +492,14 @@ export class ShopMoneyView {
   }
 }
 
-
-
 export class TwoStateBiAnimationSwitcher {
-  
+
   constructor({ anims = {}, onPlay = null } = {}) {
     this.anims = anims || {};
     this.onPlay = onPlay;
     this.isShow = false;
   }
 
-  
   set_isShow(show) {
     this.isShow = !!show;
     const anim = show ? this.anims._animSelect : this.anims._animUnselect;
@@ -577,38 +508,33 @@ export class TwoStateBiAnimationSwitcher {
     return clip;
   }
 
-  
   set_state(show) {
     return this.set_isShow(show);
   }
 }
 
-
-
 export class TwoPhaseButtonWidget {
-  
+
   constructor({ onFirstClick = null, onConfirm = null, confirmClip = null, switcher = null } = {}) {
     this.onFirstClick = onFirstClick;
     this.onConfirm = onConfirm;
     this.confirmClip = confirmClip;
-    
+
     this.switcher = switcher;
-    
+
     this.state = 0;
     this.confirming = false;
     this.startedAt = 0;
-    
+
     this.confirmDuration = 1.0;
   }
 
-  
   ConfirmPreClick() {
     this.state = 1;
     this.confirming = true;
     if (this.switcher) this.switcher.set_isShow(true);
   }
 
-  
   Reset() {
     this.state = 0;
     this.confirming = false;
@@ -616,13 +542,11 @@ export class TwoPhaseButtonWidget {
     if (this.switcher) this.switcher.set_isShow(false);
   }
 
-  
   progress(now) {
     if (!this.confirming) return 0;
     return Math.min(1, (now - this.startedAt) / this.confirmDuration);
   }
 
-  
   EventOnClick(now, slotId) {
     if (this.state === 0) {
       this.startedAt = now;
@@ -634,8 +558,6 @@ export class TwoPhaseButtonWidget {
   }
 }
 
-
-
 export const TINT_COLORS = {
   normal: [1, 1, 1, 1],
   hover: [0.9607843160629272, 0.9607843160629272, 0.9607843160629272, 1],
@@ -645,9 +567,8 @@ export const TINT_COLORS = {
 
 export const TINT_FADE = 0.1;
 
-
 export class UIButton {
-  
+
   constructor({ node = null, onClick = null, interactable = true, guardSeconds = 0, cooldown = 0, clickGuard = null, signal = '',
     tintRoot = null, tintTargets = [] } = {}) {
     this.node = node;
@@ -661,7 +582,7 @@ export class UIButton {
     this.cooldown = this.clickGuard.cooldown;
     this.signal = signal;
     this.lastPress = -1e9;
-    
+
     this.lastBlocked = null;
 
     this.tintRoot = tintRoot;
@@ -677,15 +598,12 @@ export class UIButton {
     this.tintNodes = null;
   }
 
-
-  
   /** C# ClickGuardModule: `cooldown` only enables; `seconds` is the lock length. */
   IsInCooldown(now = performance.now()) {
     if (!this.clickGuard.cooldown) return false;
     return now - this.lastPress < this.clickGuard.seconds * 1000;
   }
 
-  
   Press(now = performance.now()) {
     if (!this.interactable) return false;
     if (this.IsInCooldown(now)) { this.lastBlocked = now; return false; }
@@ -694,21 +612,18 @@ export class UIButton {
     return true;
   }
 
-  
   setHover(value) {
     if (this.hovered === !!value) return;
     this.hovered = !!value;
     this._retarget();
   }
 
-  
   setPressed(value) {
     if (this.pressed === !!value) return;
     this.pressed = !!value;
     this._retarget();
   }
 
-  
   tick(now = performance.now()) {
     if (this.tintT >= 1) return false;
     const u = Math.min(1, (now - this.tintStart) / (TINT_FADE * 1000));
@@ -740,8 +655,6 @@ export class UIButton {
     for (const node of this._nodes()) node.tintMul = nearWhite ? null : [...this.tint];
   }
 }
-
-
 
 export class DynFontLoader {
   constructor({ family = 'NotoSansHans-Medium' } = {}) {

@@ -1,23 +1,5 @@
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 import { createCardRenderer, buildRecords as buildWebgl, roleBoxes } from '../../render/shop/cardWebgl.js';
 import { cardSize, propagateTransforms, relayoutAnimatedSizes } from '../../render/shop/cardRecords.js';
 import { applyClip } from '../../render/shop/cardTimeline.js';
@@ -31,11 +13,9 @@ import { AutoChessStylizedShopSlotsPanel } from './slots.js';
 import { AutoChessStylizedShopUpgradePanel } from './upgrade.js';
 import { AutoChessBattleShopCardView } from './cardView.js';
 
-
 const CARD_ROW = 'state_unfold/panel_unfold/root_layout/group_slots';
 
 const MONEY_HOLDER = 'root_main_money';
-
 
 function repath(node, basePath, name = node.name) {
   node.name = name;
@@ -43,7 +23,6 @@ function repath(node, basePath, name = node.name) {
   for (const child of node.children || []) repath(child, node.path);
   return node;
 }
-
 
 export function findClip(docs, name) {
   for (const doc of docs) {
@@ -53,16 +32,14 @@ export function findClip(docs, name) {
   return null;
 }
 
-
 export class MotionClock {
   constructor(scene) {
     this.scene = scene;
-    
+
     this.tracks = new Map();
     this.active = false;
   }
 
-  
   play(key, clipName, opts = {}) {
     const doc = opts.doc || null;
     const docs = doc ? [doc] : [this.scene.panelDoc, this.scene.cardDoc, this.scene.moneyDoc];
@@ -74,7 +51,6 @@ export class MotionClock {
     return this.track(key, { ...opts, clip, clipName });
   }
 
-  
   track(key, opts = {}) {
     const prev = this.tracks.get(key);
     if (prev && !opts.restart && prev.clipName === opts.clipName) return prev;
@@ -115,7 +91,6 @@ export class MotionClock {
     for (const key of [...this.tracks.keys()]) this.cancel(key, reason);
   }
 
-  
   tick(now = performance.now()) {
     for (const track of this.tracks.values()) {
       if (track.len <= 0) {
@@ -130,7 +105,6 @@ export class MotionClock {
     return [...this.tracks.values()];
   }
 
-  
   flushFinished() {
     const done = [];
     for (const [key, track] of [...this.tracks]) {
@@ -143,7 +117,6 @@ export class MotionClock {
     return done;
   }
 
-  
   clipTracks() {
     return [...this.tracks.values()]
       .filter((track) => track.clip)
@@ -158,7 +131,6 @@ export class MotionClock {
     return this.tracks.size > 0;
   }
 }
-
 
 function hidePcKeyHints(root) {
   if (!root) return root;
@@ -177,7 +149,6 @@ function hidePcKeyHints(root) {
   return root;
 }
 
-
 function cardSubClip(doc, entry) {
   if (!entry || !/^loop_tier_star_lv(5|6)$/.test(entry.clipName || '')) return null;
   const subs = (doc && doc.sub) || {};
@@ -189,7 +160,6 @@ function cardSubClip(doc, entry) {
   return null;
 }
 
-
 export class ShopScene {
   constructor({ theme, canvas, size = [DESIGN_W, DESIGN_H], tintTargets = null, pathIdMap = null, particlesEnabled = false, statusEnabled = true, particleComponents = null, options = {} }) {
     const self = this;
@@ -200,22 +170,22 @@ export class ShopScene {
     this.size = size;
     this.measure = createMeasure();
     this.errors = [];
-    
+
     this.pathIdMap = pathIdMap;
-    
+
     this.particlesEnabled = !!particlesEnabled;
-    
+
     this.statusEnabled = statusEnabled !== false;
-    
+
     this.particleComponents = particleComponents;
-    
+
     this.tintTargets = tintTargets || { card: [], panel: [] };
-    
+
     this.fades = new Map();
-    
+
     this.particleAt = Number.isFinite(Number(opts.particleTime)) ? Number(opts.particleTime) : null;
     this.particleElapsed = 0;
-    
+
     this.settle = new Map();
     this.stageMaterials = {};
     for (const doc of [theme.shop.prefabs.panel_shop_main, theme.shop.prefabs.autochess_main_money_item, theme.card,
@@ -226,7 +196,7 @@ export class ShopScene {
     this.panelDoc = theme.shop.prefabs.panel_shop_main;
     this.moneyDoc = theme.shop.prefabs.autochess_main_money_item;
     this.cardDoc = theme.card;
-    
+
     this.stillCards = !!opts.still;
     this.cardTime = Number.isFinite(Number(opts.cardTime)) ? Number(opts.cardTime) : null;
     this.cardParticlesEnabled = opts.cardParticles !== false;
@@ -250,8 +220,6 @@ export class ShopScene {
       card: {
         materials: this.stageMaterials,
 
-
-
         sub: {},
         size: [...size],
         particles: this.bakeParticles(),
@@ -267,30 +235,29 @@ export class ShopScene {
     });
     this.unitCss = 1;
     this.dpr = 1;
-    
+
     this.externalQuad = null;
-    
+
     this.frame = { records: [], boxes: new Map(), order: [] };
-    
+
     this.motion = new MotionClock(this);
-    
+
     this.dirty = true;
     this.layoutDirty = true;
-    
+
     this.animBase = null;
-    
+
     this.arrowClock = 0;
     this.arrowClockLast = null;
-    
+
     this.arrowAt = Number.isFinite(Number(opts.arrowAt)) ? Math.max(0, Number(opts.arrowAt)) : null;
-    
+
     this.base = null;
     this.recordStats = { panel: 0, money: 0, cards: 0, merged: 0, materials: 0, sprites: 0, texts: 0, quads: 0 };
     this.build();
 
-    
     this.spineHolderNode = findPath(this.panel, 'fold_mask_spine/closure_spine_holder');
-    
+
     this.arrowNode = findPath(
       this.panel,
       'state_unfold/panel_unfold/root_layout/group_upgrade/group_normal/root_inner_front/root_arrow',
@@ -300,16 +267,12 @@ export class ShopScene {
     }
   }
 
-  
   bakeParticles() {
     const theme = this.theme || {};
     const prefabs = (theme.shop || {}).prefabs || {};
     const cardSubs = (theme.card || {}).sub || {};
     const cardTv = [];
     if (this.cardParticlesEnabled) {
-
-
-
 
       const cardRoot = (theme.card && theme.card.root) || {};
       const rootPath = cardRoot.path || 'autochess_shop_card_item';
@@ -333,27 +296,23 @@ export class ShopScene {
     ];
   }
 
-  
   nativeParticles() {
     const theme = this.theme || {};
     const prefabs = (theme.shop || {}).prefabs || {};
     return [...((prefabs.autochess_main_money_item || {}).particles || [])];
   }
 
-  
   particlesAnimating() {
     const renderer = this.renderer && this.renderer.stage && this.renderer.stage.particles;
     return !!(renderer && renderer.aliveCount() > 0);
   }
 
-  
   cardFxAnimating() {
     if (this.stillCards) return false;
     if (this.cardTime != null) return false;
     return true;
   }
 
-  
   applyArrowSizeTween(view) {
     const node = this.arrowNode;
     if (!node || !view) return;
@@ -377,7 +336,6 @@ export class ShopScene {
     relayoutAnimatedSizes(view, this.cardDoc);
   }
 
-  
   particlesInfo() {
     const renderer = this.renderer && this.renderer.stage && this.renderer.stage.particles;
     if (!renderer) return { enabled: false, reason: 'particles gated off (?particles=1 to enable)' };
@@ -402,7 +360,6 @@ export class ShopScene {
     };
   }
 
-  
   build() {
     const panelDoc = this.theme.shop.prefabs.panel_shop_main;
     this.panelDoc = panelDoc;
@@ -410,16 +367,13 @@ export class ShopScene {
     this.index = indexNodes(this.panel);
     this.components = componentRefs(this.panel, this.index);
 
-
     this.moneyDoc = this.theme.shop.prefabs.autochess_main_money_item;
     this.cardDoc = this.theme.card;
-
 
     this.chrome = new AutoChessStylizedShopChromePanel({ scene: this, root: this.panel, components: this.components });
     this.ctrl = new AutoChessStylizedShopCtrlPanel({ scene: this, root: findPath(this.panel, 'state_unfold/panel_ctrl_btn') });
     this.slots = new AutoChessStylizedShopSlotsPanel({ scene: this, root: findPath(this.panel, 'state_unfold/panel_unfold/root_layout') });
     this.upgrade = new AutoChessStylizedShopUpgradePanel({ scene: this, root: findPath(this.panel, 'state_unfold/panel_unfold/root_layout/group_upgrade') });
-
 
     this.chrome.initMoney();
     this.applyMoneyAtlases();
@@ -435,29 +389,24 @@ export class ShopScene {
     this.layoutDirty = true;
   }
 
-  
   markDirty(reason = 'state') {
     this.dirty = true;
     if (reason === 'layout') this.layoutDirty = true;
   }
 
-  
   beginAnimation() {
     if (!this.animBase) this.animBase = this.captureActives();
   }
 
-  
   refreshActiveBase(node) {
     if (!node || !this.animBase) return;
     this.animBase.set(node, node.active !== false);
   }
 
-  
   endAnimation() {
     this.animBase = null;
   }
 
-  
   setFade(node, value) {
     if (node) this.fades.set(node, Number(value));
   }
@@ -470,7 +419,6 @@ export class ShopScene {
     this.fades.delete(node);
   }
 
-  
   setSettle(key, entry) {
     if (!key) return;
     if (!entry) this.settle.delete(key);
@@ -481,7 +429,6 @@ export class ShopScene {
     this.settle.delete(key);
   }
 
-  
   applyMoneyAtlases() {
     const money = this.moneyRoot;
     if (!money) return;
@@ -498,7 +445,6 @@ export class ShopScene {
     }
   }
 
-  
   hideRuntimePlaceholders() {
     hidePlatformHints(this.panel);
     hidePcKeyHints(this.panel);
@@ -518,7 +464,6 @@ export class ShopScene {
     }
   }
 
-  
   resize(widthCss, dpr = 1) {
     const w = Number(widthCss) || this.size[0];
     this.renderer.resize(w, this.size[0], this.size[1], dpr);
@@ -530,21 +475,17 @@ export class ShopScene {
     this.markDirty('layout');
   }
 
-  
   solveLayout() {
     return layoutScene(this.panel, { width: this.size[0], height: this.size[1], measure: this.measure });
   }
 
-  
   rebuild() {
     if (this.layoutDirty) this.solveLayout();
     const panelDoc = this.panelDoc;
     const row = findPath(this.panel, CARD_ROW);
     const moneyHolder = findPath(this.panel, MONEY_HOLDER);
 
-
     const full = buildWebgl({ ...panelDoc, root: this.panel }, panelDoc, { size: this.size, unit: 1, pad: [0, 0] });
-
 
     const detached = [];
     const detach = (node) => {
@@ -576,9 +517,8 @@ export class ShopScene {
     };
     const rowRecord = row ? panelBuilt.byPath(row.path) : null;
 
-
     let cardCount = 0;
-    
+
     this.cardViews = new Map();
     for (const cardRoot of this.cardRoots) {
       const origin = full.boxes.get(cardRoot.path);
@@ -607,7 +547,6 @@ export class ShopScene {
       cardCount += card.order.length;
     }
 
-
     const moneyRoot = this.moneyRoot;
     const moneyOrigin = moneyRoot ? full.boxes.get(moneyRoot.path) : null;
     let moneyCount = 0;
@@ -629,7 +568,6 @@ export class ShopScene {
       }
     }
 
-
     const mask = panelBuilt.order.find((rec) => rec.node.name === 'panel_unfold' && rec.clipRect);
     if (mask) {
       for (const rec of records) {
@@ -637,7 +575,6 @@ export class ShopScene {
         rec.clipRect = rec.clipRect ? intersectRect(rec.clipRect, mask.clipRect) : { ...mask.clipRect };
       }
     }
-
 
     for (const rec of records) {
       rec.baseAbs = { ...rec.abs };
@@ -669,7 +606,6 @@ export class ShopScene {
     if (this.motion.busy) this.animBase = this.captureActives();
   }
 
-  
   paint(options = {}) {
     const clips = options.clips || [];
     // The snapshot exists only while a motion clip owns the active flags. Settle clips (clips.length>0)
@@ -685,7 +621,6 @@ export class ShopScene {
     }
     if (this.dirty || !this.base) this.rebuild();
 
-
     const pinnedTime = this.cardTime != null ? this.cardTime : null;
     if (this.stillCards || pinnedTime != null || this.arrowAt != null) {
       this.arrowClock = this.arrowAt != null ? this.arrowAt : 0;
@@ -700,7 +635,6 @@ export class ShopScene {
     const base = this.base;
     const view = base.view;
     const records = base.records;
-
 
     for (const rec of records) {
       // Reuse the pose/abs/delta objects: 844 records were allocating ~2500 objects per paint, which
@@ -729,10 +663,7 @@ export class ShopScene {
 
     syncActiveFast(this.panel, view, true);
 
-
     const clipEntries = [];
-
-
 
     for (const [key, entry] of this.settle) {
       if (this.motion.tracks.has(key)) continue;
@@ -749,7 +680,6 @@ export class ShopScene {
 
     clipEntries.push(...clips);
 
-
     const moneyClip = (this.moneyDoc.clips || {}).fx_gain_money;
     const moneyAnimating = clips.some((entry) => entry.key === 'money')
       || clips.some((entry) => moneyClip && entry.clip === moneyClip);
@@ -760,14 +690,13 @@ export class ShopScene {
       const local = (this.cardViews && this.cardViews.get(root)) || null;
       for (const entry of root.__clips || []) {
 
-
         const clip = (this.cardDoc.clips || {})[entry.clipName] || cardSubClip(this.cardDoc, entry);
         if (!clip) continue;
 
         if (clips.some((item) => item.clip === clip)) continue;
 
-        // A still frame keeps a pinned pose (loop_triple: t=2.0); entries without stillT keep the old
-        // behaviour of skipping the clock in still mode.
+        // A still frame keeps a pinned pose: loop_triple pins the clip's stop time (tripleLoopLength), not its
+        // key-frame end; entries without stillT skip the clock in still mode.
         if (entry.clock && this.stillCards && entry.stillT == null) continue;
         let t = entry.t;
         if (entry.clock) {
@@ -799,8 +728,6 @@ export class ShopScene {
       for (const entry of clipEntries) {
         if (!entry || !entry.clip) continue;
 
-
-
         const linear = entry.hermite === false
           || entry.clipName === 'btn_upgrade_doublecheck_in'
           || entry.clipName === 'btn_upgrade_doublecheck_out';
@@ -809,13 +736,10 @@ export class ShopScene {
 
       relayoutAnimatedSizes(view, this.cardDoc);
 
-
-
-
-
-
-
-
+      // A shop clip stores absolute m_AnchoredPosition x/y (ui_components.py: attribute 224 -> ax/ay), while
+      // propagateTransforms converts a pose to delta = rest - clipValue: right for y (the boxes are top-down, so
+      // its axis flips) and mirrored for x (its axis does not). Reflecting ax about the node's rest x makes x come
+      // out as clipValue - rest, like y; without it the fold slides the panel content left instead of right.
       for (const rec of records) {
         const p = rec.pose;
         if (!p) continue;
@@ -835,7 +759,6 @@ export class ShopScene {
     this.applyArrowSizeTween(view);
     propagateTransforms(view);
 
-
     for (const rec of records) {
       const key = rec.node.path || rec.node.name;
       const box = base.boxes.get(key);
@@ -850,10 +773,6 @@ export class ShopScene {
     }
 
     this.frame = { records, boxes: base.boxes, order: records };
-
-
-
-
 
     const pinned = pinnedTime;
     if (pinned != null) {
@@ -893,7 +812,6 @@ export class ShopScene {
     return this.frame;
   }
 
-  
   captureActives() {
     const map = new Map();
     (function walk(node) {
@@ -904,7 +822,6 @@ export class ShopScene {
     return map;
   }
 
-  
   hit(path, x, y) {
     const unitPx = this.renderer.unit();
     let box = null;
@@ -913,14 +830,12 @@ export class ShopScene {
     }
     if (!box || !box.shown) return false;
 
-
     if (!(Number(box.alpha) > 0.01)) return false;
     const px = x / unitPx;
     const py = y / unitPx;
     return px >= box.x && px <= box.x + box.w && py >= box.y && py <= box.y + box.h;
   }
 
-  
   /** Re-find the panel's spine holder after a slots/chrome re-render; the old record may have been replaced. */
   refreshSpineHolder() {
     const holder = findPath(this.panel, 'fold_mask_spine/closure_spine_holder');
@@ -945,7 +860,6 @@ export class ShopScene {
     return card;
   }
 
-  
   roleBoxes() {
     return roleBoxes(this.panelDoc, { boxes: this.frame.boxes });
   }
@@ -961,9 +875,6 @@ function intersectRect(a, b) {
     h: Math.max(0, Math.min(a.y + a.h, b.y + b.h) - y),
   };
 }
-
-
-
 
 /**
  * Apply the node tree's active flags to the records, looking each node up by path.

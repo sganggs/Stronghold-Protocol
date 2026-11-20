@@ -1,17 +1,8 @@
 
 
-
-
-
-
-
-
-
-
 export function cloneNode(node) {
   return typeof structuredClone === 'function' ? structuredClone(node) : JSON.parse(JSON.stringify(node));
 }
-
 
 export function countNodes(node) {
   if (!node) return 0;
@@ -19,7 +10,6 @@ export function countNodes(node) {
   for (const child of node.children || []) n += countNodes(child);
   return n;
 }
-
 
 export function indexNodes(root) {
   const byPath = new Map();
@@ -35,7 +25,6 @@ export function indexNodes(root) {
   return { byPath, byName, byId };
 }
 
-
 export function findPath(root, path) {
   let node = root;
   for (const part of String(path).split('/').filter(Boolean)) {
@@ -44,7 +33,6 @@ export function findPath(root, path) {
   }
   return node;
 }
-
 
 export function findName(root, name) {
   if (!root) return null;
@@ -56,7 +44,6 @@ export function findName(root, name) {
   return null;
 }
 
-
 export function findAllByComponent(root, className) {
   const out = [];
   (function walk(node) {
@@ -66,7 +53,6 @@ export function findAllByComponent(root, className) {
   })(root);
   return out;
 }
-
 
 export function hideRuntimeImages(node) {
   if (!node) return node;
@@ -78,12 +64,10 @@ export function hideRuntimeImages(node) {
   return node;
 }
 
-
 export function hidePlatformHints(root) {
   if (!root) return root;
   const classes = (root.components || []).map((c) => c && c.class);
   const isPcHint = classes.includes('PCKeyCardUIButtonDisplay') || classes.includes('UIButtonKeyBoardConfig');
-
 
   if (isPcHint && !classes.includes('UIButton')) {
     root.active = false;
@@ -93,13 +77,11 @@ export function hidePlatformHints(root) {
   return root;
 }
 
-
 function materialHasTexture(mat) {
   if (!mat || !mat.draw) return false;
   const d = mat.draw;
   return !!(d.baseFile || d.maskFile || (d.dissolve && d.dissolve.file));
 }
-
 
 export function hideExternalSprites(root, materials) {
   if (!root) return root;
@@ -115,7 +97,6 @@ export function hideExternalSprites(root, materials) {
   for (const child of root.children || []) hideExternalSprites(child, materials);
   return root;
 }
-
 
 export function hideRuntimeSources(root, runtime, index, materials) {
   if (!runtime) return root;
@@ -139,7 +120,6 @@ export function hideRuntimeSources(root, runtime, index, materials) {
   }
   return root;
 }
-
 
 export function componentRefs(node, index) {
   const out = new Map();
@@ -166,12 +146,10 @@ export function componentRefs(node, index) {
   return out;
 }
 
-
 export function setActive(node, value) {
   if (!node) return;
   node.active = !!value;
 }
-
 
 export function setText(node, value, color) {
   if (!node || !node.text) return;
@@ -179,13 +157,11 @@ export function setText(node, value, color) {
   if (color) node.text = { ...node.text, color };
 }
 
-
 export function setSprite(node, file, extra = {}) {
   if (!node) return;
 
   node.image = { ...(node.image || {}), ...extra, ...(file ? { file } : {}) };
 }
-
 
 export function documentMaterials(doc) {
   const out = {};
@@ -196,11 +172,9 @@ export function documentMaterials(doc) {
   return out;
 }
 
-
 export function scriptsOf(node, className) {
   return ((node && node.scripts) || []).filter((s) => s && s.class === className);
 }
-
 
 export function resolveScriptRefs(entry, index) {
   const refs = {};

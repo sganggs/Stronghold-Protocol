@@ -338,8 +338,8 @@ history and the open points: DESIGN §32.14.25.
 
 A regulation shop may be painted on a canvas instead of the DOM shop bar (`public/js/ui/shop/` + `public/js/render/shop/`).
 The gate is a capability, not a flag: `ui/shop/gate.js shopCapability` requires an `OFFICIAL_THEMES` id whose installed
-local group carries `prefabs.json`, `card.json` and `shop.json`, and `shopWebglGate` then requires a ready preload and
-no spectator, stand-in or DIY row; a promotion reward keeps the canvas and draws its three 0-price cards in the same
+local group carries `prefabs.json`, `card.json` and `shop.json`, and `shopWebglGate` then requires a ready preload only: a spectator seat has no `m.private` and gets no shop at all, while a stand-in or
+DIY row renders like any other card (the model composes its record); a promotion reward keeps the canvas and draws its three 0-price cards in the same
 frame instead. No config value takes part; choosing a theme without the documents is the rollback, and `ShopBar` renders
 as before. `ui/prefab/shopDocs.js` reads the three documents from that group (an imported
 official pack's documents come from its stored bytes — the page's `connect-src 'self'` forbids fetching a blob) and

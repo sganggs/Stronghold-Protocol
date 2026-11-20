@@ -1,27 +1,8 @@
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 import { cloneNode, setActive } from './prefab.js';
 import { TwoPhaseButtonWidget } from './widgets.js';
 import { t } from '../../../../shared/i18n.js';
-
-
 
 const PRICE_COLORS = { normal: '#FFC600', discount: '#59F4CA', premium: '#FF5454', grey: '#C0C5C3' };
 
@@ -44,7 +25,6 @@ export function repathCardNode(node, basePath, name = node.name) {
   return node;
 }
 
-
 function findNode(root, name) {
   if (!root) return null;
   if (root.name === name) return root;
@@ -56,19 +36,10 @@ function findNode(root, name) {
 }
 
 /**
- * The repeated-card loop entry. The official AnimationWrapper loops loop_triple (2.5 s, four curves: two
- * RawImage UV offsets and two alpha curves), so the scene must advance it from the card clock; the still
- * screenshot keeps the official pinned pose t=2.0 instead of letting the clock skip drop it.
- * @param {{ still?: boolean }} state
- * @param {{ len?: number }|null|undefined} clip
- * @param {string} basePath
- * @returns {{ clipName: 'loop_triple', t: number, clock: boolean, len: number, stillT: number|null, basePath: string }}
- */
-/**
  * The effective loop length. These legacy clips carry m_MuscleClip.m_StopTime = 1.0 in the bundle even
  * when their keys run past it (card_prefab.py records both len/key-end and stopTime); the official
- * Animation plays the stop time. `len` remains the key-frame end used by reference/card, which is why it
- * kept the 2.0-2.5 s hold. No clip curve is rewritten.
+ * Animation plays the stop time. `len` remains the key-frame end the extractor also records; no clip curve is
+ * rewritten.
  * @param {{ len?: number, stopTime?: number }|null|undefined} clip
  * @returns {number}
  */
@@ -79,9 +50,10 @@ export function tripleLoopLength(clip) {
 }
 
 /**
- * The repeated-card loop entry...
+ * The repeated-card loop entry the scene plays: the official AnimationWrapper loops loop_triple from the card
+ * clock, and a still frame keeps the clip's pinned stop time (tripleLoopLength), not its key-frame end.
  * @param {{ still?: boolean }} state
- * @param {{ len?: number, curves?: any[] }|null|undefined} clip
+ * @param {{ len?: number, stopTime?: number, curves?: any[] }|null|undefined} clip
  * @param {string} basePath
  */
 export function tripleLoopEntry(state, clip, basePath) {
@@ -128,26 +100,23 @@ export class AutoChessBattleShopCardView {
     });
   }
 
-
-
   levelStyle(tier) {
     const levels = this.doc.driver.levels || [];
     return levels.find((l) => (l.tiers || []).includes(tier)) || levels[0] || {};
   }
 
-
   pieceOf() {
     return this.model || {};
   }
-
 
   operatorName() {
     return (this.model && this.model.name) || '';
   }
 
-
   shopModel() {
     const price = Number(this.model && this.model.price != null ? this.model.price : 0);
+    // state.coin is the product path: adapter/model.js currCoin always exists. The fallback serves hand-built
+    // fixtures: an able card looks affordable, an unable one one coin short so the cost row draws grey.
     const coin = this.state.coin != null ? Number(this.state.coin) : (this.state.able ? price : Math.max(0, price - 1));
     const srcPrice = this.state.srcPrice != null ? Number(this.state.srcPrice) : (Number(this.model && this.model.srcPrice) || price);
     return {
@@ -160,12 +129,10 @@ export class AutoChessBattleShopCardView {
     };
   }
 
-
   priceColorFor(model) {
     if (model.price === model.srcPrice) return PRICE_COLORS.normal;
     return model.price < model.srcPrice ? PRICE_COLORS.discount : PRICE_COLORS.premium;
   }
-
 
   uniqueEmitterPaths(subRoot, subDoc, prefix) {
     if (!subRoot || !subDoc) return subRoot;
@@ -179,7 +146,6 @@ export class AutoChessBattleShopCardView {
     return subRoot;
   }
 
-
   buildTree() {
     const tree = this.root;
     const level = this.levelStyle(this.state.tier);
@@ -192,8 +158,6 @@ export class AutoChessBattleShopCardView {
     if (tierHost && tierSub) tierHost.children = [...(tierHost.children || []), this.uniqueEmitterPaths(repathCardNode(tierSub, tierHost.path), this.doc.sub[level.tierObj], tree.path)];
     return tree;
   }
-
-
 
   applyState(tree) {
     const state = this.state;
@@ -238,7 +202,6 @@ export class AutoChessBattleShopCardView {
     return tree;
   }
 
-
   applyChessLevelStyle(tree) {
     const state = this.state;
     const level = this.levelStyle(state.tier);
@@ -251,7 +214,6 @@ export class AutoChessBattleShopCardView {
     if (deco) deco.image = { ...(deco.image || {}), color: level.decoColor || '#FFFFFF' };
   }
 
-
   applyStripText(tree) {
     for (const [group, value] of [['group_able', t('确认购买')], ['group_disable', t('无法购买')]]) {
       const holder = findNode(tree, group);
@@ -259,7 +221,6 @@ export class AutoChessBattleShopCardView {
       if (stripText) stripText.text = { ...(stripText.text || {}), text: value };
     }
   }
-
 
   applyBonds(tree) {
     const list = findNode(tree, 'bond_list');
@@ -269,7 +230,6 @@ export class AutoChessBattleShopCardView {
     const template = clone(bondItem.root);
     const rowH = (template.rect && template.rect.sizeDelta && template.rect.sizeDelta[1]) || 18;
     const rowW = (template.rect && template.rect.sizeDelta && template.rect.sizeDelta[0]) || 154;
-
 
     const containerH = (list.rect && list.rect.sizeDelta && list.rect.sizeDelta[1]) || 58;
     const blockH = bonds.length * rowH;
@@ -286,7 +246,6 @@ export class AutoChessBattleShopCardView {
     });
   }
 
-
   applyCost(tree) {
     const holder = findNode(tree, 'root_cost');
     const source = this.doc.sub && this.doc.sub.cost_view;
@@ -295,7 +254,6 @@ export class AutoChessBattleShopCardView {
     holder.children = [costRoot];
     this.applyCostState(costRoot, this.shopModel());
   }
-
 
   applyShopState(tree) {
     const model = this.shopModel();
@@ -311,7 +269,6 @@ export class AutoChessBattleShopCardView {
     if (costRoot) this.applyCostState(costRoot, model);
   }
 
-
   applyCostState(costRoot, model) {
     const normal = findNode(costRoot, 'root_normal');
     const grey = findNode(costRoot, 'root_grey');
@@ -323,7 +280,6 @@ export class AutoChessBattleShopCardView {
     const greyText = grey && findNode(grey, 'text_num');
     if (greyText) greyText.text = { ...(greyText.text || {}), text: String(model.price), color: PRICE_COLORS.grey };
   }
-
 
   renderEquip(tree) {
     const equipIcon = findNode(tree, 'equip');
@@ -341,8 +297,6 @@ export class AutoChessBattleShopCardView {
     return tree;
   }
 
-
-
   stateOf(model) {
     return {
       tier: Number(model.tier) || 1,
@@ -355,20 +309,21 @@ export class AutoChessBattleShopCardView {
       srcPrice: model.srcPrice != null ? Number(model.srcPrice) : null,
       frozen: !!model.isFrozen,
 
+      // card_prefab.py rules.repeatedFxNode: (canComb && hasSame) || hasFusePartner; slots.js draws the same test.
       repeated: !!(model.hasFusePartner || (model.canComb && model.hasSame)),
       armed: !!model.armed,
 
+      // true records the settled pose: every clip entry below carries t / stillT at the end pose. scene.js replays
+      // stillT only on a still frame and otherwise advances the same clip from its own card clock.
       still: true,
       bonds: model.bonds !== false,
       operator: String(model.id || ''),
     };
   }
 
-
   stateUi(model) {
     return { phase: model.armed ? 'CLICKABLE' : 'NONE' };
   }
-
 
   RenderView(context = {}) {
     const model = context.model || this.model;
@@ -385,7 +340,8 @@ export class AutoChessBattleShopCardView {
     this.state = this.stateOf(model);
     this.library = [{ id: this.state.operator, name: model.name }];
     this.ui = this.stateUi(model);
-    // reference/card/card2.js:728-731: only the tier's mounted sub-prefabs may own a tv_particle.
+    // Only the tier's mounted sub-prefabs may own a tv_particle: CardParticles draws a system only where its
+    // prefab is mounted per slot.
     const level = this.levelStyle(this.state.tier);
     this.mounted = [level.frame, level.tierObj].filter(Boolean);
     if (this.root) this.root.__cardMounted = this.mounted;
@@ -394,7 +350,6 @@ export class AutoChessBattleShopCardView {
     if (model.isChar) {
       this.applyState(tree);
     } else {
-
 
       setActive(findNode(tree, 'group_char'), false);
       setActive(findNode(tree, 'group_equip'), true);
@@ -411,13 +366,11 @@ export class AutoChessBattleShopCardView {
     return this;
   }
 
-
   armClock() {
     const at = Number(this.model.armedAt);
     if (!Number.isFinite(at)) return 0;
     return Math.max(0, (performance.now() - at) / 1000);
   }
-
 
   collectClips() {
     const state = this.state;
@@ -438,8 +391,6 @@ export class AutoChessBattleShopCardView {
       entries.push({ clipName: 'btn_double_check', t: state.still ? len : Math.min(this.armClock(), len), basePath: basePath('btn_double_check') });
     }
 
-
-
     const level = this.levelStyle(state.tier);
     for (const name of [level.frame, level.tierObj]) {
       const subDoc = name && this.doc.sub && this.doc.sub[name];
@@ -456,18 +407,15 @@ export class AutoChessBattleShopCardView {
     this.root.__clips = entries;
   }
 
-
   PlayRefreshAnim() {
     const clip = (this.doc.clips || {}).single_card_refresh || {};
     this.root.__clips = (this.root.__clips || []).filter((c) => c.clipName !== 'single_card_refresh');
     this.root.__clips.push({ clipName: 'single_card_refresh', t: Number(clip.len) || 0.2333, basePath: this.root.path });
   }
 
-
   EventOnFirstClick() {
     return { message: 106, slotId: this.model.slotId };
   }
-
 
   EventOnConfirm() {
     return { message: 105, slotId: this.model.slotId };

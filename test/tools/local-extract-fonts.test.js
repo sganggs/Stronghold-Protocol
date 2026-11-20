@@ -1,7 +1,7 @@
 // test/tools/local-extract-fonts.test.js — fonts.py: write a pinned font, keep a local file with the same hash,
 // never overwrite a conflicting one, skip a missing source; --only font's non-zero exit when nothing was written and
 // main() handing it the install's Arknights_Data rather than the temporary hot-update root; a full extract keeping an
-// earlier groups.fonts (extract.py previous_groups); §37.274's requirement that a plain extract writes the font group
+// earlier groups.fonts (extract.py previous_groups); §37.240's requirement that a plain extract writes the font group
 // (it fails without the install's Arknights_Data); and --only shopdocs registering and printing the archived
 // producer's prefabs.json / card.json / shop.json with --themes required.
 //
@@ -118,7 +118,7 @@ elif scenario == 'font-exit':
         codes['kept'] = extract.extract(make_args(), str(work / 'fake-ab'), None, game2)
     result = {'codes': codes, 'logs': printed.getvalue().splitlines()}
 elif scenario == 'full-fonts':
-    # §37.274: fonts are a required group, so a plain extract runs the font job and fails without it.
+    # §37.240: fonts are a required group, so a plain extract runs the font job and fails without it.
     import argparse, contextlib, importlib.util, io
     spec = importlib.util.spec_from_file_location('extract', str(tool / 'extract.py'))
     extract = importlib.util.module_from_spec(spec)
@@ -323,7 +323,7 @@ test('--only font exits non-zero when nothing was written, and only a listed fon
   assert.deepEqual(result.codes, { no_game: 1, nothing: 1, kept: 0 });
 });
 
-test('a plain extract runs the font job and fails without the pinned faces (§37.274)', { skip: !PY && 'no python' }, () => {
+test('a plain extract runs the font job and fails without the pinned faces (§37.240)', { skip: !PY && 'no python' }, () => {
   const result = runDriver('full-fonts');
   assert.deepEqual(result.codes, { no_game: 1, listed: 0, unlisted: 1 }, 'fonts are required by a full extract');
   assert.match(result.errs.no_game, /fonts: the pinned official faces are required/);

@@ -1,32 +1,5 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+// Legacy clip playback: a clip is (node path, property, keys) curves sampled at t; the property names
+// (ax/ay/h/w/alpha/scale/rot/colour/tex) are the extractor's, not this renderer's.
 export const CARD_CLIPS = {
   card_frozen: { what: 'frozen overlay (dissolve / glow)', loop: false },
   loop_triple: { what: 'triple star sweep: UIRawImageMatAnimWrapper._textureProperty1.offset.y (UV scroll)', loop: true },
@@ -34,30 +7,13 @@ export const CARD_CLIPS = {
   single_card_refresh: { what: 'shop refresh: root.ay slides the whole card (-203.5708 -> 0)', loop: false },
 };
 
-
-export const clipStats = { calls: 0, hits: 0, misses: 0, last: null };
-
-
-export function resetClipStats() {
-  clipStats.calls = 0;
-  clipStats.hits = 0;
-  clipStats.misses = 0;
-  clipStats.last = null;
-}
-
-
 export function createClipPose() {
   return { ax: null, ay: null, h: null, w: null, alpha: null, scale: null, rot: null, colour: {}, tex: {} };
 }
 
-
 export function resetPoses(records) {
   for (const rec of records) rec.pose = createClipPose();
 }
-
-
-
-
 
 export function hermiteKey(k0, k1, t) {
   const t0 = k0[0];
@@ -103,15 +59,11 @@ export function sampleKeys(keys, t, hermite) {
   return keys[keys.length - 1][1];
 }
 
-
 export function clipOf(card, name) {
   return (card && card.clips && card.clips[name]) || null;
 }
 
-
 export function applyClip(records, clip, t, basePath, hermite) {
-  clipStats.calls += 1;
-  clipStats.last = { t, basePath, curves: (clip && clip.curves || []).length };
   const resolve = (path) => {
     if (!path) return null;
     if (basePath) {
@@ -129,26 +81,24 @@ export function applyClip(records, clip, t, basePath, hermite) {
   };
   for (const [path, prop, keys] of clip.curves || []) {
     const rec = resolve(path);
-    if (!rec) { clipStats.misses += 1; continue; }
-    clipStats.hits += 1;
+    if (!rec) continue;
     const v = sampleKeys(keys, t, hermite);
     if (v == null) continue;
     const pose = rec.pose;
     if (prop === 'ax') pose.ax = Number(v);
     else if (prop === 'ay') pose.ay = Number(v);
 
-
     else if (prop === 'sh') pose.h = Number(v);
     else if (prop === 'sw') pose.w = Number(v);
     else if (prop === 'alpha') {
 
-
       pose.alpha = Number(v);
+      // A CanvasGroup alpha multiplies its children as well: mark the record so propagateTransforms applies it to
+      // the subtree.
       rec.group = true;
     }
     else if (prop === 'scale') pose.scale = v;
     else if (prop === 'rot' || prop === 'rz') {
-
 
       if (Array.isArray(v)) {
         pose.rot = v.length >= 4 ? (2 * Math.atan2(Number(v[2]) || 0, Number(v[3]) || 0) * 180) / Math.PI : Number(v[2]) || 0;
@@ -165,18 +115,6 @@ export function applyClip(records, clip, t, basePath, hermite) {
     else if (/^tex\.([xy])$/.test(prop)) pose.tex[prop.slice(4)] = Number(v);
   }
 }
-
-
-export function findNode(root, name) {
-  if (!root) return null;
-  if (root.name === name) return root;
-  for (const child of root.children || []) {
-    const hit = findNode(child, name);
-    if (hit) return hit;
-  }
-  return null;
-}
-
 
 export function createTimeline(card) {
   const clocks = new Map();
@@ -198,7 +136,7 @@ export function createTimeline(card) {
     at(name) {
       return clocks.get(name) ?? 0;
     },
-    
+
     sampleTime(name) {
       const clip = clipOf(card, name);
       const t = clocks.get(name) ?? 0;
@@ -211,81 +149,5 @@ export function createTimeline(card) {
       return [...clocks.keys()];
     },
   };
-}
-
-
-export function applyCardClips(records, card, opts = {}) {
-  const state = opts.state || {};
-  const times = opts.times || {};
-  const clock = Number(opts.clock) || 0;
-  const armClock = Number(opts.armClock) || 0;
-  const level = opts.level || {};
-  const basePath = (name) => {
-    const node = findNode(records.root || {}, name);
-    return node ? (node.path || name) : '';
-  };
-  let cardTime = null;
-  if (state.frozen) {
-    const clip = clipOf(card, 'card_frozen');
-    if (clip) {
-      const t = state.still ? clip.len : (times.frozenAt != null ? Math.min(times.frozenAt, clip.len) : Math.min(clock, clip.len));
-      applyClip(records, clip, t, basePath('state_fx_frozen'));
-
-      if (times.frozenAt != null) cardTime = t;
-    }
-  }
-
-
-
-
-  if (state.repeated) {
-    const clip = clipOf(card, 'loop_triple');
-    if (clip) {
-      const t = times.tripleAt != null ? Math.min(times.tripleAt, clip.len)
-        : (state.still ? 2.0 : clock % Math.max(0.001, clip.len));
-      applyClip(records, clip, t, basePath('state_fx_triple'), true);
-      if (times.tripleAt != null) cardTime = t;
-    }
-  }
-
-
-  for (const name of [level.frame, level.tierObj]) {
-    const sub = name && card.sub && card.sub[name];
-    if (!sub) continue;
-    for (const [clipName, clip] of Object.entries(sub.clips || {})) {
-      if (!/loop_tier_star/.test(clipName)) continue;
-      if (!state.still) applyClip(records, clip, clock % Math.max(0.001, clip.len), name);
-    }
-  }
-
-
-
-
-  if (state.armed) {
-    const clip = clipOf(card, 'btn_double_check');
-    if (clip) {
-      const forced = opts.armTime != null ? Number(opts.armTime) : times.armedAt;
-      const t = forced != null ? Math.min(forced, clip.len)
-        : (state.still ? clip.len : Math.min(armClock, clip.len));
-      applyClip(records, clip, t, basePath('btn_double_check'), true);
-    }
-  }
-
-
-
-  if (state.refresh) {
-    const clip = clipOf(card, 'single_card_refresh');
-    if (clip) {
-
-
-      const settled = state.still || times.frozenAt != null;
-      const t = times.refreshAt != null ? Math.min(times.refreshAt, clip.len)
-        : (settled ? clip.len : Math.min(clock, clip.len));
-      applyClip(records, clip, t, '', true);
-
-      if (times.refreshAt != null) cardTime = t;
-    }
-  }
-  return { cardTime };
 }
 

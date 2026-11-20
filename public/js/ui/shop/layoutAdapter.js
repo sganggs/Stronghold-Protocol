@@ -1,26 +1,13 @@
 
 
-
-
-
-
-
-
-
-
-
-
-
 import { layoutPrefab } from '../../render/shop/uguiLayout.js';
 import { UNITY_FONT_METRICS } from '../../render/shop/cardStage.js';
-
 
 export const DESIGN_W = 1920;
 
 export const DESIGN_H = 372;
 
 export const PANEL_H = 286;
-
 
 export function createMeasure() {
   if (typeof document === 'undefined') return null;
@@ -41,7 +28,6 @@ export function createMeasure() {
   };
 }
 
-
 function writeBack(node, box, parentW, parentH) {
   if (!node || !box) return;
   const rect = node.rect || (node.rect = {});
@@ -58,7 +44,6 @@ function writeBack(node, box, parentW, parentH) {
   rect.sizeDelta = [w - stretchW, h - stretchH];
   rect.anchoredPosition = [box.left - ax + pivot[0] * w, parentH - box.top - h + pivot[1] * h - ay];
 }
-
 
 export function layoutScene(panelRoot, opts = {}) {
   const width = Number(opts.width) || DESIGN_W;

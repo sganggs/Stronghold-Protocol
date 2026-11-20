@@ -78,7 +78,12 @@ async function loadOperators() {
   return pool;
 }
 
-/** The mock private state: only the m.private fields the adapter reads. */
+/**
+ * The mock private state: only the m.private fields the adapter reads (server/match/player/views.js privateView).
+ * Simulated, not server-shaped: slots stay 5 chess + 1 item whatever `level` says, refreshPrice stays the paid
+ * price during a free refresh, and board/hand/temp/standIns/diy are omitted, so shopCardFlags sees no owned copy
+ * (the `repeated` state injects cardFlags directly) and ownStandIn/ownDiyRecord never compose a record.
+ */
 function buildPriv(stateName) {
   const level = Math.max(1, Math.min(6, Number(levelSel.value) || 1));
   const funds = stateName === 'able0' ? 0 : Math.max(0, Number(coinIn.value) || 0);

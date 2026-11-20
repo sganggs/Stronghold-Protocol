@@ -1,27 +1,5 @@
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 import { ensurePixi } from '../../render/app/pixi.js';
 
 export const SPINE_PATHS = Object.freeze({
@@ -30,21 +8,16 @@ export const SPINE_PATHS = Object.freeze({
   cleaner: 'panel_shop_main/fold_mask_spine/stencil_cleaner',
 });
 
-
 export const HOLDER = Object.freeze({ width: 180, height: 160, scale: 0.45, pivot: [0.5, 0.5] });
-
 
 export const UNAVAIL_SPINE_COLOR = 0x808080;
 
 export const AVAIL_SPINE_COLOR = 0xffffff;
 
-
 export const IDLE = Object.freeze({ animation: 'Idle', fallback: 'Default', timeScale: 1 });
-
 
 export const SPINE_MODES = Object.freeze(['compose', 'overlay', 'off']);
 export const DEFAULT_SPINE_MODE = 'compose';
-
 
 export function spineModeOf(raw) {
   if (raw === '0' || raw === 'off' || raw === 'none') return 'off';
@@ -72,7 +45,6 @@ export function ensureSpineRuntime() {
   }
   return runtimePromise;
 }
-
 
 /**
  * Skeleton data through the product's own spine loaders: an installed official pack's character.spine
@@ -152,7 +124,6 @@ export class ShopSpineView {
     this.debug.setHidden = (h) => this.setHidden(h);
   }
 
-
   async start() {
     if (this.started) return this;
     this.started = true;
@@ -198,9 +169,6 @@ export class ShopSpineView {
       this.actor.autoUpdate = false;
       this.playIdle();
 
-
-
-
       this.envelope = this.sampleIdleEnvelope();
       this.mount();
       this.debug.loaded = true;
@@ -220,14 +188,12 @@ export class ShopSpineView {
     try { this.actor.state.setAnimation(0, this.animation, true); } catch {  }
   }
 
-
   center() {
     const geo = this.geometry();
     const holder = geo && geo.holder;
     if (holder) return { x: holder.x + holder.w * 0.5, y: holder.y + holder.h * 0.5 };
     return { x: 0, y: 0 };
   }
-
 
   sampleIdleEnvelope() {
     const actor = this.actor;
@@ -268,7 +234,6 @@ export class ShopSpineView {
     return { x: minX, y: minY, w: maxX - minX, h: maxY - minY, duration, steps };
   }
 
-
   envelopeBox(margin = 6) {
     const env = this.envelope;
     if (!env) return null;
@@ -292,7 +257,6 @@ export class ShopSpineView {
     return { x, y, w, h };
   }
 
-
   growToFit(boundsInPrefab, margin = 6) {
     const box = this.envBox;
     if (!box || !boundsInPrefab) return false;
@@ -315,13 +279,11 @@ export class ShopSpineView {
     return true;
   }
 
-
   mount() {
     if (!this.shopCanvas) throw new Error('no shop canvas');
     if (this.mode === 'compose') return this.mountOffscreen();
     return this.mountOverlay();
   }
-
 
   mountOffscreen() {
     const PIXI = this.PIXI;
@@ -357,7 +319,6 @@ export class ShopSpineView {
     this.debug.envelopeBox = this.envBox ? { ...this.envBox } : null;
   }
 
-
   mountOverlay() {
     const PIXI = this.PIXI;
     const shop = this.shopCanvas;
@@ -392,7 +353,6 @@ export class ShopSpineView {
       sharedTicker: false,
     });
 
-
     applyBox(canvas, size);
     this.container = new PIXI.Container();
     this.container.addChild(this.actor);
@@ -402,12 +362,10 @@ export class ShopSpineView {
     this.container.mask = this.maskGraphics;
   }
 
-
   fallbackBox() {
     const size = (this.scene && this.scene.size) || [1920, 372];
     return { x: 0, y: 0, w: Number(size[0]) || 1920, h: Number(size[1]) || 372 };
   }
-
 
   syncSurface() {
     const shop = this.shopCanvas;
@@ -424,7 +382,6 @@ export class ShopSpineView {
     return true;
   }
 
-
   holderScale() {
     const node = this.scene && this.scene.index && this.scene.index.byPath
       ? this.scene.index.byPath.get(SPINE_PATHS.holder)
@@ -432,7 +389,6 @@ export class ShopSpineView {
     const scale = node && Array.isArray(node.scale) ? Number(node.scale[0]) : NaN;
     return Number.isFinite(scale) && scale > 0 ? scale : HOLDER.scale;
   }
-
 
   geometry() {
     const boxes = (this.scene && this.scene.frame && this.scene.frame.boxes) || null;
@@ -449,7 +405,6 @@ export class ShopSpineView {
     };
   }
 
-
   unitPx() {
     const renderer = this.scene && this.scene.renderer;
     const unit = renderer && typeof renderer.unit === 'function' ? Number(renderer.unit()) : NaN;
@@ -457,13 +412,11 @@ export class ShopSpineView {
     return (Number(this.scene && this.scene.unitCss) || 1) * (Math.max(1, Number(this.scene && this.scene.dpr) || 1));
   }
 
-
   desiredTint() {
     const model = this.scene && this.scene.model;
     const available = model ? model.avalid !== false : true;
     return available ? AVAIL_SPINE_COLOR : UNAVAIL_SPINE_COLOR;
   }
-
 
   tick(now = performance.now(), force = false) {
     if (this.dead || !this.app || !this.actor) return false;
@@ -561,7 +514,6 @@ export class ShopSpineView {
     return surfaceChanged || advanced;
   }
 
-
   placeFrame(geo) {
     const { holder } = geo;
     const inCompose = this.mode === 'compose';
@@ -588,7 +540,6 @@ export class ShopSpineView {
     return scale;
   }
 
-
   syncCompose(geo) {
     if (!this.app) return false;
     const unitPx = geo.unitPx || this.unitPx();
@@ -614,18 +565,15 @@ export class ShopSpineView {
     return true;
   }
 
-
   animating() {
     return !this.dead && this.mode === 'compose' && !this.hidden && !!this.app && !this.paused;
   }
-
 
   consumePaintRequest() {
     if (!this.needsStagePaint) return false;
     this.needsStagePaint = false;
     return true;
   }
-
 
   quad(geo = this.geometry(), holder = geo && geo.holder) {
     if (this.mode !== 'compose' || this.hidden || !this.canvas || !geo || !holder) return null;
@@ -650,7 +598,6 @@ export class ShopSpineView {
     };
   }
 
-
   time() {
     try {
       const tracks = this.actor.state.tracks;
@@ -659,7 +606,6 @@ export class ShopSpineView {
     } catch {  }
     return 0;
   }
-
 
   updateBoundsDebug() {
     if (!this.actor) return;
@@ -682,7 +628,6 @@ export class ShopSpineView {
     } catch {  }
   }
 
-
   seek(t) {
     if (!this.actor) return null;
     const seconds = Math.max(0, Number(t) || 0);
@@ -698,14 +643,12 @@ export class ShopSpineView {
     return this.debug;
   }
 
-
   pause(paused = true) {
     this.paused = !!paused;
     this.lastNow = 0;
     this.debug.paused = this.paused;
     return this.debug;
   }
-
 
   setHidden(hidden) {
     this.hidden = !!hidden;
@@ -755,13 +698,11 @@ function atlasBaseTextures(data) {
   return [...out];
 }
 
-
 function boxOf(box) {
   if (!box) return null;
   const round = (v) => Math.round(Number(v || 0) * 100) / 100;
   return { x: round(box.x), y: round(box.y), w: round(box.w), h: round(box.h), shown: box.shown, alpha: box.alpha };
 }
-
 
 function surfaceOf(shop, host) {
   const rect = shop.getBoundingClientRect();
@@ -773,7 +714,6 @@ function surfaceOf(shop, host) {
   const round = (v) => Math.round(v * 1000) / 1000;
   return { width: round(width), height: round(height), left: round(left), top: round(top) };
 }
-
 
 function applyBox(canvas, size) {
   canvas.style.left = `${size.left}px`;

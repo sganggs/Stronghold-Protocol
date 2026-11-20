@@ -1,18 +1,11 @@
 
 
-
-
-
-
-
-
-
 import { ChromeViewData, SlotsViewData, CtrlViewData, UpgradeViewData } from './viewData.js';
 import { FadeSwitchTween } from './widgets.js';
 import { countNodes, findPath } from './prefab.js';
 
 export class AutoChessBattleShopMainView {
-  
+
   constructor({ scene }) {
     this.scene = scene;
     this.cachedModel = null;
@@ -21,9 +14,9 @@ export class AutoChessBattleShopMainView {
     this.lastCoin = null;
     this.lastRenderKey = null;
     this.lastRenderKeys = [];
-    
+
     this.onCardConfirm = null;
-    
+
     this.mainPanelFade = new FadeSwitchTween({
       scene,
       node: scene.panel,
@@ -33,7 +26,6 @@ export class AutoChessBattleShopMainView {
     this.mainPanelFade.Reset(true);
   }
 
-  
   _BuildChromeViewData(model) {
     return new ChromeViewData({
       isAvailable: model.avalid,
@@ -47,7 +39,6 @@ export class AutoChessBattleShopMainView {
     });
   }
 
-  
   _BuildSlotsViewData(model) {
     return new SlotsViewData({
       isSpecialRecruit: model.isSpecialRecruit,
@@ -58,7 +49,6 @@ export class AutoChessBattleShopMainView {
     });
   }
 
-  
   _BuildCtrlViewData(model) {
     return new CtrlViewData({
       isSpecialRecruit: model.isSpecialRecruit,
@@ -70,7 +60,6 @@ export class AutoChessBattleShopMainView {
     });
   }
 
-  
   _BuildUpgradeViewData(model) {
     return new UpgradeViewData({
       coinCount: model.coinCount,
@@ -83,7 +72,6 @@ export class AutoChessBattleShopMainView {
     });
   }
 
-  
   _RenderShopMainPanels(model) {
     this.lastRenderKeys = [];
     if (!model || !model.show) return false;
@@ -100,8 +88,6 @@ export class AutoChessBattleShopMainView {
     return true;
   }
 
-  
-  
   invalidate() {
     this.lastRenderKey = null;
   }
@@ -141,7 +127,6 @@ export class AutoChessBattleShopMainView {
     return this.metrics();
   }
 
-  
   metrics() {
     const scene = this.scene;
     const model = this.cachedModel || {};
@@ -198,7 +183,6 @@ function round(v) {
   return Math.round(Number(v) * 1000) / 1000;
 }
 
-
 function renderKey(model) {
   if (!model) return 'null';
   if (!model.show) return 'hidden';
@@ -245,7 +229,6 @@ function unionBounds(boxes) {
   return { x: round(x0), y: round(y0), w: round(x1 - x0), h: round(y1 - y0) };
 }
 
-
 function panelBounds(scene) {
   const rootRect = (scene.panelDoc && scene.panelDoc.root && scene.panelDoc.root.rect) || {};
   const size = rootRect.sizeDelta || [0, 286];
@@ -253,7 +236,6 @@ function panelBounds(scene) {
   const h = Number(size[1]) || 286;
   return { x: 0, y: round(scene.size[1] - h), w: round(w), h: round(h) };
 }
-
 
 function materialReport(scene) {
   const resolve = (key) => scene.stageMaterials[key] || (scene.cardDoc.materials && scene.cardDoc.materials[key]) || null;
@@ -270,7 +252,6 @@ function materialReport(scene) {
   return { used: used.size, resolved: used.size - unresolved.size, unresolved: [...unresolved] };
 }
 
-
 function textureReport(scene) {
   let ready = 0;
   const pending = [];
@@ -281,7 +262,6 @@ function textureReport(scene) {
   return { ready, pending: pending.length, pendingUrls: pending.slice(0, 20) };
 }
 
-
 function countSpine(root) {
   let n = 0;
   (function walk(node) {
@@ -291,7 +271,6 @@ function countSpine(root) {
   })(root);
   return n;
 }
-
 
 function unresolvedNodes(scene) {
   const byReason = {};
@@ -317,7 +296,6 @@ function unresolvedNodes(scene) {
   return { total, visible, byReason, visibleByReason };
 }
 
-
 function countCostViews(scene) {
   let n = 0;
   const walk = (node) => {
@@ -328,6 +306,5 @@ function countCostViews(scene) {
   walk(scene.panel);
   return n;
 }
-
 
 void findPath;

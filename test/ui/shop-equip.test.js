@@ -1,9 +1,8 @@
 // test/ui/shop-equip.test.js — the equip icon is the prefab node (93×93 at (0,17)) with the sprite the model
 // supplies; the renderer never resizes it. The official Image is Simple with m_PreserveAspect=0 and _RenderEquip
 // only calls Image.set_sprite (EQUIP-AUDIT.md §2.2/§2.4), and the official sprite is a padded m_Rect canvas, so
-// drawing it in the prefab rect with UV 0..1 is the uGUI result (§2.3/§6.1). The previous fit/contain wrapper was
-// product-only logic: it stretched the prefab rect to the trimmed art's aspect and only applied on a later
-// RenderView, so the first frame of every card was the 93×93 stretch (§3.3, §4.3).
+// drawing it in the prefab rect with UV 0..1 is the uGUI result (§2.3/§6.1). The equip node keeps its prefab
+// rect and only takes the sprite from the model, on the first frame too.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

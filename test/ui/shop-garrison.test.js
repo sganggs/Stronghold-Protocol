@@ -1,6 +1,6 @@
 // test/ui/shop-garrison.test.js — P2: the tier 6 garrison mark is the official third colour, not a default grey.
-// reference/card/card2.js:388-394 maps LV6 -> garrisonIconColor3; the product's theme importer used to drop
-// colours 2/3 because ui-theme.css has no custom property for them, so cardModelFromSlot fell back to white.
+// reference/card/card2.js:388-394 maps LV6 -> garrisonIconColor3. The theme importer must carry colours 2/3
+// into the pack even though ui-theme.css has no custom property for them; otherwise cardModelFromSlot paints white.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

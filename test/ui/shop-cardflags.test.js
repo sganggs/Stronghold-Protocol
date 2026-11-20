@@ -1,6 +1,7 @@
-// test/ui/shop-cardflags.test.js — the renderer's duplicated-operator flags (ui/shop/ShopCanvas.js).
-// The card view/slots already implement hasSame/canComb/hasFusePartner/repeated; the product view must fill
-// them from mergeProgress for chess cards only. Items stay false until their merge path is specified.
+// test/ui/shop-cardflags.test.js — the renderer's per-slot flags (ui/shop/ShopCanvas.js).
+// The card view/slots already implement hasSame/canComb/hasFusePartner/repeated; the product view fills them
+// from mergeProgress for chess cards and from the item record (mergeable/upgradeNum/upgradeChessId,
+// canFuse/fuseWith) for equipment, including items in the hand, the temp row or on an operator.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

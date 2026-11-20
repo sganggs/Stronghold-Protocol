@@ -1,14 +1,14 @@
 /**
- * Derive Stage B metadata from the theme documents themselves.
+ * Derive the render metadata from the theme documents themselves.
  *
  * `shop.json`/`card.json` now carry each node's real prefab `pathID` (from
  * tools/local-extract/legacy/path_ids.py).  The status-driver descriptions
  * already carry GAME_OBJECT `pid` values; `colorGroup.nodes` carries the full
  * `_colorElements` id list.  This adapter turns both into the shapes the
- * existing host/renderer consumes, without the lab's `pathid_map.json` or
- * `tint_targets.json`.
+ * existing host/renderer consumes, without the older mapping files
+ * (`pathid_map.json` / `tint_targets.json`).
  *
- * It does not mutate the documents or touch the DOM.
+ * Pure: both maps are rebuilt from the documents on every call, no cache.
  */
 
 const PANEL_ROOT = 'panel_shop_main';

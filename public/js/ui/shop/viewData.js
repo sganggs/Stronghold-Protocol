@@ -1,14 +1,5 @@
 
 
-
-
-
-
-
-
-
-
-
 export class ChromeViewData {
   constructor(init = {}) {
     this.isAvailable = init.isAvailable ?? true;
@@ -22,7 +13,6 @@ export class ChromeViewData {
   }
 }
 
-
 export class SlotsViewData {
   constructor(init = {}) {
     this.isSpecialRecruit = !!init.isSpecialRecruit;
@@ -32,7 +22,6 @@ export class SlotsViewData {
     this.onCardConfirm = init.onCardConfirm || null;
   }
 }
-
 
 export class CtrlViewData {
   constructor(init = {}) {
@@ -44,7 +33,6 @@ export class CtrlViewData {
     this.freeRefreshCnt = init.freeRefreshCnt ?? 0;
   }
 }
-
 
 export class UpgradeViewData {
   constructor(init = {}) {

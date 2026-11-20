@@ -1,8 +1,8 @@
 // test/ui/shop-i18n.test.js — the shop's i18n surface.
 // 1) every key the shop shows exists in the four non-default language packs: the literals of t('…') and the
 //    module-level N_('…') marks (host.js CONTROL_LABELS and the freeze label) that tools/i18n.mjs extracts;
-// 2) a language switch changes the shop host's React key, so the canvas text and localized data model are
-//    rebuilt instead of showing the old language (the data overlay arrival is handled by the host update).
+// 2) a language switch changes the mount key, and every data file the card model reads (LOCALE_FILES)
+//    repaints the live host when it arrives late.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

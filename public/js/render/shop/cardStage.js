@@ -1,33 +1,6 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+// WebGL2 stage for one official card prefab: one pass over view.order() (records), optionally interleaved
+// with the shop's spine quad and the particle renderer. Coordinates are the card's top-down prefab units
+// times unitPx plus padPx; textures and glyph atlases are cached for the stage's lifetime.
 const VERT = `#version 300 es
   in vec2 aPos;
   in vec2 aUV;
@@ -75,7 +48,6 @@ const FRAG = `#version 300 es
   uniform float uSmooth;
   uniform float uAlphaClip;
   uniform vec4 uTint;
-  uniform float uIsText;
   uniform float uFlipV;
   uniform float uFlipDiss;
   uniform float uRawUv;
@@ -86,14 +58,7 @@ const FRAG = `#version 300 es
     vec4 base;
     if (uRawUv > 0.5) {
 
-
-
-
-
-
-
       float sweepS = vUV.y * uBaseTile.y + (uRawFlipV > 0.5 ? -uBaseOffset.y : uBaseOffset.y);
-
 
       if (uRawFlipV > 0.5) sweepS = clamp(sweepS, 0.0, 1.0); else sweepS = fract(sweepS);
       vec2 uv = vec2(fract(vUV.x * uBaseTile.x + uBaseOffset.x), 1.0 - sweepS);
@@ -109,8 +74,6 @@ const FRAG = `#version 300 es
     float alpha;
     if (uBaseChannel > 0.5) {
 
-
-
       rgb = uTint.rgb;
       alpha = base.r * uTint.a;
     } else {
@@ -118,8 +81,6 @@ const FRAG = `#version 300 es
       alpha = base.a * uTint.a;
     }
     if (uHasMask > 0.5) {
-
-
 
       vec2 maskUV = uRawUv > 0.5
         ? vec2(fract(vUV.x * uMaskTile.x + uMaskOffset.x), 1.0 - fract(vUV.y * uMaskTile.y + uMaskOffset.y))
@@ -145,8 +106,6 @@ const FRAG = `#version 300 es
       vec2 uv = (cardPx - uSoftRect.xy) / max(uSoftRect.zw, vec2(1.0));
       vec4 s = texture(uSoft, uv);
 
-
-
       float inRect = step(0.0, uv.x) * step(uv.x, 1.0) * step(0.0, uv.y) * step(uv.y, 1.0);
       float m = (s.r * uSoftWeights.r + s.g * uSoftWeights.g + s.b * uSoftWeights.b + s.a * uSoftWeights.a) * inRect;
       alpha *= m;
@@ -167,11 +126,9 @@ function compile(gl, type, src) {
   return sh;
 }
 
-
 export const UNITY_FONT_METRICS = {
   'Novecentowide-Medium': { ascent: 16.8, descent: -2.4, lineSpacing: 19.2, fontSize: 16, characterPadding: 1 },
 };
-
 
 export function fontMetrics(family, fontPx, measure) {
   const unity = UNITY_FONT_METRICS[family];
@@ -182,11 +139,9 @@ export function fontMetrics(family, fontPx, measure) {
       descent: unity.descent * k,
       lineHeight: unity.lineSpacing * k,
 
-
       padding: (Number(unity.characterPadding) || 0) * k,
     };
   }
-
 
   const probe = measure.measureText('0');
   const ascent = Number.isFinite(probe.fontBoundingBoxAscent) ? probe.fontBoundingBoxAscent : fontPx * 1.05;
@@ -194,14 +149,12 @@ export function fontMetrics(family, fontPx, measure) {
   return { ascent, descent: -descent, lineHeight: ascent + descent, padding: 0 };
 }
 
-
 export function sliceQuads(slice, x, y, w, h, unitPx) {
   const sw = Number(slice && slice.spriteW);
   const sh = Number(slice && slice.spriteH);
   if (!(sw > 0) || !(sh > 0)) return null;
   const src = { top: Number(slice.top) || 0, right: Number(slice.right) || 0, bottom: Number(slice.bottom) || 0, left: Number(slice.left) || 0 };
   if (!(src.top || src.right || src.bottom || src.left)) return null;
-
 
   let top = src.top * unitPx;
   let bottom = src.bottom * unitPx;
@@ -214,9 +167,6 @@ export function sliceQuads(slice, x, y, w, h, unitPx) {
   const xs = [x, x + left, x + w - right, x + w];
   const ys = [y, y + top, y + h - bottom, y + h];
   const out = [];
-
-
-
 
   const zeroCenter = Math.abs(sw - src.left - src.right) <= 1e-6
     || Math.abs(sh - src.top - src.bottom) <= 1e-6;
@@ -246,7 +196,6 @@ const rgba = (hex, fallback = [1, 1, 1, 1]) => {
 };
 
 const tileOf = (t) => (Array.isArray(t) && t[0] > 0 && t[1] > 0 ? [t[0], t[1]] : [1, 1]);
-
 
 export function create(canvas, card, view, options = {}) {
   const search = String(options.search || '');
@@ -313,7 +262,7 @@ export function create(canvas, card, view, options = {}) {
   const U = {};
   for (const name of ['uRect', 'uView', 'uBase', 'uMask', 'uDiss', 'uSoft', 'uSoftWeights', 'uSoftRect', 'uSoftMix', 'uAngle', 'uPivot', 'uScale', 'uFlipV', 'uFlipDiss', 'uRawUv', 'uRawFlipV', 'uBaseChannel',
     'uBaseTile', 'uBaseOffset', 'uMaskTile', 'uMaskOffset', 'uDissTile', 'uDissOffset', 'uHasBase', 'uHasMask',
-    'uHasDiss', 'uMaskInvert', 'uDissInvert', 'uProgress', 'uSmooth', 'uAlphaClip', 'uTint', 'uIsText']) {
+    'uHasDiss', 'uMaskInvert', 'uDissInvert', 'uProgress', 'uSmooth', 'uAlphaClip', 'uTint']) {
     U[name] = gl.getUniformLocation(program, name);
   }
 
@@ -328,7 +277,6 @@ export function create(canvas, card, view, options = {}) {
   gl.vertexAttribPointer(aUV, 2, gl.FLOAT, false, 16, 8);
 
   const textures = new Map();
-
 
   const resolveUrl = typeof options.resolveUrl === 'function' ? options.resolveUrl : (file) => file;
   const loadTexture = (url) => {
@@ -357,7 +305,6 @@ export function create(canvas, card, view, options = {}) {
     return entry;
   };
 
-
   let whiteEntry = null;
   const whiteTexture = () => {
     if (whiteEntry) return whiteEntry;
@@ -371,11 +318,6 @@ export function create(canvas, card, view, options = {}) {
     whiteEntry = { tex, ready: true, url: 'uGUI/white' };
     return whiteEntry;
   };
-
-
-
-
-
 
   // Glyph textures are per-string atlases, so a shop browsed for a while (prices, names, bond text)
   // would grow `textCache` without bound. Keep an LRU bounded by TEXT_CACHE_LIMIT and delete the
@@ -417,7 +359,6 @@ export function create(canvas, card, view, options = {}) {
         const mid = (low + high) / 2;
         measure.font = fontOf(mid);
         const metrics = fontMetrics(text.font, mid, measure);
-
 
         const advance = measure.measureText(text.value).width + metrics.padding * text.value.length;
         const fits = advance <= rectW && metrics.lineHeight <= rectH;
@@ -484,7 +425,6 @@ export function create(canvas, card, view, options = {}) {
     unitPx = (widthPx / gridW) * ratio;
     padPx = { left: (Number(padding.left) || 0) * unitPx, top: (Number(padding.top) || 0) * unitPx };
 
-
     canvas.style.width = `${canvas.width / ratio}px`;
     canvas.style.height = `${canvas.height / ratio}px`;
     gl.viewport(0, 0, canvas.width, canvas.height);
@@ -506,15 +446,11 @@ export function create(canvas, card, view, options = {}) {
   // options.debugStats; the counters the host does read (external, quads, materials, sprites, texts) stay.
   const stats = { quads: 0, texts: 0, materials: 0, sprites: 0, scissored: 0, particles: 0, last: [], external: null, externalError: null, rects: [] };
 
-
-
-
   let externalQuad = typeof options.externalQuad === 'function' ? options.externalQuad : null;
   let externalTex = null;
   let externalUploadMs = 0;
   const externalUploadSamples = [];
 
-  
   const drawExternalQuad = (entry, orderIndex = null, path = null, recordClip = null) => {
     const source = entry && entry.source;
     const box = entry && entry.box;
@@ -595,7 +531,6 @@ export function create(canvas, card, view, options = {}) {
     gl.uniform4f(U.uTint, 1, 1, 1, alpha);
 
     gl.uniform1f(U.uHasBase, 1);
-    gl.uniform1f(U.uIsText, 0);
     gl.uniform1f(U.uFlipV, 0);
     gl.uniform1f(U.uFlipDiss, 0);
     gl.uniform1f(U.uRawUv, 0);
@@ -671,9 +606,10 @@ export function create(canvas, card, view, options = {}) {
     // `lost` and falls back instead of drawing into the void.
     if (destroyed || lost) return;
     if (gl.isContextLost && gl.isContextLost()) { lost = true; return; }
+    // A non-null cardTime pins the clock instead of advancing it: the still pose, the dev scrub and the pixel
+    // comparisons (window.__cardTime) draw the same frame twice and must produce the same pixels.
     clock = (options.cardTime && options.cardTime() != null) ? Number(options.cardTime()) : clock + Math.max(0, dt || 0);
     gl.useProgram(program);
-
 
     gl.bindBuffer(gl.ARRAY_BUFFER, quad);
     gl.enableVertexAttribArray(aPos);
@@ -698,12 +634,7 @@ export function create(canvas, card, view, options = {}) {
     stats.external = null;
     stats.externalError = null;
 
-
-
-
-
     if (particleRenderer) {
-
 
       const rects = new Map();
       for (const rec of view.order()) {
@@ -718,7 +649,6 @@ export function create(canvas, card, view, options = {}) {
           h: rec.abs.h * unitPx,
         });
       }
-
 
       // Advance by the real frame interval (clamped to 0.1 s, the particle simulation's own step cap)
       // instead of min(1/60, target - sim): at the host's ~20 fps ambient paint that old cap moved the
@@ -741,19 +671,11 @@ export function create(canvas, card, view, options = {}) {
       try { particleRenderer.advance(particleDt, rects, unitPx); } catch {  }
     }
 
-
     let orderIndex = -1;
     for (const rec of view.order()) {
       orderIndex += 1;
       const node = rec.node;
       if (!rec.active) continue;
-
-
-
-
-
-
-
 
       if (externalQuad) {
         try {
@@ -761,13 +683,10 @@ export function create(canvas, card, view, options = {}) {
           if (external && external.ready && drawExternalQuad(external, orderIndex, rec.node.path || null, rec.clipRect)) continue;
         } catch (err) {
 
-
           stats.externalError = String((err && err.message) || err || 'external quad failed');
           stats.external = null;
         }
       }
-
-
 
       if (particleRenderer && !skipParticleDraw && particleRenderer.has(node)) {
         gl.disable(gl.SCISSOR_TEST);
@@ -785,7 +704,6 @@ export function create(canvas, card, view, options = {}) {
       }
       const pose = rec.pose || {};
 
-
       const base = rec.abs;
       const shift = rec.delta;
       const box = shift ? { x: base.x + shift.x, y: base.y + shift.y, w: base.w, h: base.h } : base;
@@ -796,8 +714,6 @@ export function create(canvas, card, view, options = {}) {
       const x = box.x * unitPx + padPx.left;
       const y = box.y * unitPx + padPx.top;
       if (x + w < 0 || y + h < 0 || x > canvas.width || y > canvas.height) continue;
-
-
 
       const clip = rec.clipRect;
       if (clip) {
@@ -811,10 +727,6 @@ export function create(canvas, card, view, options = {}) {
       } else {
         gl.disable(gl.SCISSOR_TEST);
       }
-
-
-
-
 
       const stencil = rec.stencil;
       let colourWrite = true;
@@ -850,15 +762,12 @@ export function create(canvas, card, view, options = {}) {
       gl.uniform1f(U.uAngle, ((-((Number(rec.node.rot) || 0) + poseRot)) * Math.PI) / 180);
       gl.uniform2f(U.uPivot, x + pivot[0] * w, y + pivot[1] * h);
 
-
-
       const nodeScale = rec.node.scale || [1, 1, 1];
       const poseScale = rec.pose && rec.pose.scale;
       const inheritScale = (rec.inheritScale && rec.inheritScale.length === 2) ? rec.inheritScale : [1, 1];
       const scaleX = (Number(nodeScale[0]) || 1) * (poseScale ? Number(poseScale[0]) : 1) * inheritScale[0];
       const scaleY = (Number(nodeScale[1]) || 1) * (poseScale ? Number(poseScale[1]) : 1) * inheritScale[1];
       gl.uniform2f(U.uScale, scaleX, rec.mirroredY ? Math.abs(scaleY) : scaleY);
-      gl.uniform1f(U.uIsText, 0);
       gl.uniform1f(U.uFlipV, 0);
       gl.uniform1f(U.uFlipDiss, 0);
       gl.uniform1f(U.uRawUv, rec.rawUv ? 1 : 0);
@@ -887,8 +796,6 @@ export function create(canvas, card, view, options = {}) {
 
       let tint = rgba((image && image.color) || (raw && raw.color) || '#FFFFFF');
 
-
-
       const rgbCtrl = !!(material && material.draw && material.draw.rgbCtrl);
       if (rgbCtrl) {
         const mt = rgba((material.draw && material.draw.tint) || '#FFFFFF');
@@ -906,9 +813,6 @@ export function create(canvas, card, view, options = {}) {
         tint[3] *= pose.alpha;
       }
 
-
-
-
       const confirmSweepAlpha = rec.rawUv
         && /\/group_upgrade\/group_normal\/fx_upgrade\/sweep[12]$/.test((rec.node && rec.node.path) || '');
       if (confirmSweepAlpha) {
@@ -919,13 +823,11 @@ export function create(canvas, card, view, options = {}) {
 
       if (rec.inheritAlpha != null && rec.inheritAlpha !== 1) tint[3] *= rec.inheritAlpha;
 
-
       if (node.tintMul) {
         tint = [tint[0] * node.tintMul[0], tint[1] * node.tintMul[1], tint[2] * node.tintMul[2], tint[3] * (node.tintMul[3] == null ? 1 : node.tintMul[3])];
       }
 
       if (node.text) {
-
 
         const text = {
           font: node.text.font || 'NotoSansHans-Medium',
@@ -943,15 +845,11 @@ export function create(canvas, card, view, options = {}) {
         gl.bindTexture(gl.TEXTURE_2D, glyph.tex);
         gl.uniform1i(U.uBase, 0);
         gl.uniform1f(U.uHasBase, 1);
-        gl.uniform1f(U.uIsText, 1);
         gl.uniform1f(U.uFlipV, 0);
         gl.uniform1f(U.uFlipDiss, 0);
         gl.uniform4f(U.uTint, tint[0], tint[1], tint[2], tint[3]);
 
-
-
         gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-
 
         const gh = glyph.height;
         const gw = glyph.width;
@@ -986,14 +884,15 @@ export function create(canvas, card, view, options = {}) {
         gl.uniform1f(U.uHasBase, base ? 1 : 0);
         gl.uniform1f(U.uHasMask, mask ? 1 : 0);
 
+        // _BaseTex_Channel = 1 (UI-Fx-Common, e.g. tv_glow1): the red channel is coverage and the colour comes from
+        // the tint alone. card_shader.py records the enum; sampling RGBA would paint the coverage map as colour.
         gl.uniform1f(U.uBaseChannel, material.floats && Number(material.floats._BaseTex_Channel) === 1 ? 1 : 0);
         maskBound = !!mask;
 
-
-
-
         const baseTile = tileOf(drawRec.tile);
         const baseOffset = drawRec.offset || [0, 0];
+        // A real _BaseTex is sampled bottom-up (Unity origin), so V is flipped; the shader defaults (no baseFile,
+        // identity ST) are uniform and need no flip.
         const identitySt = baseTile[0] === 1 && baseTile[1] === 1 && !baseOffset[0] && !baseOffset[1];
         gl.uniform1f(U.uFlipV, !drawRec.baseFile && identitySt ? 0 : 1);
         gl.uniform1f(U.uFlipDiss, 0);
@@ -1006,8 +905,6 @@ export function create(canvas, card, view, options = {}) {
         const spin = drawRec.speed || [0, 0];
         const dissSpeed = (drawRec.dissolve && drawRec.dissolve.speed) || [0, 0];
 
-
-
         const texPose = pose.tex || {};
         gl.uniform2f(U.uBaseOffset,
           texPose.x != null ? texPose.x : (baseOffset[0] || 0) + spin[0] * clock,
@@ -1015,7 +912,6 @@ export function create(canvas, card, view, options = {}) {
         gl.uniform2f(U.uMaskTile, ...tileOf(drawRec.maskTile));
         gl.uniform2f(U.uMaskOffset, (drawRec.maskOffset?.[0] || 0), (drawRec.maskOffset?.[1] || 0));
         gl.uniform2f(U.uDissTile, ...tileOf(drawRec.dissolveTile));
-
 
         gl.uniform2f(U.uDissOffset,
           (drawRec.dissolveOffset?.[0] || 0) + dissSpeed[0] * clock,
@@ -1026,20 +922,11 @@ export function create(canvas, card, view, options = {}) {
         gl.uniform1f(U.uSmooth, drawRec.dissolve ? Math.max(0.0001, Number(drawRec.dissolve.smoothness ?? 0.1)) : 1);
         gl.uniform1f(U.uAlphaClip, drawRec.alphaClip ? 1 : 0);
 
-
-
         const dst = drawRec.dst == null ? null : Number(drawRec.dst);
         additive = dst != null ? dst === 1 : (!!drawRec.additive || drawRec.blend === 'add');
 
-
-
-
         if (additive) gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
         else gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-
-
-
-
 
         const intensity = drawRec.intensity != null ? Number(drawRec.intensity) : 1;
         const colIntensity = drawRec.colIntensity != null ? Number(drawRec.colIntensity) : 1;
@@ -1050,14 +937,12 @@ export function create(canvas, card, view, options = {}) {
         stats.materials += 1;
       } else if (image && (image.file || image.color)) {
 
-
         const tex = image.file ? loadTexture(image.file) : whiteTexture();
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, tex ? tex.tex : null);
         gl.uniform1i(U.uBase, 0);
         gl.uniform1f(U.uHasBase, tex ? 1 : 0);
         gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-
 
         if (rec.slice && image.file) sliced = sliceQuads(rec.slice, x, y, w, h, unitPx);
         stats.sprites += 1;
@@ -1074,8 +959,6 @@ export function create(canvas, card, view, options = {}) {
         gl.uniform4f(U.uSoftWeights, wgt.r || 0, wgt.g || 0, wgt.b || 0, wgt.a || 0);
         const sr = rec.softMask.rect || { x: 0, y: 0, w: 157, h: 207 };
 
-
-
         const softShift = rec.delta || { x: 0, y: 0 };
         gl.uniform4f(U.uSoftRect,
           (sr.x + softShift.x) * unitPx + padPx.left,
@@ -1085,7 +968,6 @@ export function create(canvas, card, view, options = {}) {
       }
       gl.uniform4f(U.uTint, tint[0], tint[1], tint[2], tint[3]);
       if (sliced) {
-
 
         for (const s of sliced) {
           gl.uniform4f(U.uRect, s.x, s.y, s.w, s.h);
@@ -1119,7 +1001,6 @@ export function create(canvas, card, view, options = {}) {
         });
         stats.last.push(`${rec.node.name}:${material ? 'mat' : 'sprite'}:mask${maskBound ? 1 : 0}`);
       }
-      void baseUrl;
     }
     gl.disable(gl.SCISSOR_TEST);
     gl.disable(gl.STENCIL_TEST);
@@ -1162,18 +1043,19 @@ export function create(canvas, card, view, options = {}) {
     get lost() { return lost || !!(gl.isContextLost && gl.isContextLost()); },
     get destroyed() { return destroyed; },
     get particles() { return particleRenderer; },
-    
+
     get textures() { return textures; },
-    
+
+    // Injection point for the shop spine overlay: the callback returns one external quad per record, and a ready
+    // one is drawn at that record draw order (the panel draws the character between its own layers).
     setExternalQuad(fn) {
       externalQuad = typeof fn === 'function' ? fn : null;
       return externalQuad != null;
     },
-    
+
     get metrics() { return { unitPx, padPx, canvas: [canvas.width, canvas.height], css: [canvas.style.width, canvas.style.height], clock, particleSim }; },
   };
 }
-
 
 function intersectClip(a, b) {
   if (!a) return b || null;
@@ -1185,7 +1067,4 @@ function intersectClip(a, b) {
   if (!(w > 0 && h > 0)) return { x, y, w: 0, h: 0 };
   return { x, y, w, h };
 }
-
-
-export const CardStage = { create };
 

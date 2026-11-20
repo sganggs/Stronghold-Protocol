@@ -1,28 +1,10 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+// uGUI layout for the panel documents: anchors/pivot to box, HorizontalOrVerticalLayoutGroup (min/pref/flex)
+// and sliders, in the panel's top-down px space.
 const AXES = [0, 1];
-
 
 const num = (v, d = 0) => (Number.isFinite(Number(v)) ? Number(v) : d);
 
 const vec = (v, d) => (Array.isArray(v) && v.length >= 2 ? [num(v[0], d[0]), num(v[1], d[1])] : d.slice());
-
 
 export function isActive(node, opts) {
   const over = opts?.pose?.active;
@@ -30,9 +12,7 @@ export function isActive(node, opts) {
   return node?.active !== false;
 }
 
-
 const merge2 = (over, base) => (over ? [over[0] ?? base[0], over[1] ?? base[1]] : base);
-
 
 function rectOf(node, opts) {
   const r = node.rect || {};
@@ -47,11 +27,9 @@ function rectOf(node, opts) {
   };
 }
 
-
 function layoutChildren(node, opts) {
   return (node.children || []).filter((c) => isActive(c, opts) && !c.element?.ignore);
 }
-
 
 export function layoutSize(node, axis, opts, memo = new Map()) {
   const key = memo.get(node);
@@ -89,20 +67,17 @@ export function layoutSize(node, axis, opts, memo = new Map()) {
   return out;
 }
 
-
 export function textOf(node, opts) {
   const over = opts?.pose?.texts;
   if (over && over.has(node)) return over.get(node);
   return node.text?.text ?? '';
 }
 
-
 function textSize(node, opts) {
   const text = textOf(node, opts);
   if (!text) return { w: 0, h: 0 };
   return opts.measure ? opts.measure(String(text), node) : { w: String(text).length * num(node.text?.fontSize, 14) * 0.6, h: num(node.text?.fontSize, 14) * 1.2 };
 }
-
 
 function childSizes(child, axis, control, expand, opts, memo) {
   let min;
@@ -118,7 +93,6 @@ function childSizes(child, axis, control, expand, opts, memo) {
   if (expand) flex = Math.max(flex, 1);
   return { min, pref, flex };
 }
-
 
 function groupSize(node, axis, opts, memo) {
   const g = node.layout;
@@ -152,14 +126,13 @@ function groupSize(node, axis, opts, memo) {
   return { min, pref: Math.max(min, pref), flex };
 }
 
-
 function arrange(node, w, h, opts, memo) {
   const g = node.layout;
   const vertical = g.axis === 'v';
   const pad = Array.isArray(g.pad) ? g.pad : [0, 0, 0, 0];
   const kids = layoutChildren(node, opts);
   if (g.reverse) kids.reverse();
-  
+
   const out = new Map(kids.map((c) => {
     const r = rectOf(c, opts);
     return [c, { x: 0, y: 0, w: r.size[0], h: r.size[1] }];
@@ -218,12 +191,13 @@ function arrange(node, w, h, opts, memo) {
   return out;
 }
 
-
 export function layoutPrefab(root, opts = {}) {
-  
+
   const memo = new Map();
   const bounds = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
   const r0 = rectOf(root, opts);
+  // ContentSizeFitter: 1 = min, 2 = preferred. root_layout fits its width to the content, which is why the
+  // panel content sits right-aligned under the official 1920 layout.
   const rootSize = fitted(root, r0.size, opts, memo);
   const box = place(root, { x: -r0.pivot[0] * rootSize[0], y: -r0.pivot[1] * rootSize[1], w: rootSize[0], h: rootSize[1] }, null, 0, 0, opts, memo, bounds, 1);
   const b = Number.isFinite(bounds.x0)
@@ -231,7 +205,6 @@ export function layoutPrefab(root, opts = {}) {
     : { left: 0, top: 0, w: rootSize[0], h: rootSize[1] };
   return { box, bounds: b };
 }
-
 
 function fitted(node, size, opts, memo) {
   const fit = Array.isArray(node.fit) ? node.fit : null;
@@ -243,14 +216,13 @@ function fitted(node, size, opts, memo) {
   });
 }
 
-
 function place(node, rect, parent, px, py, opts, memo, bounds, alpha) {
   const r = rectOf(node, opts);
   const top = rect.y + rect.h;
   const ownAlpha = Number.isFinite(Number(node.alpha)) ? Number(node.alpha) : 1;
   const overAlpha = opts.pose?.alpha.has(node) ? Number(opts.pose.alpha.get(node)) : null;
   const a = overAlpha ?? ownAlpha;
-  
+
   const box = {
     node,
     left: rect.x - px,
@@ -295,7 +267,8 @@ function place(node, rect, parent, px, py, opts, memo, bounds, alpha) {
   return box;
 }
 
-
+// A slider is not a layout node: the prefab drives it by rewriting the fill and handle anchors, so the
+// normalized value is replayed through pose.anchors (dir 0 L-R, 1 R-L, 2 B-T, 3 T-B).
 export function applySliders(root, values, pose) {
   if (!values?.size) return pose;
   const byId = new Map();
@@ -333,7 +306,6 @@ export function applySliders(root, values, pose) {
   return pose;
 }
 
-
 export function scriptRef(from, field) {
   let hit = null;
   (function walk(n) {
@@ -347,7 +319,6 @@ export function scriptRef(from, field) {
   return hit;
 }
 
-
 export function nodeById(root, id) {
   if (!Number.isInteger(id)) return null;
   let hit = null;
@@ -358,7 +329,6 @@ export function nodeById(root, id) {
   })(root);
   return hit;
 }
-
 
 export function nodeByName(root, name) {
   let hit = null;

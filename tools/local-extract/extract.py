@@ -89,10 +89,10 @@ Usage:
   .venv/bin/python tools/local-extract/extract.py --only shopdocs [--only shopdocs/<id>] [--themes <backup or AB root>]
                                                         --out <scratch> --manifest <scratch>/local-assets.json
 
-Writes <out>/**.png|.webp|.skel|.atlas and data/local-assets.json (manifest of what was extracted). With --only, just
+Writes <out>/**.png|.webp|.skel|.atlas and data/local-assets.json (manifest of what was extracted). With --only, only
 the jobs whose output subdir one of the prefixes names run (`enemy` selects `spine/enemy` as `spine/enemy` does), and
-their groups replace those of the existing manifest (every other group is kept as is; a full run writes the
-required groups.fonts itself, and --only font does it alone; an earlier fonts group is kept either way).
+their groups replace those of the existing manifest; every other group is kept as is (previous_groups). A full run
+also writes the required groups.fonts; an earlier fonts group survives either way.
 Everything is (c) Hypergryph; for private, non-commercial fan use only.
 """
 import argparse
@@ -295,9 +295,8 @@ JOBS = [
     ('arts/maps/map_autochess/res.ab', 'map/autochess', {'Texture2D', 'Material'}),
     ('arts/maps/map_autochesssand/res.ab', 'map/autochesssand', {'Texture2D', 'Material'}),
     ('ui/autochess/[uc]autochesscommon.ab', 'ui/common', {'Sprite'}),
-    # the 91 shop item (equip) icons of the same bundle (arts/shopitemicon/trap_*): the shop card's equip node is a
-    # 93×93 Image with m_PreserveAspect 0 that draws the sprite rect (93×93 quad, UV 0..1), so export each padded to its
-    # m_Rect (160×160) — the trimmed file (e.g. 137×157) is stretched +18 % horizontally when drawn there
+    # the 91 shop item (equip) icons of the same bundle: the card's 93×93 Image draws the sprite rect with UV 0..1,
+    # so export each padded to its m_Rect (padded_sprite); the trimmed file would be stretched across that quad
     ('ui/autochess/[uc]autochesscommon.ab', 'item', {'Sprite'}, r'^trap_', {'padRect': True}),
     ('ui/autochess/[uc]autochessbattle.ab', 'ui/battle', {'Sprite', 'TextAsset'}),
     ('ui/autochess/[uc]autochessouter.ab', 'ui/outer', {'Sprite'}),
@@ -758,8 +757,9 @@ def previous_groups(old_groups, only):
     """Groups of the previous manifest a run keeps before the merge.
 
     After --only every earlier group is kept (only the ones that re-ran are replaced). A full run writes the expected
-    groups, so it keeps the groups it does not write: the partial char packs merged below, and a font group an
-    earlier --only font (or the cursor job) left behind, in case this run could not write it.
+    groups, so it keeps the groups it does not write: the partial char packs merged below (`char/`, `spine/char/`),
+    the required `fonts` group this run may not have written, and `cursor.SUB` (the optional Windows-client cursor
+    job). merge_manifest then drops only the subdirectories that re-ran.
     """
     if only:
         return old_groups
@@ -778,7 +778,9 @@ def padded_sprite(obj, image):
     m_RD.textureRectOffset. Unity draws a sprite into its rect (m_Rect is the quad, the texture region is the trimmed
     part), so a file trimmed to its opaque pixels loses that padding: the shop item icons are 160×160 rects whose ink is
     e.g. 137×157, and the card's 93×93 equip node would stretch them. None when the sprite has no usable rect.
-    This is the canvas of reference/card/export-sprites-padded.py's padded(); keep the two identical."""
+    This is the canvas of reference/card/export-sprites-padded.py's padded(); keep the two identical.
+    m_RD.textureRectOffset is measured from the rect's bottom-left (Unity) while PIL pastes from the top-left, so the
+    row is `top = height - oy - image.height`."""
     from PIL import Image
     tree = obj.read_typetree()
     rect = tree.get('m_Rect') or {}
@@ -790,7 +792,6 @@ def padded_sprite(obj, image):
     offset = (tree.get('m_RD') or {}).get('textureRectOffset') or {}
     ox = int(round(offset.get('x') or 0))
     oy = int(round(offset.get('y') or 0))
-    # textureRectOffset is measured from the rect's bottom-left in Unity; PIL pastes from the top-left
     top = height - oy - image.height
     canvas.paste(image, (ox, max(0, top)), image if image.mode == 'RGBA' else None)
     return canvas
@@ -1141,7 +1142,8 @@ def list_theme_files(out_root, manifest, log, theme_ids):
     """Register every file of a theme directory that its producer wrote but did not list.
 
     The client resolves a prefab's `sprites/<name>.webp` only through the theme group of data/local-assets.json
-    (docs/ASSETS.md: listed files only, a URL is never guessed). The archived shop/card producer writes extra
+    (docs/ASSETS.md: listed files only, a URL is never guessed; an entry's `path` must be `/assets/local/<group>/<rel>`
+    — the client validates that prefix in shared/uiTheme.js officialAssetUrl and returns null otherwise). The archived shop/card producer writes extra
     files beside the three documents it registers — the external plates (`sprites/ext_cost_free.webp`, the
     free-refresh plate the refresh button shows) and the material textures (`sprites/tex_*.webp`) — so without
     them the prefab still loads and draws an untextured quad. Listing the leftovers keeps the group a superset
@@ -1176,7 +1178,7 @@ def expected_local_groups():
     """Group keys a full extract writes into data/local-assets.json (no --only; fx stays out — fx.py FX_GROUPS).
 
     One key per JOBS output subdir, plus spine/enemy/<id>, spine/token/<id>, scene/<stageId>, scene/tex, 规程's
-    opening (season_entry.SUB) and the pinned official font faces (`fonts`, written by every full extract; §37.274).
+    opening (season_entry.SUB) and the pinned official font faces (`fonts`, written by every full extract; §37.240).
     Derived maps and WebP copies are files inside those groups, not new keys. Sorted. setup's
     tools/local-extract/expected.mjs is this list; test/setup-local-freshness.test.js keeps the copy honest.
     `extract.py --print-jobs` prints it and needs no game client.

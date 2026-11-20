@@ -1105,7 +1105,7 @@ themeReady.catch(() => {});
 /**
  * Run the theme library boot once. Screens that need the selected pack (the WebGL shop's colours, character
  * spine and fonts) await `themesReady()`; before this the pack record is null and they would mount with
- * DEFAULT_SKIN_COLORS and no character, which is the F5 cold-cache race.
+ * DEFAULT_SKIN_COLORS and no character, which is what a reload with a cold cache exposes.
  *
  * This function itself never rejects (settings.js starts it without awaiting): a failed boot is logged, and
  * `themesReady()` rejects with the same error so a dependent screen can fall back (the DOM shop bar).
