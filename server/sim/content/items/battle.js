@@ -705,8 +705,10 @@ const BY_BUFF = {
   },
   // Named so the key is handled. The 麻痹 itself is the hammer runtime (big_hammer); applying it here would stack twice.
   act3autochess_equip_acarm140_global_buff() {},
-  // 佣兵名牌: ATK and max HP per active bond of the player, cap max_layer. [ASSUMED] the player's active bonds, not
-  // only the ones on the carrier.
+  // 佣兵名牌: ATK and max HP per active bond of the player, cap max_layer. The same action
+  // AutoChessAssignActiveGarrisonBondCntToBlackboard is on act1autochess_band2_buff (众志合一,
+  // 「场上存在3、4或5种以上激活盟约」), whose count is activeBondIds — every active bond of the player,
+  // not a garrison-only subset. The 0.5s poll is unchanged.
   act3autochess_equip_acarm141_global_buff(battle, u, p, S) {
     const atk = num(p.atk), hp = num(p.hp);
     const cap = Math.max(0, Math.floor(num(p.max_layer, 8)));

@@ -154,6 +154,11 @@ function tank(h, pos) {
   assert.ok(e && e.alive, `tank at ${pos}`);
   return e;
 }
+function physLoss(h, source, target, extra = {}) {
+  const hp = target.hp;
+  h.b.dealDamage({ source, target, amount: 100, type: 'phys', ...extra });
+  return hp - target.hp;
+}
 function slowMul(e) {
   const b = e.findBuff && e.findBuff('bond:sargon:slow');
   return b && b.mods ? b.mods.moveMul : null;
@@ -840,6 +845,133 @@ describe('规程·序列Ⅰ bonds', { concurrency: 1 }, () => {
     assert.equal(next[0].findBuff('bond:egir:devour'), null, 'a 卡西米尔 switch does not copy 阿戈尔 devour stats');
   });
 
+  test('卡西米尔_2: a toggle still active after 30s no longer adds true damage', (t) => {
+    const h = fight(t, {
+      bonds: { kazimierzShip: bond(6, 0) },
+      pieces: [piece('reg_kz_tog', ['kazimierzShip'], {
+        rangeGrid: [[0, 0]],
+        skill: { duration: -1, spCost: 10, initSp: 10, description: '持续时间无限' },
+      })],
+    });
+    h.step();
+    const u = h.unit('reg_kz_tog');
+    assert.equal(u.skill.kind, 'toggle');
+    assert.ok(u.skill.activate('test', { free: true }));
+    assert.equal(u.skill.active, true);
+    const castAt = h.b.time;
+    const e = tank(h, [9, 4]);
+    close(physLoss(h, u, e), 100 + 0.65 * u.s.atk, 'inside the cast window');
+    h.run(31);
+    assert.ok(h.b.time > castAt + 30);
+    assert.equal(u.skill.active, true, 'the toggle is still up');
+    close(physLoss(h, u, e), 100, '30s after the cast the rider stops');
+  });
+
+  test('卡西米尔_2: an instant cast keeps true damage until 30s after the cast', (t) => {
+    const h = fight(t, {
+      bonds: { kazimierzShip: bond(6, 0) },
+      pieces: [piece('reg_kz_ins', ['kazimierzShip'], {
+        rangeGrid: [[0, 0]],
+        skill: { duration: 0, spCost: 10, initSp: 0, description: '瞬时' },
+      })],
+    });
+    h.step();
+    const u = h.unit('reg_kz_ins');
+    h.run(31);
+    assert.ok(h.b.time > 30);
+    const e = tank(h, [9, 4]);
+    close(physLoss(h, u, e), 100, 'the deploy window has ended');
+    assert.equal(u.skill.kind, 'instant');
+    assert.ok(u.skill.activate('test', { free: true }));
+    assert.equal(u.skill.active, false, 'the instant skill has already ended');
+    const castAt = h.b.time;
+    h.run(5);
+    assert.ok(h.b.time < castAt + 30);
+    close(physLoss(h, u, e), 100 + 0.65 * u.s.atk, 'still inside 30s after the cast');
+    h.run(castAt + 30 + 0.2 - h.b.time);
+    assert.ok(h.b.time > castAt + 30);
+    close(physLoss(h, u, e), 100, 'stops 30s after the cast');
+  });
+
+  test('卡西米尔_2: a cast during the deploy window extends it to 30s after the cast', (t) => {
+    const h = fight(t, {
+      bonds: { kazimierzShip: bond(6, 0) },
+      pieces: [piece('reg_kz_ext', ['kazimierzShip'], {
+        rangeGrid: [[0, 0]],
+        skill: { duration: 0, spCost: 10, initSp: 0, description: '瞬时' },
+      })],
+    });
+    h.step();
+    const u = h.unit('reg_kz_ext');
+    h.run(20);
+    assert.ok(h.b.time < 30, 'still inside the deploy window');
+    assert.ok(u.skill.activate('test', { free: true }));
+    const castAt = h.b.time;
+    h.run(20);
+    assert.ok(h.b.time > 30 && h.b.time < castAt + 30);
+    const e = tank(h, [9, 4]);
+    close(physLoss(h, u, e), 100 + 0.65 * u.s.atk, 'EXTEND resets the end to the cast, it does not keep only the deploy window');
+    h.run(castAt + 30 + 0.2 - h.b.time);
+    assert.ok(h.b.time > castAt + 30);
+    assert.ok(h.b.time < castAt + 30 + 20, 'not the sum of the two 30s windows');
+    close(physLoss(h, u, e), 100, 'the extended window ends at cast + 30');
+  });
+
+  test('卡西米尔_2: a bench arrival opens its own window and does not keep the dead unit\'s', (t) => {
+    const bench = piece('reg_kz_in', ['kazimierzShip'], { bench: true });
+    const h = fight(t, {
+      bonds: { kazimierzShip: bond(6, 0) },
+      pieces: [piece('reg_kz_out', ['kazimierzShip'], { rangeGrid: [[0, 0]] }), bench],
+      contentInfo: { handPieces: [{ slot: 4, id: 'reg_kz_in', bonds: ['kazimierzShip'], position: 'MELEE' }] },
+    });
+    h.step();
+    const u = h.unit('reg_kz_out');
+    h.b.dealDamage({ source: null, target: u, amount: 1e9, type: 'true' });
+    const next = living(h, 'reg_kz_in');
+    assert.equal(next.length, 1);
+    close(next[0].s.atk, 500, 'the deploy ATK stack stays on the original members');
+    const e = tank(h, [9, 4]);
+    close(physLoss(h, next[0], e), 100 + 0.65 * next[0].s.atk, 'ON_BUFF_START on the switched-in operator');
+    h.run(31);
+    close(physLoss(h, next[0], e), 100, 'the arrival window is also 30s');
+    assert.equal(h.b.errorCount, 0, JSON.stringify(h.b.errors));
+  });
+
+  test('卡西米尔_2: periodic output damage adds true damage; ADDITION does not', (t) => {
+    const h = fight(t, {
+      bonds: { kazimierzShip: bond(6, 0) },
+      pieces: [piece('reg_kz_flt', ['kazimierzShip'], { rangeGrid: [[0, 0]], skill: null })],
+    });
+    h.step();
+    const u = h.unit('reg_kz_flt');
+    const e = tank(h, [9, 8]);
+    close(physLoss(h, u, e, { attackType: 'ADDITION' }), 100, 'attack type ADDITION is excluded');
+    const before = e.hp;
+    h.b.dealDamage({ source: u, target: e, amount: 100, type: 'phys', tags: ['periodic'] });
+    close(before - e.hp, 100, 'the periodic rider waits one tick');
+    h.step();
+    close(before - e.hp, 100 + 0.65 * u.s.atk, 'a periodic hit is still output damage');
+    assert.equal(h.b.errorCount, 0, JSON.stringify(h.b.errors));
+  });
+
+  test('卡西米尔_2 window stays on this player', (t) => {
+    const h = fight(t, {
+      players: [
+        { playerId: 'p1', seat: 0, side: 'L', colOffset: 0, bonds: { kazimierzShip: bond(6, 0) } },
+        { playerId: 'p2', seat: 1, side: 'R', colOffset: 0, bonds: {} },
+      ],
+      pieces: [
+        piece('reg_kz_own', ['kazimierzShip'], { col: 4, rangeGrid: [[0, 0]], skill: null }),
+        piece('reg_kz_other', ['kazimierzShip'], { ownerId: 'p2', col: 5, skill: null }),
+      ],
+    });
+    h.step();
+    const other = h.unit('reg_kz_other');
+    assert.ok(other && other.deployed, 'the other player deployed');
+    const e = tank(h, [9, 16]);
+    close(physLoss(h, other, e), 100, 'another player\'s operator is not this bond');
+  });
+
   test('卡西米尔 bench switch skips a ranged piece', (t) => {
     const bench = piece('reg_kz_far', ['kazimierzShip'], { bench: true, position: 'RANGED', profession: 'SNIPER' });
     const h = fight(t, {
@@ -1017,6 +1149,67 @@ describe('规程·序列Ⅰ bonds', { concurrency: 1 }, () => {
     const food = tank(h6, [9, 16]);
     h6.b.dealDamage({ source: m, target: food, amount: 1e9, type: 'true' });
     assert.equal(tempBondLayers(h6.b, 'p1', 'ursusShip'), 4);
+  });
+
+  test('乌萨斯: an ally, a summon and a device count; the member\'s own finish does not', (t) => {
+    const credited = fight(t, {
+      bonds: { ursusShip: bond(1, 0, 1) },
+      pieces: [piece('reg_ur_own', ['ursusShip'], { col: 3, skill: null })],
+    });
+    credited.step();
+    const owner = credited.unit('reg_ur_own');
+    const tok = credited.b.spawnToken(owner, 'token_ur_kill', 10, 6, {
+      def: { id: 'token_ur_kill', name: 't', stats: { maxHp: 100, atk: 50, cost: 0, blockCnt: 0 }, rangeGrid: [[0, 0]] },
+      kit: {},
+    });
+    assert.ok(tok && tok.kind === 'token' && tok.ownerUnit === owner);
+    const food = tank(credited, [9, 16]);
+    credited.b.dealDamage({ source: tok, target: food, amount: 1e9, type: 'true' });
+    assert.equal(food.alive, false);
+    assert.equal(tempBondLayers(credited.b, 'p1', 'ursusShip'), 2, 'a summon kill is credited to its owner');
+
+    const h = fight(t, {
+      bonds: { ursusShip: bond(1, 0, 1) },
+      pieces: [
+        piece('reg_ur_k', ['ursusShip'], { col: 3, skill: null }),
+        piece('reg_ur_ally', [], { col: 5, skill: null }),
+      ],
+    });
+    h.step();
+    const u = h.unit('reg_ur_k');
+    const ally = h.unit('reg_ur_ally');
+    h.b.dealDamage({ source: u, target: ally, amount: 1e9, type: 'true' });
+    assert.equal(ally.alive, false);
+    assert.equal(tempBondLayers(h.b, 'p1', 'ursusShip'), 2, 'an allied operator is 其他单位');
+    const summon = h.b.spawnToken(u, 'token_ur_vic', 10, 6, {
+      def: { id: 'token_ur_vic', name: 't', stats: { maxHp: 80, atk: 0, cost: 0, blockCnt: 0 }, rangeGrid: [[0, 0]] },
+      kit: {},
+    });
+    h.b.dealDamage({ source: u, target: summon, amount: 1e9, type: 'true' });
+    assert.equal(summon.alive, false);
+    assert.equal(tempBondLayers(h.b, 'p1', 'ursusShip'), 4, 'an allied summon counts');
+    const dev = h.b.spawnDevice('dev_ur', 11, 4, { hp: 50 });
+    assert.ok(dev && dev.alive);
+    h.b.dealDamage({ source: u, target: dev, amount: 1e9, type: 'true' });
+    assert.equal(dev.alive, false);
+    assert.equal(tempBondLayers(h.b, 'p1', 'ursusShip'), 6, 'a device is a unit');
+    const before = tempBondLayers(h.b, 'p1', 'ursusShip');
+    h.b.dealDamage({ source: null, target: tank(h, [8, 16]), amount: 1e9, type: 'true' });
+    assert.equal(tempBondLayers(h.b, 'p1', 'ursusShip'), before, 'a sourceless kill has no credited member');
+    h.b.dealDamage({ source: u, target: u, amount: 1e9, type: 'true' });
+    assert.equal(u.alive, false);
+    assert.equal(tempBondLayers(h.b, 'p1', 'ursusShip'), before, '其他单位 excludes the member');
+
+    const h6 = fight(t, {
+      bonds: { ursusShip: bond(6, 0) },
+      pieces: [
+        piece('reg_ur6_k', ['ursusShip'], { col: 3, skill: null }),
+        piece('reg_ur6_g', [], { col: 5, skill: null }),
+      ],
+    });
+    h6.step();
+    h6.b.dealDamage({ source: h6.unit('reg_ur6_k'), target: h6.unit('reg_ur6_g'), amount: 1e9, type: 'true' });
+    assert.equal(tempBondLayers(h6.b, 'p1', 'ursusShip'), 4, 'six members add 4 temp layers for an ally');
   });
 
   // Regression coverage from bmryggdrasil's PR #962, extended by the shared ledger below.

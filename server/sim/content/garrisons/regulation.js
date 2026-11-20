@@ -9,7 +9,7 @@
 
 import * as S from '../support/index.js';
 import { absoluteRangeKeys } from '../../targeting.js';
-import { COLS, ROWS } from '../../constants.js';
+import { COLS } from '../../constants.js';
 
 const ids = (s) => String(s ?? '').split(',').map((x) => x.trim()).filter(Boolean);
 
@@ -165,9 +165,11 @@ export function grantBondRange(battle, it) {
   return total;
 }
 
-function onBattleStart(battle, fn) {
+function onBattleStart(battle, fn, { immediate = true } = {}) {
   battle.on('battleStart', fn);
-  if (battle.started) fn();
+  // A listener installed after the battle has started would otherwise run at once. bondstackmax and
+  // act3autochess_gar_event_battlestart pass immediate:false — their template is one mode-change, not a late birth.
+  if (immediate && battle.started) fn();
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -282,56 +284,63 @@ function applyStackMax(battle, it) {
   }
 }
 
-/** Rightmost empty tile of the player's own board: highest column, then higher row. */
-function summonTile(battle, ps, chessId) {
-  const rec = S.chessRecord(chessId);
-  const ranged = rec?.position === 'RANGED' || battle.data?.getChess?.(chessId)?.position === 'RANGED';
-  let best = null;
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS; c++) {
-      if (!battle.onOwnBoard(ps, r, c)) continue;
-      if (!battle.grid.inRect(r, c) || !battle.grid.canStand(r, c, { ranged })) continue;
-      if (battle.unitAt(r, c)) continue;
-      if (battle.downOn(r, c)) continue;
-      if (battle.isReservedTile(r, c)) continue;
-      if (!best || c > best[1] || (c === best[1] && r > best[0])) best = [r, c];
-    }
-  }
-  return best;
+function chessRanged(battle, chessId) {
+  const rec = S.chessRecord(chessId) || battle.data?.getChess?.(chessId);
+  return rec?.position === 'RANGED';
+}
+
+/** The incoming chess can stand here: own board, buildable for its position, no living unit, no body, not reserved. */
+function tilePlaceable(battle, ps, r, c, chessId) {
+  if (!Number.isInteger(r) || !Number.isInteger(c)) return false;
+  if (!battle.onOwnBoard(ps, r, c)) return false;
+  if (!battle.grid.inRect(r, c) || !battle.grid.canStand(r, c, { ranged: chessRanged(battle, chessId) })) return false;
+  if (battle.unitAt(r, c)) return false;
+  if (battle.downOn(r, c)) return false;
+  if (battle.isReservedTile(r, c)) return false;
+  return true;
 }
 
 /**
- * [ASSUMED] the death tile still holds the body, so redeploy onto it fails. Land on the rightmost empty tile of the
- * owner's board instead. The match hand is not touched — the bench entry stays, and a uid already created as a unit
- * is skipped. switch_bond_id is an AND (【卡西米尔】【突袭】).
+ * A switch with the bench. Templates act3autochess_gar_effect_switchhand_triggergar (耀骑士临光 garrison_58) and
+ * act3autochess_gar_effect_switchcharinhand[trigger] (历阵锐枪芬 garrison_224) use AutoChessMarkSwitchWithHand with
+ * _selectType RIGHT, _putType ORIGINAL, _checkBond (switch_bond_id), _checkBuildable and _checkOriginBuildable: the
+ * node of 卡西米尔 6's [switch] (handSwitch in bonds/regulation.js, whose text reads 「被击倒时离场，并召唤…上场」), and
+ * switchcharinhand[trigger] InstantKills its owner right after marking. So the carrier leaves the battle (removed: its
+ * body goes and it does not redeploy) and the incoming chess stands on the carrier's tile (ORIGINAL; tileR / tileC, the
+ * tile it fell on). The pick is the highest bench idx (the existing reading of 最右侧) with every switch bond
+ * (【卡西米尔】【突袭】 is an AND) that can stand on that tile; when none can, there is no switch and the carrier stays
+ * down and redeploys. Until round 84 the carrier stayed down and the chess landed on the rightmost empty tile
+ * ([ASSUMED]: the body held the tile). The match hand is not touched — the bench entry stays, and a uid already
+ * created as a unit is skipped.
  */
 function summonFromBench(battle, it) {
-  const ps = battle.getPlayer(it.unit.ownerId);
+  const fell = it.unit;
+  if (!fell || fell.alive || fell.removed) return null;
+  const ps = battle.getPlayer(fell.ownerId);
   const bench = ps?.input?.bench;
   if (!ps || !Array.isArray(bench) || !bench.length) return null;
   const need = ids(it.bbStr.switch_bond_id);
-  let best = null;
-  for (const e of bench) {
-    if (!e || e.kind !== 'chess') continue;
-    const bonds = Array.isArray(e.bonds) ? e.bonds : [];
-    if (need.length && !need.every((b) => bonds.includes(b))) continue;
-    if (battle.allyUnits.some((u) => u.uid === e.uid)) continue;
-    if (!best || (e.idx | 0) > (best.idx | 0)) best = e;
+  const picks = bench.filter((e) => e && e.kind === 'chess'
+    && (!need.length || need.every((b) => (Array.isArray(e.bonds) ? e.bonds : []).includes(b)))
+    && !battle.allyUnits.some((u) => u.uid === e.uid))
+    .sort((a, b) => (b.idx | 0) - (a.idx | 0));
+  const tile = [fell.tileR, fell.tileC];
+  for (const e of picks) {
+    fell.removed = true; // isDown is false once removed, so its body no longer holds the tile
+    if (!tilePlaceable(battle, ps, tile[0], tile[1], e.chessId)) { fell.removed = false; continue; }
+    const u = battle._createAllyFromInput(ps, { ...e, row: tile[0], col: tile[1], abs: true });
+    if (!u) { fell.removed = false; continue; }
+    const pending = battle._benchCuts && battle._benchCuts[u.uid];
+    if (Array.isArray(pending)) {
+      u.mem.respawnCut = pending.slice();
+      delete battle._benchCuts[u.uid];
+    }
+    battle._setupUnit(u);
+    if (typeof battle._installGarrisonLate === 'function') battle._installGarrisonLate(u);
+    if (!battle.redeploy(u, { free: true, tile })) { u.removed = true; fell.removed = false; continue; }
+    return u;
   }
-  if (!best) return null;
-  const tile = summonTile(battle, ps, best.chessId);
-  if (!tile) return null;
-  const u = battle._createAllyFromInput(ps, { ...best, row: tile[0], col: tile[1], abs: true });
-  if (!u) return null;
-  const pending = battle._benchCuts && battle._benchCuts[u.uid];
-  if (Array.isArray(pending)) {
-    u.mem.respawnCut = pending.slice();
-    delete battle._benchCuts[u.uid];
-  }
-  battle._setupUnit(u);
-  if (typeof battle._installGarrisonLate === 'function') battle._installGarrisonLate(u);
-  if (!battle.redeploy(u, { free: true, tile })) return null;
-  return u;
+  return null;
 }
 
 function grantSwitchLayers(battle, it, unit) {
@@ -344,6 +353,7 @@ const PAYLOADS = {
   act3autochess_gar_effect_addsp_inrange: runAddSp,
   act3autochess_gar_effect_minus_respawn: runMinusRespawn,
   act3autochess_gar_effect_bondstackmax: applyStackMax,
+  act3autochess_gar_effect_attrbybond_inrange: snapshotAura,
   'act3autochess_gar_effect_switchcharinhand[trigger]'(battle, it) { summonFromBench(battle, it); },
 };
 
@@ -399,26 +409,28 @@ function runBattleStart(battle, it) {
   }
 }
 
-function refreshAura(battle, it) {
+/**
+ * One snapshot of floor(layers / denominator) onto the allies already in range. The parent
+ * act2autochess_gar_event_onstart (ON_OWNER_POST_BORN) calls this on every deployment of the holder, redeploys
+ * and 【移动】 included. No layer-change listener: a later gain does not rewrite it, and it is not recreated after
+ * attr_duration. Steps of 0 apply nothing and do not clear a buff that is still running. Units who have since
+ * left the cross keep what they were given.
+ * [ASSUMED] a later deployment of the same holder replaces the remaining duration (refresh 'replace'). The created
+ * buff's disableOverride is true; the task's redeploy contract is a new 30s, so this garrison's own re-application
+ * is not blocked.
+ */
+function snapshotAura(battle, it) {
   const steps = bondSteps(battle, it);
-  if (steps === it.k && it._auraReady) return;
-  it.k = steps;
-  it._auraReady = true;
-  const prev = it._aura || new Set();
-  const now = new Set();
+  if (!(steps > 0)) return;
+  const mods = {};
+  if (S.num(it.bb.attack_speed_base, 0)) mods.aspd = S.num(it.bb.attack_speed_base, 0) * steps;
+  if (S.num(it.bb.atk_base, 0)) Object.assign(mods, S.directMods({ atk: S.num(it.bb.atk_base, 0) * steps }));
+  if (!Object.keys(mods).length) return;
+  const duration = S.num(it.bb.attr_duration, 0);
   const key = `gar:${it.gid}:aura`;
-  if (steps > 0) {
-    const mods = {};
-    if (S.num(it.bb.attack_speed_base, 0)) mods.aspd = S.num(it.bb.attack_speed_base, 0) * steps;
-    if (S.num(it.bb.atk_base, 0)) Object.assign(mods, S.directMods({ atk: S.num(it.bb.atk_base, 0) * steps }));
-    const duration = S.num(it.bb.attr_duration, 0);
-    for (const t of allyOpsInRange(battle, it)) {
-      now.add(t);
-      battle.addBuff(t, { key, duration, refresh: 'replace', mods });
-    }
+  for (const t of allyOpsInRange(battle, it)) {
+    battle.addBuff(t, { key, duration, refresh: 'replace', mods });
   }
-  for (const t of prev) if (!now.has(t)) battle.removeBuff(t, key);
-  it._aura = now;
 }
 
 function probPasses(battle, it) {
@@ -436,8 +448,10 @@ export const REGULATION_INSTALLERS = {
   act3autochess_gar_effect_addsp_inrange() {},
   act3autochess_gar_effect_minus_respawn() {},
   act3autochess_gar_effect_bondstackmax(battle, list) {
+    // ON_BUFF_TRIGGER from the battlestart parent, which is only ON_AUTO_CHESS_MODE_CHANGED. A carrier who
+    // installLate's after the battle has started does not apply. A child installed before start still hears battleStart.
     const run = () => { for (const it of list) if (!it.payload) applyStackMax(battle, it); };
-    onBattleStart(battle, run);
+    onBattleStart(battle, run, { immediate: false });
   },
   'act3autochess_gar_effect_switchcharinhand[trigger]'(battle, list) {
     const live = list.filter((it) => !it.payload);
@@ -500,12 +514,9 @@ export const REGULATION_INSTALLERS = {
       }
     });
   },
-  act3autochess_gar_effect_attrbybond_inrange(battle, list) {
-    // [ASSUMED] the bonus is recomputed when the layer band changes and replaced, not stacked.
-    const run = () => { for (const it of list) refreshAura(battle, it); };
-    onBattleStart(battle, run);
-    onLayerChange(battle, run);
-  },
+  // Payload of act2autochess_gar_event_onstart. The child does not listen: a battleStart pass would include
+  // allies who were not born at the holder's POST_BORN, and a layer listener is not in the template.
+  act3autochess_gar_effect_attrbybond_inrange() {},
   act3autochess_gar_effect_block_eprecoverspeed_inrange(battle, list) {
     const arm = () => {
       for (const it of list) {
@@ -528,7 +539,7 @@ export const REGULATION_INSTALLERS = {
     });
   },
   act3autochess_gar_event_battlestart(battle, list) {
-    onBattleStart(battle, () => { for (const it of list) runBattleStart(battle, it); });
+    onBattleStart(battle, () => { for (const it of list) runBattleStart(battle, it); }, { immediate: false });
   },
   act3autochess_gar_event_onstart_inrange(battle, list) {
     battle.on('deploy', ({ unit }) => {

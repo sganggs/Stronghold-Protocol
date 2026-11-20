@@ -101,6 +101,21 @@ function rider(dmg) {
   if (damageAttackType(dmg) === 'ADDITION' || tagged(dmg, 'addition') || tagged(dmg, 'dot') || tagged(dmg, 'periodic')) return true;
   return false;
 }
+/**
+ * True when act3autochess_bond_eff_kazimierz_power[ex_damage] must not append true damage.
+ * Two FilterDamageModifier nodes: a cancelled modifier, then attack type ADDITION followed by IfNot.
+ * 流失 is not an output-damage modifier. Element, dot and periodic are not excluded.
+ */
+function kazimierzRiderSkips(dmg) {
+  if (!dmg || dmg.cancel || isHpLoss(dmg)) return true;
+  // The 'addition' tag marks our riders that the official client deals as ADDITION (as in arcaneRiderSkips).
+  if (damageAttackType(dmg) === 'ADDITION' || tagged(dmg, 'addition') || tagged(dmg, 'bond:kazimierz')) return true;
+  return false;
+}
+/** Element and periodic hits already sit near MAX_HOOK_DEPTH. Deal the rider on the next tick. */
+function kazimierzRiderDefers(dmg) {
+  return dmg.type === 'element' || dmg.type === 'elemental' || tagged(dmg, 'dot') || tagged(dmg, 'periodic');
+}
 /** True when act3autochess_bond_eff_arcane must not append an arts hit. */
 function arcaneRiderSkips(dmg) {
   // First FilterDamageModifier only rejects a cancelled modifier. 流失 is not an output-damage modifier.
@@ -571,6 +586,7 @@ function installSiracusa2(battle, pid, effectId, members) {
   const prob = num(bb.prob, 0);
   // siracusa_power EnsureBlackboardDefaultValue create_cd 0.2, overrideIfExists. Not on the bond blackboard.
   // The add runs only after Dice succeeds (no AlwaysNext), so a miss does not start the window.
+  // FilterAbilityFamily ATTACK_OR_COMBAT is not applied: this engine has no ability-family field on damage.
   const createCd = 0.2;
   const nextAt = new WeakMap();
   battle.on('damaged', (c) => {
@@ -618,18 +634,46 @@ function installKazimierz2(battle, pid, effectId, members) {
   if (typeof legacy.kazimierz === 'function') legacy.kazimierz(battle, pid, bb, members);
   const six = reached(battle, pid, 'kazimierzShip', bb.power_bond_char_cnt);
   if (!six) return;
-  const set = new Set(members);
-  const window = num(bb.ex_damage_duration, 0);
+  // act3autochess_bond_eff_kazimierz_power: ON_BUFF_START and ON_SKILL_CAST_SUCCEED both CreateBuff
+  // [ex_damage] (overrideType EXTEND, maxStackCnt 1, lifeTimeType LIMITED, durationKey ex_damage_duration,
+  // lifeTime 20 when the key is missing). EXTEND resets the remaining time to the full duration
+  // (the same meaning as op-zuole.js), it does not add the two windows together.
+  // lifeTime 20 is the fallback; the 规程 blackboard stores ex_damage_duration 30.
+  const duration = num(bb.ex_damage_duration, 20);
+  const until = new WeakMap();
+  const member = (u) => !!u && u.ownerId === pid && S.isMember(battle, u, 'kazimierzShip');
+  const open = (u, at) => { if (duration > 0 && u) until.set(u, at + duration); };
+  for (const u of members) if (S.onField(u)) open(u, num(u.deployedAt, battle.time));
+  battle.on('deploy', ({ unit, move }) => {
+    // A tile move also emits deploy (battle/tiles.js). ON_BUFF_START is a new deployment
+    // (battle start, redeploy, handSwitch spawn), not a move.
+    if (move || !member(unit)) return;
+    open(unit, battle.time);
+  });
+  // ON_SKILL_CAST_SUCCEED: skillStart is emitted only after Skill.activate succeeds.
+  battle.on('skillStart', ({ unit }) => {
+    if (!member(unit)) return;
+    open(unit, battle.time);
+  });
   battle.on('damaged', (c) => {
     const u = c.source, t = c.target, dmg = c.dmg;
-    if (!set.has(u) || !t || t.side !== 'enemy' || !t.alive || rider(dmg) || tagged(dmg, 'bond:kazimierz')) return;
-    const fresh = window > 0 && battle.time <= num(u.deployedAt, -Infinity) + window + 1e-9;
-    const casting = !!(u.skill && u.skill.active);
-    if (!fresh && !casting) return;
-    const scale = scaled(bb, 'ex_atk_scale_base', 'ex_atk_scale_per_stack', S.bondLayers(battle, pid, 'kazimierzShip'), 'ex_atk_scale_max');
+    // [ASSUMED] an alive enemy. The template's target is MODIFIER_TARGET and has no side node.
+    if (!member(u) || !t || t.side !== 'enemy' || !t.alive || kazimierzRiderSkips(dmg)) return;
+    const end = until.get(u);
+    if (end == null || battle.time > end + 1e-9) return;
+    // _finalAbs on the scale. per_stack is 0 on the 规程 blackboard, so this stays 0.65.
+    const scale = Math.abs(scaled(bb, 'ex_atk_scale_base', 'ex_atk_scale_per_stack', S.bondLayers(battle, pid, 'kazimierzShip'), 'ex_atk_scale_max'));
     if (!(scale > 0)) return;
-    battle.dealDamage({ source: u, target: t, amount: scale * num(u.s.atk), type: 'true', attackType: 'ADDITION',
-      tags: ['addition', 'bond:kazimierz'] });
+    const amount = scale * num(u.s.atk);
+    const deal = () => {
+      if (!t.alive || t.removed) return;
+      battle.dealDamage({ source: u, target: t, amount, type: 'true', attackType: 'ADDITION',
+        tags: ['addition', 'bond:kazimierz'] });
+    };
+    // [ASSUMED] one tick later for element / dot / periodic, same hook-depth accommodation as the 奥术 rider.
+    // The amount is snapshotted while the window is open; the deferred hit does not re-test the window.
+    if (kazimierzRiderDefers(dmg)) battle.after(0, deal, { owner: u });
+    else deal();
   });
   const ops = new Set(members.filter((u) => S.isOp(u) && S.isGroundOp(u)));
   battle.on('death', (c) => {
@@ -700,10 +744,14 @@ function installUrsus(battle, pid, effectId, members) {
   const set = new Set(members);
   const six = reached(battle, pid, 'ursusShip', bb.power_bond_char_cnt);
   battle.on('death', (c) => {
-    if (c.reason !== 'killed' || !c.unit || c.unit.side !== 'enemy') return;
+    // act3autochess_bond_eff_ursus ON_TARGET_KILLED has no side, faction or unit-type filter.
+    // The bond text 「击倒其他单位」 excludes the credited member's own finish. The template node
+    // itself has no self-exclusion node; that reading is the published description.
+    if (c.reason !== 'killed' || !c.unit) return;
+    const dead = c.unit;
     const killer = c.killer;
     const who = killer && killer.kind === 'token' ? killer.ownerUnit : killer;
-    if (!set.has(who)) return;
+    if (!who || who === dead || !set.has(who)) return;
     const n = six ? num(bb['temp_bond_stack_cnt[power]'], 4) : num(bb.temp_bond_stack_cnt, 2);
     const extra = ursusTempExtra(battle, pid);
     addTemp(battle, pid, 'ursusShip', n + (extra > 0 ? extra : 0));

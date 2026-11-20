@@ -686,8 +686,8 @@
       "round": 10,
       "seed": 3009624823,
       "waveId": "act3autochess_h03",
-      "time": 77.1,
-      "ticks": 2313,
+      "time": 80.2,
+      "ticks": 2406,
       "reason": "cleared",
       "killed": 30,
       "total": 30,
@@ -699,20 +699,20 @@
         "p1": {"killed":30,"total":30,"perfect":true,"leaks":0,"leaksUncounted":0,"coins":0,"dmg":437447,"bossDmg":0,"heal":703,"deaths":1,"layerGains":{"raidShip":18}}
       },
       "units": [
-        ["p1",1,"op","chess_char_3_12_b",2,"uniequip_002_blemsh",4124.17,1,41,3,82015,5761,703,31,2],
-        ["p1",2,"op","chess_char_4_13_b",2,"uniequip_002_mlynar",26187.7,1,1,4,84163,0,0,0,0],
+        ["p1",1,"op","chess_char_3_12_b",2,"uniequip_002_blemsh",3378.34,1,41,4,109932,5015,703,30,2],
+        ["p1",2,"op","chess_char_4_13_b",2,"uniequip_002_mlynar",26187.7,1,1,4,77181,0,0,0,0],
         ["p1",3,"op","chess_char_1_04_b",1,"uniequip_002_wildmn",2168.1,1,3,0,0,0,0,0,0],
         ["p1",4,"op","chess_char_2_06_b",0,"uniequip_002_gravel",1773.2,1,5,0,0,0,0,0,1],
         ["p1",5,"op","chess_char_3_21_b",1,"uniequip_002_fang2",2262.7,1,7,0,0,0,0,0,1],
-        ["p1",6,"op","chess_char_5_13_b",1,"uniequip_002_demetr",0,0,28,15,198808,3927,0,85,2],
-        ["p1",7,"op","chess_char_4_12_b",1,"uniequip_002_fartth",1560.9,1,4,8,72091,0,0,16,2],
-        ["p1",8,"op","chess_char_5_12_b",2,"uniequip_002_lisa",1628,1,6,0,369,0,0,1,1]
+        ["p1",6,"op","chess_char_5_13_b",1,"uniequip_002_demetr",0,0,28,16,199183,3969,0,85,2],
+        ["p1",7,"op","chess_char_4_12_b",1,"uniequip_002_fartth",1560.9,1,4,6,51150,0,0,11,1],
+        ["p1",8,"op","chess_char_5_12_b",2,"uniequip_002_lisa",1628,1,6,0,0,0,0,0,1]
       ],
-      "enemies": {"enemy_1251_lysyta_2":[19,19,0,0,151290],"enemy_1252_lysytb_2":[7,7,0,1972,156764],"enemy_1329_cbshld_2":[4,4,0,7717,129393]},
-      "hooks": [1,41,2313,162,162,274,275,261,31,34,9,7,0,3470,31,14,30,0,1,40,3,0,9],
-      "events": {"atk":203,"deploy":11,"die":34,"dmg":275,"engage":4,"fx":18,"layer":3,"rate":9,"skill":16,"spawn":38,"status":29},
-      "fx": {"blink":3,"buff":1,"dodge":9,"garrison":3,"link":2},
-      "snaps": "60351851 6910a143 db6fc4cb 7954611f 10ffae3a 46e856b0 3d871f5d 6e17e8f4"
+      "enemies": {"enemy_1251_lysyta_2":[19,19,0,0,151290],"enemy_1252_lysytb_2":[7,7,0,1972,156764],"enemy_1329_cbshld_2":[4,4,0,7013,129393]},
+      "hooks": [1,41,2406,154,154,274,274,261,31,34,8,7,0,3477,27,15,30,0,1,37,3,0,9],
+      "events": {"atk":195,"deploy":11,"die":34,"dmg":274,"engage":3,"fx":17,"layer":3,"rate":8,"skill":15,"spawn":38,"status":25},
+      "fx": {"blink":3,"buff":1,"dodge":9,"garrison":3,"link":1},
+      "snaps": "60351851 739326a5 1b1eadd2 dc7fe1ad 0deac1c7 643ee930 4a90ff7f eca407ec"
     },
     "bond-kjeragShip-low": {
       "about": "谢拉格 low: tier 1 layers 1; chess_char_1_06_a chess_char_3_04_a chess_char_2_05_a chess_char_2_10_a chess_char_3_02_a chess_char_3_03_a chess_char_3_05_a chess_char_3_06_a",
