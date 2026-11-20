@@ -143,16 +143,16 @@ function onLayerChange(battle, fn) {
 }
 
 /**
- * bond_allinrange (garrison_237): each operator on bond_range_id gets the grant on their own active bonds.
- * [ASSUMED] b-4 is only the tile behind, but a desc that also says 自身 includes the carrier.
+ * bond_allinrange (garrison_237): each operator on bond_range_id gets the grant on their own active bonds. b-4 is the
+ * tile behind only (range_table). The carrier is not one of them: 佩佩's 「自身及身后一格」 is two rows, 49 (bond_self → the
+ * carrier) and 237 (b-4 → the one behind); the elite's 237_b shows the pair's shared text, the normal 237_a reads only
+ * 身后一格 (round 84 — the carrier was paid twice before).
  */
 export function grantBondRange(battle, it) {
   const u = it.unit;
   const grid = GRIDS[it.bbStr.bond_range_id] || GRIDS['b-4'];
   const keys = new Set(absoluteRangeKeys(grid, u.tileR, u.tileC, u.dir));
-  const desc = (it.g && it.g.desc) || '';
   const targets = [];
-  if (desc.includes('自身')) targets.push(u);
   for (const t of battle.allyUnits) {
     if (!S.isOp(t) || t.ownerId !== u.ownerId || !S.onField(t) || t === u) continue;
     if (S.onKeys(t, keys)) targets.push(t);

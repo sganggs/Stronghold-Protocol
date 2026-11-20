@@ -939,7 +939,7 @@ test('onstart in the attack range counts the carrier and a front ally, not a far
   assert.equal(lg(h, 'egirShip') - lg(bare, 'egirShip'), 4);
 });
 
-test('sleepstun: bond_self pays the carrier; bond_allinrange pays the operator behind', () => {
+test('sleepstun: bond_self pays the carrier; bond_allinrange pays the operator behind (elite pair: not the carrier twice)', () => {
   const self = battle([
     { id: 'op', g: ['garrison_49_a'], row: 10, col: 4, bonds: ['sargonShip', 'skillfulShip'] },
     { id: 'behind', row: 10, col: 3, bonds: ['yanShip'] },
@@ -956,6 +956,15 @@ test('sleepstun: bond_self pays the carrier; bond_allinrange pays the operator b
   behind.b.applyStatus(behind.spawn('e_dummy', { pos: [11, 4] }), 'stun', { duration: 3, source: behind.unit('op') });
   assert.equal(lg(behind, 'sargonShip'), 0, 'garrison_237_a does not say 自身');
   assert.equal(lg(behind, 'yanShip'), 1);
+
+  // the elite pair: 49_b pays the carrier, 237_b (its text says 自身及身后 too) only the one behind — not the carrier again
+  const elite = battle([
+    { id: 'op', g: ['garrison_49_b', 'garrison_237_b'], row: 10, col: 4, bonds: ['sargonShip'] },
+    { id: 'back', row: 10, col: 3, bonds: ['yanShip'] },
+  ], { sargonShip: B(0), yanShip: B(0) });
+  elite.b.applyStatus(elite.spawn('e_dummy', { pos: [11, 4] }), 'stun', { duration: 3, source: elite.unit('op') });
+  assert.equal(lg(elite, 'sargonShip'), 2, 'the carrier +2 once (49_b), not +4');
+  assert.equal(lg(elite, 'yanShip'), 2, 'the one behind +2 (237_b)');
 });
 
 test('tempLayerGains is optional on the result wire and rejected when it is not a real bond', () => {
