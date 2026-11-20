@@ -520,14 +520,6 @@ function nextUpgrade(ctx) {
   return give;
 }
 
-/** Piece count when the blackboard has no `count`: 两 / 二 → 2, otherwise 1 (一件). */
-function equipCount(g, bb) {
-  if (bb && 'count' in bb) return num(bb.count, 1);
-  const d = (g && g.desc) || '';
-  if (/两|二/.test(d)) return 2;
-  return 1;
-}
-
 function livingOperators(ctx, ev) {
   const units = ev && ev.result && Array.isArray(ev.result.unitsEnd) ? ev.result.unitsEnd : [];
   let n = 0;
@@ -570,10 +562,14 @@ H.SERVER_SELF_SELL_PRICE_FIXED = {
   },
 };
 
-// 进入休整期. No count on the blackboard: the text's 一件 / 两件. Not above the current shop level.
+// 进入休整期, not above the current shop level. One item per garrison row unless the blackboard has a `count` (it has
+// none here): 酒神's normal form has one row (158_a 「获得一件」), the elite two (158_b + 159_b) that share the text 「获得两件」
+// — the way 规程 splits one effect over two rows under one text (薇薇安娜 152 / 156, Mon3tr 153 / 157, 凛御银灰 226 / 227) —
+// so the elite gets two a prep, not two per row (round 84; it was four before).
 H.SERVER_GAIN_RANDOM_EQUIP = {
   run(ctx) {
-    const n = Math.min(10, Math.max(0, equipCount(ctx.source.garrison, ctx.source.bb)));
+    const bb = ctx.source.bb;
+    const n = Math.min(10, Math.max(0, bb && 'count' in bb ? num(bb.count, 1) : 1));
     for (let i = 0; i < n; i++) {
       const id = ctx.rollItem({ maxTier: ctx.shopLevel() });
       if (id) ctx.grantItem(id);

@@ -322,7 +322,7 @@ test('carrySellPrice: the highest copy with its bonus / fixed mark; nothing at o
   assert.deepEqual(d.meta, {});
 });
 
-test('SERVER_GAIN_RANDOM_EQUIP: one item from the board at prep start; the hand does not; the elite text is 两件 twice', () => {
+test('SERVER_GAIN_RANDOM_EQUIP: one item per row from the board at prep start; the hand does not; the elite gets two', () => {
   const board = setup();
   give(board.m, board.ps, 'chess_char_6_07_a', 'board', [10, 4]);
   board.prepStart();
@@ -334,7 +334,7 @@ test('SERVER_GAIN_RANDOM_EQUIP: one item from the board at prep start; the hand 
   const elite = setup();
   give(elite.m, elite.ps, 'chess_char_6_07_b', 'board', [10, 4]);
   elite.prepStart();
-  assert.equal(handItems(elite.ps).length, 4, '158_b and 159_b each say 两件');
+  assert.equal(handItems(elite.ps).length, 2, '158_b and 159_b are the two halves of one 「获得两件」 (one item each)');
 });
 
 test('SERVER_GAIN_SPECIAL_REFRESH_BOND_CHAR: one charge, count is how many slots; a queued test shop does not spend it', () => {
