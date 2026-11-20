@@ -344,7 +344,7 @@ test('S2 阂断骤雪: never cast by the strategy; an enemy\'s hit casts it — 
   }
 });
 
-test('S2: 持续伤害, 环境伤害, 无来源 damage, an ally\'s damage and 元素伤害 cast nothing; a true hit casts but is not lowered; stunned or silenced she does not cast', () => {
+test('S2: 持续伤害, 环境伤害, 无来源 damage from her side and an ally\'s damage cast nothing; enemy 无来源 damage, 元素伤害 and a true hit cast (only phys / arts are lowered); stunned or silenced she does not cast', () => {
   const { h, u } = field({ skill: 1 });
   u.skill.gainSp(999);
   const e = h.spawn('enemy_dummy', { pos: [10, 7] });
@@ -353,9 +353,8 @@ test('S2: 持续伤害, 环境伤害, 无来源 damage, an ally\'s damage and �
     ['持续伤害', () => h.b.dealDamage({ source: e, target: u, amount: 500, type: 'arts', attackType: 'BUFF' })],
     ['dot tag', () => h.b.dealDamage(e, u, { amount: 500, type: 'arts', tags: ['dot'] })],
     ['环境伤害', () => h.b.dealDamage({ source: e, target: u, amount: 500, type: 'true', tags: ['terrain'] })],
-    ['无来源', () => h.b.dealDamage({ source: null, credit: e, target: u, amount: 500, type: 'arts' })],
+    ['无来源 from her side', () => h.b.dealDamage({ source: null, credit: ally, target: u, amount: 500, type: 'arts' })],
     ['an ally', () => h.b.dealDamage(ally, u, { amount: 500, type: 'arts' })],
-    ['元素伤害', () => h.b.dealDamage(e, u, { amount: 500, type: 'elemental', element: 'burn' })],
   ];
   for (const [what, fn] of tries) { u.hp = u.s.maxHp; inTick(h, fn); assert.equal(u.skill.activations, 0, what); }
   h.b.applyStatus(u, 'stun', { duration: 1, force: true });
@@ -370,11 +369,26 @@ test('S2: 持续伤害, 环境伤害, 无来源 damage, an ally\'s damage and �
   approx(inTick(h, () => h.b.dealDamage(e, u, { amount: 500, type: 'true' })), 500, 'a true hit keeps its damage');
   assert.equal(u.skill.activations, 1, 'and casts it');
   done(h);
+  // ANY_ATTACK includes 元素伤害; DamageScale is PHYSICAL_AND_MAGICAL, so the hit is not × damage_remaining_scale.
+  const { h: h2, u: u2 } = field({ skill: 1, seed: 8 });
+  u2.skill.gainSp(999);
+  const e2 = h2.spawn('enemy_dummy', { pos: [10, 7] });
+  approx(inTick(h2, () => h2.b.dealDamage(e2, u2, { amount: 500, type: 'elemental', element: 'burn' })), 500, '元素伤害 keeps its amount');
+  assert.equal(u2.skill.activations, 1, '元素伤害 casts it');
+  assert.ok(tagged(h2, 'oxi:retaliate').some((c) => c.type === 'arts'), '元素伤害 still retaliates');
+  done(h2);
+  // PRTS 备注 「来源非我方单位（可为无来源伤害）」: an enemy's 无来源 hit casts it and, being arts, is lowered.
+  const { h: h3, u: u3 } = field({ skill: 1, seed: 9 });
+  u3.skill.gainSp(999);
+  const e3 = h3.spawn('enemy_dummy', { pos: [10, 7] });
+  approx(inTick(h3, () => h3.b.dealDamage({ source: null, credit: e3, target: u3, amount: 500, type: 'arts' })), 500 * (1 - u3.s.res / 100) * 0.1, '无来源 arts: ×0.1');
+  assert.equal(u3.skill.activations, 1, 'an enemy 无来源 hit casts it');
+  done(h3);
 });
 
-test('S2: a dodged hit casts nothing (PRTS 未被成功闪避) — her 闪避 is rolled for it once, at the guard; a hit not dodged casts as before and is not rolled again', () => {
+test('S2: a hit she dodges still casts it (PRTS 「未被取消（不包括原因为“闪避”或“未命中”的取消）」) — her 闪避 is rolled once, by the pass, after the cast', () => {
   for (const [type, mod] of [['phys', 'dodgePhys'], ['arts', 'dodgeArts']]) {
-    // a certain dodge: no charge, no window, no 庇护, no layer, no retaliation
+    // a certain dodge: the hit misses, the skill casts (window, layer, retaliation on the source)
     const { h, u } = field({ skill: 1 });
     u.skill.gainSp(999);
     h.b.addBuff(u, { key: 'test:dodge', mods: { [mod]: 1 } });
@@ -382,14 +396,11 @@ test('S2: a dodged hit casts nothing (PRTS 未被成功闪避) — her 闪避 is
     const hp0 = u.hp;
     const dodges = () => h.eventsOf('fx').filter((e) => e[1] === 'dodge').length;
     assert.equal(inTick(h, () => h.b.dealDamage(src, u, { amount: 2000, type })), 0, `${type}: dodged`);
-    assert.deepEqual([u.hp, dodges(), u.skill.charges, u.skill.activations], [hp0, 1, u.skill.maxCharges, 0], `${type}: one MISS, every charge kept`);
-    assert.deepEqual([!!u.findBuff('protect'), !!u.findBuff('skill:oxi:stack'), !!u.findBuff('skill:oxi:guardWindow'), tagged(h, 'oxi:retaliate').length], [false, false, false, 0], `${type}: nothing of the cast`);
-    // an undodgeable hit still casts it (no roll)
-    approx(inTick(h, () => h.b.dealDamage(src, u, { amount: 2000, type, canDodge: false })), (type === 'phys' ? 2000 - u.base.def : 2000 * (1 - u.base.res / 100)) * 0.1, `${type}: undodgeable, ×0.1`);
-    assert.equal(u.skill.activations, 1, `${type}: cast`);
+    assert.deepEqual([u.hp, dodges(), u.skill.activations], [hp0, 1, 1], `${type}: one MISS, and the skill cast`);
+    assert.deepEqual([!!u.findBuff('skill:oxi:guardWindow'), !!u.findBuff('skill:oxi:stack')], [true, true], `${type}: the window and a layer`);
     done(h);
   }
-  // a 50 % dodge that fails: the hit is rolled exactly once (at the guard), casts, and the buff's 闪避 comes back afterwards
+  // a 50 % dodge that fails: one roll (the pass's own, after the cast), ×0.1, the buff's 闪避 untouched
   const { h, u } = field({ skill: 1 });
   u.skill.gainSp(999);
   h.b.addBuff(u, { key: 'test:dodge', mods: { dodgePhys: 0.5 } });
@@ -398,10 +409,10 @@ test('S2: a dodged hit casts nothing (PRTS 未被成功闪避) — her 闪避 is
   h.b.rng = () => { draws++; return 0.7; };
   const def0 = u.s.def;
   approx(inTick(h, () => h.b.dealDamage(src, u, { amount: 2000, type: 'phys' })), (2000 - def0) * 0.1, 'not dodged: ×0.1');
-  assert.deepEqual([draws, u.skill.activations, u.findBuff('test:dodge').mods.dodgePhys], [1, 1, 0.5], 'one roll, cast, the 闪避 restored');
+  assert.deepEqual([draws, u.skill.activations, u.findBuff('test:dodge').mods.dodgePhys], [1, 1, 0.5], 'one roll, cast');
   draws = 0;
   inTick(h, () => h.b.dealDamage(src, u, { amount: 2000, type: 'phys' }));
-  assert.deepEqual([draws, u.skill.activations], [1, 1], 'inside the window: the pass rolls it itself, once, and nothing casts');
+  assert.deepEqual([draws, u.skill.activations], [1, 1], 'inside the window: the pass rolls it, once, and nothing casts');
   done(h);
 });
 

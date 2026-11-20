@@ -566,6 +566,103 @@ test('沸血骑士团精锐 gains ATK and ASPD per enemy knock-down, capped at 1
   assert.equal(h.b.errors.length, 0);
 });
 
+test('械 洪流攻势: one 量变之械 on each walkable side of the highest-block ally (cnt 4 = the four sides)', () => {
+  const GEAR = 'enemy_9028_acfncb';
+  for (const key of [MECH, MECH_2]) {
+    const squad = V.enemies[key].skills.find((s) => s.prefabKey === 'SommonSquad');
+    assert.equal(squad.bb.cnt, 4);
+    assert.equal(squad.bb.batch_max_target, 2);
+    const h = fight({ units: [{ chessId: 't_wall', row: 9, col: 8 }] });
+    put(h, key, [9, 12]);
+    // Base form is an SP timer of 25 s. Hidden form's cooldown is ready immediately (icd 0).
+    h.run(key === MECH ? 25.1 : 0.2);
+    const wall = h.allies()[0];
+    const sides = [[1, 0], [0, 1], [-1, 0], [0, -1]]
+      .map(([dr, dc]) => [wall.tileR + dr, wall.tileC + dc])
+      .filter(([r, c]) => h.b.grid.walkable(r, c));
+    assert.ok(sides.length >= 2, 'the test tile has walkable sides');
+    const gears = living(h, GEAR);
+    assert.equal(gears.length, sides.length, key);
+    const at = new Set(gears.map((g) => `${Math.round(g.y)},${Math.round(g.x)}`));
+    for (const [r, c] of sides) assert.ok(at.has(`${r},${c}`), `${key}: a gear on ${r},${c}`);
+    assert.equal(h.b.errors.length, 0, key);
+  }
+});
+
+test('管 below half HP gains talent 1.prob (10 %) physical and arts dodge; 弦 does not', () => {
+  const gun = { chessId: 't_gun', row: 1, col: 1 };
+  for (const key of ['enemy_9021_acduml', 'enemy_9021_acduml_2']) {
+    assert.equal(V.enemies[key].talents.bb['1.prob'], 0.1);
+    const h = fight({ units: [gun], hooks: ['dodge'] });
+    const e = put(h, key, [9, 8]);
+    const src = h.allies()[0];
+    h.step(1);
+    assert.equal(e.findBuff('boss:pipeEvade'), null, `${key} above half`);
+    e.hp = e.s.maxHp * 0.49;
+    h.step(1);
+    const buff = e.findBuff('boss:pipeEvade');
+    assert.ok(buff, `${key} below half`);
+    assert.ok(near(buff.mods.dodgePhys, 0.1) && near(buff.mods.dodgeArts, 0.1), key);
+    // A chance, not immunity: some of 200 small hits land, some are dodged.
+    const hp = e.hp;
+    for (let i = 0; i < 200; i++) h.b.dealDamage(src, e, { amount: 1, type: i % 2 ? 'arts' : 'phys', canDodge: true });
+    const dodged = h.hooksOf('dodge').filter((c) => c && c.target === e).length;
+    assert.ok(dodged >= 5 && dodged <= 45, `${key}: ${dodged} of 200 dodged`);
+    assert.ok(e.hp < hp, `${key}: the rest land`);
+    e.hp = e.s.maxHp * 0.6;
+    h.step(1);
+    assert.equal(e.findBuff('boss:pipeEvade'), null, `${key} back above half`);
+    assert.equal(h.b.errors.length, 0, key);
+  }
+  const h = fight({ units: [gun] });
+  const echo = put(h, 'enemy_9022_acdumm', [9, 8]);
+  h.step(1);
+  echo.hp = echo.s.maxHp * 0.4;
+  h.step(1);
+  assert.equal(echo.findBuff('boss:pipeEvade'), null, '弦 has no Evade node');
+});
+
+test('碎铳之簧 9019 and 9020 are silenced while the shield regenerates and their attack count resets; 9018 is not', () => {
+  const h = fight({ timeLimit: 40 });
+  const hits = put(h, 'enemy_9020_actrpc', [9, 8]);
+  const element = put(h, 'enemy_9019_actrpb', [9, 6]);
+  const arts = put(h, 'enemy_9018_actrpa', [9, 4]);
+  h.step(1);
+  const src = null;
+  for (let i = 0; i < 5; i++) h.b.dealDamage(src, hits, { amount: 100, type: 'phys' });
+  assert.equal(hits.s.flags.silence, true);
+  const hitsSkill = hits.mem.ab.list.find((a) => a && typeof a.attack === 'function');
+  hitsSkill.n = 3;
+  h.b.emit('elementBurst', { target: element, element: 'erosion', source: null });
+  assert.equal(element.s.flags.silence, true);
+  const elSkill = element.mem.ab.list.find((a) => a && typeof a.attack === 'function');
+  elSkill.n = 4;
+  const artsShield = arts.findBuff('boss:springShield');
+  h.b.dealDamage(src, arts, { amount: artsShield.shield, type: 'arts' });
+  assert.equal(arts.alive, true);
+  assert.ok(!arts.s.flags.silence);
+  h.run(25.2);
+  assert.ok(!hits.s.flags.silence);
+  assert.ok(!element.s.flags.silence);
+  assert.equal(hitsSkill.n, 0);
+  assert.equal(elSkill.n, 0);
+  assert.ok(hits.findBuff('boss:springShield'));
+  assert.ok(element.findBuff('boss:springShield'));
+  assert.ok(arts.findBuff('boss:springShield'));
+  assert.equal(h.b.errors.length, 0);
+});
+
+test('蕴核饲育者 children keep move_speed as a multiplier', () => {
+  const h = fight();
+  const e = put(h, 'enemy_1437_dsfull', [9, 8]);
+  h.step(1);
+  h.b.kill(e, null);
+  const kids = h.enemies().filter((u) => u.alive);
+  assert.equal(kids.length, 1);
+  assert.ok(near(kids[0].s.moveSpeed, kids[0].base.moveSpeed * V.enemies['enemy_1437_dsfull'].talents.bb['0.move_speed']));
+  assert.equal(h.b.errors.length, 0);
+});
+
 test('规程 round multipliers use its own 攻坚装备 / 补给线II / 急行军 values on 下半\'s stack schedule', () => {
   const r7 = V.config.modes.mode_multi_abyss.enemyScale['7'], d7 = getData().config.modes.mode_multi_abyss.enemyScale['7'];
   assert.deepEqual([d7.kAtk, d7.kHp], [r7.kAtk, r7.kHp], 'same stack counts');

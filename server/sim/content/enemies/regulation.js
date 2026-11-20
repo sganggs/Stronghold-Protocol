@@ -537,7 +537,9 @@ function kitDkmage(ab) {
   ];
 }
 
-/** 饲育者: weighted death spawn. move_speed 2 is a move multiplier [ASSUMED]. */
+/** 饲育者: weighted death spawn (dsfull_tr_1 RandomAction prob1, otherwise prob2, otherwise enemy_3).
+ *  The child buff is MOVE_SPEED MULTIPLIER, loadFromBlackboard, value fallback 0. Talent 0.move_speed 2 is ×2.
+ *  _useRandomDelay is false and _delayTime is 0, so the summon is immediate. */
 function kitDsfull(ab) {
   const p1 = tv(ab, '0.prob1', 0.2);
   const p2 = tv(ab, '0.prob2', 0.5);

@@ -14,8 +14,9 @@ function amiya3(_bb, chess, def) {
     if (id === S1) return {
       kind: 'duration', duration: posDur(rec),
       mods: { aspd: num(sbb.attack_speed) },
-      // [ASSUMED] the extra heal is ATK × heal_scale (the text says 相当于攻击力), to every ally on the skill's own
-      // grid. That grid is not her attack range. The profession trait heal still happens on its own.
+      // amiya3_s_1[heal] AdvancedApplyHeal `_healScaleKey` heal_scale: the extra heal is ATK × heal_scale.
+      // [ASSUMED] it goes to every ally on the skill's own grid (selector ability amiya3_skill1 is not in the buff
+      // template). That grid is not her attack range. The profession trait heal still happens on its own.
       attack: {
         onHit({ battle, unit }) {
           const scale = num(sbb.heal_scale);

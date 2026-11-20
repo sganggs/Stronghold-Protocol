@@ -16,8 +16,8 @@
 // - T1 语汇演化 "对一个目标发起攻击时，有40%几率额外对攻击范围内一个随机目标造成相当于攻击力60%的法术伤害并使其停顿0.8秒"
 //   (full potential: 65 %; bb prob / atk_scale / sluggish): rolled for every target of each of his attacks and after a
 //   successful 殁亡 execution, before selecting its follow-up target (logos_s_1 native action order). The extra hit lands
-//   at once on a random targetable enemy of his current range
-//   [ASSUMED: the attacked target can be drawn], then 停顿 (the engine `sluggish`) for `sluggish` s. 备注 "该天赋的触发不依赖
+//   at once on a random targetable enemy of his current range (logos_t_1 EmitProjectileUseAbilitySelector
+//   `_excludeTarget` false, so the attacked target stays in the draw), then 停顿 (the engine `sluggish`) for `sluggish` s. 备注 "该天赋的触发不依赖
 //   普通攻击，不受缴械类效果制约". CCR-Δ stage 2+: prob 0.5 / 0.6 and, on a target in its 凋亡 burst, `element_atk_scale` × ATK
 //   元素伤害 after the arts hit (备注 "先造成法术伤害，后造成元素伤害"). CCR-Y stage 2+: `emit_count` 2 — 备注 "本质上是将该天赋
 //   重复执行2次": two independent executions (each its own roll and random target).

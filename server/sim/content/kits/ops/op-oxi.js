@@ -41,13 +41,17 @@
 // - S2 阂断骤雪 (AUTO, maxChargeTime charges): never cast by the strategy (the prefab's NeverTrigger: kit trigger NEVER) —
 //   her oxi_s_2_guard_manager (ON_TAKE_DAMAGE, priority GUARD_PRIORITY: an injury effect ahead of every other) casts it at
 //   the first damage instance she takes while it is ready and its guard window (oxi_s_2_guard_window, skill_duration s) is
-//   not running, when that instance is physical / arts / true (ANY_ATTACK; 元素伤害 left out [ASSUMED]), not 持续伤害
-//   (attackType BUFF), not 环境伤害 (the engine's 'terrain' tag) and comes from a unit of the other side (PRTS 备注: 有来源,
-//   not 无来源, not her side; the engine has no projectile source apart from the source), and not dodged (PRTS "且未被成功
-//   闪避、且未被判定为未命中": a miss is cancelled before the injury pass; her 闪避 — dodgePhys / dodgeArts of her buffs that come
-//   later in the pass — is rolled for that instance at the guard, with the pass's own roll and in its order, and not again
-//   where those buffs come). If it is physical or arts that
-//   very instance falls to damage_remaining_scale (a damage scale, not 庇护). The cast: the guard window; 庇护
+//   not running, when that instance is physical, arts, true or 元素伤害 (oxi_s_2_guard_manager FilterDamageModifer
+//   `_damageMask` ANY_ATTACK; a gauge fill is type `element` and never reaches this pass), not 持续伤害
+//   (attackType BUFF), not 环境伤害 (the engine's 'terrain' tag), and not from her side (PRTS 备注 「来源非我方单位（可为
+//   无来源伤害）、且非“是由来源于我方单位的弹道造成的无来源伤害”」: a 无来源 instance credited to her side is left out,
+//   any other 无来源 one casts it; the engine has no projectile source apart from the credit) — a hit she then dodges
+//   casts it too (「未被取消（不包括原因为“闪避”或“未命中”的取消）」, FilterDamageCancellation accepting MISS /
+//   HIT_FAILED; her 闪避 buffs roll later in the pass as usual; a 未命中 is cancelled before the injury pass and does not
+//   reach the guard [ASSUMED]). Until round 84 (PRTS's earlier note) 无来源 and dodged hits cast nothing, and
+//   元素伤害 neither. If it is physical or arts that
+//   very instance falls to damage_remaining_scale (DamageScale `_damageMask` PHYSICAL_AND_MAGICAL — true damage and
+//   元素伤害 cast it and are not scaled). The cast: the guard window; 庇护
 //   damage_resistance held shelter_hold_duration s, then down to 0 at skill_duration s (PRTS; LinearDecayBuffToOwnerDuringAbility)
 //   — the shared 庇护 (holdProtect, 同名效果取最高), one application per tick of the decay queued at once, so each takes over
 //   as the stronger one before it ends; the instance that cast it is already past it and past every weaker 庇护 (PRTS:
@@ -57,8 +61,9 @@
 //   she holds a layer her normal attacks hit up to her block count, the blocked first (BuffedAttack: the 强攻手 selector,
 //   attack@buffed_attack_atk_scale). Then (deferred to the end of that damage instance) retaliate_atk_scale × ATK arts to
 //   every enemy within RETALIATE_RADIUS of its centre — the damage source, else an enemy she blocks, else a ground enemy of
-//   her 1-1 (PRTS: 隐匿 ignored throughout, the source and the area may be airborne) — none without a centre; each instance
-//   heals her heal_ratio × the HP it removed (ON_AFTER_OUTPUT_DAMAGE, AssignDamageValueToBlackboard real delta).
+//   her 1-1 (PRTS: 隐匿 ignored throughout, the source and the area may be airborne) — none without a centre. A sourced
+//   元素伤害 casts it and is not scaled. Each instance heals her heal_ratio × the HP it removed
+//   (ON_AFTER_OUTPUT_DAMAGE, AssignDamageValueToBlackboard real delta).
 // - S3 日冕重烈 (MANUAL, data DEFAULT, 36 s): ATK +atk; she stops attacking (the S3NoAttack mode) and channels: a volley of
 //   簇火 at the start (ON_SPELL_ON), then every normal_interval (80 frames — PRTS "发射间隔固定为80帧", the prefab's 2.6667);
 //   过载 (ba.overdrive "技能进行到一半时触发额外效果"): from half its duration a volley at once, then every overload_interval
@@ -77,11 +82,11 @@
 // [ASSUMED] where no source settles it:
 // - S2's area radius: PRTS's 0.9, though the blackboard's ability_range_radius is 1 (the radius key of the client's
 //   CircleRange selectors — the area's and the input-target validator's); the damage source needs no distance (PRTS names
-//   none). A dodge that content holds as its own injury callback (not a 闪避 attribute) is not rolled ahead at the guard —
-//   none reaches her in this mode. A sourced 元素伤害 does not cast it.
-// - S3's explosion radius is the blackboard's range_radius (1.5; the projectile's ForEachTargetInRange holds a 0.5 default,
-//   the collider's projectile_range); the 14号异常 units PRTS names (结晶, 废热喷口 …) are not in this mode; no volley on the
-//   frame the skill ends; while she is stunned the duration runs on (CastSkillWithSuspendable's suspension is not modelled).
+//   none). A 无来源 instance credited to an enemy (or to nobody) counts as not from her side.
+// - S3's explosion radius is the blackboard's range_radius (1.5). The projectile's ForEachTargetInRange 0.5 is only the
+//   fallback beside that key; projectile_range is the collider. [ASSUMED] the 14号异常 units PRTS names (结晶, 废热喷口 …)
+//   are not in this mode; no volley on the frame the skill ends; while she is stunned the duration runs on
+//   (CastSkillWithSuspendable's suspension is not modelled).
 // - 我即火焰: every enemy carries the detector at once (the aura's 0.2 s refresh is not modelled); the damage buff that runs
 //   out on the frame of a tick ends first; an enemy that comes back before then keeps its tick phase.
 // - The skills' clips are not modelled: S2's area lands as its cast settles, S3's first volley comes at the cast.
@@ -91,7 +96,7 @@ import { absoluteRangeKeys, canTargetEnemy, enemyStealthed, sortEnemyTargets, ti
 import { bodyDist, bodyInKeys, bodyInRange } from '../../../body.js';
 import { dirVec } from '../../../dir.js';
 import { COLS } from '../../../constants.js';
-import { hasHp, isHpLoss, damageAttackType, damageDodgeMode } from '../../../attack.js';
+import { hasHp, isHpLoss, damageAttackType } from '../../../attack.js';
 import { acquireTargets } from '../../../ai.js';
 import { bbCap } from '../../../../../shared/plugins/officialBounds.js';
 
@@ -407,29 +412,17 @@ export default {
             key: GUARD_KEY, persist: true, allowDead: true, injuryPriority: GUARD_PRIORITY, tags: ['skill'],
             injury(ev) {
               const sk = unit.skill, d = ev.dmg, src = ev.source, t = ev.type;
-              if (!sk || sk.id !== S2 || !up(unit) || !d || !(t === 'phys' || t === 'arts' || t === 'true')) return;
-              if (damageAttackType(d) === 'BUFF' || d.tags?.includes('terrain') || !src || d.sourceless || src.side === unit.side) return;
+              // ANY_ATTACK: phys, arts, true, and elemental HP damage. Gauge fills (type 'element') do not reach injury.
+              if (!sk || sk.id !== S2 || !up(unit) || !d || !(t === 'phys' || t === 'arts' || t === 'true' || t === 'elemental')) return;
+              // PRTS 备注: 来源非我方单位（可为无来源伤害）、且非「由来源于我方单位的弹道造成的无来源伤害」 — the template's
+              // IfConditions drops only "no modifier source and a projectile from her side"; the engine has no projectile
+              // source, so a 无来源 instance credited to her side is left out and any other 无来源 one casts it.
+              const from = src || ev.credit || null;
+              if (damageAttackType(d) === 'BUFF' || d.tags?.includes('terrain') || (from && from.side === unit.side)) return;
               if (unit.findBuff(WINDOW_KEY) || !sk.ready || !unit.canAct || unit.s.flags.silence) return;
-              // PRTS "且未被成功闪避": her 闪避 (dodgePhys / dodgeArts of her buffs that come later in this pass) is rolled for
-              // this hit now, with the pass's own roll (ev.dodge: battle.rng, the MISS, the dodge hook) in the pass's order —
-              // a dodged hit casts nothing; one that is not dodged is not rolled again where those buffs come
-              const key = t === 'phys' ? 'dodgePhys' : t === 'arts' ? 'dodgeArts' : null, own = ev.buff;
-              const later = (b) => (b.injuryPriority ?? 0) < own.injuryPriority || ((b.injuryPriority ?? 0) === own.injuryPriority && b.seq > own.seq);
-              const held = key ? unit.buffs.filter((b) => b !== own && b.mods && b.mods[key] > 0 && later(b))
-                .sort((a, b) => (b.injuryPriority ?? 0) - (a.injuryPriority ?? 0) || a.seq - b.seq) : [];
-              const cancels = damageDodgeMode(d) !== 'uncancellable';
-              for (const b of held) {
-                for (let i = 0; i < b.stacks; i++) {   // one roll per stack until one succeeds (attack/effects.js)
-                  if (!ev.dodge(b.mods[key])) continue;
-                  if (cancels) return;
-                  break;
-                }
-              }
-              for (const b of held) {
-                const mods = b.mods, once = { ...mods, [key]: 0 };
-                b.mods = once;
-                ev.defer(() => { if (b.mods === once) b.mods = mods; unit.markDirty(); });
-              }
+              // 「未被取消（不包括原因为“闪避”或“未命中”的取消）」 (FilterDamageCancellation accepts MISS / HIT_FAILED): a hit
+              // she then dodges still casts it — her 闪避 buffs roll later in this pass as usual. [ASSUMED] a 未命中, cancelled
+              // before the injury pass, does not reach the guard.
               unit.mem.oxiS2Cast = { source: src, defer: ev.defer };   // read by the cast (onStart)
               const cast = sk.activate('TAKE_DAMAGE');
               unit.mem.oxiS2Cast = null;
