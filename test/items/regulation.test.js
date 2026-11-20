@@ -235,6 +235,35 @@ test('乌萨斯呼吸器: the deployment in progress is layer 1', () => {
   close(s.atk, 500 * (1 + p.atk_cell), 'atk');
 });
 
+test('乌萨斯呼吸器: a lent copy is one cell and a later deploy does not stack it', () => {
+  const id = A('3_12');
+  const p = bb(id, 'act3autochess_equip_acarm138_global_buff');
+  assert.ok(p.layer_max > 1, 'the record can stack, so a deploy listener would be visible');
+  const h = fight({
+    ops: { source: op('source'), receiver: op('receiver') },
+    units: [
+      { chessId: 'source', row: 10, col: 4, items: [id] },
+      { chessId: 'receiver', row: 10, col: 5 },
+    ],
+    foes: [],
+  });
+  h.step(1);
+  const source = h.unit('source');
+  const receiver = h.unit('receiver');
+  const ownerBlock = source.s.blockCnt;
+  const ownerAtk = source.s.atk;
+  assert.equal(lendItemEffects(h.b, source, receiver, { duration: 5 }), 1);
+  assert.equal(receiver.s.blockCnt, 2 + p.block_cnt_cell, 'lent block is one cell');
+  close(receiver.s.atk, 500 * (1 + p.atk_cell), 'lent atk is one multiplier cell');
+  assert.equal(source.s.blockCnt, ownerBlock, 'lending does not change the owner layer');
+  close(source.s.atk, ownerAtk, 'owner atk');
+  receiver.deploySeq += 1;
+  h.b.emit('deploy', { unit: receiver });
+  assert.equal(receiver.s.blockCnt, 2 + p.block_cnt_cell, 'a later deploy does not add a lent layer');
+  close(receiver.s.atk, 500 * (1 + p.atk_cell), 'lent atk stays one cell');
+  assert.equal(source.s.blockCnt, ownerBlock, 'the owner layer is still untouched');
+});
+
 test('多功能补剂: shared temporary layers, per-carrier cap and no permanent-layer mutation', () => {
   for (const id of quals(A('3_13'))) {
     const p = bb(id, 'act3autochess_equip_acarm131_global_buff');

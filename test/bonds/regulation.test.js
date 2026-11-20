@@ -829,6 +829,7 @@ describe('规程·序列Ⅰ bonds', { concurrency: 1 }, () => {
     const hp = e.hp;
     h.b.dealDamage({ source: u, target: e, amount: 100, type: 'phys' });
     close(hp - e.hp, 100 + 0.65 * u.s.atk, 'window true damage');
+    h.b.addBuff(u, { key: 'bond:egir:devour', persist: true, allowDead: true, mods: { atkFinal: 80, blockCnt: 2, hpFlat: 300 } });
     h.b.dealDamage({ source: null, target: u, amount: 1e9, type: 'true' });
     assert.equal(u.alive, false);
     assert.equal(u.removed, true);
@@ -836,6 +837,7 @@ describe('规程·序列Ⅰ bonds', { concurrency: 1 }, () => {
     assert.equal(next.length, 1);
     assert.equal(next[0].tileR, 10);
     assert.equal(next[0].tileC, 4);
+    assert.equal(next[0].findBuff('bond:egir:devour'), null, 'a 卡西米尔 switch does not copy 阿戈尔 devour stats');
   });
 
   test('卡西米尔 bench switch skips a ranged piece', (t) => {
@@ -941,6 +943,37 @@ describe('规程·序列Ⅰ bonds', { concurrency: 1 }, () => {
     assert.equal(c.alive, false);
     assert.equal(c.removed, true);
     assert.equal(living(h2, 'reg_eg_b').length, 1);
+  });
+
+  test('阿戈尔_2 copies devoured ATK, block and HP onto the switched-in operator', (t) => {
+    const bench = piece('reg_eg_copy', ['egirShip'], {
+      bench: true, position: 'RANGED', profession: 'SNIPER',
+      stats: { atk: 400, blockCnt: 1, maxHp: 1500 },
+    });
+    const h = fight(t, {
+      bondId: 'egirShip', effectId: 'bondeffect_egir_2',
+      bonds: { egirShip: bond(6, 0) },
+      pieces: [piece('reg_eg_host', ['egirShip']), bench],
+      contentInfo: { handPieces: [{ slot: 4, id: 'reg_eg_copy', bonds: ['egirShip'], position: 'RANGED' }] },
+    });
+    h.step();
+    const host = h.unit('reg_eg_host');
+    h.b.addBuff(host, {
+      key: 'bond:egir:devour', persist: true, allowDead: true,
+      mods: { atkFinal: 80, blockCnt: 2, hpFlat: 300 },
+    });
+    h.b.dealDamage({ source: null, target: host, amount: 1e9, type: 'true' });
+    const next = living(h, 'reg_eg_copy');
+    assert.equal(next.length, 1);
+    const buff = next[0].findBuff('bond:egir:devour');
+    assert.ok(buff, 'the switched-in operator receives the devour buff');
+    assert.equal(buff.mods.atkFinal, 80);
+    assert.equal(buff.mods.blockCnt, 2);
+    assert.equal(buff.mods.hpFlat, 300);
+    close(next[0].s.atk, next[0].base.atk + 80, 'atk final addition');
+    close(next[0].s.blockCnt, next[0].base.blockCnt + 2, 'block addition');
+    close(next[0].s.maxHp, next[0].base.maxHp + 300, 'hp final addition');
+    assert.equal(h.b.errorCount, 0, JSON.stringify(h.b.errors));
   });
 
   test('乌萨斯: standing stats, damage cut and bleed, temp layers, block arts at 6', (t) => {
@@ -1172,6 +1205,45 @@ describe('规程·序列Ⅰ bonds', { concurrency: 1 }, () => {
     close(note.s.maxHp, 2350, 'note hp');
     h.run(1.1);
     close(note.hp, 2350 - 235, 'note bleed');
+  });
+
+  test('莱塔尼亚: falldown summons, retreat does not, a non-walkable tile uses the nearest WALK tile', (t) => {
+    const h = fight(t, {
+      bonds: { lethaniaShip: bond(3, 0) },
+      pieces: [piece('reg_le_fall', ['lethaniaShip'], { row: 12, col: 4, skill: null, stats: { atk: 0 } })],
+    });
+    h.step();
+    assert.equal(h.b.grid.walkable(10, 2), false, 'the fixture high ground is not WALK');
+    const high = tank(h, [10, 2]);
+    h.b.emit('death', { unit: high, reason: 'falldown', killer: null });
+    const [note] = lethaniaSummons(h);
+    assert.ok(note, 'FALLDOWN summons a note');
+    assert.equal(h.b.grid.walkable(note.tileR, note.tileC), true, 'the note stands on a WALK tile');
+    assert.notDeepEqual([note.tileR, note.tileC], [10, 2], 'the note leaves the non-walkable death tile');
+    const dist = Math.abs(note.tileR - 10) + Math.abs(note.tileC - 2);
+    const R = h.b.rect;
+    for (let r = R.r0; r <= R.r1; r++) {
+      for (let c = R.c0; c <= R.c1; c++) {
+        if (!h.b.grid.walkable(r, c)) continue;
+        const d = Math.abs(r - 10) + Math.abs(c - 2);
+        assert.ok(d + 1e-9 >= dist, `a closer WALK tile exists at ${r},${c}`);
+        if (d === dist) {
+          const earlier = r < note.tileR || (r === note.tileR && c < note.tileC);
+          assert.equal(earlier, false, `tie keeps ${note.tileR},${note.tileC} ahead of ${r},${c}`);
+        }
+      }
+    }
+    const stayed = tank(h, [11, 5]);
+    const before = lethaniaSummons(h).length;
+    h.b.emit('death', { unit: stayed, reason: 'retreat', killer: null });
+    assert.equal(lethaniaSummons(h).length, before, 'retreat is neither a kill nor FALLDOWN');
+    const road = tank(h, [10, 4]);
+    assert.equal(h.b.grid.walkable(10, 4), true, 'the road tile is WALK');
+    h.b.emit('death', { unit: road, reason: 'falldown', killer: null });
+    const second = lethaniaSummons(h).find((u) => u !== note);
+    assert.ok(second, 'a walkable FALLDOWN still summons');
+    assert.deepEqual([second.tileR, second.tileC], [10, 4], 'a walkable death tile is the landing tile');
+    assert.equal(h.b.errorCount, 0, JSON.stringify(h.b.errors));
   });
 
   test('莱塔尼亚: own operator deaths summon only at six; partial damage and teammate deaths do not', (t) => {
@@ -1988,6 +2060,40 @@ describe('规程·序列Ⅰ bonds', { concurrency: 1 }, () => {
     const res = tnk.findBuff('bond:arcane:res');
     assert.ok(res);
     close(res.mods.resFlat, -2, 'the phys hit and the rider each drop RES');
+    h.b.addBuff(u, { key: 'test:hold', flags: { stun: true }, duration: 30 });
+    const late = tank(h, [9, 6]);
+    const lateHp = late.hp;
+    const riderHits = [];
+    h.b.on('damaged', (c) => {
+      if (c.dmg && Array.isArray(c.dmg.tags) && c.dmg.tags.includes('bond:arcane')) riderHits.push(c.target);
+    });
+    h.b.dealDamage({ source: u, target: late, amount: 10, type: 'true', tags: ['dot', 'periodic'] });
+    assert.equal(riderHits.length, 0, 'periodic damage does not nest the rider');
+    close(lateHp - late.hp, 10, 'only the periodic hit has landed');
+    h.step();
+    assert.equal(riderHits.length, 1, 'the rider arts lands on the next tick');
+    assert.equal(riderHits[0], late);
+    h.step();
+    assert.equal(riderHits.length, 1, 'the rider hit does not trigger another rider');
+    const el = tank(h, [8, 6]);
+    const elHp = el.hp;
+    h.b.dealElementDamage({ source: u, target: el, amount: 10, element: 'burn' });
+    assert.equal(riderHits.length, 1, 'element gauge damage does not nest the rider');
+    h.step();
+    assert.equal(riderHits.length, 2, 'element gauge damage gains one deferred rider');
+    assert.equal(riderHits[1], el);
+    assert.ok(elHp > el.hp, 'the deferred arts hit lands');
+    const elemental = tank(h, [8, 8]);
+    h.b.dealDamage({ source: u, target: elemental, amount: 10, type: 'elemental', element: 'burn' });
+    assert.equal(riderHits.length, 2, '元素伤害 does not nest the rider');
+    h.step();
+    assert.equal(riderHits.length, 3, '元素伤害 gains one deferred rider');
+    assert.equal(riderHits[2], elemental);
+    const add = tank(h, [8, 7]);
+    h.b.dealDamage({ source: u, target: add, amount: 10, type: 'arts', attackType: 'ADDITION', tags: ['addition'] });
+    h.step();
+    assert.equal(riderHits.length, 3, 'ADDITION does not trigger the rider');
+    assert.equal(h.b.errorCount, 0, JSON.stringify(h.b.errors));
     h.b.applyStatus(tnk, 'stealth', { duration: 5, source: null });
     assert.equal(enemyStealthed(tnk), false, 'applied inside the range: 隐匿失效');
     assert.equal(!!tnk.s.flags.stealth, true, '失效, not a dispel');

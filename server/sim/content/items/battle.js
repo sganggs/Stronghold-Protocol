@@ -604,9 +604,18 @@ const BY_BUFF = {
   },
   // 乌萨斯呼吸器: block_cnt_cell and atk_cell × stacks, cap layer_max. [ASSUMED] the deployment already in progress is
   // stack 1; the same deploySeq does not add another, and each later deployment adds one.
+  // A lent copy is the autochess_share_equip_flag branch: one cell of block (ADDITION) and one cell of ATK
+  // (MULTIPLIER), and it does not read or write the layer key. The owner's ON_OWNER_POST_BORN increment stays
+  // on the owner's grant. [ASSUMED] the lent copy does not also run POST_BORN — that event is outside the share
+  // branch, and applying it on top of the one cell would stack a second cell. The layer key is the wearer's
+  // character blackboard, so a lent copy would not have raised the owner's count either way.
   act3autochess_equip_acarm138_global_buff(battle, u, p, S) {
     const block = num(p.block_cnt_cell);
     const atk = num(p.atk_cell);
+    if (S.lent) {
+      S.stat('breath', { blockCnt: block, ...directMods({ atk }) });
+      return;
+    }
     const cap = Math.max(1, Math.floor(num(p.layer_max, 1)));
     const st = { n: 0, seq: null };
     const apply = () => S.stat('breath', { blockCnt: block * st.n, ...directMods({ atk: atk * st.n }) });

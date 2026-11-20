@@ -95,13 +95,24 @@ function tagged(dmg, tag) {
   return !!dmg && Array.isArray(dmg.tags) && dmg.tags.includes(tag);
 }
 function rider(dmg) {
-  // ADDITION is excluded (the member template's FilterDamageModifier + IfNot) so the extra arts hit does not chain.
-  // Element and periodic hits are also skipped: the template does not filter them, but emitting the extra arts
-  // synchronously from `damaged` nests past MAX_HOOK_DEPTH in real fights (溯光星源 and other on-hit chains) and
-  // the engine then skips handlers. Left out until that extra hit can be scheduled without dropping the chain.
+  // 伊比利亚 still uses this narrower gate (element, addition, dot, periodic, 流失). The 奥术 rider does not:
+  // act3autochess_bond_eff_arcane filters cancelled modifiers and attack type ADDITION only (arcaneRider).
   if (!dmg || isHpLoss(dmg) || dmg.type === 'element' || dmg.type === 'elemental') return true;
   if (damageAttackType(dmg) === 'ADDITION' || tagged(dmg, 'addition') || tagged(dmg, 'dot') || tagged(dmg, 'periodic')) return true;
   return false;
+}
+/** True when act3autochess_bond_eff_arcane must not append an arts hit. */
+function arcaneRiderSkips(dmg) {
+  // First FilterDamageModifier only rejects a cancelled modifier. 流失 is not an output-damage modifier.
+  if (!dmg || dmg.cancel || isHpLoss(dmg)) return true;
+  // Second filter is attack type ADDITION, then IfNot. The appended hit is itself ADDITION and tagged so it
+  // cannot schedule another rider even if a later hook rewrites the attack type.
+  if (damageAttackType(dmg) === 'ADDITION' || tagged(dmg, 'addition') || tagged(dmg, 'bond:arcane')) return true;
+  return false;
+}
+/** Element and periodic hits are inside chains that already sit near MAX_HOOK_DEPTH. Deal those next tick. */
+function arcaneRiderDefers(dmg) {
+  return dmg.type === 'element' || dmg.type === 'elemental' || tagged(dmg, 'dot') || tagged(dmg, 'periodic');
 }
 function onLayers(battle, pid, bondId, fn) {
   const st = S.battleStore(battle, 'bonds:reg:layers', () => ({ map: new Map(), pending: new Set(), hooked: false }));
@@ -221,6 +232,28 @@ function giantKit(raw) {
     },
   };
 }
+/**
+ * WALK tile for a 莱塔尼亚 note (SummonEnemyWithRuntimeRoute, _summonOnNearestPassableTile, _motionMode WALK,
+ * _avoidHighland false). Passable is the tile's WALK mask (`pass === 'ALL'`), not the pathfinding obstacle bit:
+ * a 射击台 hard-block and a crate stay valid landings, and highland is not filtered again. A FLY-only wall,
+ * a hole, or a tile outside the rect is not. The death tile wins when it is already that mask.
+ * [ASSUMED] distance is Manhattan; a tie keeps the earlier row, then the earlier column (the scan order).
+ */
+function nearestWalkTile(battle, fromR, fromC) {
+  const grid = battle.grid;
+  // ignoreObstacles: the summon node reads the map mask. 射击台 / 阻隔工事 are pathing obstacles, not this filter.
+  if (grid.walkable(fromR, fromC, true)) return [fromR, fromC];
+  const R = battle.rect;
+  let best = null, bestD = Infinity;
+  for (let r = R.r0; r <= R.r1; r++) {
+    for (let c = R.c0; c <= R.c1; c++) {
+      if (!grid.walkable(r, c, true)) continue;
+      const d = Math.abs(r - fromR) + Math.abs(c - fromC);
+      if (d < bestD) { bestD = d; best = [r, c]; }
+    }
+  }
+  return best;
+}
 /** Chebyshev radius. [ASSUMED] range id `x-5` is 5 tiles from the anchor, the square the summon node names. */
 function nearestOpen(battle, fromR, fromC, radius) {
   const R = battle.rect;
@@ -241,7 +274,7 @@ function inRadius(u, x, y, r) {
   return dx * dx + dy * dy <= r * r + 1e-9;
 }
 
-function handSwitch(battle, dead, bondId, { meleeOnly = false, cap = Infinity, counter } = {}) {
+function handSwitch(battle, dead, bondId, { meleeOnly = false, cap = Infinity, counter, onSwitched } = {}) {
   const st = S.battleStore(battle, 'bonds:reg:switch', () => ({ n: {}, taken: new Set() }));
   const pid = dead.ownerId;
   const key = counter || bondId;
@@ -259,9 +292,25 @@ function handSwitch(battle, dead, bondId, { meleeOnly = false, cap = Infinity, c
     if (!spawned) { dead.removed = false; continue; }
     st.taken.add(slotKey);
     st.n[`${pid}|${key}`] = num(st.n[`${pid}|${key}`]) + 1;
+    if (typeof onSwitched === 'function') onSwitched(spawned, dead);
     return true;
   }
   return false;
+}
+/**
+ * 阿戈尔_2 attr_extend: the devoured ATK / block / HP on the dying operator (GT 0 only) are added onto
+ * whoever was switched in. Hand pieces are 阿戈尔 members, so attr_other (non-members) is the same mods.
+ * The bond HP% buff is not part of this copy. 卡西米尔 does not pass onSwitched.
+ */
+function copyEgirDevour(battle, spawned, dead) {
+  const buff = typeof dead.findBuff === 'function' ? dead.findBuff('bond:egir:devour') : null;
+  const mods = buff && buff.mods;
+  if (!mods) return;
+  const next = {};
+  if (num(mods.atkFinal) > 0) next.atkFinal = num(mods.atkFinal);
+  if (num(mods.blockCnt) > 0) next.blockCnt = num(mods.blockCnt);
+  if (num(mods.hpFlat) > 0) next.hpFlat = num(mods.hpFlat);
+  if (Object.keys(next).length) S.passiveBuff(battle, spawned, 'bond:egir:devour', next);
 }
 
 // =====================================================================================================================
@@ -626,7 +675,10 @@ function installEgir2(battle, pid, effectId, members) {
   battle.on('death', (c) => {
     const u = c.unit;
     if (!u || c.reason !== 'killed' || c.revivedBy || !ops.has(u) || u.alive || u.removed) return;
-    handSwitch(battle, u, 'egirShip', { meleeOnly: false, cap, counter: 'egir2' });
+    handSwitch(battle, u, 'egirShip', {
+      meleeOnly: false, cap, counter: 'egir2',
+      onSwitched: (spawned, dead) => copyEgirDevour(battle, spawned, dead),
+    });
   }, { priority: 0 });
 }
 
@@ -820,10 +872,14 @@ function installLethania(battle, pid, effectId, members) {
     const R = battle.rect;
     const deathTile = tileKeyOf(anchor);
     if (deathTile < 0) return;
-    const row = Math.max(R.r0, Math.min(R.r1, Math.floor(deathTile / COLS)));
-    const col = Math.max(R.c0, Math.min(R.c1, deathTile % COLS));
+    const row0 = Math.max(R.r0, Math.min(R.r1, Math.floor(deathTile / COLS)));
+    const col0 = Math.max(R.c0, Math.min(R.c1, deathTile % COLS));
+    const spot = nearestWalkTile(battle, row0, col0);
+    if (!spot) return;
+    const [row, col] = spot;
     // [ASSUMED] the note and the chorus are allied tokens built from the enemy record (they are not in tokens.json).
-    // They appear at the death cell center, even on non-deployable floor, another pursuer, an ally, or a downed body.
+    // They may share the tile with another pursuer, an ally, a 射击台, or a downed body. A death tile whose
+    // mask is not WALK (highland wall, a hole) uses the nearest WALK tile instead of the death-cell centre.
     const u = battle.spawnToken(pid, id, row, col, {
       ...lethaniaSummon(id, raw), lethaniaPursuit: true, position: { x: col, y: row },
     });
@@ -844,7 +900,9 @@ function installLethania(battle, pid, effectId, members) {
   battle.on('death', (c) => {
     const u = c.unit;
     if (u && u.defId === CHORUS && u.ownerId === pid) chorusAura();
-    if (!u || c.reason !== 'killed') return;
+    // HP_ZERO and HP_ZERO_WITH_NO_SOURCE both arrive as reason 'killed'. FALLDOWN is 'falldown'; the engine
+    // does not emit it yet (nothing sends a unit into a hole), so this listener stays quiet until one exists.
+    if (!u || (c.reason !== 'killed' && c.reason !== 'falldown')) return;
     if (u.side === 'enemy') { summonOne(u); return; }
     if (power && u.side === 'ally' && u.kind === 'op' && u.ownerId === pid) summonOne(u);
   });
@@ -1054,13 +1112,23 @@ export function installArcaneExtra(battle) {
 /** Extra arts hit of the act3 奥术 rider. addon calls this only when base_damage_scale is absent. */
 export function arcaneRider(battle, ctx, bb) {
   const dmg = ctx.dmg, src = ctx.source, t = ctx.target;
-  if (!src || !t || !dmg || rider(dmg) || tagged(dmg, 'bond:arcane')) return;
+  if (!src || !t || !dmg || arcaneRiderSkips(dmg)) return;
   const scale = Math.abs(num(bb.atk_base) + num(bb.atk_per_stack) * S.bondLayers(battle, src.ownerId, 'arcaneShip'));
   if (!(scale > 0)) return;
-  battle.dealDamage({
-    source: src, target: t, amount: scale * num(src.s.atk), type: 'arts', attackType: 'ADDITION',
-    tags: ['addition', 'bond:arcane'],
-  });
+  // Snapshot ATK now: the official node applies during the modifier event, not a tick later.
+  const amount = scale * num(src.s.atk);
+  const deal = () => {
+    if (!t.alive || t.removed) return;
+    battle.dealDamage({
+      source: src, target: t, amount, type: 'arts', attackType: 'ADDITION',
+      tags: ['addition', 'bond:arcane'],
+    });
+  };
+  // after(0) is flushed at the next tick's scheduled phase, after this emit has unwound. Ordinary hits stay
+  // in this chain: deferring them would move every 3+ 奥术 fight by one tick. A rider hit is ADDITION, so it
+  // does not enter deal() again.
+  if (arcaneRiderDefers(dmg)) battle.after(0, deal, { owner: src });
+  else deal();
 }
 
 /**
