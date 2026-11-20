@@ -203,7 +203,15 @@ export function create(canvas, card, view, options = {}) {
   const reportError = (message) => {
     if (typeof options.onError === 'function') options.onError(String(message));
   };
-  const gl = canvas.getContext('webgl2', { premultipliedAlpha: false, alpha: true, preserveDrawingBuffer: true, stencil: true });
+  // The stage never reads its own canvas back (no toDataURL / getImageData), so the context does not ask for
+  // preserveDrawingBuffer: the flag is unnecessary rather than expensive. [ASSUMED] it was once taken for the
+  // footprint of the shop; measured on Firefox 147 (ac_s_closur, 2108x1323) dropping it changes the frame rate by
+  // nothing (-3.4 %, inside the noise), and the per-frame PWebGL::Msg_ReadPixels in that profile comes from the
+  // spine canvas uploaded as a texture (drawExternalQuad), not from this flag. high-performance matches the 3D
+  // board's context.
+  const gl = canvas.getContext('webgl2', {
+    premultipliedAlpha: false, alpha: true, stencil: true, powerPreference: 'high-performance',
+  });
   if (!gl) { reportError('no webgl2'); return null; }
   // The stage owns every GL object it creates, so it has to survive both a failed compile/link and a lost
   // context: a half-linked program must be deleted before returning null, and every later call runs on a
@@ -271,10 +279,16 @@ export function create(canvas, card, view, options = {}) {
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1]), gl.STATIC_DRAW);
   const aPos = gl.getAttribLocation(program, 'aPos');
   const aUV = gl.getAttribLocation(program, 'aUV');
-  gl.enableVertexAttribArray(aPos);
-  gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 16, 0);
-  gl.enableVertexAttribArray(aUV);
-  gl.vertexAttribPointer(aUV, 2, gl.FLOAT, false, 16, 8);
+  // A linked program may drop an attribute; getAttribLocation then returns -1 and enabling it is a GL error
+  // (Firefox reports it per draw until it gives up). Guard both locations.
+  if (aPos >= 0) {
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 16, 0);
+  }
+  if (aUV >= 0) {
+    gl.enableVertexAttribArray(aUV);
+    gl.vertexAttribPointer(aUV, 2, gl.FLOAT, false, 16, 8);
+  }
 
   const textures = new Map();
 
@@ -612,10 +626,14 @@ export function create(canvas, card, view, options = {}) {
     gl.useProgram(program);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-    gl.enableVertexAttribArray(aPos);
-    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 16, 0);
-    gl.enableVertexAttribArray(aUV);
-    gl.vertexAttribPointer(aUV, 2, gl.FLOAT, false, 16, 8);
+    if (aPos >= 0) {
+      gl.enableVertexAttribArray(aPos);
+      gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 16, 0);
+    }
+    if (aUV >= 0) {
+      gl.enableVertexAttribArray(aUV);
+      gl.vertexAttribPointer(aUV, 2, gl.FLOAT, false, 16, 8);
+    }
 
     gl.colorMask(true, true, true, true);
     gl.clearColor(0, 0, 0, 0);

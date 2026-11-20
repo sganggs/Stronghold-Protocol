@@ -1065,12 +1065,18 @@ export function create(canvas, card, textures, mounted) {
     gl.uniform2f(point.view, canvas.width, canvas.height);
     gl.bindBuffer(gl.ARRAY_BUFFER, point.buffer);
     gl.bufferData(gl.ARRAY_BUFFER, data.subarray(0, n * 7), gl.DYNAMIC_DRAW);
-    gl.enableVertexAttribArray(point.aPos);
-    gl.vertexAttribPointer(point.aPos, 2, gl.FLOAT, false, 28, 0);
-    gl.enableVertexAttribArray(point.aSize);
-    gl.vertexAttribPointer(point.aSize, 1, gl.FLOAT, false, 28, 8);
-    gl.enableVertexAttribArray(point.aColor);
-    gl.vertexAttribPointer(point.aColor, 4, gl.FLOAT, false, 28, 12);
+    if (point.aPos >= 0) {
+      gl.enableVertexAttribArray(point.aPos);
+      gl.vertexAttribPointer(point.aPos, 2, gl.FLOAT, false, 28, 0);
+    }
+    if (point.aSize >= 0) {
+      gl.enableVertexAttribArray(point.aSize);
+      gl.vertexAttribPointer(point.aSize, 1, gl.FLOAT, false, 28, 8);
+    }
+    if (point.aColor >= 0) {
+      gl.enableVertexAttribArray(point.aColor);
+      gl.vertexAttribPointer(point.aColor, 4, gl.FLOAT, false, 28, 12);
+    }
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, texture.tex);
     gl.uniform1i(point.tex, 0);
@@ -1139,14 +1145,23 @@ export function create(canvas, card, textures, mounted) {
       gl.uniform2f(U.view, canvas.width, canvas.height);
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
       gl.bufferData(gl.ARRAY_BUFFER, data.subarray(0, n * 10), gl.DYNAMIC_DRAW);
-      gl.enableVertexAttribArray(aPos);
-      gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 40, 0);
-      gl.enableVertexAttribArray(aUV);
-      gl.vertexAttribPointer(aUV, 2, gl.FLOAT, false, 40, 8);
-      gl.enableVertexAttribArray(aMaskUV);
-      gl.vertexAttribPointer(aMaskUV, 2, gl.FLOAT, false, 40, 16);
-      gl.enableVertexAttribArray(aColor);
-      gl.vertexAttribPointer(aColor, 4, gl.FLOAT, false, 40, 24);
+      // A linked program may drop an attribute; -1 is a GL error to enable (Firefox warns per draw).
+      if (aPos >= 0) {
+        gl.enableVertexAttribArray(aPos);
+        gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 40, 0);
+      }
+      if (aUV >= 0) {
+        gl.enableVertexAttribArray(aUV);
+        gl.vertexAttribPointer(aUV, 2, gl.FLOAT, false, 40, 8);
+      }
+      if (aMaskUV >= 0) {
+        gl.enableVertexAttribArray(aMaskUV);
+        gl.vertexAttribPointer(aMaskUV, 2, gl.FLOAT, false, 40, 16);
+      }
+      if (aColor >= 0) {
+        gl.enableVertexAttribArray(aColor);
+        gl.vertexAttribPointer(aColor, 4, gl.FLOAT, false, 40, 24);
+      }
 
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, baseTex.tex);
