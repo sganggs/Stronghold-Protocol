@@ -850,13 +850,46 @@ function installLethania(battle, pid, effectId, members) {
   });
 }
 
+// Bard trait rhythm (professions.js BARD_REGEN_IV / BARD_REGEN_DUR). The 聚合 ability prefab
+// (act3autochess_bond_doc_ability) is not in the tables, so the aura reuses it [ASSUMED]: short enough
+// to follow ATK, layers and the live range, and gone within half a second of leaving that range.
+const DOC_REGEN_IV = 0.25;
+const DOC_REGEN_DUR = 0.5;
+
+/** 「我方单位」for 聚合 recovery: this player's operators and summons. */
+function docRecoverTarget(u, pid) {
+  // [ASSUMED] 装置 (kind device) and a unit that is not this player's ally (a 变约 on the other side) are not 「我方单位」.
+  return !!u && u.alive && !u.removed && u.deployed && u.ownerId === pid && u.side === 'ally'
+    && (u.kind === 'op' || u.kind === 'token');
+}
+
 function installDoc(battle, pid, effectId, members) {
   const bb = bbOf('docShip', effectId, K.doc);
   const three = reached(battle, pid, 'docShip', bb.power_bond_char_cnt);
   const sheltered = new Set(); // this player's operators holding 庇护 from this installer
-  battle.every(1, () => {
+  // Official template act3autochess_bond_eff_doc writes HP_RECOVERY_PER_SEC from the member's current ATK.
+  // That is 生命回复速度, not a heal (PRTS 禁疗: changing 生命回复速度 is not a healing ability), so
+  // 武者 / 收割者 / 不屈者 profile.noHeal and healFree do not stop it (GitHub #983). One buff per member
+  // so overlapping members add, the way two bards do. Not bardRegen(): its hook would let 魔王 scale 聚合.
+  // Covered = the member's current attack range, skill-widened grids included (rangeKeySet). The member
+  // itself only when its own tile is in that range.
+  battle.every(DOC_REGEN_IV, () => {
     const L = S.bondLayers(battle, pid, 'docShip');
     const healR = num(bb.heal_base) + num(bb.heal_per_stack) * L;
+    if (!(healR > 0)) return;
+    for (const m of members) {
+      if (!S.onField(m)) continue;
+      const v = healR * num(m.s.atk);
+      if (!(v > 0)) continue;
+      const key = `bond:doc:regen:${m.id}`;
+      for (const a of battle.allyUnits) {
+        if (!docRecoverTarget(a, pid) || !S.inRange(m, a)) continue;
+        battle.addBuff(a, { key, duration: DOC_REGEN_DUR, source: m, mods: { hpRegen: v } });
+      }
+    }
+  });
+  battle.every(1, () => {
+    const L = S.bondLayers(battle, pid, 'docShip');
     const epR = num(bb.ep_heal_base) + num(bb.ep_heal_per_stack) * L;
     const res = three ? num(bb.damage_res_base) + num(bb.damage_res_per_stack) * L : 0;
     const covered = new Map();
@@ -864,11 +897,12 @@ function installDoc(battle, pid, effectId, members) {
       if (!S.onField(m)) continue;
       const atk = num(m.s.atk);
       for (const a of battle.allyUnits) {
-        if (!a.alive || a.ownerId !== pid || !S.isOp(a) || !S.inRange(m, a)) continue;
-        // [ASSUMED] overlapping members each heal; HP and element recovery stack.
-        if (healR > 0) battle.heal({ source: m, target: a, amount: healR * atk });
-        if (epR > 0) battle.healElement({ target: a, amount: epR * atk });
-        if (res > 0) {
+        if (!a.alive || a.ownerId !== pid || !S.inRange(m, a)) continue;
+        // The engine has no EP_RECOVERY_PER_SEC (element gauges do not tick down by themselves).
+        // [ASSUMED] keep a 1 s healElement of the same ratio, on the same 「我方单位」as the HP aura.
+        if (epR > 0 && docRecoverTarget(a, pid)) battle.healElement({ target: a, amount: epR * atk });
+        // 庇护 stays 「所有干员」only, strongest of overlapping members, not summed (§37.272).
+        if (res > 0 && S.isOp(a)) {
           const prev = covered.get(a) || 0;
           if (res > prev) covered.set(a, res);
         }
@@ -881,7 +915,7 @@ function installDoc(battle, pid, effectId, members) {
     }
     // 「【聚合】干员攻击范围内的所有干员获得一定比例的庇护」: an operator no member covers any more (it left the range, the
     // range shrank when a skill ended, the member fell) loses it at the next check (GitHub #976 review, round 83).
-    // [ASSUMED] the 1 s check of the heal; the ability prefab that holds the official aura is not in the tables.
+    // [ASSUMED] still the 1 s check; the ability prefab that holds the official aura is not in the tables.
     for (const a of sheltered) {
       if (covered.has(a)) continue;
       battle.removeBuff(a, 'bond:doc:res');

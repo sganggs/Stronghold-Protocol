@@ -9,6 +9,7 @@ import { loadData } from '../../server/data.js';
 import { setGameData } from '../../server/sim/content/support/index.js';
 import { acquireTargets } from '../../server/sim/ai.js';
 import { enemyStealthed } from '../../server/sim/targeting.js';
+import { COLS } from '../../server/sim/constants.js';
 import { makeBattle, chessRec, enemyRec } from '../helpers/battleHarness.js';
 import { payKjeragIce, tempBondLayers, EFFECT_KEYED_BONDS } from '../../server/sim/content/bonds/regulation.js';
 import { bondBb } from '../../server/sim/content/bonds/addon/battle.js';
@@ -125,6 +126,27 @@ function fight(t, spec) {
     routes: spec.routes,
     players: playerInputs,
   });
+}
+
+function chessIdOf(charId) {
+  const id = Object.keys(v3().chess).find((k) => {
+    const r = v3().chess[k];
+    return r && r.charId === charId && k.endsWith('_a') && (!r.baseId || r.baseId === k);
+  });
+  assert.ok(id, charId);
+  return id;
+}
+
+/** Real 规程 chess (no synthetic record). Bonds come from the chess data. */
+function realBattle(t, units, bonds) {
+  const base = v3();
+  setGameData(base);
+  t.after(() => setGameData(null));
+  const h = makeBattle({
+    seed: 1, data: base, timeLimit: 40, autoFinish: false, bonds, units,
+  });
+  h.battle.start();
+  return h;
 }
 
 function tank(h, pos) {
@@ -1797,8 +1819,14 @@ describe('规程·序列Ⅰ bonds', { concurrency: 1 }, () => {
     a.hp = 100;
     b.hp = 100;
     h.run(1.1);
-    close(a.hp, 260, 'each member heals the other and itself');
-    close(b.hp, 260, 'stacked heals');
+    const regenKeys = (u) => u.buffs.filter((x) => x.key.startsWith('bond:doc:regen:')).map((x) => x.key).sort();
+    assert.deepEqual(regenKeys(a), [`bond:doc:regen:${a.id}`, `bond:doc:regen:${b.id}`].sort(), 'each member, including itself');
+    assert.deepEqual(regenKeys(b), regenKeys(a), 'the other member carries both auras');
+    close(a.s.hpRegen, 160, 'two members add, 0.16×500 each');
+    close(b.s.hpRegen, 160, 'stacked regeneration');
+    // 26 regen ticks in this window (first refresh at 0.25 s): 100 + 26 × 160 / 30.
+    close(a.hp, 100 + 26 * 160 / 30, 'regeneration, not a 1 s heal packet');
+    close(b.hp, 100 + 26 * 160 / 30, 'stacked regeneration');
 
     const h3 = fight(t, {
       bonds: { docShip: bond(3, 0, 2) },
@@ -1840,6 +1868,97 @@ describe('规程·序列Ⅰ bonds', { concurrency: 1 }, () => {
     x.x = 6;
     h.run(1.1);
     assert.ok(x.buffs.some((b) => b.key === 'bond:doc:res'), 'back in range: sheltered again');
+  });
+
+  test('聚合: 武者 noHeal inside a member range regenerates (#983)', (t) => {
+    const h = realBattle(t, [
+      { chessId: chessIdOf('char_179_cgbird'), row: 10, col: 4, skillIndex: 0 },
+      { chessId: chessIdOf('char_337_utage'), row: 10, col: 5, skillIndex: 0 },
+    ], { docShip: bond(1, 0, 1) });
+    const bird = h.unit(chessIdOf('char_179_cgbird'));
+    const utage = h.unit(chessIdOf('char_337_utage'));
+    assert.ok(bird && utage && utage.deployed, '宴 stands on the tile in front of 夜莺');
+    assert.equal(utage.profile.noHeal, true, '宴 is a 武者');
+    assert.equal(!!utage.def.bonds?.includes('docShip'), false, '宴 is not herself a 聚合 member');
+    assert.equal(bird.rangeKeySet.has(utage.tileR * COLS + utage.tileC), true, 'y-2 covers the next tile');
+    utage.atkCd = 1e9;
+    if (utage.skill) utage.skill.setSpTotal(0);
+    h.b.addBuff(utage, { key: 'test:healFree', flags: { healFree: true } });
+    utage.hp = utage.s.maxHp * 0.5;
+    const start = utage.hp;
+    h.run(1.2);
+    assert.ok(utage.findBuff(`bond:doc:regen:${bird.id}`), 'the member aura is an hpRegen buff');
+    close(utage.s.hpRegen, bird.s.atk * 0.16, 'layers 0: 16% of the member ATK');
+    assert.ok(utage.hp > start + 20, `武者 HP rose by regeneration (${start} → ${utage.hp})`);
+  });
+
+  test('聚合: 浊心斯卡蒂 S3 keeps her own regeneration and loses HP slower than 5%/s (#974)', (t) => {
+    const h = realBattle(t, [
+      { chessId: chessIdOf('char_1012_skadi2'), row: 10, col: 4, skillIndex: 2 },
+    ], { docShip: bond(1, 0, 1) });
+    const u = h.unit(chessIdOf('char_1012_skadi2'));
+    assert.equal(u.skill.id, 'skchr_skadi2_3');
+    assert.equal(u.def.bonds.includes('docShip'), true);
+    assert.equal(u.rangeKeySet.has(u.tileR * COLS + u.tileC), true, 'x-1 includes her own tile');
+    u.skill.setSpTotal(999);
+    assert.equal(u.skill.activate('manual'), true);
+    h.run(0.7);
+    assert.equal(u.skill.active, true, 'S3 still running');
+    assert.equal(u.rangeKeySet.has(u.tileR * COLS + u.tileC), true, 'S3 does not drop her own tile');
+    assert.equal(u.findBuff(`trait:bard:${u.id}`), null, 'the tide has removed the bard regen');
+    const aura = u.findBuff(`bond:doc:regen:${u.id}`);
+    assert.ok(aura, 'her own 聚合 remains during S3');
+    close(u.s.hpRegen, u.s.atk * 0.16, 'layers 0: 16% of her current ATK, and nothing else');
+    const hp0 = u.hp;
+    const drain = u.s.maxHp * 0.05;
+    h.run(1.05);
+    const lost = hp0 - u.hp;
+    assert.ok(lost < drain - 1, `loss ${lost} is slower than one 5% drain ${drain}`);
+  });
+
+  test('聚合: 夜莺 S3 widens the aura onto a new tile, then it lapses (#976)', (t) => {
+    const h = realBattle(t, [
+      { chessId: chessIdOf('char_179_cgbird'), row: 10, col: 4, skillIndex: 2 },
+      { chessId: chessIdOf('char_4166_varkis'), row: 10, col: 7, skillIndex: 0 },
+    ], { docShip: bond(1, 0, 1) });
+    const bird = h.unit(chessIdOf('char_179_cgbird'));
+    const far = h.unit(chessIdOf('char_4166_varkis'));
+    assert.ok(far && far.deployed, '摆渡人 deployed on the y-4-only tile');
+    const key = far.tileR * COLS + far.tileC;
+    assert.equal(bird.rangeKeySet.has(key), false, 'y-2 does not reach [0,3]');
+    h.run(0.4);
+    assert.equal(far.findBuff(`bond:doc:regen:${bird.id}`), null, 'no aura before the widened range');
+    bird.skill.setSpTotal(999);
+    assert.equal(bird.skill.activate('manual'), true);
+    assert.equal(bird.skill.id, 'skchr_cgbird_3');
+    assert.equal(bird.rangeKeySet.has(key), true, 'S3 range y-4 includes [0,3]');
+    h.run(0.4);
+    assert.ok(far.findBuff(`bond:doc:regen:${bird.id}`), 'the new tile regenerates during S3');
+    bird.skill.end('duration');
+    assert.equal(bird.rangeKeySet.has(key), false, 'the range shrinks when S3 ends');
+    h.run(0.6);
+    assert.equal(far.findBuff(`bond:doc:regen:${bird.id}`), null, 'the aura lapses after the range shrinks');
+  });
+
+  test('聚合: a summon in range regenerates; a device does not', (t) => {
+    const h = fight(t, {
+      bonds: { docShip: bond(1, 0, 1) },
+      pieces: [piece('reg_doc_tok', ['docShip'], { col: 4, rangeGrid: [[0, 0], [0, 1], [0, 2], [1, 0]] })],
+    });
+    h.step();
+    const m = h.unit('reg_doc_tok');
+    const tok = h.b.spawnToken('p1', 'token_doc_test', 10, 6, {
+      def: { id: 'token_doc_test', name: 't', stats: { maxHp: 500, atk: 0, cost: 0, blockCnt: 0 }, rangeGrid: [[0, 0]] },
+      kit: {},
+    });
+    const dev = h.b.spawnDevice('dev_doc', 11, 4, { hp: 100 });
+    assert.ok(tok && tok.kind === 'token' && tok.deployed, 'summon on a covered tile');
+    assert.equal(dev && dev.kind, 'device');
+    tok.hp = 100;
+    h.run(0.5);
+    assert.ok(tok.findBuff(`bond:doc:regen:${m.id}`), 'a summon is a 我方单位');
+    assert.ok(tok.hp > 100, `summon regenerated (${tok.hp})`);
+    assert.equal(dev.findBuff(`bond:doc:regen:${m.id}`), null, 'a device is not a 我方单位');
   });
 
   test('奥术 rider arts, RES floor at 3, stealth stripped in range', (t) => {
