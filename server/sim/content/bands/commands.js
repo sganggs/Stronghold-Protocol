@@ -30,6 +30,8 @@ const MARKS = {
     // buff_template_data act3autochess_band19_buff stores `triggered` on each enemy's own buff blackboard
     // (CURRENT) and fires ON_OWNER_ROOT_TILE_CHANGED with AutoChessCheckPosition on BUFF_OWNER: every enemy
     // whose root tile enters the marked tile is feared once per mark, rather than consuming the tile globally.
+    // No source: the feared enemy flutters inside its own tile (fear.js), as official footage shows — BV1xGsS6yEcV
+    // p1 0:20–0:27 (R1) and 1:06–1:21 (R4): each enemy stays on the marked tile for the 3 s, then walks on (round 84).
     const seen = new Set();
     battle.on('tick', () => {
       for (const enemy of battle.enemies) {
