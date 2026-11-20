@@ -92,7 +92,7 @@ export class BattleLifecycle {
         const list = this.enemies;
         for (let i = 0, n = list.length; i < n && !this._endReq; i++) {
           const e = list[i];
-          if (!e.alive) continue;
+          if (!e.alive || e.kind === 'device') continue; // fixed hostile stage devices also live outside the road rect
           try { updateEnemy(this, e, dt); } catch (err) { this._internalError('updateEnemy', err); }
           this._clampPos(e);
         }
@@ -177,7 +177,7 @@ export class BattleLifecycle {
   /** Is any enemy still alive? (Checked every tick; a plain loop instead of a per-tick `some` closure.) */
   _anyEnemyAlive() {
     const list = this.enemies;
-    for (let i = 0; i < list.length; i++) if (list[i].alive) return true;
+    for (let i = 0; i < list.length; i++) if (list[i].alive && list[i].kind !== 'device') return true;
     return false;
   }
 

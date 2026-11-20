@@ -122,6 +122,17 @@ export function composeRegulationStage(main, [sub1, sub2, sub3]) {
   // sub_02's left half, its own copies are left out
   const moved = (lv, shift) => {
     const out = structuredClone(lv.predefines ?? {});
+    for (const t of out.tokenInsts || []) {
+      if (t.inst?.characterKey !== 'trap_196_cnnon') continue;
+      // Each arena piece owns the cannon's landing route. Its branch actions share placeholder indices across
+      // pieces; resolve the actual extraRoute at this cannon's landing point before moving it into battle space.
+      const distance = 4 + ((t.inst.level || 1) - 1) % 3;
+      const [dr, dc] = { UP: [1, 0], DOWN: [-1, 0], LEFT: [0, -1], RIGHT: [0, 1] }[t.direction];
+      const route = (lv.extraRoutes || []).find(r => r.startPosition.row === t.position.row + dr * distance
+        && r.startPosition.col === t.position.col + dc * distance);
+      if (!route) throw new Error(`layout: ${lv.levelId} cannon has no landing route`);
+      t.cannonRoute = structuredClone(route);
+    }
     for (const p of positions(out)) { const to = shift(p.row); if (to === null) throw new Error(`layout: ${lv.levelId} has a predefine at row ${p.row} outside the rows it lends`); p.row = to; }
     return out;
   };

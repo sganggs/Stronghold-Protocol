@@ -1152,3 +1152,8 @@ The generator keeps MAP09's official `w` cells and emits `special.duelGrass` wit
 terrain stealth buff; the official 0 restores concealment as soon as the block ends. Missing blackboard values do not imply plain ground: these
 rules come from the official tile and buff templates, recorded in
 [the field receipt](research/regulation-map09-20261112.json). No other map record changes.
+
+### 盐坨子炮落地数据
+
+规程装置 `role:cannon` 的 `cannon` 保存 level、distance、initSp、spCost、spRecovery、branchId 和已解析的
+route。路线来自所属 sub 的 extraRoutes 并随战斗坐标平移；stats／spCost 已应用主关卡的 prefab-key rune 一次。

@@ -510,3 +510,11 @@ Unite results do not report the inherited balance as a new gain.
 At the next `enterPrep`, `onPrepStart` converters consume a shared pool containing all temporary sources; any
 unconverted remainder is then discarded. Each new personal battle starts with an empty ledger. Only unite restores
 a carried ledger.
+
+### 盐坨子炮：装载与落地
+
+MAP10 炮台按敌方默认实体参与索敌，固定于原装置格，保留 −1 嘲讽和原主关卡数值。半径 1.1 内至多装载一名
+重量 ≤3 的可选地面敌人，进入消失状态。速度 5 的炮弹落地才造成半径 1.5 的物理溅射，并在 ±0.2 方形中
+释放原乘客，替换为该装置的原版续路；释放后 0.1 秒免再次装载。首次致命保留 1 HP，之后受伤空炮死亡，
+载客炮额外发射一次后等待任一弹道结束。弹道移除强制击杀该弹标记乘客。来源与假设见
+[研究记录](../research/cannon-projectile-20261120.md)。

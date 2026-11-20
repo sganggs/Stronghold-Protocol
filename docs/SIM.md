@@ -2011,3 +2011,8 @@ field. The flag lasts only until that one-shot callback fires (or is cancelled);
 open normally. Ordinary cosmetic callbacks do not receive this flag. Regulation's `replaceLater` snapshots the
 remaining route and position at death, uses this flag for positive delays and spawns zero-delay replacements
 immediately. See [the source record](research/sarkaz-death-spawns-20261113.md).
+
+### 盐坨子炮载客弹道
+
+`content/saltCannon.js` 通过既有 Projectiles 发射固定点弹道，落地才伤害和释放原乘客，清除弹道则击杀其标记乘客。
+固定 enemy-side device 不作为波次敌人移动、计数或阻碍清场；fatal 钩子处理 1 HP 后的最终发射。

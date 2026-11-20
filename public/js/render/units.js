@@ -1873,7 +1873,8 @@ export class UnitView {
     const s = p.s;
     // fades
     if (this.fadeIn < 1) this.fadeIn = Math.min(1, this.fadeIn + dt * 4);
-    let alpha = this.fadeIn;
+    // Spawn metadata can precede a first snapshot: an immediately loaded passenger is absent from it.
+    let alpha = this._seen === false ? 0 : this.fadeIn;
     if (this.down) {
       // knocked down: the Die clip ends and holds its last frame (the actor keeps its clock), no fade
       this.dieT += dt;

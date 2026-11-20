@@ -73,7 +73,7 @@ export const isDying = (e) => !!(e && typeof e.findBuff === 'function' && e.find
  * enemy gets `sp` SP (the talent's kill hook reads `data.sp`). Nothing when it already holds one.
  */
 function applyDying(battle, saga, e, { sp, life, ms }) {
-  if (!e || !e.alive || isDying(e)) return;
+  if (!e || !e.alive || isDying(e) || e.def?.immune?.has('dying')) return;
   battle.addBuff(e, {
     key: DYING, source: saga, visible: true,
     mods: { moveMul: Math.max(0, 1 + ms), hpRegen: -1e9 },

@@ -293,3 +293,20 @@ test('a device target resolves into the panel card; a malformed one resolves to 
   assert.equal(closesOnFieldPress({ kind: 'terrain' }), true);
   assert.equal(closesOnFieldPress({ kind: 'enemy' }), false);
 });
+
+
+test('MAP10 cannon has the same source description and stats in preparation and live battle, then disappears on destruction',()=>{
+  const stage=JSON.parse(readFileSync(path.join(ROOT,'data/versions/act3autochess-v3_1/stages.json'))).act3autochess_m10;
+  const d=stage.devices.find(d=>d.role==='cannon'&&d.pos[0]===13&&d.pos[1]===6);
+  const prep=deviceInfo(stage,...d.pos);
+  assert.equal(prep.name,'盐坨子炮');assert.match(prep.lines[0],/炮弹/);
+  assert.deepEqual(prep.stats.map(s=>s.v),[60000,900,3000,0]);
+  const h=makeBattle({stage,autoFinish:false});h.step();
+  const c=h.b.enemies.find(e=>e.defId===d.key);
+  assert.equal(c.s.maxHp,60000);assert.equal(c.s.atk,900);
+  const units=h.b.fieldMeta().units,snap=new Map(h.snapshot().units.map(u=>[u[0],u]));
+  const live=deviceTipAt(stage,...d.pos,{units,snap});
+  assert.equal(live.unitId,c.id);assert.deepEqual(live.stats,prep.stats);assert.deepEqual(live.lines,prep.lines);
+  h.b.kill(c,null);h.step();
+  assert.equal(deviceTipAt(stage,...d.pos,{units:h.b.fieldMeta().units,snap:new Map(h.snapshot().units.map(u=>[u[0],u]))}),null);
+});
