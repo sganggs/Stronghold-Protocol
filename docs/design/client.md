@@ -156,7 +156,8 @@ reroll banner's bottom margin follow the measured header / footer geometry (hist
 
 Picture-only outfits (B6, §35.4): per the maintainer's 2026-10-18 option A, a `skins` record with pictures and no
 Spine is wearable, labelled 「仅更换头像与立绘」. Owner-specific cards / panels / results read that seat's choice;
-missing pictures and the battle model use the effective operator's defaults. #686's visibility switch and
+missing pictures and the battle model use the effective operator's defaults. The canvas shop's cards follow the shop
+owner's choice too, through `cardModelFromSlot`'s `ownerSkin` resolver (§37.240). #686's visibility switch and
 stand-in / DIY resolution remain in force. [ASSUMED] E2 picture and illustration fields count too; metadata alone
 does not. Official field separation and the exact fallback / live-update contract: [SKINS.md](../SKINS.md).
 
@@ -332,6 +333,23 @@ history and the open points: DESIGN §32.14.25.
   `&stress=<loops>,<hits per s>`); `public/dev/battle-perf.html` takes `&fx=off|lite|full|auto`
   and `tools/perfbench.mjs --fx`; `tools/vfx-skill-coverage.mjs` prints the roster's plan coverage and what the battle
   view plays of it.
+
+### The regulation shop canvas (§37.240)
+
+A regulation shop may be painted on a canvas instead of the DOM shop bar (`public/js/ui/shop/` + `public/js/render/shop/`).
+The gate is a capability, not a flag: `ui/shop/gate.js shopCapability` requires an `OFFICIAL_THEMES` id whose installed
+local group carries `prefabs.json`, `card.json` and `shop.json`, and `shopWebglGate` then requires a ready preload only: a spectator seat has no `m.private` and gets no shop at all, while a stand-in or
+DIY row renders like any other card (the model composes its record); a promotion reward keeps the canvas and draws its three 0-price cards in the same
+frame instead. No config value takes part; choosing a theme without the documents is the rollback, and `ShopBar` renders
+as before. `ui/prefab/shopDocs.js` reads the three documents from that group (an imported
+official pack's documents come from its stored bytes — the page's `connect-src 'self'` forbids fetching a blob) and
+`ui/shop/adapter/model.js` turns `m.private` into the render model; the canvas only paints it. A failed mount, update or
+WebGL context falls back to `ShopBar` once: `ShopCanvas` reports the failure and stops pushing. The operator cards'
+portraits follow the shop owner's outfit through the model's `ownerSkin` resolver, the same selection the DOM card's
+`OperatorImage` reads (§37.240). Fonts come from the manifest's `fonts` group — one of the required local-extract groups
+since §37.240 — only the families the documents draw are awaited, and a missing face falls back like the old text (a
+packaged host keeps the empty group and draws with the system stack). [ASSUMED] Mobile / touch have no dedicated support
+promise; desktop Firefox is outside this round's acceptance.
 
 ---
 

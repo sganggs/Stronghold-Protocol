@@ -8,6 +8,8 @@
 // that is missing one bundle still lacks that key, and setup asks for --local again. Extra
 // keys left by an earlier --only merge are not stale. There is no canonical file count: it
 // depends on the client. fx is opt-in (--only fx) and is not one of these keys.
+// fonts has no JOBS entry: fonts.export_fonts writes the pinned faces during a full extract (which
+// fails without the install's Arknights_Data); the packages ship an empty group (§37.240).
 export const EXPECTED_LOCAL_GROUPS = Object.freeze([
   "emoticon/basic",
   "emoticon/basic_2",
@@ -15,7 +17,9 @@ export const EXPECTED_LOCAL_GROUPS = Object.freeze([
   "emoticon/fooldoctor",
   "emoticon/foolwisdel",
   "emoticon/slug",
+  "fonts",
   "guide",
+  "item",
   "map/autochess",
   "map/autochesssand",
   "map/common",

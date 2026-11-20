@@ -93,6 +93,10 @@ import { BondStrip, BondPopup } from '../ui/bondStrip.js';
 import { TeamPanel } from '../ui/teamPanel.js';
 import { ShopBar } from '../ui/shopBar.js';
 import { regLook } from '../ui/regHud.js';
+import { ShopCanvas, shopMountKey } from '../ui/shop/ShopCanvas.js';
+import { shopWebglGate, shopCapability } from '../ui/shop/gate.js';
+import { preloadShopRuntime } from '../ui/shop/host.js';
+import { useLang } from '../ui/lang.js';
 import { selectedBondTimers } from '../ui/bondTimers.js';
 import { DetailPanel, resolveDetail } from '../ui/detailPanel.js';
 import { RewardOverlay } from '../ui/rewardOverlay.js';
@@ -253,6 +257,7 @@ const inBattleCard = (d) => d?.kind === 'unit' || (d?.kind === 'device' && d.dev
 const THEME_PLATE = Object.freeze({ [PHASE.BATTLE_CHECK]: 'gameStart' });
 
 function MatchScreen() {
+  const lang = useLang(); // a language switch remounts the shop host (canvas text + localized data)
   useDocClass('sp-in-match');
   useEffect(() => { preloadPopupArt(); }, []);
   const pub = useStore((s) => s.match.public);
@@ -356,6 +361,36 @@ function MatchScreen() {
     return next;
   });
   const [armedCard, setArmedCard] = useState(null);     // the shop bar's armed card { kind, id } (merge tile cue)
+  // Stage B: ac_s_closur ships the WebGL shop; a theme whose official group carries prefabs.json/card.json/
+  // shop.json mounts it automatically. Other themes keep the existing ShopBar; any preload failure falls back
+  // to it for the rest of the match. No rollout flag (rollback = switch theme).
+  const [webglShop, setWebglShop] = useState({ status: 'idle', runtime: null });
+  // The theme group lives in the local art manifest (data/local-assets.json), which arrives after this screen mounts
+  // and is replaced when an official theme is imported. Subscribe to it, so the capability is re-read when the
+  // manifest lands instead of waiting for whatever re-render happens to come next (a version push, a settings change).
+  const [shopWebglGroups, setShopWebglGroups] = useState(() => data.get('local')?.groups || null);
+  useEffect(() => {
+    const read = () => setShopWebglGroups(data.get('local')?.groups || null);
+    read();
+    return data.subscribe((name) => { if (name === 'local') read(); });
+  }, []);
+  const shopWebglCapable = shopCapability(shopWebglGroups, playerSettings.uiTheme).ok;
+  useEffect(() => {
+    if (!shopWebglCapable) {
+      setWebglShop((prev) => (prev.status === 'idle' ? prev : { status: 'idle', runtime: null }));
+      return undefined;
+    }
+    let dead = false;
+    setWebglShop((prev) => (prev.status === 'loading' || prev.status === 'ready' ? prev : { status: 'loading', runtime: null }));
+    preloadShopRuntime()
+      .then((runtime) => { if (!dead) setWebglShop({ status: 'ready', runtime }); })
+      .catch((err) => {
+        if (dead) return;
+        setWebglShop({ status: 'failed', runtime: null });
+        console.warn('[shop-webgl] preload failed; keeping the DOM shop bar', err);
+      });
+    return () => { dead = true; };
+  }, [shopWebglCapable, playerSettings.uiTheme]);
   const cc = isClientCombat(pub);
   const battleState = useStore((s) => s.match.battle, shallowEqual); // local battle runner (client-side combat)
 
@@ -398,6 +433,13 @@ function MatchScreen() {
   const hasOffers = !!pub?.offers?.length;
   const editable = !offerBlocksPrep(pub?.offers) && phase === PHASE.PREP && !!priv && alive && !priv.ready && !watchingOther && !hasPersonalChoice;
   const showShop = !!priv && alive && (phase === PHASE.PREP || phase === PHASE.SP_DRAFT || phase === PHASE.ROUND_START) && !watchingOther;
+  // which shop renders here: the gate is fail-closed (official theme/pack capability, preloaded runtime);
+  // stand-ins and DIY are resolved by the card model, a spectator has no shop to draw.
+  const webglShopOn = shopWebglGate({
+    themeId: playerSettings.uiTheme,
+    groups: shopWebglGroups,
+    runtime: webglShop.status,
+  });
   const layersDisabled = bondLayersFrozen(phase, data.get('config'));
   const sp = phase === PHASE.SP_DRAFT ? normalizeSp(pub?.sp, players) : null;
   const total = phaseTotalSeconds(pub, gd.config, myId);
@@ -1790,8 +1832,12 @@ function MatchScreen() {
       }
       if (!L.editable) return;
       if (act === 'buy') {
+        // With a reward offer the host draws a synthesised row: data-shop-slot is the display-row index,
+        // NOT a priv.shop.slots index, so the card under the pointer is not the slot to buy. The reward
+        // cards are chosen with two taps (the old bar's reward cards carried no data-shop-slot either).
+        if (L.priv?.shop?.rewardOffer) return;
         if (L.drag || L.facing || !pointer || pointer.buttons) return;
-        const card = document.elementFromPoint(pointer.x, pointer.y)?.closest('.scard[data-shop-slot]');
+        const card = document.elementFromPoint(pointer.x, pointer.y)?.closest(':is(.shopbar,[data-shop-webgl]) [data-shop-slot]');
         if (!card || !barRef.current?.contains(card)) return;
         const idx = Number(card.dataset.shopSlot);
         if (!Number.isInteger(idx) || idx < 0) return;
@@ -2016,17 +2062,31 @@ function MatchScreen() {
         ${spectator ? null : html`<${Button} size="sm" variant="primary" icon="back" onClick=${() => watchPlayer({ playerId: myId })}>${t('返回自己')}<//>`}
       </div>` : null}
 
-      ${showShop ? html`<${ShopBar} priv=${priv} editable=${editable} collapsed=${barCollapsed} refreshBusy=${refreshBusy} onCollapse=${setCollapsed}
-        barRef=${barRef} offBonds=${offBonds}
-        onBuy=${buy} onLevel=${() => actions.levelUp()} onRefresh=${() => actions.refresh()} onFreeze=${() => actions.freeze()}
-        onDetail=${(id, kind, hint) => setDetail({ kind: kind === 'item' ? 'item' : 'chess', id, hint: hint || null, tap: ++cardTap.current })}
-        onDetailClose=${() => setDetail((d) => (d?.kind === 'chess' || d?.kind === 'item' ? null : d))}
-        onRefuse=${(reason) => { toast(reason, 'warn'); audio.sfx('error', { volume: 0.5 }); }}
-        reward=${phase === PHASE.PREP && !rewardMin ? priv?.shop?.rewardOffer || null : null}
-        onReward=${(i) => actions.reward(i)} onRewardLater=${() => setRewardMin(true)} onArm=${setArmedCard} />` : null}
+      ${showShop ? (webglShopOn.on
+        ? html`<${ShopCanvas} key=${shopMountKey(lang)} lang=${lang} priv=${priv} editable=${editable} collapsed=${barCollapsed} refreshBusy=${refreshBusy} config=${data.get('config')}
+          runtime=${webglShop.runtime} barRef=${barRef} offBonds=${offBonds}
+          onBuy=${buy} onReward=${(i) => actions.reward(i)} onLevel=${() => actions.levelUp()} onRefresh=${() => actions.refresh()} onFreeze=${() => actions.freeze()}
+          onCollapse=${setCollapsed}
+          onDetail=${(id, kind, hint) => setDetail({ kind: kind === 'item' ? 'item' : 'chess', id, hint: hint || null, tap: ++cardTap.current })}
+          onDetailClose=${() => setDetail((d) => (d?.kind === 'chess' || d?.kind === 'item' ? null : d))}
+          onRefuse=${(reason) => { toast(reason, 'warn'); audio.sfx('error', { volume: 0.5 }); }}
+          onArm=${setArmedCard}
+          onFail=${() => setWebglShop({ status: 'failed', runtime: null })} />`
+        : html`<${ShopBar} priv=${priv} editable=${editable} collapsed=${barCollapsed} refreshBusy=${refreshBusy} onCollapse=${setCollapsed}
+          barRef=${barRef} offBonds=${offBonds}
+          onBuy=${buy} onLevel=${() => actions.levelUp()} onRefresh=${() => actions.refresh()} onFreeze=${() => actions.freeze()}
+          onDetail=${(id, kind, hint) => setDetail({ kind: kind === 'item' ? 'item' : 'chess', id, hint: hint || null, tap: ++cardTap.current })}
+          onDetailClose=${() => setDetail((d) => (d?.kind === 'chess' || d?.kind === 'item' ? null : d))}
+          onRefuse=${(reason) => { toast(reason, 'warn'); audio.sfx('error', { volume: 0.5 }); }}
+          reward=${phase === PHASE.PREP && !rewardMin ? priv?.shop?.rewardOffer || null : null}
+          onReward=${(i) => actions.reward(i)} onRewardLater=${() => setRewardMin(true)} onArm=${setArmedCard} />`) : null}
 
-      ${phase === PHASE.PREP && priv?.shop?.rewardOffer ? html`<${RewardOverlay} priv=${priv} minimized=${rewardMin || barCollapsed}
-        onMinimize=${(m) => { setRewardMin(m); if (!m) setCollapsed(false); }} />` : null}
+      ${phase === PHASE.PREP && priv?.shop?.rewardOffer && !webglShopOn.on
+        // Canvas mode draws a pending rewardOffer as the last REWARD_SLOT_COUNT slots of the shop row
+        // (ShopCanvas.shopRewardRow); the overlay must not draw the same pick again.
+        ? html`<${RewardOverlay} priv=${priv} minimized=${rewardMin || barCollapsed}
+        onMinimize=${(m) => { setRewardMin(m); if (!m) setCollapsed(false); }} />`
+        : null}
 
       ${combat || mode === 'settle' ? html`<${CombatHud} pub=${pub} myId=${myId} watching=${watchingNow} hud=${hud} myDone=${!!myDone && alive}
         spectating=${!alive} spectator=${spectator} onWatch=${watchField}

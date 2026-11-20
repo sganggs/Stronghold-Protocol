@@ -1,0 +1,55 @@
+/* ==========================================================================================
+   screens/game-shop-canvas.css — the in-game WebGL shop host (Stage B, add-only).
+   Only `.shop-webgl*` rules: the existing `.shopbar` / `.scard` / `.shopbg` styles are untouched, and a
+   page renders either the old bar or this host, never both (the game screen picks one with a ternary).
+   Pointer discipline mirrors game-shop.css: the host box itself never takes the pointer (it spans the
+   empty space left of the tools), only the hotspot buttons over the prefab controls do.
+   ========================================================================================== */
+
+.gm__hud > .shop-webgl.shop-webgl--game {
+  position: absolute;
+  left: var(--sa-l, 0px);
+  right: var(--sa-r, 0px);
+  bottom: calc(.04rem - var(--sa-b, 0px));
+  pointer-events: none;
+  animation: shop-up var(--t-slow) var(--ease-out);
+}
+
+.shop-webgl--game .shop-webgl__stage {
+  position: relative;
+  margin: 0 auto;
+}
+
+.shop-webgl--game .shop-webgl__canvas {
+  display: block;
+}
+
+.shop-webgl--game .shop-webgl__hotspots {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.shop-webgl--game .shop-webgl__hit,
+.shop-webgl--game .shop-webgl__slot {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  pointer-events: auto;
+  cursor: pointer;
+  color: transparent;
+}
+
+.shop-webgl--game .shop-webgl__hit:focus-visible,
+.shop-webgl--game .shop-webgl__slot:focus-visible {
+  outline: 2px solid #9fe1ff;
+  outline-offset: -2px;
+}
+
+/* A blocked control must look blocked (the old bar dims disabled buttons; the canvas cannot). */
+.shop-webgl--game .shop-webgl__hit:disabled {
+  opacity: 0.55;
+  cursor: default;
+}

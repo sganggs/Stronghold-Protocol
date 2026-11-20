@@ -153,6 +153,27 @@ export function itemIconUrl(m, item) {
   return str(items[item?.iconId]) || str(items[item?.trapId]);
 }
 
+/**
+ * Padded item icon from the local-client extraction (`data/local-assets.json` groups.item, written by
+ * tools/local-extract: each shop item sprite exported at its serialized `m_Rect` canvas instead of the
+ * trimmed mirror copy). The shop card's `equip` node is a Simple Image whose official sprite is that padded
+ * canvas, so the stage draws the prefab rect with UV 0..1 and the art lands at its official offset; the
+ * fetched `items` entry stays the trimmed export that the DOM slots show with `object-fit: contain`.
+ * null when the manifest, the group or the entry is missing (callers fall back to itemIconUrl).
+ * @param {any} local the local-art manifest (`data.get('local')`) or null
+ * @param {any} item an items.json record or a raw trap id
+ */
+export function localItemIconUrl(local, item) {
+  const group = obj(obj(obj(local)?.groups)?.item);
+  if (!group) return null;
+  const keys = typeof item === 'string' ? [item] : [item?.trapId, item?.iconId];
+  for (const key of keys) {
+    const url = str(obj(group[key])?.path);
+    if (url) return url;
+  }
+  return null;
+}
+
 /** Enemy icon (manifest keeps fallbacks resolved). */
 export function enemyIconUrl(m, enemyKey) {
   const e = enemyKey ? obj(obj(obj(m)?.enemies)?.[enemyKey]) : null;

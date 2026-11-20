@@ -247,6 +247,7 @@ describe('game.js wiring', () => {
     assert.match(game, /const shopOpen = showShop && !barCollapsed;/, 'detail panel / bottom frame避让');
     assert.match(game, /drag && 'is-dragging', barCollapsed && 'is-collapsed',/, 'the screen\'s folded-shop layout');
     assert.match(game, /<\$\{ShopBar\}[^\n]*collapsed=\$\{barCollapsed\}/, 'the shop bar renders folded (its 展开商店 tab)');
+    assert.match(game, /phase === PHASE\.PREP && priv\?\.shop\?\.rewardOffer && !webglShopOn\.on/, 'the reward overlay is the DOM fallback, not the canvas shop');
     assert.match(game, /<\$\{RewardOverlay\} priv=\$\{priv\} minimized=\$\{rewardMin \|\| barCollapsed\}/, 'the reward overlay stays minimized');
     // the toggle the tab calls is still the player's own state only
     assert.match(game, /<\$\{ShopBar\}[^\n]*onCollapse=\$\{setCollapsed\}/);
