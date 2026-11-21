@@ -13,8 +13,9 @@ each player switches on for themself.
 A server's owner who has the official client can make that plugin from it: `tools/local-extract/extract.py --only skins`
 writes the alternative outfits of the installation's operators (avatar, portrait, 立绘 and Front / Back battle models,
 picture-only where the official `battleSkin` keeps the operator's model) as cosmetic plugin folders by the official
-`skin_table.json` (docs/ASSETS.md "Official outfits and the picture gallery", DESIGN §37.331). They are official art on
-that machine only: never committed, never shipped, copied into `plugins/` by the owner.
+`skin_table.json`, under `out/local-extract/skins/` by default (docs/ASSETS.md "Official outfits and the picture
+gallery", DESIGN §37.331). They are official art on that machine only: never committed, never shipped, copied into
+`plugins/` by the owner.
 
 ## The data: one overlay, no catalogue file
 

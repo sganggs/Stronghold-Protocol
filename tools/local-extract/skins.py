@@ -5,6 +5,10 @@ only when an --only prefix names them (a plain extraction leaves them out), read
 client_bundles (a Windows client's hot update over its packaged bundles) and the LZ4AK decoder aklz4.py registers,
 and write nothing to data/local-assets.json: what they write is no art the game loads by itself.
 
+Both write under extract.py's --out when it is given, else under out/local-extract/ (DEFAULT_OUT: a folder git ignores
+that the server neither serves nor hashes, unlike public/assets/), and stage their files in a hidden folder beside the
+destination (one volume: the finished files are renamed into place, never copied out of a RAM-backed /tmp).
+
 --only skins[/<charId>] → <out>/skins/local-skins/, the source folder of a cosmetic plugin (docs/PLUGINS.md §9,
   docs/SKINS.md), and local-skins-2 … when one plugin cannot hold them all (512 MB / 5000 files / 2000 folders: the
   outfits of this installation's operators are about 0.7 GB): plugin.json, its overlay skins.json with
@@ -34,6 +38,8 @@ from pathlib import Path
 
 SUB = 'skins'
 LIB_SUB = 'library'
+DEFAULT_OUT = 'out/local-extract'  # relative to the checkout, when extract.py gets no --out
+STAGE_PREFIX = '.staging-'
 LIB_KINDS = ('opillust', 'opportrait', 'opavatar')
 LIB_INDEX = 'index.json'
 FORMAT = 1
@@ -63,6 +69,8 @@ RESERVE = {'bytes': 16 * 1024 * 1024, 'files': 8, 'dirs': 1}
 # guide pages' lossy quality 90 (extract.py GUIDE_WEBP_OPTIONS), the alpha lossless.
 ILLUST_WEBP = {'quality': 90, 'method': 4, 'alpha_quality': 100}
 SAFE = re.compile(r'[^A-Za-z0-9._-]+')
+# an outfit folder of a record: <charId>/<outfit>, plugin-safe names that never start with `.` (no `..`, no stage)
+RECORD_DIR = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$')
 ILLUST_PREFAB = re.compile(r'/arts/characters/[^/]+/(illust_[^/]+)\.prefab$', re.I)
 
 
@@ -134,6 +142,7 @@ def plan(table, owners=None):
         for rec in sorted(by_owner[cid], key=_sort_key)[:SKINS_PER_RECORD]:
             sid, ds = rec['skinId'], rec.get('displaySkin') or {}
             jobs.append({'skinId': sid, 'char': cid, 'dir': f'{cid}/{unique(plugin_safe(sid.split("@", 1)[1]), taken)}',
+                         # [ASSUMED] an outfit without a skinName is named by its id (a record needs a 1–64 name)
                          'name': _text(ds.get('skinName'), sid), 'group': _text(ds.get('skinGroupName')),
                          'avatar': rec.get('avatarId') or None, 'portrait': rec.get('portraitId') or None,
                          'illust': rec.get('illustId') or None, 'model': model_of(rec)})
@@ -429,11 +438,63 @@ def read_parts(dest, log):
 
 
 def record_dir(rec):
-    """The outfit folder a record's files are in (<charId>/<outfit>), or None."""
+    """The outfit folder a record's files are in (<charId>/<outfit>, plugin-safe names), or None."""
     paths = [rec.get(s) for s in ('avatar', 'portrait', 'illust')]
     paths += [m.get('skel') for m in (rec.get('spine') or {}).values() if isinstance(m, dict)]
     dirs = {p.rsplit('/', 1)[0] for p in paths if isinstance(p, str) and '/' in p}
-    return dirs.pop() if len(dirs) == 1 else None
+    d = dirs.pop() if len(dirs) == 1 else None
+    return d if d and RECORD_DIR.match(d) else None
+
+
+def keep_dirs(jobs, parts):
+    """The jobs with the outfit folders of an earlier run kept: an outfit whose record (in any part) has its files in
+    one folder of its operator keeps that folder, so a re-run never renames one. Two outfits of one plugin-safe name
+    (`a#1`, `a+1`) would otherwise swap `a_1` / `a_1_2` when the official order changes or a new outfit of the name
+    comes first, and the second move would delete the folder the first had just filled. Every other job keeps plan's
+    folder, or `_2` … of it while an earlier run's outfit (also one this run leaves alone) or another job holds it."""
+    old = {}
+    for chars in parts.values():
+        for recs in chars.values():
+            for sid, rec in recs.items():
+                d = record_dir(rec) if isinstance(rec, dict) else None
+                if d:
+                    old.setdefault(sid, d)
+    held = {d.lower() for d in old.values()}
+    taken, out = set(), []
+    for job in jobs:
+        d = old.get(job['skinId'])
+        if d and d.split('/', 1)[0] == job['char'] and d.lower() not in taken:
+            taken.add(d.lower())
+            out.append(dict(job, dir=d))
+        else:
+            out.append(None)
+    for i, job in enumerate(jobs):
+        if out[i] is not None:
+            continue
+        base = job['dir'].split('/', 1)[1]
+        cand, n = base, 1
+        while f'{job["char"]}/{cand}'.lower() in held or f'{job["char"]}/{cand}'.lower() in taken:
+            n += 1
+            cand = f'{base}_{n}'
+        taken.add(f'{job["char"]}/{cand}'.lower())
+        out[i] = dict(job, dir=f'{job["char"]}/{cand}')
+    return out
+
+
+def _stage(dest, kind):
+    """A new stage folder inside <dest> (the destination's volume), after removing the stages an interrupted run left."""
+    dest.mkdir(parents=True, exist_ok=True)
+    for old in dest.glob(f'{STAGE_PREFIX}{kind}-*'):
+        if old.is_dir():
+            shutil.rmtree(old, ignore_errors=True)
+    return Path(tempfile.mkdtemp(prefix=f'{STAGE_PREFIX}{kind}-', dir=str(dest)))
+
+
+def _drop_if_empty(path):
+    try:
+        Path(path).rmdir()
+    except OSError:
+        pass
 
 
 def _alive(folder):
@@ -459,7 +520,9 @@ def export(ab_root, out_root, log, jobs, installed=(), version='', limit=0, pack
     """The outfit jobs (plan) → the plugin parts in <out_root>/skins/, merged into what an earlier run left there;
     returns the number of files written. An outfit stays in its part while that part keeps inside the cosmetic
     ceilings, else it goes to the first part with room, else to a new part (local-skins-2 …): 345 outfits of this
-    installation's operators are about 0.7 GB, more than one cosmetic plugin holds. `installed` are the operators of the
+    installation's operators are about 0.7 GB, more than one cosmetic plugin holds. An outfit keeps the folder an earlier
+    run gave it (keep_dirs). Files are staged in <out_root>/skins/.staging-skins-* and renamed into their parts once
+    every outfit is extracted. `installed` are the operators of the
     installation's data/assets.json (the permissions), `pack_root` the installation `node tools/plugin.mjs pack` checks
     a written part against (None: no pack)."""
     import aklz4  # noqa: F401 (the LZ4AK decoder for the one flag it registers, as every other job)
@@ -471,7 +534,8 @@ def export(ab_root, out_root, log, jobs, installed=(), version='', limit=0, pack
         log('skins: no outfit to extract')
         return 0
     parts = read_parts(dest, log)
-    stage = Path(tempfile.mkdtemp(prefix='sp-skins-'))
+    jobs = keep_dirs(jobs, parts)
+    stage = _stage(dest, SUB)
     written, new, placed, gone = {}, {}, {}, {}
     try:
         files = {job['skinId']: {} for job in jobs}
@@ -567,10 +631,12 @@ def export(ab_root, out_root, log, jobs, installed=(), version='', limit=0, pack
                 f'{", pictures only" if "spine" not in rec else ""})')
     finally:
         shutil.rmtree(stage, ignore_errors=True)
+        _drop_if_empty(dest)
     if not written:
         log('skins: nothing extracted')
         return 0
     count = sum(written.values())
+    finished = []
     for n in sorted(set(placed) | set(gone)):
         folder = dest / part_folder(n)
         kept = {cid: {sid: r for sid, r in recs.items() if sid not in gone.get(n, ())}
@@ -584,23 +650,30 @@ def export(ab_root, out_root, log, jobs, installed=(), version='', limit=0, pack
         (folder / PLUGIN_FILE).write_text(json.dumps(manifest(chars, installed, version, n), ensure_ascii=False,
                                                      indent=1) + '\n', encoding='utf-8')
         count += 2
+        finished.append(folder)
         log(f'skins: {part_folder(n)} holds {sum(len(v) for v in chars.values())} outfits')
-        if pack_root is not None:
-            pack(folder, pack_root, log)
+    # every part's plugin.json and skins.json are written before the first pack: a pack that fails leaves no part
+    # without its manifest
+    for folder in finished if pack_root is not None else ():
+        pack(folder, pack_root, log)
     log(f'skins: {len(written)} outfits extracted -> {dest}; copy its part folders into plugins/ to use them')
     return count
 
 
 def pack(folder, root, log):
-    """`node tools/plugin.mjs pack <folder>`: the lock (files' hashes, every model's clip data) and the plugin check."""
+    """`node tools/plugin.mjs pack <folder>`: the lock (files' hashes, every model's clip data) and the plugin check.
+    Never raises: a pack that did not run or failed is a warning with the command to run by hand."""
     tool = Path(__file__).resolve().parents[2] / 'tools' / 'plugin.mjs'
     try:
         r = subprocess.run(['node', str(tool), 'pack', str(folder), '--root', str(root)], capture_output=True,
-                           text=True, timeout=900)
-    except (OSError, subprocess.SubprocessError) as err:
+                           timeout=900)
+    except (OSError, ValueError, subprocess.SubprocessError) as err:
         log(f'warn: plugin pack did not run ({err}); run node tools/plugin.mjs pack {folder}')
         return False
-    for line in (r.stdout + r.stderr).splitlines()[-12:]:
+    # node writes UTF-8 to a pipe on every OS. Not the locale's code page (text=True): cp936 on a Chinese Windows fails
+    # on a folder path such as D:\卫戍协议\… in "wrote plugin.lock.json" and on the check's Chinese findings
+    out = (r.stdout + r.stderr).decode('utf-8', 'replace')
+    for line in out.splitlines()[-12:]:
         log(f'  pack: {line}')
     if r.returncode:
         log(f'warn: plugin pack exited {r.returncode}; fix and run node tools/plugin.mjs pack {folder}')
@@ -625,7 +698,7 @@ def export_library(ab_root, out_root, log, kinds, limit=0):
             log(f'warn {dest / LIB_INDEX}: unreadable ({err})')
     total = 0
     for kind in kinds:
-        stage = Path(tempfile.mkdtemp(prefix=f'sp-library-{kind}-'))
+        stage = _stage(dest, kind)
         seen, taken, entries = set(), set(), {}
 
         def put(name, img, illust, stage=stage, seen=seen, taken=taken, entries=entries, kind=kind):
@@ -657,6 +730,8 @@ def export_library(ab_root, out_root, log, kinds, limit=0):
                             except Exception as err:
                                 log(f'warn {bundle.name} {m.group(1)}: {err}')
             else:
+                # [ASSUMED] the gallery's 头像 are every Sprite of ui_char_avatar_*: summons and NPCs too, not only the
+                # operators (the 半身像 likewise every Sprite of char_portrait_*)
                 for bundle, obj in _sprites(ab_root, PORTRAITS if kind == 'opportrait' else AVATARS, log):
                     if limit and len(entries) >= limit:
                         break
@@ -676,6 +751,7 @@ def export_library(ab_root, out_root, log, kinds, limit=0):
             log(f'library/{kind}: {len(entries)} pictures')
         finally:
             shutil.rmtree(stage, ignore_errors=True)
+    _drop_if_empty(dest)
     if total:
         index['kinds'] = dict(sorted(index['kinds'].items()))
         (dest / LIB_INDEX).write_text(json.dumps(index, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')

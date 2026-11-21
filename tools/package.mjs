@@ -211,8 +211,10 @@ export const HELD_THEME_ENTRIES = Object.freeze({
 });
 /**
  * Opt-in local-client outputs no package ships (§37.331): the outfit plugins of `extract.py --only skins`
- * (public/assets/local/skins/local-skins*, which the owner copies into plugins/) and the picture gallery of
- * `--only library`. Neither is listed in data/local-assets.json; they stay on the machine that extracted them.
+ * (skins/local-skins*, which the owner copies into plugins/) and the picture gallery of `--only library`. Both write
+ * under out/local-extract/ by default, which git ignores and no package reads; these prefixes hold them back when
+ * `--out public/assets/local` puts them under the served art. Neither is listed in data/local-assets.json; they stay
+ * on the machine that extracted them.
  */
 export const LOCAL_ONLY_ART_PREFIXES = Object.freeze(['public/assets/local/skins/', 'public/assets/local/library/']);
 /** The folder of an extracted theme group. @param {string} group */

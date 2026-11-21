@@ -385,7 +385,7 @@ packaged bundles (`bundles.client_bundles`).
 ```sh
 .venv-extract/bin/python -I -B tools/local-extract/extract.py --only skins [--only skins/<charId>] \
   [--skin-table <skin_table.json>] [--limit N] [--out <dir>]
-cp -R public/assets/local/skins/local-skins* plugins/    # each part is a cosmetic plugin; extract.py already packed it
+cp -R out/local-extract/skins/local-skins* plugins/    # each part is a cosmetic plugin; extract.py already packed it
 .venv-extract/bin/python -I -B tools/local-extract/extract.py --only library [--only library/<kind>] [--limit N] [--out <dir>]
 ```
 
@@ -411,17 +411,26 @@ model this client lacks is left out (logged), not worn as pictures only; a missi
 `name` / `group` are `displaySkin.skinName` / `skinGroupName` (1–64 / 0–64 characters). The outfits keep
 `displaySkin.sortId` order [ASSUMED], at most 64 per operator (docs/PLUGINS.md §9).
 
-The output is `<out>/skins/local-skins/`, by default `public/assets/local/skins/local-skins/`: the source folder of a
+Both jobs write under `--out` when it is given, else under `out/local-extract/`: a scratch folder git ignores, which
+the server neither serves nor hashes (everything under `public/assets/` is served to every player and hashed in the
+background by `server/http/assetIndex.js`). They stage their files in a hidden `.staging-*` folder beside the
+destination and rename them into place, so the files never pass through a RAM-backed `/tmp`; a stage an interrupted
+run left is removed by the next run.
+
+The output is `<out>/skins/local-skins/`, by default `out/local-extract/skins/local-skins/`: the source folder of a
 cosmetic plugin. Its `plugin.json` (manifest 2, `scope: ["personal"]`) asks for `assets.override` when the operators
 are the installation's and `assets.add` for any other; its overlay is the file `skins.json`
 (`chars[<charId>].skins[<skinId>]`), not inline: the manifest reader takes an inline `assets` text that ends like `.ext`
 for a file path, and official outfit names do (日晒 SS.SP, the series i.t). An outfit's folder is the
 part of its id after `@` with `@` `#` `+` turned into `_` (plugin file names, docs/PLUGINS.md §5); a second outfit of
-one name gets `_2`. One plugin holds at most 512 MB, 5000 files and 2000 folders, so an outfit that would take a part
+one name gets `_2`. A later run keeps the folder an earlier run gave each outfit (a new outfit takes a free name), so
+two outfits of one plugin-safe name (`a#1`, `a+1`) never swap folders when the official order changes. One plugin holds at most 512 MB, 5000 files and 2000 folders, so an outfit that would take a part
 past one of them goes to the next part with room or a new `local-skins-2`, `-3` … (the CN client of 2026-11-06: 342
 outfits of 221 operators, 690 MiB in two parts, extracted in 4.5 minutes). A later run replaces the outfits it
-extracts in their parts, keeps the others and rewrites the parts it changed. After writing a part the extractor runs
-`node tools/plugin.mjs pack` on it (the lock and the check). To use the outfits, copy the part folders into `plugins/`
+extracts in their parts, keeps the others and rewrites the parts it changed. After writing every part's `plugin.json`
+and `skins.json` the extractor runs `node tools/plugin.mjs pack` on each changed part (the lock and the check), reading
+its output as UTF-8 whatever the locale's code page; a pack that does not run or fails is a warning with the command
+to run by hand. To use the outfits, copy the part folders into `plugins/`
 (or `pack --zip` and `install` them); each player then switches them on in 设置 → 外观插件.
 
 **Gallery** (`--only library`): `<out>/library/opillust/` (the Image of every `illust_*` prefab of `chararts/*.ab` and
@@ -433,9 +442,10 @@ and never collide (`illust_char_002_amiya_1+` becomes `illust_char_002_amiya_1_2
 a kind is replaced as a whole once it wrote a picture. Nothing reads it: it is a gallery for the server's owner, for
 example for a cosmetic plugin made by hand.
 
-Neither folder is committed (`public/assets/` is ignored) or shipped: `tools/package.mjs` `LOCAL_ONLY_ART_PREFIXES`
-holds `public/assets/local/skins/` and `public/assets/local/library/` back from every package (`localOnly`). Official
-art stays on the machine that extracted it.
+Neither folder is committed (`/out/` and `public/assets/` are ignored) or shipped: no package reads `out/`, and when
+`--out public/assets/local` puts them under the served art, `tools/package.mjs` `LOCAL_ONLY_ART_PREFIXES` holds
+`public/assets/local/skins/` and `public/assets/local/library/` back from every package (`localOnly`). Official art
+stays on the machine that extracted it.
 
 ### Id scope
 

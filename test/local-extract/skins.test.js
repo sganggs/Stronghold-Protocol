@@ -11,7 +11,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { fxFixture } from '../helpers/fxFixtures.js';
-import { skel } from '../helpers/pluginFixtures.js';
+import { png, skel } from '../helpers/pluginFixtures.js';
 import { PLUGIN_CLASSES, PLUGIN_LIMITS } from '../../shared/plugins/manifest.js';
 import { WALK_LIMITS } from '../../server/plugins/registry.js';
 import { LOCAL_ONLY_ART_PREFIXES, artPlan } from '../../tools/package.mjs';
@@ -22,18 +22,19 @@ const PY = ['python3', 'python'].find((bin) => spawnSync(bin, ['--version']).sta
 const PIL = PY && spawnSync(PY, ['-c', 'import PIL']).status === 0;
 const ENV = { ...process.env, PYTHONDONTWRITEBYTECODE: '1' };
 
-function py(code, args = []) {
+function py(code, args = [], env = ENV) {
   const src = `import sys, json\nsys.path.insert(0, ${JSON.stringify(TOOL)})\nimport skins as s, extract as ex\n${code}`;
-  const r = spawnSync(PY, ['-B', '-c', src, ...args], { encoding: 'utf8', env: ENV, maxBuffer: 1 << 26 });
+  const r = spawnSync(PY, ['-B', '-c', src, ...args], { encoding: 'utf8', env, maxBuffer: 1 << 26 });
   assert.equal(r.status, 0, r.stderr);
   return JSON.parse(r.stdout.trim().split('\n').pop());
 }
 
-// A fake client: bundles of duck-typed objects that UnityPy.load hands out by bundle path (relative to the AB root).
+// A fake client: bundles of duck-typed objects that UnityPy.load hands out by bundle path (relative to the AB root). No
+// Pillow: PngFile is a picture whose save() writes PNG bytes made in JavaScript (pluginFixtures png); PIL_FAKE adds
+// Pillow images for the pixel tests.
 const FAKE = `
 from types import SimpleNamespace as NS
 from pathlib import Path
-from PIL import Image
 _ids = [100]
 def ref(o):
     return {'m_FileID': 0, 'm_PathID': o.path_id if o is not None else 0}
@@ -48,7 +49,14 @@ class Bundle:
     def __init__(self): self.objects, self.container = [], {}
     def add(self, kind, tt=None, data=None, name=None):
         o = Obj(kind, tt, data, name); self.objects.append(o); return o
-def solid(w, h, rgba): return Image.new('RGBA', (w, h), rgba)
+class PngFile:
+    def __init__(self, path):
+        self.data = Path(path).read_bytes()
+        self.width, self.height = int.from_bytes(self.data[16:20], 'big'), int.from_bytes(self.data[20:24], 'big')
+    def save(self, path, fmt='PNG', **kw):
+        assert fmt == 'PNG', fmt
+        Path(path).write_bytes(self.data)
+def png_width(path): return int.from_bytes(Path(path).read_bytes()[16:20], 'big')
 def sprite(b, name, img, rect=None, offset=(0, 0), texture=None):
     r = rect or (0, 0, img.width, img.height)
     data = NS(m_Name=name, image=img, m_Rect=NS(x=r[0], y=r[1], width=r[2], height=r[3]),
@@ -80,12 +88,16 @@ def illust_prefab(b, key, spr, material=None):
     b.container[key] = node(b, key.rsplit('/', 1)[1][:-7], [img], (), 'RectTransform')[0]
 def install(ab, bundles):
     for rel in bundles:
-        p = Path(ab) / rel; p.parent.mkdir(parents=True, exist_ok=True); p.write_text('synthetic bundle ' + rel)
+        p = Path(ab) / rel; p.parent.mkdir(parents=True, exist_ok=True); p.write_text('synthetic bundle ' + rel, encoding='utf-8')
     def load(path):
         rel = Path(path).resolve().relative_to(Path(ab).resolve()).as_posix()
         return bundles[rel]
     sys.modules['UnityPy'] = NS(load=load)
     sys.modules['aklz4'] = NS()
+`;
+const PIL_FAKE = `
+from PIL import Image
+def solid(w, h, rgba): return Image.new('RGBA', (w, h), rgba)
 `;
 
 // The client of the end-to-end tests: two outfits of char_102_texas (one with a model, whose Back renderer comes FIRST in
@@ -126,6 +138,24 @@ illust_prefab(test9001, 'dyn/arts/characters/char_9001_test/illust_char_9001_tes
 BUNDLES = {'spritepack/ui_char_avatar_0.ab': avatars, 'spritepack/char_portrait_0.ab': portraits,
            'skinpack/char_102_texas.ab': texas, 'skinpack/char_9001_test.ab': test9001}
 `;
+
+/**
+ * A locale whose code page Python takes for a pipe it decodes as text and that is not UTF-8 (macOS zh_CN.GBK, a Windows
+ * runner's own ANSI code page), as { env, encoding }; else null and the test runs in the default one. PYTHONUTF8=0
+ * keeps the locale's code page also where UTF-8 mode becomes the default. Not on Linux: there Python names files in that
+ * code page too, which node (UTF-8) does not read back.
+ */
+function legacyLocale() {
+  if (!PY || process.platform === 'linux') return null;
+  const tries = process.platform === 'win32' ? [{}] : [{ LC_ALL: 'zh_CN.GBK' }, { LC_ALL: 'zh_CN.GB18030' }, { LC_ALL: 'en_US.ISO8859-1' }];
+  for (const extra of tries) {
+    const env = { ...ENV, PYTHONUTF8: '0', ...extra };
+    const r = spawnSync(PY, ['-c', 'import locale; print(locale.getpreferredencoding(False))'], { encoding: 'utf8', env });
+    const encoding = String(r.stdout || '').trim();
+    if (r.status === 0 && encoding && !/^utf-?8$/i.test(encoding)) return { env, encoding };
+  }
+  return null;
+}
 
 function clientFiles(t) {
   const f = fxFixture(t);
@@ -214,7 +244,7 @@ print(json.dumps({
 
   test('write_spine renames to plugin-safe files and rewrites the atlas page lines; without `rename` it is unchanged', { skip: !PIL && 'no Pillow' }, (t) => {
     const f = fxFixture(t);
-    const got = py(`${FAKE}
+    const got = py(`${FAKE}${PIL_FAKE}
 b = Bundle()
 sda = spine(b, 'a#1', b'skel', [('a#1', solid(4, 4, (9, 9, 9, 255)), None), ('a#1_2', solid(2, 2, (9, 9, 9, 255)), None)])
 objs = {o.path_id: o for o in b.objects}
@@ -225,7 +255,7 @@ def rename(kind, n):
 m1, m2, logs = {}, {}, []
 n1 = ex.write_spine(objs, sda.tt, 'r', 'a#1', ${JSON.stringify(f.root)}, m1, logs.append, rename=rename)
 n2 = ex.write_spine(objs, sda.tt, 'plain', 'a#1', ${JSON.stringify(f.root)}, m2, logs.append)
-print(json.dumps({'n': [n1, n2], 'files': sorted(m1['r']), 'atlas': open(${JSON.stringify(f.root)} + '/r/front.atlas').read(),
+print(json.dumps({'n': [n1, n2], 'files': sorted(m1['r']), 'atlas': open(${JSON.stringify(f.root)} + '/r/front.atlas', encoding='utf-8').read(),
   'pages': ex.rename_atlas_pages('a.png\\nsize: 1,1\\n\\nb.png\\nsize: 1,1\\nregion\\n  xy: 0,0', lambda p: p.upper()), 'logs': logs}))`);
     assert.deepEqual(got.n, [4, 0], 'the default names keep "#" in the atlas but not in the files: two pages do not match (unchanged)');
     assert.deepEqual(got.files, ['front.atlas', 'front.png', 'front.skel', 'front_2.png']);
@@ -242,7 +272,7 @@ print(json.dumps({'n': [n1, n2], 'files': sorted(m1['r']), 'atlas': open(${JSON.
       'char_9001_test@a#1': { charId: 'char_9001_test', displaySkin: { skinName: 'b' } },
     } });
     f.put('install/data/assets.json', { chars: { char_102_texas: {} } });
-    const got = py(`from pathlib import Path
+    let got = py(`from pathlib import Path
 import contextlib, io
 root = Path(${JSON.stringify(f.root)})
 (root/'ab'/'ui'/'autochess').mkdir(parents=True)
@@ -252,8 +282,9 @@ for name in ('export_bundle', 'export_enemy_spines', 'export_token_spines', 'exp
 ex.versions.export = lambda *a, **k: 0
 ex.season_entry.export = lambda *a, **k: 0
 ex.cursor.export = lambda *a, **k: 0
-s.export = lambda ab, out, log, jobs, installed, version, limit, pack_root: calls.append(['skins', [j['skinId'] for j in jobs], installed, limit]) or 3
-s.export_library = lambda ab, out, log, kinds, limit: calls.append(['library', kinds, limit]) or 2
+outs = []
+s.export = lambda ab, out, log, jobs, installed, version, limit, pack_root: outs.append(str(out)) or calls.append(['skins', [j['skinId'] for j in jobs], installed, limit]) or 3
+s.export_library = lambda ab, out, log, kinds, limit: outs.append(str(out)) or calls.append(['library', kinds, limit]) or 2
 runs = []
 for i, flags in enumerate([[], ['--only', 'skins'], ['--only', 'skins/char_9001_test'], ['--only', 'library/opavatar', '--limit', '4'],
                            ['--only', 'library', '--only', 'skins'], ['--only', 'skins', '--skin-table', str(root/'missing.json')]]):
@@ -264,7 +295,17 @@ for i, flags in enumerate([[], ['--only', 'skins'], ['--only', 'skins/char_9001_
     with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
         code = ex.main()
     runs.append({'code': code, 'calls': list(calls), 'manifest': (root/('m%d.json' % i)).exists(), 'err': err.getvalue()[:60]})
-print(json.dumps(runs))`);
+given = list(outs)
+outs.clear()
+sys.argv = ['extract.py', '--game', str(root/'ab'), '--manifest', str(root/'m9.json'), '--plugin-root', str(root/'install'),
+            '--skin-table', str(root/'table.json'), '--only', 'skins', '--only', 'library/opavatar']
+with contextlib.redirect_stdout(io.StringIO()):
+    code = ex.main()
+print(json.dumps({'runs': runs, 'given': given, 'default': [code, outs, str(ex.ROOT / 'out' / 'local-extract')]}))`);
+    const { given, default: [code, outs, scratch] } = got;
+    got = got.runs;
+    assert.deepEqual(given, [1, 2, 3, 4, 4].map((i) => path.join(f.root, `out${i}`)), '--out given: the outfits and the gallery go there');
+    assert.deepEqual([code, outs], [0, [scratch, scratch]], 'no --out: out/local-extract (ignored by git, not served), not public/assets/local');
     assert.deepEqual(got[0].calls, [], 'a plain run extracts no outfit and no gallery');
     assert.equal(got[0].manifest, true);
     assert.deepEqual(got[1].calls, [['skins', ['char_102_texas@a#1'], ['char_102_texas'], 0]], 'plain skins: the installation\'s operators');
@@ -290,7 +331,7 @@ root = Path(${JSON.stringify(f.root)})
 data = root / 'Arknights_Data'
 base, hot = data / 'StreamingAssets/AB/Windows', data / 'PersistentData/Bundles'
 def put(r, name, value):
-    p = r / name; p.parent.mkdir(parents=True, exist_ok=True); p.write_text(value)
+    p = r / name; p.parent.mkdir(parents=True, exist_ok=True); p.write_text(value, encoding='utf-8')
 def index(r, name, version, records):
     put(r, name, json.dumps({'versionId': version, 'manifestName': 'm.idx', 'manifestVersion': 'V1', 'abInfos': [{'name': n, 'hash': h} for n, h in records]}))
 index(base, 'hot_update_list.json', '26-10-20', [('skinpack/char_102_texas.ab', 'old'), ('ui/autochess/x.ab', 'same')])
@@ -299,7 +340,7 @@ index(hot, 'persistent_res_list.json', '26-11-06', [('skinpack/char_102_texas.ab
 put(base, 'skinpack/char_102_texas.ab', 'packaged'); put(base, 'ui/autochess/x.ab', 'ui')
 put(hot, 'skinpack/char_102_texas.ab', 'downloaded')
 seen = []
-s.export = lambda ab, out, log, jobs, *a: seen.append((Path(ab) / 'skinpack/char_102_texas.ab').read_text()) or 1
+s.export = lambda ab, out, log, jobs, *a: seen.append((Path(ab) / 'skinpack/char_102_texas.ab').read_text(encoding='utf-8')) or 1
 ex.cursor.client_data = lambda *a: None
 sys.argv = ['extract.py', '--game', str(base), '--only', 'skins', '--skin-table', str(root/'table.json'),
             '--out', str(root/'out'), '--manifest', str(root/'m.json')]
@@ -312,11 +353,11 @@ print(json.dumps({'code': code, 'seen': seen}))`);
   test('extraction → plugin → pack: Front / Back by node name, no overwrite, straight pages, picture-only, skips', { skip: !PIL && 'no Pillow' }, (t) => {
     const f = clientFiles(t);
     const out = path.join(f.root, 'out');
-    const got = py(`${FAKE}${CLIENT}
+    const got = py(`${FAKE}${PIL_FAKE}${CLIENT}
 import contextlib, io
 root = Path(${JSON.stringify(f.root)})
 (root/'ab'/'ui'/'autochess').mkdir(parents=True)
-(root/'table.json').write_text(json.dumps(TABLE))
+(root/'table.json').write_text(json.dumps(TABLE), encoding='utf-8')
 install(root/'ab', BUNDLES)
 ex.cursor.client_data = lambda *a: None
 s.pack = lambda *a: None
@@ -331,10 +372,10 @@ def pic(folder): return next(folder + n for n in ('illust.webp', 'illust.png') i
 o = 'char_102_texas/epoque_7_2/'
 p = 'char_102_texas/epoque_7/'
 print(json.dumps({'code': code, 'log': log.getvalue(), 'manifest': (root/'m.json').exists(),
-  'plugin': json.loads((d/'plugin.json').read_text()), 'overlay': json.loads((d/'skins.json').read_text()),
+  'plugin': json.loads((d/'plugin.json').read_text(encoding='utf-8')), 'overlay': json.loads((d/'skins.json').read_text(encoding='utf-8')),
   'front': (d/(o+'front.skel')).read_bytes() == FRONT, 'back': (d/(o+'back.skel')).read_bytes() == BACK,
   'page': px(o+'front.png', (0, 0)), 'page2': px(o+'front_2.png', (0, 0)), 'backPage': px(o+'back.png', (0, 0)),
-  'atlas': (d/(o+'front.atlas')).read_text(), 'avatar': list(Image.open(d/(o+'avatar.png')).size),
+  'atlas': (d/(o+'front.atlas')).read_text(encoding='utf-8'), 'avatar': list(Image.open(d/(o+'avatar.png')).size),
   'illust': [list(Image.open(d/pic(o)).size), px(pic(o), (0, 0)), px(pic(o), (3, 4))],
   'pictureIllust': px(pic(p), (1, 1))}))`, [path.join(f.root, 'front.skel'), path.join(f.root, 'back.skel')]);
     assert.equal(got.code, 0, got.log);
@@ -384,7 +425,7 @@ print(json.dumps({'code': code, 'log': log.getvalue(), 'manifest': (root/'m.json
 
   test('outfits fill parts within the cosmetic ceilings; a re-run keeps an outfit in its part', { skip: !PIL && 'no Pillow' }, (t) => {
     const f = clientFiles(t);
-    const got = py(`${FAKE}${CLIENT}
+    const got = py(`${FAKE}${PIL_FAKE}${CLIENT}
 root = Path(${JSON.stringify(f.root)})
 install(root/'ab', BUNDLES)
 s.RESERVE = {'bytes': 0, 'files': 0, 'dirs': 0}
@@ -393,12 +434,12 @@ jobs = s.plan(TABLE, ['char_102_texas'])
 logs = []
 n1 = s.export(root/'ab', root/'out', logs.append, jobs, ['char_102_texas'], '0.4.1')
 first = sorted(p.name for p in (root/'out'/'skins').iterdir())
-(root/'out'/'skins'/'local-skins-2'/'plugin.lock.json').write_text('{}')  # a pack's lock: RESERVE's, not the outfit's room
+(root/'out'/'skins'/'local-skins-2'/'plugin.lock.json').write_text('{}', encoding='utf-8')  # a pack's lock: RESERVE's, not the outfit's room
 n2 = s.export(root/'ab', root/'out', logs.append, [j for j in jobs if '#' in j['skinId']], ['char_102_texas'], '0.4.1')
-parts = {p.name: list(json.loads((p/'skins.json').read_text())['chars']['char_102_texas']['skins'])
+parts = {p.name: list(json.loads((p/'skins.json').read_text(encoding='utf-8'))['chars']['char_102_texas']['skins'])
          for p in sorted((root/'out'/'skins').iterdir())}
 print(json.dumps({'n': [n1, n2], 'first': first, 'parts': parts,
-  'names': [json.loads((root/'out'/'skins'/k/'plugin.json').read_text())['name']['en'] for k in sorted(parts)]}))`, [path.join(f.root, 'front.skel'), path.join(f.root, 'back.skel')]);
+  'names': [json.loads((root/'out'/'skins'/k/'plugin.json').read_text(encoding='utf-8'))['name']['en'] for k in sorted(parts)]}))`, [path.join(f.root, 'front.skel'), path.join(f.root, 'back.skel')]);
     assert.deepEqual(got.first, ['local-skins', 'local-skins-2']);
     assert.deepEqual(got.parts, { 'local-skins': ['char_102_texas@epoque+7'], 'local-skins-2': ['char_102_texas@epoque#7'] },
       'the re-extracted outfit stays in part 2: plugin.json, skins.json and the lock do not count against it');
@@ -406,9 +447,98 @@ print(json.dumps({'n': [n1, n2], 'first': first, 'parts': parts,
     assert.deepEqual(got.n, [3 + 10 + 2 * 2, 10 + 2], 'files written, with each part\'s plugin.json and skins.json');
   });
 
+  test('extraction → plugin → the real pack in a Chinese folder under a non-UTF-8 locale, without Pillow (CI runs it)', (t) => {
+    const f = fxFixture(t);
+    f.put('a.png', png(3, 3, [10, 20, 30, 255]));
+    f.put('p.png', png(3, 6, [30, 20, 10, 255]));
+    const legacy = legacyLocale();
+    t.diagnostic(legacy ? `locale code page ${legacy.encoding}` : 'no non-UTF-8 locale here: the default one');
+    const dirName = '卫戍协议 测试';
+    const got = py(`${FAKE}
+import contextlib, io
+root = Path(${JSON.stringify(f.root)})
+out = root / '卫戍协议 测试'
+TABLE = {'charSkins': {
+  'char_102_texas@epoque#7': {'charId': 'char_102_texas', 'avatarId': 'char_102_texas_epoque#7', 'portraitId': 'char_102_texas_epoque#7',
+    'battleSkin': {'skinOrPrefabId': 'DefaultSkin'}, 'displaySkin': {'skinName': '意志 SS.SP', 'skinGroupName': '时代/VII', 'sortId': 2}},
+  'char_102_texas@epoque+7': {'charId': 'char_102_texas', 'avatarId': 'char_102_texas_epoque+7',
+    'battleSkin': {'skinOrPrefabId': 'DefaultSkin'}, 'displaySkin': {'skinName': 'i.t', 'sortId': 1}},
+}}
+(root/'ab'/'ui'/'autochess').mkdir(parents=True)
+(root/'table.json').write_text(json.dumps(TABLE), encoding='utf-8')
+avatars, portraits = Bundle(), Bundle()
+for sid in ('char_102_texas_epoque#7', 'char_102_texas_epoque+7'):
+    sprite(avatars, sid, PngFile(root/'a.png'))
+sprite(portraits, 'char_102_texas_epoque#7', PngFile(root/'p.png'))
+install(root/'ab', {'spritepack/ui_char_avatar_0.ab': avatars, 'spritepack/char_portrait_0.ab': portraits, 'skinpack/char_102_texas.ab': Bundle()})
+ex.cursor.client_data = lambda *a: None
+sys.argv = ['extract.py', '--game', str(root/'ab'), '--only', 'skins/char_102_texas', '--skin-table', str(root/'table.json'),
+            '--out', str(out), '--manifest', str(root/'m.json')]
+log = io.StringIO()
+with contextlib.redirect_stdout(log):
+    code = ex.main()
+d = out / 'skins' / 'local-skins'
+print(json.dumps({'code': code, 'log': log.getvalue(), 'folder': str(d), 'lock': (d/'plugin.lock.json').is_file(),
+  'overlay': json.loads((d/'skins.json').read_text(encoding='utf-8')), 'manifest': (root/'m.json').exists(),
+  'stages': sorted(p.name for p in (out/'skins').iterdir() if p.name.startswith('.'))}))`, [], legacy ? legacy.env : ENV);
+    assert.equal(got.code, 0, got.log);
+    assert.equal(got.folder, path.join(f.root, dirName, 'skins', 'local-skins'));
+    // pack's own line, its folder path in Chinese: decoded as UTF-8 (the locale's code page raised or garbled it)
+    assert.ok(got.log.includes(`  pack: ${got.folder}: wrote plugin.lock.json`), got.log);
+    assert.match(got.log, /pack: +check: ok/);
+    assert.equal(got.lock, true);
+    assert.equal(got.manifest, false);
+    assert.deepEqual(got.stages, [], 'the stage beside the parts is gone');
+    const skins = got.overlay.chars.char_102_texas.skins;
+    assert.deepEqual(Object.keys(skins), ['char_102_texas@epoque+7', 'char_102_texas@epoque#7']);
+    assert.deepEqual(skins['char_102_texas@epoque#7'], { name: '意志 SS.SP', group: '时代/VII',
+      avatar: 'char_102_texas/epoque_7_2/avatar.png', portrait: 'char_102_texas/epoque_7_2/portrait.png' });
+    const checked = spawnSync(process.execPath, [path.join(ROOT, 'tools/plugin.mjs'), 'check', got.folder, '--strict'], { encoding: 'utf8', cwd: ROOT });
+    assert.equal(checked.status, 0, checked.stdout + checked.stderr);
+  });
+
+  test('a re-run keeps every outfit\'s folder: two outfits of one plugin-safe name never swap or delete each other\'s files', (t) => {
+    const f = fxFixture(t);
+    f.put('3.png', png(3, 3)); f.put('5.png', png(5, 5)); f.put('7.png', png(7, 7));
+    const got = py(`${FAKE}
+root = Path(${JSON.stringify(f.root)})
+avatars = Bundle()
+for sid, w in (('char_x_a#1', 3), ('char_x_a+1', 5), ('char_x_a_1', 7)):
+    sprite(avatars, sid, PngFile(root / ('%d.png' % w)))
+install(root/'ab', {'spritepack/ui_char_avatar_0.ab': avatars})
+def table(order):
+    return {'charSkins': {sid: {'charId': 'char_x', 'avatarId': 'char_x_' + sid.split('@')[1], 'battleSkin': {'skinOrPrefabId': 'DefaultSkin'},
+                                'displaySkin': {'skinName': sid, 'sortId': i}} for i, sid in enumerate(order)}}
+skins_dir = root/'out'/'skins'
+def state():
+    recs = json.loads((skins_dir/'local-skins'/'skins.json').read_text(encoding='utf-8'))['chars']['char_x']['skins']
+    return {sid: [r['avatar'], png_width(skins_dir/'local-skins'/r['avatar']) if (skins_dir/'local-skins'/r['avatar']).is_file() else None]
+            for sid, r in recs.items()}
+logs, states = [], []
+s.export(root/'ab', root/'out', logs.append, s.plan(table(['char_x@a+1', 'char_x@a#1'])), ['char_x'], '0.4.1')
+states.append(state())
+(skins_dir/'.staging-skins-left').mkdir()   # an interrupted run's stage
+# the official order flips: plan names a#1 a_1 and a+1 a_1_2, the other way round
+s.export(root/'ab', root/'out', logs.append, s.plan(table(['char_x@a#1', 'char_x@a+1'])), ['char_x'], '0.4.1')
+states.append(state())
+# a new outfit of the name comes first, and a partial run (--limit 1) extracts only it
+s.export(root/'ab', root/'out', logs.append, s.plan(table(['char_x@a_1', 'char_x@a+1', 'char_x@a#1'])), ['char_x'], '0.4.1', limit=1)
+states.append(state())
+print(json.dumps({'states': states, 'left': sorted(p.name for p in skins_dir.iterdir()),
+  'kept': [j['dir'] for j in s.keep_dirs(s.plan(table(['char_x@a#1', 'char_x@a+1'])), {1: {'char_x': {
+      'char_x@a+1': {'avatar': 'char_x/a_1/avatar.png'}, 'char_x@a#1': {'avatar': '../a_1_2/avatar.png'}}}})]}))`);
+    const [first, flipped, partial] = got.states;
+    assert.deepEqual(first, { 'char_x@a+1': ['char_x/a_1/avatar.png', 5], 'char_x@a#1': ['char_x/a_1_2/avatar.png', 3] });
+    assert.deepEqual(flipped, first, 'each outfit keeps its folder and its own picture');
+    assert.deepEqual(partial, { ...first, 'char_x@a_1': ['char_x/a_1_3/avatar.png', 7] },
+      'the new outfit takes a free name; the outfits this run left alone keep their files');
+    assert.deepEqual(got.left, ['local-skins'], 'no stage is left, also not one an interrupted run left');
+    assert.deepEqual(got.kept, ['char_x/a_1_2', 'char_x/a_1'], 'a record folder outside <charId>/<name> is never kept');
+  });
+
   test('library: every kind deduplicated by its own names, illust_* prefabs only, plugin-safe names never collide', { skip: !PIL && 'no Pillow' }, (t) => {
     const f = fxFixture(t);
-    const got = py(`${FAKE}
+    const got = py(`${FAKE}${PIL_FAKE}
 root = Path(${JSON.stringify(f.root)})
 a0, a1, p0, base, skin = Bundle(), Bundle(), Bundle(), Bundle(), Bundle()
 sprite(a0, 'char_x', solid(4, 4, (1, 1, 1, 255))); sprite(a0, 'char_x+', solid(4, 4, (2, 2, 2, 255)))
@@ -426,10 +556,10 @@ install(root/'ab', {'spritepack/ui_char_avatar_0.ab': a0, 'spritepack/ui_char_av
 logs = []
 n = s.export_library(root/'ab', root/'out', logs.append, list(s.LIB_KINDS))
 d = root/'out'/'library'
-idx = json.loads((d/'index.json').read_text())
+idx = json.loads((d/'index.json').read_text(encoding='utf-8'))
 first = Image.open(d/idx['kinds']['opillust']['illust_char_x_1']['path'])
 n2 = s.export_library(root/'ab', root/'out', logs.append, ['opavatar'], limit=1)
-idx2 = json.loads((d/'index.json').read_text())
+idx2 = json.loads((d/'index.json').read_text(encoding='utf-8'))
 print(json.dumps({'n': [n, n2], 'idx': idx, 'alpha': first.convert('RGBA').getpixel((0, 0))[3], 'size': first.size,
   'avatars2': idx2['kinds']['opavatar'], 'kept': sorted(idx2['kinds']), 'files': sorted(p.relative_to(d).as_posix() for p in d.rglob('*') if p.is_file())}))`);
     const k = got.idx.kinds;

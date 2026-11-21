@@ -65,9 +65,11 @@ aklz4.py registers a decoder for it. This script pulls the art the web sources l
     (plugin.json, skins.json with chars[<charId>].skins[<skinId>] from the official skin_table.json, --skin-table;
     avatar, portrait, 立绘 and the Front / Back battle models of every alternative outfit, picture-only when its
     battleSkin keeps the operator's own model), packed with `node tools/plugin.mjs pack`; the operators of the
-    installation's data/assets.json unless named. --only library[/opillust|opportrait|opavatar] → library/<kind>/ + library/index.json: every 立绘, 半身像 and
-    头像 of the client, each kind deduplicated on its own. --limit N samples N outfits (N pictures per kind). Copy the
-    part folders into plugins/ to use them; official art stays on this machine
+    installation's data/assets.json unless named. --only library[/opillust|opportrait|opavatar] → library/<kind>/ +
+    library/index.json: every 立绘, 半身像 and 头像 of the client, each kind deduplicated on its own. --limit N samples
+    N outfits (N pictures per kind). Both write under --out when given, else under out/local-extract/ (git ignores it;
+    the server does not serve it, unlike public/assets/). Copy the part folders into plugins/ to use them; official art
+    stays on this machine
 
 Usage:
   python3 -m venv .venv && .venv/bin/pip install -r tools/local-extract/requirements.txt
@@ -83,7 +85,8 @@ Usage:
   .venv/bin/python tools/local-extract/extract.py --only theme [--themes <backup or AB root>] [--only theme/<id>]
                                                         --out <scratch> --manifest <scratch>/local-assets.json
   .venv/bin/python tools/local-extract/extract.py --only skins [--only skins/<charId>] [--skin-table <skin_table.json>]
-                                                        [--limit N] [--out <dir>]   (writes <out>/skins/local-skins*)
+                                                        [--limit N] [--out <dir>]   (writes <out>/skins/local-skins*;
+                                                        <out> is out/local-extract without --out)
   .venv/bin/python tools/local-extract/extract.py --only library [--only library/<kind>] [--limit N] [--out <dir>]
 
 Writes <out>/**.png|.webp|.skel|.atlas and data/local-assets.json (manifest of what was extracted). With --only, just
@@ -1192,7 +1195,9 @@ def app_version():
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--game', help='install directory or AssetBundle root (…/AB/Windows or PlayCover …/Documents/Bundles)')
-    ap.add_argument('--out', default=str(ROOT / 'public/assets/local'))
+    ap.add_argument('--out', default=None,
+                    help='output root (default public/assets/local; for --only skins / library '
+                         f'{skins.DEFAULT_OUT}, a scratch folder the server does not serve)')
     ap.add_argument('--manifest', default=str(ROOT / 'data/local-assets.json'))
     ap.add_argument('--plugin-root', default=str(ROOT), help='installation whose plugin JSON and roster are scanned')
     ap.add_argument('--plugin-art', action='store_true', help='explicitly include referenced official operator art in a full run')
@@ -1224,6 +1229,11 @@ def main():
                     help='AB root of the official in-match UI themes (repeatable). Used only with --only theme. '
                          'Searched before --game')
     args = ap.parse_args()
+    # §37.331: the outfits and the gallery are staging for the server's owner, not art the game loads: without --out
+    # they go to a scratch folder git ignores (out/), not public/assets/, which the server serves to every player and
+    # hashes in the background (server/http/assetIndex.js)
+    args.art_out = args.out or str(ROOT / skins.DEFAULT_OUT)
+    args.out = args.out or str(ROOT / 'public/assets/local')
 
     if args.print_jobs:
         jobs = [{'bundle': rel, 'sub': sub, 'kinds': sorted(kinds), 'keep': keep.pattern if keep else None}
@@ -1260,9 +1270,10 @@ def main():
                                           'prefab': season_entry.PREFAB, 'clips': list(season_entry.CLIPS),
                                           'format': season_entry.FORMAT},
                           'skins': {'sub': skins.SUB, 'optIn': True, 'plugin': skins.PLUGIN_FILE,
+                                    'defaultOut': skins.DEFAULT_OUT,
                                     'bundles': [skins.SKIN_PACK.format('<charId>'), skins.AVATARS, skins.PORTRAITS]},
                           'library': {'sub': skins.LIB_SUB, 'optIn': True, 'kinds': list(skins.LIB_KINDS),
-                                      'index': skins.LIB_INDEX}},
+                                      'index': skins.LIB_INDEX, 'defaultOut': skins.DEFAULT_OUT}},
                          ensure_ascii=False))
         return 0
     if args.webp:
@@ -1309,7 +1320,9 @@ def extract(args, ab_root):
     if skins_on and outfits is None:
         return 2
     out_root = Path(args.out)
-    out_root.mkdir(parents=True, exist_ok=True)
+    if listed:
+        out_root.mkdir(parents=True, exist_ok=True)
+    art_root = Path(getattr(args, 'art_out', None) or args.out)
     manifest, total = {}, 0
     chars = {}
     if cursor_on:
@@ -1346,10 +1359,10 @@ def extract(args, ab_root):
         total += autochess_themes.export_themes(
             args.themes, out_root, manifest, print, theme_ids, ROOT, game_root=ab_root)
     if outfits is not None:
-        total += skins.export(ab_root, out_root, print, outfits[0], outfits[1], app_version(), args.limit,
+        total += skins.export(ab_root, art_root, print, outfits[0], outfits[1], app_version(), args.limit,
                               Path(args.plugin_root))
     if library_kinds:
-        total += skins.export_library(ab_root, out_root, print, library_kinds, args.limit)
+        total += skins.export_library(ab_root, art_root, print, library_kinds, args.limit)
     if not listed:  # only skins / library ran: nothing of theirs goes into data/local-assets.json
         print(f'done: {total} files extracted (outfits / gallery; {args.manifest} unchanged)')
         return 0 if total else 1
