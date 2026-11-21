@@ -135,6 +135,31 @@ print(json.dumps(fx.mat_point(m)))`);
     assert.ok(Math.abs(out[1] - 0.232324) < 1e-5 && Math.abs(out[2] + 0.249603) < 1e-5, JSON.stringify(out));
   });
 
+  test('mesh-device mounts follow explicit Graphic bindings even when the object name is not a mount name', () => {
+    const out = py(`
+from types import SimpleNamespace as NS
+file = object()
+def obj(i, kind, data): return NS(path_id=i, type=NS(name=kind), assets_file=file, data=data)
+def transform(i, go, pos, children=[]):
+    return obj(i, 'Transform', {'m_GameObject':go, 'm_LocalPosition':dict(zip('xyz',pos)),
+        'm_LocalRotation':dict(zip('xyzw',[0,0,0,1])), 'm_LocalScale':dict(zip('xyz',[1,1,1])), 'm_Children':children})
+def go(i, name, components): return obj(i,'GameObject',{'m_Name':name,'m_Component':[{'component':c} for c in components]})
+root=go(1,'trap', [2,3]); mesh=go(4,'arbitrary_mesh', [5]); muzzle=go(6,'FixedMuzzle',[7])
+objects={o.path_id:o for o in [root,transform(2,1,[99,99,99],[5,7]),
+    obj(3,'MonoBehaviour',{'_specialPoint0':5,'_muzzleTransform':7}),
+    mesh,transform(5,4,[0,0,0]),muzzle,transform(7,6,[0,-.138,-.456])]}
+env=NS(prefabs=lambda *a,**kw:{'trap':root},tt=lambda o:o.data,
+    resolve=lambda f,p:(file,objects.get(p)) if isinstance(p,int) else (None,None),script=lambda o:('','Graphic'))
+normal=fx.skin_points(env,'bundle','trap',None)
+bound=fx.skin_points(env,'bundle','trap',None,bound_mounts=True)
+print(json.dumps([normal,bound]))`);
+    const [normal, bound] = out;
+    assert.equal(normal.SpecialPoint0, undefined);
+    assert.deepEqual(bound.SpecialPoint0.all.pos, [0, 0, 0]);
+    assert.deepEqual(bound.Muzzle.all.pos, [0, -.138, -.456]);
+    assert.deepEqual(bound.Muzzle, bound.FixedMuzzle);
+  });
+
   test('emitter lists and the live-particle estimate', () => {
     const out = py(`
 f = {'_castEffects': [{'_directionType': 0, '_effects': ['x_attack_01_start', '', '', ''], '_startEvent': 2, '_endEvent': 3},

@@ -150,6 +150,7 @@ import { FxSystem, ensureDamageFonts, projSpeed } from './fx.js';
 import { OfficialFx } from './vfx/system.js';
 import { TerrainFx } from './vfx/terrainfx.js';
 import { FxWiring } from './vfx/wiring.js';
+import { CANNON_UNIT } from './vfx/cannonfx.js';
 import { PluginFxPlayer } from './vfx/pluginPlayer.js';
 import { resolveOfficialFx } from './vfx/tier.js';
 import { createDragController, pieceTile, dragStandTile } from './drag.js';
@@ -429,6 +430,7 @@ export async function createFieldView(host, options = {}) {
   layers.vfxOver.addChild(terrainOfx.over);
   const wiring = new FxWiring(ofx, {
     speed: projSpeed,
+    stage: () => stageRec,
     // the index unit of a battle unit: the drawn operator (a stand-in's, a 自选 pick's), the chess' operator, the enemy / token
     unitKey: (info) => {
       if (!info) return null;
@@ -502,7 +504,7 @@ export async function createFieldView(host, options = {}) {
       b.setArea(boardArea(viewKind(camKind, camOpts)));
       if (stageRec) { b.setStage(stageRec); useOfficialScene(stageRec); }
       b.setFocus(camRect());
-      b.setBattleRect(mode === 'battle' && battleMeta ? battleMeta.rect : null);
+      b.setBattleRect(mode === 'battle' && battleMeta && !battleMeta.prep ? battleMeta.rect : null);
       tiles.project(cam, true);
       recover.since = performance.now();
       for (const [g, r] of hlReq) drawHighlight(r.tiles, r.style, g);
@@ -779,8 +781,8 @@ export async function createFieldView(host, options = {}) {
   function drawStage(st) {
     stageRec = st;
     tiles.setStage(st);
-    tiles.setBattleRect(mode === 'battle' && battleMeta ? battleMeta.rect : null);
-    if (board3d) { board3d.setStage(st); board3d.setBattleRect(mode === 'battle' && battleMeta ? battleMeta.rect : null); useOfficialScene(st); }
+    tiles.setBattleRect(mode === 'battle' && battleMeta && !battleMeta.prep ? battleMeta.rect : null);
+    if (board3d) { board3d.setStage(st); board3d.setBattleRect(mode === 'battle' && battleMeta && !battleMeta.prep ? battleMeta.rect : null); useOfficialScene(st); }
     tiles.project(cam, true);
     // a pen laid out before the stage arrived (setPrep / a scouting board first) used the default zones and the old
     // tile heights: lay it out again on this stage
@@ -1576,8 +1578,9 @@ export async function createFieldView(host, options = {}) {
       const st = data.stage(meta.stageId);
       if (st) setStage(st);
     }
-    tiles.setBattleRect(rect);
-    board3d?.setBattleRect(rect);
+    const deviceRect = battleMeta.prep ? null : rect;
+    tiles.setBattleRect(deviceRect);
+    board3d?.setBattleRect(deviceRect);
     for (const u of Array.isArray(meta.units) ? meta.units : []) applyInfo(u);
     // the official effects of this battle's units load now (the prep → battle switch), the board's heights for their
     // depth-tested materials
@@ -1803,7 +1806,7 @@ export async function createFieldView(host, options = {}) {
         const used = consumedIds.delete(e[1]);
         if (v && v.alive) {
           v.die(e[2] === FORCED_EXIT);
-          if (showsDeathFx(v.info, used, e[2])) { if (!wiring.death(v)) fx.death(v); } else wiring.release(v);
+          if ((!used && e[2]!==FORCED_EXIT && v.info?.defId===CANNON_UNIT) || showsDeathFx(v.info, used, e[2])) { if (!wiring.death(v)) fx.death(v); } else wiring.release(v);
         }
         break;
       }
@@ -2086,6 +2089,8 @@ export async function createFieldView(host, options = {}) {
           }
         }
       } else if (mode === 'prep') {
+        wiring.cannons.prep(board3d);
+        if (ofx.active) { ofx.setGround(heightAt,`${board3d?.stageKey}|${board3d?.areaKey}`); ofx.update(dt); }
         for (const [key, pd] of pending) {
           if (now - pd.t > DROP_PENDING_MS) {
             pending.delete(key);

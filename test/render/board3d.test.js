@@ -446,3 +446,20 @@ describe('asset pack loader (fake store)', () => {
     }
   });
 });
+
+
+test('missing cannon model retains the cannon atlas top instead of a generic crate', () => {
+  const pack = fakePack();
+  const board = new BoardScene(THREE, pack, { renderer: stubRenderer() });
+  const h = board.createDevice({ cannon: true, top: 'turretTop' });
+  try {
+    assert.equal(h.native, undefined);
+    const mesh = board.dynamic.children.at(-1);
+    const actual = [...mesh.geometry.getAttribute('uv').array.slice(0, 8)];
+    const expected = [...new Float32Array(surfaceUV(pack.uv.mech))];
+    assert.deepEqual(actual, expected);
+  } finally {
+    h.destroy();
+    board.destroy();
+  }
+});

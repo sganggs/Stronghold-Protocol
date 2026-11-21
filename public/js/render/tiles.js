@@ -210,7 +210,7 @@ export const DEVICE_BOX = Object.freeze({
   sealedFloor: { size: 0.92, height: 0.05, top: 'sealed', side: 'forbidSide' },
   blower: { size: 0.86, height: 0.28, top: 'blowerTop', side: 'forbidSide' },
   turret: { size: 0.72, height: 0.34, top: 'turretTop', side: 'forbidSide' },
-  cannon: { size: 0.55, height: 0.62, top: 'turretTop', side: 'forbidSide' },
+  cannon: { cannon: true, size: 0.55, height: 0.62, top: 'turretTop', side: 'forbidSide' },
 });
 /** Box prop of a battle device unit by its defId (sim `spawnDevice`: stage device keys). */
 export function deviceBoxOf(defId) {
@@ -612,7 +612,7 @@ export class TileField {
   _applyBattleRect() {
     const R = this.battleRect;
     const inside = (d) => !!R && d.row >= R.r0 && d.row <= R.r1 && d.col >= R.c0 && d.col <= R.c1;
-    for (const d of this.devBoxes) d.visible = !(inside(d) && (d.role === 'crate' || d.role === 'turret'));
+    for (const d of this.devBoxes) d.visible = !(R && d.role === 'cannon') && !(inside(d) && (d.role === 'crate' || d.role === 'turret'));
     for (const d of this.devices) { d.visible = true; d.gfx.visible = true; }
   }
 

@@ -12,7 +12,7 @@
 
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -52,6 +52,49 @@ describe('field view features in headless Chrome', { skip }, () => {
     return { page, problems };
   }
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  test('scouted preparation keeps static devices through stage redraw and board-mode changes', { skip: !hasArt && 'needs the board atlas' }, async () => {
+    const stages = JSON.parse(readFileSync(path.join(ROOT, 'data/stages.json'), 'utf8'));
+    const regulation = JSON.parse(readFileSync(path.join(ROOT, 'data/versions/act3autochess-v3_1/stages.json'), 'utf8'));
+    const { page, problems } = await open('scene=prep&board=2d&fx=off');
+    try {
+      for (const stage of [regulation.act3autochess_m10, stages.act1autochess_m01]) {
+        await page.evaluate((st) => {
+          const view = window.__demo.view;
+          view.setStage(st);
+          view.enterBattle({ fieldId: 'scouted-prep', stageId: st.id, kind: 'normal', prep: true,
+            rect: { r0: 9, r1: 12, c0: 2, c1: 10 }, units: [] });
+          view.setCamera('prep', { rect: { r0: 9, r1: 12, c0: 2, c1: 10 }, instant: true });
+        }, stage);
+        for (const board of ['2d', '3d', '2d', '3d']) {
+          await page.evaluate(async (mode) => { await window.__demo.view.setBoardMode(mode); }, board);
+          await page.waitForFunction((mode) => window.__demo.view.stats().board3d.on === (mode === '3d'), {}, board);
+          // This exercises drawStage independently of enterBattle and of the 3D reconstruction.
+          await page.evaluate((st) => window.__demo.view.setStage({ ...st }), stage);
+          const state = await page.evaluate(() => {
+            const d = window.__demo.view.debug;
+            return { rect2d: d.tiles.battleRect, rect3d: d.board3d?.battleRect ?? null,
+              cannons: d.tiles.devBoxes.filter((x) => x.role === 'cannon' && x.visible).length,
+              crates: d.tiles.devBoxes.filter((x) => x.role === 'crate' && x.row >= 9 && x.row <= 12 && x.col >= 2 && x.col <= 10 && x.visible).length,
+              nativeCannons: d.board3d?.prepCannons.length ?? 0,
+              liveCannons: [...d.views.values()].filter((v) => v.info?.defId === 'trap_196_cnnon').length };
+          });
+          assert.equal(state.rect2d, null);
+          assert.equal(state.rect3d, null);
+          assert.equal(state.liveCannons, 0, 'a scouted preparation board has no live cannon entity');
+          if (stage.id === 'act3autochess_m10') {
+            assert.equal(state.cannons, 1);
+            if (board === '3d') assert.equal(state.nativeCannons, 1);
+          } else assert.ok(state.crates > 0, 'preparation crates inside the future battlefield stay visible');
+          await page.screenshot({ path: path.join(OUT, `scouted-prep-${stage.id}-${board}.png`) });
+        }
+        await page.evaluate((st) => window.__demo.view.enterBattle({ fieldId: 'real-battle', stageId: st.id,
+          kind: 'normal', rect: { r0: 9, r1: 12, c0: 2, c1: 10 }, units: [] }), stage);
+        assert.equal(await page.evaluate(() => window.__demo.view.debug.tiles.devBoxes.some((d) => d.role === 'cannon' && d.visible)), false);
+      }
+      assert.deepEqual(problems, []);
+    } finally { await page.close(); }
+  });
 
   for (const board of ['3d', '2d']) {
     test(`enemy preview pen (${board}): R13 official preview idles in the pen, facing left, no bars; 0.25 s pan there and back`, async () => {

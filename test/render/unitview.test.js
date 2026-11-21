@@ -14,10 +14,10 @@ import { presetCamera } from '../../public/js/render/projection.js';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const ASSETS = JSON.parse(readFileSync(path.join(ROOT, 'data/assets.json'), 'utf8'));
 
-let fake, UnitView, T;
+let fake, UnitView, DeviceView, T;
 before(async () => {
   fake = installFakePixi();
-  ({ UnitView } = await import('../../public/js/render/units.js'));
+  ({ UnitView, DeviceView } = await import('../../public/js/render/units.js'));
   T = await import('../../public/js/render/textures.js');
 });
 after(() => fake.restore());
@@ -1054,5 +1054,25 @@ test('a passenger hidden before its first snapshot stays invisible until it appe
   } finally {
     v.destroy();
     prep.destroy();
+  }
+});
+
+
+test('cannon destruction leaves debris to the chosen death effect, while crates keep their break effect', () => {
+  const ctx = fakeViewCtx(fake.P, { assets: store(), cam });
+  const breaks = [];
+  ctx.fx = { crateBreak: (...args) => breaks.push(args) };
+  const cannon = new DeviceView(ctx, { id: 901, defId: 'trap_196_cnnon', x: 6, y: 13 });
+  const crate = new DeviceView(ctx, { id: 902, defId: 'test_crate', x: 4, y: 10 });
+  try {
+    cannon.die();
+    cannon.die();
+    assert.equal(cannon.alive, false);
+    assert.equal(breaks.length, 0);
+    crate.die();
+    assert.equal(breaks.length, 1);
+  } finally {
+    cannon.destroy();
+    crate.destroy();
   }
 });

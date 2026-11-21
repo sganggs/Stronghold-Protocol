@@ -133,11 +133,13 @@ export function switchableBox({ board, pixi, spec }) {
   return {
     get mesh() { return inner ? inner.mesh || null : null; },
     get inner() { return inner; },
+    get native() { return !!inner?.native; },
     // Resolve before DeviceView computes size / HP height, including the first frame after a board switch.
     get spec() { return board()?.deviceSpec(spec) || spec; },
     update(cam, b) {
       const scene = board() || null;
-      if (!inner || owner !== scene || inner.destroyed) {
+      if (!inner || owner !== scene || inner.destroyed
+        || (spec?.cannon && (inner.cannonModel ?? null) !== (scene?.cannonModel?.() ?? null))) {
         drop();
         inner = scene ? scene.createDevice(spec) : pixi();
         owner = scene;
