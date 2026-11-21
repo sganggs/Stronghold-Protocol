@@ -196,8 +196,9 @@ cubic-bezier 四个坐标（x 为 0–1，y 为有限数）。只保存修改过
 
 时装还可以带自己的语音（#733）：在皮肤记录里写 `voice`（中文）、`voiceJp`、`voiceEn`、`voiceKr`、`voiceNative`，槽名和
 `audio.voice` 相同（`start`、`faceEnemy`、`select`、`place`、`skill1` …），每槽一个音频文件或 1–16 个的列表。穿这套时装时，
-有录音的槽播时装的，没有的槽（或空列表）播干员原声；配音语言仍按玩家的「语音语言」设置，时装不会改变语言。这个表单暂时
-不编辑语音，需要在插件的 overlay 里手写，写法见 [PLUGINS.md](PLUGINS.md) §9 和 [SKINS.md](SKINS.md)「Outfit voices」。
+有录音的槽播时装的，没有的槽（或空列表）播干员原声；配音语言仍按玩家的「语音语言」设置，时装不会改变语言。所以时装的
+`voiceEn`、`voiceKr`、`voiceNative` 只在服务器也有这名干员的同种配音时才会播；没有时选这种配音的玩家听的是中文（[ASSUMED]
+一名干员所有槽说同一种语言）。这个表单暂时不编辑语音，需要在插件的 overlay 里手写，写法见 [PLUGINS.md](PLUGINS.md) §9 和 [SKINS.md](SKINS.md)「Outfit voices」。
 
 ## 分享和安装
 

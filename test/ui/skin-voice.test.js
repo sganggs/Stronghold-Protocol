@@ -20,6 +20,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { AudioManager, VoiceGate, installAudio, audio, voiceLine, wornOutfit, wornSkinKey, resultSpeaker, resultSpeakerOf } from '../../public/js/audio.js';
 import { selectVoiceOutfit } from '../../public/js/ui/detailPanel.js';
+import { voiceLangFor } from '../../public/js/voicePrefs.js';
 import { mediaUrl } from '../../public/js/media.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -73,6 +74,14 @@ describe('voiceLine with the worn outfit', () => {
     assert.deepEqual(voiceLine(audioM, OP, 'place', 'en', () => 0, true, { voiceEn: { place: '/a/en/cn_023.mp3' } }), { url: '/a/en/cn_023.mp3', fallback: '/op/cn/cn_023.mp3' });
     assert.deepEqual(voiceLine(audioM, OP, 'place', 'kr', () => 0, true, { voiceKr: { place: '/a/kr/cn_023.mp3' } }), { url: '/a/kr/cn_023.mp3', fallback: '/op/cn/cn_023.mp3' });
     assert.deepEqual(voiceLine(audioM, OP, 'place', 'native', () => 0, true, { voiceNative: { place: [] } }), { url: '/op/cn/cn_023.mp3', fallback: null }, 'an empty list falls through to the operator\'s (here: no native line → Chinese)');
+    // [ASSUMED] the dub comes from the operator's trees alone: a server without the operator's English tree plays 中文
+    // to a player of English, so an outfit's own English lines are not heard there — its Chinese line is
+    const noEn = { voice: audioM.voice, voiceJp: audioM.voiceJp };
+    const enOutfit = { voice: { place: '/a/cn/cn_023.mp3' }, voiceEn: { place: '/a/en/cn_023.mp3' } };
+    const lang = voiceLangFor(OP, 'en', {}, { audio: noEn });
+    assert.equal(lang, 'cn', 'the outfit has no say in the dub');
+    assert.deepEqual(voiceLine(noEn, OP, 'place', lang, () => 0, true, enOutfit), { url: '/a/cn/cn_023.mp3', fallback: null });
+    assert.equal(voiceLangFor(OP, 'en', {}, { audio: audioM }), 'en', 'with the operator\'s English tree the player keeps English (and hears the outfit\'s line, above)');
   });
 
   test('wornOutfit: the composed manifest\'s record under the operator (or its base id), else null', () => {

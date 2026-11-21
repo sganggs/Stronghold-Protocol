@@ -41,7 +41,9 @@
 //   choice (`UnitInfo.ownerId` / `skin`, the latest public `players[].skins` over it, 显示其他玩家的皮肤 — wornSkinKey,
 //   render/app.js skinOf's rule), never the viewer's own choice for another seat. The outfit never changes WHICH dub
 //   plays (voiceLangFor reads the operator's trees: the player's 语音语言 stays), only whose recording of it: per slot
-//   and per dub the outfit's lines when it has any, else the operator's (voiceLine's `outfit`).
+//   and per dub the outfit's lines when it has any, else the operator's (voiceLine's `outfit`). [ASSUMED] So an outfit's
+//   English / Korean / own-language lines play only where this server has that tree for the operator too: one dub for
+//   all of an operator's slots, 中文 when that tree is missing (docs/SKINS.md "Outfit voices").
 // - Battle SFX from `b.ev` tuples (`handleBattleEvents`): attack / hit use their official bank's maxSoundAllowed,
 //   popOldest, and the played file's minPitch / maxPitch / delay (audio_data.json, #680). Aliases share a pool; distinct
 //   banks sharing a file do not. [ASSUMED] The remake's MAX_VOICES ceiling, 160 ms per-unit cooldown and 45 ms per-URL
@@ -501,7 +503,9 @@ export function wornOutfit(manifest, charId, skinKey) {
  * the model on screen never disagree. An operator body ('op') reads its owner's latest public choice for its operator
  * (`players[].skins[<diy pick || model id>]`, an omitted map a clear) over the skin its UnitInfo arrived with; another
  * seat's outfit is shown only with 设置「显示其他玩家的皮肤」 on, one's own always. Never the viewer's own choice for
- * another seat: a teammate fielding the same operator speaks in THEIR outfit. A summon has no lines of an outfit (null).
+ * another seat: a teammate fielding the same operator speaks in THEIR outfit. [ASSUMED] (DESIGN §37.330) A summon has no
+ * lines of an outfit (null): a talking `char_` token keeps its own voice whatever its owner wears (no official summon
+ * outfit has a `voiceId`).
  * @param {{ kind?: string|null, ownerId?: string|null, skin?: string|null, body?: string|null }|null|undefined} u
  *   a tracked unit: `body` the operator its skins are looked up under (UnitInfo `diy?.charId || spine`)
  * @param {{ playerSkins?: Map<string, any>|null, myId?: string|null, otherSkins?: boolean }} [view]
@@ -1619,6 +1623,7 @@ export class AudioManager {
   /**
    * 试听 (the per-operator dropdown): one line of `charId` in `lang`, outside a battle — roster and DIY details are
    * no battle, so it skips VoiceGate's cooldowns and takes the voice channel over from whatever is on air.
+   * [ASSUMED] (DESIGN §37.330) It plays the operator's own lines, never a worn outfit's: it previews a dub.
    * An omitted `lang` (跟随全局, or a saved choice this server does not have) uses voiceLangFor. An explicit lang
    * plays that tree, with the Chinese file of the same name when the line is missing.
    * @param {string} charId
@@ -1653,7 +1658,8 @@ export class AudioManager {
   _selectedVoiceLine(charId, slot, lang, skin = null) {
     const m = this.getManifest();
     const audio = m?.audio;
-    // the download choice is the operator's (an outfit's lines come with the plugin): Chinese only where it is selected
+    // [ASSUMED] (DESIGN §37.330) the download choice is the operator's, the outfit's Chinese lines included although they
+    // come with the plugin: Chinese only where it is selected
     const allowChinese = lang === 'cn' || downloadVoiceLanguages(voiceDownloadStore.get(), charId, audio).includes('cn');
     return voiceLine(audio, charId, slot, lang, Math.random, allowChinese, skin ? wornOutfit(m, skin.charId, skin.key) : null);
   }

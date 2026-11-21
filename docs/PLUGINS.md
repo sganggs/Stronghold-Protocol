@@ -398,7 +398,9 @@ it has plays its lines instead of the operator's of the same dub, and a slot it 
 composition, a file that failed to load — plays the operator's own. The outfit never picks the dub: 设置「语音语言」, the
 per-operator choice and 本土语言 decide it as before, so an outfit with Chinese lines only is heard by a player of 中文,
 and by a player of another dub only where the operator has no line of that dub (the Chinese fallback, which needs
-Chinese selected for download). The lines follow the seat that owns the unit, like its model — a teammate fielding the
+Chinese selected for download). Nor do an outfit's `voiceEn` / `voiceKr` / `voiceNative` lines bring their dub: they
+play only where this server also has that tree for the operator, and without it a player of that dub hears 中文 — the
+outfit's Chinese line, else the operator's ([ASSUMED]: one dub for all of an operator's slots). The lines follow the seat that owns the unit, like its model — a teammate fielding the
 same operator speaks in their own outfit, 显示其他玩家的皮肤 off speaks with the operator's lines — (docs/SKINS.md "Outfit
 voices"). A summon's skin carries no lines.
 

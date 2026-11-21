@@ -112,7 +112,9 @@ An operator's skin record may carry that outfit's own lines, one tree per dub, n
 `audio.voice[<charId>]` (`start`, `faceEnemy`, `select`, `place`, `skill1`–`skill4`, `resultFour` …). The runtime check
 (`shared/plugins/visual.js` `OPERATOR_SKIN_RECORD`) and `schemas/overlay.schema.json` (`$defs.operatorSkinRecord`, each
 tree a `voiceRecord`) accept the same fields; the files are listed in `plugin.lock.json`, served under `/p/` and composed
-like any other sound. A summon's skin (`tokens[<tokenId>].skins`) carries none: a summon says nothing.
+like any other sound. A summon's skin (`tokens[<tokenId>].skins`) carries none: none of the 172 official summon outfits
+has a `voiceId`. [ASSUMED] A summon that talks (a `char_` token) speaks with its own lines whatever its owner wears
+(`wornSkinKey` gives no outfit to anything but an operator body).
 
 - **Per slot.** While the outfit is worn, a slot it has lines for plays those; a slot it lacks — no key, an empty list,
   or a write the browser left out because a file failed to load — plays the operator's own line
@@ -121,9 +123,16 @@ like any other sound. A summon's skin (`tokens[<tokenId>].skins`) carries none: 
 - **The dub stays the player's.** 设置「语音语言」, the per-operator choice and 本土语言 pick the dub exactly as before,
   from the operator's trees (`voiceLangFor`); wearing an outfit never changes it. Inside that dub the outfit's tree comes
   first, then the operator's, then the existing Chinese fallback — the outfit's Chinese line first there too — which
-  still needs Chinese selected for download (§37.109). So an outfit that carries only Chinese lines is heard by a player
-  of 中文; a player of 日本語 hears the operator's Japanese line in that slot, and the outfit's Chinese one only where the
-  operator has no Japanese line at all.
+  still needs Chinese selected for download (§37.109; [ASSUMED] the operator's download choice gates the outfit's
+  Chinese lines too, although they come with the plugin, not with the download). So an outfit that carries only Chinese
+  lines is heard by a player of 中文; a player of 日本語 hears the operator's Japanese line in that slot, and the outfit's
+  Chinese one only where the operator has no Japanese line at all.
+- **A dub this server lacks for the operator.** [ASSUMED] The dub is chosen from the operator's trees alone, so all of
+  an operator's slots speak one language: where this server has no English / Korean / own-language tree for the
+  operator, a player of that dub gets 中文 for it as before (`voiceLangFor`), and the outfit's `voiceEn` / `voiceKr` /
+  `voiceNative` lines are never played — its Chinese line (or the operator's) is. The committed `data/assets.json` has
+  English and Korean trees for 238 of its 245 voiced operators and own-language ones for 51; an operator a plugin adds
+  without those trees is the other case.
 - **Whose outfit.** The one the speaking unit's model wears in this view, never the viewer's own choice for another
   seat: `audio.js wornSkinKey` is `render/app.js skinOf`'s rule (a test runs both over the same cases) — the owner's
   latest public choice for the body's operator (`m.public.players[].skins`, an omitted map a clear) over the
@@ -138,15 +147,16 @@ like any other sound. A summon's skin (`tokens[<tokenId>].skins`) carries none: 
   - 选中干员: the outfit the card draws (`ui/detailPanel.js selectVoiceOutfit`, `OperatorImage`'s `ownerSkin` rule, the
     card's body: a stand-in or a 自选 pick).
   - 结算: this seat's public choice for the operator the speaking piece shows (`resultSpeakerOf`, `screens/game.js`).
-  - 试听 (the voice library's preview) plays the operator's own lines: it previews a dub, not an outfit.
+  - [ASSUMED] 试听 (the voice library's preview) plays the operator's own lines: it previews a dub, not an outfit.
 - **An outfit this page does not have** (a teammate's appearance plugin it lacks, or switched off) speaks with the
   operator's own lines, as it is drawn on the operator's own model.
 
 **Official data.** `skin_table.json` `charSkins[*].voiceId` / `voiceType` and `charword_table.json` `voiceLangDict` /
 `charWords`, CN data version 79.2.0 (`excel/data_version.txt`: Change 127796 on 2026/11/05), the files of
 Kengxxiao/ArknightsGameData `6f63c14e` (the 规程 profile's default pin, docs/DATA.md; read 2026-11-21): 23 of the 2477
-outfits carry a `voiceId` (#733 counted 22 on an older table) — 21 `voiceType: ALL`, 2 `ILLUST` —, 19 of the voice ids
-with CN / JP / EN / KR dubs and 4 with CN / JP. An outfit voice's `charWords` use the operator's `placeType`s and
+outfits carry a `voiceId` (#733 counted 22 on an older table) — 21 `voiceType: ALL`, 2 `ILLUST` —, 19 of the outfits
+with CN / JP / EN / KR dubs and 4 with CN / JP. They name 20 distinct voice ids, as `char_311_mudrok#1` serves four
+outfits (`#2`, `@summer#6`, `@wild#10`, `@ambienceSynesthesia#2`): 16 ids with four dubs, 4 with two. An outfit voice's `charWords` use the operator's `placeType`s and
 `CN_0NN` numbering, so its slots map as the operator's tree does (`tools/assets/audio.mjs VOICE_SLOTS`).
 
 | skinId | name | voiceId | voiceType | dubs |
