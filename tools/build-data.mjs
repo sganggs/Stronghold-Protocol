@@ -55,6 +55,7 @@ import { loadProfile, pinnedShaOf, tableSpecError, TABLE_NAMES } from './version
 import { applyAdapters } from './versions/adapters.mjs';
 import { normalizeMirror, sourceOfProfile } from './versions/sources.mjs';
 import { composeRegulationStage, placeRegulationTemplate, regulationArena } from './versions/layouts.mjs';
+import { writeCardRoster } from './build-card-roster.mjs';
 
 // ===== CLI & IO ==================================================================================
 
@@ -3790,6 +3791,16 @@ async function main() {
       const tmp = `${dest}.tmp-${process.pid}`;
       await writeFile(tmp, bytes);
       await rename(tmp, dest);
+    }
+    // the cross-period 名片干员 roster (DESIGN §37.325, tools/build-card-roster.mjs) reads every version's chess and
+    // backups: rebuilt whenever a version's default output directory changed (an --out elsewhere leaves data/ alone)
+    if (resolve(OPTS.out) === resolve(join(ROOT, 'data', VERSION.dir))) {
+      try {
+        const r = await writeCardRoster({ dataDir: join(ROOT, 'data') });
+        log(`wrote data/card-roster.json (${r.operators} operators)`);
+      } catch (e) {
+        errors.push(`data/card-roster.json not rebuilt (${e?.message || e})`);
+      }
     }
   }
   const report = {

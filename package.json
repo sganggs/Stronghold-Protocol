@@ -31,6 +31,7 @@
     "golden:update": "node tools/golden.mjs --update",
     "vendor": "node tools/vendor.mjs",
     "build-data": "node tools/build-data.mjs",
+    "build:roster": "node tools/build-card-roster.mjs",
     "assets": "node tools/vendor.mjs && node tools/fetch-assets.mjs",
     "postinstall": "node tools/vendor.mjs",
     "setup": "node tools/setup.mjs",

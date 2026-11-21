@@ -192,6 +192,16 @@ describe('the vanilla content of a server (server/plugins/identity.js)', () => {
     for (const name of ['chess', 'enemies', 'config', 'backups', 'waves']) assert.ok(c.data[name], name);
     for (const name of PRESENTATION_DATA) assert.equal(c.data[name], undefined, name);
   });
+
+  test('this checkout: the cross-period 名片干员 roster (data/card-roster.json, DESIGN §37.325) is a presentation file — in no cs, no manifest', () => {
+    const dataDir = path.join(ROOT, 'data');
+    assert.ok(fs.existsSync(path.join(dataDir, 'card-roster.json')), 'the roster is committed');
+    assert.ok(PRESENTATION_DATA.includes('card-roster'));
+    assert.ok(!gameplayDataFiles(dataDir).some((f) => f.name === 'card-roster'), 'not a gameplay data file');
+    const c = computeVanillaContent({ simDir: path.join(ROOT, 'server/sim'), sharedDir: path.join(ROOT, 'shared'), dataDir, shim: DATA_SHIM_JS });
+    assert.equal(Object.hasOwn(c.index.data, 'card-roster'), false, 'not in the vanilla /cs/ index');
+    assert.equal(Object.hasOwn(c.data, 'card-roster'), false);
+  });
 });
 
 describe('the wire: welcome, room.state, the match, /healthz, /cs/, BattleSpec, b.result', () => {
