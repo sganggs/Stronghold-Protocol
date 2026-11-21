@@ -1153,7 +1153,10 @@ terrain stealth buff; the official 0 restores concealment as soon as the block e
 rules come from the official tile and buff templates, recorded in
 [the field receipt](research/regulation-map09-20261112.json). No other map record changes.
 
-### 盐坨子炮落地数据
+### Salt cannon landing data
 
-规程装置 `role:cannon` 的 `cannon` 保存 level、distance、initSp、spCost、spRecovery、branchId 和已解析的
-route。路线来自所属 sub 的 extraRoutes 并随战斗坐标平移；stats／spCost 已应用主关卡的 prefab-key rune 一次。
+A regulation `role:cannon` device stores `level`, `distance`, `initSp`, `spCost`, `spRecovery`, `branchId` and
+its resolved landing `route`. Both layout composition and device generation read the distance from the unlocked
+EnemyCannon00 talent's `rangeId` and `range_table`. Routes come from the owning sub-scene's `extraRoutes` and
+move with the battle coordinates. [ASSUMED] Bare prefab-key runes apply once; parallel alias selectors are
+considered duplicates. Missing base stats remain null when processing attribute runes.

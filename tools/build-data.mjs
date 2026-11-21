@@ -54,7 +54,7 @@ import { itemTextForbidsDiy } from '../shared/itemRules.js';
 import { loadProfile, pinnedShaOf, tableSpecError, TABLE_NAMES } from './versions/profiles.mjs';
 import { applyAdapters } from './versions/adapters.mjs';
 import { normalizeMirror, sourceOfProfile } from './versions/sources.mjs';
-import { composeRegulationStage, placeRegulationTemplate, regulationArena } from './versions/layouts.mjs';
+import { cannonDistance, composeRegulationStage, placeRegulationTemplate, regulationArena } from './versions/layouts.mjs';
 
 // ===== CLI & IO ==================================================================================
 
@@ -376,7 +376,7 @@ async function loadContext() {
         for (const n of [1, 2, 3]) pieces.push(await loadGamedata(levelPath(id).replace(/\.json$/, `/level_${id}_sub_0${n}.json`)));
         // the client draws the official arena (the stage's `arena`); the sim keeps the composed 19×21 level
         arenas[id] = regulationArena(levels[id], pieces);
-        levels[id] = composeRegulationStage(levels[id], pieces);
+        levels[id] = composeRegulationStage(levels[id], pieces, { charTable, rangeTable });
       } else levels[id] = placeRegulationTemplate(levels[id]);
     }
   } else if (PROFILE.layout !== undefined) throw new Error(`unknown layout ${PROFILE.layout}`);
@@ -2320,14 +2320,14 @@ function deviceRecord(ctx, t, runes) {
   rec.skill = skill ? { skillId: skill.skillId, name: skill.name, level: skill.level, desc: skill.desc, descRaw: skill.descRaw, bb: skill.bb, bbStr: skill.bbStr } : null;
   if (rec.role === 'cannon') {
     const sp = ctx.skillTable[sk?.skillId]?.levels?.[Math.max(0, (t.mainSkillLvl || 1) - 1)]?.spData;
-    rec.cannon = { level, distance: 4 + (level - 1) % 3, initSp: sp?.initSp ?? 0, spCost: sp?.spCost ?? 6,
+    rec.cannon = { level, distance: cannonDistance(ctx, level), initSp: sp?.initSp ?? 0, spCost: sp?.spCost ?? 6,
       spRecovery: attrs.spRecoveryPerSec ?? 1, branchId: (t.overrideSkillBlackboard || []).find(b => b.key === 'talent@branch_id')?.valueStr ?? null,
       route: t.cannonRoute ? resolveRoute(t.cannonRoute) : null };
-    // The main level owns the modifiers. The alias selectors repeat the same adjustment.
+    // [ASSUMED] Apply the bare prefab-key selector once; parallel alias selectors are treated as duplicates.
     for (const rune of runes || []) {
       const { bb, bbStr } = flattenBB(rune.blackboard);
       if (!(bbStr.char || '').split('|').includes(key)) continue;
-      if (rune.key === 'char_attribute_add') {
+      if (rune.key === 'char_attribute_add' && rec.stats) {
         rec.stats.maxHp += bb.MAX_HP ?? 0;
         rec.stats.atk += bb.ATK ?? 0;
       } else if (rune.key === 'char_skill_cd_mul') rec.cannon.spCost *= bb.scale;

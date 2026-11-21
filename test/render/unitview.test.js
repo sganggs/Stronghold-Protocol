@@ -1036,15 +1036,23 @@ describe('GitHub #648: the Hidden Core 假想敌：管 (enemy_9021_acduml_2)', (
   });
 });
 
-
 test('a passenger hidden before its first snapshot stays invisible until it appears, without hiding prep units', () => {
-  const v = view({side:'enemy',kind:'enemy'}), prep = view({}, {prep:true});
+  const v = view({ side: 'enemy', kind: 'enemy' }),
+    prep = view({}, { prep: true });
   try {
     v._seen = false;
-    for (let i=0;i<30;i++) v.update(1/60,cam(),i/60);
-    assert.equal(v.root.alpha,0);assert.equal(v.shadow.alpha,0);assert.equal(v.alpha,0);
-    v._seen = true;v.update(1/60,cam(),1);
-    assert.ok(v.root.alpha>0);assert.ok(v.shadow.alpha>0);
-    prep.update(1/60,cam(),1);assert.ok(prep.root.alpha>0);
-  } finally {v.destroy();prep.destroy();}
+    for (let i = 0; i < 30; i++) v.update(1 / 60, cam(), i / 60);
+    assert.equal(v.root.alpha, 0);
+    assert.equal(v.shadow.alpha, 0);
+    assert.equal(v.alpha, 0);
+    v._seen = true;
+    v.update(1 / 60, cam(), 1);
+    assert.ok(v.root.alpha > 0);
+    assert.ok(v.shadow.alpha > 0);
+    prep.update(1 / 60, cam(), 1);
+    assert.ok(prep.root.alpha > 0);
+  } finally {
+    v.destroy();
+    prep.destroy();
+  }
 });

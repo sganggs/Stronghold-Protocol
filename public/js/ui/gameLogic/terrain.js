@@ -153,7 +153,7 @@ const round1 = (v) => Math.round(v * 10) / 10;
  */
 const DEVICE_TIPS = Object.freeze({
   cannon: {
-    lines: (st, d) => [d.skill?.desc],
+    lines: (st, d) => [t('向前方发射炮弹造成物理溅射伤害，可以将周围1名重量小于等于{weight}的地面敌人传送至爆炸中心', { weight: 3 })],
     stats: (st, d) => [
       { k: t('生命上限'), v: d.stats?.maxHp }, { k: t('攻击'), v: d.stats?.atk },
       { k: t('防御'), v: d.stats?.def }, { k: t('法术抗性'), v: d.stats?.res },
