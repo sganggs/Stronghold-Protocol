@@ -1,9 +1,11 @@
 // test/tools/local-extract-fonts.test.js — fonts.py: write a pinned font, keep a local file with the same hash,
-// never overwrite a conflicting one, skip a missing source; --only font's non-zero exit when nothing was written and
-// main() handing it the install's Arknights_Data rather than the temporary hot-update root; a full extract keeping an
-// earlier groups.fonts (extract.py previous_groups); §37.240's requirement that a plain extract writes the font group
-// (it fails without the install's Arknights_Data); and --only shopdocs registering and printing the archived
-// producer's prefabs.json / card.json / shop.json with --themes required.
+// never overwrite a conflicting one, skip a missing source; --only font's non-zero exit only when nothing was written
+// or listed and main() handing it the install's Arknights_Data rather than the temporary hot-update root; a full extract
+// treating fonts as optional (no Arknights_Data / no face / a SHA-256 mismatch all exit 0 with a warning, no pinned face
+// is required), an earlier groups.fonts surviving a run (extract.py previous_groups); --only shopdocs calling the
+// merged producer with shopdocs=True and printing its prefabs.json / card.json / shop.json (--themes required); and
+// the theme file listing / card.json shader records: a `shaders/*.md` porting page is never listed (a stale copy
+// stays out of data/local-assets.json) and no card shader record carries `doc` or `shaderDoc` (S7).
 //
 // The extraction runs in a temporary directory with fonts._read_fonts (and the pinned FONT_SPECS) monkeypatched, so
 // this needs no game client and never touches public/.
@@ -76,7 +78,7 @@ elif scenario == 'conflict':
     fonts._read_fonts = source(DATA)
 elif scenario == 'missing':
     fonts._read_fonts = lambda game_data: {}
-elif scenario not in ('full-run', 'full-fonts', 'font-exit', 'hot-update', 'shopdocs', 'theme-files'):
+elif scenario not in ('full-run', 'full-fonts', 'font-exit', 'hot-update', 'shopdocs', 'theme-files', 'card-shaders', 'bundles'):
     raise SystemExit('unknown scenario ' + scenario)
 
 if scenario == 'full-run':
@@ -88,9 +90,12 @@ if scenario == 'full-run':
            'themes/ac_s_closur': {'d': {}}, 'ui/cursor': {'e': {}}, 'spine/char/char_1/front': {'f': {}}}
     kept = extract.previous_groups(old, [])
     result = {'kept': sorted(kept), 'partial': sorted(extract.previous_groups(old, ['ui/common'])),
-              'merged': sorted(extract.merge_manifest(kept, {}, set())), 'logs': []}
+              'merged': sorted(extract.merge_manifest(kept, {}, set())), 'logs': [],
+              'wants': [extract.wants_sub(['font'], 'fonts'), extract.wants_sub(['fonts'], 'fonts'),
+                        extract.wants_sub(['font/SourceHanSansCN-Bold'], 'fonts'),
+                        extract.wants_sub(['common'], 'ui/common')]}
 elif scenario == 'font-exit':
-    # --only font returns non-zero when nothing was written or listed (extract.py: fonts_ok)
+    # --only font returns non-zero only when the run neither wrote nor listed a face (the group counts as extracted)
     import argparse, contextlib, importlib.util, io
     spec = importlib.util.spec_from_file_location('extract', str(tool / 'extract.py'))
     extract = importlib.util.module_from_spec(spec)
@@ -101,66 +106,91 @@ elif scenario == 'font-exit':
                                   plugin_root='.', plugin_art=False, scenes=[], fx_set='sample', fx_keys='',
                                   fx_jobs=0, fx_add_only=False, fx_texture_format='webp', game=None)
 
-    printed = io.StringIO()
-    codes = {}
-    with contextlib.redirect_stdout(printed):
-        codes['no_game'] = extract.extract(make_args(), str(work / 'fake-ab'), None, None)
-        game2 = work / 'client' / 'Arknights_Data'
-        game2.mkdir(parents=True)
-        extract.fonts.export_fonts = lambda *a, **k: 0
-        codes['nothing'] = extract.extract(make_args(), str(work / 'fake-ab'), None, game2)
-
-        def keep(game, out_root, manifest, log, only=None):
-            manifest.setdefault('fonts', {})['FakeFont-One'] = {'path': '/assets/local/fonts/FakeFont-One.ttf'}
-            return 0
-
-        extract.fonts.export_fonts = keep
-        codes['kept'] = extract.extract(make_args(), str(work / 'fake-ab'), None, game2)
-    result = {'codes': codes, 'logs': printed.getvalue().splitlines()}
-elif scenario == 'full-fonts':
-    # §37.240: fonts are a required group, so a plain extract runs the font job and fails without it.
-    import argparse, contextlib, importlib.util, io
-    spec = importlib.util.spec_from_file_location('extract', str(tool / 'extract.py'))
-    extract = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(extract)
-    # A full run with a bare AB root: no bundle job is needed to reach the font requirement.
-    extract.select_jobs = lambda only: []
-    extract.spine_ids = lambda *a, **k: []
-    extract.scene_ids = lambda *a, **k: []
-    extract.regulation_ids = lambda *a, **k: []
-    extract.fx_selected = lambda *a, **k: False
-    extract.versions.export = lambda *a, **k: 0
-
-    def make_args():
-        return argparse.Namespace(only=[], themes=[], out=str(work / 'out'), manifest=str(work / 'manifest.json'),
-                                  plugin_root='.', plugin_art=False, scenes=[], fx_set='sample', fx_keys='',
-                                  fx_jobs=0, fx_add_only=False, fx_texture_format='webp', game=None)
-
-    codes, errs = {}, {}
-
-    def run(name, game_data):
+    def run(ab, game_data):
         err, out = io.StringIO(), io.StringIO()
         with contextlib.redirect_stderr(err), contextlib.redirect_stdout(out):
-            codes[name] = extract.extract(make_args(), str(work / 'fake-ab'), None, game_data)
-        errs[name] = err.getvalue()
+            code = extract.extract(make_args(), ab, None, game_data)
+        return code, err.getvalue(), out.getvalue()
 
-    # A bare AssetBundle root has no Arknights_Data: the required faces cannot be read, so the run fails.
-    extract.fonts.locate_game_data = lambda raw, root: None
-    run('no_game', None)
-    # With the install's Arknights_Data and the pinned faces listed, the same full run succeeds.
+    codes, errs = {}, {}
+    codes['no_game'], errs['no_game'], _ = run(str(work / 'fake-ab'), None)
     game2 = work / 'client' / 'Arknights_Data'
     game2.mkdir(parents=True)
+    extract.fonts.export_fonts = lambda *a, **k: 0
+    codes['nothing'], errs['nothing'], _ = run(str(work / 'fake-ab'), game2)
 
     def keep(game, out_root, manifest, log, only=None):
         manifest.setdefault('fonts', {})['FakeFont-One'] = {'path': '/assets/local/fonts/FakeFont-One.ttf'}
         return 0
 
     extract.fonts.export_fonts = keep
-    run('listed', game2)
-    # Nothing listed: still required, so the run fails even though the state file was written.
-    extract.fonts.export_fonts = lambda *a, **k: 0
-    run('unlisted', game2)
+    codes['kept'], errs['kept'], _ = run(str(work / 'fake-ab'), game2)
     result = {'codes': codes, 'errs': errs}
+elif scenario == 'full-fonts':
+    # Fonts are optional (like ui/cursor): a plain extract still attempts them, but a missing Arknights_Data, a
+    # missing face or a pinned-bytes mismatch only warns and the run exits 0 when anything else was extracted.
+    import argparse, contextlib, hashlib, importlib.util, io
+    spec = importlib.util.spec_from_file_location('extract', str(tool / 'extract.py'))
+    extract = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(extract)
+    # A full run with a bare AB root: the other jobs are stubbed to one written group, so the font branch is what
+    # decides whether the run fails.
+    extract.select_jobs = lambda only: []
+    extract.spine_ids = lambda *a, **k: []
+    extract.scene_ids = lambda *a, **k: []
+    extract.regulation_ids = lambda *a, **k: []
+    extract.fx_selected = lambda *a, **k: False
+    real_export = extract.fonts.export_fonts
+    real_locate = extract.fonts.locate_game_data
+    extract.versions.export = lambda ab, out, manifest, log, root: (
+        manifest.setdefault('versions', {'a': {'path': '/x'}}), 1)[1]
+
+    def make_args():
+        return argparse.Namespace(only=[], themes=[], out=str(work / 'out'), manifest=str(work / 'manifest.json'),
+                                  plugin_root='.', plugin_art=False, scenes=[], fx_set='sample', fx_keys='',
+                                  fx_jobs=0, fx_add_only=False, fx_texture_format='webp', game=None)
+
+    codes, errs, outs = {}, {}, {}
+
+    def run(name, game_data, font_mode):
+        if font_mode == 'skip':
+            extract.fonts.export_fonts = real_export
+            extract.fonts.locate_game_data = lambda raw, root: None
+        elif font_mode == 'listed':
+            def keep(game, out_root, manifest, log, only=None):
+                manifest.setdefault('fonts', {})['FakeFont-One'] = {'path': '/assets/local/fonts/FakeFont-One.ttf'}
+                return 0
+            extract.fonts.export_fonts = keep
+        elif font_mode == 'unlisted':
+            extract.fonts.export_fonts = lambda *a, **k: 0
+        elif font_mode == 'sha':
+            MAGIC = b'\x00\x01\x00\x00'
+            pinned = MAGIC + bytes([7]) * 60
+            extract.fonts.FONT_SPECS = ({'name': 'FakeFont-One', 'file': 'FakeFont-One.ttf', 'ext': 'ttf',
+                                         'family': 'FakeFont-One', 'weight': 400, 'bytes': len(pinned),
+                                         'sha256': hashlib.sha256(pinned).hexdigest()},)
+            extract.fonts._read_fonts = lambda game_data: {
+                'FakeFont-One': (MAGIC + bytes([9]) * 60, 'Arknights_Data/sharedassets1.assets', 360)}
+            extract.fonts.locate_game_data = real_locate
+            extract.fonts.export_fonts = real_export
+        err, out = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stderr(err), contextlib.redirect_stdout(out):
+            codes[name] = extract.extract(make_args(), str(work / 'fake-ab'), None, game_data)
+        errs[name], outs[name] = err.getvalue(), out.getvalue()
+
+    # A bare AssetBundle root has no Arknights_Data: the faces are skipped, the other jobs still make the run exit 0.
+    run('no_game', None, 'skip')
+    game2 = work / 'client' / 'Arknights_Data'
+    game2.mkdir(parents=True)
+    run('listed', game2, 'listed')
+    # Nothing written or kept: a warning, not a failure; the other jobs' extraction still counts.
+    run('unlisted', game2, 'unlisted')
+    # A pinned-bytes mismatch goes through the real check: the source is refused and the run exits 0.
+    run('sha', game2, 'sha')
+    # Nothing at all: the old "nothing was extracted" failure stays, and it no longer names fonts as required.
+    extract.versions.export = lambda *a, **k: 0
+    run('empty', game2, 'unlisted')
+    result = {'codes': codes, 'errs': errs, 'outs': outs}
 elif scenario == 'hot-update':
     # main() resolves Arknights_Data from --game / the located install before client_bundles yields its temporary
     # hot-update root, so --only font never takes the temporary root for the install directory.
@@ -199,22 +229,23 @@ elif scenario == 'hot-update':
         sys.argv = old_argv
     result = {'code': code, 'captured': captured, 'ab': str(ab), 'logs': []}
 elif scenario == 'shopdocs':
-    # --only shopdocs registers prefabs.json / card.json / shop.json and prints them; --themes is mandatory.
-    import argparse, contextlib, importlib.util, io, types
+    # --only shopdocs calls autochess_themes.export_themes with shopdocs=True (no legacy module swap) and registers
+    # prefabs.json / card.json / shop.json; --themes is still mandatory.
+    import argparse, contextlib, importlib.util, io
     spec = importlib.util.spec_from_file_location('extract', str(tool / 'extract.py'))
     extract = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(extract)
     logs = []
     manifest = {}
-    legacy = types.SimpleNamespace(THEME_SUB='themes')
+    calls = []
 
-    def export_themes(themes_dirs, out_root, manifest_, log, ids, repo_root, game_root=None):
+    def export_themes(themes_dirs, out_root, manifest_, log, ids, repo_root, game_root=None, shopdocs=False):
+        calls.append({'themes': list(themes_dirs), 'ids': list(ids), 'shopdocs': shopdocs})
         for tid in ids:
             manifest_['themes/' + tid] = {rel: {'path': '/x'} for rel in extract.SHOPDOC_FILES}
         return len(ids) * len(extract.SHOPDOC_FILES)
 
-    legacy.export_themes = export_themes
-    extract.load_legacy_themes = lambda: legacy
+    extract.autochess_themes.export_themes = export_themes
     total = extract.export_shopdocs(None, str(work / 'out'), manifest, logs.append, ['ac_n_iron'], ['themes-dir'])
 
     def make_args():
@@ -225,9 +256,12 @@ elif scenario == 'shopdocs':
     err = io.StringIO()
     with contextlib.redirect_stderr(err):
         code = extract.extract(make_args(), str(work / 'fake-ab'), None, None)
-    result = {'total': total, 'logs': logs, 'groups': sorted(manifest), 'code': code, 'stderr': err.getvalue()}
+    result = {'total': total, 'logs': logs, 'groups': sorted(manifest), 'code': code, 'stderr': err.getvalue(),
+              'calls': calls}
 elif scenario == 'theme-files':
-    # list_theme_files registers the files a theme producer wrote without listing (the free-refresh plate etc.).
+    # list_theme_files registers the files a theme producer wrote without listing (the free-refresh plate etc.), and
+    # never a shaders/*.md porting page: THEME_FILE_KINDS dropped '.md' and the walk skips it, so a stale copy from
+    # an older extraction stays out of the manifest (and the re-run theme group replaces an entry an older run listed).
     import importlib.util
     spec = importlib.util.spec_from_file_location('extract', str(tool / 'extract.py'))
     extract = importlib.util.module_from_spec(spec)
@@ -237,13 +271,93 @@ elif scenario == 'theme-files':
     sprites.mkdir(parents=True)
     (sprites / 'listed.webp').write_bytes(b'not-a-real-image')
     (sprites / 'ext_cost_free.webp').write_bytes(b'not-a-real-image')
+    shaders = out / 'themes' / 'ac_s_closur' / 'shaders'
+    shaders.mkdir(parents=True)
+    (shaders / 'x.md').write_text('# stale shader porting page', encoding='utf-8')
     (out / 'themes' / 'ac_s_closur' / 'theme.json').write_text('{}', encoding='utf-8')
     logs = []
     group = 'themes/ac_s_closur'
     manifest = {group: {'sprites/listed.webp': {'path': '/assets/local/' + group + '/sprites/listed.webp',
                                                 'kind': 'Sprite', 'w': 7, 'h': 9}}}
+    old = {group: {'shaders/x.md': {'path': '/assets/local/' + group + '/shaders/x.md', 'kind': 'TextAsset'},
+                   'sprites/listed.webp': manifest[group]['sprites/listed.webp']}}
     extract.list_theme_files(str(out), manifest, logs.append, ['ac_s_closur'])
-    result = {'group': manifest[group], 'logs': logs}
+    merged = extract.merge_manifest(old, manifest, extract.ran_groups(old, manifest))
+    result = {'group': manifest[group], 'logs': logs, 'kinds': sorted(extract.THEME_FILE_KINDS),
+              'merged': sorted(merged[group])}
+elif scenario == 'card-shaders':
+    # card.json's shader records no longer link a porting page (S7): _shaders writes no shaders/*.md, so no record
+    # carries 'doc', a material gets no 'shaderDoc', and ctx['files'] names no page. The producer's card-file
+    # registration loop also filters '.md' as a guard for an older producer (inline in _export_one, so pinned by
+    # source), and the merged producer keeps that path behind shopdocs=True (S13).
+    import inspect
+    import autochess_themes
+    import card_prefab
+
+    class Obj:
+        def __init__(self, tree):
+            self._tree = tree
+
+        def read_typetree(self):
+            return self._tree
+
+    tree = {'m_ParsedForm': {'m_Name': 'Torappu/UI/UI-Fx-Common'}, 'm_Script': None,
+            'platforms': [4], 'stageCounts': [2]}
+    material = {'shader': 'Torappu/UI/UI-Fx-Common', 'name': 'mat_x'}
+    ctx = {'shader_objects': {'Torappu/UI/UI-Fx-Common': (Obj(tree), 'CAB-abc')},
+           'materials': {'mat_x': material}, 'files': set()}
+    pages = []
+    card_prefab.card_shader.docs_markdown = lambda record: pages.append(record) or '# page'
+    shaders = card_prefab._shaders(ctx)
+    record = shaders['Torappu/UI/UI-Fx-Common']
+    flag = inspect.signature(autochess_themes.export_themes).parameters.get('shopdocs')
+    result = {'record': sorted(record), 'material': sorted(material), 'files': sorted(ctx['files']),
+              'pages': len(pages), 'guard': "rel.endswith('.md')" in inspect.getsource(autochess_themes._export_one),
+              'shopdocsDefault': flag.default if flag else None,
+              'shopdocsGate': 'if shopdocs:' in inspect.getsource(autochess_themes._export_one),
+              'module': autochess_themes.__file__}
+elif scenario == 'bundles':
+    # The two enrichment modules resolve their theme / battle bundles in one order: PersistentData first, then the
+    # packaged StreamingAssets/AB/Windows tree, then an AssetBundle root the caller handed us; when all are missing the
+    # existing RuntimeError names the paths tried. path_ids.game_data also accepts an AB root (no SystemExit).
+    import importlib.util
+    sys.path.insert(0, str(tool))
+    import path_ids
+    import theme_particles
+    RELS = ('ui/autochess/autochessvariantskin/[uc]ac_s_closur.ab', 'ui/autochess/[uc]autochessbattle.ab')
+    MODULES = {'theme_particles': theme_particles, 'path_ids': path_ids}
+
+    def make(root, sub):
+        for rel in RELS:
+            target = root / sub / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(b'x')
+
+    def locate(data):
+        out = {}
+        for name, mod in MODULES.items():
+            try:
+                theme, battle = mod.bundle_paths(data)
+                out[name] = [str(theme), str(battle)]
+            except RuntimeError as err:
+                out[name] = {'error': str(err)}
+        return out
+
+    root = work / 'bundles'
+    data = root / 'Arknights_Data'
+    data.mkdir(parents=True)
+    out = {'missing': locate(data)}
+    make(data, 'StreamingAssets/AB/Windows')
+    out['streaming'] = locate(data)
+    make(data, 'PersistentData/Bundles')
+    out['persistent'] = locate(data)
+    ab = root / 'Bundles'
+    ab.mkdir()
+    make(ab, '.')
+    out['root'] = locate(ab)
+    out['gameData'] = [path_ids.game_data(data) == data, path_ids.game_data(ab) == ab]
+    out['tmp'] = str(root)
+    result = out
 else:
     manifest = {}
     written = fonts.export_fonts(str(game), str(out), manifest, log)
@@ -318,17 +432,24 @@ test('fonts.export_fonts skips a font whose source is missing, without writing o
   );
 });
 
-test('--only font exits non-zero when nothing was written, and only a listed font group counts as extracted', { skip: !PY && 'no python' }, () => {
+test('--only font exits non-zero only when nothing was written or listed', { skip: !PY && 'no python' }, () => {
   const result = runDriver('font-exit');
   assert.deepEqual(result.codes, { no_game: 1, nothing: 1, kept: 0 });
+  assert.match(result.errs.no_game, /skip fonts: no Arknights_Data directory/);
+  assert.match(result.errs.nothing, /warn fonts: none of the pinned official faces was listed/);
+  assert.match(result.errs.nothing, /nothing was extracted/);
 });
 
-test('a plain extract runs the font job and fails without the pinned faces (§37.240)', { skip: !PY && 'no python' }, () => {
+test('a plain extract treats fonts as optional: a missing install, face or pinned bytes warns and exits 0', { skip: !PY && 'no python' }, () => {
   const result = runDriver('full-fonts');
-  assert.deepEqual(result.codes, { no_game: 1, listed: 0, unlisted: 1 }, 'fonts are required by a full extract');
-  assert.match(result.errs.no_game, /fonts: the pinned official faces are required/);
-  assert.match(result.errs.no_game, /pass --game <install directory>/);
-  assert.match(result.errs.unlisted, /fonts: none of the pinned official faces was listed/);
+  assert.deepEqual(result.codes, { no_game: 0, listed: 0, unlisted: 0, sha: 0, empty: 1 }, 'a font skip never fails a run');
+  assert.match(result.errs.no_game, /skip fonts: no Arknights_Data directory/);
+  assert.match(result.errs.no_game, /local font fallback stays active/);
+  assert.match(result.errs.unlisted, /warn fonts: none of the pinned official faces was listed/);
+  assert.match(result.errs.sha, /warn fonts: none of the pinned official faces was listed/);
+  assert.match(result.outs.sha, /conflict font FakeFont-One: source 64 B [0-9a-f]{12} != pinned/);
+  assert.doesNotMatch(result.errs.no_game, /required/);
+  assert.match(result.errs.empty, /nothing was extracted/);
 });
 
 test('main() hands --only font the install Arknights_Data, not the temporary hot-update AB root', { skip: !PY && 'no python' }, () => {
@@ -345,6 +466,8 @@ test('--only shopdocs registers prefabs.json / card.json / shop.json, prints the
   const result = runDriver('shopdocs');
   assert.equal(result.total, 3);
   assert.deepEqual(result.groups, ['themes/ac_n_iron']);
+  assert.deepEqual(result.calls, [{ themes: ['themes-dir'], ids: ['ac_n_iron'], shopdocs: true }],
+    'export_shopdocs calls the merged producer with the shopdocs flag, not a legacy module');
   assert.deepEqual(result.logs.slice(0, 3), [
     'shopdocs: themes/ac_n_iron/prefabs.json',
     'shopdocs: themes/ac_n_iron/card.json',
@@ -360,6 +483,9 @@ test('previous_groups: a full extract keeps an earlier groups.fonts, an --only r
   assert.deepEqual(result.kept, ['char/x', 'fonts', 'spine/char/char_1/front', 'ui/cursor']);
   assert.deepEqual(result.partial, ['char/x', 'fonts', 'spine/char/char_1/front', 'themes/ac_s_closur', 'ui/common', 'ui/cursor']);
   assert.deepEqual(result.merged, ['char/x', 'fonts', 'spine/char/char_1/front', 'ui/cursor']);
+  // --only takes the documented aliases: `font` (and a face path below it) selects the fonts group, and an unrelated
+  // partial word keeps the old exact-prefix rule (`common` selects neither ui/common nor map/common).
+  assert.deepEqual(result.wants, [true, true, true, false]);
 });
 
 test('list_theme_files lists the files a theme producer left out, keeping the listed ones as they are', { skip: !PY && 'no python' }, () => {
@@ -377,4 +503,44 @@ test('list_theme_files lists the files a theme producer left out, keeping the li
     'themes: listed themes/ac_s_closur/sprites/ext_cost_free.webp (the producer left it out)',
     'themes: listed themes/ac_s_closur/theme.json (the producer left it out)',
   ]);
+  // S7: a `shaders/*.md` porting page is a developer note, never theme data. The fixture has a stale one on disk and
+  // an older manifest entry for it; neither the listing nor the merged (re-run) group may carry it.
+  assert.deepEqual(result.kinds, ['.atlas', '.jpg', '.json', '.mp3', '.png', '.skel', '.webp'], 'no .md kind remains');
+  assert.deepEqual(Object.keys(result.group).sort(), ['sprites/ext_cost_free.webp', 'sprites/listed.webp', 'theme.json']);
+  assert.deepEqual(result.merged, ['sprites/ext_cost_free.webp', 'sprites/listed.webp', 'theme.json'],
+    'the re-run group replaces an old list that still named shaders/x.md');
+  assert.ok(!result.logs.some((line) => line.includes('.md')), 'a skipped page is not even logged as listed');
+});
+
+test('the card producer writes no shader pages and card records carry no doc / shaderDoc (S7)', { skip: !PY && 'no python' }, () => {
+  const result = runDriver('card-shaders');
+  assert.equal(result.pages, 0, 'card_prefab no longer renders a shader porting page');
+  assert.deepEqual(result.files, [], 'the card file list names no shaders/*.md');
+  assert.ok(!result.record.includes('doc'), 'a shader record has no page link');
+  assert.deepEqual(result.record.filter((key) => ['name', 'cab', 'compiled', 'properties'].includes(key)),
+    ['cab', 'compiled', 'name', 'properties'], 'the record itself stays in card.json');
+  assert.deepEqual(result.material, ['name', 'shader'], 'the material gains no shaderDoc');
+  // The producer's registration loop filters `.md` from card_files as a guard for an older producer; it is
+  // inline in _export_one with no cheap seam, so this pins the guard rather than driving that whole bundle function.
+  assert.equal(result.guard, true, 'the card-file registration still skips .md');
+  assert.equal(result.shopdocsDefault, false, '`--only theme` keeps the shop / card documents off');
+  assert.equal(result.shopdocsGate, true, 'the merged _export_one writes them only behind that flag');
+  assert.match(result.module, /tools[/\\]local-extract[/\\]autochess_themes\.py$/,
+    'there is one flat producer module, not a legacy copy');
+});
+
+test('bundle_paths: PersistentData, then StreamingAssets/AB/Windows, then a handed AB root, else the existing error', { skip: !PY && 'no python' }, () => {
+  const result = runDriver('bundles');
+  for (const name of ['theme_particles', 'path_ids']) {
+    assert.match(result.missing[name].error, /^missing current bundles: /, name);
+    assert.match(result.missing[name].error, /also looked in /, name);
+    assert.ok(result.streaming[name][0].includes('StreamingAssets'), `${name}: the packaged tree is the fallback`);
+    assert.ok(result.streaming[name][1].includes('StreamingAssets'), name);
+    assert.ok(result.persistent[name][0].includes('PersistentData'), `${name}: a hot-updated bundle wins`);
+    assert.ok(result.persistent[name][1].includes('PersistentData'), name);
+    assert.ok(result.root[name][0].startsWith(result.tmp) && result.root[name][0].includes('Bundles'), `${name}: a handed AB root resolves`);
+    assert.ok(result.root[name][1].startsWith(result.tmp), name);
+  }
+  assert.deepEqual(result.gameData, [true, true],
+    'path_ids.game_data accepts both an Arknights_Data and a bare AB root');
 });

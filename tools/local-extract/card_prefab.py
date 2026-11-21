@@ -1567,11 +1567,15 @@ def _walk_gameobject(go, ctx, depth, parent_path):
     return node
 
 
-def _shaders(ctx, dest):
-    """One record per shader the card's materials use, plus a written page; each material links to its page.
+def _shaders(ctx):
+    """One record per shader the card's materials use; each material links to its record.
 
     The record is per shader, never per material: ten materials share three shaders, and the property table, the
     pass state and the uniform list are identical for every material that uses one.
+
+    The porting page (`card_shader.docs_markdown`) is a developer note, not theme data: it is no longer written
+    into the theme pack, so it cannot be listed in data/local-assets.json or ship in the packages. The record
+    (compiled/properties/subShaders) stays in card.json, where the renderer reads it.
     """
     shaders = {}
     for name, (obj, cab) in sorted(ctx['shader_objects'].items()):
@@ -1579,17 +1583,7 @@ def _shaders(ctx, dest):
         if not isinstance(tree, dict):
             continue
         record = card_shader.record(tree, name=name, cab=cab)
-        rel = f'shaders/{themes.safe_stem(name).lower()}.md'
-        path = Path(dest) / rel
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(card_shader.docs_markdown(record), encoding='utf-8')
-        record['doc'] = rel
-        ctx['files'].add(rel)
         shaders[name] = record
-    for material in ctx['materials'].values():
-        record = shaders.get(material.get('shader'))
-        if record:
-            material['shaderDoc'] = record['doc']
     return shaders
 
 
@@ -1709,7 +1703,7 @@ def build(bundle, group, dest, book, index=None, version=None, log=print):
         'particles': card['particles'],
         'sub': subs,
         'driver': _driver(card['root'], subs),
-        'shaders': _shaders(ctx, dest),
+        'shaders': _shaders(ctx),
         'assets': sorted(ctx['files']),
         'unresolved': ctx['unresolved'] + deps.unresolved,
     }

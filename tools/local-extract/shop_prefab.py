@@ -13,7 +13,7 @@ not render it); cross-bundle template references (`group_upgrade` cost view, `gr
 `refs` for later milestones.
 
 Usage:
-  .venv-extract/Scripts/python.exe tools/local-extract/legacy/shop_prefab.py \\
+  .venv-extract/Scripts/python.exe tools/local-extract/shop_prefab.py \\
       --themes "<AB root with the theme bundles>" --theme ac_s_closur \\
       --out "<scratch>/themes/ac_s_closur"
 """
@@ -34,6 +34,10 @@ BATTLE_SHOP = 'shop/autochess_shop.prefab'
 BATTLE_MONEY = 'shop/autochess_main_money_item.prefab'
 SPINE_NODE = 'closure_spine_holder'
 STENCIL_NODE = 'stencil_cleaner'
+
+# The CAB index cache lives under this checkout's .cache/ (unity_deps.cache_path), never under the caller's CWD:
+# the producer's other entry point (autochess_themes.py) and the extractor run from the repository root.
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 class DirBook:
@@ -202,7 +206,7 @@ def export_shop(theme_bundle, battle_bundle, out, theme='ac_s_closur', version=N
     theme_bundle = Path(theme_bundle)
     battle_bundle = Path(battle_bundle)
     if index is None:
-        index = unity_deps.index_bundles([theme_bundle.parent, battle_bundle.parent], cache=Path('.cache/ab-cab-index.json'), log=log)
+        index = unity_deps.index_bundles([theme_bundle.parent, battle_bundle.parent], cache=unity_deps.cache_path(REPO_ROOT), log=log)
     dep_theme, env_theme, ser_theme, objects_theme = _load(theme_bundle, index)
     book = DirBook(out / 'sprites')
     ctx_theme = _ctx(env_theme, ser_theme, objects_theme, book, out)
@@ -235,7 +239,7 @@ def export_shop(theme_bundle, battle_bundle, out, theme='ac_s_closur', version=N
         'texture': next((f for f in spine_files if f.endswith('.png')), None),
     }
     if version is None:
-        version = themes.client_data_version(Path(__file__).resolve().parents[3])
+        version = themes.client_data_version(Path(__file__).resolve().parents[2])
     doc = {
         'spVersion': 1,
         'theme': theme,
@@ -283,7 +287,7 @@ def main():
     if not battle_bundle.exists():
         raise SystemExit(f'battle bundle not found: {battle_bundle}')
     scanned = [themes_root] + ([Path(args.game)] if args.game else [])
-    index = unity_deps.index_bundles(scanned, cache=Path('.cache/ab-cab-index.json'), log=print)
+    index = unity_deps.index_bundles(scanned, cache=unity_deps.cache_path(REPO_ROOT), log=print)
     export_shop(theme_bundle, battle_bundle, out, theme=args.theme, index=index, log=print)
 
 

@@ -13,7 +13,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   ASSET_PACK_README, AUTHOR_TEST_FILES, FOLDER, FONT_ART_PREFIX, REFUSE, RUNTIME_RESEARCH, artPlan, assetPackName, assetPackPlan,
-  assetPackReadme, entryProblems, formatSummary, holdBackStagedFonts, importableArt, isRefused, packageOutIsUnsafe, parseArgs, plan,
+  assetPackReadme, dropStagedFonts, entryProblems, formatSummary, importableArt, isRefused, packageOutIsUnsafe, parseArgs, plan,
   playerPackageJson, rewritePlayerDoc, resolveSpecifier, scanFiles, selectTracked, withoutHeldFonts,
 } from '../tools/package.mjs';
 import { hash16 } from '../server/http/assetIndex.js';
@@ -173,7 +173,7 @@ function fakeCheckout() {
   put('public/assets/.DS_Store', 'junk');
   put('public/fonts/fonts.css', '@font-face{}\n');
   put('public/fonts/x.woff2', PNG);
-  // the local extraction's official faces: in no package, held back by FONT_ART_PREFIX (the group stays on this machine)
+  // the local extraction's official faces: in no package, held back by FONT_ART_PREFIX (faces stay on this machine)
   put('public/assets/local/fonts/Font-One.otf', 'font-one');
   put('public/assets/local/fonts/Font-Two.ttf', 'font-two');
   put('data/local-assets.json', JSON.stringify({ version: 1, count: 4, groups: { g: { x: { path: '/assets/local/g/x.webp' } },
@@ -307,12 +307,11 @@ test('the locally extracted fonts are in no package: the full plan holds them ba
     const stage = path.join(dir, 'stage');
     fs.mkdirSync(path.join(stage, 'data'), { recursive: true });
     fs.copyFileSync(path.join(dir, 'data/local-assets.json'), path.join(stage, 'data/local-assets.json'));
-    assert.equal(holdBackStagedFonts(stage), true);
-    assert.equal(holdBackStagedFonts(stage), false, 'once is enough');
+    assert.equal(dropStagedFonts(stage), true);
+    assert.equal(dropStagedFonts(stage), false, 'once is enough');
     const local = JSON.parse(fs.readFileSync(path.join(dir, 'data/local-assets.json'), 'utf8'));
     const staged = JSON.parse(fs.readFileSync(path.join(stage, 'data/local-assets.json'), 'utf8'));
-    assert.deepEqual(Object.keys(staged.groups), ['g', 'spine/token/token_x', 'fonts']);
-    assert.deepEqual(staged.groups.fonts, {}, 'the required key stays, the faces do not (§37.240)');
+    assert.deepEqual(Object.keys(staged.groups), ['g', 'spine/token/token_x'], '`fonts` is optional, so no empty key stays');
     assert.equal(staged.count, local.count - 2);
     assert.equal(local.groups.fonts['Font-One'].path, '/assets/local/fonts/Font-One.otf', 'this machine keeps its group for the runtime');
     const shipped = withoutHeldFonts(local);
@@ -629,20 +628,17 @@ test('a --assets build of a development version needs --allow-dev', { skip: !has
   }
 });
 
-test('the staged manifest gains an empty fonts group even when it had none (§37.240)', () => {
+test('a staged manifest that never listed a fonts group is left untouched (fonts are optional)', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-package-nofonts-'));
   try {
     const stage = path.join(dir, 'stage');
     const data = path.join(stage, 'data');
     fs.mkdirSync(data, { recursive: true });
-    fs.writeFileSync(path.join(data, 'local-assets.json'), JSON.stringify({
-      version: 1, count: 1, groups: { g: { a: { path: '/assets/local/g/a.png' } } },
-    }));
-    assert.equal(holdBackStagedFonts(stage), true);
-    const staged = JSON.parse(fs.readFileSync(path.join(data, 'local-assets.json'), 'utf8'));
-    assert.deepEqual(Object.keys(staged.groups), ['g', 'fonts']);
-    assert.deepEqual(staged.groups.fonts, {}, 'the required key exists, empty');
-    assert.equal(holdBackStagedFonts(stage), false, 'idempotent');
+    const doc = { version: 1, count: 1, groups: { g: { a: { path: '/assets/local/g/a.png' } } } };
+    const pathOf = path.join(data, 'local-assets.json');
+    fs.writeFileSync(pathOf, JSON.stringify(doc));
+    assert.equal(dropStagedFonts(stage), false, 'nothing to drop: the same manifest');
+    assert.deepEqual(JSON.parse(fs.readFileSync(pathOf, 'utf8')), doc);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

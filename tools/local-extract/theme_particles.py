@@ -17,9 +17,32 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 
+# Below Arknights_Data. PersistentData holds the hot-updated bundles, StreamingAssets/AB/Windows the packaged ones
+# (an install that has never downloaded the theme uses only the latter). A caller may also hand us an AssetBundle
+# root itself — PlayCover's Documents/Bundles, or the hot-update root client_bundles links — which holds
+# ui/autochess/… directly, so it is the last candidate.
+BUNDLE_REL = ('ui/autochess/autochessvariantskin/[uc]ac_s_closur.ab',
+              'ui/autochess/[uc]autochessbattle.ab')
+
+
+def bundle_paths(data):
+    """(theme, battle) bundle under `data`: PersistentData first, then StreamingAssets/AB/Windows, then `data` itself."""
+    roots = (Path(data) / 'PersistentData' / 'Bundles',
+             Path(data) / 'StreamingAssets' / 'AB' / 'Windows',
+             Path(data))
+    for root in roots:
+        theme, battle = (root / rel for rel in BUNDLE_REL)
+        if theme.is_file() and battle.is_file():
+            return theme, battle
+    theme, battle = (roots[0] / rel for rel in BUNDLE_REL)
+    raise RuntimeError(f'missing current bundles: {theme} / {battle} (also looked in '
+                       + ', '.join(str(root) for root in roots[1:]) + ')')
+
 
 def enrich_theme(theme_dir, game, log=print):
     theme_dir = Path(theme_dir)
+    if not game:
+        raise RuntimeError('missing current bundles: no game root was given')
     data = Path(game)
     if data.name != 'Arknights_Data':
         child = data / 'Arknights_Data'
@@ -30,10 +53,7 @@ def enrich_theme(theme_dir, game, log=print):
                 if parent.name == 'Arknights_Data':
                     data = parent
                     break
-    theme = data / 'PersistentData/Bundles/ui/autochess/autochessvariantskin/[uc]ac_s_closur.ab'
-    battle = data / 'PersistentData/Bundles/ui/autochess/[uc]autochessbattle.ab'
-    if not theme.is_file() or not battle.is_file():
-        raise RuntimeError(f'missing current bundles: {theme} / {battle}')
+    theme, battle = bundle_paths(data)
 
     sys.path.insert(0, str(HERE))
     import theme_particles_impl as impl

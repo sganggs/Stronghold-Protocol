@@ -20,6 +20,8 @@ import hashlib
 import sys
 from pathlib import Path
 
+SUB = 'fonts'
+
 # Keep this table small and explicit; a name outside it is never written.
 FONT_SPECS = (
     {
@@ -154,7 +156,7 @@ def export_fonts(game_root, out_root, manifest, log=print, only=None):
     wanted = {s['name'] for s in FONT_SPECS}
     if only:
         wanted &= {s['name'] for s in FONT_SPECS if s['name'] in only}
-    out_dir = Path(out_root) / 'fonts'
+    out_dir = Path(out_root) / SUB
     out_dir.mkdir(parents=True, exist_ok=True)
     group = {}
     written = 0

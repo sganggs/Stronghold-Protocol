@@ -26,7 +26,7 @@ function manifestOf(keys) {
   return { version: 1, source: 'local-client', count: keys.length, groups };
 }
 
-/** 85 groups / 1658 entries: every expected key except scene/tex, count field matching the listed entries. */
+/** 83 groups / 1658 entries: every expected key except scene/tex, count field matching the listed entries. */
 function manifestMissingTex() {
   const keys = EXPECTED_LOCAL_GROUPS.filter((g) => g !== 'scene/tex');
   const groups = {};
@@ -66,12 +66,16 @@ describe('expected.mjs matches the extractor (no game client)', { skip: !PY && '
     assert.equal(j.fx.meshVersion, EXPECTED_FX.meshVersion);
     assert.equal(j.fx.optIn, true);
     assert.equal(j.scenes.version, EXPECTED_SCENE.version);
+    assert.equal(j.fonts.sub, 'fonts');
+    assert.equal(j.fonts.optional, true, 'fonts are optional like the cursor');
+    assert.ok(!j.expectedGroups.includes('fonts') && !j.expectedGroups.includes('item'));
+    assert.equal(j.cursor.optional, true);
   });
 });
 
-test('this version expects 86 local groups, 11 battlefields and scene/tex', () => {
-  assert.equal(EXPECTED_LOCAL_GROUPS.length, 86);
-  assert.equal(new Set(EXPECTED_LOCAL_GROUPS).size, 86);
+test('this version expects 84 local groups, 11 battlefields and scene/tex', () => {
+  assert.equal(EXPECTED_LOCAL_GROUPS.length, 84);
+  assert.equal(new Set(EXPECTED_LOCAL_GROUPS).size, 84);
   const scenes = EXPECTED_LOCAL_GROUPS.filter((g) => g.startsWith('scene/'));
   assert.ok(scenes.includes('scene/tex'));
   assert.equal(scenes.length, 12);
@@ -80,18 +84,18 @@ test('this version expects 86 local groups, 11 battlefields and scene/tex', () =
   assert.equal(EXPECTED_FX.manifestVersion, 1);
 });
 
-test('an 85-group / 1658-entry manifest that only lacks scene/tex is stale', () => {
+test('an 83-group / 1658-entry manifest that only lacks scene/tex is stale', () => {
   const assessed = assessLocal(manifestMissingTex(), null);
-  assert.equal(assessed.groupCount, 85);
+  assert.equal(assessed.groupCount, 83);
   assert.equal(assessed.count, 1658);
-  assert.equal(assessed.expectedGroupCount, 86);
+  assert.equal(assessed.expectedGroupCount, 84);
   assert.deepEqual(assessed.missingGroups, ['scene/tex']);
   assert.equal(assessed.stale, true);
   assert.equal(assessed.scenes, false);
   assert.equal(assessed.sceneStagesHave, 11);
   assert.equal(assessed.sceneGroupHave, 11);
   assert.equal(localArtState(assessed), 'warn');
-  const sceneGap = '，已有 85 个分组、1658 项，这一版期望 86 个分组（缺少 scene/tex）';
+  const sceneGap = '，已有 83 个分组、1658 项，这一版期望 84 个分组（缺少 scene/tex）';
   assert.equal(localGaps(assessed, { client: true }), `${sceneGap}，请重新运行 node tools/setup.mjs --scenes`);
   assert.equal(localArtDetail(assessed, '', '已提取', { client: true }), `已提取 1658 项${sceneGap}，请重新运行 node tools/setup.mjs --scenes`);
   assert.equal(assessed.fx.state, 'skip');
@@ -120,7 +124,7 @@ test('the full group set is not stale, and a superset of local-assets groups is 
   const full = assessLocal(manifestOf(EXPECTED_LOCAL_GROUPS), null);
   assert.equal(full.stale, false);
   assert.equal(full.scenes, true);
-  assert.equal(full.groupCount, 86);
+  assert.equal(full.groupCount, 84);
   assert.equal(localGaps(full), '');
   assert.equal(localArtState(full), 'ok');
   const scene = sceneInstallPlan(sceneOpts(full, { client: false }));
@@ -128,7 +132,7 @@ test('the full group set is not stale, and a superset of local-assets groups is 
   assert.match(scene.detail, /11 个战场/);
   assert.match(scene.detail, /金属地块/);
   assert.doesNotMatch(scene.detail, /0\.2\.5/);
-  assert.equal(localArtDetail(full, '，3D 棋盘可用'), '已提取 86 项，3D 棋盘可用（重新提取：--local）');
+  assert.equal(localArtDetail(full, '，3D 棋盘可用'), '已提取 84 项，3D 棋盘可用（重新提取：--local）');
 
   const extra = manifestOf(EXPECTED_LOCAL_GROUPS);
   extra.groups['old/leftover'] = { a: { path: '/x' } };
@@ -140,13 +144,27 @@ test('the full group set is not stale, and a superset of local-assets groups is 
   assert.equal(localGaps(sup), '');
 });
 
+test('a pre-existing 86-group extraction that still carries fonts and item is not stale', () => {
+  const keys = [...EXPECTED_LOCAL_GROUPS, 'fonts', 'item'];
+  const assessed = assessLocal(manifestOf(keys), null);
+  assert.equal(assessed.groupCount, 86);
+  assert.equal(assessed.expectedGroupCount, 84);
+  assert.deepEqual(assessed.missingGroups, []);
+  assert.equal(assessed.stale, false);
+  assert.equal(localGaps(assessed), '');
+  assert.equal(localArtState(assessed), 'ok');
+  // the two optional keys are not expected any more: an extract that lists neither stays fresh
+  assert.ok(!EXPECTED_LOCAL_GROUPS.includes('fonts'));
+  assert.ok(!EXPECTED_LOCAL_GROUPS.includes('item'));
+});
+
 test('a count field that disagrees with the listed entries is stale; a missing count is not', () => {
   const doc = manifestOf(EXPECTED_LOCAL_GROUPS);
   doc.count = 9999;
   const bad = assessLocal(doc, null);
   assert.equal(bad.stale, true);
   assert.equal(bad.missingGroups.length, 0);
-  assert.match(localGaps(bad), /已有 86 个分组、86 项，这一版期望 86 个分组，清单写 9999 项，分组里是 86 项/);
+  assert.match(localGaps(bad), /已有 84 个分组、84 项，这一版期望 84 个分组，清单写 9999 项，分组里是 84 项/);
   assert.match(localGaps(bad), /node tools\/setup\.mjs --local/);
   delete doc.count;
   const bare = assessLocal(doc, null);
@@ -165,7 +183,7 @@ test('no manifest is skip, not a stale art row', () => {
   assert.equal(none.manifest, false);
   assert.equal(none.stale, true);
   assert.equal(none.count, 0);
-  assert.equal(none.missingGroups.length, 86);
+  assert.equal(none.missingGroups.length, 84);
   assert.equal(localArtState(none), 'skip');
   assert.equal(localArtState({ manifest: false, stale: true }), 'skip');
 });
@@ -219,7 +237,7 @@ test('fx catalog: absent is skip; a wrong catalog warns; a matching one is ok', 
 test('a scene-only gap names --scenes with a client and the full-package copy without one', () => {
   const assessed = assessLocal(manifestMissingTex(), null);
   const copy = '没有客户端的服务器可以从同一版本的整合包（完整包）复制 public/assets/local 和 data/local-assets.json';
-  assert.equal(localGaps(assessed), `，已有 85 个分组、1658 项，这一版期望 86 个分组（缺少 scene/tex）。${copy}`);
+  assert.equal(localGaps(assessed), `，已有 83 个分组、1658 项，这一版期望 84 个分组（缺少 scene/tex）。${copy}`);
   assert.doesNotMatch(localGaps(assessed, { client: false }), /--local|--scenes/);
   assert.match(localGaps(assessed, { client: true }), /node tools\/setup\.mjs --scenes/);
   assert.doesNotMatch(localGaps(assessed, { client: true }), /--local/);
@@ -242,7 +260,7 @@ test('a scene-only gap names --scenes with a client and the full-package copy wi
     client: true, tail: '，3D 棋盘可用', verb: '已提取',
   });
   assert.equal(after.state, 'ok');
-  assert.equal(after.detail, '已提取 86 项，3D 棋盘可用（重新提取：--local）');
+  assert.equal(after.detail, '已提取 84 项，3D 棋盘可用（重新提取：--local）');
   const src = fs.readFileSync(path.join(ROOT, 'tools/setup.mjs'), 'utf8');
   const step7 = src.indexOf('// 7. official battlefield scenes');
   assert.ok(step7 > 0 && src.indexOf('artRowAfterScenes(', step7) > step7);

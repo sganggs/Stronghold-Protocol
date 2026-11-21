@@ -56,18 +56,20 @@ aklz4.py registers a decoder for it. This script pulls the art the web sources l
     every effect the units reference, --fx-keys <k1,k2> for named prefabs; textures are WebP quality 90 by default,
     --fx-texture-format png selects lossless PNG
   - the three pinned official font faces the canvas shop's texts ask for (fonts.py FONT_SPECS)
-    → public/assets/local/fonts/ + manifest groups.fonts. Required: a plain run extracts them, and without the
-    install's Arknights_Data directory it fails (--only font runs that job alone). The bytes are never packaged
+    → public/assets/local/fonts/ + manifest groups.fonts. Optional like the cursor: a plain run still attempts them,
+    but a missing install directory / face or a pinned-bytes mismatch only logs a skip, and --only font runs that
+    job alone. The bytes are never packaged
   - the three official 卫戍协议 in-match UI themes (autochess_themes.py: ac_n_initial 卫戍协议终端, ac_n_iron 乌萨斯齐心团,
     ac_s_closur 「全能的」可露希尔) → themes/<id>/theme.json (spTheme 1), layout.json, sprites/*.webp, voice/*.mp3.
     Opt-in like fx: --only theme or --only theme/<id>, read from --themes <backup or AB root>. Not in
     expected_local_groups. Both --out and --manifest must be scratch: official art is never committed
-  - the archived 0.4.0 producer's shop/card documents (legacy/README.md): --only shopdocs (all three themes) or
-    --only shopdocs/<id> loads legacy/autochess_themes.py from its path and registers its prefabs.json, card.json and
-    shop.json under the same themes/<id> groups, read from --themes. The documents are the base producer's output;
-    the pathId / particle / mask fields come from its separate enrichment steps, which only warn when they fail, so a
-    produced card.json / shop.json may lack them and is not claimed to be byte-identical to any earlier product file.
-    Use a scratch --out / --manifest as --only theme does; a plain extract never runs it. Not in expected_local_groups
+  - the shop/card documents of the recovered 0.4.0 producer (autochess_themes.py's shopdocs=True path,
+    tools/local-extract/SHOPDOCS.md): --only shopdocs (all three themes) or --only shopdocs/<id> writes
+    prefabs.json, card.json and shop.json under the same themes/<id> groups, read from --themes. The documents are
+    the base producer's output; the pathId / particle / mask fields come from its separate enrichment steps, which
+    only warn when they fail, so a produced card.json / shop.json may lack them and is not claimed to be
+    byte-identical to any earlier product file. Use a scratch --out / --manifest as --only theme does; a plain
+    extract never runs it. Not in expected_local_groups
   - 规程·序列Ⅰ's opening (season_entry.py): the season screen's entry (activity/[uc]act3autochess.ab prefab
     panel_act3autochess_on_entry, clips autochess_entry_season_on and autochess_season_on_entry_loop) without the
     screen's own controls → ui/season/act3autochess/entry/prefabs.json + sprites/*.webp, which the title screen plays
@@ -92,12 +94,11 @@ Usage:
 Writes <out>/**.png|.webp|.skel|.atlas and data/local-assets.json (manifest of what was extracted). With --only, only
 the jobs whose output subdir one of the prefixes names run (`enemy` selects `spine/enemy` as `spine/enemy` does), and
 their groups replace those of the existing manifest; every other group is kept as is (previous_groups). A full run
-also writes the required groups.fonts; an earlier fonts group survives either way.
+also attempts the optional groups.fonts (like ui/cursor, its absence is not a failed extraction) and an earlier
+fonts group survives either way.
 Everything is (c) Hypergryph; for private, non-commercial fan use only.
 """
 import argparse
-import contextlib
-import importlib.util
 import json
 import os
 import re
@@ -364,10 +365,9 @@ TOKEN_SPINES = [
 TOKEN_PACKS = 'pkgrps/btl_pfb_tokens_*.ab'
 TOKEN_SPINE_SUB = 'spine/token'
 
-# The archived 0.4.0 producer under legacy/ is the only code that writes card.json and shop.json (legacy/README.md,
-# legacy/DATA-REPRO.md). It is not a JOBS entry (those copy bundle objects): --only shopdocs imports its
-# autochess_themes.py and calls its export_themes. Shopdocs is an --only prefix only; its output groups are themes/<id>.
-LEGACY_DIR = Path(__file__).resolve().parent / 'legacy'
+# card.json and shop.json come from autochess_themes.export_themes(shopdocs=True), through card_prefab.py /
+# shop_prefab.py and the two enrichment steps (SHOPDOCS.md). It is not a JOBS entry (those copy bundle objects);
+# --only shopdocs calls that producer directly. Shopdocs is an --only prefix only; its output groups are themes/<id>.
 SHOPDOCS_SUB = 'shopdocs'
 SHOPDOC_FILES = ('prefabs.json', 'card.json', 'shop.json')
 
@@ -445,8 +445,11 @@ def job_parts(job):
 
 
 def only_prefix(prefix):
-    """Only the two documented Spine categories have short aliases."""
+    """Only the two documented Spine categories and the font group have short aliases."""
     prefix = prefix.rstrip('/')
+    head, sep, rest = prefix.partition('/')
+    if head == 'font':
+        return 'fonts' + sep + rest
     return {'enemy': 'spine/enemy', 'token': 'spine/token'}.get(prefix, prefix)
 
 
@@ -758,7 +761,7 @@ def previous_groups(old_groups, only):
 
     After --only every earlier group is kept (only the ones that re-ran are replaced). A full run writes the expected
     groups, so it keeps the groups it does not write: the partial char packs merged below (`char/`, `spine/char/`),
-    the required `fonts` group this run may not have written, and `cursor.SUB` (the optional Windows-client cursor
+    the optional `fonts` group this run may not have written, and `cursor.SUB` (the optional Windows-client cursor
     job). merge_manifest then drops only the subdirectories that re-ran.
     """
     if only:
@@ -778,7 +781,6 @@ def padded_sprite(obj, image):
     m_RD.textureRectOffset. Unity draws a sprite into its rect (m_Rect is the quad, the texture region is the trimmed
     part), so a file trimmed to its opaque pixels loses that padding: the shop item icons are 160×160 rects whose ink is
     e.g. 137×157, and the card's 93×93 equip node would stretch them. None when the sprite has no usable rect.
-    This is the canvas of reference/card/export-sprites-padded.py's padded(); keep the two identical.
     m_RD.textureRectOffset is measured from the rect's bottom-left (Unity) while PIL pastes from the top-left, so the
     row is `top = height - oy - image.height`."""
     from PIL import Image
@@ -1051,9 +1053,9 @@ def regulation_ids(only):
 
 
 def shopdocs_ids(only):
-    """Theme ids of the archived shop/card producer selected by --only: `shopdocs` selects all three, `shopdocs/<id>` one.
+    """Theme ids of the shop/card producer selected by --only: `shopdocs` selects all three, `shopdocs/<id>` one.
 
-    Any other prefix selects none, like autochess_themes.selected_ids, so a plain extract never runs the archived
+    Any other prefix selects none, like autochess_themes.selected_ids, so a plain extract never runs the shopdocs
     producer. Kept out of expected_local_groups (its themes/<id> output is opt-in, as --only theme's is).
     """
     chosen = []
@@ -1069,60 +1071,18 @@ def shopdocs_ids(only):
     return chosen
 
 
-def load_legacy_themes():
-    """The archived producer's autochess_themes.py, loaded from its file path under the name its siblings import.
-
-    legacy/ is not a package: card_prefab.py and shop_prefab.py do `import autochess_themes`, so the file is loaded
-    as that module while legacy/ is first on sys.path; legacy_shopdocs restores sys.path and sys.modules afterwards.
-    """
-    spec = importlib.util.spec_from_file_location('autochess_themes', LEGACY_DIR / 'autochess_themes.py')
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f'cannot load the archived producer at {LEGACY_DIR / "autochess_themes.py"}')
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-@contextlib.contextmanager
-def legacy_shopdocs():
-    """One --only shopdocs run: tools/local-extract/legacy first on sys.path and its autochess_themes as the module.
-
-    ui_components.py and aklz4.py are not kept in legacy/ (the current extractor's copies are byte-identical), so those
-    resolve from the parent directory; every module that exists only in legacy/ (card_prefab, shop_prefab,
-    theme_particles, path_ids, unity_deps) is imported from it.
-    """
-    inserted = str(LEGACY_DIR)
-    previous_module = sys.modules.get('autochess_themes')
-    sys.path.insert(0, inserted)
-    try:
-        module = load_legacy_themes()
-        sys.modules['autochess_themes'] = module
-        yield module
-    finally:
-        if previous_module is not None:
-            sys.modules['autochess_themes'] = previous_module
-        else:
-            sys.modules.pop('autochess_themes', None)
-        try:
-            sys.path.remove(inserted)
-        except ValueError:
-            pass
-
-
 def export_shopdocs(ab_root, out_root, manifest, log, ids, themes_dirs, game_data=None):
-    """--only shopdocs: the archived producer's prefabs.json / card.json / shop.json for `ids` (themes/<id> groups).
+    """--only shopdocs: the producer's prefabs.json / card.json / shop.json for `ids` (themes/<id> groups).
 
-    The documents are the base producer's output: its particle / pathId / mask enrichment steps only warn when they
-    fail, so a produced card.json or shop.json can lack those fields. That is why the run prints what it wrote instead
-    of claiming a byte-identical product file.
+    Calls autochess_themes.export_themes with `shopdocs=True`: the theme pack plus the card / shop documents and their
+    warn-only enrichment (SHOPDOCS.md). The enrichment steps read the installed client, so they get the resolved
+    Arknights_Data; a missing game_data falls back to ab_root (the producer tries PersistentData first, then
+    StreamingAssets/AB/Windows, then that root).
     """
-    with legacy_shopdocs() as legacy:
-        # The producer's enrichment steps read the installed client (their own CAB index and bundle paths), so they
-        # get the resolved Arknights_Data, not the hot-update temp root client_bundles handed us: that temp tree has
-        # no Arknights_Data and path_ids.aborts with SystemExit. A missing game_data falls back to ab_root.
-        total = legacy.export_themes(themes_dirs, out_root, manifest, log, ids, ROOT, game_root=game_data or ab_root)
-    written = [f'{legacy.THEME_SUB}/{theme_id}/{rel}' for theme_id in ids for rel in SHOPDOC_FILES
-               if rel in manifest.get(f'{legacy.THEME_SUB}/{theme_id}', {})]
+    total = autochess_themes.export_themes(
+        themes_dirs, out_root, manifest, log, ids, ROOT, game_root=game_data or ab_root, shopdocs=True)
+    written = [f'{autochess_themes.THEME_SUB}/{theme_id}/{rel}' for theme_id in ids for rel in SHOPDOC_FILES
+               if rel in manifest.get(f'{autochess_themes.THEME_SUB}/{theme_id}', {})]
     for rel in written:
         log(f'shopdocs: {rel}')
     if not written:
@@ -1135,7 +1095,7 @@ def export_shopdocs(ab_root, out_root, manifest, log, ids, themes_dirs, game_dat
 
 # Theme files a producer writes whose extension is not a document or an audio clip: sprites and text metadata.
 THEME_FILE_KINDS = {'.png': 'Sprite', '.webp': 'Sprite', '.jpg': 'Sprite', '.json': 'TextAsset',
-                    '.skel': 'TextAsset', '.atlas': 'TextAsset', '.md': 'TextAsset', '.mp3': 'AudioClip'}
+                    '.skel': 'TextAsset', '.atlas': 'TextAsset', '.mp3': 'AudioClip'}
 
 
 def list_theme_files(out_root, manifest, log, theme_ids):
@@ -1158,6 +1118,10 @@ def list_theme_files(out_root, manifest, log, theme_ids):
         for path in sorted(dest.rglob('*')):
             if not path.is_file() or path.name.startswith('.'):
                 continue
+            # A shader porting page from an older extraction is a developer note, not theme data: never list it
+            # (card_prefab no longer writes one; this keeps a stale copy out of data/local-assets.json).
+            if path.suffix.lower() == '.md':
+                continue
             rel = path.relative_to(dest).as_posix()
             if rel in listed:
                 continue
@@ -1174,22 +1138,28 @@ def list_theme_files(out_root, manifest, log, theme_ids):
             log(f'themes: listed {group}/{rel} (the producer left it out)')
 
 
+# Output groups a full extract attempts but does not require: a client without the install's Arknights_Data and its
+# pinned faces writes no `fonts` key, and the `item` job's key only appears when at least one shop icon sprite matched.
+# Their absence must not make an extraction stale (setup's assessLocal); cursor.SUB is the same and has no JOBS entry.
+OPTIONAL_LOCAL_GROUPS = frozenset({fonts.SUB, 'item'})
+
+
 def expected_local_groups():
     """Group keys a full extract writes into data/local-assets.json (no --only; fx stays out — fx.py FX_GROUPS).
 
-    One key per JOBS output subdir, plus spine/enemy/<id>, spine/token/<id>, scene/<stageId>, scene/tex, 规程's
-    opening (season_entry.SUB) and the pinned official font faces (`fonts`, written by every full extract; §37.240).
-    Derived maps and WebP copies are files inside those groups, not new keys. Sorted. setup's
-    tools/local-extract/expected.mjs is this list; test/setup-local-freshness.test.js keeps the copy honest.
-    `extract.py --print-jobs` prints it and needs no game client.
+    One key per JOBS output subdir except the optional ones (OPTIONAL_LOCAL_GROUPS), plus spine/enemy/<id>,
+    spine/token/<id>, scene/<stageId>, scene/tex and 规程's opening (season_entry.SUB). The pinned official font
+    faces are optional too (attempted by a full extract, never required; §37.240). Derived maps and WebP copies are
+    files inside those groups, not new keys. Sorted. setup's tools/local-extract/expected.mjs is this list;
+    test/setup-local-freshness.test.js keeps the copy honest. `extract.py --print-jobs` prints it and needs no game
+    client.
     """
-    keys = [job[1] for job in JOBS]
+    keys = [job[1] for job in JOBS if job[1] not in OPTIONAL_LOCAL_GROUPS]
     keys += [f'{ENEMY_SPINE_SUB}/{i}' for i in ENEMY_SPINES]
     keys += [f'{TOKEN_SPINE_SUB}/{i}' for i in TOKEN_SPINES]
     keys += [f'{scenes.SCENE_SUB}/{sid}' for sid, _deps in scenes.SCENES]
     keys.append(scenes.TEX_SUB)
     keys.append(season_entry.SUB)
-    keys.append('fonts')
     if len(keys) != len(set(keys)):
         raise RuntimeError('expected local groups are not unique')
     return sorted(keys)
@@ -1336,7 +1306,7 @@ def main():
     ap.add_argument('--plugin-art', action='store_true', help='explicitly include referenced official operator art in a full run')
     ap.add_argument('--only', action='append', default=[], metavar='SUBDIR',
                     help='only run the jobs whose output subdir this prefix names (repeatable), e.g. emoticon, enemy, '
-                         'spine/token or font; `shopdocs` runs the archived shop/card producer, whose card.json / '
+                         'spine/token or font; `shopdocs` runs the shop/card producer, whose card.json / '
                          'shop.json are base documents that can lack the enrichment pathId / particle / mask fields')
     ap.add_argument('--scenes', action='append', default=[], metavar='DIR',
                     help='an AB root holding the battlefield scene bundles of an in-season version (repeatable; '
@@ -1372,6 +1342,8 @@ def main():
                           'enemySpines': {'bundles': ENEMY_ART, 'sub': ENEMY_SPINE_SUB, 'ids': ENEMY_SPINES},
                           'tokenSpines': {'bundles': TOKEN_PACKS, 'sub': TOKEN_SPINE_SUB, 'ids': TOKEN_SPINES},
                           'cursor': {'sub': cursor.SUB, 'optional': True, 'prefab': cursor.PREFAB, 'poses': cursor.POSES},
+                          'fonts': {'sub': fonts.SUB, 'optional': True, 'install': 'Arknights_Data',
+                                    'faces': [s['name'] for s in fonts.FONT_SPECS]},
                           'expectedGroups': expected_local_groups(),
                           'fx': {'sub': fx.FX_SUB, 'groups': list(fx.FX_GROUPS), 'version': fx.FORMAT_VERSION,
                                  'indexVersion': fx.INDEX_VERSION, 'meshVersion': fx.MESH_VERSION,
@@ -1393,7 +1365,7 @@ def main():
                                      'ids': list(autochess_themes.THEME_IDS)},
                           'shopdocs': {'only': SHOPDOCS_SUB, 'files': list(SHOPDOC_FILES), 'optIn': True,
                                        'sub': autochess_themes.THEME_SUB,
-                                       'legacy': LEGACY_DIR.relative_to(ROOT).as_posix()},
+                                       'producer': 'autochess_themes.export_themes(shopdocs=True)'},
                           'seasonEntry': {'sub': season_entry.SUB, 'bundle': season_entry.BUNDLE,
                                           'prefab': season_entry.PREFAB, 'clips': list(season_entry.CLIPS),
                                           'format': season_entry.FORMAT}},
@@ -1435,7 +1407,7 @@ def extract(args, ab_root, game_arg=None, game_data=None):
     cursor_on = wants_sub(args.only, cursor.SUB)
     versions_on = client and (not args.only or 'versions' in args.only)
     entry_on = client and wants_sub(args.only, season_entry.SUB)
-    font_on = client and (not args.only or 'font' in args.only)
+    font_on = client and wants_sub(args.only, fonts.SUB)
     if not jobs and not enemy_ids and not token_ids and not stage_ids and not reg_ids and not fx_on and not art_on and not versions_on and not theme_ids and not entry_on and not font_on and not shopdoc_ids and not cursor_on:
         print(f'--only {args.only}: no job matches', file=sys.stderr)
         return 2
@@ -1486,22 +1458,20 @@ def extract(args, ab_root, game_arg=None, game_data=None):
     if shopdoc_ids:
         total += export_shopdocs(ab_root, out_root, manifest, print, shopdoc_ids, args.themes, game_data)
         list_theme_files(out_root, manifest, print, shopdoc_ids)
-    fonts_ok = True
     if font_on:
         # main() resolves this before client_bundles yields the hot-update tree; the fallback keeps a direct
         # extract() call (no game_data) working from --game.
         font_game = game_data if game_data is not None else fonts.locate_game_data(game_arg, ab_root)
         if font_game is None:
-            fonts_ok = False
-            print('fonts: the pinned official faces are required, and a full extract cannot read them without '
-                  'the install\'s Arknights_Data; pass --game <install directory> (a bare AssetBundle root has no '
-                  'font assets). --only theme / --only shopdocs runs need no client and still work', file=sys.stderr)
+            # Optional group like cursor.SUB: a hidden install (PlayCover, or a bare AB root) has no Arknights_Data
+            # and the local font fallback stays active; a run that extracted anything else still exits 0.
+            print('skip fonts: no Arknights_Data directory (local font fallback stays active)', file=sys.stderr)
         else:
             total += fonts.export_fonts(font_game, out_root, manifest, print, only=None)
-            fonts_ok = bool(manifest.get('fonts'))
-            if not fonts_ok:
-                print('fonts: none of the pinned official faces was listed; a full extract must list them '
-                      '(the client is missing them or their bytes failed the pinned SHA-256)', file=sys.stderr)
+            if not manifest.get('fonts'):
+                print('warn fonts: none of the pinned official faces was listed (the client is missing them or '
+                      'their bytes failed the pinned SHA-256); the local font fallback stays active',
+                      file=sys.stderr)
     old, old_chars = {}, {}
     if Path(args.manifest).exists():
         try:
@@ -1520,12 +1490,12 @@ def extract(args, ab_root, game_arg=None, game_data=None):
     if old_chars or chars:
         doc['chars'] = operators.merge_chars(old_chars, chars)
     Path(args.manifest).write_text(json.dumps(doc, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
-    ok = bool(total) or (font_on and fonts_ok)
-    if font_on and not fonts_ok:
-        ok = False
+    # A run succeeded when it wrote a file or listed a group (fonts.py also lists the faces it keeps as they are).
+    # A font skip never turns that into a failure: fonts and item are optional groups (OPTIONAL_LOCAL_GROUPS).
+    ok = bool(total) or bool(manifest)
     print(f'done: {total} files extracted, manifest {args.manifest} ({count} entries)')
     if not ok:
-        print('nothing was extracted: no file was written and no font was listed (check --only, --game and the '
+        print('nothing was extracted: no file was written and no group was listed (check --only, --game and the '
               'bundle roots; existing local files were left untouched)', file=sys.stderr)
     return 0 if ok else 1
 
