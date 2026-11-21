@@ -344,16 +344,20 @@ history and the open points: DESIGN §32.14.25.
 A regulation shop may be painted on a canvas instead of the DOM shop bar (`public/js/ui/shop/` + `public/js/render/shop/`).
 The gate is a capability, not a flag: `ui/shop/gate.js shopCapability` requires an `OFFICIAL_THEMES` id whose installed
 local group carries `prefabs.json`, `card.json` and `shop.json`, and `shopWebglGate` then requires a ready preload only: a spectator seat has no `m.private` and gets no shop at all, while a stand-in or
-DIY row renders like any other card (the model composes its record); a promotion reward keeps the canvas and draws its three 0-price cards in the same
-frame instead. No config value takes part; choosing a theme without the documents is the rollback, and `ShopBar` renders
+DIY row renders like any other card (the model composes its record); a promotion or special reward keeps the canvas and
+draws every `offer.slots` card at price 0 in the same row instead (a 6-slot offer grows the row, a 2/3-slot offer keeps
+the last positions, the item slot is hidden; 稍后 returns to the normal row, and the strip above carries the DOM bar's
+title, queued count and 稍后).
+No config value takes part; choosing a theme without the documents is the rollback, and `ShopBar` renders
 as before. `ui/prefab/shopDocs.js` reads the three documents from that group (an imported
 official pack's documents come from its stored bytes — the page's `connect-src 'self'` forbids fetching a blob) and
 `ui/shop/adapter/model.js` turns `m.private` into the render model; the canvas only paints it. A failed mount, update or
 WebGL context falls back to `ShopBar` once: `ShopCanvas` reports the failure and stops pushing. The operator cards'
 portraits follow the shop owner's outfit through the model's `ownerSkin` resolver, the same selection the DOM card's
-`OperatorImage` reads (§37.240). Fonts come from the manifest's `fonts` group — one of the required local-extract groups
-since §37.240 — only the families the documents draw are awaited, and a missing face falls back like the old text (a
-packaged host keeps the empty group and draws with the system stack). [ASSUMED] Mobile / touch have no dedicated support
+`OperatorImage` reads (§37.240). Fonts come from the manifest's `fonts` group — an optional local-extract group like
+`ui/cursor` since §37.240 (a full extraction attempts it; a missing install or a pinned-byte mismatch only warns, and an
+absent key is not stale) — only the families the documents draw are awaited, and a missing face falls back like the old
+text (a packaged host drops the group and draws with the system stack). [ASSUMED] Mobile / touch have no dedicated support
 promise; desktop Firefox is outside this round's acceptance.
 
 ---
