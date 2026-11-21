@@ -18,7 +18,7 @@
 // its text; on the phones 独立模拟's briefing must not scroll. Every page finishes with zero console errors
 // (without the art pack, as on CI, the cards show their avatar frames and the pack's 404s are let through).
 // The picker's other periods (#877, DESIGN §37.325): the doctor's picker is checked with its group headings (本房间版本 /
-// 其他时期 · …, once the roster is in); and, in all five languages, a picker whose roster is held (其他时期载入中…) and then
+// 其他时期 · …, once the roster is in) and its two-sentence note's ⓘ on the note's first line; and, in all five languages, a picker whose roster is held (其他时期载入中…) and then
 // answered 404 (其他时期的干员暂时无法载入 with 重试, and 之前选的名片干员在这里不可用… for a cross-period pref) on the
 // phones at every 文字大小 and on the desktops at 特大, then the roster in with a pick no list has (the lost pick's line) on
 // the phones — its grid still showing a row of tiles (on a phone the note gives way to those lines).
@@ -179,6 +179,13 @@ describe('the waiting room\'s text fit (real server, headless Chrome)', { skip: 
           await guest.page.waitForSelector('.modal__box.cardpick .cardpick__group:not([data-group="room"])', { timeout: 10000 });
           await sleep(300);
           for (const p of await check(guest.page, '.modal__box.cardpick')) bad.push(`${lang} ${ts} ${size.join('×')} the picker: ${p}`);
+          // (#877 review) the note's ⓘ on its first line, however many lines the two sentences take
+          const icon = await guest.page.$eval('.modal__box.cardpick .cardpick__note', (n) => {
+            const i = n.querySelector('.icon').getBoundingClientRect(), top = n.getBoundingClientRect().top;
+            const lh = parseFloat(getComputedStyle(n).lineHeight);
+            return i.top - top <= lh && i.bottom - top <= lh + 1 ? '' : `the note's icon ${Math.round(i.top - top)}–${Math.round(i.bottom - top)} px down, its line ${Math.round(lh)} px`;
+          });
+          if (icon) bad.push(`${lang} ${ts} ${size.join('×')} the picker: ${icon}`);
           if (shotAt(size, ts)) {
             for (const [who, c] of [['host', host], ['spectator', spec], ['solo', solo]]) await c.page.screenshot({ path: path.join(OUT, `room-fit-${who}-${size.join('x')}-${lang}-${ts}.png`) });
             await guest.page.screenshot({ path: path.join(OUT, `room-fit-picker-${size.join('x')}-${lang}-${ts}.png`) });

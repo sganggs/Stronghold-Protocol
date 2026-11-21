@@ -88,7 +88,7 @@ export function cardOperators(chessList, backups = null) {
  * A cross-period operator's name as the interface shows it (#877, DESIGN §37.325): Chinese as it is; another language
  * takes the game texts' name (`localeName`: data.js localeName, the names of data/i18n/<lang>.json — tools/build-i18n.mjs
  * adds the roster's names to them), and without one a Chinese-script language (zh-TW) keeps the Chinese name, any other
- * the operator's appellation (its official code name, Latin script). [ASSUMED] the fallbacks
+ * the operator's appellation (its official code name: Latin script, a few Cyrillic, e.g. Ольга). [ASSUMED] the fallbacks
  * @param {{ name?: string, appellation?: string } | null | undefined} row a roster row
  * @param {{ lang?: string, localeName?: (zh: string) => string }} [opts]
  * @returns {string}

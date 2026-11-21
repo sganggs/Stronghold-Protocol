@@ -535,6 +535,10 @@
 .cardpick__empty { flex: none; margin: 0; font-size: calc(.16 * var(--t)); color: var(--text-lo); }
 .cardpick__note { flex: none; display: flex; align-items: center; gap: .06rem; margin: 0; font-size: calc(.15 * var(--t)); color: var(--text-lo); }
 .cardpick__note .icon { flex: none; width: .18rem; height: .18rem; }
+/* (#877 review) the note runs to two lines and more (其他时期的干员只作名片展示…): the ⓘ on its first line, not in the middle
+   of the block (`--lh`: the note's line height) */
+.cardpick__note { --lh: 1.5; align-items: flex-start; line-height: var(--lh); }
+.cardpick__note .icon { margin-top: calc((var(--lh) * 1em - .18rem) / 2); }
 /* other periods (#877, DESIGN §37.325): a heading across the grid before each period's tiles (本房间版本 first), and the
    lines under the grid — the roster loading, failed with 重试, a pick this page cannot show. [ASSUMED] the look */
 .cardpick__group {
@@ -783,6 +787,10 @@
      phone the failure, a lost pick and the note left it 22 px, a lost pick and the note 70: tiles are 88 px). [ASSUMED] */
   .cardpick__notice { font-size: min(calc(.15 * var(--t)), calc(11px + var(--t-step) / 2)); }
   .cardpick__notice ~ .cardpick__note { display: none; }
+  /* the note itself (two sentences since #877: two or three lines from 大 up), capped and set closer like the lines above:
+     at 特大 in English on a 667×375 phone its three lines took 59 px and left the grid 125 px, a row and a quarter of tiles
+     (#877 review). [ASSUMED] the cap and the 1.3 */
+  .cardpick__note { --lh: 1.3; font-size: min(calc(.15 * var(--t)), calc(11px + var(--t-step) / 2)); }
   .rs-foot { padding-bottom: 8px; gap: 8px; }
   /* the mode line, the status line (a spectator's runs to two lines) and 独立模拟's briefing, capped so the seat cards keep
      their height (at 特大 the .28 × --t status took four lines on a 640×360 phone and left the cards 40 px); each a pixel

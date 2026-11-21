@@ -1106,7 +1106,7 @@ it under `enabled` and keeps the configured `default`. The default version is th
 The vanilla `/cs/<cs16>/index.json` is byte-identical (no `version`, no `bounds`, URLs under `/data/`). The build tag
 (`server/http/buildTag.js`) counts the served version directories only, so rebuilding a version the server does not offer
 is no new build. `/healthz` adds `versions: { enabled, default, loaded, hosts: { workers, matches, transport } }` only when
-a non-default version is enabled (`loaded`: how many non-default versions have their data in memory now — they load on
+a non-default version is enabled (`loaded`: how many versions other than 第二期下半 have their data in memory now, the lobby's default 规程 included — they load on
 first use; a 名片干员 of another period loads none, DESIGN §37.325).
 
 **Match hosts**: unmodded rooms of a non-default version start their matches in `server/match/host/` with `kind: 'version'` —
