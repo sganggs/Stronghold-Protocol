@@ -268,7 +268,7 @@ export function ShopCanvas(props) {
   const controlReasons = () => {
     const p = propsRef.current;
     return {
-      refresh: p.refreshBusy ? t('正在刷新…') : shopBlockReason('refresh', { config: p.config, priv: p.priv, editable: p.editable }),
+      refresh: shopBlockReason('refresh', { config: p.config, priv: p.priv, editable: p.editable }),
       freeze: p.editable ? null : shopBlockReason('freeze', { config: p.config, priv: p.priv, editable: p.editable }),
       levelUp: shopBlockReason('levelUp', { config: p.config, priv: p.priv, editable: p.editable }),
     };
@@ -473,6 +473,7 @@ export function ShopCanvas(props) {
   }
 
   function refreshShop() {
+    if (propsRef.current.refreshBusy) return;
     actWithReason(controlReasons().refresh, () => propsRef.current.onRefresh());
   }
 

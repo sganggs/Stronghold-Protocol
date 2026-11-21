@@ -314,8 +314,9 @@ function MatchScreen() {
   // deals duplicates) carry the same chess id and no piece, and each must say its 选中干员 (detailPanel selectVoiceKey)
   const cardTap = useRef(0);
   const [collapsed, setCollapsed] = useState(false);
-  // GitHub #501: a g.refresh is still waiting for its reply — the shop's 刷新 button dims while it is (gameActions.js
-  // single-flights the intent; the R hotkey is dropped by the same guard)
+  // GitHub #501: a g.refresh is still waiting for its reply — the shop's 刷新 action is single-flighted
+  // (gameActions.js drops the second intent and the R hotkey); the button keeps its normal face instead of
+  // being painted as locked, so an in-flight refresh never looks disabled.
   const [refreshBusy, setRefreshBusy] = useState(false);
   useEffect(() => onRefreshBusy(setRefreshBusy), []);
   const [rewardMin, setRewardMin] = useState(false);

@@ -25,9 +25,9 @@ export class TwoStateToggle {
     this.inited = false;
   }
 
-  set_selected(value) {
+  set_selected(value, force = false) {
     const on = !!value;
-    if (this.inited && this.selected === on) return;
+    if (!force && this.inited && this.selected === on) return;
     this.inited = true;
     this.selected = on;
     setActive(this.select, on);

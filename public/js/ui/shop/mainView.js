@@ -13,6 +13,7 @@ export class AutoChessBattleShopMainView {
     this.isGoldCountUp = false;
     this.lastCoin = null;
     this.lastRenderKey = null;
+    this.lastCtrlKey = null;
     this.lastRenderKeys = [];
 
     this.onCardConfirm = null;
@@ -93,6 +94,7 @@ export class AutoChessBattleShopMainView {
 
   invalidate() {
     this.lastRenderKey = null;
+    this.lastCtrlKey = null;
   }
 
   UpdateView(model, { paint = true } = {}) {
@@ -101,8 +103,10 @@ export class AutoChessBattleShopMainView {
     this.isGoldCountUp = gained;
     this.lastCoin = Number(model.coinCount);
     const key = renderKey(model);
+    const ctrl = ctrlKey(model);
     if (key !== this.lastRenderKey) {
       this.lastRenderKey = key;
+      this.lastCtrlKey = ctrl;
 
       const shown = !!model.show;
       const ran = this._RenderShopMainPanels(model);
@@ -116,6 +120,15 @@ export class AutoChessBattleShopMainView {
         this.scene.dirty = false;
       }
       void shown;
+    } else if (ctrl !== this.lastCtrlKey) {
+      // Only the painted refresh gate changed. Repaint the ctrl, never slots: a full panel render here
+      // would restart the refresh animation and flash the cards (the gate flips at the start and end of
+      // every refresh).
+      this.lastCtrlKey = ctrl;
+      if (model.show && model.avalid && model.unfold) {
+        this.scene.ctrl.Render(this._BuildCtrlViewData(model));
+        this.lastRenderKeys = ['shop_ctrl'];
+      }
     }
 
     this.mainPanelFade.set_isShow(!!model.show);
@@ -184,6 +197,10 @@ export class AutoChessBattleShopMainView {
 
 function round(v) {
   return Math.round(Number(v) * 1000) / 1000;
+}
+
+function ctrlKey(model) {
+  return model && model.refreshBlocked ? 1 : 0;
 }
 
 function renderKey(model) {

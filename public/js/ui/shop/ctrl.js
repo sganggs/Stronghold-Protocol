@@ -69,7 +69,7 @@ export class AutoChessStylizedShopCtrlPanel {
     const canRefresh = canRefreshOf(data);
 
     this.canRefresh = !!canRefresh;
-    if (this.enableToggle) this.enableToggle.set_selected(canRefresh);
+    if (this.enableToggle) this.enableToggle.set_selected(canRefresh, true);
     if (this.freeToggle) this.freeToggle.set_selected(data.freeRefreshCnt > 0);
     this._renderRefreshCost(data);
 
