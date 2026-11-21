@@ -434,8 +434,9 @@ test('HTTP: nothing set enables every version, serves their data, and forks no v
     assert.equal(srv.versionHosts.stats().workers, 0, 'the pool exists; no child until the first match of a version');
     assert.equal(srv.versionHosts.stats().matches, 0);
     const health = await (await get('/healthz')).json();
+    // loaded: no other version's data is in memory before a room, a manifest or a match asks for it
     assert.deepEqual(health.versions, {
-      enabled: VERSIONS.map((v) => v.id), default: LOBBY_DEFAULT_VERSION,
+      enabled: VERSIONS.map((v) => v.id), default: LOBBY_DEFAULT_VERSION, loaded: 0,
       hosts: { workers: 0, matches: 0, transport: 'process' },
     });
     assert.equal((await get('/data/chess.json')).status, 200);
@@ -494,10 +495,11 @@ test('HTTP (M1, DESIGN §35.23): an enabled version\'s data is served (immutable
     assert.ok(Object.values(vanilla.data).every((d) => /^\/data\/[a-z]+\.json\?v=[0-9a-f]{8}$/.test(d.url)));
     assert.deepEqual(vanilla, srv.content.index);
     assert.equal((await get(`/cs/${srv.versions.csOf('act1autochess').slice(0, 16)}/data/chess.json`)).status, 404);
-    // /healthz names them and their match hosts
+    // /healthz names them, how many have their data loaded (the two whose /cs/ manifest was read: its bounds read the data)
+    // and their match hosts
     const health = await (await get('/healthz')).json();
     assert.deepEqual(health.versions, { enabled: ['act2autochess', 'act2autochess@V2_1', 'act1autochess'], default: 'act2autochess',
-      hosts: { workers: 0, matches: 0, transport: 'process' } });
+      loaded: 2, hosts: { workers: 0, matches: 0, transport: 'process' } });
   } finally {
     await srv.close();
   }
