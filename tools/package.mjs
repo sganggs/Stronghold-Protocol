@@ -209,6 +209,14 @@ export const HELD_THEME_ENTRIES = Object.freeze({
   'ui/outer': Object.freeze(['background_pre_closur', 'skin_pre_closur', 'thumbnail_ac_s_closur',
     ...Array.from({ length: 9 }, (_, i) => `closur_${i + 1}`)]),
 });
+/**
+ * Opt-in local-client outputs no package ships (§37.331): the outfit plugins of `extract.py --only skins`
+ * (skins/local-skins*, which the owner copies into plugins/) and the picture gallery of `--only library`. Both write
+ * under out/local-extract/ by default, which git ignores and no package reads; these prefixes hold them back when
+ * `--out public/assets/local` puts them under the served art. Neither is listed in data/local-assets.json; they stay
+ * on the machine that extracted them.
+ */
+export const LOCAL_ONLY_ART_PREFIXES = Object.freeze(['public/assets/local/skins/', 'public/assets/local/library/']);
 /** The folder of an extracted theme group. @param {string} group */
 const themeGroupDir = (group) => `public/assets/local/${group}/`;
 
@@ -379,12 +387,13 @@ export const manifestFiles = listedArtFiles;
  * with `fx` (FULL_ZIP_FX), else they are `fxHeld`. `missing`: listed files not on disk; `orphans`: files under public/assets
  * that nothing lists (left out); `held`: listed files the zip holds back on purpose — the JP voice dub when `jpVoice`
  * (FULL_ZIP_JP_VOICE) is off, the English / Korean / own-language dubs when `optionalVoice` (FULL_ZIP_OPTIONAL_VOICE)
- * is off: neither shipped nor missing, and never deleted by an update.
+ * is off: neither shipped nor missing, and never deleted by an update. `localOnly`: the extracted outfits and picture
+ * gallery (LOCAL_ONLY_ART_PREFIXES), never shipped.
  * `scenes`: the files under public/assets/local/scene/ (one folder per battlefield, plus the shared scene/tex). They are also in `files`.
  * A lite plan and a machine that has not extracted them return `scenes: []`; packaging still succeeds.
  */
 export function artPlan(root, { lite = false, jpVoice = FULL_ZIP_JP_VOICE, optionalVoice = FULL_ZIP_OPTIONAL_VOICE, fx = FULL_ZIP_FX, heldThemes = HELD_THEME_GROUPS } = {}) {
-  if (lite) return { files: [], missing: [], orphans: [], held: [], fxHeld: [], themeHeld: [], local: false, scenes: [] };
+  if (lite) return { files: [], missing: [], orphans: [], held: [], fxHeld: [], themeHeld: [], localOnly: [], local: false, scenes: [] };
   const listed = manifestFiles(readJson(path.join(root, 'data', 'assets.json')) ?? {});
   const local = isFile(path.join(root, 'data', 'local-assets.json'));
   const rawLocal = local ? readJson(path.join(root, 'data', 'local-assets.json')) : null;
@@ -396,6 +405,7 @@ export function artPlan(root, { lite = false, jpVoice = FULL_ZIP_JP_VOICE, optio
   const held = [];
   const fxHeld = [];
   const themeHeld = [];
+  const localOnly = [];
   const heldDirs = heldThemes.map(themeGroupDir);
   for (const f of listed) {
     if (!jpVoice && f.startsWith(JP_VOICE_DIR)) held.push(f);
@@ -406,17 +416,19 @@ export function artPlan(root, { lite = false, jpVoice = FULL_ZIP_JP_VOICE, optio
   for (const f of listTree(root, 'public/fonts')) files.add(f);
   const fxList = isFile(path.join(root, 'data', 'local-fx.json'));
   for (const f of listTree(root, 'public/assets/local')) {
-    if (heldDirs.some((d) => f.startsWith(d)) || heldFiles.has(f)) themeHeld.push(f);
+    if (LOCAL_ONLY_ART_PREFIXES.some((d) => f.startsWith(d))) localOnly.push(f);
+    else if (heldDirs.some((d) => f.startsWith(d)) || heldFiles.has(f)) themeHeld.push(f);
     else if (!f.startsWith(FX_ART_PREFIX)) { if (local) files.add(f); } else if (fx && fxList) files.add(f); else fxHeld.push(f);
   }
   if (local) files.add('data/local-assets.json');
   if (fx && fxList) files.add('data/local-fx.json');
   // without case: on Windows / macOS a file whose name differs only in case is the listed one (fetch-assets orphanFiles)
-  const lower = new Set([...files, ...held, ...fxHeld, ...themeHeld].map((f) => f.toLowerCase()));
+  const lower = new Set([...files, ...held, ...fxHeld, ...themeHeld, ...localOnly].map((f) => f.toLowerCase()));
   const orphans = listTree(root, 'public/assets').filter((f) => !lower.has(f.toLowerCase()));
   const sorted = [...files].sort();
   return {
-    files: sorted, missing: missing.sort(), orphans, held: held.sort(), fxHeld: fxHeld.sort(), themeHeld: themeHeld.sort(), local,
+    files: sorted, missing: missing.sort(), orphans, held: held.sort(), fxHeld: fxHeld.sort(), themeHeld: themeHeld.sort(),
+    localOnly: localOnly.sort(), local,
     scenes: sorted.filter((f) => f.startsWith(SCENE_ART_PREFIX)),
   };
 }
@@ -691,7 +703,8 @@ export function plan(root, opts = {}) {
   const dropBytes = Object.values(dropped).reduce((n, g) => n + g.bytes, 0);
   return {
     version: pkg.version || '0.0.0', lite, tracked: keep, art: art.files, generated, files, dropped, orphans: art.orphans,
-    held: art.held, fxHeld: art.fxHeld, themeHeld: art.themeHeld || [], localArt: art.local, problems, names: names.length, scanned,
+    held: art.held, fxHeld: art.fxHeld, themeHeld: art.themeHeld || [], localOnly: art.localOnly || [], localArt: art.local,
+    problems, names: names.length, scanned,
     scenes: { files: art.scenes || [], bytes: sumBytes(root, art.scenes || []) },
     bytes: {
       tracked: trackedBytes, art: artBytes, modules: modulesBytes, vendor: vendorBytes,
@@ -731,6 +744,7 @@ export function formatSummary(p) {
   if (!p.lite && p.orphans.length) lines.push(`left out art: ${p.orphans.length} files under public/assets that nothing lists (${MB(p.bytes.orphans)})`);
   if (!p.lite && p.held?.length) lines.push(`held back: ${p.held.length} voice files (FULL_ZIP_JP_VOICE / FULL_ZIP_OPTIONAL_VOICE off: setup downloads them on the first start)`);
   if (!p.lite && p.fxHeld?.length) lines.push(`held back: ${p.fxHeld.length} official effect files (public/assets/local/fx with data/local-fx.json, FULL_ZIP_FX off: extracted on this machine, not shipped)`);
+  if (!p.lite && p.localOnly?.length) lines.push(`held back: ${p.localOnly.length} files of the extracted outfits / picture gallery (public/assets/local/skins, library: extract.py --only skins / library, never shipped)`);
   if (!p.lite && p.themeHeld?.length) lines.push(`held back: ${p.themeHeld.length} files of ${HELD_THEME_GROUPS.join(', ')} (its group and its ui/outer sprites, with their data/local-assets.json entries: HELD_THEME_GROUPS / HELD_THEME_ENTRIES, an importable pack, --theme-packs)`);
   lines.push(`personal-info scan: ${p.scanned} files, ${p.names ? `home paths + ${p.names} account name(s)` : 'home paths only (no account name to refuse)'}`);
   lines.push(p.problems.length ? `PROBLEMS (${p.problems.length}):\n${p.problems.map((x) => `  ${x}`).join('\n')}` : 'checks: ok');

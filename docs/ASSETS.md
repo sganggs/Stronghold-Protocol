@@ -373,6 +373,80 @@ Hub rows copied into `images`: `chess_frame_hub` → `chess_frame_normal`, `ches
 
 `character` is optional. `ac_n_iron` is `{ "image": "sprites/char_2.webp" }` (the unfolded `group_bg/char` portrait, 127×157). Two sprites are named `char`; `sprites/char.webp` is the other texture, not the portrait. `ac_n_initial` is the UI Spine `trap_1096_acshopup` with `anims.idle` `Idle` and no voice map. `ac_s_closur` is `ac_s_closur_spine` with `anims.voice` from `skinVoiceAnimDict`, clip stems lowercased (`cn_001`), and only when that animation is on the skeleton. Data version 79.2.0. `ac_s_closur`'s board character is `trap_2000_acclsr`; the pack includes the UI Spine shipped in the theme bundle, and does not extract that trap when no bundle is named for it.
 
+### Official outfits and the picture gallery (§37.331)
+
+Two opt-in jobs of `tools/local-extract/extract.py` (`tools/local-extract/skins.py`, ported from PR #776 by @xcdoge).
+Like `fx` and `theme`, a plain extraction leaves them out and `expected_local_groups` does not list them, so no
+installation goes stale and setup never asks for them. Neither writes `data/local-assets.json`: the client loads none of
+this by itself, and the served manifest and the predownload stay as they were. Both read the client as every other job
+does: the LZ4AK decoder `aklz4.py` registers for its one compression flag, and a Windows client's hot update over its
+packaged bundles (`bundles.client_bundles`).
+
+```sh
+.venv-extract/bin/python -I -B tools/local-extract/extract.py --only skins [--only skins/<charId>] \
+  [--skin-table <skin_table.json>] [--limit N] [--out <dir>]
+cp -R out/local-extract/skins/local-skins* plugins/    # each part is a cosmetic plugin; extract.py already packed it
+.venv-extract/bin/python -I -B tools/local-extract/extract.py --only library [--only library/<kind>] [--limit N] [--out <dir>]
+```
+
+**Outfits** (`--only skins`). Every alternative outfit of an operator in the installation's `data/assets.json`
+(`--plugin-root`), or of an operator that `--only skins/<charId>` names. An alternative outfit is a `skin_table.json`
+`charSkins` id with `@`; the default outfits `#1` / `#2` and the patch forms' defaults (`char_1037_amiya3#2`) are the
+operator's own art. `--skin-table` defaults to `.cache/gamedata/excel/skin_table.json`, which setup does not download:
+put the official table there (Kengxxiao/ArknightsGameData `zh_CN/gamedata/excel/skin_table.json`) or pass the file. An
+outfit dresses its `tmplId` when it has one, else its `charId`: 阿米娅's patch forms (`char_1037_amiya3@sale#13` dresses
+`char_1037_amiya3`, the id of the remake's record and of `skinpack/char_1037_amiya3.ab`). Each outfit, by the official
+fields:
+
+| Record field | Official source | File in `<charId>/<outfit>/` |
+|---|---|---|
+| `avatar` | `avatarId`: that Sprite of `spritepack/ui_char_avatar_*.ab` | `avatar.png` |
+| `portrait` | `portraitId`: that Sprite of `spritepack/char_portrait_*.ab` | `portrait.png` |
+| `illust` | `illustId`: the UI Image of `arts/characters/<charId>/<illustId>.prefab` in `skinpack/<charId>.ab` (not `sp_illust_*` or the dynamic 立绘), padded back to its sprite rect; an `_AlphaTex` of the Image's material is merged in | `illust.webp`: lossy quality 90 with lossless alpha [ASSUMED, the guide pages' setting: 5.8 MB as PNG, 0.95 MB as WebP for one 2560² 立绘]; PNG without WebP support |
+| `spine.front`, `spine.back` | `battleSkin.skinOrPrefabId`: the battle prefab `battle/prefabs/skins/character/<charId>/<id>.prefab` of the same pack, whose Spine renderers named `Front` and `Back` are the two faces (`prefab_spine_nodes`: the node decides, never the order, and both skeletons share one name); one renderer named `Spine` is the front of a one-sided model (浊心斯卡蒂's outfits) | `front.skel`, `front.atlas`, `front.png` (`front_2.png` …), `back.*`, by `write_spine`: straight pages with their `[alpha]` merged in and no `pma` (#668), the atlas's page lines rewritten to the files |
+
+An outfit whose `battleSkin.skinOrPrefabId` is `DefaultSkin` gets pictures only: the picker's 「仅更换头像与立绘」, the
+battle model staying the operator's own (docs/SKINS.md "Picture-only outfits"). [ASSUMED] An outfit whose official
+model this client lacks is left out (logged), not worn as pictures only; a missing picture only leaves its field out.
+`name` / `group` are `displaySkin.skinName` / `skinGroupName` (1–64 / 0–64 characters). The outfits keep
+`displaySkin.sortId` order [ASSUMED], at most 64 per operator (docs/PLUGINS.md §9).
+
+Both jobs write under `--out` when it is given, else under `out/local-extract/`: a scratch folder git ignores, which
+the server neither serves nor hashes (everything under `public/assets/` is served to every player and hashed in the
+background by `server/http/assetIndex.js`). They stage their files in a hidden `.staging-*` folder beside the
+destination and rename them into place, so the files never pass through a RAM-backed `/tmp`; a stage an interrupted
+run left is removed by the next run.
+
+The output is `<out>/skins/local-skins/`, by default `out/local-extract/skins/local-skins/`: the source folder of a
+cosmetic plugin. Its `plugin.json` (manifest 2, `scope: ["personal"]`) asks for `assets.override` when the operators
+are the installation's and `assets.add` for any other; its overlay is the file `skins.json`
+(`chars[<charId>].skins[<skinId>]`), not inline: the manifest reader takes an inline `assets` text that ends like `.ext`
+for a file path, and official outfit names do (日晒 SS.SP, the series i.t). An outfit's folder is the
+part of its id after `@` with `@` `#` `+` turned into `_` (plugin file names, docs/PLUGINS.md §5); a second outfit of
+one name gets `_2`. A later run keeps the folder an earlier run gave each outfit (a new outfit takes a free name), so
+two outfits of one plugin-safe name (`a#1`, `a+1`) never swap folders when the official order changes. One plugin holds at most 512 MB, 5000 files and 2000 folders, so an outfit that would take a part
+past one of them goes to the next part with room or a new `local-skins-2`, `-3` … (the CN client of 2026-11-06: 342
+outfits of 221 operators, 690 MiB in two parts, extracted in 4.5 minutes). A later run replaces the outfits it
+extracts in their parts, keeps the others and rewrites the parts it changed. After writing every part's `plugin.json`
+and `skins.json` the extractor runs `node tools/plugin.mjs pack` on each changed part (the lock and the check), reading
+its output as UTF-8 whatever the locale's code page; a pack that does not run or fails is a warning with the command
+to run by hand. To use the outfits, copy the part folders into `plugins/`
+(or `pack --zip` and `install` them); each player then switches them on in 设置 → 外观插件.
+
+**Gallery** (`--only library`): `<out>/library/opillust/` (the Image of every `illust_*` prefab of `chararts/*.ab` and
+`skinpack/*.ab`, the default and the outfit 立绘, encoded as above), `opportrait/` (every Sprite of `char_portrait_*.ab`),
+`opavatar/` (every Sprite of `ui_char_avatar_*.ab`, summons included) and `library/index.json`
+`{ format: 1, kinds: { <kind>: { <official name>: { path, w, h } } } }`. Each kind has its own set of names: an avatar
+and a portrait of one name are both written, a second copy of a name within a kind is not. File names are plugin-safe
+and never collide (`illust_char_002_amiya_1+` becomes `illust_char_002_amiya_1_2` beside `illust_char_002_amiya_1`), and
+a kind is replaced as a whole once it wrote a picture. Nothing reads it: it is a gallery for the server's owner, for
+example for a cosmetic plugin made by hand.
+
+Neither folder is committed (`/out/` and `public/assets/` are ignored) or shipped: no package reads `out/`, and when
+`--out public/assets/local` puts them under the served art, `tools/package.mjs` `LOCAL_ONLY_ART_PREFIXES` holds
+`public/assets/local/skins/` and `public/assets/local/library/` back from every package (`localOnly`). Official art
+stays on the machine that extracted it.
+
 ### Id scope
 
 Since 0.3.2, `tools/assets/versions.mjs` reads every installed official build in `shared/versions.js` and plans their
