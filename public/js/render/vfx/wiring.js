@@ -240,6 +240,7 @@ export class FxWiring {
     this.pendingHit = new Map();  // target id → battle time until which an official hit still to come covers its damage
     this.healed = new Map();      // target id → battle time of an official heal projectile hit
     this.inAir = new Map();       // target id → official hits on their way [{ from, until, frame, t }] (_expect)
+    this.blasts = new Map();      // target id → the frame of an official enemy shell's landing around it (_blasted)
     this.chains = new Map();      // target id → the chain an official shot opened on it { proj, rows, src, line, at, until }
     this.keyCache = new Map();    // unit id → index unit key | null
     this.attackN = new Map();     // unit id → attacks so far (onlyOnce / hookEffectAfterFirstAttack rows)
@@ -1363,6 +1364,9 @@ export class FxWiring {
     const hpHit = type == null || HP_TYPES.has(type);
     if (hpHit) this.skills.trigger(v);
     const id = v.id ?? v.info?.id;
+    // an official enemy shell's explosion around it this frame stands for its first HP hit (_blasted), ahead of the
+    // records other attacks wait with (the blast is none of their hits)
+    if (hpHit && this._blasted(id)) return true;
     const m = this._pending(id, time);
     // an attached floating unit's hit lands with its damage (荒芜拉普兰德's wolves: render/vfx/funnelfx.js)
     const fun = hpHit ? this.funnels.damage(v, time, type) : false;
@@ -1379,6 +1383,18 @@ export class FxWiring {
     const ph = this.pendingHit.get(id);
     if (ph != null && this.ofx.time <= ph) return true;
     return drawn;
+  }
+
+  /**
+   * Whether an official enemy shell landed around unit `id` in this frame (SkillFx._shellLanded; the sim deals the
+   * shell's damage in the tick of its 'bombard', right after it): the mark is used up by the unit's first HP hit and
+   * lapses with the frame, so a later hit or a heal on the unit keeps its own effect.
+   */
+  _blasted(id) {
+    const f = this.blasts.get(id);
+    if (f == null) return false;
+    this.blasts.delete(id);
+    return f === this.skills.frame;
   }
 
   /**
@@ -1584,6 +1600,7 @@ export class FxWiring {
     this.pendingHit.clear();
     this.healed.clear();
     this.inAir.clear();
+    this.blasts.clear();
     this.chains.clear();
     this.keyCache.clear();
     this.attackN.clear();

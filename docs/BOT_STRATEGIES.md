@@ -229,7 +229,7 @@ band_ioleta`), seeds 1–40.
 | | `legacy` | `ioleta` |
 |---|---:|---:|
 | Wins | 13 / 40 (33 %) | 2 / 40 (5 %) |
-| Leaks per match (bounty leaks apart) | 19.9 | 31.9 |
+| Leaks per match (bounty leaks included) | 19.9 | 31.9 |
 | Rounds passed / reached the boss | 12.90 / 33 | 12.85 / 34 |
 | Leader damage per seat (mean) | 2.67 M | 1.13 M |
 

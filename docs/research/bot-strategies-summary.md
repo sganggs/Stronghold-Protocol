@@ -69,7 +69,7 @@ seeds 1–40, `--jobs 4` (outcomes do not depend on the jobs), macOS, Node 22:
 | | `legacy` | `ioleta` |
 |---|---:|---:|
 | Wins | 13 / 40 (33 %) | 2 / 40 (5 %) |
-| Leaks per match (bounty leaks apart) | 19.9 | 31.9 |
+| Leaks per match (bounty leaks included) | 19.9 | 31.9 |
 | Bounty cards taken (leaked) | 106 (5) | 108 (5) |
 | Rounds passed / LP left / reached the boss | 12.90 / 11.3 / 33 | 12.85 / 10.6 / 34 |
 | Leader damage per seat (mean) | 2,668,003 | 1,134,309 |

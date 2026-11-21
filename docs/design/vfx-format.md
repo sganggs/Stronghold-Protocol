@@ -1377,7 +1377,8 @@ index.json — version 1 and the version 2 fields (§33.12, §33.15; Phase 3c) �
   `enemy_emppnt_attack_01_start` (the crosshair 2.6 s, the light pillar 2.4 s) and its own effect
   `enemy_emppnt_attack_01_trail` (root FxDelay 2.75 s, then its clip drops the missile from 5.27 tiles up in 0.27 s) at
   the spot on the ground, held for `t` (`holdKey`) until the shell's 'bombard' — at most 0.5 s past it —, which plays the
-  reached `enemy_emppnt_attack_01_hit` there and stands for the shell's HP hits on the allies within its `r` (+ 0.25)
+  reached `enemy_emppnt_attack_01_hit` there and stands for the shell's HP hit on each ally within its `r` (+ 0.25):
+  that ally's first HP hit in the landing's frame (`FxWiring.blasts`; heals and later hits keep their own effects)
   [ASSUMED: the trail at the sim's spot with its root unturned]. The bound prefabs preload with the battle's units
   (SkillFx.keys). Layer off, or the prefabs not installed: the procedural fx (a 'bombard' whose shell was drawn
   procedurally stays procedural too).

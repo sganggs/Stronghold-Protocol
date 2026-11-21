@@ -654,6 +654,26 @@ describe("帝国炮火先兆者's shell (GitHub #143: the official explosion cam
     assert.equal(w.simFx('bombard', 6.5, 9, { r: 1.3, kind: 'emppnt' }), false, 'one landing per shell');
   });
 
+  test("the landing covers one HP hit per ally in its frame only: a heal or a later hit on the allies around it keeps its own effect (#143 review)", async () => {
+    const { w, view, frame, spawned, ofx } = await setup();
+    view(1, 'enemy_1112_emppnt', 9);
+    const op = view(2, 'char_4151_tinman', 6.5), medic = view(3, 'char_4151_tinman', 7), spared = view(4, 'char_4151_tinman', 6);
+    frame();
+    assert.equal(w.simFx('bombardShell', 6.5, 9, { id: 1, ...SHELL }), true);
+    ofx.time += 3; frame();
+    assert.equal(w.simFx('bombard', 6.5, 9, { r: 1.3, kind: 'emppnt' }), true);
+    const heals = () => spawned.filter((k) => k === 'g_heal').length;
+    assert.equal(w.damage(op, 'phys', null, ofx.time), true, "the shell's hit");
+    assert.equal(w.heal(op, ofx.time), true);
+    assert.equal(heals(), 1, 'a heal in the same frame on a blasted ally plays its generic heal hit');
+    assert.equal(w.damage(op, 'phys', null, ofx.time), false, "a second hit in that frame is not the shell's");
+    // an ally inside the blast the sim's hit missed (interpolated view): its next frame's damage and heal are its own
+    frame();
+    assert.equal(w.damage(spared, 'phys', null, ofx.time), false, 'the mark lapses with the frame');
+    assert.equal(w.heal(medic, ofx.time), true);
+    assert.equal(heals(), 2, 'a heal 0.03 s after the landing on an ally inside it is drawn');
+  });
+
   test("the hold reads the fx's `t`: without its 'bombard' the shell ends SHELL_GRACE_S after it, and a later 'bombard' stays procedural", async () => {
     const { w, view, frame, handles, ofx } = await setup();
     view(1, 'enemy_1112_emppnt', 9);

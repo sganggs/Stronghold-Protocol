@@ -1637,7 +1637,8 @@ export const OWNER_NEAR = 1;
  *              `holdKey`: that field of the fx instead) —, else `holdS`; `once`: the prefabs play once there, for their own
  *              life (a one-shot)
  *   shell      the fx is a shell in flight: its prefabs stay until its landing ('shell' owner), at most SHELL_GRACE_S past
- *              the hold; `coverHits` (a landing): the HP hits of that frame on the units inside the fx's `r` are its own
+ *              the hold; `coverHits` (a landing): the first HP hit of that frame on each unit inside the fx's `r` is its
+ *              own (FxWiring.blasts)
  *   talent     instead of prefabs: the talent (prefab key) whose aura the fx is a tick of — while the unit's talent loops
  *              (render/vfx/talentfx.js) are drawn they stand for it, and one unclaimed HP hit in that frame on a unit
  *              inside the sim radius plays the aura's buff effects on it, offered to each aura (auraTargets)

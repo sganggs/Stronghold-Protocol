@@ -1467,10 +1467,11 @@ export class SkillFx {
 
   /**
    * An enemy shell's landing (a binding with the 'shell' owner drew): the shell's held prefabs end (the client's
-   * projectile stops as it reaches the spot), it leaves the list, and with `coverHits` the HP hits of this frame on the
-   * allies whose drawn position lies within the landing's `r` (+ BLAST_SLACK) are its own — FxWiring.damage reads
-   * `arrived` and skips the procedural spark (the projectile plays no hit effect on the units it damages: its
-   * _effectsWhenHit is empty).
+   * projectile stops as it reaches the spot), it leaves the list, and with `coverHits` the first HP hit in this frame on
+   * each ally whose drawn position lies within the landing's `r` (+ BLAST_SLACK) is its own — FxWiring.damage reads the
+   * frame mark (`blasts`, _blasted) and skips the procedural spark (the projectile plays no hit effect on the units it
+   * damages: its _effectsWhenHit is empty). Not `arrived`: that one also covers heals and later hits for ARRIVAL_WINDOW,
+   * and a blast marks every ally around it.
    */
   _shellLanded(S, x, y, extra, bind) {
     for (const h of S.hs) h.stop();
@@ -1479,10 +1480,9 @@ export class SkillFx {
     if (!bind.coverHits) return;
     const r = Number(extra.r ?? extra.radius);
     const reach = (r > 0 ? r : 1) + BLAST_SLACK;
-    const now = this.w.ofx.time;
     for (const v of this.viewList) {
       if (!v || v.destroyed || v.alive === false || v.isEnemy) continue;
-      if (Math.hypot(v.x - x, v.y - y) <= reach) this.w.arrived.set(idOf(v), now);
+      if (Math.hypot(v.x - x, v.y - y) <= reach) this.w.blasts.set(idOf(v), this.frame);
     }
   }
 
