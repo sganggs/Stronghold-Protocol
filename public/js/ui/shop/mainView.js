@@ -61,6 +61,8 @@ export class AutoChessBattleShopMainView {
       // The caller's own block reason (ShopCanvas's shopBlockReason('refresh')): the painted refresh button must
       // match the hotspot, not recompute a funds-only rule of its own. null = no gate published (dev page).
       refreshBlocked: model.refreshBlocked,
+      freezeBlocked: model.freezeBlocked,
+      reward: model.reward,
     });
   }
 
@@ -200,7 +202,7 @@ function round(v) {
 }
 
 function ctrlKey(model) {
-  return model && model.refreshBlocked ? 1 : 0;
+  return `${model && model.refreshBlocked ? 1 : 0}|${model && model.freezeBlocked ? 1 : 0}|${JSON.stringify(model && model.reward || null)}`;
 }
 
 function renderKey(model) {

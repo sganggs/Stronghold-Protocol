@@ -59,6 +59,9 @@ export class AutoChessBattleShopViewModel {
     /** The caller's own refresh block (ShopCanvas's shopBlockReason('refresh') reason): true = blocked, null = no
      * gate published (dev page / old callers); the ctrl panel paints the control from it rather than from funds. */
     this.refreshBlocked = init.refreshBlocked ?? null;
+    this.freezeBlocked = init.freezeBlocked ?? null;
+    /** Pending reward control: `{ count, visible, label }` or null (see ShopCanvas.viewOf). */
+    this.reward = init.reward || null;
     /** Card row: AutoChessBattleShopCardViewModel-shaped records (see adapter/model.js). */
     this.slots = init.slots || [];
   }

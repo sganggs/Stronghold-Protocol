@@ -127,7 +127,8 @@ export function cardModelFromSlot(slot, index, priv, opts = {}) {
  *   show?: boolean, armedSlotId?: number|null, armedAt?: number, maxLevel?: number,
  *   colors?: Record<string, string>, urlOf?: (file: string) => string|null, cardFlags?: any,
  *   ownerSkin?: (charId: string) => string|null,
- *   controls?: { refresh?: string|null, freeze?: string|null, levelUp?: string|null }|null }} [opts]
+ *   controls?: { refresh?: string|null, freeze?: string|null, levelUp?: string|null }|null,
+ *   reward?: { count?: number, visible?: boolean, label?: string }|null }} [opts]
  *   `controls`: the caller's per-control block reasons (host `view.controls`): a non-empty `refresh` reason
  *   blocks the painted refresh button, so the ctrl panel and the hotspot agree; absent → no gate published.
  */
@@ -181,6 +182,8 @@ export function shopModelFromPrivate(priv, opts = {}) {
     dragCharSellPrice: 0,
     refreshSeq: Number(opts.refreshSeq) || 0,
     refreshBlocked: controls ? !!(controls.refresh) : null,
+    freezeBlocked: controls ? !!(controls.freeze) : null,
+    reward: opts.reward || null,
     slots: cards,
   });
 }

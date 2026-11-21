@@ -2070,6 +2070,7 @@ function MatchScreen() {
         ? html`<${ShopCanvas} key=${shopMountKey(lang)} lang=${lang} priv=${priv} editable=${editable} collapsed=${barCollapsed} refreshBusy=${refreshBusy} config=${data.get('config')}
           runtime=${webglShop.runtime} barRef=${barRef} offBonds=${offBonds} rewardMin=${rewardMin} still=${shopStill(playerSettings, reducedMotion())}
           onBuy=${buy} onReward=${(i) => actions.reward(i)} onLevel=${() => actions.levelUp()} onRefresh=${() => actions.refresh()} onFreeze=${() => actions.freeze()}
+          onRewardToggle=${() => setRewardMin((m) => !m)}
           onCollapse=${setCollapsed}
           onDetail=${(id, kind, hint) => setDetail({ kind: kind === 'item' ? 'item' : 'chess', id, hint: hint || null, tap: ++cardTap.current })}
           onDetailClose=${() => setDetail((d) => (d?.kind === 'chess' || d?.kind === 'item' ? null : d))}

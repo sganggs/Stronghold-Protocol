@@ -27,6 +27,7 @@ const CONTROL_HOTSPOTS = Object.freeze([
   { key: 'fold', paths: ['btn_close', 'fold_hot_spot'], event: 'close' },
   { key: 'refresh', paths: ['btn_refresh/hotspot'], event: 'refresh' },
   { key: 'freeze', paths: ['btn_frozen/hotspot'], event: 'freeze' },
+  { key: 'reward', paths: ['btn_reward/hotspot'], event: 'reward' },
   { key: 'levelUp', paths: ['hotspot_normal', 'upgrade'], event: 'levelUp', panel: true },
 ]);
 
@@ -38,6 +39,7 @@ const CONTROL_LABELS = Object.freeze({
   close: N_('收起商店'),
   refresh: N_('刷新'),
   freeze: N_('冻结'),
+  reward: N_('选择奖励'),
   levelUp: N_('升级'),
 });
 
@@ -158,7 +160,7 @@ export function shopModelPaintKey(model) {
  *     hotspot and becomes its tooltip. Absent → no control gating (the dev page and old callers).
  *   `options`: `{ themeBase?, fonts?, fontTimeoutMs?, spineMode?, dpr?, particles?, still?, cardTime?,
  *     particleTime?, arrowAt?, status?, cardParticles? }`
- *   `callbacks`: `{ onCard?, onCardDetail?, onOpen?, onClose?, onRefresh?, onFreeze?, onLevelUp?, onFail? }`
+ *   `callbacks`: `{ onCard?, onCardDetail?, onOpen?, onClose?, onRefresh?, onFreeze?, onLevelUp?, onReward?, onRefuse?, onFail? }`
  *     `onCardDetail(index)` is the card hotspot's contextmenu (the caller opens the detail without arming);
  *     `onFail(err)` is the host's own fatal path (WebGL context lost / a render throw in the frame loop).
  *     The caller owns the fallback: `update()` rethrows a render failure so its try/catch can run once.
@@ -287,6 +289,7 @@ export async function createShopHost(opts = {}) {
       refreshSeq,
       cardFlags: nextView.cardFlags || null,
       controls: nextView.controls || null,
+      reward: nextView.reward || null,
       ownerSkin: nextView.ownerSkin || null,
     });
   }
@@ -325,6 +328,8 @@ export async function createShopHost(opts = {}) {
   function syncAria(model) {
     const freeze = controlEls.get('freeze');
     if (freeze) freeze.el.setAttribute('aria-label', t(model && model.isFrozen ? N_('解冻') : N_('冻结')));
+    const reward = controlEls.get('reward');
+    if (reward) reward.el.setAttribute('aria-label', (model && model.reward && model.reward.label) || t(N_('选择奖励')));
     const cards = (model && Array.isArray(model.slots)) ? model.slots : [];
     for (const [index, el] of cardEls) {
       const card = cards[index];
@@ -352,7 +357,11 @@ export async function createShopHost(opts = {}) {
   function applyControlState(entry) {
     const reason = controlReason(entry.spec.event);
     const disabled = !!reason;
-    entry.el.disabled = disabled && !entry.spec.panel;
+    // A blocked tool button must stay clickable: a native disabled button swallows both the title
+    // tooltip and the click, so the player cannot learn why it is locked. aria-disabled + a
+    // click that calls onRefuse keeps the explanation reachable.
+    entry.el.disabled = false;
+    if (entry.spec.event === 'reward') entry.el.hidden = !(view && view.reward);
     if (disabled) {
       entry.el.setAttribute('aria-disabled', 'true');
       entry.el.title = reason;
@@ -466,9 +475,12 @@ export async function createShopHost(opts = {}) {
       const entry = controlEls.get(key);
       if (!entry) return;
       const reason = controlReason(entry.spec.event);
-      // A blocked tool button is natively disabled (no click at all); a blocked panel control still forwards the
-      // tap so the caller's guard can refuse it with the old bar's wording.
-      if (reason && !entry.spec.panel) return;
+      // A blocked tool button is not natively disabled (that would swallow the click and its title);
+      // report the reason through the same toast the old shop bar uses.
+      if (reason && !entry.spec.panel) {
+        if (callbacks.onRefuse) callbacks.onRefuse(reason);
+        return;
+      }
       if (!reason && !entry.button.Press(now())) return;
       const handler = callbacks[`on${entry.spec.event[0].toUpperCase()}${entry.spec.event.slice(1)}`];
       if (handler) handler();
@@ -567,6 +579,7 @@ export async function createShopHost(opts = {}) {
       view.armedSlotId, view.armedAt,
       JSON.stringify(view.cardFlags || null),
       JSON.stringify(view.controls || null),
+      JSON.stringify(view.reward || null),
     ].join('|');
   }
 

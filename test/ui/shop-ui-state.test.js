@@ -216,7 +216,7 @@ test('refresh: the server turns a free refresh into refreshPrice 0, and a specia
 
 test('the canvas control reasons use shopBlockReason for refresh with editable (not a funds-only helper)', () => {
   const canvas = readFileSync(new URL('../../public/js/ui/shop/ShopCanvas.js', import.meta.url), 'utf8');
-  assert.match(canvas, /refresh: shopBlockReason\('refresh', \{ config: p\.config, priv: p\.priv, editable: p\.editable \}\)/,
+  assert.match(canvas, /refresh: chooseFirst \|\| shopBlockReason\('refresh', \{ config: p\.config, priv: p\.priv, editable: p\.editable \}\)/,
     'the painted refresh face is not locked by the in-flight busy flag');
   assert.match(canvas, /if \(propsRef\.current\.refreshBusy\) return;/, 'the action itself still drops a second refresh');
   assert.doesNotMatch(canvas, /shopCanRefresh/, 'the old funds-only shortcut is gone');
@@ -251,8 +251,10 @@ test('the ctrl view data carries the caller\'s refresh block from the model', ()
   assert.match(HOST_SOURCE, /controls: nextView\.controls \|\| null/);
   const main = readFileSync(new URL('../../public/js/ui/shop/mainView.js', import.meta.url), 'utf8');
   assert.match(main, /refreshBlocked: model\.refreshBlocked/);
-  assert.match(main, /function ctrlKey\(model\) \{\s*return model && model\.refreshBlocked \? 1 : 0;\s*\}/,
-    'the refresh gate has its own render key');
+  assert.match(main, /function ctrlKey\(model\) \{/);
+  assert.match(main, /model\.refreshBlocked \? 1 : 0/);
+  assert.match(main, /model\.freezeBlocked \? 1 : 0/);
+  assert.match(main, /model\.reward \|\| null/);
   assert.match(main, /this\.scene\.ctrl\.Render\(this\._BuildCtrlViewData\(model\)\)/,
     'a gate-only change repaints the ctrl');
   const ctrl = readFileSync(new URL('../../public/js/ui/shop/ctrl.js', import.meta.url), 'utf8');

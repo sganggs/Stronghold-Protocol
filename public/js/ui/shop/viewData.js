@@ -33,6 +33,8 @@ export class CtrlViewData {
     this.freeRefreshCnt = init.freeRefreshCnt ?? 0;
     /** true = the caller's shopBlockReason('refresh') blocks it; null = no gate published (dev page/old callers). */
     this.refreshBlocked = init.refreshBlocked ?? null;
+    this.freezeBlocked = init.freezeBlocked ?? null;
+    this.reward = init.reward || null;
   }
 }
 

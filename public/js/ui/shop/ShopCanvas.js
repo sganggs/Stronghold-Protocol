@@ -227,6 +227,7 @@ function pauseSpine(host) {
  *   runtime: any, lang?: string, barRef?: any, offBonds?: any, still?: boolean,
  *   rewardMin?: boolean,
  *   onBuy: (i: number) => any, onLevel: () => any, onRefresh: () => any, onFreeze: () => any,
+ *   onRewardToggle?: () => void,
  *   onCollapse: (folded: boolean) => void,
  *   onDetail?: (id: string, kind: 'chess'|'item', hint: string|null) => void,
  *   onReward?: (i: number) => any,
@@ -267,9 +268,12 @@ export function ShopCanvas(props) {
    */
   const controlReasons = () => {
     const p = propsRef.current;
+    const offer = p.priv && p.priv.shop && p.priv.shop.rewardOffer;
+    const rewardVisible = !!(offer && Array.isArray(offer.slots) && offer.slots.length && !p.rewardMin);
+    const chooseFirst = rewardVisible ? t('请先选择奖励') : null;
     return {
-      refresh: shopBlockReason('refresh', { config: p.config, priv: p.priv, editable: p.editable }),
-      freeze: p.editable ? null : shopBlockReason('freeze', { config: p.config, priv: p.priv, editable: p.editable }),
+      refresh: chooseFirst || shopBlockReason('refresh', { config: p.config, priv: p.priv, editable: p.editable }),
+      freeze: chooseFirst || (p.editable ? null : shopBlockReason('freeze', { config: p.config, priv: p.priv, editable: p.editable })),
       levelUp: shopBlockReason('levelUp', { config: p.config, priv: p.priv, editable: p.editable }),
     };
   };
@@ -278,6 +282,13 @@ export function ShopCanvas(props) {
     const p = propsRef.current;
     const a = armedRef.current;
     const displayPriv = shopDisplayPrivate(p.priv, !!p.rewardMin);
+    const offer = p.priv && p.priv.shop && p.priv.shop.rewardOffer;
+    const hasOffer = !!(offer && Array.isArray(offer.slots) && offer.slots.length);
+    const reward = hasOffer ? {
+      count: Math.max(1, (Number(offer.queued) || 0) + 1),
+      visible: !p.rewardMin,
+      label: p.rewardMin ? t('选择奖励') : t('稍后'),
+    } : null;
     const selectSlot = levelArmedRef.current ? { isUpgrade: true }
       : (a ? { slotId: a.index + 1, isGoods: true } : null);
     return {
@@ -288,6 +299,7 @@ export function ShopCanvas(props) {
       armedAt: a ? armedAtRef.current : 0,
       cardFlags: shopCardFlagsWithHand(displayPriv, (kind, id) => data.lookup(kind, id), p.config),
       controls: controlReasons(),
+      reward,
       // The owner is this seat, so the local selection is what the DOM card resolves for it (§37.273).
       ownerSkin: (charId) => ownerSkin(charId, { localSkins }),
     };
@@ -347,6 +359,13 @@ export function ShopCanvas(props) {
         onClose: () => propsRef.current.onCollapse(true),
         onRefresh: () => refreshShop(),
         onFreeze: () => freezeShop(),
+        onReward: () => {
+          const p = propsRef.current;
+          const offer = p.priv && p.priv.shop && p.priv.shop.rewardOffer;
+          if (!offer || !Array.isArray(offer.slots) || !offer.slots.length) return;
+          p.onRewardToggle?.();
+        },
+        onRefuse: (reason) => propsRef.current.onRefuse?.(reason),
         onLevelUp: () => tapLevel(),
         // The host's own fatal path (WebGL context lost, a render throw in its frame loop) reports through the
         // same single failure as a thrown update, so the gate always falls back exactly once.
