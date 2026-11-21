@@ -351,7 +351,8 @@ carry several appearances under `skins`, one per key — the key `chars[<charId>
 installation's own skin id where its manifest has one (e.g. `char_003_kalts@boc#6`), else a name the plugin introduces;
 whatever wears a skin and the plugin have to agree on that key. A skin is a record of the same kinds the
 operator's own record has — `avatar`, `avatarE2`, `portrait`, `portraitE2`, `illust` and `spine.front` / `spine.back` —,
-plus `name` (1–64 characters: the skin's own name) and `group` (0–64 characters: its series), as that file writes them.
+plus `name` (1–64 characters: the skin's own name) and `group` (0–64 characters: its series), as that file writes them,
+and the outfit's own lines (below).
 An empty `group` is allowed because an entry a plugin adds may have no series — each of the 1388 operator skins of the
 official `.cache/gamedata/excel/skin_table.json` carries a non-empty `displaySkin.skinGroupName` —, so this is
 room for a plugin's own new entry, not the state of the manifest.
@@ -388,10 +389,29 @@ As the opening of this section says, the committed `data/assets.json` has no `sk
 path the installation's manifest does not carry yet and is `PLUGIN_REF` — it means something only once the installation's
 manifest has `skins` of its own; in this version only the fields of an operator's own record can be referenced.
 
+**An outfit's own lines (#733; PR #734 by @xcdoge, DESIGN §37.330).** An operator's skin may also carry the lines that
+outfit was recorded with: `voice` (the Chinese dub), `voiceJp`, `voiceEn`, `voiceKr` and `voiceNative` — the trees of
+`audio.voice` …, each keyed by the same slots (`start`, `faceEnemy`, `select`, `place`, `skill1` … — a slot of another
+shape is a warning) with one audio file or a list of 1–16, checked, packed into `plugin.lock.json` and served like any
+other sound (`schemas/overlay.schema.json` `$defs.operatorSkinRecord`). While a player's piece wears the outfit, a slot
+it has plays its lines instead of the operator's of the same dub, and a slot it lacks — no key, an empty list after the
+composition, a file that failed to load — plays the operator's own. The outfit never picks the dub: 设置「语音语言」, the
+per-operator choice and 本土语言 decide it as before, so an outfit with Chinese lines only is heard by a player of 中文,
+and by a player of another dub only where the operator has no line of that dub (the Chinese fallback, which needs
+Chinese selected for download). The lines follow the seat that owns the unit, like its model — a teammate fielding the
+same operator speaks in their own outfit, 显示其他玩家的皮肤 off speaks with the operator's lines — (docs/SKINS.md "Outfit
+voices"). A summon's skin carries no lines.
+
+```json
+"skins": { "char_003_kalts@boc#6": { "name": "残余",
+  "voice": { "select": ["voice/cn/select1.mp3", "voice/cn/select2.mp3"], "skill3": "voice/cn/skill3.mp3" },
+  "voiceJp": { "select": ["voice/jp/select1.mp3", "voice/jp/select2.mp3"] } } }
+```
+
 **A summon's own appearances.** A token record may also carry `skins`, keyed by the id of the OWNER outfit that brings
 each appearance (not the token's own): official `skin_table.json` `charSkins[*].tokenSkinMap` is the source (e.g.
 `char_250_phatom@sale#4` → `token_10007_phatom_twin_sale#4`). A summon skin is the same record an operator skin is
-(pictures and Front/Back model), at most 64 per summon, under the same key rules. A summon has no picker and no
+(pictures and Front/Back model, without lines), at most 64 per summon, under the same key rules. A summon has no picker and no
 `room.skins` entry: it wears what its owner wears (docs/SKINS.md), so the client draws
 `tokens[<tokenId>].skins[<owner skin id>]` and falls back to the summon's own model.
 

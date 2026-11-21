@@ -660,20 +660,93 @@
         },
         "skins": {
           "type": "object",
-          "description": "The operator's skins this plugin carries, keyed by the installation's own skin id. A skin is an appearance of its own: the same kinds of picture and model an operator has, under its own key — the game offers them where it lists appearances and lets a player wear one (§9). Up to 64 per operator; the key must be a skinKey.",
+          "description": "The operator's skins this plugin carries, keyed by the installation's own skin id. A skin is an appearance of its own: the same kinds of picture and model an operator has, under its own key — the game offers them where it lists appearances and lets a player wear one (§9) —, and the outfit's own lines. Up to 64 per operator; the key must be a skinKey.",
           "maxProperties": 64,
           "propertyNames": {
             "$ref": "#/$defs/skinKey"
           },
           "additionalProperties": {
-            "$ref": "#/$defs/skinRecord"
+            "$ref": "#/$defs/operatorSkinRecord"
           }
         }
       },
       "additionalProperties": false
     },
+    "operatorSkinRecord": {
+      "description": "One skin of an operator: its pictures, its models, the name the pickers show and the outfit's own lines (#733) — one tree per dub, the slots of audio.voice; while the outfit is worn a slot it has plays instead of the operator's line of the same dub, a slot it lacks (or an empty list) the operator's own.",
+      "type": "object",
+      "properties": {
+        "ref": {
+          "$ref": "#/$defs/assetKey",
+          "description": "A whole entry of the installation's manifest (data/assets.json) of the same container; the other keys then change fields of it."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "The skin's display name, as the installation's own catalogue has it."
+        },
+        "group": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "The skin's series. May be empty: an entry a plugin adds may have no series (every operator skin of the official table has one), so this is room for a new entry, not the state of the manifest."
+        },
+        "avatar": {
+          "$ref": "#/$defs/image"
+        },
+        "avatarE2": {
+          "$ref": "#/$defs/image"
+        },
+        "portrait": {
+          "$ref": "#/$defs/image"
+        },
+        "portraitE2": {
+          "$ref": "#/$defs/image"
+        },
+        "illust": {
+          "$ref": "#/$defs/image"
+        },
+        "spine": {
+          "type": "object",
+          "description": "The skin's battle models: front, and back for one facing up.",
+          "properties": {
+            "ref": {
+              "$ref": "#/$defs/assetKey"
+            },
+            "front": {
+              "$ref": "#/$defs/spine"
+            },
+            "back": {
+              "$ref": "#/$defs/spine"
+            }
+          },
+          "additionalProperties": false
+        },
+        "voice": {
+          "$ref": "#/$defs/voiceRecord",
+          "description": "The outfit's lines, Chinese dub (as audio.voice[<charId>])."
+        },
+        "voiceJp": {
+          "$ref": "#/$defs/voiceRecord",
+          "description": "The outfit's lines, Japanese dub (as audio.voiceJp[<charId>])."
+        },
+        "voiceEn": {
+          "$ref": "#/$defs/voiceRecord",
+          "description": "The outfit's lines, English dub (as audio.voiceEn[<charId>])."
+        },
+        "voiceKr": {
+          "$ref": "#/$defs/voiceRecord",
+          "description": "The outfit's lines, Korean dub (as audio.voiceKr[<charId>])."
+        },
+        "voiceNative": {
+          "$ref": "#/$defs/voiceRecord",
+          "description": "The outfit's lines in the operator's own-language dub (as audio.voiceNative[<charId>])."
+        }
+      },
+      "additionalProperties": false
+    },
     "skinRecord": {
-      "description": "One skin of an operator: its pictures, its models and the name the pickers show.",
+      "description": "One appearance of a summon (tokenRecord.skins): its pictures, its models and its name — an operator's skin without its lines (a summon says nothing).",
       "type": "object",
       "properties": {
         "ref": {

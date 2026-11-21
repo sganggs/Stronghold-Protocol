@@ -165,6 +165,13 @@ missing pictures and the battle model use the effective operator's defaults. #68
 stand-in / DIY resolution remain in force. [ASSUMED] E2 picture and illustration fields count too; metadata alone
 does not. Official field separation and the exact fallback / live-update contract: [SKINS.md](../SKINS.md).
 
+Outfit voices (#733, §37.330): an operator skin's `voice` / `voiceJp` / `voiceEn` / `voiceKr` / `voiceNative` replace
+the operator's lines per dub and slot while it is worn (`audio.js voiceLine`'s `outfit`; a missing slot or an empty list
+is the operator's own); the player's 语音语言 still picks the dub. Which outfit: the speaking unit's own seat by
+`render/app.js skinOf`'s rule (`audio.js wornSkinKey`; `installAudio` feeds the seats and `me`, `ui/settings.js`
+显示其他玩家的皮肤), the detail panel's 选中 the card's (`selectVoiceOutfit`), the settlement this seat's. Details:
+[SKINS.md](../SKINS.md).
+
 ### Official battle effects (官方特效; render/vfx, 0.3.0)
 
 `public/js/render/vfx/` plays the official battle effect prefabs that `tools/local-extract/fx.py` extracts from the

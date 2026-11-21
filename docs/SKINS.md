@@ -17,7 +17,9 @@ plugins/<id>/plugin.json
   └── assets (or a .json file):  chars[<charId>].illust ……     the operator's own 立绘 (one picture)
                                  chars[<charId>].skins[<skinKey>] = { name, group, avatar, avatarE2,
                                                                       portrait, portraitE2, illust,
-                                                                      spine: { front, back? } }
+                                                                      spine: { front, back? },
+                                                                      voice?, voiceJp?, voiceEn?,
+                                                                      voiceKr?, voiceNative? }
         │
         ├── the server checks the overlay (shared/plugins/visual.js, docs/PLUGINS.md §9) and serves it as a document:
         │   /vs/<vs16>/overlay.json — composed on the INSTALLATION's manifest, never on a copy of it
@@ -27,7 +29,9 @@ plugins/<id>/plugin.json
                  └── data.get('assets') — what every screen reads (public/js/data.js setView)
                           │
                           ├── chars[<charId>].skins[<skinKey>]  →  the picker's rows (public/js/ui/skins.js availableSkins)
-                          └── chars[<charId>].skins[<skinKey>].spine  →  the model (public/js/assets.js spineEntry { skin })
+                          ├── chars[<charId>].skins[<skinKey>].spine  →  the model (public/js/assets.js spineEntry { skin })
+                          └── chars[<charId>].skins[<skinKey>].voice…  →  the outfit's lines (public/js/audio.js voiceLine,
+                                                                          wornOutfit; "Outfit voices" below)
 ```
 
 Three properties are load-bearing:
@@ -100,6 +104,81 @@ for the operators the match's data lacks, the room's `room.state.seats[].skins` 
 room's seats carry. An operator of the match's data wears the match's choice alone: a `room.skins` during a match
 re-broadcasts no `room.state`, so the room's seats still hold the map from before the start, and an outfit taken off in
 the match would come back from them.
+
+## Outfit voices (时装语音, #733; PR #734 by @xcdoge, DESIGN §37.330)
+
+An operator's skin record may carry that outfit's own lines, one tree per dub, named and slotted like the manifest's:
+`voice` (中文), `voiceJp`, `voiceEn`, `voiceKr`, `voiceNative`, each `{ <slot>: file | [1–16 files] }` with the slots of
+`audio.voice[<charId>]` (`start`, `faceEnemy`, `select`, `place`, `skill1`–`skill4`, `resultFour` …). The runtime check
+(`shared/plugins/visual.js` `OPERATOR_SKIN_RECORD`) and `schemas/overlay.schema.json` (`$defs.operatorSkinRecord`, each
+tree a `voiceRecord`) accept the same fields; the files are listed in `plugin.lock.json`, served under `/p/` and composed
+like any other sound. A summon's skin (`tokens[<tokenId>].skins`) carries none: a summon says nothing.
+
+- **Per slot.** While the outfit is worn, a slot it has lines for plays those; a slot it lacks — no key, an empty list,
+  or a write the browser left out because a file failed to load — plays the operator's own line
+  (`public/js/audio.js voiceLine`, its 7th parameter `outfit`; the 6th stays `allowChinese`). An outfit without lines (a
+  picture-only one) changes nothing.
+- **The dub stays the player's.** 设置「语音语言」, the per-operator choice and 本土语言 pick the dub exactly as before,
+  from the operator's trees (`voiceLangFor`); wearing an outfit never changes it. Inside that dub the outfit's tree comes
+  first, then the operator's, then the existing Chinese fallback — the outfit's Chinese line first there too — which
+  still needs Chinese selected for download (§37.109). So an outfit that carries only Chinese lines is heard by a player
+  of 中文; a player of 日本語 hears the operator's Japanese line in that slot, and the outfit's Chinese one only where the
+  operator has no Japanese line at all.
+- **Whose outfit.** The one the speaking unit's model wears in this view, never the viewer's own choice for another
+  seat: `audio.js wornSkinKey` is `render/app.js skinOf`'s rule (a test runs both over the same cases) — the owner's
+  latest public choice for the body's operator (`m.public.players[].skins`, an omitted map a clear) over the
+  `UnitInfo.skin` the unit arrived with, another seat's only with 显示其他玩家的皮肤 on. `installAudio` hands the audio
+  the seats and `me.playerId` from the store, `ui/settings.js` the switch.
+  - 开场 / 部署 / 技能 / 接敌: the battle unit's own seat (`_track` keeps `ownerId`, `skin` and the body: a 自选 piece's
+    pick, else the model id). Two seats fielding the same operator speak in their own outfits.
+  - 补位: the stand-in speaks with its own voice in the outfit its seat chose for the stand-in's operator; the replaced
+    operator's outfit never dresses it (the rule of the model above).
+  - A reconnect replays the field's `UnitInfo` (with `skin`), and the seats arrive with `m.public`; until then each unit's
+    own `skin` decides.
+  - 选中干员: the outfit the card draws (`ui/detailPanel.js selectVoiceOutfit`, `OperatorImage`'s `ownerSkin` rule, the
+    card's body: a stand-in or a 自选 pick).
+  - 结算: this seat's public choice for the operator the speaking piece shows (`resultSpeakerOf`, `screens/game.js`).
+  - 试听 (the voice library's preview) plays the operator's own lines: it previews a dub, not an outfit.
+- **An outfit this page does not have** (a teammate's appearance plugin it lacks, or switched off) speaks with the
+  operator's own lines, as it is drawn on the operator's own model.
+
+**Official data.** `skin_table.json` `charSkins[*].voiceId` / `voiceType` and `charword_table.json` `voiceLangDict` /
+`charWords`, CN data version 79.2.0 (`excel/data_version.txt`: Change 127796 on 2026/11/05), the files of
+Kengxxiao/ArknightsGameData `6f63c14e` (the 规程 profile's default pin, docs/DATA.md; read 2026-11-21): 23 of the 2477
+outfits carry a `voiceId` (#733 counted 22 on an older table) — 21 `voiceType: ALL`, 2 `ILLUST` —, 19 of the voice ids
+with CN / JP / EN / KR dubs and 4 with CN / JP. An outfit voice's `charWords` use the operator's `placeType`s and
+`CN_0NN` numbering, so its slots map as the operator's tree does (`tools/assets/audio.mjs VOICE_SLOTS`).
+
+| skinId | name | voiceId | voiceType | dubs |
+|---|---|---|---|---|
+| `char_4067_lolxh#2` | — | `char_4067_lolxh#1` | ILLUST | CN JP |
+| `char_512_aprot#1` | — | `char_4025_aprot2` | ALL | CN JP EN KR |
+| `char_311_mudrok#2` | — | `char_311_mudrok#1` | ILLUST | CN JP EN KR |
+| `char_245_cello@sale#12` | 无我唯识 | `char_245_cello_sale#12` | ALL | CN JP EN KR |
+| `char_1032_excu2@sale#12` | 众志归一 | `char_1032_excu2_sale#12` | ALL | CN JP EN KR |
+| `char_1035_wisdel@sale#14` | 超新星 | `char_1035_wisdel_sale#14` | ALL | CN JP EN KR |
+| `char_1038_whitw2@sale#15` | 无序的谦卑 | `char_1038_whitw2_sale#15` | ALL | CN JP EN KR |
+| `char_1045_svash2@sale#20` | 雪覆伦城 | `char_1045_svash2_sale#20` | ALL | CN JP |
+| `char_113_cqbw@epoque#7` | 恍惚 | `char_113_cqbw_epoque#7` | ALL | CN JP EN KR |
+| `char_472_pasngr@epoque#17` | 今昔须臾之梦 | `char_472_pasngr_epoque#17` | ALL | CN JP EN KR |
+| `char_4064_mlynar@epoque#28` | 远路 | `char_4064_mlynar_epoque#28` | ALL | CN JP EN KR |
+| `char_1016_agoat2@epoque#34` | 远行前的野餐 | `char_1016_agoat2_epoque#34` | ALL | CN JP EN KR |
+| `char_4134_cetsyr@epoque#50` | 追悼 | `char_4134_cetsyr_epoque#50` | ALL | CN JP EN KR |
+| `char_1016_agoat2@epoque#57` | 后来的故事 | `char_1016_agoat2_epoque#57` | ALL | CN JP |
+| `char_2023_ling@nian#12` | 方遒卷 | `char_2023_ling_nian#12` | ALL | CN JP EN KR |
+| `char_311_mudrok@summer#6` | 静谧午夜 DN06 | `char_311_mudrok#1` | ALL | CN JP EN KR |
+| `char_311_mudrok@wild#10` | 砾瓦 | `char_311_mudrok#1` | ALL | CN JP EN KR |
+| `char_003_kalts@boc#6` | 残余 | `char_003_kalts_boc#6` | ALL | CN JP EN KR |
+| `char_249_mlyss@boc#8` | 新枝 | `char_249_mlyss_boc#8` | ALL | CN JP EN KR |
+| `char_311_mudrok@ambienceSynesthesia#2` | 黑曜石 | `char_311_mudrok#1` | ALL | CN JP EN KR |
+| `char_1012_skadi2@iteration#2` | 红女爵 | `char_1012_skadi2_iteration#2` | ALL | CN JP EN KR |
+| `char_1041_angel2@iteration#6` | 寻翼之歌 | `char_1041_angel2_iteration#6` | ALL | CN JP |
+| `char_2024_chyue@cfa#1` | 全能演员 | `char_2024_chyue_cfa#1` | ALL | CN JP EN KR |
+
+[ASSUMED] `voiceType: ILLUST` reads as "this voice goes with the illustration only" (the two are elite-art outfits), so
+a source of battle lines would write them for the `ALL` outfits only; the table does not say more. Nothing produces
+outfit lines yet — neither `tools/fetch-assets.mjs` nor the local extraction, and the studio's skin form does not
+edit them (the extractor is GitHub #776) —, so until a plugin carries them by hand every operator keeps its own lines.
 
 ## The waiting room's seat cards (0.3.2, the maintainer's decision 4 of 2026-10-21)
 
@@ -209,6 +288,7 @@ exists) gets no section rather than an empty grid.
 | `test/lobby-skins.test.js` | `room.skins` over WebSocket: validation, session and seat storage, the seats handed to the Match, bots, the change made mid-match, `room.state.seats[].skins` (broadcast on a change while the room waits, not on a resend) |
 | `test/ui/seat-art.test.js`, `test/ui/room-cards.e2e.test.js` | the seat cards' outfits: `seatCardSkin` (own / published / the switch / fallback) and, in the browser, both screens of a co-op room |
 | `test/ui/skin-picker.test.js` | The picker's rules against a composed manifest: the rows, `playable`, the art fallbacks, the global `hasAnySkinChoices` and the per-operator `hasSkinChoices`, `chosenSkin`, and that the section's gate is the global one |
+| `test/ui/skin-voice.test.js` | Outfit voices (DESIGN §37.330): `voiceLine`'s per-slot / per-dub rule and its fallbacks, `wornOutfit`, `wornSkinKey` against `render/app.js skinOf`, the battle lines of teammates of one operator / the switch / a mid-match change / a reconnect / a stand-in / a 自选 pick, a failed outfit file, 选中 (`selectVoiceOutfit`) and 结算 (`resultSpeakerOf`) |
 | `docs/SKINS.md` | This document |
 
 ## Edits to existing files
@@ -218,6 +298,9 @@ exists) gets no section rather than an empty grid.
 | `shared/protocol.js` | before `isNotOwnedList` | `SKIN_LIMITS` (256 [ASSUMED]), `isSkinId` (**not** `isId`; the same character class as `isSkinKey`), `isCharId`, `isSkinSelection`, `operatorCharIds`, `checkSkinSelection` |
 | `shared/plugins/visual.js` | `ASSET_CONTAINERS` `tokens` | `tokens[id].skins[<skinId>]` — the same skin record under a summon, keyed by the owner's outfit (the official `tokenSkinMap`) |
 | `schemas/overlay.schema.json` | `$defs.tokenRecord` | `skins` (up to 64, `skinKey` → `skinRecord`) |
+| `shared/plugins/visual.js`, `schemas/overlay.schema.json` | `OPERATOR_SKIN_RECORD` / `VOICE_TREE`, `$defs.operatorSkinRecord` | an operator's skin adds the outfit's lines: `voice` / `voiceJp` / `voiceEn` / `voiceKr` / `voiceNative` by slot (DESIGN §37.330); a summon's `skinRecord` has none |
+| `public/js/audio.js` | `voiceLine` (7th parameter `outfit`), `wornOutfit`, `wornSkinKey`, `resultSpeakerOf`, `setSkinPlayers` / `setMe` / `setOtherSkins`, `_track`, `voice({ skinKey, skinCharId })`, `installAudio` | outfit voices: the speaking unit's own seat, per slot and per dub (above) |
+| `public/js/ui/detailPanel.js`, `public/js/screens/game.js`, `public/js/ui/settings.js` | `selectVoiceOutfit`, `onResult`, the settings subscription | 选中 in the card's outfit, 结算 in this seat's, 显示其他玩家的皮肤 handed to the audio |
 | `server/match/player/views.js`, `server/match/match/views.js` | `pieceView`, `_prepBoardUnits`, the bench | `tokenSkin(piece)`: a summon's skin is its owner piece's operator outfit |
 | `server/sim/battle/players.js`, `server/sim/battle/summons.js`, `server/sim/snapshot.js` | token creation, `unitInfo` | the summon copies its owner unit's `skin`; `UnitInfo.ownerCharId` names the operator the client re-reads it from |
 | `public/js/assets.js`, `public/js/ui/assetUrls.js`, `public/js/ui/fallbackField.js` | `spineEntry` tokens branch, `tokenAvatarUrl`, `unitPictureUrl`, `pieceArt` | read `tokens[id].skins[skin]`, fall back to the summon's own model/avatar |
@@ -292,7 +375,9 @@ exists) gets no section rather than an empty grid.
 - **Bots always wear the default model** (`PlayerState.setSkins` refuses a bot, as `setLoadout` does).
 - **The studio does not list skins.** It finds an operator, an enemy or an interface picture by its official name
   (`server/studio/targets.js`), so a skin key is copied from the installation's manifest or written in the stem form.
-- **No skin effects and no operator voices** (a separate piece of work; docs/ASSETS.md).
+- **No skin effects** (a separate piece of work; docs/ASSETS.md). An outfit's own lines are part of the record ("Outfit
+  voices" above), but nothing produces them yet: no build step or extraction writes them, and the studio's skin form does
+  not edit them — a plugin carries them by hand until the extractor (GitHub #776) exists.
 - **A 自选 slot's own record has `charId: null`**, so it wears its **pick's** operator's skin — the slot has no body of
   its own. The picker offers the appearance while picking that operator, and the choice is kept per operator, so
   changing the slot's operator changes the appearance with it.

@@ -523,7 +523,10 @@ All paths are URL paths relative to the site root, for example `/assets/char/ava
            // voiceEnChars / voiceKrChars / voiceNativeChars count the extra dubs; 0 until those trees are fetched
   chars:   { [charId]: { avatar, avatarE2?, portrait, portraitE2?, illust?, spine: { front: Spine, back?: Spine },
                          skins?: { [skinId]: { name, group?, avatar?, avatarE2?, portrait?, portraitE2?, illust?,
-                                               spine?: { front: Spine, back?: Spine } } } } },
+                                               spine?: { front: Spine, back?: Spine },
+                                               voice?, voiceJp?, voiceEn?, voiceKr?, voiceNative?: { …the slots of `voice` } } } } },
+                         // voice…: the outfit's own lines by dub and slot, played while it is worn (docs/SKINS.md
+                         // "Outfit voices", #733); a slot it lacks is the operator's line
                          // illust: the full illustration (立绘) a detail view shows; skins: one record per appearance,
                          // keyed by the installation's own skin id (char_4058_pepe@sightseer#2; a cosmetic plugin writes
                          // the same map, docs/PLUGINS.md §9). Neither is emitted today: the committed manifest has no
