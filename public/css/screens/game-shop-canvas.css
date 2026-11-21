@@ -53,3 +53,12 @@
   opacity: 0.55;
   cursor: default;
 }
+
+/* [ASSUMED] #692 parity with the DOM bar (game-shop.css `.gm.is-deploy-partial .shopbar`): the shop keeps
+   showing at 70% during the middle deploy level instead of filling the board, and the entry animation is off so
+   the scale needs no restart. The transform covers the canvas and its hotspots. */
+.gm.is-deploy-partial .gm__hud > .shop-webgl.shop-webgl--game {
+  transform: scale(.7);
+  animation: none;
+}
+

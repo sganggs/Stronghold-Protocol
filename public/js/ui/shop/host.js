@@ -286,6 +286,7 @@ export async function createShopHost(opts = {}) {
       armedAt: nextView.armedAt,
       refreshSeq,
       cardFlags: nextView.cardFlags || null,
+      controls: nextView.controls || null,
       ownerSkin: nextView.ownerSkin || null,
     });
   }
@@ -729,8 +730,9 @@ export async function createShopHost(opts = {}) {
   /**
    * Teardown order: stop the loop and the observer first (no paint may race the release), drop our listeners,
    * destroy the spine view (its own PIXI app and the atlas pages an imported pack built), then the card
-   * renderer — which deletes program/buffers/textures on a still-live context, so `renderer.destroy()` runs
-   * BEFORE any `WEBGL_lose_context` (the lose call is only the fallback for a renderer without destroy()).
+   * renderer. `renderer.destroy()` deletes program/buffers/textures while the context is still alive and then
+   * releases the context itself (cardStage's WEBGL_lose_context, idempotent), so the host does not lose it
+   * separately: losing it first would turn every delete* into a no-op and leave the GL objects to the browser.
    * The @font-face block and the hotspot elements go last.
    */
   function dispose() {
@@ -741,15 +743,7 @@ export async function createShopHost(opts = {}) {
     if (observer) observer.disconnect();
     canvas.removeEventListener('webglcontextlost', onContextLost);
     try { spine.destroy(); } catch (err) { errors.push(String((err && err.message) || err)); }
-    try {
-      if (scene.renderer && typeof scene.renderer.destroy === 'function') {
-        scene.renderer.destroy();
-      } else {
-        const gl = scene.renderer && scene.renderer.gl;
-        if (gl) gl.getExtension('WEBGL_lose_context')?.loseContext();
-        if (scene.renderer && scene.renderer.textures) scene.renderer.textures.clear();
-      }
-    } catch (err) { errors.push(String((err && err.message) || err)); }
+    try { scene.renderer.destroy(); } catch (err) { errors.push(String((err && err.message) || err)); }
     try {
       // Optional export of ui/prefab/shopDocs.js (a missing one must not break teardown).
       if (typeof shopDocs.uninstallThemeFontFaces === 'function') shopDocs.uninstallThemeFontFaces();

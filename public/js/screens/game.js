@@ -93,7 +93,7 @@ import { BondStrip, BondPopup } from '../ui/bondStrip.js';
 import { TeamPanel } from '../ui/teamPanel.js';
 import { ShopBar } from '../ui/shopBar.js';
 import { regLook } from '../ui/regHud.js';
-import { ShopCanvas, shopMountKey } from '../ui/shop/ShopCanvas.js';
+import { ShopCanvas, shopMountKey, shopStill, shopHotkeyBuyIndex } from '../ui/shop/ShopCanvas.js';
 import { shopWebglGate, shopCapability } from '../ui/shop/gate.js';
 import { preloadShopRuntime } from '../ui/shop/host.js';
 import { useLang } from '../ui/lang.js';
@@ -504,7 +504,7 @@ function MatchScreen() {
     getChess: (id) => { const c = gd.chess(id); return ownDiyRecord(c, priv, { chess: data.get('chess'), backups: data.get('backups') }) || c; },
     getToken: gd.token, getItem: gd.item, getEffect: gd.effect, backups: gd.backups, morphMode,
   }), [priv, pub?.stageId, editable, gd.ready, deployField, data.locale(), morphMode]);
-  live.current = { pub, priv, field, view, editable, hasPersonalChoice, placeCtx, watching, watchWho, watchingOther, home, myId, alive, spectator, detail, drawer, bondOpen, emoteOpen, settingsOpen, exitOpen, drag, facing, sel, selBusy, pen, collapsedNow: collapsed, localDone: false, canPause: false, paused };
+  live.current = { pub, priv, field, view, editable, hasPersonalChoice, placeCtx, watching, watchWho, watchingOther, home, myId, alive, spectator, detail, drawer, bondOpen, emoteOpen, settingsOpen, exitOpen, drag, facing, sel, selBusy, pen, collapsedNow: collapsed, rewardMin, canvasShop: webglShopOn.on, localDone: false, canPause: false, paused };
 
   // ---- camera: every request goes through setCam, which remembers it for the pen's way back -----------------------
   // the own prep board: the normal board, or — in the prep of a boss round — the player's half of the boss field
@@ -1832,15 +1832,15 @@ function MatchScreen() {
       }
       if (!L.editable) return;
       if (act === 'buy') {
-        // With a reward offer the host draws a synthesised row: data-shop-slot is the display-row index,
-        // NOT a priv.shop.slots index, so the card under the pointer is not the slot to buy. The reward
-        // cards are chosen with two taps (the old bar's reward cards carried no data-shop-slot either).
-        if (L.priv?.shop?.rewardOffer) return;
         if (L.drag || L.facing || !pointer || pointer.buttons) return;
         const card = document.elementFromPoint(pointer.x, pointer.y)?.closest(':is(.shopbar,[data-shop-webgl]) [data-shop-slot]');
         if (!card || !barRef.current?.contains(card)) return;
-        const idx = Number(card.dataset.shopSlot);
-        if (!Number.isInteger(idx) || idx < 0) return;
+        // The canvas synthesises a pending offer's row, so its data-shop-slot is a display index, not a
+        // priv.shop.slots index: the two-tap flow owns those cards until 稍后 (rewardMin) puts the normal row
+        // back. The DOM bar draws the offer as RewardCards instead, which carry no data-shop-slot (shopBar.js
+        // passes `free`), so its cards only exist on the normal, priv-indexed row — see shopHotkeyBuyIndex.
+        const idx = shopHotkeyBuyIndex(L.priv, Number(card.dataset.shopSlot), { canvas: !!L.canvasShop, rewardMin: !!L.rewardMin });
+        if (idx < 0) return;
         const reason = shopBlockReason('buy', { config: data.get('config'), priv: L.priv, editable: L.editable, slot: L.priv.shop?.slots?.[idx] });
         if (reason) { toast(reason, 'warn'); audio.sfx('error', { volume: 0.5 }); return; }
         await buy(idx);
@@ -2067,7 +2067,7 @@ function MatchScreen() {
 
       ${showShop ? (webglShopOn.on
         ? html`<${ShopCanvas} key=${shopMountKey(lang)} lang=${lang} priv=${priv} editable=${editable} collapsed=${barCollapsed} refreshBusy=${refreshBusy} config=${data.get('config')}
-          runtime=${webglShop.runtime} barRef=${barRef} offBonds=${offBonds}
+          runtime=${webglShop.runtime} barRef=${barRef} offBonds=${offBonds} rewardMin=${rewardMin} still=${shopStill(playerSettings, reducedMotion())}
           onBuy=${buy} onReward=${(i) => actions.reward(i)} onLevel=${() => actions.levelUp()} onRefresh=${() => actions.refresh()} onFreeze=${() => actions.freeze()}
           onCollapse=${setCollapsed}
           onDetail=${(id, kind, hint) => setDetail({ kind: kind === 'item' ? 'item' : 'chess', id, hint: hint || null, tap: ++cardTap.current })}
@@ -2085,8 +2085,7 @@ function MatchScreen() {
           onReward=${(i) => actions.reward(i)} onRewardLater=${() => setRewardMin(true)} onArm=${setArmedCard} />`) : null}
 
       ${phase === PHASE.PREP && priv?.shop?.rewardOffer && !webglShopOn.on
-        // Canvas mode draws a pending rewardOffer as the last REWARD_SLOT_COUNT slots of the shop row
-        // (ShopCanvas.shopRewardRow); the overlay must not draw the same pick again.
+        // The DOM bar keeps the reminder pill for a pending rewardOffer; the canvas row is drawn by ShopCanvas.
         ? html`<${RewardOverlay} priv=${priv} minimized=${rewardMin || barCollapsed}
         onMinimize=${(m) => { setRewardMin(m); if (!m) setCollapsed(false); }} />`
         : null}

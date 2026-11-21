@@ -16,6 +16,7 @@
 import { useEffect, useRef, useState } from '../../../vendor/hooks.module.js';
 import { html } from '../components.js';
 import { t } from '../../../../shared/i18n.js';
+import { PLUGIN_OFFER_SLOTS } from '../../../../shared/plugins/limits.js';
 import { data } from '../../data.js';
 import { mergeHint } from '../shopBar.js';
 import { shopBlockReason, mergeProgress, handFull } from '../gameLogic.js';
@@ -33,27 +34,20 @@ const KEEP_ARMED = '[data-shop-webgl], .dpanel, .modal';
  */
 export const LOCALE_FILES = Object.freeze(['chess', 'items', 'bonds', 'garrisons', 'assets', 'backups', 'local']);
 
-/** The same refresh affordability rule the ctrl panel paints (free refresh, special recruit, or funds). */
-export function shopCanRefresh(priv) {
-  const shop = (priv && priv.shop) || {};
-  const special = !!(shop.rewardOffer && shop.rewardOffer.source === 'special');
-  const free = Number(shop.freeRefreshes) || 0;
-  const cost = Number(shop.refreshPrice) || 0;
-  const funds = Number(priv && priv.funds) || 0;
-  return special || free > 0 || funds >= cost;
-}
-
-/** The promotion/reward offer renders as the last three slots of the normal chess row. */
-export const REWARD_SLOT_COUNT = 3;
-
 /**
  * The shop row the renderer should draw. With a rewardOffer the official UI keeps the normal shop frame but
- * shows the normal chess-slot count: the first N-3 slots are empty and the last three are the offer's cards at
- * price 0; the item slot is not shown. Without an offer the original private is used unchanged.
+ * shows the offer's cards at price 0 in the row's last positions (a long offer — the 6-slot 精锐版一次性促销券 —
+ * grows the row to its own length); the item slot is not shown. Every offer slot is drawn up to the server's cap
+ * (MAX_OFFER_SLOTS = shared/plugins/limits.js PLUGIN_OFFER_SLOTS, server/match/player/common.js): a malformed
+ * offer with more slots is clamped to the first cap many, as the server slices its own list; a 2- or 3-slot offer
+ * lands in the last two or three positions exactly as before. Without an offer — or after 稍后 (`rewardMin`, the
+ * DOM bar's rewardMin state) — the original private is used unchanged.
  * @param {any} priv
+ * @param {boolean} [rewardMin] the player put the pick off: draw the normal shop row
  * @returns {{ slots: any[]|null, start: number, count: number, offer: any }|null}
  */
-export function shopRewardRow(priv) {
+export function shopRewardRow(priv, rewardMin = false) {
+  if (rewardMin) return null;
   const offer = priv && priv.shop && priv.shop.rewardOffer;
   if (!offer || !Array.isArray(offer.slots) || !offer.slots.length) return null;
   const shop = priv.shop || {};
@@ -62,7 +56,7 @@ export function shopRewardRow(priv) {
   const chessCount = Number.isInteger(layoutChess) && layoutChess > 0
     ? layoutChess
     : normal.filter((slot) => slot && slot.kind !== 'item').length;
-  const count = Math.min(REWARD_SLOT_COUNT, offer.slots.length);
+  const count = Math.min(PLUGIN_OFFER_SLOTS, offer.slots.length);
   const total = Math.max(chessCount, count);
   const start = total - count;
   const slots = Array.from({ length: total }, () => null);
@@ -75,8 +69,8 @@ export function shopRewardRow(priv) {
 }
 
 /** A copy of private with the reward row synthesised into shop.slots (no item slot, no FREE flag). */
-export function shopDisplayPrivate(priv) {
-  const row = shopRewardRow(priv);
+export function shopDisplayPrivate(priv, rewardMin = false) {
+  const row = shopRewardRow(priv, rewardMin);
   if (!row) return priv;
   return {
     ...priv,
@@ -89,16 +83,16 @@ export function shopDisplayPrivate(priv) {
 }
 
 /** The display slot at a host index (empty reward fronts are null). */
-export function shopDisplaySlot(priv, index) {
-  const row = shopRewardRow(priv);
+export function shopDisplaySlot(priv, index, rewardMin = false) {
+  const row = shopRewardRow(priv, rewardMin);
   if (row) return row.slots[index] || null;
   const slots = priv && priv.shop && Array.isArray(priv.shop.slots) ? priv.shop.slots : [];
   return slots[index] || null;
 }
 
-/** The reward.slots index a display index selects, or -1 when it is an empty front slot. */
-export function shopRewardIndex(priv, index) {
-  const row = shopRewardRow(priv);
+/** The reward.slots index a display index selects, or -1 when it is an empty front slot or the pick is minimized. */
+export function shopRewardIndex(priv, index, rewardMin = false) {
+  const row = shopRewardRow(priv, rewardMin);
   if (!row) return -1;
   return index >= row.start && index < row.start + row.count ? index - row.start : -1;
 }
@@ -186,9 +180,52 @@ export function shopMountKey(lang) {
 }
 
 /**
+ * The host's `still` option: 设置 → 主题动画 off, or the OS prefers-reduced-motion. A still shop draws pinned
+ * card poses (`scene.stillCards`) and parks the themed spine idle (ShopCanvas.pauseSpine), which also stops the
+ * host's ambient repaint — nothing in the canvas moves on its own.
+ * @param {any} settings the player settings (`themeMotion`)
+ * @param {boolean} [reduced] `reducedMotion()` (ui/device.js)
+ * @returns {boolean}
+ */
+export function shopStill(settings, reduced = false) {
+  return (settings && settings.themeMotion === false) || !!reduced;
+}
+
+/**
+ * The buy hotkey's priv slot index. `[data-shop-slot]` is the display-row index, which is the priv.shop.slots
+ * index only while the normal row is drawn. The canvas synthesises the pending offer's row (shopRewardRow), so
+ * on the canvas the hotkey must stay off those cards (the two-tap flow owns them) until 稍后 — rewardMin — puts
+ * the normal row back. The DOM bar draws the offer as RewardCards instead, which carry no `data-shop-slot`
+ * (shopBar.js passes `free`, so the attribute is undefined), so there the index under the pointer is the priv
+ * index whenever a card is found at all.
+ * @param {any} priv
+ * @param {number} displayIndex the matched card's `data-shop-slot`
+ * @param {{ canvas?: boolean, rewardMin?: boolean }} [o] canvas: the WebGL shop is mounted; rewardMin: 稍后 pressed
+ * @returns {number} the priv.shop.slots index to buy, or -1 when this display index must not buy
+ */
+export function shopHotkeyBuyIndex(priv, displayIndex, { canvas = false, rewardMin = false } = {}) {
+  if (!Number.isInteger(displayIndex) || displayIndex < 0) return -1;
+  if (canvas && shopRewardRow(priv, rewardMin)) return -1;
+  const slots = priv && priv.shop && Array.isArray(priv.shop.slots) ? priv.shop.slots : [];
+  return displayIndex < slots.length ? displayIndex : -1;
+}
+
+/**
+ * Park the themed spine idle for a still mount. `scene.stillCards` pins the card clips, but the spine is a live
+ * PIXI tick (spineView.tick advances the actor every frame and its compose canvas repaints with it), so a
+ * paused spine is what stops the shop's ambient animation. `pause` is safe before the async `start()` settles:
+ * the flag makes the first forced paint a still frame.
+ * @param {any} host the createShopHost handle
+ */
+function pauseSpine(host) {
+  try { host.spine?.pause?.(true); } catch { /* a spine that never loaded has nothing to pause */ }
+}
+
+/**
  * @param {{
  *   priv: any, editable: boolean, collapsed: boolean, refreshBusy?: boolean, config?: any,
- *   runtime: any, lang?: string, barRef?: any, offBonds?: any,
+ *   runtime: any, lang?: string, barRef?: any, offBonds?: any, still?: boolean,
+ *   rewardMin?: boolean,
  *   onBuy: (i: number) => any, onLevel: () => any, onRefresh: () => any, onFreeze: () => any,
  *   onCollapse: (folded: boolean) => void,
  *   onDetail?: (id: string, kind: 'chess'|'item', hint: string|null) => void,
@@ -223,11 +260,15 @@ export function ShopCanvas(props) {
   };
   const armLevel = (next) => { levelArmedRef.current = next; setLevelArmed(next); };
 
-  /** Why each control hotspot is unavailable (null when it may fire), the same wording the old ShopBar shows. */
+  /**
+   * Why each control hotspot is unavailable (null when it may fire), the same wording the old ShopBar shows.
+   * Refresh uses shopBlockReason's own rule: the server already turns a free refresh into refreshPrice 0, and a
+   * special offer does not refresh for free; a non-editable seat is refused there too.
+   */
   const controlReasons = () => {
     const p = propsRef.current;
     return {
-      refresh: p.refreshBusy ? t('正在刷新…') : (shopCanRefresh(p.priv) ? null : t('资金不足')),
+      refresh: p.refreshBusy ? t('正在刷新…') : shopBlockReason('refresh', { config: p.config, priv: p.priv, editable: p.editable }),
       freeze: p.editable ? null : shopBlockReason('freeze', { config: p.config, priv: p.priv, editable: p.editable }),
       levelUp: shopBlockReason('levelUp', { config: p.config, priv: p.priv, editable: p.editable }),
     };
@@ -236,7 +277,7 @@ export function ShopCanvas(props) {
   const viewOf = () => {
     const p = propsRef.current;
     const a = armedRef.current;
-    const displayPriv = shopDisplayPrivate(p.priv);
+    const displayPriv = shopDisplayPrivate(p.priv, !!p.rewardMin);
     const selectSlot = levelArmedRef.current ? { isUpgrade: true }
       : (a ? { slotId: a.index + 1, isGoods: true } : null);
     return {
@@ -270,7 +311,7 @@ export function ShopCanvas(props) {
     const host = hostApi.current;
     if (!host || failedRef.current) return;
     try {
-      host.update(shopDisplayPrivate(propsRef.current.priv), viewOf());
+      host.update(shopDisplayPrivate(propsRef.current.priv, !!propsRef.current.rewardMin), viewOf());
     } catch (err) {
       failHost(err);
     }
@@ -282,17 +323,21 @@ export function ShopCanvas(props) {
     pushView();
   }, [localSkins]);
 
+  // The host captures its renderer options at construction (createShopHost), so a motion-setting change
+  // re-mounts it instead of mutating the live scene: the preloaded runtime is cached, only the scene/spine is
+  // rebuilt. A language switch re-mounts for the same reason (canvas texts + localized data are built at mount).
   useEffect(() => {
     const el = hostEl.current;
     const runtime = propsRef.current.runtime;
     if (!el || !runtime || failed) return undefined;
     let dead = false;
     let host = null;
+    const still = !!propsRef.current.still;
     createShopHost({
       container: el,
-      priv: shopDisplayPrivate(propsRef.current.priv),
+      priv: shopDisplayPrivate(propsRef.current.priv, !!propsRef.current.rewardMin),
       view: viewOf(),
-      options: { runtime },
+      options: { runtime, still },
       callbacks: {
         onCard: (index) => tapCard(index),
         // The host's right-click path (contextmenu on the card hotspot); the old shop bar opened the same
@@ -311,6 +356,8 @@ export function ShopCanvas(props) {
       if (dead) { created.dispose(); return; }
       host = created;
       hostApi.current = created;
+      // `options.still` pins the card clips; the themed spine is a separate live tick, so park it too.
+      if (still) pauseSpine(created);
     }).catch((err) => {
       if (dead) return;
       failHost(err, 'mount');
@@ -320,7 +367,7 @@ export function ShopCanvas(props) {
       hostApi.current = null;
       if (host) host.dispose();
     };
-  }, [props.runtime, failed, props.lang]);
+  }, [props.runtime, failed, props.lang, props.still]);
 
   // m.private / fold / selection changes are plain model pushes; the host repaints.
   useEffect(() => {
@@ -334,7 +381,7 @@ export function ShopCanvas(props) {
     }
     const a = armedRef.current;
     if (a) {
-      const slot = shopDisplaySlot(p.priv, a.index);
+      const slot = shopDisplaySlot(p.priv, a.index, !!p.rewardMin);
       if (!slot || slot.id !== a.id) {
         armCard(null);
         p.onArm?.(null);
@@ -342,7 +389,7 @@ export function ShopCanvas(props) {
       }
     }
     pushView();
-  }, [props.priv, props.collapsed, props.editable, armed, levelArmed, props.refreshBusy]);
+  }, [props.priv, props.collapsed, props.editable, armed, levelArmed, props.refreshBusy, props.rewardMin]);
 
   // A language switch remounts the host (game.js keys it by lang); the data overlays may arrive later, so a
   // localized copy of the card/bond/item files must also repaint the live host.
@@ -382,10 +429,10 @@ export function ShopCanvas(props) {
   function tapCard(index) {
     const p = propsRef.current;
     if (!p.editable) return;
-    const slot = shopDisplaySlot(p.priv, index);
+    const slot = shopDisplaySlot(p.priv, index, !!p.rewardMin);
     if (!slot || slot.sold) return;
     const kind = slot.kind === 'item' ? 'item' : 'chess';
-    const rewardIndex = shopRewardIndex(p.priv, index);
+    const rewardIndex = shopRewardIndex(p.priv, index, !!p.rewardMin);
     const key = `${rewardIndex >= 0 ? 'r' : kind}:${kind === 'chess' ? slot.id : String(index)}:${slot.id}`;
     const current = armedRef.current;
     const armedHere = current && current.index === index && current.key === key;
@@ -412,7 +459,7 @@ export function ShopCanvas(props) {
    * onContextMenu). An empty or sold slot has nothing to show. */
   function detailCard(index) {
     const p = propsRef.current;
-    const slot = shopDisplaySlot(p.priv, index);
+    const slot = shopDisplaySlot(p.priv, index, !!p.rewardMin);
     if (!slot || slot.sold) return;
     const kind = slot.kind === 'item' ? 'item' : 'chess';
     p.onDetail?.(slot.id, kind, kind === 'chess' ? mergeHint(p.priv, slot.id) : null);
@@ -448,7 +495,12 @@ export function ShopCanvas(props) {
     p.onLevel();
   }
 
-  return html`<div class="shop-webgl shop-webgl--game" data-shop-webgl="" role="region" aria-label=${t('商店')}
+  // While the reward row is drawn, [data-shop-slot] is a DISPLAY index (shopRewardRow), not a priv.shop.slots
+  // index: the attribute marks the root so bandCommand's SHOP_SLOT drag (its targets are priv indices) never
+  // highlights or drops on these cards.
+  const rewardRowOn = shopRewardRow(props.priv, !!props.rewardMin) !== null;
+
+  return html`<div class="shop-webgl shop-webgl--game" data-shop-webgl="" data-shop-reward-row=${rewardRowOn ? '1' : undefined} role="region" aria-label=${t('商店')}
     ref=${(el) => {
       hostEl.current = el;
       if (props.barRef) props.barRef.current = el;
