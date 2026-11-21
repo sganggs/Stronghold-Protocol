@@ -28,6 +28,8 @@
 //   --cache        official-data cache directory (default: <repo>/.cache/gamedata; a file pinned to a commit, or read at
 //                  --gamedata-commit, is cached in <cache>@<sha>)
 //   --report       build report file (default: <repo>/.cache/build-data-report.json, or build-data-report.<slug>.json)
+//   --quiet        print errors only: the --gamedata-commit note, the counts, the official-data summary and the warnings
+//                  stay in the build report (gamedata.replacedPins / replacedSource, counts, gamedata.groups, warnings)
 //   --no-research  ignore docs/research (research-only fields fall back to defaults; for testing)
 //   --force        write the output even when integrity checks fail (default: keep the old files)
 // Unknown options are errors (exit code 2).
@@ -38,8 +40,8 @@
 // the mirror its profile names (`source`, tools/versions/sources.mjs: .cache/gamedata@aa-<sha>/, normalised on load into
 // Kengxxiao's shape). The build report's `gamedata` records, for every official file read, the commit and where it came
 // from: --gamedata-commit ('option'), a profile pin ('pin', with the pins key) or master (commit null); the summary
-// printed after the counts groups them. Research files are optional inputs: when absent, research-only fields fall back
-// to documented defaults and a warning is printed.
+// printed after the counts groups them (tools/versions/profiles.mjs gamedataReport / gamedataSummary). Research files
+// are optional inputs: when absent, research-only fields fall back to documented defaults and a warning is printed.
 //
 // Determinism: the output depends only on the input files (object keys are emitted in a stable
 // order, no randomness, no timestamps). Anomalies found while joining are printed and written to
@@ -63,7 +65,7 @@ import { FULL_RANK, atRank, stripPotential } from '../shared/potential.js';
 import { createOfficialUnitBuilders } from '../server/plugins/officialUnitBuilder.js';
 import { DEFAULT_VERSION, VERSIONS } from '../shared/versions.js';
 import { itemTextForbidsDiy } from '../shared/itemRules.js';
-import { commitShaError, loadProfile, originOf, tableSpecError, TABLE_NAMES } from './versions/profiles.mjs';
+import { commitNote, commitShaError, gamedataReport, gamedataSummary, loadProfile, originOf, tableSpecError, TABLE_NAMES } from './versions/profiles.mjs';
 import { applyAdapters } from './versions/adapters.mjs';
 import { normalizeMirror, sourceOfProfile, SOURCES } from './versions/sources.mjs';
 import { composeRegulationStage, placeRegulationTemplate, regulationArena } from './versions/layouts.mjs';
@@ -304,53 +306,6 @@ function missingOfflineError(unlisted) {
   const e = new Error(lines.join('\n'));
   e.code = 'GAMEDATA_MISSING';
   return e;
-}
-
-/**
- * The note printed when --gamedata-commit replaces a profile's pins (DESIGN §37.323: the option wins for every file
- * [ASSUMED]), or null when the profile has no pins and reads Kengxxiao.
- */
-function commitNote() {
-  const pins = PROFILE.pins ? Object.entries(PROFILE.pins).map(([k, sha]) => `${k} ${sha.slice(0, 8)}`) : [];
-  const source = PROFILE.source && PROFILE.source !== 'kengxxiao' ? PROFILE.source : null;
-  if (!pins.length && !source) return null;
-  const what = [pins.length ? `the pins of tools/versions/${VERSION_SLUG}.mjs (${pins.join(', ')})` : '', source ? `its source ${source}` : ''].filter(Boolean).join(' and ');
-  return `note: --gamedata-commit ${GAMEDATA_COMMIT} replaces ${what}: every official file of this run comes from that commit of Kengxxiao/ArknightsGameData`;
-}
-
-/**
- * The build report's `gamedata` (DESIGN §37.323): `commit` (--gamedata-commit or null), `replacedPins` (the profile's
- * pins the option replaced, null without it), `files` (every official file read → its origin, tools/versions/profiles.mjs
- * originOf, sorted by path), `groups` (the same files counted per commit and origin, most files first: what the printed
- * summary shows) and, for a mirror profile only, `references` (the Kengxxiao files its empty {} were checked against).
- */
-function gamedataReport() {
-  const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
-  const sorted = (map) => Object.fromEntries([...map].sort(([a], [b]) => cmp(a, b)));
-  const groups = new Map();
-  for (const o of ORIGINS.files.values()) {
-    const k = JSON.stringify([o.commit, o.from, o.pin, o.source]);
-    if (!groups.has(k)) groups.set(k, { ...o, files: 0 });
-    groups.get(k).files++;
-  }
-  const report = {
-    commit: GAMEDATA_COMMIT,
-    replacedPins: GAMEDATA_COMMIT && PROFILE.pins ? { ...PROFILE.pins } : null,
-    files: sorted(ORIGINS.files),
-    groups: [...groups.values()].sort((a, b) => b.files - a.files || cmp(a.commit ?? '', b.commit ?? '')),
-  };
-  if (ORIGINS.references.size) report.references = sorted(ORIGINS.references);
-  return report;
-}
-
-/** One line of the printed summary: the official files per commit and origin (the report's gamedata.groups). */
-function gamedataSummary(groups) {
-  const one = (g) => {
-    if (g.from === 'master') return `master: ${g.files} file(s)`;
-    const why = g.from === 'option' ? '--gamedata-commit' : `pin ${g.pin}${g.source !== 'kengxxiao' ? `, ${g.source}` : ''}`;
-    return `${g.commit} (${why}): ${g.files} file(s)`;
-  };
-  return `official data: ${groups.map(one).join('; ')}`;
 }
 
 /**
@@ -3835,7 +3790,8 @@ function validateAll(f) {
 
 async function main() {
   const t0 = Date.now();
-  const note = GAMEDATA_COMMIT ? commitNote() : null;
+  // --quiet hides the note like the counts, the summary and the warnings; the report keeps replacedPins / replacedSource
+  const note = commitNote(PROFILE, VERSION_SLUG, GAMEDATA_COMMIT);
   if (note) log(note);
   const ctx = await loadContext();
   log('building…');
@@ -3922,7 +3878,7 @@ async function main() {
       diyOwnedPicks: backups.diy.ownedPool.length,
     },
     sizes, totalBytes: total, out: OPTS.out, written: write, warnings, errors,
-    gamedata: gamedataReport(),
+    gamedata: gamedataReport(ORIGINS, PROFILE, GAMEDATA_COMMIT),
   };
   await mkdir(dirname(OPTS.report), { recursive: true });
   await writeFile(OPTS.report, JSON.stringify(report, null, 2));

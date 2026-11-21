@@ -36,7 +36,8 @@ Unknown options or a missing option value are errors (exit code 2); `--refresh` 
   SHA exits 2 with the reason, because the cache is keyed by the commit. The files are cached in `<cache>@<sha>/`
   (`.cache/gamedata@<sha>/` by default: the directory a profile pin at the same commit uses, since the files are the same)
   and downloaded from `https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/<sha>/zh_CN/gamedata/<path>`. It
-  replaces the version profile's `pins` (and a mirror `source`) for every file and prints a note saying so [ASSUMED: #567
+  replaces the version profile's `pins` (and a mirror `source`) for every file and prints a note saying so (`--quiet`
+  hides it like the counts and the warnings; the report's `replacedPins` / `replacedSource` keep it) [ASSUMED: #567
   settles the option, not how it meets a pinned profile]; `--version` still picks the profile's adapters, tables,
   research, expected counts and output directory (`--out` keeps `data/` untouched). `--refresh` downloads every file of
   the commit again; `--offline` downloads nothing and, when files are missing from `<cache>@<sha>/`, fails (exit code 1)
@@ -50,8 +51,11 @@ Unknown options or a missing option value are errors (exit code 2); `--refresh` 
   and `gamedata`: `files[<path>]` = `{ commit, from, pin, source }` for every official file read, `from` being `option`
   (`--gamedata-commit`), `pin` (`pin` = the profile's pins key, `default` / `character` …) or `master` (`commit` null: the
   branch head at download time); `groups`, the same files counted per commit and origin, which the run also prints after
-  the counts as `official data: <sha> (pin default): <n> file(s); …`; `commit`, the `--gamedata-commit` value or null; and
-  `replacedPins`, the profile pins the option replaced, or null).
+  the counts as `official data: <sha> (pin default): <n> file(s); …`; `commit`, the `--gamedata-commit` value or null;
+  `replacedPins` and `replacedSource`, the profile pins and the mirror `source` the option replaced, or null; and, for a
+  profile that reads a mirror only, `references`, the Kengxxiao files at the default version's pins that the mirror's
+  empty `{}` were checked against, in the same `{ commit, from, pin, source }` form; `tools/versions/profiles.mjs`
+  `gamedataReport` / `gamedataSummary`).
   Integrity errors (see §17) make the exit code 1 **and leave the previous output untouched** (unless `--force`);
   warnings never do. Each output file is written atomically (temp file + rename).
 - **Determinism.** Same inputs ⇒ byte-identical outputs (stable key order, no timestamps, no randomness).
