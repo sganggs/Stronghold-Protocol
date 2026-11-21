@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 
 import {
   FACING_TURN_S, FACE_SIGN_LEFT, FACE_SIGN_RIGHT, parseDirection, facingDir, FacingState, markAreaAttacks,
-  faceModeFlags, faceAction, faceModeFor,
+  faceModeFlags, faceAction, faceModeFor, FACE_CONFLICT_ROW,
 } from '../../public/js/render/facing.js';
 
 /** Run a state's turn to its end in 60 fps steps; returns how many steps reported the skeleton change. */
@@ -210,5 +210,25 @@ describe('face modes', () => {
     assert.equal(faceModeFor(rows, ['Combat'], 'attack')[1], 'none', 'no match: the default row');
     assert.equal(faceModeFor(rows, ['attack'], 'attack')[1], 'Target', 'case-insensitive');
     assert.equal(faceModeFor(null, ['Attack']), null);
+  });
+
+  test('faceModeFor: rows that disagree on what the model does resolve to Target, whatever their order [ASSUMED]', () => {
+    const none = ['', 'none', '', '', 0, 'unspecified'], target = ['', 'Target', '', '', 0, 'unspecified'];
+    const def = ['', 'Default', '', '', 0, 'unspecified'];
+    const act = (rows, cands, kind, opts) => faceAction(faceModeFlags(faceModeFor(rows, cands, kind, opts)?.[1]));
+    assert.equal(act([none, target], ['Attack'], 'attack'), 'target', 'default rows none / Target');
+    assert.equal(act([target, none], ['Attack'], 'attack'), 'target', 'the same rows the other way round');
+    assert.equal(faceModeFor([none, def], ['Attack'], 'attack'), FACE_CONFLICT_ROW, 'none / Default: no Target row to take');
+    assert.equal(act([none, none], ['Attack'], 'attack'), 'none', 'rows that agree keep their mode');
+    const a = (mode) => ['Attack', mode, '', '', 0, 'attack'];
+    assert.equal(act([a('Default'), a('Target')], ['Attack'], 'attack'), 'target', 'same name, same kind');
+    assert.equal(act([a('Target'), a('Default')], ['Attack'], 'attack'), 'target');
+    assert.equal(act([a('Target'), a('Target+ForceToDirection')], ['Attack'], 'attack'), 'target', 'no conflict: both turn');
+    // the kind and the first cast still choose before a conflict is looked for
+    const k = [['Attack', 'Default', '', '', 0, 'skill'], a('Target')];
+    assert.equal(act(k, ['Attack'], 'skill'), 'deploy', 'the running kind\'s row');
+    const fc = [['Attack', 'FirstCastTarget', '', '', 0, 'skill'], ['Attack', 'Default', '', '', 0, 'skill']];
+    assert.equal(act(fc, ['Attack'], 'skill', { firstCast: false }), 'deploy', 'the later attacks\' row');
+    assert.ok(faceModeFlags(faceModeFor(fc, ['Attack'], 'skill', { firstCast: true })[1]).firstCast);
   });
 });

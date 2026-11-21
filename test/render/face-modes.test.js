@@ -67,6 +67,40 @@ test('spot checks against the table', () => {
   assert.ok(!faceModeFlags(faceModeFor(k, ['Skill_3_Attack'], 'skill', { firstCast: false })[1]).firstCast, 'and the later ones');
 });
 
+test('the operators whose rows disagree for one clip are the 13 the docs list; they resolve to Target [ASSUMED]', () => {
+  // groups faceModeFor cannot tell apart: the default rows (no name), or one name and kind — first-cast rows apart
+  const act = (r) => faceAction(faceModeFlags(r[1]));
+  const found = {};
+  for (const [id, rows] of Object.entries(FACE_MODES)) {
+    const groups = new Map();
+    for (const r of rows) {
+      const key = r[0] ? `${r[0]}/${r[5]}` : '';
+      const g = `${key}|${/FirstCastTarget/.test(r[1])}`;
+      if (!groups.has(g)) groups.set(g, { key, rows: [] });
+      groups.get(g).rows.push(r);
+    }
+    for (const { key, rows: g } of groups.values()) {
+      if (new Set(g.map(act)).size > 1) (found[id] ||= []).push(key);
+    }
+  }
+  assert.deepEqual(found, {
+    char_002_amiya: [''], char_1026_gvial2: ['Attack/attack'], char_1040_blaze2: [''], char_1041_angel2: [''],
+    char_2015_dusk: [''], char_297_hamoni: [''], char_338_iris: [''], char_4080_lin: [''], char_4126_fuze: ['Attack/attack'],
+    char_4182_oblvns: ['Attack/attack'], char_4217_makoto: [''], char_4222_taraxa: [''], char_469_indigo: [''],
+  });
+  const at = (id, cands) => faceAction(faceModeFlags(faceModeFor(FACE_MODES[id], cands, 'attack')?.[1]));
+  // 新约能天使 (the default pool): no Attack row, two default rows (none, Target) — she turns, in either row order
+  assert.equal(at('char_1041_angel2', ['Attack_Loop', 'Attack_Loop', 'Attack']), 'target');
+  const rev = [...FACE_MODES.char_1041_angel2].reverse();
+  assert.equal(faceAction(faceModeFlags(faceModeFor(rev, ['Attack_Loop', 'Attack'], 'attack')[1])), 'target');
+  assert.equal(at('char_1026_gvial2', ['Attack']), 'target', '百炼嘉维尔: Target, Target, Default');
+  assert.equal(at('char_4126_fuze', ['Attack']), 'target');
+  assert.equal(at('char_4182_oblvns', ['Attack']), 'target', '8 Default rows and 2 Target ones: still a conflict');
+  assert.equal(at('char_4182_oblvns', ['Combat']), 'deploy', 'its Combat row alone: Default');
+  assert.equal(at('char_4098_vvana', ['Attack']), 'target', 'Target and Target+ForceToDirection agree');
+  assert.equal(at('char_2015_dusk', ['Attack']), 'none', '夕: her Attack rows agree (none); the default rows are not reached');
+});
+
 /** The row the table names for skill n (by animation stem, the longest match) — the PR's audit. */
 function intendedRow(rows, n) {
   let best = null;

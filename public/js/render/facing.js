@@ -304,11 +304,23 @@ export function faceAction(flags) {
 }
 
 /**
+ * The row a conflict draws as (`faceModeFor`): `Target`, the mode of every operator and clip without a row. Frozen.
+ */
+export const FACE_CONFLICT_ROW = Object.freeze(['', 'Target', '', '', 0, 'unspecified']);
+
+/**
  * The table row that drives the clip set running now, from candidate animation names in priority order: the first exact
  * name match wins (several abilities may name the same animation: the row of the running `wantKind` — 'skill' or
  * 'attack' — is taken, and among those a `FirstCastTarget` row drives the skill's first attack, a plain row the later
  * ones, `opts.firstCast`), then the longest row name that is a prefix of a candidate (`Skill_2` covers `Skill_2_Loop`),
- * then the ability's default row (`animKey` '').
+ * then the ability's default rows (`animKey` '').
+ *
+ * Rows left after that which still disagree on what the model does (`faceAction`: none / deploy / target) resolve to
+ * `Target` [ASSUMED]: nothing in the table says which ability's row is the clip's — they share the name and the kind, or
+ * are default rows with no name (kind 'unspecified') — and the table's order is the extraction's, not a priority.
+ * `Target` is what an operator or clip without a row does, and the turn the maintainer saw in the official game
+ * (2026-10-18). 13 operators have such rows (test/render/face-modes.test.js lists them; DESIGN §37.329); the review of
+ * 2026-10-19 asked that same-name rows not be settled by their order.
  * @param {any[][]|null|undefined} rows the operator's rows (FACE_MODES[charId])
  * @param {string[]} candidates
  * @param {string} [wantKind]
@@ -317,7 +329,7 @@ export function faceAction(flags) {
  */
 export function faceModeFor(rows, candidates, wantKind = '', opts = {}) {
   if (!Array.isArray(rows) || !rows.length) return null;
-  const fallback = rows.find((row) => Array.isArray(row) && !row[0]) || null;
+  const actionOf = (r) => faceAction(faceModeFlags(r[1]));
   const pick = (list) => {
     if (!list.length) return null;
     let pool = list;
@@ -327,13 +339,16 @@ export function faceModeFor(rows, candidates, wantKind = '', opts = {}) {
     }
     if (pool.length > 1) {
       const isFirst = (r) => /FirstCastTarget/.test(String(r[1] || ''));
-      const first = pool.find(isFirst);
-      const later = pool.find((r) => !isFirst(r));
-      if (opts.firstCast === true && first) return first;
-      if (opts.firstCast === false && later) return later;
-      return first || later;
+      const first = pool.filter(isFirst);
+      const later = pool.filter((r) => !isFirst(r));
+      if (opts.firstCast === true && first.length) pool = first;
+      else if (opts.firstCast === false && later.length) pool = later;
+      else pool = first.length ? first : later;
     }
-    return pool[0];
+    const act = actionOf(pool[0]);
+    if (pool.every((r) => actionOf(r) === act)) return pool[0];
+    // the rows disagree: Target [ASSUMED] — the first of them that says so, else the default row
+    return pool.find((r) => actionOf(r) === 'target') || FACE_CONFLICT_ROW;
   };
   for (const cand of candidates) {
     const name = String(cand || '').toLowerCase();
@@ -353,5 +368,5 @@ export function faceModeFor(rows, candidates, wantKind = '', opts = {}) {
       }
     }
   }
-  return pick(best) || fallback;
+  return pick(best) || pick(rows.filter((row) => Array.isArray(row) && !row[0]));
 }
