@@ -151,7 +151,33 @@ their attack clip.
 
 A normal attack's wind-up (`UnitView.windUp`, started by `app/windup.js` ahead of the 'atk') turns an enemy toward
 that attack's target with the same rule as `onAttack` (|dx| > 0.1) the moment the clip starts (#869, DESIGN §37.54).
-Operators keep their deploy direction. The clip's start time is unchanged.
+Operators turn by their own rule below. The clip's start time is unchanged.
+
+Operator attack facing (PR #730 by @Seals-awa, DESIGN §37.329; `render/facing.js`, `UnitView._faceTurn`): an operator's or
+summon's **model** turns toward the target of an attack when that attack starts — the look-ahead's wind-up once
+`SpineActor.windUp` accepted it, or, for an attack no wind-up started (a late batch, a lead too short), its strike in
+`onAttack` (`woundUp` tells the two apart) — and keeps that facing until the next attack starts. Nothing else turns it:
+not the end of the attack clip, not the target's death or departure, not a delay (the maintainer's frame-by-frame
+measurement of the official recordings, 2026-10-21: the model turned back exactly on the frame the next attack started,
+and stayed turned ~1.7 game s with nothing in range); a long idle keeps it too [ASSUMED]. The direction is the
+official one disassembled by the contributor (docs/research/10-face-logic.md): `ParseDirection` with the 0.25
+horizontal bias picks UP / RIGHT / DOWN / LEFT, the mirror keeps its side inside the ±0.2 dead zone, and closer than
+0.25 tile nothing is judged; UP asks for the Back model, DOWN for the Front one, a horizontal target keeps the skeleton
+and only mirrors [ASSUMED: the contributor's comparison with the official game]. The turn lasts
+`FaceSwitcher._switchTime` = 0.15 game s (all 471 operator art bundles, `tools/local-extract/face_switcher.py`; ~0.13
+measured by the maintainer): the model is squeezed edge-on, the mirror flips there and the Front ⇄ Back swap is asked
+for there; the attack it started with goes on on the new model (`_holdAttack` / `_resumeAttack`; only a swap the turn
+asked for, so #786's skill swap still shows its skill clip). An area attack — more than one distinct target of one
+source in a `b.ev` batch, marked once at ingestion (`markAreaAttacks`), so a late batch is grouped too — does not turn
+[ASSUMED: the PR's rule the maintainer asked for]; nor does a stunned, frozen or sleeping model. The official per-ability
+face modes (`render/faceModes.js`, the contributor's extraction: 109 operators with a non-`Target` row) pick the row of
+the clip being played (the running skill's first, its first attack's `FirstCastTarget` row apart from the later ones):
+`none` keeps the facing, `Default` goes back to the deployed facing at the attack's start [ASSUMED timing],
+`FirstCastTarget` keeps the running skill's first target, `Front` only mirrors; the direction clips of
+`ForceToDirection` / `CheckDownAttack` are not played and `escapeTime` is not read. Operators without rows (7 of the
+pool's, and summons) use `Target` [ASSUMED]. #786's skill model rule reads the turned facing (`_facesUp`). A
+(re)deployment and `setDir` settle on the deploy direction. Display only: `dir`, the range, targeting, blocking, the
+ground wedge, the sim, the protocol and the goldens are unchanged.
 
 The pre-game text fit (§35.56): while a strategy status shows, the draft's step name gives way at 大 / 特大 at any
 width, and at heights ≤ 640 px; 小 / 中 retain it in taller windows. The guide button keeps its width. On short screens
