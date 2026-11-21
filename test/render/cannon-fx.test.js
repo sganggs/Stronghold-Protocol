@@ -27,7 +27,7 @@ async function fixture(missing = []) {
     timers: [],
     ctx: { heightAt: () => 0.4 },
     lib: {
-      has: k => !missing.includes(k),
+      has: (k) => !missing.includes(k),
       index: async () => idx,
       preload: async () => {},
       defs: new Map([
@@ -58,7 +58,7 @@ async function fixture(missing = []) {
     },
   };
   const stage = { devices: [{ key: CANNON_UNIT, pos: [13, 6], cannon: { distance: 4 } }] };
-  const w = new FxWiring(ofx, { view: id => views.get(id), record: () => null, stage: () => stage });
+  const w = new FxWiring(ofx, { view: (id) => views.get(id), record: () => null, stage: () => stage });
   await w.ready();
   const v = {
     id: 1,
@@ -76,20 +76,20 @@ test('cannon idle is owned once, follows phase removal, and restarts after off/l
   const { w, ofx, v, handles } = await fixture();
   w.sync([v]);
   w.sync([v]);
-  assert.equal(handles.filter(h => h.key === CANNON_FX.idle).length, 1);
+  assert.equal(handles.filter((h) => h.key === CANNON_FX.idle).length, 1);
   assert.deepEqual(handles[0].place.pos, [-4, 4, -0.8]);
-  assert.deepEqual(handles.find(h => h.key === CANNON_FX.marker).place.pos, [-4, 0, -0.4]);
-  assert.equal(handles.filter(h => h.key === CANNON_FX.marker).length, 1);
+  assert.deepEqual(handles.find((h) => h.key === CANNON_FX.marker).place.pos, [-4, 0, -0.4]);
+  assert.equal(handles.filter((h) => h.key === CANNON_FX.marker).length, 1);
   ofx.active = false;
   w.sync([v]);
-  assert.ok(handles.every(h => !h.alive));
+  assert.ok(handles.every((h) => !h.alive));
   ofx.active = true;
   w.sync([v]);
   assert.equal(w.cannons.idle.size, 1);
   w.sync([]);
   assert.equal(w.cannons.idle.size, 0);
   w.clear();
-  assert.ok(handles.every(h => !h.alive));
+  assert.ok(handles.every((h) => !h.alive));
 });
 
 test('landing marker follows the stage distance and facing, using the landing tile height instead of the cannon height', async () => {
@@ -103,7 +103,7 @@ test('landing marker follows the stage distance and facing, using the landing ti
     stage.devices[0].cannon.distance = 5;
     v.info.dir = dir;
     w.sync([v]);
-    const p = handles.find(h => h.key === CANNON_FX.marker).place;
+    const p = handles.find((h) => h.key === CANNON_FX.marker).place;
     p.pos.forEach((x, i) => assert.ok(Math.abs(x - target[i]) < 1e-9, `${dir} axis ${i}`));
     assert.equal(p.groundZ, -0.4);
   }
@@ -113,7 +113,7 @@ test('shot plays original cast and flies from bound muzzle on the effect clock; 
   const { w, ofx, handles } = await fixture();
   assert.equal(w.simFx('saltCannonShot', 6, 9, { id: 1, t: 0.8 }), true);
   assert.equal(handles[0].key, CANNON_FX.cast);
-  const trail = handles.find(h => h.key === CANNON_FX.trail),
+  const trail = handles.find((h) => h.key === CANNON_FX.trail),
     fx = { anchor: [] };
   assert.ok(Math.abs(trail.place.pos[1] - 3.9) < 1e-9);
   assert.equal(trail.place.pos[2], -1.3);
@@ -127,15 +127,15 @@ test('shot plays original cast and flies from bound muzzle on the effect clock; 
   trail.opts.track(fx);
   assert.equal(trail.alive, false);
   assert.deepEqual(fx.anchor, [-4, 0, -0.4]);
-  assert.equal(handles.filter(h => h.key === CANNON_FX.hit).length, 0);
+  assert.equal(handles.filter((h) => h.key === CANNON_FX.hit).length, 0);
   assert.equal(w.simFx('saltCannonHit', 6, 9, { id: 1 }), true);
-  assert.equal(handles.filter(h => h.key === CANNON_FX.hit).length, 1);
+  assert.equal(handles.filter((h) => h.key === CANNON_FX.hit).length, 1);
 });
 
 test('missing native flight keeps the procedural shot and native impact works after the source disappears', async () => {
   const { w, views, handles } = await fixture([CANNON_FX.trail]);
   assert.equal(w.simFx('saltCannonShot', 6, 9, { id: 1, t: 0.8 }), false);
-  assert.ok(handles.some(h => h.key === CANNON_FX.cast));
+  assert.ok(handles.some((h) => h.key === CANNON_FX.cast));
   views.clear();
   assert.equal(w.simFx('saltCannonHit', 6, 9, { id: 1 }), true);
 });
@@ -148,11 +148,11 @@ test('cannon destruction stops idle, preserves its fired projectile and clear re
   assert.equal(w.death(v), true);
   assert.equal(w.cannons.idle.size, 0);
   assert.equal(w.cannons.markers.size, 0);
-  assert.equal(handles.find(h => h.key === CANNON_FX.marker).alive, false);
-  assert.ok(handles.find(h => h.key === CANNON_FX.trail).alive);
-  assert.ok(handles.some(h => h.key === CANNON_FX.destroyed));
+  assert.equal(handles.find((h) => h.key === CANNON_FX.marker).alive, false);
+  assert.ok(handles.find((h) => h.key === CANNON_FX.trail).alive);
+  assert.ok(handles.some((h) => h.key === CANNON_FX.destroyed));
   w.clear();
-  assert.ok(handles.every(h => !h.alive));
+  assert.ok(handles.every((h) => !h.alive));
 });
 
 test('preparation uses the actual visible scene devices and clears old phase ownership', async () => {
@@ -218,15 +218,15 @@ test('impact plays a hit effect for each selected unit, survives missing targets
   views.delete(1);
   assert.equal(w.simFx('saltCannonHit', 6, 9, { id: 1, targets: [2, 3, 99] }), true);
   assert.deepEqual(
-    hits.map(h => [h.key, h.id]),
+    hits.map((h) => [h.key, h.id]),
     [
       [CANNON_FX.unitHit, 2],
       [CANNON_FX.unitHit, 3],
     ],
   );
-  assert.equal(handles.filter(h => h.key === CANNON_FX.hit).length, 1);
+  assert.equal(handles.filter((h) => h.key === CANNON_FX.hit).length, 1);
   w.clear();
-  assert.ok(hits.every(h => !h.h.alive));
+  assert.ok(hits.every((h) => !h.h.alive));
 });
 
 

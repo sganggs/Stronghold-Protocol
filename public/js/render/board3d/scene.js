@@ -536,7 +536,7 @@ export class BoardScene {
     for (const h of this.prepCannons || []) h.destroy();
     this.prepCannons = [];
     for (const d of (this.battleRect ? [] : this.staticCannons || [])) {
-      const h = this.createDevice({ cannon:true, top:'turretTop' });
+      const h = this.createDevice({ cannon: true, top: 'turretTop' });
       const model = this.cannonModel();
       h.update(null, { x:d.c, y:d.r, z:d.z0, dir:d.dir, size:model?.size || .55, height:model?.height || .62, alpha:1 });
       this.prepCannons.push(h);

@@ -13,25 +13,25 @@ export const CANNON_FX = Object.freeze({
   unitHit: 'trap_cnnon_explode_hit',
   destroyed: 'trap_cnnon_destroyed',
 });
-const isCannon = v => v?.info?.defId === CANNON_UNIT;
+const isCannon = (v) => v?.info?.defId === CANNON_UNIT;
 // The mesh prefab and its FixedMuzzle are saved facing DOWN, as are MAP10's four stage records.
-const angleOf = v => ({ DOWN: 0, RIGHT: Math.PI / 2, UP: Math.PI, LEFT: -Math.PI / 2 })[v.info?.dir || v.dir] ?? 0;
+const angleOf = (v) => ({ DOWN: 0, RIGHT: Math.PI / 2, UP: Math.PI, LEFT: -Math.PI / 2 })[v.info?.dir || v.dir] ?? 0;
 
 /** [ASSUMED] Register the authored ball's first pose to FixedMuzzle, without rewriting the original clip's keys.
  * The supplied client keeps an edit-time translation in every child of fixed (including the ball's curves).
  * FixedMuzzle references this clip at snapshotTime=0; exact native registration still needs a recorded comparison.
  */
 export function cannonCastPlace(special, muzzle, def) {
-  const ball = def?.nodes?.find(n => n.name === 'ball');
+  const ball = def?.nodes?.find((n) => n.name === 'ball');
   if (!special || !muzzle || !ball?.pos) return null;
   // This prefab has identity ancestors. Refuse a changed hierarchy rather than guess a new registration.
   for (let i = ball.parent; i != null && i >= 0; i = def.nodes[i]?.parent) {
     const n = def.nodes[i];
     if (
       !n ||
-      n.pos?.some(v => v !== 0) ||
+      n.pos?.some((v) => v !== 0) ||
       n.rot?.some((v, j) => v !== (j === 3 ? 1 : 0)) ||
-      n.scale?.some(v => v !== 1)
+      n.scale?.some((v) => v !== 1)
     )
       return null;
   }
@@ -73,7 +73,7 @@ export class CannonFx {
   }
   _target(v) {
     const d = (this.w.opts.stage?.()?.devices || []).find(
-      d => d.key === CANNON_UNIT && d.pos[0] === Math.round(v.y) && d.pos[1] === Math.round(v.x),
+      (d) => d.key === CANNON_UNIT && d.pos[0] === Math.round(v.y) && d.pos[1] === Math.round(v.x),
     );
     if (!(d?.cannon?.distance > 0)) return null;
     const a = angleOf(v),
@@ -119,7 +119,7 @@ export class CannonFx {
   }
   prep(board) {
     // [ASSUMED] Reuse battle idle and landing markers in preparation; the source only establishes live-entity effects.
-    const devices = board?.board?.devices?.filter(d => d.kind === 'cannon') || [];
+    const devices = board?.board?.devices?.filter((d) => d.kind === 'cannon') || [];
     if (!devices.length || !this.w.ofx.active) {
       this.sync([]);
       return;
@@ -127,7 +127,7 @@ export class CannonFx {
     if (!this.w.idx) {
       this.loading ||= this.w
         .ready()
-        .then(() => this.w.begin(devices.map(d => ({ info: { defId: CANNON_UNIT }, id: d.key }))))
+        .then(() => this.w.begin(devices.map((d) => ({ info: { defId: CANNON_UNIT }, id: d.key }))))
         .catch(() => {})
         .finally(() => {
           this.loading = null;
@@ -135,7 +135,7 @@ export class CannonFx {
       return;
     }
     this.sync(
-      devices.map(d => ({
+      devices.map((d) => ({
         id: `${board.stage.id}:${d.r}:${d.c}`,
         info: { defId: CANNON_UNIT, dir: d.dir },
         x: d.c,
@@ -183,7 +183,7 @@ export class CannonFx {
       t0 = ofx.time,
       duration = extra.t;
     const arc = paracurve(mv, -from[2], ground, Math.hypot(to[0] - from[0], to[1] - from[1]));
-    const point = k => [
+    const point = (k) => [
       from[0] + (to[0] - from[0]) * k,
       from[1] + (to[1] - from[1]) * k,
       -(arc ? arcHeight(arc, k, ground) : -from[2] + (ground + from[2]) * k),
@@ -195,7 +195,7 @@ export class CannonFx {
       {
         loop: true,
         important: true,
-        track: fx => {
+        track: (fx) => {
           const k = Math.max(0, Math.min(1, (ofx.time - t0) / duration)),
             p = point(k),
             q = point(Math.min(1, k + 0.02));

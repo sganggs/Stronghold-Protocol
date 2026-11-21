@@ -3041,7 +3041,7 @@ export class DeviceView {
     const size = spec.size * (0.6 + 0.4 * k), height = spec.height * k;
     const g = this.gfx;
     if (this.box) {
-      this.box.update(cam, { x: this.x + shake, y: this.y, z: this.z, dir:this.info.dir, size, height, top: spec.top, side: spec.side, alpha: k });
+      this.box.update(cam, { x: this.x + shake, y: this.y, z: this.z, dir: this.info.dir, size, height, top: spec.top, side: spec.side, alpha: k });
       if (this.box.mesh) {
         if (!this.box.mesh.parent) this.ctx.layers.units.addChild(this.box.mesh);
         this.box.mesh.zIndex = zKey;

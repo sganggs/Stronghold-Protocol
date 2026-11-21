@@ -1539,7 +1539,7 @@ export class FxWiring {
     if (!this.idx) return;
     const list = Array.isArray(views) ? views : [...views];   // (render/app.js passes the views Map's iterator)
     this.cannons.sync(list);
-    const actors = list.filter(v=>v.info?.defId !== CANNON_UNIT);
+    const actors = list.filter((v) => v.info?.defId !== CANNON_UNIT);
     this.skills.sync(actors);
     this.talents.sync(actors);
     this.funnels.sync(actors);
@@ -1552,7 +1552,7 @@ export class FxWiring {
    */
   simFx(kind, x, y, extra) {
     if (!this.idx) return false;
-    if (this.cannons.simFx(kind,x,y,extra)) return true;
+    if (this.cannons.simFx(kind, x, y, extra)) return true;
     const t = this.talents.fx(kind, extra, x, y);
     // the floating units stand for the kit's 'drone' / 'drones' / 'droneLock' / 'overload' (render/vfx/funnelfx.js)
     const f = this.funnels.simFx(kind, x, y, extra);
