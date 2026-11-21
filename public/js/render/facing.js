@@ -40,7 +40,11 @@ export const FACING_TURN_S = 0.15;
 //   _CalculateLOrRDirection(v, prev)    ParseDirection(v, 0); a horizontal result is adopted; otherwise v.x < -0.2 → left,
 //                                       v.x > +0.2 → right, else the previous sign (the dead zone).
 //   _SetFourDirection(sign, uOrD)       the mirror, and the Front / Back configuration.
-/** TOLERANCE_L_OR_R_DIRECTION: the dead zone on the normalized x (|x| <= 0.2 keeps the previous sign). */
+// The dead zone compares the x of `v` as the method gets it (research 10 §3: `movq xmm6, rdx`, then MathUtil.LT(v.x,
+// -0.2); ParseDirection normalizes only its own copy). [ASSUMED] the caller hands it the raw offset to the target in
+// tiles, not a unit vector: its body (DoUpdateFaceSign, research 10 §5 / §8) was not read, but the TOO_CLOSE check
+// (|v|² < 0.0625) and DIRECTION_ZERO_TOLERANCE only mean anything on the raw offset. So the band is |dx| <= 0.2 tile.
+/** TOLERANCE_L_OR_R_DIRECTION: the dead zone on the target's x offset in tiles (|dx| <= 0.2 keeps the previous sign). */
 export const FACING_TOLERANCE = 0.2;
 /** ADDON_TO_L_OR_R_DIRECTION: the bias the horizontal directions get in ParseDirection. */
 export const FACING_ADDON = 0.25;
@@ -82,7 +86,7 @@ export function parseDirection(dx, dy, addon = 0) {
 
 /**
  * The official direction for one target offset (tiles, +y = up the board): the axis from ParseDirection(v, ADDON), the
- * mirror sign from _CalculateLOrRDirection with its dead zone.
+ * mirror sign from _CalculateLOrRDirection with its dead zone (on the raw dx [ASSUMED]: FACING_TOLERANCE).
  * @param {number} dx
  * @param {number} dy
  * @param {number} [prevSign] the sign the model has (1 right / 3 left); the dead zone keeps it
@@ -99,8 +103,9 @@ export function facingDir(dx, dy, prevSign = FACE_SIGN_LEFT) {
   const parsed = parseDirection(nx, ny, 0);
   let sign;
   if (parsed === FACE_SIGN_RIGHT || parsed === FACE_SIGN_LEFT) sign = parsed;
-  else if (nx < -FACING_TOLERANCE) sign = FACE_SIGN_LEFT;
-  else if (nx > FACING_TOLERANCE) sign = FACE_SIGN_RIGHT;
+  // the raw x, not nx: the method compares the v.x it was given [ASSUMED: a raw offset, see above]
+  else if (x < -FACING_TOLERANCE) sign = FACE_SIGN_LEFT;
+  else if (x > FACING_TOLERANCE) sign = FACE_SIGN_RIGHT;
   else sign = prev;
   return { dir: FACE_DIR_NAMES[axis], sign };
 }

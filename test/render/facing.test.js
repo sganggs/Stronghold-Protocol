@@ -35,14 +35,24 @@ describe('the official four-direction resolution', () => {
   test('facingDir: too close or no offset judges nothing; the dead zone keeps the sign; past ±0.2 the side decides', () => {
     assert.deepEqual(facingDir(0.1, 0.1, FACE_SIGN_RIGHT), { dir: null, sign: FACE_SIGN_RIGHT }, 'within 0.25 tile');
     assert.deepEqual(facingDir(0.005, 0.005, FACE_SIGN_LEFT), { dir: null, sign: FACE_SIGN_LEFT });
-    // straight above (|x| ≤ 0.2 after normalizing): UP, mirror carried over from either side
-    assert.deepEqual(facingDir(0.3, 2, FACE_SIGN_RIGHT), { dir: 'UP', sign: FACE_SIGN_RIGHT });
-    assert.deepEqual(facingDir(0.3, 2, FACE_SIGN_LEFT), { dir: 'UP', sign: FACE_SIGN_LEFT });
+    // straight above (|dx| ≤ 0.2 tile): UP, mirror carried over from either side
+    assert.deepEqual(facingDir(0.15, 2, FACE_SIGN_RIGHT), { dir: 'UP', sign: FACE_SIGN_RIGHT });
+    assert.deepEqual(facingDir(0.15, 2, FACE_SIGN_LEFT), { dir: 'UP', sign: FACE_SIGN_LEFT });
+    assert.deepEqual(facingDir(-0.2, 3, FACE_SIGN_RIGHT), { dir: 'UP', sign: FACE_SIGN_RIGHT }, 'the band\'s edge keeps it');
     // above but off to one side (|x| > 0.2): still UP, the mirror by the side
     assert.deepEqual(facingDir(-0.6, 2, FACE_SIGN_RIGHT), { dir: 'UP', sign: FACE_SIGN_LEFT });
     assert.deepEqual(facingDir(0.6, 2, FACE_SIGN_LEFT), { dir: 'UP', sign: FACE_SIGN_RIGHT });
     assert.deepEqual(facingDir(-3, -1, FACE_SIGN_RIGHT), { dir: 'LEFT', sign: FACE_SIGN_LEFT });
     assert.deepEqual(facingDir(0, -2, FACE_SIGN_LEFT), { dir: 'DOWN', sign: FACE_SIGN_LEFT });
+  });
+
+  test('the dead zone is on the raw x offset in tiles, not the normalized one [ASSUMED reading of research 10 §3]', () => {
+    // _CalculateLOrRDirection compares the v.x it is given with ±0.2 (only ParseDirection normalizes, its own copy);
+    // the caller's TOO_CLOSE check on |v|² says that v is the raw offset. Normalized, all three would keep the old side.
+    assert.deepEqual(facingDir(0.5, 2.5, FACE_SIGN_LEFT), { dir: 'UP', sign: FACE_SIGN_RIGHT }, '0.5 / 2.55 = 0.196 normalized');
+    assert.deepEqual(facingDir(0.4, 3, FACE_SIGN_LEFT), { dir: 'UP', sign: FACE_SIGN_RIGHT });
+    assert.deepEqual(facingDir(-0.35, 2, FACE_SIGN_RIGHT), { dir: 'UP', sign: FACE_SIGN_LEFT });
+    assert.deepEqual(facingDir(-1, -6, FACE_SIGN_RIGHT), { dir: 'DOWN', sign: FACE_SIGN_LEFT }, 'a long-range target one column over');
   });
 });
 

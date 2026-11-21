@@ -16,6 +16,10 @@
 >   只做镜像。最后一条来自贡献者与官方实机的对比（PR #730，2026-10-19 的回复），本文 §4 的反汇编本身没有直接
 >   证明，标 [ASSUMED]。§0 伪代码里 `uOrD` 的含义（「上或下」还是「上」）以这条读法为准。
 > - 方向表顺序「上 / 右 / 下 / 左」（§8 第四行）仍是 [ASSUMED]。
+> - §3 的死区比较的是传进来的 `v.x`（`movq xmm6, rdx` 之后直接 `MathUtil.LT(v.x, -0.2)`，只有 `ParseDirection`
+>   归一化它自己的那份拷贝）。调用方 `DoUpdateFaceSign` 没有逐行读（§5、§8），本仓库按「传入的是到目标的原始偏移、
+>   单位为格」实现，即 |dx| ≤ 0.2 格沿用原来的一侧 [ASSUMED]：`TOO_CLOSE_TOLERANCE_SQR` 拿 |v|² 判太近、
+>   `DIRECTION_ZERO_TOLERANCE` 判零，都只有对原始偏移才有意义。
 
 > 本文是 `10-model-official.md`（资源层）与 `10-face-modes.md`（数据层）的**代码层**补完。
 > 全部内容来自对官方 `global-metadata.dat`（未加密）+ `GameAssembly.dll` 的解析与反汇编，
