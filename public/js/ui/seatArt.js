@@ -146,9 +146,10 @@ export function cardContext(list, { pending = false, extra = [] } = {}) {
 
 /**
  * The picker's groups (#877, DESIGN §37.325): first the room's version (`key` 'room': the room's own list, then any
- * roster record no other period lists — an operator the room's plugins hide [ASSUMED]), then the other periods newest
- * first (shared/cardRoster.js CARD_PERIOD_ORDER reversed). A cross-period operator shows once, in the newest period
- * besides the room's own that lists it. Empty groups are left out.
+ * roster record whose periods include the room's version — an official operator the room's plugins hide, [ASSUMED] 6:
+ * it stays a card, in this group, whichever other periods list it too), then the other periods newest first
+ * (shared/cardRoster.js CARD_PERIOD_ORDER reversed). Any other cross-period operator shows once, in the newest period
+ * that lists it. Empty groups are left out.
  * @param {any[]} list cardOperators() of the room
  * @param {any[]} others rosterOperators()
  * @param {string} roomVersion the room's version id (versions.js roomVersion)
@@ -160,8 +161,9 @@ export function cardGroups(list, others, roomVersion) {
   const by = new Map();
   for (const c of Array.isArray(others) ? others : []) {
     if (!c) continue;
-    const rest = (Array.isArray(c.periods) ? c.periods : []).filter((p) => p !== roomVersion && CARD_PERIOD_ORDER.includes(p));
-    if (!rest.length) { room.push(c); continue; }
+    const periods = Array.isArray(c.periods) ? c.periods : [];
+    const rest = periods.filter((p) => p !== roomVersion && CARD_PERIOD_ORDER.includes(p));
+    if (!rest.length || periods.includes(roomVersion)) { room.push(c); continue; }
     const key = rest.reduce((a, b) => (CARD_PERIOD_ORDER.indexOf(b) > CARD_PERIOD_ORDER.indexOf(a) ? b : a));
     if (!by.has(key)) by.set(key, []);
     by.get(key).push(c);

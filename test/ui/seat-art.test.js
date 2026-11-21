@@ -410,6 +410,16 @@ test('cardGroups: 第二期下半\'s room, then 规程, 第二期上半, 第一�
   const hidden = { charId: 'char_1_h', name: 'H', zh: 'H', rarity: 6, periods: ['act2autochess'], other: true };
   const g2 = cardGroups(room.slice(0, 3), [hidden, ...others.slice(0, 2)], 'act2autochess');
   assert.deepEqual(g2[0].ops.map((c) => c.charId), [...room.slice(0, 3).map((c) => c.charId), 'char_1_h']);
+  // ([ASSUMED] 6, #877 review) so does one other periods list too: a plugin hides 斯卡蒂 (every period but 第一期 lists
+  // her) — she stays in 本房间版本, not in 规程's group
+  const hiddenRoom = cardOperators(CHESS.map((c) => (c.charId === 'char_263_skadi' ? { ...c, visible: false } : c)), BACKUPS);
+  assert.ok(!hiddenRoom.some((c) => c.charId === 'char_263_skadi'));
+  const hiddenOthers = rosterOperators(ROSTER, { exclude: new Set(hiddenRoom.map((c) => c.charId)) });
+  const skadi = hiddenOthers.find((c) => c.charId === 'char_263_skadi');
+  assert.ok(skadi.periods.includes('act2autochess') && skadi.periods.includes('act3autochess@V3_1'), skadi.periods.join());
+  const g3 = cardGroups(hiddenRoom, hiddenOthers, 'act2autochess');
+  assert.equal(g3.find((g) => g.ops.some((c) => c.charId === 'char_263_skadi'))?.key, 'room');
+  assert.deepEqual(g3.map((g) => g.ops.length), [187, 42, 6, 15], 'the other groups as they were');
   // empty groups go: no others, an empty room (the data still loading)
   assert.deepEqual(cardGroups(room, [], 'act2autochess').map((g) => g.key), ['room']);
   assert.deepEqual(cardGroups([], [], 'act2autochess'), []);
