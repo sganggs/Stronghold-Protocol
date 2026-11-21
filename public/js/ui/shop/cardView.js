@@ -164,6 +164,7 @@ export class AutoChessBattleShopCardView {
     const setNodeActive = (name, active) => { const n = findNode(tree, name); if (n) n.active = !!active; };
     setNodeActive('group_char', true);
     setNodeActive('group_equip', false);
+    setNodeActive('equip', false);
     setNodeActive('state_empty', false);
     setNodeActive('state_fx_frozen', state.frozen);
     setNodeActive('state_fx_triple', state.repeated);
@@ -283,6 +284,10 @@ export class AutoChessBattleShopCardView {
 
   renderEquip(tree) {
     const equipIcon = findNode(tree, 'equip');
+    // A card view is reused when a chess slot becomes an item slot (the reward row puts offer items
+    // where the normal row had operators): the chess render switched `equip` off, so an item render must
+    // switch it back on or the image below is uploaded but never drawn.
+    if (equipIcon) equipIcon.active = true;
     if (equipIcon && this.model.iconFile) {
       equipIcon.image = { ...(equipIcon.image || {}), file: this.model.iconFile, sprite: this.model.icon };
     }
