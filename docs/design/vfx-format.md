@@ -1892,3 +1892,26 @@ Sources: local official v3 index/prefabs; `pkgrps/btl_pfb_tokens_0.ab` mode `_re
 `SwitchToMelee/Range`; `skill_table.json` (`skchr_wildmn_2`, `skchr_yu_3`, `skchr_mlyss_3`); official client
 `CastEffectOptions.CreateEffect`, `ParticleEffect.FaceTo`, `YuS3EffectBehaviour.OnPlay` and
 `YuS3EffectWithEdgeBehaviour` (addresses and replay evidence in history §34.31). No sim rules change.
+
+### MAP10 salt cannon
+
+`CannonFx` owns idle, birth, landing marker, cast, flight, ground explosion, per-unit hit and destruction effects.
+Battle effects follow the snapshot clock. The extractor reads explicit SpecialPoint0 / FixedMuzzle bindings and
+projectile references, updating the index while preserving other unit records. Existing installations must explicitly
+re-extract `scene/act3autochess_m10` and `fx`; no format-version bump is needed for these additional records.
+The original clip's first-pose muzzle registration remains a display adaptation; see the
+[source notes](../research/cannon-native-20261120.md).
+
+For an existing installation, re-extract the MAP10 scene, then merge the eleven named cannon prefabs and their
+unit bindings into the installed FX index:
+
+```sh
+python tools/local-extract/extract.py --game "/path/to/client" --only scene/act3autochess_m10
+python tools/local-extract/extract.py --game "/path/to/client" --only fx --fx-keys trap_cnnon_idle,trap_cnnon_start,trap_cnnon_attack_start,trap_cnnon_buff,trap_cnnon_lockon,trap_cnnon_trail_1,trap_cnnon_trail_2,trap_cnnon_explode_1,trap_cnnon_explode_2,trap_cnnon_explode_hit,trap_cnnon_destroyed
+```
+
+The named-key run preserves existing `used` entries. To rebuild the entire used set instead, use
+`--only fx --fx-set used`; bare `--only fx` defaults to the sample set.
+Preparation reuses battle idle and landing markers [ASSUMED]; it plays no cannon birth effect. Scouting a teammate's
+preparation board keeps its static devices, including after a stage rebuild or 2D/3D switch. Cannon death uses the
+native destruction effect, or the generic death fallback when it is unavailable, without crate-break debris.

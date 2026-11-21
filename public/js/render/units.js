@@ -2789,12 +2789,14 @@ export class DeviceView {
     this.id = info.id; this.uid = null;
     this.isEnemy = false;
     this.spec = deviceBoxOf(info.defId) || GENERIC_DEVICE;
-    this.turret = this.spec === DEVICE_BOX.turret;
+    this.cannon = this.spec === DEVICE_BOX.cannon;
+    this.turret = this.spec === DEVICE_BOX.turret || this.cannon;
     this.x = Number(info.x) || 0; this.y = Number(info.y) || 0; this.z = 0;
     this.hp = Number(info.maxHp) || 100; this.maxHp = this.hp;
     this.alive = true; this.remove = false; this.dying = 0; this.flags = 0;
     this.facing = info.facing === -1 ? -1 : 1;
     this.aim = this.facing > 0 ? 0 : Math.PI; this.aimTo = this.aim; this.fire = 0;
+    if (this.cannon) this.aim = this.aimTo = ({ DOWN: -Math.PI / 2, UP: Math.PI / 2, LEFT: Math.PI, RIGHT: 0 })[info.dir] ?? 0;
     this.screen = { x: 0, y: 0, s: 1, top: 0 };
     this.placed = false;
     this._headTiles = this.spec.height + 0.2;
@@ -2804,7 +2806,7 @@ export class DeviceView {
     this.hud = new P.Container();
     ctx.layers.bars.addChild(this.hud);
     this.hpBg = bar(P, this.hud, COLORS.hpBack, 0.85);
-    this.hpFill = bar(P, this.hud, this.turret ? COLORS.hpAlly : 0xe0b877);
+    this.hpFill = bar(P, this.hud, this.cannon ? COLORS.hpEnemy : this.turret ? COLORS.hpAlly : 0xe0b877);
     this.camVersion = -1;
   }
   sync(s) {
@@ -2825,7 +2827,7 @@ export class DeviceView {
   onStatus() {}
   setSkill() {}
   setFacing() {}
-  die() { if (!this.alive) return; this.alive = false; this.dying = 0.45; this.ctx.fx?.crateBreak?.(this.x, this.y, this.z, this.turret ? 0x6c777d : null); }
+  die() { if (!this.alive) return; this.alive = false; this.dying = 0.45; if (!this.cannon) this.ctx.fx?.crateBreak?.(this.x, this.y, this.z, this.turret ? 0x6c777d : null); }
   revive() { this.alive = true; this.dying = 0; this.remove = false; }
   update(dt, cam, t) {
     const shake = this.shake > 0 ? Math.sin(t * 80) * this.shake * 0.05 : 0;
@@ -2838,7 +2840,7 @@ export class DeviceView {
     const size = spec.size * (0.6 + 0.4 * k), height = spec.height * k;
     const g = this.gfx;
     if (this.box) {
-      this.box.update(cam, { x: this.x + shake, y: this.y, z: this.z, size, height, top: spec.top, side: spec.side, alpha: k });
+      this.box.update(cam, { x: this.x + shake, y: this.y, z: this.z, dir:this.info.dir, size, height, top: spec.top, side: spec.side, alpha: k });
       if (this.box.mesh) {
         if (!this.box.mesh.parent) this.ctx.layers.units.addChild(this.box.mesh);
         this.box.mesh.zIndex = zKey;
@@ -2850,7 +2852,7 @@ export class DeviceView {
       this._lastShake = !!shake;
       g.clear();
       if (!this.box) drawCrate(g, cam, this.x + shake, this.y, this.z, size, height, 1);
-      if (this.turret && height > 0.05) this._drawHead(g, cam, dt, height, k);
+      if (this.turret && !this.box?.native && height > 0.05) this._drawHead(g, cam, dt, height, k);
     }
     g.zIndex = zKey + 0.001;
     g.alpha = k;

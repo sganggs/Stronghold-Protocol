@@ -292,13 +292,13 @@ def _mesh(pptr, cache, log, stage_id):
     return cache[key]
 
 
-def _chunks_of_piece(piece, objects, log, stage_id, material_info):
+def _chunks_of_piece(piece, objects, log, stage_id, material_info, device=False):
     """Every triangle of one prefab, in its own frame, keyed by (material, the prefab's own lightmap index, group)."""
     tf, go_info, go_of_tf, tf_of_go = _hierarchy(objects)
     lights = _renderer_light(objects)
     cache, materials, mat_tex = {}, {}, {}
     chunks = {}
-    group = PIECE_GROUPS[piece]
+    group = 'device:trap_196_cnnon' if device else PIECE_GROUPS[piece]
     stats = {'tris': 0, 'inactive': 0, 'nomat': 0, 'static': 0}
     world_cache = {}
 
@@ -329,6 +329,13 @@ def _chunks_of_piece(piece, objects, log, stage_id, material_info):
         gid = renderer.m_GameObject.m_PathID
         if gid not in tf_of_go:
             continue
+        if device:
+            tid, names = tf_of_go[gid], []
+            while tid in tf:
+                names.append(go_info.get(go_of_tf[tid], ('', True))[0])
+                tid = tf[tid][1]
+            if not '/'.join(reversed(names)).startswith('trap_196_cnnon/Graphic/'):
+                continue
         if not _active(tf, go_info, go_of_tf, tf_of_go, gid):
             stats['inactive'] += 1
             continue
@@ -354,6 +361,9 @@ def _chunks_of_piece(piece, objects, log, stage_id, material_info):
         if static:
             stats['static'] += 1
         matrix = scenes.IDENTITY if static else _world(tf, tf_of_go.get(gid), world_cache)
+        if device:
+            # The stage faces DOWN; the token graphic's authored frame faces UP.
+            matrix = scenes.mul(scenes.trs((0,0,0), (0,0,1,0), (1,1,1)), matrix)
         flip = scenes.det3(matrix) > 0
         index, scale = lights.get(obj.path_id, (-1, (1.0, 1.0, 0.0, 0.0)))
         luv = uv1 if uv1 else uv0
@@ -478,6 +488,8 @@ def _write(stage_id, chunks, materials, mat_tex, light, images, out_root, manife
            'chunks': records, 'binBytes': len(blob)}
     if len(bin_parts) > 1:
         doc['binParts'] = [part['bytes'] for part in bin_parts]
+    if any(rec['group'] == 'device:trap_196_cnnon' for rec in records):
+        doc['deviceModels'] = {'trap_196_cnnon': 'device:trap_196_cnnon'}
     if tile_depth:
         doc['tileDepthHeights'] = tile_depth
     (out_dir / 'scene.json').write_text(json.dumps(doc, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
@@ -625,7 +637,7 @@ def tile_depth_height(objects):
 
 
 def export_stage(stage_id, paths, dep_paths, out_root, manifest, log, material_info):
-    """Write one 规程 stage from its three prefab bundles. `paths` is (sub_01, sub_02, sub_03)."""
+    """Write three board pieces and, for MAP10, an optional independent cannon graphic."""
     images = []
     merged = {}
     materials, mat_tex = {}, {}
@@ -633,11 +645,11 @@ def export_stage(stage_id, paths, dep_paths, out_root, manifest, log, material_i
     tile_depth = {}
     log(f'{stage_id}: loading {", ".join(Path(p).name for p in paths)}')
     owns = _load_pieces(paths, dep_paths, log, stage_id)
-    for piece, own in zip((1, 2, 3), owns):
-        height = tile_depth_height(own)
+    for piece, own in zip((1, 2, 3, 0), owns):
+        height = tile_depth_height(own) if piece else None
         if height is not None:
             tile_depth[PIECE_GROUPS[piece]] = height
-        chunks, mats, texs, piece_light, pages, stats = _chunks_of_piece(piece, own, log, stage_id, material_info)
+        chunks, mats, texs, piece_light, pages, stats = _chunks_of_piece(piece, own, log, stage_id, material_info, device=piece == 0)
         log(f'  sub_0{piece}: {stats["tris"]} triangles'
             f' ({stats["inactive"]} inactive, {stats["nomat"]} without a material, {stats["static"]} static)')
         page_of = {}
@@ -684,6 +696,17 @@ def export_regulation(ab_root, out_root, manifest, log, ids, roots, material_inf
                 missing = prefab_rel(stage_id, piece)
                 break
             paths.append(found)
+        if not missing and stage_id == 'act3autochess_m10':
+            # The native frame is a token prefab, not a renderer in any of the three board pieces.
+            from fx import container_index
+            cache = Path(__file__).resolve().parents[2] / '.cache/fx/tokens.json'
+            tokens = container_index(root, ('pkgrps/btl_pfb_tokens_*.ab',), cache, 1, log)
+            token = root / tokens['trap_196_cnnon'] if 'trap_196_cnnon' in tokens else None
+            if token and token.is_file():
+                paths.append(token)
+                deps.append(root / 'arts/maps/common/trap/trap_19.ab')
+            else:
+                log(f'  warn {stage_id}: no cannon prefab; keep the procedural device')
         if missing:
             log(f'skip (no regulation prefab: off-season client, see --scenes) {missing}')
             continue

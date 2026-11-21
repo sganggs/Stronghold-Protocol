@@ -232,3 +232,40 @@ describe('asset pack gate', () => {
     assert.equal(await boardArtListed({ local: 1 }), false);
   });
 });
+
+test('cannon device upgrades when its scene art arrives late and drops a replaced native model', () => {
+  let model = null,
+    created = 0,
+    dropped = 0;
+  const scene = {
+    cannonModel: () => model,
+    createDevice: () => ({
+      cannonModel: model,
+      native: !!model,
+      update() {},
+      destroy() {
+        dropped++;
+      },
+    }),
+  };
+  const box = switchableBox({ board: () => scene, spec: { cannon: true }, pixi: () => null });
+  const create = scene.createDevice;
+  scene.createDevice = () => {
+    created++;
+    return create();
+  };
+  box.update(null, {});
+  assert.equal(box.native, false);
+  model = { pack: 'loaded' };
+  box.update(null, {});
+  assert.equal(box.native, true);
+  assert.equal(dropped, 1);
+  box.update(null, {});
+  assert.equal(created, 2, 'stable source reuses its handle');
+  model = { pack: 'updated' };
+  box.update(null, {});
+  assert.equal(dropped, 2);
+  assert.equal(created, 3);
+  box.destroy();
+  assert.equal(dropped, 3);
+});
