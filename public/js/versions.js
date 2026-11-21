@@ -40,9 +40,10 @@ export function storedLobbyVersion() {
 
 /**
  * welcome.versions as the page keeps it (protocol §2): entries of registry ids only, each `{ id, cs, family, label,
- * roomModes, default? }`, in the order the server sent (registry order); null without the key or when nothing is left.
+ * roomModes, i18n?, default? }` (`i18n`: the game-text languages the version ships), in the order the server sent
+ * (registry order); null without the key or when nothing is left.
  * @param {unknown} list
- * @returns {Array<{ id: string, cs: string, family: string, label: string, roomModes: string[], default?: true }> | null}
+ * @returns {Array<{ id: string, cs: string, family: string, label: string, roomModes: string[], i18n?: string[], default?: true }> | null}
  */
 export function sanitizeVersions(list) {
   if (!Array.isArray(list)) return null;
@@ -53,7 +54,8 @@ export function sanitizeVersions(list) {
     seen.add(e.id);
     const reg = versionById(e.id);
     const roomModes = Array.isArray(e.roomModes) ? e.roomModes.filter((m) => m === 'solo' || m === 'coop') : [...reg.roomModes];
-    out.push({ id: e.id, cs: e.cs, family: reg.family, label: reg.label, roomModes, ...(e.default === true ? { default: true } : {}) });
+    const i18n = Array.isArray(e.i18n) ? e.i18n.filter((l) => typeof l === 'string' && /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/.test(l)).slice(0, 8) : [];
+    out.push({ id: e.id, cs: e.cs, family: reg.family, label: reg.label, roomModes, ...(i18n.length ? { i18n } : {}), ...(e.default === true ? { default: true } : {}) });
   }
   return out.length ? out : null;
 }

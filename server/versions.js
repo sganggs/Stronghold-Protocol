@@ -160,9 +160,28 @@ export function createVersionSets({ enabled, defaultId = DEFAULT_VERSION, dataDi
       if (!boundsOf(id)) return null;
       const body = /** @type {Buffer} */ (v.boundsBody);
       const cs16 = csUrlPart(v.content.cs);
+      /** @type {Record<string, { file: string, sha256: string, bytes: number }> | null} */
+      let i18n = null;
+      try {
+        const enPath = path.join(v.dir, 'i18n', 'en.json');
+        if (fs.existsSync(enPath)) {
+          const buf = fs.readFileSync(enPath);
+          /** @type {{ file: string, sha256: string, bytes: number, communityTranslated?: boolean, credit?: string }} */
+          const entry = { file: 'i18n/en.json', sha256: nodeSha256(buf), bytes: buf.length };
+          try {
+            const doc = JSON.parse(buf.toString('utf8'));
+            if (doc?.meta?.communityTranslated === true) entry.communityTranslated = true;
+            if (typeof doc?.meta?.credit === 'string' && doc.meta.credit) entry.credit = doc.meta.credit;
+          } catch { /* hash-only entry */ }
+          i18n = { en: entry };
+        }
+      } catch (e) {
+        log.warn(`[versions] ${id} i18n/en.json unreadable (${e?.code || e?.message || e})`);
+      }
       v.index = Buffer.from(JSON.stringify(contentIndexOf(/** @type {any} */ (v.content), {
         dataUrl: v.content.dataUrl, version: id,
         bounds: { url: `/cs/${cs16}/bounds/official.json`, sha256: nodeSha256(body), bytes: body.length },
+        i18n,
       })));
     }
     return v.index;
@@ -237,8 +256,11 @@ export function createVersionSets({ enabled, defaultId = DEFAULT_VERSION, dataDi
       const shownDef = live.includes(def) ? def : live.includes(DEFAULT_VERSION) ? DEFAULT_VERSION : live[0];
       return live.map((id) => {
         const entry = /** @type {import('../shared/versions.js').OfficialVersion} */ (versionById(id));
+        // game-text languages the version ships (data/versions/<slug>/i18n/<lang>.json); the picker hides its Chinese-only note
+        const v = id === DEFAULT_VERSION ? null : others.get(id);
+        const i18n = v && fs.existsSync(path.join(v.dir, 'i18n', 'en.json')) ? ['en'] : null;
         return { id, cs: id === DEFAULT_VERSION ? vanilla.cs : /** @type {any} */ (others.get(id)).content.cs, family: entry.family,
-          label: entry.label, roomModes: [...entry.roomModes], ...(id === shownDef ? { default: true } : {}) };
+          label: entry.label, roomModes: [...entry.roomModes], ...(i18n ? { i18n } : {}), ...(id === shownDef ? { default: true } : {}) };
       });
     },
     /**

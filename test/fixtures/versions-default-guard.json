@@ -68,6 +68,7 @@
       "family": "regulation",
       "label": "规程·序列Ⅰ",
       "roomModes": ["solo", "coop"],
+      "i18n": ["en"],
       "default": true
     }
   ]

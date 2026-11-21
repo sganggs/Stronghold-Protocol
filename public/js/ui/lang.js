@@ -294,6 +294,8 @@ export function langMenuModel(langs, current) {
 
 /** The note itself (a msgid: each pack words it in its own language). */
 const MACHINE_TRANSLATION_NOTE = N_('当前语言的界面文字为机器翻译，可能不够准确，欢迎在 GitHub 上指正。');
+/** Version game-text overlay marked community / unofficial (e.g. act3 Terra Archive fills). */
+const COMMUNITY_GAME_TEXT_NOTE = N_('当前版本的游戏文本含非官方翻译（部分为机翻，Terra Archive），可能与正式英文有出入。');
 
 /**
  * The note under the language switch in 设置 (ui/settings.js): while the current language's pack is marked as a machine
@@ -303,6 +305,15 @@ const MACHINE_TRANSLATION_NOTE = N_('当前语言的界面文字为机器翻译�
  */
 export function machineTranslationNote() {
   return langInfo(getLang())?.machineTranslated === true ? t(MACHINE_TRANSLATION_NOTE) : null;
+}
+
+/**
+ * Settings note while the active version's own English game-text overlay is a community translation
+ * (`meta.communityTranslated` on `data/versions/…/i18n/en.json`), like the machine-translation mark for language packs.
+ * @returns {string | null}
+ */
+export function communityTranslationNote() {
+  return data.contentGameTextMeta()?.communityTranslated === true ? t(COMMUNITY_GAME_TEXT_NOTE) : null;
 }
 
 /**
