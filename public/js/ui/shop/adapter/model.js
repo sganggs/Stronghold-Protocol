@@ -170,7 +170,9 @@ export function shopModelFromPrivate(priv, opts = {}) {
     upgradeCostColor: '#FFC600',
     freeRefreshCnt: Number(shop.freeRefreshes) || 0,
     isFrozen: !!shop.frozen,
-    isSpecRefresh: !!(shop.rewardOffer && shop.rewardOffer.source === 'special'),
+    // A queued rewardOffer is a pick-one reward, not a shop refresh; the view collapses its source to
+    // 'merge'|'special' for the header, so it must not light the refresh button's root_special fx.
+    isSpecRefresh: false,
     isSpecialRecruit: !!(shop.rewardOffer && shop.rewardOffer.source === 'special'),
     goodsType: 0,
     remainCharCnt,
