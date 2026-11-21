@@ -17,9 +17,11 @@
 // pickGroup), an UberAnimation emitter's replace groups with their animation, an InCertainMode emitter's rows in its mode
 // only (_rowOk). The skill, talent and charge effects (render/vfx/skills.js plans) are played by `this.skills`
 // (render/vfx/skillfx.js SkillFx): the skill's start / loop / end / ready / range, its attacks' rows, hit groups and
-// projectile, its trigger, the 秘术师 charge, an enemy's skill window and the kit 'fx' tuples it stands for. What
-// index.json cannot drive (an unknown unit, an enemy skill no signal opens) stays procedural: each entry point returns
-// whether it drew the official effect.
+// projectile, its trigger, the 秘术师 charge, an enemy's skill window and the kit 'fx' tuples it stands for. An 'atk' of
+// kind 'mortar' (帝国炮火先兆者's shell, which lands with the kit's 'bombard' 3 s later) plays its casts only: the kit's
+// 'bombardShell' / 'bombard' place its projectile's target, flying and reached effects at the sim's times (skills.js
+// ENEMY_FX_BINDINGS, #143). What index.json cannot drive (an unknown unit, an enemy skill no signal opens) stays
+// procedural: each entry point returns whether it drew the official effect.
 //
 //   const w = new FxWiring(ofx, { unitKey: (info) => string|string[]|null, record: (info) => data record,
 //                                 view: (id) => view, speed: (kind) => tiles per game s })
@@ -850,8 +852,9 @@ export class FxWiring {
    * melee whose official ability is a ranged one with a projectile (蒂比: RangedAttack, the sim's 天空行者 melee) flies
    * that projectile for show, at its own speed (R16) [ASSUMED: display only — the sim's damage lands at the blow, covered
    * until the drawn hit]; a direct ranged attack (no projectile of its own: 能天使's, a 阵法术师's beam) is drawn by its
-   * official rows alone when it has any (R4). Returns true when the unit's official attack was drawn (the procedural
-   * shot is skipped).
+   * official rows alone when it has any (R4); a 'mortar' (帝国炮火先兆者's delayed shell, #143) plays its casts only —
+   * the kit's 'bombardShell' / 'bombard' place its projectile's effects at the sim's times (skills.js EMPPNT_SHELL).
+   * Returns true when the unit's official attack was drawn (the procedural shot is skipped).
    */
   attack(src, tgt, kind, time, wound = false) {
     if (!this.ofx.active || !src || !this.idx) return false;
@@ -875,6 +878,10 @@ export class FxWiring {
     if (a) this._casts(a, src, tgt, phase, { owner: !again });
     if (sk) { this.skills.casts(sk, src, tgt, phase, { owner: !again }); if (!again) this.skills.attacked(sk); }
     if (!again) this.attackN.set(id, nth + 1);
+    // a delayed shell (the sim's 'mortar': 帝国炮火先兆者's kitShell — its damage comes with the kit's 'bombard' SHELL_FLIGHT
+    // s later, docs/SIM.md): no projectile flown and no hit window here; the official shell — its target's crosshair,
+    // its falling missile and its explosion — plays with the kit's 'bombardShell' / 'bombard' (skills.js EMPPNT_SHELL)
+    if (kind === 'mortar') return this._drawable(a, sk, src, nth);
     // the hit rows wait for the damage (each target hit: HitEffectOptions); useOwnerToTargetDirection turns the hit
     // along the blow
     const keysOf = (rows) => rows.flatMap((e) => this._rowKeys(e, src, nth).map((k) => ({ k, along: !!e.useOwnerToTargetDirection })));

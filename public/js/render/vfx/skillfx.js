@@ -66,7 +66,8 @@
 //           (萨卡兹枯朽战士's death pool by the frame's 'die', 萨卡兹枯朽战车's by its 'cast' — or by the zone's source id,
 //           ahead of a death at the point), 鼠王's 沙狱 by its id, 假想敌：蚀裂's cloud by its kind), an aura's tick its
 //           talent loops stand for (深溟巢涌者, 鼎沸: one HP hit inside the sim radius plays the aura's effect — auraHit),
-//           a mode's loops (水遁忍者's spin);
+//           a mode's loops (水遁忍者's spin), an enemy's shell (帝国炮火先兆者's 'bombardShell': the crosshair and the
+//           falling missile until its 'bombard', whose explosion stands for the shell's hits; #143);
 //       (1) FX_BINDINGS (skills.js): a kit fx standing for an official effect no plan row places (克莱门莎 S3's mark,
 //           泡泡 S2's counter on her attacker, 归溟幽灵鲨 S1's hit on the ally she swaps HP with);
 //       (2) pulse: a fx tagged with its skill (`extra.skill`) while the skill is on, when the plan has `pulse` entries —
@@ -104,8 +105,18 @@ export const SKILL_CAST_S = 0.6;
  * 0.1 s in the audit) [ASSUMED].
  */
 export const COVER_AFTER_S = 1;
-/** Battle seconds a launched shell (FX_BINDINGS `launch`) waits past its flight for the kit's explosion to end it. */
-const SHELL_GRACE_S = 0.5;
+/**
+ * Battle seconds a launched shell (FX_BINDINGS `launch`) or an enemy's shell (ENEMY_FX_BINDINGS `shell`) waits past its
+ * flight for the kit's explosion to end it.
+ */
+export const SHELL_GRACE_S = 0.5;
+/** Tiles between an enemy shell's spot and its landing's ('bombard' comes at the same x, y as its 'bombardShell'). */
+const SHELL_SPOT = 0.05;
+/**
+ * Tiles past a landing's `r` within which a unit's drawn position counts as inside the blast (`coverHits`: the sim hits
+ * by its own positions; the views are interpolated) [ASSUMED].
+ */
+const BLAST_SLACK = 0.25;
 /** Kit fx kinds of a token's arrival (server/sim/content/tokens.js burst(), 沙之碑): its own birth effect is that look. */
 const ARRIVAL = new Set(['summonBurst', 'summonStun', 'radiantSword', 'paperDoll', 'obelisk']);
 /** The 驭械术士's kit fx: render/vfx/funnelfx.js decides them (its floating units). */
@@ -230,6 +241,7 @@ export class SkillFx {
     this.aloops = new Map();   // `${target id}|${key}` → { h, until, v }: an aura's looping buff effect on a unit in it
     this.viewList = [];        // the battle's views as the last sync gave them (an enemy binding's 'near' owner)
     this.modeWins = new Map(); // unit id → { hs, seq }: the loops of a mode an enemy binding's fx started (_modeWin)
+    this.shells = [];          // ENEMY_FX_BINDINGS `shell` fx in flight: { x, y, until, hs } until their landing (_zone)
   }
 
   active() { return !!this.w.ofx.active && !!this.w.idx; }
@@ -975,6 +987,7 @@ export class SkillFx {
       if (!tv || tv.destroyed || tv.alive === false || now >= t.until || !t.h.alive) { t.h.stop(); this.aloops.delete(slot); }
     }
     if (this.marks.length) this.marks = this.marks.filter((m) => m.until > now);
+    if (this.shells.length) this.shells = this.shells.filter((s) => s.until > now);
     if (this.locks.length) this._syncLocks(now);
   }
 
@@ -1360,7 +1373,7 @@ export class SkillFx {
       if (bind.endMode) { this._modeEnd(owner); return false; }   // (its procedural cue stays)
       const drew = bind.modeLoops ? this._modeWin(owner, key, bind)
         : bind.talent ? this._aura(owner, key, bind, x, y, extra)
-        : this._zone(bind, x, y, extra);
+        : this._zone(bind, x, y, extra, bind.owner === 'shell' ? owner : null);
       if (!drew) continue;
       // the kit's own moment stood for an attack-rooted skill of a window: that was its one attack — the enemy's next
       // attacks in the window are its own (0.3.1: the 'cast' of 鼠王's 【沙狱】 holds the window for the debuff's 15 s, and
@@ -1383,7 +1396,7 @@ export class SkillFx {
    */
   _fxRank(bind, owner, extra) {
     const oid = owner && owner !== true ? idOf(owner) : null;
-    if (bind.owner === 'id' || (extra.id != null && oid != null && oid === extra.id)) return 0;
+    if (bind.owner === 'id' || bind.owner === 'shell' || (extra.id != null && oid != null && oid === extra.id)) return 0;
     if (bind.owner === 'died') return 1;
     if (bind.owner === 'cast') return 2;
     if (bind.owner === 'near') return 3;
@@ -1417,26 +1430,60 @@ export class SkillFx {
         return best;
       }
       case 'any': return true;
+      // the shell a `shell` binding took at this point (render/vfx/skills.js EMPPNT_SHELL: its 'bombard' is its landing)
+      case 'shell': {
+        const now = this.w.ofx.time;
+        return this.shells.find((s) => s.until > now && Math.hypot(s.x - x, s.y - y) <= SHELL_SPOT) || null;
+      }
       default: return null;
     }
   }
 
-  /** An enemy's zone: its binding's prefabs at the fx's point on the ground, the looping ones for the zone's time. */
-  _zone(bind, x, y, extra) {
+  /**
+   * An enemy's zone: its binding's prefabs at the fx's point on the ground, the looping ones for the zone's time (its
+   * `dur`, or the field `holdKey` names: a shell's flight `t`). A `shell` binding's fx is a shell in flight: its prefabs
+   * stay until its landing, at most SHELL_GRACE_S past the hold; `shell` here: the entry the landing's 'shell' owner
+   * found (_shellLanded).
+   */
+  _zone(bind, x, y, extra, shell = null) {
     const keys = bindingEffects(this.w.idx, bind).filter((k) => this.w.ofx.lib.has(k));
     if (!keys.length) return false;
     const at = this._ground(x, y);
-    const fxS = Number(extra.duration ?? extra.dur ?? extra.hold);
-    const holdS = bind.hold === 'fx' && fxS > 0 ? fxS : bind.holdS || SKILL_CAST_S;
-    let drew = false;
+    const fxS = Number(bind.holdKey ? extra[bind.holdKey] : extra.duration ?? extra.dur ?? extra.hold);
+    const holdS = (bind.hold === 'fx' && fxS > 0 ? fxS : bind.holdS || SKILL_CAST_S) + (bind.shell ? SHELL_GRACE_S : 0);
+    const hs = [];
     for (const k of keys) {
       // (a one-shot plays its own life: `important` — no cap on what nobody stops)
       const h = this.w.playOn(k, at, bind.once ? { important: true } : { loop: true, important: true });
       if (!h) continue;
-      drew = true;
+      hs.push(h);
       if (!bind.once) later(this.w.ofx, holdS, () => h.stop());
     }
-    return drew;
+    if (!hs.length) return false;
+    if (bind.shell) this.shells.push({ x, y, until: this.w.ofx.time + holdS, hs });
+    if (shell) this._shellLanded(shell, x, y, extra, bind);
+    return true;
+  }
+
+  /**
+   * An enemy shell's landing (a binding with the 'shell' owner drew): the shell's held prefabs end (the client's
+   * projectile stops as it reaches the spot), it leaves the list, and with `coverHits` the HP hits of this frame on the
+   * allies whose drawn position lies within the landing's `r` (+ BLAST_SLACK) are its own — FxWiring.damage reads
+   * `arrived` and skips the procedural spark (the projectile plays no hit effect on the units it damages: its
+   * _effectsWhenHit is empty).
+   */
+  _shellLanded(S, x, y, extra, bind) {
+    for (const h of S.hs) h.stop();
+    const i = this.shells.indexOf(S);
+    if (i >= 0) this.shells.splice(i, 1);
+    if (!bind.coverHits) return;
+    const r = Number(extra.r ?? extra.radius);
+    const reach = (r > 0 ? r : 1) + BLAST_SLACK;
+    const now = this.w.ofx.time;
+    for (const v of this.viewList) {
+      if (!v || v.destroyed || v.alive === false || v.isEnemy) continue;
+      if (Math.hypot(v.x - x, v.y - y) <= reach) this.w.arrived.set(idOf(v), now);
+    }
   }
 
   /**
@@ -1565,5 +1612,7 @@ export class SkillFx {
     this.viewList = [];
     for (const m of this.modeWins.values()) for (const h of m.hs) h.stop();
     this.modeWins.clear();
+    for (const s of this.shells) for (const h of s.hs) h.stop();
+    this.shells = [];
   }
 }
