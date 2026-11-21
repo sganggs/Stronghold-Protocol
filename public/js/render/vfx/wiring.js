@@ -316,10 +316,12 @@ export class FxWiring {
 
   /**
    * Where a view stands, as mounts.js reads it: board feet + facing, the view itself (its model's bones: the
-   * BoneFollower points) and the camera's tilt (the plane the drawn model faces).
+   * BoneFollower points) and the camera's tilt (the plane the drawn model faces). The facing is the one an operator's
+   * attack turn that runs now ends on (UnitView.settledFacing, DESIGN §37.329): the cast effects of a wind-up and the
+   * shot of a late strike spawn in the frame the turn starts.
    */
   pose(v) {
-    return { x: v.x, y: v.y, z: (v.z || 0) + (v.hover || 0), left: (v.visFacing ?? v.facing ?? 1) < 0, back: typeof v._wantsBack === 'function' ? !!v._wantsBack() && !!v.entryBack : false, view: v, tilt: this._camTilt() };
+    return { x: v.x, y: v.y, z: (v.z || 0) + (v.hover || 0), left: (v.settledFacing ?? v.visFacing ?? v.facing ?? 1) < 0, back: typeof v._wantsBack === 'function' ? !!v._wantsBack() && !!v.entryBack : false, view: v, tilt: this._camTilt() };
   }
 
   /** The battle camera's tilt (degrees from straight down), or undefined (mounts.js SKELETON_TILT). */

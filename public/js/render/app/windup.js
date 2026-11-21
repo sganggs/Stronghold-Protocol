@@ -6,11 +6,13 @@ import { CHAIN_KINDS } from './tune.js';
 
 /**
  * `views` (id → UnitView), `woundUp` (a WeakSet of the 'atk' tuples already wound up), `castStart(view, targetView, kind,
- * opts)` (render/vfx/wiring.js castStart: the official cast effects that start with the clip). The 'atk' target view is
- * passed into `windUp` so the model faces it when the clip starts (UnitView.onAttack's rule, GitHub #869). Returns
- * `run(interp, renderT)`, walking the events queued in (renderT, renderT + 1.5].
+ * opts)` (render/vfx/wiring.js castStart: the official cast effects that start with the clip), `areaAtk` (a WeakSet of
+ * the 'atk' tuples of area attacks, render/facing.js markAreaAttacks). The 'atk' target view is passed into `windUp` so
+ * the model faces it when the clip starts (an enemy by UnitView.onAttack's rule, GitHub #869; an operator unless the
+ * attack is an area one, DESIGN §37.329). Returns `run(interp, renderT)`, walking the events queued in
+ * (renderT, renderT + 1.5].
  */
-export function createWindUpLookahead({ views, woundUp, castStart }) {
+export function createWindUpLookahead({ views, woundUp, castStart, areaAtk = new WeakSet() }) {
   let upcomingT = 0;
   // the look-ahead's skill state: a ['skill', id, on] queued before an 'atk' of that unit (an instant skill sends 1, its
   // attack and 0 in one tick) — the official cast effects of the wind-up are the skill's own then
@@ -41,7 +43,7 @@ export function createWindUpLookahead({ views, woundUp, castStart }) {
       interval = rate.value;
     }
     const target = views.get(e[2]);
-    if (v.windUp(t - upcomingT, e[3], cast && cast.t === t ? cast.slot : null, interval, target)) {
+    if (v.windUp(t - upcomingT, e[3], cast && cast.t === t ? cast.slot : null, interval, target, areaAtk.has(e))) {
       woundUp.add(e);
       const a = v.actor;
       const skillOn = upSkill.has(e[1]) ? upSkill.get(e[1]) : undefined;

@@ -168,6 +168,7 @@ import { promotionsOf } from './promote.js';
 import { ensurePixi } from './app/pixi.js';
 import { advanceEffectClock } from './app/playback.js';
 import { createWindUpLookahead } from './app/windup.js';
+import { markAreaAttacks } from './facing.js';
 import { pieceDirOf, pickUnitOf } from './app/pick.js';
 import { CAMERA_MS, BOARD3D_STABLE_MS, BOARD3D_RETRY_MS, PEN_CAMERA_MS, RANGE_GROUPS, LEADER_HIT_STYLE, DRAG_HOLD_TILES, CHAIN_KINDS, DROP_PENDING_MS, DEPLOY_REPLAY_MS } from './app/tune.js';
 import { boardPreference, switchableBox, bandFor, fieldRows, boardArea, viewKind, restView, flightView } from './app/view.js';
@@ -336,6 +337,9 @@ export async function createFieldView(host, options = {}) {
   // dead units for DIE_ANIM_TIME), which must not bring the view back; a spawn / deploy / live sample clears it
   const gone = new Set();
   const woundUp = new WeakSet(); // atk event tuples whose attack wind-up already started
+  // atk event tuples of area attacks (more than one distinct target of one source in a batch, render/facing.js
+  // markAreaAttacks): an operator's model does not turn for them (DESIGN §37.329)
+  const areaAtk = new WeakSet();
   const interp = new SnapshotBuffer({ delay: 0.1, rate: 2 });
   const presentation = new BattlePresentation();
   const sample = new Map();
@@ -1712,12 +1716,14 @@ export async function createFieldView(host, options = {}) {
     }
     // the official effects of units joining the battle load ahead of their first attack (render/vfx/wiring.js more)
     if (fresh) wiring.more(fresh);
+    // the batch's area attacks, before anything reads them: the look-ahead and a late strike alike (DESIGN §37.329)
+    markAreaAttacks(list, areaAtk);
     return interp.pushEvents(attackRateEvents(list), performance.now() / 1000, t);
   }
 
   // attack wind-ups: an 'atk' still queued in the buffer starts its Spine clip early enough for the strike frame to
   // land when the event is rendered (app/windup.js; the official cast effects play with the clip — vfx/wiring.js castStart)
-  const lookahead = createWindUpLookahead({ views, woundUp, castStart: (v, tv, kind, o) => wiring.castStart(v, tv, kind, o) });
+  const lookahead = createWindUpLookahead({ views, woundUp, areaAtk, castStart: (v, tv, kind, o) => wiring.castStart(v, tv, kind, o) });
   function windUpAttacks(renderT) { lookahead.run(interp, renderT); }
 
   const EVS = [];
@@ -1757,7 +1763,8 @@ export async function createFieldView(host, options = {}) {
         const src = views.get(e[1]) || battleView(e[1]);
         const tgt = views.get(e[2]) || battleView(e[2]);
         // chain / chainHeal bounces: the "source" is the previous target of the bounce, not an attacker
-        if (src && !CHAIN_KINDS.has(e[3])) src.onAttack?.(tgt, now, e[3]);
+        // (wound up: its clip and an operator's facing started already; area: an operator does not turn, DESIGN §37.329)
+        if (src && !CHAIN_KINDS.has(e[3])) src.onAttack?.(tgt, now, e[3], woundUp.has(e), areaAtk.has(e));
         if (e[3] === 'none' || !e[3]) { if (tgt && src) meleePending.set(tgt.id, { src, t: now }); }
         // the unit's official attack (casts, projectile, melee hits — render/vfx/wiring.js) or a chain's bounce (the line of
         // the official shot that opened the chain: wiring.chain), else the procedural one
