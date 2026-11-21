@@ -161,23 +161,34 @@ not the end of the attack clip, not the target's death or departure, not a delay
 measurement of the official recordings, 2026-10-21: the model turned back exactly on the frame the next attack started,
 and stayed turned ~1.7 game s with nothing in range); a long idle keeps it too [ASSUMED]. The direction is the
 official one disassembled by the contributor (docs/research/10-face-logic.md): `ParseDirection` with the 0.25
-horizontal bias picks UP / RIGHT / DOWN / LEFT, the mirror keeps its side inside the ±0.2 dead zone, and closer than
-0.25 tile nothing is judged; UP asks for the Back model, DOWN for the Front one, a horizontal target keeps the skeleton
-and only mirrors [ASSUMED: the contributor's comparison with the official game]. The turn lasts
-`FaceSwitcher._switchTime` = 0.15 game s (all 471 operator art bundles, `tools/local-extract/face_switcher.py`; ~0.13
-measured by the maintainer): the model is squeezed edge-on, the mirror flips there and the Front ⇄ Back swap is asked
-for there; the attack it started with goes on on the new model (`_holdAttack` / `_resumeAttack`; only a swap the turn
-asked for, so #786's skill swap still shows its skill clip). An area attack — more than one distinct target of one
-source in a `b.ev` batch, marked once at ingestion (`markAreaAttacks`), so a late batch is grouped too — does not turn
-[ASSUMED: the PR's rule the maintainer asked for]; nor does a stunned, frozen or sleeping model. The official per-ability
-face modes (`render/faceModes.js`, the contributor's extraction: 109 operators with a non-`Target` row) pick the row of
-the clip being played (the running skill's first, its first attack's `FirstCastTarget` row apart from the later ones):
-`none` keeps the facing, `Default` goes back to the deployed facing at the attack's start [ASSUMED timing],
-`FirstCastTarget` keeps the running skill's first target, `Front` only mirrors; the direction clips of
+horizontal bias picks UP / RIGHT / DOWN / LEFT, the mirror keeps its side inside the ±0.2 dead zone — on the raw x
+offset, |dx| ≤ 0.2 tile [ASSUMED: the method compares the x it is given, and the caller, whose body was not read, runs
+a TOO_CLOSE test on |v|² that only fits a raw offset] —, and closer than 0.25 tile nothing is judged; UP asks for the
+Back model, DOWN for the Front one, a horizontal target keeps the skeleton and only mirrors [ASSUMED: the contributor's
+comparison with the official game]. The turn lasts `FaceSwitcher._switchTime` = 0.15 game s (all 471 operator art
+bundles, `tools/local-extract/face_switcher.py`; ~0.13 measured by the maintainer): the model is squeezed edge-on, the
+mirror flips there and the Front ⇄ Back swap is asked for there; the attack it started with goes on on the new model
+(`_holdAttack` / `_resumeAttack`; only a swap the turn asked for, so #786's skill swap still shows its skill clip). The
+official effects place by the side the running turn ends on (`UnitView.settledFacing`, read by `FxWiring.pose` and
+`boneOffset`): the wind-up's cast effects and a late strike's shot spawn in the turn's first frame; the skeleton they
+read stays the one loaded. An area attack — more than one distinct target of one source in a `b.ev` batch, marked once
+at ingestion (`markAreaAttacks`), so a late batch is grouped too — does not turn [ASSUMED: the PR's rule the maintainer
+asked for]; nor does a stunned, frozen or sleeping model. A batch is a server field's 3-tick drain (one `gt`); a field
+the local runner plays (`battle/runner.js`) sends one batch per rendered frame, so its tick count follows the frame
+rate, and a catch-up frame keeps only the state-bearing events (`keepsState`: no `atk`, so nothing turns then). The
+official per-ability face modes (`render/faceModes.js`, the contributor's extraction: 109 operators with a non-`Target`
+row) pick the row of the clip being played (the running skill's first, its first attack's `FirstCastTarget` row apart
+from the later ones); rows that still disagree on what the model does (none / deploy / target: the nameless default
+rows of 新约能天使, 阿米娅, 夕 and others, the `Attack` rows of 百炼嘉维尔, char_4126_fuze and char_4182_oblvns — 13
+operators, listed in test/render/face-modes.test.js) resolve to `Target` [ASSUMED: the table's order is the
+extraction's, not a priority]. `none` keeps the facing, `Default` goes back to the deployed facing at the attack's start
+[ASSUMED timing], `FirstCastTarget` keeps the running skill's first target, `Front` only mirrors; the direction clips of
 `ForceToDirection` / `CheckDownAttack` are not played and `escapeTime` is not read. Operators without rows (7 of the
 pool's, and summons) use `Target` [ASSUMED]. #786's skill model rule reads the turned facing (`_facesUp`). A
-(re)deployment and `setDir` settle on the deploy direction. Display only: `dir`, the range, targeting, blocking, the
-ground wedge, the sim, the protocol and the goldens are unchanged.
+(re)deployment and `setDir` settle on the deploy direction, and so does every view that is built again — a reconnect,
+watching another field, the local runner's hidden-tab backlog re-entered from the field meta — until its next attack:
+the facing is no part of the snapshot. Display only: `dir`, the range, targeting, blocking, the ground wedge, the sim,
+the protocol and the goldens are unchanged.
 
 The pre-game text fit (§35.56): while a strategy status shows, the draft's step name gives way at 大 / 特大 at any
 width, and at heights ≤ 640 px; 小 / 中 retain it in taller windows. The guide button keeps its width. On short screens

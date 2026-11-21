@@ -17,6 +17,9 @@ import { presetCamera } from '../../public/js/render/projection.js';
 import { spineEntry, hasBackSpine } from '../../public/js/assets.js';
 import { UF } from '../../shared/constants.js';
 import { markAreaAttacks } from '../../public/js/render/facing.js';
+import { SnapshotBuffer } from '../../public/js/render/interp.js';
+import { attackRateEvents } from '../../public/js/render/attackRate.js';
+import { createWindUpLookahead } from '../../public/js/render/app/windup.js';
 import { FxWiring } from '../../public/js/render/vfx/wiring.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -298,7 +301,6 @@ describe('the official face modes', () => {
 
 describe('the look-ahead and the batch', () => {
   test('an area batch is marked once at ingestion; the look-ahead hands the mark to windUp', async () => {
-    const { createWindUpLookahead } = await import('../../public/js/render/app/windup.js');
     const a1 = ['atk', 1, 2, 'none'], a2 = ['atk', 1, 3, 'none'], s = ['atk', 4, 2, 'none'];
     const areaAtk = new WeakSet();
     markAreaAttacks([a1, a2, s], areaAtk);
@@ -308,6 +310,42 @@ describe('the look-ahead and the batch', () => {
     const la = createWindUpLookahead({ views, woundUp: new WeakSet(), areaAtk, castStart() {} });
     la.run({ forEachUpcoming(a, b, fn) { for (const e of [a1, a2, s]) fn(e, 1); } }, 0.8);
     assert.deepEqual(calls, [{ id: 1, area: true }, { id: 1, area: true }, { id: 4, area: false }]);
+  });
+
+  test('a fast single-target attacker over two adjacent batches: neither attack is an area one, both turn', async () => {
+    // the real ingestion (render/app.js pushEvents: markAreaAttacks, then interp.pushEvents) into a real SnapshotBuffer,
+    // the real look-ahead and UnitView; the PR grouped by the 1.5 s look-ahead window and took these for an area attack
+    const v = await op(TEXAS, 'RIGHT');
+    const left = { id: 21, ...at(2, 5) }, right = { id: 22, ...at(8, 5) };
+    const views = new Map([[5, v], [21, left], [22, right]]);
+    const interp = new SnapshotBuffer({ delay: 0.1, rate: 2 });
+    const woundUp = new WeakSet(), areaAtk = new WeakSet();
+    const ingest = (list, gt) => { markAreaAttacks(list, areaAtk); interp.pushEvents(attackRateEvents(list), 0, gt); };
+    const a1 = ['atk', 5, 21, 'none'], a2 = ['atk', 5, 22, 'none'];
+    // two server batches 3 ticks apart (server/match/fields.js SNAP_EVERY), each with the attacker's rate (#729)
+    ingest([['rate', 5, 0.1], a1], 1.0);
+    ingest([['rate', 5, 0.1], a2], 1.1);
+    const both = [['atk', 5, 21, 'none'], ['atk', 5, 22, 'none']];
+    ingest(both, 2.5);                    // and one batch that does hit two targets
+    const casts = [];
+    const la = createWindUpLookahead({ views, woundUp, areaAtk, castStart: (cv) => casts.push(cv.settledFacing) });
+    const seen = [];
+    for (let renderT = 0.6; renderT < 3; renderT += 1 / 60) {
+      la.run(interp, renderT);
+      for (const e of interp.takeEvents(renderT)) {
+        if (e[0] !== 'atk') continue;
+        v.onAttack(views.get(e[2]), renderT, e[3], woundUp.has(e), areaAtk.has(e));
+        seen.push({ tgt: e[2], wound: woundUp.has(e), area: areaAtk.has(e), face: v.settledFacing });
+      }
+      frames(v, 1);
+    }
+    assert.equal(areaAtk.has(a1) || areaAtk.has(a2), false, 'one target per batch: single-target attacks');
+    assert.ok(areaAtk.has(both[0]) && areaAtk.has(both[1]), 'two targets in one batch: an area attack');
+    assert.deepEqual(seen.slice(0, 2).map((x) => [x.tgt, x.area, x.face]), [[21, false, -1], [22, false, 1]],
+      'the first attack turned left, the next one right');
+    assert.ok(seen[0].wound, 'the first one through its wind-up');
+    assert.deepEqual(seen.slice(2).map((x) => [x.area, x.face]), [[true, 1], [true, 1]], 'the area batch turns nothing');
+    assert.equal(casts[0], -1, 'its cast effects on the side it turned to');
   });
 
   test('render/app.js marks every batch and hands the marks to onAttack', () => {

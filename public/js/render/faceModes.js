@@ -1,11 +1,14 @@
 // The official per-ability face modes of the operators (DESIGN §37.329): how the model is driven while each ability
-// animation plays. DATA, not code. Source: @Seals-awa's extraction from the official client (PR #730: their face-mode
-// JSON "10-face-modes", 462 operators / 1473 rows, written out by their tools/build-face-modes.mjs). That JSON and the
-// extraction tools are not in this repository, so this table cannot be regenerated here; it is kept as that PR shipped
-// it, with two changes made in the port: the 353 operators whose rows are all `Target` are left out (`Target` is
-// the default, so they draw the same), and the header comments were rewritten (the PR's had broken characters).
-// 109 operators, 464 rows. Operators the extraction did not cover (char_1012_skadi2, char_4045_heidi, char_4244_tocka,
-// char_4245_alga, char_4246_dminon, char_4247_oxi, char_618_acrbot) and summons use `Target` [ASSUMED].
+// animation plays. DATA, not code: game data derived from the official client, not covered by the GPL (NOTICE.md §2).
+// Source: @Seals-awa's extraction from the official client (PR #730: their face-mode JSON "10-face-modes", 462
+// operators / 1473 rows, written out by their tools/build-face-modes.mjs). That JSON and the extraction tools are not in
+// this repository, so this table cannot be regenerated here; it is kept as that PR shipped it, with two changes made in
+// the port: the 353 operators whose rows are all `Target` are left out (`Target` is the default, so they draw the
+// same), and the header comments were rewritten (the PR's had broken characters). 109 operators, 464 rows; 34 of them
+// are in no pool or stand-in list of the five versions yet, kept for the versions to come. Rows that disagree for one
+// clip resolve to `Target` (render/facing.js faceModeFor). Operators the extraction did not cover (char_1012_skadi2,
+// char_4045_heidi, char_4244_tocka, char_4245_alga, char_4246_dminon, char_4247_oxi, char_618_acrbot) and summons use
+// `Target` [ASSUMED].
 //
 // One operator per line: "charId": [[animKey, mode, up, down, escapeTime, kind], ...]
 //   animKey     the animation the row drives ('' = the ability's default, used when no clip name matches)
