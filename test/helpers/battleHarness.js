@@ -343,7 +343,6 @@ export function checkInvariants(b) {
         if (fixed) {
           if (u.y !== fixed[0] || u.x !== fixed[1] || u.x < 0 || u.x >= COLS || u.y < 0 || u.y >= ROWS) bad('fixed device left its authored tile', u);
         } else if (u.x < R.c0 - 0.5 - 1e-6 || u.x > R.c1 + 0.5 + 1e-6 || u.y < R.r0 - 0.5 - 1e-6 || u.y > R.r1 + 0.5 + 1e-6) bad(`pos ${u.x},${u.y} outside rect`, u);
-
       }
       if (u.skill && !u.skill.noSkill) {
         const sk = u.skill;

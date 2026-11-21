@@ -519,5 +519,5 @@ hits the landing tile's 3×3 grid and releases the passenger within a ±0.2 squa
 extraRoute; reboarding is blocked for 0.1 seconds. The first lethal hit leaves 1 HP. The next hit destroys an empty
 cannon without operator kill credit, or fires a final shot and waits for that final shot to land or be removed.
 Only final-projectile cancellation kills the passenger. [ASSUMED] An ordinary cancelled shot leaves the passenger
-inside Eat for the next shot. Selection of sleeping passengers and clearing displacement unbalance on release
-are also [ASSUMED]. See the [source notes](../research/cannon-projectile-20261120.md).
+inside Eat for the next shot. Excluding sleeping enemies from boarding and clearing displacement unbalance on
+release are also [ASSUMED]. See the [source notes](../research/cannon-projectile-20261120.md).

@@ -70,6 +70,8 @@ function fire(b, c) {
       }
     } else {
       // A fixed-point splash selects all motions and ignores camouflage; stealth/untargetable still exclude.
+      // [ASSUMED] Our devices stay out: the shell's professionMask 1023 also has the TOKEN / TRAP bits (op-closur 767 has no
+      // TRAP), but areaSelectable leaves `kind === 'device'` allies out, as for every other area hit.
       const targets = [];
       for (const a of b.allyUnits)
         if (

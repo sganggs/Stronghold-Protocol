@@ -2390,7 +2390,7 @@ function deviceRecord(ctx, t, runes) {
   if (rec.role === 'cannon') {
     const sp = ctx.skillTable[sk?.skillId]?.levels?.[Math.max(0, (t.mainSkillLvl || 1) - 1)]?.spData;
     rec.cannon = { level, distance: cannonDistance(ctx, level), initSp: sp?.initSp ?? 0, spCost: sp?.spCost ?? 6,
-      spRecovery: attrs.spRecoveryPerSec ?? 1, branchId: (t.overrideSkillBlackboard || []).find(b => b.key === 'talent@branch_id')?.valueStr ?? null,
+      spRecovery: attrs?.spRecoveryPerSec ?? 1, branchId: (t.overrideSkillBlackboard || []).find(b => b.key === 'talent@branch_id')?.valueStr ?? null,
       route: t.cannonRoute ? resolveRoute(t.cannonRoute) : null };
     // [ASSUMED] Apply the bare prefab-key selector once; parallel alias selectors are treated as duplicates.
     for (const rune of runes || []) {
@@ -2399,7 +2399,7 @@ function deviceRecord(ctx, t, runes) {
       if (rune.key === 'char_attribute_add' && rec.stats) {
         rec.stats.maxHp += bb.MAX_HP ?? 0;
         rec.stats.atk += bb.ATK ?? 0;
-      } else if (rune.key === 'char_skill_cd_mul') rec.cannon.spCost *= bb.scale;
+      } else if (rune.key === 'char_skill_cd_mul' && bb.scale > 0) rec.cannon.spCost *= bb.scale;
     }
   }
   const dp = textPair(ch.description);
