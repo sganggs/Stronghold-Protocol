@@ -36,7 +36,7 @@ import { sanitizeSettings, HOTKEY_ACTIONS, DEFAULT_HOTKEYS, hotkeyLabel, rebindH
 import { audio } from '../audio.js';
 import { openGuide } from './guide.js';
 import { detectFeatures, isIOS } from './device.js';
-import { LangToggle, machineTranslationNote } from './lang.js';
+import { LangToggle, machineTranslationNote, communityTranslationNote } from './lang.js';
 import { SettingsBrowser } from './settingsBrowser.js';
 import { t, tc, tParts, N_ } from '../../../shared/i18n.js';
 import { errorCount, currentBattle, diagnosticsText } from '../diag.js';
@@ -487,6 +487,7 @@ export function SettingsModal({ open, onClose }) {
   const [tested, setTested] = useState(false);
   const [touchUi] = useState(() => detectFeatures().coarse && !detectFeatures().fine);
   const mtNote = machineTranslationNote(); // a pack marked as machine translation says so under the switch
+  const communityNote = communityTranslationNote(); // version i18n marked communityTranslated (act3 Terra fills)
   const [fxOk, setFxOk] = useState(false);  // effects extracted from the local client: the 官方特效 row shows
   // only while it is open (the title page keeps the modal mounted, closed), and from the effects' own file list: the
   // asset store (assets.js) is not loaded before a match (test/ui/plugins.e2e.test.js). A Phase 1a extraction (0.3.0
@@ -507,6 +508,7 @@ export function SettingsModal({ open, onClose }) {
         <${LangToggle} class="set-lang" />
       </div>
       ${mtNote ? html`<p class="set-hint set-lang-note" data-testid="lang-mt-note">${mtNote}</p>` : null}
+      ${communityNote ? html`<p class="set-hint set-lang-note" data-testid="lang-community-note">${communityNote}</p>` : null}
     ` },
     { id: 'bgm', category: 'audio', render: () => html`
       <${Slider} label=${t('背景音乐')} micro="BGM" icon="play" value=${s.bgm} onInput=${(v) => updateSettings({ bgm: v })} />

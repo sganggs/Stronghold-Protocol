@@ -847,9 +847,11 @@ hit target clear of the other controls.
 be `vanilla: true`, name the version expected, carry no plugins and no settings, and its composition must hash to the
 cs — the room's `room.state.content.cs` in a room, welcome's entry in the lobby), every data file it lists — only under
 `/data/versions/<slug>/`, no `..` — and its official-bounds snapshot under `/cs/<cs16>/`, each checked by size and
-SHA-256 of its bytes before it is decoded. `data.js` then shows the files (`setContent({ id: cs, values })`; a
-version's files take only the Chinese texts — `versionFiles`, the language folder is keyed by 第二期下半's ids — until
-M3), and `contentSet` says `{ cs, kind: 'version', version, status, loaded, total }`. The set on screen stays until the
+SHA-256 of its bytes before it is decoded. `data.js` then shows the files (`setContent({ id: cs, values, overlay, langs })`;
+a version's files never take the language folder's `data/i18n` — `versionFiles` — but may take the version's own
+`data/versions/<slug>/i18n/<lang>.json` listed on the version index under `i18n`; that index is served `no-cache` and
+re-fetched with `cache: 'reload'` when a cached set might predate the overlay, because i18n is not part of `cs`), and `contentSet` says
+`{ cs, kind: 'version', version, status, loaded, total }`. The set on screen stays until the
 next one is checked (lobby 第一期 → a room of 第二期上半 never shows 第二期下半 in between); a gameplay plugin room still
 starts from the server's files (its own path, `kind: 'plugins'`, unchanged). The last two checked version sets are kept
 (`VERSION_CACHE`): a lobby ⇄ room round trip downloads and checks nothing twice. `room.contentReady { cs }` is sent only

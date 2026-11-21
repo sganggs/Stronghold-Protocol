@@ -11,7 +11,7 @@
       "@YuriRestia (GitHub PR #70, the seed of these strings)",
       "the Stronghold Protocol contributors"
     ],
-    "credits": "Game texts (data/i18n/en.json): the official EN client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata.",
+    "credits": "Game texts (data/i18n/en.json): the official EN client data (© Hypergryph / Yostar) via ArknightsAssets/ArknightsGamedata. Act3 / 规程 version English: Terra Archive (terra-archive.net), unofficial translation.",
     "complete": true
   },
   "_about": "English UI strings: Chinese msgid → English (shared/i18n.js t(); docs/I18N.md). Placeholders {name} and {n|one|other} as in the msgid; a 'context::msgid' key is a tc() variant. Seeded from GitHub PR #70 (branch en-translation) by @YuriRestia, reused with credit (NOTICE.md). Game texts are not here: data/i18n/en.json (tools/build-i18n.mjs).",
@@ -922,6 +922,7 @@
   "语言": "Language",
   "声音": "Sound",
   "当前语言的界面文字为机器翻译，可能不够准确，欢迎在 GitHub 上指正。": "The interface text in this language is machine-translated and may be inaccurate. Corrections are welcome on GitHub.",
+  "当前版本的游戏文本含非官方翻译（部分为机翻，Terra Archive），可能与正式英文有出入。": "Some game texts for this version are unofficial translations (partly machine-translated, Terra Archive) and may differ from Global.",
   "右键查看详情": "Right-click for details",
   "刷新商店": "Refresh Shop",
   "冻结 / 解冻商店": "Freeze / Unfreeze Shop",
