@@ -1180,3 +1180,11 @@ The generator keeps MAP09's official `w` cells and emits `special.duelGrass` wit
 terrain stealth buff; the official 0 restores concealment as soon as the block ends. Missing blackboard values do not imply plain ground: these
 rules come from the official tile and buff templates, recorded in
 [the field receipt](research/regulation-map09-20261112.json). No other map record changes.
+
+### Salt cannon landing data
+
+A regulation `role:cannon` device stores `level`, `distance`, `initSp`, `spCost`, `spRecovery`, `branchId` and
+its resolved landing `route`. Both layout composition and device generation read the distance from the unlocked
+EnemyCannon00 talent's `rangeId` and `range_table`. Routes come from the owning sub-scene's `extraRoutes` and
+move with the battle coordinates. [ASSUMED] Bare prefab-key runes apply once; parallel alias selectors are
+considered duplicates. Missing base stats remain null when processing attribute runes.

@@ -2011,3 +2011,12 @@ field. The flag lasts only until that one-shot callback fires (or is cancelled);
 open normally. Ordinary cosmetic callbacks do not receive this flag. Regulation's `replaceLater` snapshots the
 remaining route and position at death, uses this flag for positive delays and spawns zero-delay replacements
 immediately. See [the source record](research/sarkaz-death-spawns-20261113.md).
+
+### Salt cannon passenger projectiles
+
+`content/saltCannon.js` uses the existing Projectiles manager. On impact, the shot deals Physical splash damage
+to selectable allies in the landing tile's 3×3 grid, then releases the original passenger onto its landing route.
+Only a cancelled final (`*_death`) shot kills its passenger. [ASSUMED] Cancelling an ordinary shot leaves Eat's
+passenger hidden in the cannon until a later shot releases it. Fixed enemy-side devices do not move, count as
+wave enemies or prevent a clear. The fatal hook preserves the initial 1 HP floor; subsequent destruction uses
+a source-less kill, so operators receive no kill credit for the cannon's own InstantKill.

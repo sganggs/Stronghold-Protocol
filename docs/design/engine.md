@@ -510,3 +510,14 @@ Unite results do not report the inherited balance as a new gain.
 At the next `enterPrep`, `onPrepStart` converters consume a shared pool containing all temporary sources; any
 unconverted remainder is then discarded. Each new personal battle starts with an empty ledger. Only unite restores
 a carried ledger.
+
+### Salt cannon boarding and landing
+
+MAP10's fixed enemy-side cannon retains its stage stats and −1 taunt. It holds at most one selectable ground
+enemy of weight ≤3 within 1.1 tiles (Eat radius 1.0 plus enemy collision radius 0.1). A speed-5 point projectile
+hits the landing tile's 3×3 grid and releases the passenger within a ±0.2 square onto the device's original
+extraRoute; reboarding is blocked for 0.1 seconds. The first lethal hit leaves 1 HP. The next hit destroys an empty
+cannon without operator kill credit, or fires a final shot and waits for that final shot to land or be removed.
+Only final-projectile cancellation kills the passenger. [ASSUMED] An ordinary cancelled shot leaves the passenger
+inside Eat for the next shot. Selection of sleeping passengers and clearing displacement unbalance on release
+are also [ASSUMED]. See the [source notes](../research/cannon-projectile-20261120.md).

@@ -68,7 +68,7 @@ import { itemTextForbidsDiy } from '../shared/itemRules.js';
 import { commitNote, commitShaError, gamedataReport, gamedataSummary, loadProfile, originOf, tableSpecError, TABLE_NAMES } from './versions/profiles.mjs';
 import { applyAdapters } from './versions/adapters.mjs';
 import { normalizeMirror, sourceOfProfile, SOURCES } from './versions/sources.mjs';
-import { composeRegulationStage, placeRegulationTemplate, regulationArena } from './versions/layouts.mjs';
+import { cannonDistance, composeRegulationStage, placeRegulationTemplate, regulationArena } from './versions/layouts.mjs';
 
 // ===== CLI & IO ==================================================================================
 
@@ -445,7 +445,7 @@ async function loadContext() {
       if (stagePieces[id]) {
         // the client draws the official arena (the stage's `arena`); the sim keeps the composed 19×21 level
         arenas[id] = regulationArena(levels[id], stagePieces[id]);
-        levels[id] = composeRegulationStage(levels[id], stagePieces[id]);
+        levels[id] = composeRegulationStage(levels[id], stagePieces[id], { charTable, rangeTable });
       } else levels[id] = placeRegulationTemplate(levels[id]);
     }
   }
@@ -2366,7 +2366,7 @@ function rotateGrid(grid, dir) {
 }
 
 /** Device (predefined token/trap) record with stats and skill blackboard at its instance level. */
-function deviceRecord(ctx, t) {
+function deviceRecord(ctx, t, runes) {
   const key = t.inst?.characterKey;
   const ch = ctx.charTable[key];
   const rec = { key, name: ch?.name || key, alias: t.alias || null, pos: pos(t.position), dir: t.direction, hidden: !!t.hidden, role: DEVICE_ROLES[key] || null };
@@ -2387,6 +2387,21 @@ function deviceRecord(ctx, t) {
   const sk = ch.skills?.[t.skillIndex ?? 0];
   const skill = sk?.skillId ? buildSkill(ctx, sk.skillId, t.mainSkillLvl || 1, null, `device ${key}`) : null;
   rec.skill = skill ? { skillId: skill.skillId, name: skill.name, level: skill.level, desc: skill.desc, descRaw: skill.descRaw, bb: skill.bb, bbStr: skill.bbStr } : null;
+  if (rec.role === 'cannon') {
+    const sp = ctx.skillTable[sk?.skillId]?.levels?.[Math.max(0, (t.mainSkillLvl || 1) - 1)]?.spData;
+    rec.cannon = { level, distance: cannonDistance(ctx, level), initSp: sp?.initSp ?? 0, spCost: sp?.spCost ?? 6,
+      spRecovery: attrs.spRecoveryPerSec ?? 1, branchId: (t.overrideSkillBlackboard || []).find(b => b.key === 'talent@branch_id')?.valueStr ?? null,
+      route: t.cannonRoute ? resolveRoute(t.cannonRoute) : null };
+    // [ASSUMED] Apply the bare prefab-key selector once; parallel alias selectors are treated as duplicates.
+    for (const rune of runes || []) {
+      const { bb, bbStr } = flattenBB(rune.blackboard);
+      if (!(bbStr.char || '').split('|').includes(key)) continue;
+      if (rune.key === 'char_attribute_add' && rec.stats) {
+        rec.stats.maxHp += bb.MAX_HP ?? 0;
+        rec.stats.atk += bb.ATK ?? 0;
+      } else if (rune.key === 'char_skill_cd_mul') rec.cannon.spCost *= bb.scale;
+    }
+  }
   const dp = textPair(ch.description);
   rec.desc = dp.desc;
   return rec;
@@ -2498,7 +2513,7 @@ function buildStages(ctx, modesById) {
     if (H !== 19 || W !== 21) warn(`stage ${stageId}: unexpected size ${H}x${W}`);
     const tileAt = (r, c) => tiles[map[H - 1 - r]?.[c]];
     const { rows, glyphTiles } = glyphGrid(stageId, lv);
-    const devices = (lv.predefines?.tokenInsts || []).map((t) => deviceRecord(ctx, t));
+    const devices = (lv.predefines?.tokenInsts || []).map((t) => deviceRecord(ctx, t, lv.runes));
     for (const d of devices) d.active = deviceActiveAtStart(stageId, d);
     const mapChars = (lv.predefines?.characterInsts || []).map((c) => ({
       key: c.inst?.characterKey, alias: c.alias || null, pos: pos(c.position), dir: c.direction, hidden: !!c.hidden,
