@@ -63,7 +63,10 @@ test('the order rows\' name cards wear the doctor\'s outfit (B6, docs/SKINS.md):
   const src = read('public/js/screens/bandDraft.js');
   // the rule itself is unit-tested in seat-art.test.js (one's own choice at once, a teammate's public map, the switch)
   // (§35.51: the outfit's picture, then the default one should the outfit's file fail to load, as on the seat cards)
-  assert.match(src, /const skin = op \? seatCardSkin\(p, op\.chess\.charId, \{ myId, localSkins, players, otherSkins \}\) : null;\n\s+return op \? \[chessPortraitUrl\(data\.get\('assets'\), op\.chess, \{ skin \}\), skin \? chessPortraitUrl\(data\.get\('assets'\), op\.chess\) : null\] : null;/);
+  // (#877, DESIGN §37.325: `skinPlayers` — the match's players over the room's seats, ui/seatArt.js cardSkinPlayers — so a
+  // teammate's card of another period wears the outfit the room has; unit-tested in seat-art.test.js)
+  assert.match(src, /const skinPlayers = useMemo\(\(\) => cardSkinPlayers\(players, roomSeats\), \[pub, roomSeats\]\);/);
+  assert.match(src, /const skin = op \? seatCardSkin\(p, op\.chess\.charId, \{ myId, localSkins, players: skinPlayers, otherSkins \}\) : null;\n\s+return op \? \[chessPortraitUrl\(data\.get\('assets'\), op\.chess, \{ skin \}\), skin \? chessPortraitUrl\(data\.get\('assets'\), op\.chess\) : null\] : null;/);
   assert.match(src, /const art = seatArtSrc\(arts, badArt\);/);
   assert.match(src, /<img key=\$\{art\} class="dorder__art" src=\$\{art\}[^>]*onError=\$\{\(\) => setBadArt\(/);
   assert.match(read('docs/SKINS.md'), /strategy draft's name cards/);

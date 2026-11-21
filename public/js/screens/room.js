@@ -31,6 +31,11 @@
 // room.card by ui/loadoutSync.js installCardSync, so the room sees it as seats[].card), else one of the 5★/6★ operators
 // chosen by the player id (ui/seatArt.js), the same on every client. [ASSUMED] The pick made here and kept in this
 // browser stands in for the event's account assistant (名片形象); [ASSUMED] the default by player id is a remake rule.
+// Other periods (#877, DESIGN §37.325): the picker also offers every other official period's card candidates (the roster
+// data/card-roster.json, shared/cardRoster.js — loaded with the screen, never a version's data), grouped after the room's
+// version newest period first; only the cards show them, the room's pool stays. While the roster loads a teammate's
+// cross-period pick keeps the avatar frame (no default operator for a moment); without it the picker says so and offers
+// 重试, and such a pick draws the default.
 // Outfits (docs/SKINS.md; the maintainer's decision 4 of 2026-10-21): the portrait wears the player's outfit — one's own
 // card this browser's choice at once, another doctor's the map that seat published (room.state seats[].skins) unless
 // 「显示其他玩家的皮肤」 is off; an outfit this page's appearance plugins do not have draws the default art (ui/seatArt.js
@@ -69,7 +74,8 @@ import { net } from '../net.js';
 import { store, useStore, shallowEqual, emptyMatch, isSpectating, savePref } from '../store.js';
 import { data, useData, getConfig } from '../data.js';
 import { chessAvatarUrl, chessPortraitUrl } from '../ui/assetUrls.js';
-import { CARD_KEY, cardStore, setCard, cardOperators, cardContext, seatOperator, seatCardSkin, seatArtSrc } from '../ui/seatArt.js';
+import { CARD_KEY, cardStore, setCard, cardOperators, cardContext, cardGroups, rosterOperators, seatOperator, seatCardSkin, seatArtSrc } from '../ui/seatArt.js';
+import { CARD_ROSTER } from '../../../shared/cardRoster.js';
 import { skinsStore, SKINS_KEY, ownerSkin } from '../ui/skins.js';
 import { settingsStore } from '../ui/settingsStore.js';
 import { difficultyInfo, modeInfo, ProtocolSelect } from './lobby.js';
@@ -220,19 +226,43 @@ function CardThumb({ src, name }) {
  * search by name, rarity tabs) and 默认, no pick: the card shows the operator chosen by the player id. Picking closes it;
  * the current choice takes the focus (no on-screen keyboard on a phone). A local picker: each tile wears this browser's
  * outfit for that operator (`localSkins`, docs/SKINS.md), as the card will.
+ * Other periods (#877, DESIGN §37.325): the tiles in groups (ui/seatArt.js cardGroups) — 「本房间版本 · X」 with 默认 first,
+ * then 「其他时期 · Y」 newest first, each heading across the grid; the rarity tabs and the search (the shown name, the
+ * Chinese one, the appellation) cover every group, and a group with nothing left hides with its heading. A cross-period
+ * tile's title names its periods. Under the grid: the roster still loading, or failed with 重试 (data.js invalidate); a
+ * pick this page cannot show (`byChar` lacks it, nothing loading: `pending`) says the card shows the default meanwhile.
+ * [ASSUMED] no tabs, no period marks on the cards — the note under the grid says other periods only show on the card.
  */
 /** A name with a Latin word of 12 or more characters (「Miss.Christine」, English 「Leizi the Thunderbringer」) is set smaller
  *  in the picker's tiles (room.css `.cardpick__name.is-long`): such a word is about as wide as the tile. */
 const longWord = (name) => String(name || '').split(/\s+/).some((w) => w.length >= 12 && /^[\x21-\x7e]+$/.test(w));
 
-function CardPicker({ current, list, m, localSkins = {}, onPick, onClose }) {
+function CardPicker({ current, list, others = [], byChar = null, pending = false, rosterState = 'ready', roomVersion: version = DEFAULT_VERSION, m, localSkins = {}, onPick, onClose }) {
   const [q, setQ] = useState('');
   const [star, setStar] = useState(0);
-  const stars = useMemo(() => [...new Set(list.map((c) => c.rarity).filter((r) => r > 0))].sort((a, b) => b - a), [list]);
-  const known = !!current && list.some((c) => c.charId === current);
+  const groups = useMemo(() => cardGroups(list, others, version), [list, others, version]);
+  const stars = useMemo(() => [...new Set(groups.flatMap((g) => g.ops.map((c) => c.rarity)).filter((r) => r > 0))].sort((a, b) => b - a), [groups]);
+  const known = !!current && (byChar ? byChar.has(current) : list.some((c) => c.charId === current));
+  // a pick still loading (the 自选 pool, the roster): neither 默认 nor a notice yet
+  const waiting = !!current && !known && pending;
+  const lost = !!current && !known && !pending;
+  const autoOn = !known && !waiting;
   const needle = q.trim().toLowerCase();
-  const shown = list.filter((c) => (!star || c.rarity === star)
-    && (!needle || [c.name, c.appellation].some((v) => String(v || '').toLowerCase().includes(needle))));
+  const shown = groups.map((g) => ({ ...g, ops: g.ops.filter((c) => (!star || c.rarity === star)
+    && (!needle || [c.name, c.zh, c.appellation].some((v) => String(v || '').toLowerCase().includes(needle)))) }));
+  const count = shown.reduce((n, g) => n + g.ops.length, 0);
+  const rosterBusy = rosterState === 'idle' || rosterState === 'loading';
+  const tile = (c, key) => {
+    const src = chessAvatarUrl(m, c, { skin: ownerSkin(c.charId, { localSkins }) });
+    const on = known && c.charId === current;
+    const title = c.other && Array.isArray(c.periods) && c.periods.length ? `${c.name} · ${c.periods.map((p) => versionLabel(p)).join(' / ')}` : c.name;
+    return html`<button key=${c.charId} type="button" class=${`cardpick__op r${c.rarity}${on ? ' is-on' : ''}`} aria-pressed=${on ? 'true' : 'false'}
+        data-char=${c.charId} data-group=${key} data-autofocus=${on ? '' : undefined} title=${title} onClick=${() => onPick(c.charId)}>
+      <${CardThumb} src=${src} name=${c.name} />
+      <span class=${`cardpick__name${longWord(c.name) ? ' is-long' : ''}`}>${c.name}</span>${c.rarity ? html`<span class="cardpick__star num">${c.rarity}★</span>` : null}
+    </button>`;
+  };
+  const roomOps = shown.find((g) => g.key === 'room')?.ops || [];
   return html`<${Modal} open=${true} class="cardpick" micro="SEAT CARD OPERATOR" title=${t('名片干员')} width="min(10.4rem, 96vw)"
       onClose=${onClose} actions=${html`<${Button} variant="ghost" onClick=${onClose}>${t('关闭')}<//>`}>
     <div class="cardpick__bar">
@@ -243,22 +273,24 @@ function CardPicker({ current, list, m, localSkins = {}, onPick, onClose }) {
       </div>
     </div>
     <div class="cardpick__grid" data-testid="card-picker">
-      <button type="button" class=${`cardpick__op cardpick__op--auto${known ? '' : ' is-on'}`} aria-pressed=${known ? 'false' : 'true'}
-          data-char="" data-autofocus=${known ? undefined : ''} title=${t('按博士编号自动分配')} onClick=${() => onPick('')}>
+      <p key="h-room" class="cardpick__group" role="heading" aria-level="3" data-group="room">${t('本房间版本 · {version}', { version: versionLabel(version) })}</p>
+      <button key="auto" type="button" class=${`cardpick__op cardpick__op--auto${autoOn ? ' is-on' : ''}`} aria-pressed=${autoOn ? 'true' : 'false'}
+          data-char="" data-group="room" data-autofocus=${autoOn ? '' : undefined} title=${t('按博士编号自动分配')} onClick=${() => onPick('')}>
         <span class="cardpick__img"><${Icon} name="refresh" /></span><span class="cardpick__name">${t('默认')}</span>
       </button>
-      ${shown.map((c) => {
-        const src = chessAvatarUrl(m, c, { skin: ownerSkin(c.charId, { localSkins }) });
-        const on = known && c.charId === current;
-        return html`<button key=${c.charId} type="button" class=${`cardpick__op r${c.rarity}${on ? ' is-on' : ''}`} aria-pressed=${on ? 'true' : 'false'}
-            data-char=${c.charId} data-autofocus=${on ? '' : undefined} title=${c.name} onClick=${() => onPick(c.charId)}>
-          <${CardThumb} src=${src} name=${c.name} />
-          <span class=${`cardpick__name${longWord(c.name) ? ' is-long' : ''}`}>${c.name}</span>${c.rarity ? html`<span class="cardpick__star num">${c.rarity}★</span>` : null}
-        </button>`;
-      })}
+      ${roomOps.map((c) => tile(c, 'room'))}
+      ${shown.filter((g) => g.key !== 'room' && g.ops.length).map((g) => [
+        html`<p key=${`h-${g.key}`} class="cardpick__group" role="heading" aria-level="3" data-group=${g.key}>${t('其他时期 · {version}', { version: versionLabel(g.version) })}</p>`,
+        ...g.ops.map((c) => tile(c, g.key)),
+      ])}
     </div>
-    ${shown.length ? null : html`<p class="cardpick__empty">${t('没有符合条件的干员')}</p>`}
-    <p class="cardpick__note"><${Icon} name="info" />${t('选择后，同盟里的博士都会看到这张立绘')}</p>
+    ${count ? null : html`<p class="cardpick__empty">${t('没有符合条件的干员')}</p>`}
+    ${rosterBusy ? html`<p class="cardpick__notice is-loading" data-testid="card-roster-loading"><${Spinner} size="sm" /><span class="cardpick__said">${t('其他时期载入中…')}</span></p>`
+      : rosterState === 'missing' ? html`<p class="cardpick__notice is-failed" data-testid="card-roster-failed"><${Icon} name="warn" /><span class="cardpick__said">${t('其他时期的干员暂时无法载入')}</span>
+          <${Button} variant="ghost" size="sm" icon="refresh" onClick=${() => data.invalidate(CARD_ROSTER)}>${t('重试')}<//></p>`
+      : null}
+    ${lost ? html`<p class="cardpick__notice is-lost" data-testid="card-pick-lost"><${Icon} name="info" /><span class="cardpick__said">${t('之前选的名片干员在这里不可用，名片暂时显示默认干员')}</span></p>` : null}
+    <p class="cardpick__note"><${Icon} name="info" /><span>${t('选择后，同盟里的博士都会看到这张立绘')}<br />${t('其他时期的干员只作名片展示，不影响本局卡池')}</span></p>
   <//>`;
 }
 
@@ -496,12 +528,21 @@ export function RoomScreen() {
   // 名片干员: the operators a seat card can show and the default pool (ui/seatArt.js), one's own pick (a pref the sync
   // engine sends: ui/loadoutSync.js installCardSync), and the outfits the cards wear — this browser's choices and the
   // 「显示其他玩家的皮肤」 switch (docs/SKINS.md)
-  useData('chess', 'assets', 'config', 'backups');
+  // (#877, DESIGN §37.325: the cross-period roster with them — one small file, never another version's data)
+  useData('chess', 'assets', 'config', 'backups', CARD_ROSTER);
   const chess = data.get('chess');
   const backups = data.get('backups');
-  // the room version's chess records and 自选编队 pool (ui/seatArt.js cardOperators — the server's cardCharIds)
+  const roster = data.getRaw(CARD_ROSTER);
+  const rosterState = data.status(CARD_ROSTER);
+  const lang = data.locale();
+  // the room version's chess records and 自选编队 pool (ui/seatArt.js cardOperators — the room's part of the server's
+  // cardAllowed), then the other periods' operators the room lacks (rosterOperators: they resolve a pick, never the
+  // default pool); a pick waits while the pool or the roster loads
   const cardList = useMemo(() => cardOperators(data.list('chess'), backups), [chess, backups]);
-  const cards = useMemo(() => cardContext(cardList, { pending: !backups }), [cardList, backups]);
+  const others = useMemo(() => rosterOperators(roster, { exclude: new Set(cardList.map((c) => c.charId)), lang, localeName: (s) => data.localeName(s) }),
+    [roster, cardList, lang]);
+  const cards = useMemo(() => cardContext(cardList, { pending: !backups || rosterState === 'idle' || rosterState === 'loading', extra: others }),
+    [cardList, backups, others, rosterState]);
   const myCard = useStore((s) => s[CARD_KEY], Object.is, cardStore);
   const localSkins = useStore((s) => s[SKINS_KEY], Object.is, skinsStore);
   const otherSkins = useStore((s) => s.otherSkins !== false, Object.is, settingsStore);
@@ -797,7 +838,8 @@ export function RoomScreen() {
             <//>`}
       </div>
     </footer>
-    ${picking ? html`<${CardPicker} current=${myCard} list=${cardList} m=${data.get('assets')} localSkins=${localSkins} onPick=${pickCard} onClose=${() => setPicking(false)} />` : null}
+    ${picking ? html`<${CardPicker} current=${myCard} list=${cardList} others=${others} byChar=${cards.byChar} pending=${cards.pending} rosterState=${rosterState}
+      roomVersion=${roomVersion(room)} m=${data.get('assets')} localSkins=${localSkins} onPick=${pickCard} onClose=${() => setPicking(false)} />` : null}
     ${protoOpen ? facts.isHost
       ? html`<${ProtocolSelect} roomMode=${room.mode} difficulty=${ladder ? room.difficulty : protoPick || room.difficulty} onDifficulty=${setProtoPick} onClose=${closeProto}
           onCreate=${confirmDifficulty} busy=${busy === 'diff' ? 'create' : null} online=${online} action=${t('确认')} hint=${protoHint} difficulties=${protoDifficulties}

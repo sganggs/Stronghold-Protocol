@@ -535,6 +535,24 @@
 .cardpick__empty { flex: none; margin: 0; font-size: calc(.16 * var(--t)); color: var(--text-lo); }
 .cardpick__note { flex: none; display: flex; align-items: center; gap: .06rem; margin: 0; font-size: calc(.15 * var(--t)); color: var(--text-lo); }
 .cardpick__note .icon { flex: none; width: .18rem; height: .18rem; }
+/* other periods (#877, DESIGN §37.325): a heading across the grid before each period's tiles (本房间版本 first), and the
+   lines under the grid — the roster loading, failed with 重试, a pick this page cannot show. [ASSUMED] the look */
+.cardpick__group {
+  grid-column: 1 / -1;
+  margin: .06rem 0 0;
+  padding: 0 .02rem .02rem;
+  border-bottom: 1px solid var(--line);
+  color: var(--text-lo);
+  font-size: calc(.15 * var(--t));
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: break-word;
+}
+.cardpick__group:first-child { margin-top: 0; }
+.cardpick__notice { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: .04rem .1rem; margin: 0; font-size: calc(.15 * var(--t)); color: var(--text-md); }
+.cardpick__notice > .icon { flex: none; width: .18rem; height: .18rem; }
+.cardpick__said { flex: 1 1 3rem; min-width: 0; }
+.cardpick__notice.is-failed > .icon { color: var(--amber); }
 
 /* ---- bottom: status, the difficulty pill with ⚙, the big button ------------------------------------------------ */
 .rs-foot {

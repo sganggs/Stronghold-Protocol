@@ -3,10 +3,16 @@
 // page sends the map filtered to the operators of the data on screen. A skin for an operator only one version has
 // (char_198_blackd: 第一期, not 第二期下半) reaches room.skins after the switch to that version; a content change that
 // keeps the same operators spends no heavy message. Controlled timers and a fake net (as test/ui/card-sync.test.js).
+// The kept set also holds the cross-period 名片 roster (#877, DESIGN §37.325: skinOperatorIds) — the cases below inject
+// the set itself (`operatorsReady`).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createStore } from '../../public/js/store.js';
-import { installSkinsSync, SYNC_DEBOUNCE_MS } from '../../public/js/ui/loadoutSync.js';
+import { installSkinsSync, skinOperatorIds, SYNC_DEBOUNCE_MS } from '../../public/js/ui/loadoutSync.js';
+import { operatorCharIds } from '../../shared/protocol.js';
 import { SKINS_KEY, SKINS_SYNC_KEY } from '../../public/js/ui/skins.js';
 
 const ticks = async () => { for (let i = 0; i < 8; i++) await Promise.resolve(); };
@@ -88,4 +94,21 @@ test('skins sync: without the data the map goes whole (the server filters it); a
   await e.flush();
   assert.deepEqual(e.net.sent, [{ t: 'room.skins', skins: {} }]);
   assert.equal(asked, 0);
+});
+
+test('skinOperatorIds: the room\'s operators and the cross-period roster\'s; the room\'s alone without a roster (#877)', () => {
+  const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+  const read = (rel) => JSON.parse(readFileSync(path.join(ROOT, rel), 'utf8'));
+  const raw = { chess: read('data/chess.json'), backups: read('data/backups.json') };
+  const roster = read('data/card-roster.json');
+  const room = operatorCharIds(raw);
+  const ids = skinOperatorIds(raw, roster);
+  for (const id of room) assert.ok(ids.has(id), id);
+  for (const o of roster.operators) assert.ok(ids.has(o.charId), o.charId);
+  assert.ok(!room.has('char_4166_varkis') && ids.has('char_4166_varkis'), 'a 规程 card wears its outfit in a 第二期下半 room (the server keeps it too)');
+  assert.equal(ids.size, new Set([...room, ...roster.operators.map((o) => o.charId)]).size, 'the union, nothing more');
+  for (const none of [null, undefined, { format: 2, operators: roster.operators }]) assert.deepEqual(skinOperatorIds(raw, none), room);
+  assert.notEqual(skinOperatorIds(raw, null), room, 'a new set: operatorCharIds\' cached one is never changed');
+  assert.equal(operatorCharIds(raw).size, room.size);
+  assert.deepEqual(skinOperatorIds({ chess: null, backups: null }, roster), new Set(roster.operators.map((o) => o.charId)));
 });
