@@ -107,6 +107,34 @@ test('check follows a cosmetic plugin\'s references to this checkout\'s data/ass
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('an outfit\'s own lines (#733, §37.330): checked against this checkout, packed into the lock, served, zipped — a missing one refused', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-outfit-voice-'));
+  try {
+    const key = 'char_102_texas@epoque#7';
+    const files = { 'voice/cn/select1.mp3': Buffer.from('ID3 select one'), 'voice/cn/select2.ogg': Buffer.from('OggS select two'),
+      'voice/jp/select1.mp3': Buffer.from('ID3 select one, JP'), 'art/a.png': png(2, 2) };
+    const p = writePlugin(path.join(dir, 'texas-outfit'), cosmetic({ assets: { chars: { char_102_texas: { skins: { [key]: { name: '意志', avatar: 'art/a.png',
+      voice: { select: ['voice/cn/select1.mp3', 'voice/cn/select2.ogg'] }, voiceJp: { select: 'voice/jp/select1.mp3' } } } } } } }), files);
+    assert.equal((await quiet(['check', p, '--root', ROOT])).code, 0, 'check: clean against this checkout\'s manifest');
+    const r = await quiet(['pack', p, '--zip', '--out', path.join(dir, 'out') + '/', '--root', ROOT]);
+    assert.equal(r.code, 0, r.out);
+    const lock = JSON.parse(fs.readFileSync(path.join(p, 'plugin.lock.json'), 'utf8'));
+    for (const rel of Object.keys(files)) assert.equal(lock.files[rel]?.sha256, sha(fs.readFileSync(path.join(p, rel))), `${rel} in the lock`);
+    const loaded = readPluginFolder(p, { vanilla: readVanillaAssets(path.join(ROOT, 'data')) });
+    assert.deepEqual([loaded.problems, loaded.warnings], [[], []]);
+    assert.deepEqual([...loaded.plugin.visual.served.keys()].sort(), Object.keys(files).sort(), 'every line is a file the server serves (/p/)');
+    assert.deepEqual(loaded.plugin.visual.ops.filter((o) => o.at.includes('voice') || o.at.includes('voiceJp')).map((o) => [o.at.slice(-2).join('.'), o.file ?? o.files]),
+      [['voice.select', ['voice/cn/select1.mp3', 'voice/cn/select2.ogg']], ['voiceJp.select', 'voice/jp/select1.mp3']]);
+    const { unzipFiles } = await import('../../server/plugins/zip.js');
+    const zipped = unzipFiles(fs.readFileSync(path.join(dir, 'out', 'texas-outfit-1.0.0.zip'))).map((e) => e.name);
+    for (const rel of Object.keys(files)) assert.ok(zipped.includes(`texas-outfit/${rel}`), `${rel} in the zip`);
+    // a line the folder lacks: the plugin is kept out, and check fails
+    fs.rmSync(path.join(p, 'voice/jp/select1.mp3'));
+    assert.match(readPluginFolder(p).problems.join('\n'), /voice\/jp\/select1\.mp3 is missing/);
+    assert.equal((await quiet(['check', p, '--root', ROOT])).code, 1);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('the cosmetic template: original real media and installed references, no file of the game; valid against this checkout\'s manifest', async () => {
   const tpl = path.join(ROOT, 'plugins', '_template', 'cosmetic');
   assert.deepEqual(listPluginFiles(tpl).map((f) => f.rel).sort(), ['README.md', 'media/sample.ogg', 'media/sample.png', 'plugin.json'], 'original media files in the template');

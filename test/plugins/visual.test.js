@@ -134,6 +134,37 @@ describe('reading an overlay', () => {
     assert.deepEqual(read({ chars: { char_4058_pepe: { skins: {} } } }).problems, [], 'no skins is no write');
   });
 
+  test('an operator\'s skin may carry the outfit\'s own lines: one tree per dub, the voice slots, audio files of the folder (#733, §37.330)', () => {
+    const key = 'char_102_texas@epoque#7';
+    const r = read({ chars: { char_102_texas: { skins: { [key]: { name: '意志', avatar: 'art/a.png',
+      voice: { select: ['v/s1.mp3', 'v/s2.ogg'], skill1: 'v/s1.mp3' }, voiceJp: { select: 'v/s2.ogg' }, voiceEn: { start: 'v/s1.mp3' },
+      voiceKr: { place: 'v/s1.mp3' }, voiceNative: { faceEnemy: 'v/s2.ogg' } } } } } });
+    assert.deepEqual([r.problems, r.warnings], [[], []]);
+    const skin = `chars.char_102_texas.skins.${key}`;
+    assert.deepEqual(r.ops.map((o) => o.at.join('.')), [`${skin}.name`, `${skin}.avatar`, `${skin}.voice.select`, `${skin}.voice.skill1`,
+      `${skin}.voiceJp.select`, `${skin}.voiceEn.start`, `${skin}.voiceKr.place`, `${skin}.voiceNative.faceEnemy`]);
+    assert.deepEqual(r.ops[2].files, ['v/s1.mp3', 'v/s2.ogg'], 'a slot of several lines: a list, as audio.voice takes it');
+    assert.deepEqual(r.files, ['art/a.png', 'v/s1.mp3', 'v/s2.ogg'], 'its files are served (and packed) like any other sound');
+    for (const tree of ['voice', 'voiceJp', 'voiceEn', 'voiceKr', 'voiceNative']) {
+      assert.equal(locateAssetPath(['chars', 'char_102_texas', 'skins', key, tree, 'select']).kind, 'audioList', tree);
+    }
+    assert.equal(locateAssetPath(['chars', 'char_102_texas', 'skins', key, 'voice', '1bad']), null, 'a slot name is the voice slots\' shape');
+    assert.equal(locateAssetPath(['tokens', 'token_x', 'skins', key, 'voice', 'select']), null, 'a summon\'s skin has no lines');
+    const bad = (assets) => read(assets).problems.join('\n');
+    const warn = (assets) => read(assets).warnings.join('\n');
+    const skinOf = (s) => ({ chars: { char_102_texas: { skins: { [key]: s } } } });
+    assert.match(bad(skinOf({ voice: { select: 'v/missing.mp3' } })), /skins\.char_102_texas@epoque#7\.voice\.select: v\/missing\.mp3 is missing/, 'a file the folder lacks');
+    assert.match(bad(skinOf({ voice: { select: 'art/a.png' } })), /voice\.select/, 'a picture is no line');
+    assert.match(bad(skinOf({ voice: { select: [] } })), /not an audio file or a list of 1–16/, 'an empty list is no write (the composed manifest may still end up with one: voiceLine falls back)');
+    assert.match(bad(skinOf({ voice: { select: Array.from({ length: 17 }, () => 'v/s1.mp3') } })), /not an audio file or a list of 1–16/);
+    assert.match(warn(skinOf({ voice: { '1bad': 'v/s1.mp3' } })), /voice\.1bad is not a field a cosmetic plugin changes/, 'a slot of the wrong shape: ignored, as in audio.voice');
+    assert.match(warn(skinOf({ voiceDe: { select: 'v/s1.mp3' } })), /voiceDe is not a field a cosmetic plugin changes/, 'only the dubs the manifest has');
+    assert.match(warn({ tokens: { token_x: { skins: { [key]: { voice: { select: 'v/s1.mp3' } } } } } }), /skins\.char_102_texas@epoque#7\.voice is not a field/, 'a summon says nothing');
+    // a reference from a skin reads the entry's own skin of the same key (the header): the committed manifest has no skins
+    assert.match(bad(skinOf({ voice: { select: { ref: 'char_112_siege' } } })), /has no chars\.char_112_siege\.skins\.char_102_texas@epoque#7\.voice\.select/);
+    assert.match(bad(skinOf({ voice: { ref: 'char_112_siege' } })), /PLUGIN_REF|has no chars\.char_112_siege\.skins/);
+  });
+
   test('files: plain paths inside the folder, of the field\'s kind, present; Spine models side by side; no clip data by hand', () => {
     const bad = (assets) => read(assets).problems.join('\n');
     assert.match(bad({ chars: { char_102_texas: { avatar: '../a.png' } } }), /"\.\.\/a\.png" is not a path inside the plugin folder/);
@@ -358,6 +389,33 @@ describe('resolution, merge, application', () => {
     const failed = layVisualOps(VANILLA, [prepareVisualDoc(doc)], { failed: new Set([out.chars.char_102_texas.skins['char_102_texas@sightseer#2'].portrait]) }).manifest;
     assert.equal(failed.chars.char_102_texas.skins['char_102_texas@sightseer#2'].portrait, undefined);
     assert.equal(failed.chars.char_102_texas.skins['char_102_texas@sightseer#2'].name, '悠然假日');
+  });
+
+  test('an outfit\'s own lines are composed under its skin with /p/ URLs; a file that failed is left out (#733, §37.330)', async () => {
+    const { voiceLine, wornOutfit } = await import('../../public/js/audio.js');
+    const key = 'char_102_texas@epoque#7';
+    const r = read({ chars: { char_102_texas: { skins: { [key]: { name: '意志', voice: { select: ['v/s1.mp3', 'v/s2.ogg'] }, voiceJp: { select: 'v/s2.ogg' } } } } } });
+    assert.deepEqual(r.problems, []);
+    const doc = setDoc([{ id: 'p', ops: r.ops }]);
+    const prep = prepareVisualDoc(doc);
+    assert.deepEqual([prep.droppedCount, prep.dropped], [0, []]);
+    const out = compose(VANILLA, doc);
+    const url = (rel) => `/p/p/${sha(rel).slice(0, 8)}/${rel}`;
+    assert.deepEqual(out.chars.char_102_texas.skins[key], { name: '意志', voice: { select: [url('v/s1.mp3'), url('v/s2.ogg')] }, voiceJp: { select: url('v/s2.ogg') } });
+    assert.deepEqual(out.audio.voice.char_102_texas, VANILLA.audio.voice.char_102_texas, 'the operator\'s own lines untouched');
+    // what the client plays from the composed manifest: the outfit's line for the slot it has, the operator's for the rest
+    const outfit = wornOutfit(out, 'char_102_texas', key);
+    assert.equal(voiceLine(out.audio, 'char_102_texas', 'select', 'cn', () => 0, true, outfit).url, url('v/s1.mp3'));
+    assert.equal(voiceLine(out.audio, 'char_102_texas', 'skill1', 'cn', () => 0, true, outfit).url, '/assets/audio/voice/cn/texas/s1.mp3');
+    assert.deepEqual(voiceLine(out.audio, 'char_102_texas', 'select', 'jp', () => 0, true, outfit), { url: url('v/s2.ogg'), fallback: url('v/s2.ogg') },
+      '日本語: the outfit\'s JP line, its Chinese twin of the same name as the fallback');
+    // a write with a file that would not load is left out (the whole slot: the operator's own line plays there); the
+    // outfit's other writes stay
+    const failed = layVisualOps(VANILLA, [prepareVisualDoc(doc)], { failed: new Set([url('v/s1.mp3')]) }).manifest;
+    assert.equal(failed.chars.char_102_texas.skins[key].voice?.select, undefined);
+    assert.equal(failed.chars.char_102_texas.skins[key].voiceJp.select, url('v/s2.ogg'));
+    const withOwn = { ...failed, audio: { ...failed.audio, voice: { ...failed.audio.voice, char_102_texas: { select: '/assets/own.mp3' } } } };
+    assert.equal(voiceLine(withOwn.audio, 'char_102_texas', 'select', 'cn', () => 0, true, wornOutfit(withOwn, 'char_102_texas', key)).url, '/assets/own.mp3');
   });
 
   test('what does not fit the set is dropped — its entry keeps the art beneath it; no URL is ever taken from the document', () => {

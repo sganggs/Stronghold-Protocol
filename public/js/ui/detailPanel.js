@@ -51,6 +51,9 @@ import { moduleBadge, fullTraitText } from './loadoutModel.js';
 import { t, tc, N_ } from '../../../shared/i18n.js';
 import { morphSlotPolicy } from '../../../shared/plugins/rules.js';
 import { audio } from '../audio.js';
+import { store } from '../store.js';
+import { skinsStore, ownerSkin } from './skins.js';
+import { settingsStore } from './settingsStore.js';
 import { tokenVariantFor } from './gameLogic/loadout.js';
 import { useSettings } from './settings.js';
 import { usePrefabPack } from './prefab/view.js';
@@ -876,6 +879,24 @@ export function selectVoiceKey(detail) {
 }
 
 /**
+ * The outfit the 选中干员 line of a resolved detail is said in (#733, DESIGN §37.330): the one its card draws —
+ * ChessDetail's body (a 补位 piece's stand-in, a 自选 record's pick, else the chess) under OperatorImage's rule
+ * (`ownerSkin`: the seat that owns the unit / piece — a teammate's unit its owner's public choice, or the skin it arrived
+ * with; a card of the own seat this seat's; the 显示其他玩家的皮肤 switch), never the viewer's choice for another seat.
+ * `{ skinKey, skinCharId }` for audio.voice, or {} for none.
+ * @param {any} detail resolveDetail's result
+ * @param {{ myId?: string|null, players?: any[], localSkins?: Record<string, string>, otherSkins?: boolean }} [view]
+ * @returns {{ skinKey?: string, skinCharId?: string }}
+ */
+export function selectVoiceOutfit(detail, { myId = null, players = [], localSkins = {}, otherSkins = true } = {}) {
+  if (detail?.type !== 'chess') return {};
+  const body = detail.standIn && detail.standIn.standInFor ? detail.standIn : detail.chess;
+  const charId = typeof body?.charId === 'string' && body.charId ? body.charId : null;
+  const skinKey = charId ? ownerSkin(charId, { ownerId: detail.ownerId, skin: detail.skin ?? null, myId, players: Array.isArray(players) ? players : [], localSkins, otherSkins }) : null;
+  return skinKey ? { skinKey, skinCharId: charId } : {};
+}
+
+/**
  * The panel.
  * @param {{ detail:any, editable:boolean, snapHp?:{hp:number,max:number}|null, onClose:Function, onSell:(piece:any)=>void, onDestroy:(piece:any)=>void,
  *   bonds?: any[], offBonds?: Set<string>|null, loadout?: any, onBond?: (bondId:string)=>void, side?: 'left'|'right', shopOpen?: boolean }} props
@@ -902,7 +923,11 @@ export function DetailPanel({ detail, editable, snapHp, onClose, onSell, onDestr
   // and battle lines the card and audio.js show), never by the operator it replaces; a 自选 record is already the pick's
   const selectChar = voice && detail?.type === 'chess' ? detail.standIn?.assets?.voice || detail.standIn?.charId || detail.chess?.assets?.voice || detail.chess?.charId || null : null;
   useEffect(() => {
-    if (selectKey && selectChar) audio.voice(selectChar, 'select');
+    if (!selectKey || !selectChar) return;
+    // in the outfit the card shows (#733): the unit's own seat, read when the line starts (selectVoiceOutfit)
+    const s = store.get();
+    audio.voice(selectChar, 'select', selectVoiceOutfit(detail, { myId: s?.me?.playerId ?? null, players: s?.match?.public?.players || [],
+      localSkins: skinsStore.get()?.skins || {}, otherSkins: settingsStore.get()?.otherSkins !== false }));
   }, [selectKey, selectChar]);
   if (!detail) return null;
   let liveNow = null;

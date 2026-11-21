@@ -89,6 +89,8 @@ settingsStore.subscribe((s) => {
   audio.setVolumes(s);
   audio.setVoiceLang(s.voiceLang, s.voiceOverrides);
   audio.setVoiceNative(s.voiceNative);
+  // 显示其他玩家的皮肤 also decides whose outfit a teammate's operator speaks in (#733: as it is drawn)
+  audio.setOtherSkins(s.otherSkins);
   applyTextSize(s.textSize);
   applyCursor(s.arknightsCursor);
   applyUiTheme(s.uiTheme);
@@ -97,6 +99,7 @@ settingsStore.subscribe((s) => {
 audio.setVolumes(settingsStore.get());
 audio.setVoiceLang(settingsStore.get().voiceLang, settingsStore.get().voiceOverrides);
 audio.setVoiceNative(settingsStore.get().voiceNative);
+audio.setOtherSkins(settingsStore.get().otherSkins);
 // before the first render (main.js boot renders after its imports ran): the stored step is on screen without a flash
 applyTextSize(settingsStore.get().textSize);
 applyCursor(settingsStore.get().arknightsCursor);

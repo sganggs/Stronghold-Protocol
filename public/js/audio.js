@@ -35,6 +35,15 @@
 //   한국어 `audio.voiceKr` and the operator's own-language dub `audio.voiceNative` (settings 语音语言, the 本土语言
 //   switch and the per-operator override; not tied to the interface language). A line the chosen tree or the host
 //   lacks falls back to the Chinese file of the same name only when Chinese is selected for download (voiceLine).
+// - 时装语音 (#733, PR #734 by @xcdoge, DESIGN §37.330): an outfit a cosmetic plugin writes may carry its own lines
+//   (`chars[<charId>].skins[<skinKey>].voice` / `voiceJp` / `voiceEn` / `voiceKr` / `voiceNative`, the slots of the dub
+//   trees above). The outfit a line plays in is the one the speaking unit's model wears in this view: its own seat's
+//   choice (`UnitInfo.ownerId` / `skin`, the latest public `players[].skins` over it, 显示其他玩家的皮肤 — wornSkinKey,
+//   render/app.js skinOf's rule), never the viewer's own choice for another seat. The outfit never changes WHICH dub
+//   plays (voiceLangFor reads the operator's trees: the player's 语音语言 stays), only whose recording of it: per slot
+//   and per dub the outfit's lines when it has any, else the operator's (voiceLine's `outfit`). [ASSUMED] So an outfit's
+//   English / Korean / own-language lines play only where this server has that tree for the operator too: one dub for
+//   all of an operator's slots, 中文 when that tree is missing (docs/SKINS.md "Outfit voices").
 // - Battle SFX from `b.ev` tuples (`handleBattleEvents`): attack / hit use their official bank's maxSoundAllowed,
 //   popOldest, and the played file's minPitch / maxPitch / delay (audio_data.json, #680). Aliases share a pool; distinct
 //   banks sharing a file do not. [ASSUMED] The remake's MAX_VOICES ceiling, 160 ms per-unit cooldown and 45 ms per-URL
@@ -443,20 +452,75 @@ export const VOICE_TAP_SLOTS = Object.freeze(['select']);
  * @param {'cn'|'jp'|'en'|'kr'|'native'|string} [lang]
  * @param {() => number} [random]
  * @param {boolean} [allowChinese] Whether automatic Chinese fallback may be requested.
+ * @param {any} [outfit] the WORN outfit's record (#733, DESIGN §37.330: `chars[<charId>].skins[<skinKey>]`, wornOutfit),
+ *   or null. Its dub trees (`voice` 中文, `voiceJp`, `voiceEn`, `voiceKr`, `voiceNative`, the slots of the manifest's)
+ *   stand in for the operator's, per tree and per slot: a slot the outfit has lines for plays those, a slot it lacks (no
+ *   key, an empty list) the operator's own. The rest runs on those trees unchanged — `lang` (the player's choice) still
+ *   picks the tree, `allowChinese` still gates the Chinese one —, so an outfit with Chinese lines only is heard by a
+ *   player of 中文, and by a player of another dub only where that dub has no line of its own (the Chinese fallback).
  * @returns {{ url: string, fallback: string|null } | null}
  */
-export function voiceLine(audio, charId, slot, lang = 'cn', random = Math.random, allowChinese = true) {
+export function voiceLine(audio, charId, slot, lang = 'cn', random = Math.random, allowChinese = true, outfit = null) {
   const lines = (line) => (Array.isArray(line) ? line : [line]).filter((u) => typeof u === 'string' && u);
   const draw = (list) => (list.length ? list[Math.min(list.length - 1, Math.floor(random() * list.length))] : null);
-  const cn = lines(audio?.voice?.[charId]?.[slot]);
+  // per dub tree and slot: the worn outfit's lines when it has any, else the operator's own
+  const slotLines = (treeKey) => {
+    const worn = outfit && typeof outfit === 'object' ? lines(outfit[treeKey]?.[slot]) : [];
+    return worn.length ? worn : lines(audio?.[treeKey]?.[charId]?.[slot]);
+  };
+  const cn = slotLines('voice');
   const tree = VOICE_TREES[lang];
-  const dub = tree ? draw(lines(audio?.[tree]?.[charId]?.[slot])) : null;
+  const dub = tree ? draw(slotLines(tree)) : null;
   if (dub) {
     const file = (u) => u.slice(u.lastIndexOf('/') + 1);
     return { url: dub, fallback: allowChinese ? cn.find((u) => file(u) === file(dub)) ?? draw(cn) : null };
   }
   const url = allowChinese ? draw(cn) : null;
   return url ? { url, fallback: null } : null;
+}
+
+const ownObj = (o, k) => (o && typeof o === 'object' && typeof k === 'string' && Object.hasOwn(o, k) && o[k] && typeof o[k] === 'object' && !Array.isArray(o[k]) ? o[k] : null);
+
+/**
+ * The record of an outfit an operator wears (#733): `chars[<charId>].skins[<skinKey>]` of the composed manifest — the
+ * operator's own record, else its base id's (an E2 asset id `char_…_2`, as assets.js spineEntry looks it up) —, or null
+ * for no outfit, an outfit this page does not have (a teammate's appearance plugin it lacks or switched off) and a key
+ * that is no own entry. The caller then plays the operator's own lines, as the renderer draws the operator's own model.
+ * @param {any} manifest data.get('assets')
+ * @param {string|null|undefined} charId the operator whose `skins` hold it (the body the model is drawn for)
+ * @param {string|null|undefined} skinKey
+ * @returns {any|null}
+ */
+export function wornOutfit(manifest, charId, skinKey) {
+  if (typeof charId !== 'string' || !charId || typeof skinKey !== 'string' || !skinKey) return null;
+  const chars = manifest?.chars;
+  const rec = ownObj(chars, charId) || ownObj(chars, charId.replace(/_(1|2)$/, ''));
+  return ownObj(ownObj(rec, 'skins'), skinKey);
+}
+
+/**
+ * The outfit a battle unit wears in THIS view (#733): the rule render/app.js `skinOf` draws its model by, so a line and
+ * the model on screen never disagree. An operator body ('op') reads its owner's latest public choice for its operator
+ * (`players[].skins[<diy pick || model id>]`, an omitted map a clear) over the skin its UnitInfo arrived with; another
+ * seat's outfit is shown only with 设置「显示其他玩家的皮肤」 on, one's own always. Never the viewer's own choice for
+ * another seat: a teammate fielding the same operator speaks in THEIR outfit. [ASSUMED] (DESIGN §37.330) A summon has no
+ * lines of an outfit (null): a talking `char_` token keeps its own voice whatever its owner wears (no official summon
+ * outfit has a `voiceId`).
+ * @param {{ kind?: string|null, ownerId?: string|null, skin?: string|null, body?: string|null }|null|undefined} u
+ *   a tracked unit: `body` the operator its skins are looked up under (UnitInfo `diy?.charId || spine`)
+ * @param {{ playerSkins?: Map<string, any>|null, myId?: string|null, otherSkins?: boolean }} [view]
+ * @returns {string|null} the skin key
+ */
+export function wornSkinKey(u, { playerSkins = null, myId = null, otherSkins = true } = {}) {
+  if (!u || u.kind !== 'op') return null;
+  let skin = typeof u.skin === 'string' && u.skin ? u.skin : null;
+  if (playerSkins && u.ownerId != null && playerSkins.has(u.ownerId)) {
+    const pick = playerSkins.get(u.ownerId)?.[u.body];
+    skin = typeof pick === 'string' && pick ? pick : null;
+  }
+  if (!skin) return null;
+  if (u.ownerId == null || !myId || u.ownerId === myId) return skin;
+  return otherSkins ? skin : null;
 }
 
 /**
@@ -488,21 +552,34 @@ export function resultVoiceSlot(o = {}) {
  * operator ends up saying it. Ties are drawn like every other unit sound.
  * @param {{ unitsEnd?: Array<{ defId?: string|null, alive?: boolean }> } | null | undefined} pp that battle's perPlayer
  * @param {() => number} [random]
- * @param {boolean} [allowChinese] Whether automatic Chinese fallback may be requested.
  * @param {((defId: string) => string|null|undefined) | null} [charOf] chess id → charId
  * @returns {string|null} charId, or null when that battle fielded no operator at all
  */
 export function resultSpeaker(pp, random = Math.random, charOf = null) {
+  return resultSpeakerOf(pp, random, charOf)?.charId ?? null;
+}
+
+/**
+ * resultSpeaker with the piece that speaks (#733): `{ charId, defId }` — the voice bank, and the `unitsEnd` id it came
+ * from (the chess id), so the caller can find the operator whose outfit the line is said in (screens/game.js: the own
+ * record of that chess, a 补位 stand-in or a filled 自选 slot included). Same draw as resultSpeaker.
+ * @param {{ unitsEnd?: Array<{ defId?: string|null, alive?: boolean }> } | null | undefined} pp
+ * @param {() => number} [random]
+ * @param {((defId: string) => string|null|undefined) | null} [charOf]
+ * @returns {{ charId: string, defId: string } | null}
+ */
+export function resultSpeakerOf(pp, random = Math.random, charOf = null) {
   const ops = [];
   for (const u of Array.isArray(pp?.unitsEnd) ? pp.unitsEnd : []) {
     if (!u || typeof u.defId !== 'string') continue;
     const id = u.defId.startsWith('char_') ? u.defId : charOf ? charOf(u.defId) : null;
-    if (typeof id === 'string' && id.startsWith('char_')) ops.push({ id, alive: !!u.alive });
+    if (typeof id === 'string' && id.startsWith('char_')) ops.push({ id, defId: u.defId, alive: !!u.alive });
   }
   const standing = ops.filter((o) => o.alive);
   const pool = standing.length ? standing : ops;   // only a wiped-out squad is spoken for by a fallen operator
   if (!pool.length) return null;
-  return pool[Math.min(pool.length - 1, Math.floor(random() * pool.length))].id;
+  const who = pool[Math.min(pool.length - 1, Math.floor(random() * pool.length))];
+  return { charId: who.id, defId: who.defId };
 }
 
 /** Concurrency + cooldown gate for battle SFX. Pure (time is passed in). */
@@ -692,6 +769,11 @@ export class AudioManager {
     this.voiceOverrides = {};
     this.voiceLang = 'cn';    // settings 语音语言: cn | jp | en | kr (VOICE_TREES; a missing line falls back to audio.voice)
     this.voiceNative = false; // settings 本土语言: an operator with an own-language dub speaks it unless their own pick wins
+    // 时装语音 (#733): what decides the outfit a battle unit speaks in — the seats' latest public choices (playerId →
+    // { charId: skinKey }, setSkinPlayers), this page's player (setMe) and 显示其他玩家的皮肤 (setOtherSkins): wornSkinKey
+    this.playerSkins = new Map();
+    this.myId = null;
+    this.otherSkins = true;
     this.startVoiceDone = false; // 行动出发 of this field (the first operator deployed says it)
     this.uiVoices = 0;
     this.wantBgm = null;      // desired key (kept while locked)
@@ -868,6 +950,39 @@ export class AudioManager {
    */
   setVoiceNative(on) {
     this.voiceNative = on === true;
+  }
+
+  /**
+   * 时装语音 (#733): the seats' public outfit choices — `m.public.players` (`[{ playerId, skins? }]`; an omitted map
+   * clears that seat's), as render/app.js `setSkins` takes them. A battle unit's lines follow its owner's latest choice
+   * (wornSkinKey), the way its model does. installAudio feeds it from the store.
+   * @param {Array<{ playerId?: string, skins?: Record<string, string> }>|null|undefined} players
+   */
+  setSkinPlayers(players) {
+    this.playerSkins = new Map();
+    for (const p of Array.isArray(players) ? players : []) {
+      if (p && typeof p.playerId === 'string' && p.playerId) this.playerSkins.set(p.playerId, p.skins && typeof p.skins === 'object' ? p.skins : {});
+    }
+  }
+
+  /** This page's player (`me.playerId`): whose units are "own" for 显示其他玩家的皮肤 (#733; render/app.js setMe). */
+  setMe(playerId) {
+    this.myId = typeof playerId === 'string' && playerId ? playerId : null;
+  }
+
+  /** 设置「显示其他玩家的皮肤」 (default on): off, another seat's unit speaks in the operator's own voice, as it is drawn. */
+  setOtherSkins(on) {
+    this.otherSkins = on !== false;
+  }
+
+  /**
+   * The outfit a tracked battle unit speaks in, as voice() takes it: `{ skinKey, skinCharId }` (wornSkinKey: its seat's
+   * choice in this view; `skinCharId` the operator whose `skins` hold it), or {} for none.
+   * @param {any} u a tracked unit (_track)
+   */
+  _unitOutfit(u) {
+    const skinKey = wornSkinKey(u, { playerSkins: this.playerSkins, myId: this.myId, otherSkins: this.otherSkins });
+    return skinKey ? { skinKey, skinCharId: u.body } : {};
   }
 
   /** The dub `charId` speaks now (voiceLangFor), given the manifest this manager reads. */
@@ -1476,15 +1591,22 @@ export class AudioManager {
    * @param {string} charId e.g. 'char_263_skadi'
    * @param {'start'|'faceEnemy'|'select'|'place'|'skill1'|'skill2'|'skill3'|'skill4'|'squad'|'squadFirst'
    *   |'resultFour'|'resultThree'|'resultTwo'|'resultLose'|'gacha'} slot
-   * @param {{ unitKey?: string|number|null, volume?: number }} [o] `unitKey` = the cooldown key (a battle unit id)
+   * @param {{ unitKey?: string|number|null, volume?: number, skinKey?: string|null, skinCharId?: string|null }} [o]
+   *   `unitKey` = the cooldown key (a battle unit id); `skinKey` = the outfit the speaker wears (#733, DESIGN §37.330:
+   *   its own seat's — the battle units' wornSkinKey, the detail panel's and the settlement's the card's / own seat's),
+   *   looked up under `chars[skinCharId ?? charId].skins` (`skinCharId`: the operator the model is drawn for, when the
+   *   voice bank has another id). None, or an outfit this page lacks: the operator's own lines.
    * @returns {boolean} whether such a line exists and started
    */
   voice(charId, slot, o = {}) {
     try {
       if (!this.ctx || !this.voiceGain || this.volumes.muted || this.volumes.voice <= 0) return false;
       if (typeof charId !== 'string' || typeof slot !== 'string') return false;
-      // the chosen dub's line (settings 语音语言), with the Chinese file of the same name as its fallback (voiceLine)
-      const pick = () => this._selectedVoiceLine(charId, slot, this._voiceLangOf(charId));
+      const skin = typeof o.skinKey === 'string' && o.skinKey
+        ? { charId: typeof o.skinCharId === 'string' && o.skinCharId ? o.skinCharId : charId, key: o.skinKey } : null;
+      // the chosen dub's line (settings 语音语言), with the Chinese file of the same name as its fallback (voiceLine) —
+      // in the worn outfit's recording where it has one; picked again from the manifest when an outfit file failed
+      const pick = () => this._selectedVoiceLine(charId, slot, this._voiceLangOf(charId), skin);
       const line = pick();
       if (!line) return false;
       const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
@@ -1501,6 +1623,7 @@ export class AudioManager {
   /**
    * 试听 (the per-operator dropdown): one line of `charId` in `lang`, outside a battle — roster and DIY details are
    * no battle, so it skips VoiceGate's cooldowns and takes the voice channel over from whatever is on air.
+   * [ASSUMED] (DESIGN §37.330) It plays the operator's own lines, never a worn outfit's: it previews a dub.
    * An omitted `lang` (跟随全局, or a saved choice this server does not have) uses voiceLangFor. An explicit lang
    * plays that tree, with the Chinese file of the same name when the line is missing.
    * @param {string} charId
@@ -1532,10 +1655,13 @@ export class AudioManager {
    * `again`: the slot's line picked from the manifest again — played instead (once) when this one was a cosmetic plugin's
    * file that would not load (its entry fell back: see the header).
    */
-  _selectedVoiceLine(charId, slot, lang) {
-    const audio = this.getManifest()?.audio;
+  _selectedVoiceLine(charId, slot, lang, skin = null) {
+    const m = this.getManifest();
+    const audio = m?.audio;
+    // [ASSUMED] (DESIGN §37.330) the download choice is the operator's, the outfit's Chinese lines included although they
+    // come with the plugin: Chinese only where it is selected
     const allowChinese = lang === 'cn' || downloadVoiceLanguages(voiceDownloadStore.get(), charId, audio).includes('cn');
-    return voiceLine(audio, charId, slot, lang, Math.random, allowChinese);
+    return voiceLine(audio, charId, slot, lang, Math.random, allowChinese, skin ? wornOutfit(m, skin.charId, skin.key) : null);
   }
 
   _playVoice(url, token, volume, fallback = null, again = null) {
@@ -1624,8 +1750,11 @@ export class AudioManager {
     if (!u || typeof u !== 'object' || u.id == null) return;
     // UnitInfo.spine is the model id (charId / tokenId / enemyId) — the key of sfx.units; kind/defId pick the
     // official class sounds (operator vs summon vs device). `skillActive` follows the ['skill', id, 1] / 0 events.
+    // 时装语音 (#733): the seat that owns it, the outfit it arrived with and the operator whose `skins` hold its outfits —
+    // the model's own key (render/app.js skinOf: a 自选 piece's pick, else the model id; a 补位 piece's is the stand-in's)
     this.units.set(u.id, { def: u.spine || u.defId, voice: u.voice || u.spine || u.defId, defId: u.defId ?? null, kind: u.kind ?? null, side: u.side, boss: !!u.boss,
-      skillIndex: Number.isInteger(u.skillIndex) ? u.skillIndex : null, skillActive: !!u.skillActive });
+      skillIndex: Number.isInteger(u.skillIndex) ? u.skillIndex : null, skillActive: !!u.skillActive,
+      ownerId: u.ownerId ?? null, skin: typeof u.skin === 'string' && u.skin ? u.skin : null, body: u.diy?.charId || u.spine || u.defId || null });
     // a cast that arrived before this unit was known (handleBattleEvents): it sounds now, once
     const held = this.pendingSkill.get(u.id);
     if (held) {
@@ -1776,7 +1905,7 @@ export class AudioManager {
             // 作战中N: the equipped skill's own slot (0-based; 作战中4 is the fallback of a 4th slot)
             if (unitSoundClass(u) === 'char') {
               const n = Number.isInteger(u.skillIndex) ? Math.min(4, u.skillIndex + 1) : 1;
-              this.voice(u.voice, `skill${n}`, { unitKey: e[1] });
+              this.voice(u.voice, `skill${n}`, { unitKey: e[1], ...this._unitOutfit(u) });
             }
           } else {
             // The unit is not tracked yet. The sim emits the cast of a deployment that fires inside its own first tick
@@ -1795,7 +1924,7 @@ export class AudioManager {
         } else if (kind === 'engage') {
           // 行动开始: the first attack a unit makes on an enemy (the sim's ENGAGE, official ENCOUNTER_ENEMY, 3 s apart)
           const u = this.units.get(e[1]);
-          if (u && unitSoundClass(u) === 'char') this.voice(u.voice, 'faceEnemy', { unitKey: e[1] });
+          if (u && unitSoundClass(u) === 'char') this.voice(u.voice, 'faceEnemy', { unitKey: e[1], ...this._unitOutfit(u) });
         } else if (kind === 'die') {
           const u = this.units.get(e[1]);
           if (!u) continue;
@@ -1826,10 +1955,11 @@ export class AudioManager {
           // (a knocked-out operator redeploying in the same battle is one of the others; a summon says nothing).
           // Kept ahead of the deploy-SFX guards below: the voice channel is independent of the unit sound's roll.
           if (unitSoundClass(u) === 'char') {
+            const outfit = this._unitOutfit(u);
             if (!this.startVoiceDone) {
               this.startVoiceDone = true;
-              if (!this.voice(u.voice, 'start')) this.voice(u.voice, 'place', { unitKey: e[1] });
-            } else this.voice(u.voice, 'place', { unitKey: e[1] });
+              if (!this.voice(u.voice, 'start', outfit)) this.voice(u.voice, 'place', { unitKey: e[1], ...outfit });
+            } else this.voice(u.voice, 'place', { unitKey: e[1], ...outfit });
           }
           if (!url) continue;
           const own = url === m?.audio?.sfx?.units?.[u.def]?.born;
@@ -1861,7 +1991,7 @@ export const audio = new AudioManager({ getManifest: () => manifestGetter() });
  * Wire the singleton to the app (called once by main.js): manifest source, settings, store-driven BGM and room-ready SFX.
  * @param {{ getManifest: () => any, subscribe: (fn: (s:any, prev:any) => void) => () => void, getState: () => any,
  *   selectRoute: (s:any) => string, seasonOf?: (s:any) => string|null,
- *   settings?: { bgm:number, sfx:number, voice:number, muted:boolean, voiceLang?:string, voiceOverrides?:Record<string,string>, voiceNative?:boolean },
+ *   settings?: { bgm:number, sfx:number, voice:number, muted:boolean, voiceLang?:string, voiceOverrides?:Record<string,string>, voiceNative?:boolean, otherSkins?:boolean },
  *   onFailed?: (url: string) => boolean }} deps  onFailed: a sound did not load (the cosmetic layers: see the header).
  *   seasonOf: the season whose `audio.seasons` table plays (public/js/versions.js musicSeason). Absent: the top-level tracks.
  */
@@ -1870,8 +2000,11 @@ export function installAudio(deps) {
     manifestGetter = typeof deps?.getManifest === 'function' ? deps.getManifest : manifestGetter;
     if (typeof deps?.onFailed === 'function') audio.onFailed = deps.onFailed;
     audio.install();
-    if (deps?.settings) { audio.setVolumes(deps.settings); audio.setVoiceLang(deps.settings.voiceLang, deps.settings.voiceOverrides); audio.setVoiceNative(deps.settings.voiceNative); }
+    if (deps?.settings) { audio.setVolumes(deps.settings); audio.setVoiceLang(deps.settings.voiceLang, deps.settings.voiceOverrides); audio.setVoiceNative(deps.settings.voiceNative); audio.setOtherSkins(deps.settings.otherSkins); }
     if (typeof deps?.subscribe === 'function' && typeof deps?.getState === 'function') {
+      // 时装语音 (#733): the seats' public outfits and this page's player, as ui/fieldHost.js hands them to the renderer
+      const skinView = (s) => { audio.setMe(s?.me?.playerId); audio.setSkinPlayers(s?.match?.public?.players); };
+      skinView(deps.getState());
       const sync = (s) => {
         try {
           const pub = s.match?.public ?? null;
@@ -1892,6 +2025,7 @@ export function installAudio(deps) {
       sync(deps.getState());
       const seasonOf = typeof deps.seasonOf === 'function' ? deps.seasonOf : null;
       return deps.subscribe((s, prev) => {
+        if (s.me?.playerId !== prev?.me?.playerId || s.match?.public?.players !== prev?.match?.public?.players) skinView(s);
         const room = s.room, prevRoom = prev?.room;
         // Every room member, including the sender and spectators, hears the same cue as g.infoReady after an accepted
         // ready action. [ASSUMED] Shared waiting-room feedback follows the player's 2026-10-25 report; no official
