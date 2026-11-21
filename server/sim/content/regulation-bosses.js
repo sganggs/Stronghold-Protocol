@@ -109,15 +109,25 @@ function nearestAlly(b, src, from, range, seen) {
   return best;
 }
 
-function highestBlock(b) {
-  let best = null;
+/**
+ * 【洪流攻势】 targets (PRTS 假想敌：械): on each player's field the ally with the most block, ties to the highest 仇恨
+ * (the later deployed: targeting.js aggro), then the lower id; at most `cap` fields (SommonSquad batch_max_target 2,
+ * max_target 1 per field), in player order.
+ */
+function squadTargets(b, cap) {
+  const best = new Map();
+  const aggro = (u) => u.aggroSeq || u.deploySeq || 0;
   for (const u of b.allies()) {
     if (!u.alive) continue;
+    const k = String(u.ownerId ?? '');
+    const o = best.get(k);
     const blk = u.s.blockCnt;
-    if (!best || blk > best.s.blockCnt || (blk === best.s.blockCnt && u.id < best.id)) best = u;
+    if (!o || blk > o.s.blockCnt || (blk === o.s.blockCnt && (aggro(u) > aggro(o) || (aggro(u) === aggro(o) && u.id < o.id)))) best.set(k, u);
   }
-  return best;
+  return [...best.keys()].sort().map((k) => best.get(k)).slice(0, Math.max(0, cap));
 }
+/** Up, right, down, left of a tile (rows grow upward on the field: tiles.js deploy order). */
+const SQUAD_SIDES = [[1, 0], [0, 1], [-1, 0], [0, -1]];
 
 function spawnGear(b, boss, at, key) {
   if (!key || !at) return null;
@@ -267,7 +277,12 @@ function kitMech(ab) {
   const jumps = tv(ab, 'Summon.attack@hit_times', 0);
   const chainScale = tv(ab, 'Summon.attack@chain.atk_scale', 0.8);
   const squad = ab.sk.SommonSquad;
-  const squadN = squad ? Math.min(bb(squad, 'cnt', 4), bb(squad, 'batch_max_target', 2)) : 0;
+  // 【洪流攻势】 (PRTS 假想敌：械; acfnc[skill] SummonEnemiesAverageOnTilesToNearestEndPoint _summonCnt 4 = cnt): one
+  // highest-block ally on each player's field (batch_max_target 2 fields, max_target 1 each), then one 量变之械 on each of
+  // its four sides — up, right, down, left —, a side a walking enemy cannot stand on skipped. Until round 84 two gears
+  // (min(cnt, batch_max_target)) came on the one highest-block ally of the whole field.
+  const squadSides = squad ? Math.min(SQUAD_SIDES.length, Math.max(0, bb(squad, 'cnt', 4))) : 0;
+  const squadFields = squad ? bb(squad, 'batch_max_target', 2) : 0;
   return [
     {
       // Hidden 械 (enemy_9029_acfnc_2 description): 「出场时召唤冲击之械」. The base form has
@@ -313,11 +328,18 @@ function kitMech(ab) {
       spawnArmorPair(b, e);
     }),
     timed(squad, (b, e) => {
-      const ally = highestBlock(b);
-      if (!ally || !(squadN > 0)) return;
+      if (!(squadSides > 0)) return;
       const key = sv(squad.bs, 'enemy_key') || gearKey;
-      for (let i = 0; i < squadN; i++) spawnGear(b, e, ally, key);
-    }, { cond: (b) => !!highestBlock(b) }),
+      for (const ally of squadTargets(b, squadFields)) {
+        const r0 = Number.isInteger(ally.tileR) ? ally.tileR : Math.round(ally.y);
+        const c0 = Number.isInteger(ally.tileC) ? ally.tileC : Math.round(ally.x);
+        for (const [dr, dc] of SQUAD_SIDES.slice(0, squadSides)) {
+          const r = r0 + dr, c = c0 + dc;
+          if (!b.grid.walkable(r, c)) continue;                 // 对应地块不可通行时取消该地块的召唤
+          spawnGear(b, e, { x: c, y: r }, key);
+        }
+      }
+    }, { cond: (b) => squadTargets(b, squadFields).length > 0 }),
   ];
 }
 

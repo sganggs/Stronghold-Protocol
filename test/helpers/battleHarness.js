@@ -46,7 +46,7 @@
 
 import { Battle } from '../../server/sim/Battle.js';
 import { DataSource, getDefaultSource, spawnsFromTemplate } from '../../server/sim/simdata.js';
-import { TICK } from '../../server/sim/constants.js';
+import { TICK, ROWS, COLS } from '../../server/sim/constants.js';
 import { standInRecord, composeUnitRecord, unitForm } from '../../shared/standIn.js';
 
 export const ALL_HOOKS = Object.freeze([
@@ -338,10 +338,11 @@ export function checkInvariants(b) {
     }
     if (u.alive) {
       if (u.hp < 0 || u.hp > s.maxHp + 1e-6) bad(`hp ${u.hp} / ${s.maxHp}`, u);
-      // 盐坨子炮 is a separator device on the wall row just above the rect (devices.js spawnCannon, allowOutside).
-      const separatorCannon = u.kind === 'device' && u.mem?.cannon;
-      if (u.deployed && !u.hidden && !separatorCannon) {
-        if (u.x < R.c0 - 0.5 - 1e-6 || u.x > R.c1 + 0.5 + 1e-6 || u.y < R.r0 - 0.5 - 1e-6 || u.y > R.r1 + 0.5 + 1e-6) bad(`pos ${u.x},${u.y} outside rect`, u);
+      if (u.deployed && !u.hidden) {
+        const fixed = u.kind === 'device' && u.side === 'enemy' && u.mem.fixedDeviceTile;
+        if (fixed) {
+          if (u.y !== fixed[0] || u.x !== fixed[1] || u.x < 0 || u.x >= COLS || u.y < 0 || u.y >= ROWS) bad('fixed device left its authored tile', u);
+        } else if (u.x < R.c0 - 0.5 - 1e-6 || u.x > R.c1 + 0.5 + 1e-6 || u.y < R.r0 - 0.5 - 1e-6 || u.y > R.r1 + 0.5 + 1e-6) bad(`pos ${u.x},${u.y} outside rect`, u);
       }
       if (u.skill && !u.skill.noSkill) {
         const sk = u.skill;

@@ -1295,7 +1295,7 @@ export async function createFieldView(host, options = {}) {
   /**
    * Draw a BOARD-space highlight group: range previews never light the bench / temp pads (rows 7–8: no battle
    * happens there), the prep field transform maps the tiles onto the boss field in the Final Assault prep, and the 2D
-   * board stripes range previews under the units (the 3D board gets them from the direction wheel's layer).
+   * board stripes range previews under the units (the 3D board gets them from the shared RangeStripes layer).
    */
   function drawHighlight(list, style, group) {
     const key = hlKey(style, group);

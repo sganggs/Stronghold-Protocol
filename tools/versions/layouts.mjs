@@ -24,6 +24,19 @@
 // is drawn as the one official piece the player sees there — the own block with its pen beside the road, the 联防 board,
 // the boss field with its pen above — instead of rows cut from three pieces.
 
+import { createOfficialUnitBuilders } from '../../server/plugins/officialUnitBuilder.js';
+
+const { bestCandidate } = createOfficialUnitBuilders();
+
+/** The cannon's unlocked EnemyCannon00 talent defines its landing distance in range_table. */
+export function cannonDistance(ctx, level) {
+  const talents = ctx.charTable.trap_196_cnnon.talents;
+  const talent = talents.map(t => bestCandidate(t.candidates, 0, level)).find(t => t?.prefabKey === 'EnemyCannon00');
+  const grids = ctx.rangeTable[talent?.rangeId]?.grids;
+  if (!grids?.length) throw new Error(`cannon: missing landing range at level ${level}`);
+  return Math.max(...grids.map(g => g.col));
+}
+
 export const ROWS = 19;
 export const COLS = 21;
 
@@ -104,9 +117,10 @@ const HAND_ROWS = new Set([0, 7]);
  * from the three pieces (the atlas repeats them once per player).
  * @param {any} main level_<stage>.json
  * @param {[any, any, any]} pieces sub_01, sub_02, sub_03
+ * @param {{ charTable: any, rangeTable: any }} [tables] official tables, required for pieces with cannons
  * @returns {any} a new level object
  */
-export function composeRegulationStage(main, [sub1, sub2, sub3]) {
+export function composeRegulationStage(main, [sub1, sub2, sub3], tables) {
   const want = { 1: '7x20', 2: '6x21', 3: '13x21' };
   const piece = { 1: sub1, 2: sub2, 3: sub3 };
   for (const k of [1, 2, 3]) if (sizeOf(piece[k]) !== want[k]) throw new Error(`layout: ${main.levelId} sub_0${k} is ${sizeOf(piece[k])}, expected ${want[k]}`);
@@ -122,6 +136,17 @@ export function composeRegulationStage(main, [sub1, sub2, sub3]) {
   // sub_02's left half, its own copies are left out
   const moved = (lv, shift) => {
     const out = structuredClone(lv.predefines ?? {});
+    for (const t of out.tokenInsts || []) {
+      if (t.inst?.characterKey !== 'trap_196_cnnon') continue;
+      // Each arena piece owns the cannon's landing route. Its branch actions share placeholder indices across
+      // pieces; resolve the actual extraRoute at this cannon's landing point before moving it into battle space.
+      const distance = cannonDistance(tables, t.inst.level || 1);
+      const [dr, dc] = { UP: [1, 0], DOWN: [-1, 0], LEFT: [0, -1], RIGHT: [0, 1] }[t.direction];
+      const route = (lv.extraRoutes || []).find(r => r.startPosition.row === t.position.row + dr * distance
+        && r.startPosition.col === t.position.col + dc * distance);
+      if (!route) throw new Error(`layout: ${lv.levelId} cannon has no landing route`);
+      t.cannonRoute = structuredClone(route);
+    }
     for (const p of positions(out)) { const to = shift(p.row); if (to === null) throw new Error(`layout: ${lv.levelId} has a predefine at row ${p.row} outside the rows it lends`); p.row = to; }
     return out;
   };

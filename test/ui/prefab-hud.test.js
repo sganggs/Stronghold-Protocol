@@ -7,7 +7,7 @@ import { layoutPrefab, applySliders, scriptRef } from '../../public/js/ui/prefab
 import { createPose, evalKeys, evalVecKeys, clipTime, resolvePath, clipPose, applyStatuses } from '../../public/js/ui/prefab/anim.js';
 import { buildPose, imageStyle, makePack, indexIds, effectStyle, effectScroll } from '../../public/js/ui/prefab/view.js';
 import { hudStatus, hudBinds, countdownStatus, cornerOffset } from '../../public/js/ui/prefab/hud.js';
-import { sampleClip, nodeKeyframes } from '../../public/js/ui/prefab/player.js';
+import { sampleClip, nodeKeyframes, keptFrames, KEYFRAME_TOLERANCE } from '../../public/js/ui/prefab/player.js';
 import { clipPeak, scriptAnim } from '../../public/js/ui/prefab/banners.js';
 
 const R = (size, pos = [0, 0], extra = {}) => ({ anchors: { min: [0.5, 0.5], max: [0.5, 0.5] }, pivot: [0.5, 0.5], sizeDelta: size, anchoredPosition: pos, ...extra });
@@ -305,11 +305,14 @@ describe('clip playback and banners', () => {
     assert.equal(frames, 30);
     const tr = tracks.get(root.children[0]);
     const kf = nodeKeyframes(tr, frames, { pos: [0, 0], size: [20, 20], scale: [1, 1], rot: 0, alpha: 1, color: null, tinted: false, text: false });
-    assert.equal(kf.box.length, 31);
+    // the ease-in-out curves keep the frames the straight lines between them cannot reproduce, not all 31
+    assert.ok(kf.box.length > 2 && kf.box.length < 31, `kept ${kf.box.length} of 31 frames`);
+    assert.equal(kf.box[0].offset, 0);
+    assert.equal(kf.box.at(-1).offset, 1);
     assert.equal(kf.box[0].opacity, '0');
-    assert.equal(kf.box[30].opacity, '1');
+    assert.equal(kf.box.at(-1).opacity, '1');
     assert.equal(kf.box[0].transform, 'translate(0rem, -0.1rem) rotate(0deg) scale(0.5, 0.5)', 'up 10 units in Unity is up 0.1rem on screen');
-    assert.equal(kf.box[30].transform, 'translate(0rem, 0rem) rotate(0deg) scale(1, 1)');
+    assert.equal(kf.box.at(-1).transform, 'translate(0rem, 0rem) rotate(0deg) scale(1, 1)');
     assert.equal(kf.gfx, null);
   });
 
@@ -321,7 +324,64 @@ describe('clip playback and banners', () => {
     assert.equal(kf.box, null);
     assert.equal(kf.gfx[0].opacity, '0');
     assert.equal(kf.gfx[0].backgroundColor, 'rgb(0 0 255)');
-    assert.equal(kf.gfx[frames].backgroundColor, 'rgb(255 0 255)');
+    assert.equal(kf.gfx.at(-1).backgroundColor, 'rgb(255 0 255)');
+  });
+
+  test('keyframes keep only the frames a straight line cannot reproduce (PR #973: Firefox drove 1052-frame loops)', () => {
+    // a straight line or a constant needs its two ends; a step keeps both frames around the change; a NaN keeps its frame
+    const line = Array.from({ length: 31 }, (_, i) => i / 30);
+    assert.deepEqual(keptFrames([{ v: line, eps: 0.002 }], 30), [0, 30]);
+    assert.deepEqual(keptFrames([{ v: line.map(() => 0.5), eps: 0.002 }], 30), [0, 30]);
+    const step = line.map((_, i) => (i >= 12 ? 1 : 0));
+    assert.deepEqual(keptFrames([{ v: step, eps: KEYFRAME_TOLERANCE.step }], 30), [0, 11, 12, 30]);
+    const gap = line.slice();
+    gap[7] = NaN;
+    assert.ok(keptFrames([{ v: gap, eps: 0.002 }], 30).includes(7));
+    // two channels: a constant one does not hide a moving one
+    const bump = line.map((_, i) => (i === 20 ? 0.5 : 0));
+    assert.deepEqual(keptFrames([{ v: line.map(() => 0), eps: 1 }, { v: bump, eps: 0.002 }], 30), [0, 19, 20, 21, 30]);
+  });
+
+  test('a long looping clip plays from a few keyframes that reproduce every sampled frame within tolerance', () => {
+    // 35 s like 可露希尔's countdown_bg_loop: a drift, a sway with soft keys and a light that switches on and off
+    const root = { name: 'w', children: [{ name: 'a' }] };
+    const sway = Array.from({ length: 15 }, (_, i) => [i * 2.5, i % 2 ? 6 : -6, 0, 0]);
+    const clip = { len: 35, wrap: 2, curves: [
+      ['a', 'ax', [[0, 0, 0, 0], [35, 70, 2, 2]]],
+      ['a', 'ay', sway],
+      ['a', 'active', [[0, 1, 0, 1e9], [10, 0, 1e9, 1e9], [10.5, 1, 1e9, 1e9]]],
+    ] };
+    const { frames, tracks } = sampleClip(clip, root);
+    assert.equal(frames, 1050);
+    const tr = tracks.get(root.children[0]);
+    const kf = nodeKeyframes(tr, frames, { pos: [0, 0], size: [20, 20], scale: [1, 1], rot: 0, alpha: 1, color: null, tinted: false, text: false });
+    assert.ok(kf.box.length < 200, `kept ${kf.box.length} of ${frames + 1} frames`);
+    const at = (k) => k.transform.match(/-?[\d.]+(?=rem)/g).map(Number);
+    const tol = KEYFRAME_TOLERANCE.pos / 100 + 0.00005; // units → rem, plus the 4-decimal rem rounding
+    let s = 0;
+    for (let i = 0; i <= frames; i++) {
+      const off = i / frames;
+      while (s < kf.box.length - 2 && kf.box[s + 1].offset <= off + 1e-12) s++;
+      const a = kf.box[s];
+      const b = kf.box[s + 1];
+      const u = (off - a.offset) / (b.offset - a.offset);
+      const [ax, ay] = at(a);
+      const [bx, by] = at(b);
+      const dx = Number(tr.ax[i]) / 100;
+      const dy = -Number(tr.ay[i]) / 100;
+      assert.ok(Math.abs(ax + (bx - ax) * u - dx) <= tol, `x at frame ${i}`);
+      assert.ok(Math.abs(ay + (by - ay) * u - dy) <= tol, `y at frame ${i}`);
+      // the light switches on the same frames as the 30 fps sampling: a kept frame on each side of every change
+      const want = Number(tr.active[i]) > 0.5 ? 'visible' : 'hidden';
+      if (u === 0) assert.equal(a.visibility, want, `visibility at frame ${i}`);
+      else assert.ok(a.visibility === want || b.visibility === want, `visibility around frame ${i}`);
+    }
+    const flips = kf.box.filter((k, i) => i && k.visibility !== kf.box[i - 1].visibility);
+    assert.equal(flips.length, 2);
+    for (const k of flips) {
+      const prev = kf.box[kf.box.indexOf(k) - 1];
+      assert.ok(Math.abs((k.offset - prev.offset) * frames - 1) < 1e-9, 'a switch spans one sampled frame, as before');
+    }
   });
 
   test('a banner lays out at its show clip\'s peak: the end of an in clip, the middle of one that comes and goes', () => {

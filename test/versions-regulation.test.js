@@ -8,7 +8,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { normalizeMirror, sourceOfProfile, SOURCES } from '../tools/versions/sources.mjs';
-import { composeRegulationStage, placeRegulationTemplate, regulationArena, TEMPLATE_OFFSETS } from '../tools/versions/layouts.mjs';
+import { cannonDistance, composeRegulationStage, placeRegulationTemplate, regulationArena, TEMPLATE_OFFSETS } from '../tools/versions/layouts.mjs';
 import { loadProfile, pinnedShaOf } from '../tools/versions/profiles.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -171,4 +171,37 @@ test('data/versions/act3autochess-v3_1: strategies keep the official bandType an
   // the default data has no bandType (older seasons keep their exact shape)
   const def = readJson('data/bands.json');
   assert.ok(Object.values(def).every((b) => !('bandType' in b)));
+});
+
+test('cannon distance comes from the unlocked talent range rather than a level formula', () => {
+  const ctx = {
+    charTable: {
+      trap_196_cnnon: {
+        talents: [
+          {
+            candidates: [
+              { prefabKey: 'EnemyCannon00', unlockCondition: { phase: 'PHASE_0', level: 1 }, rangeId: 'test-a' },
+              { prefabKey: 'EnemyCannon00', unlockCondition: { phase: 'PHASE_0', level: 2 }, rangeId: 'test-b' },
+            ],
+          },
+        ],
+      },
+    },
+    rangeTable: {
+      'test-a': {
+        grids: [
+          { row: 0, col: 0 },
+          { row: 0, col: 7 },
+        ],
+      },
+      'test-b': {
+        grids: [
+          { row: 0, col: 0 },
+          { row: 0, col: 9 },
+        ],
+      },
+    },
+  };
+  assert.equal(cannonDistance(ctx, 1), 7);
+  assert.equal(cannonDistance(ctx, 2), 9);
 });

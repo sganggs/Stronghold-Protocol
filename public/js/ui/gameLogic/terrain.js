@@ -136,9 +136,9 @@ export function terrainInfo(stage, row, col) {
 // ---- stage device tips (GitHub #228, PR #229 by @rickylxw: the stage DEVICES, not only the tiles) ---------------------
 
 /** The device roles a tap explains; the rest is invisible (盟约寒风, the 沼泽 / 涨潮 controllers) or not fielded this season. */
-const DEVICE_TIP_ROLES = Object.freeze(['crate', 'turret', 'platform', 'blower']);
+const DEVICE_TIP_ROLES = Object.freeze(['crate', 'turret', 'platform', 'blower', 'cannon']);
 /** Roles the battle spawns as device UNITS (Battle._spawnStageDevices, devices.js spawnTurret): in a battle a tap finds them by unit. */
-const DEVICE_UNIT_ROLES = Object.freeze(['crate', 'turret']);
+const DEVICE_UNIT_ROLES = Object.freeze(['crate', 'turret', 'cannon']);
 const TIP_TAG = N_('场地装置');
 const DIR_NAME = Object.freeze({ UP: N_('上'), DOWN: N_('下'), LEFT: N_('左'), RIGHT: N_('右') });
 
@@ -152,6 +152,14 @@ const round1 = (v) => Math.round(v * 10) / 10;
  * stat grid under the lines (the turret's), `facts` what the tile allows.
  */
 const DEVICE_TIPS = Object.freeze({
+  cannon: {
+    lines: () => [t('向前方发射炮弹造成物理溅射伤害，可以将周围1名重量小于等于{weight}的地面敌人传送至爆炸中心', { weight: 3 })],
+    stats: (st, d) => [
+      { k: t('生命上限'), v: d.stats?.maxHp }, { k: t('攻击'), v: d.stats?.atk },
+      { k: t('防御'), v: d.stats?.def }, { k: t('法术抗性'), v: d.stats?.res },
+    ],
+    facts: () => [t(BUILDABILITY.NONE)],
+  },
   crate: {
     lines: (st, d) => [
       t('挡在地面上的工事：地面敌人会绕开它走；只有无路可走时才会撞上来，把它摧毁后继续前进'),

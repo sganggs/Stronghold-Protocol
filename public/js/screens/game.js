@@ -122,10 +122,10 @@ import { RegRoundResult, RegHelpBattle, RegYourTurn, packBanners } from '../ui/p
 import { openGuide } from '../ui/guide.js';
 import { actions, onRefreshBusy } from '../ui/gameActions.js';
 import { isHealingRange, rangeStyle } from '../ui/rangeStyle.js';
-import { FacingWheel, holdPiece, setPieceDir, syncPieceDirs, showRange, useTileScreen } from '../ui/facingWheel.js';
+import { FacingWheel, RangeStripes, holdPiece, setPieceDir, syncPieceDirs, showRange, useTileScreen } from '../ui/facingWheel.js';
 import { Underframe, underframeRect, TempRowNotice } from '../ui/underframe.js';
 import { StandInTags } from './game/standInTags.js';
-import { needsFacing, facingIntent, previewGrid, previewRecord, pieceDir, underframeActions, retreatSlot, itemDestroyable } from '../ui/facing.js';
+import { needsFacing, facingIntent, previewGrid, previewRecord, pieceDir, underframeActions, retreatSlot, itemDestroyable, rangeTiles } from '../ui/facing.js';
 import { EquipReplaceDialog, replaceRequest, replaceIntent } from '../ui/equipReplace.js';
 import { pauseAvailable, isPaused, frozenNow } from '../ui/matchStatus.js';
 import { pieceTile } from '../render/drag.js';
@@ -1996,6 +1996,9 @@ function MatchScreen() {
     loadout: detailLoadout, getChess: gd.chess, backups: gd.backups,
   }) : null;
   const cardRangeKey = cardRange ? JSON.stringify(cardRange) : '';
+  // Match the renderer's range clipping; the SVG uses the same BOARD-space tileScreen projection as deployment.
+  const cardRangeTiles = cardRange ? rangeTiles(cardRange.grid, cardRange.row, cardRange.col, cardRange.dir)
+    .filter(([row]) => row !== GEO.HAND_ROW && row !== GEO.TEMP_ROW) : [];
   useEffect(() => {
     if (!view) return undefined;
     showRange(view, cardRange?.grid, cardRange?.row, cardRange?.col, cardRange?.dir, rangeStyle(SEL_RANGE, cardRange?.healing));
@@ -2191,6 +2194,7 @@ function MatchScreen() {
       : bossPlate?.kind === 'end' ? html`<${EndPlate} key=${bossPlate.key} kind=${bossPlate.end} bossId=${pub?.bossId} hiddenBossId=${pub?.hiddenBossId}
         onDone=${() => setBossPlate(null)} />` : null}
 
+    ${cardRange && view ? html`<${RangeStripes} tiles=${cardRangeTiles} view=${view} healing=${cardRange.healing} underOnly=${true} />` : null}
     ${facing && view ? html`<${FacingWheel} key=${`${facing.uid}:${facing.row},${facing.col}`} view=${view} row=${facing.row} col=${facing.col}
       grid=${facing.grid} healing=${facing.healing} name=${facing.name} onPreview=${previewFacing} onCommit=${commitFacing} onCancel=${cancelFacing} />` : null}
 

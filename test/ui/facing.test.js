@@ -297,6 +297,9 @@ describe('wheel stripes go under the units on the 3D board (review regression)',
     assert.equal(polys.length, 1);
     // tile (9,2): corners (±0.5) projected, + canvas offset (10,20), − host offset (10,20)
     assert.equal(polys[0].pts, '15.0,5.0 25.0,5.0 25.0,15.0 15.0,15.0');
+    const clipped = view({ on: true });
+    clipped.raw.tileScreen = () => null;
+    assert.deepEqual(stripePolys(clipped, [[14, 2]]), [], 'authoritative clipping must not fall back to the untransformed debug camera');
   });
 });
 

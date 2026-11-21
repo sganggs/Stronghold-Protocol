@@ -13,6 +13,11 @@ temporary reserves, summons and battle operators keep their existing behaviour.
 Normal healing ranges use cyan-blue battlefield highlights; damaging ranges keep orange. Placement previews and
 inspected operators / healing summons resolve the same loadout record (dmgType heal or attackKind heal).
 The solid fill, Pixi stripes and SVG stripes share that choice, preserving highlight groups and orientation.
+
+选中干员与部署朝向共用 `RangeStripes`：3D 斜纹位于棋盘与干员画布之间，覆盖 Boss 受击区时仍然可见。
+范围沿 BOARD 坐标投影，裁剪整备／暂存行及渲染器返回的空投影；关闭详情、重选或开始拖动时清理。
+详情打开期间切换 2D／3D，斜纹随画布重新挂载；2D／DOM 使用原有纹理。
+
 This does not recolour the card mini-map or infer a healing range from profession, incidental healing, regen, or skill
 text. Special skills that change the displayed ability need separate verified display metadata. Colour families follow
 [PRTS combat mechanics](https://prts.wiki/w/%E4%BD%9C%E6%88%98%E6%9C%BA%E5%88%B6#%E6%94%BB%E5%87%BB%E8%8C%83%E5%9B%B4);

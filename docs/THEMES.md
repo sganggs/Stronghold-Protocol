@@ -296,7 +296,10 @@ cards. Other small tier chips keep the shared Roman numeral.
   `root_sp`'s hand (a pointer under the TV) stays hidden, as in the previews; tween ease ids are DOTween's; the 1 % of
   weighted clip keys are read as plain Hermite ones.
 - Clips play (`ui/prefab/player.js`): each legacy AnimationClip is sampled at 30 fps into Web Animations keyframes per
-  node (opacity, visibility, transform, the graphic's opacity / colour). A status that enters plays its clips (the top
+  node (opacity, visibility, transform, the graphic's opacity / colour), keeping only the frames the browser's linear
+  interpolation cannot reproduce (`keptFrames`, `KEYFRAME_TOLERANCE`: opacity 1/1000, colour 1/500, 0.1 layout units,
+  scale 1/2000, 0.02°; both frames around a visibility switch), so a 35 s loop is not a thousand keyframes a node
+  (Firefox slowed to a few frames a second on 可露希尔's countdown, PR #973's measurement). A status that enters plays its clips (the top
   bar's `trans_*` when the mid screen switches, the countdown's switches); each node's PlayAutomatically clip loops
   while the node shows (wireline lights, wings, emoji). Effect-shader Images (sprite-less, a material of their own) are
   drawn as their base texture × colour × tint through the base and `_Mask_Tex` alpha, with the base's UV scroll; the

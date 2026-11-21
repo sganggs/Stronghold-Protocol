@@ -515,6 +515,10 @@ const tokenHits = (b, e2) => {
 };
 
 function kitShell(ab, e) {
+  // PRTS 刺胄之弹 (爆炸模式): the blast leaves a zone over itself and the 8 tiles around for 9.95 s (killed.duration)
+  // that every second deals killed.value no-source physical damage to the operators in it, each hit followed by a
+  // killed.stun (2.1 s) stun (acstmr_passive[core]: durationKey "stun", FixedValueDamage "value") — in effect a stun
+  // for the whole zone time plus the per-second damage, which is what this keeps: killed.duration for both.
   const stun = T(ab, 'killed.duration') ?? 0, dot = T(ab, 'killed.value') ?? 0;
   return [{
     spawn(b, e2) {
@@ -710,6 +714,8 @@ function kitGun(ab, e, b) {
         // a chase runs: PR #347's pair coordination is not taken, the data has neither)
         for (const sp of b2.enemies) {
           if (!sp.alive || !isSpring(sp) || !sp.mem.ab) continue;
+          // achunt_s_1 / [speed] / achunt_dog_move have no MOVE_SPEED formulaItem. move_speed 8 stays 1+value
+          // until a formula type shows up. Talent 3.move_speed stays an addition on the gun's own charge.
           sp.mem.ab.dash = { until: b2.time + (s2.bb.dog_duration ?? 0), mul: 1 + (s2.bb.move_speed ?? 0), gun: e2, hit: new Set() };
           b2.addBuff(sp, { key: 'boss:dash', duration: s2.bb.dog_duration ?? 0, visible: true, flags: { invulnerable: true, noMove: true, unblockable: true, disarm: true } });
           b2.fx('dash', { x: sp.x, y: sp.y, id: sp.id, tx: e2.x, ty: e2.y });
@@ -754,8 +760,20 @@ function kitSpring(ab, e) {
       },
     });
     b.fx('phase', { x: e.x, y: e.y, id: e.id, kind: `spring_${kind}` });
+    // actrpb_t_1[renegerate] / actrpc_t_1[regenerate] ON_BUFF_FINISH ClearEnemySp. actrpa has neither.
+    if (kind !== 'arts') {
+      const list = e.mem.ab && e.mem.ab.list;
+      if (list) for (const a of list) if (a && typeof a.attack === 'function') a.n = 0;
+      b.removeBuff(e, 'boss:springRegen');
+    }
   };
-  const drop = (b) => { P.up = false; P.downAt = b.time; b.removeBuff(e, 'boss:springShield'); b.fx('shieldBreak', { x: e.x, y: e.y, id: e.id }); };
+  const drop = (b) => {
+    P.up = false; P.downAt = b.time; b.removeBuff(e, 'boss:springShield'); b.fx('shieldBreak', { x: e.x, y: e.y, id: e.id });
+    // The 9019 / 9020 regenerate buff carries SILENCED for regenerate_duration. 9018's flags are empty.
+    if (kind !== 'arts' && regen > 0) {
+      b.addBuff(e, { key: 'boss:springRegen', duration: regen, flags: { silence: true }, status: 'silence', visible: true });
+    }
+  };
   const transfer = (b, c) => {
     if (!(c.amount > 0) || c.cancelled || isHpLoss(c.dmg) || c.dmg?.tags?.includes(SPRING_SHARE_TAG)) return;
     const credited = c.source || c.credit;
@@ -899,6 +917,8 @@ function kitEcho(ab, e) {
 
 /** 管 / 弦 core: summon loop, strikes on its own form of 余音, skill. */
 function pipeCore(ab, e, b, tpl, { form, prefix }) {
+  // ON_BUFF_TRIGGER filters HP GE literal 0 (prefix null), so the template's low_hp branch never runs.
+  // Both interval keys and 1.hp_ratio still describe this switch; collapsing to always-40 would drop low_hp.
   const hi = T(ab, `1.${prefix}_t_1[high_hp].interval`) ?? 40, lo = T(ab, `1.${prefix}_t_1[low_hp].interval`) ?? hi, thr = T(ab, '1.hp_ratio') ?? 0;
   const key = ab.tS['1.enemy_key'] ?? ECHO_KEY;
   const P = { acc: 0, atk: Infinity, heldUntil: 0 };   // first strike as soon as an echo of its form exists (engine attack rule)
@@ -934,8 +954,23 @@ function pipeCore(ab, e, b, tpl, { form, prefix }) {
 
 function kitPipe(ab, e, b, tpl) {
   const s = ab.sk['1'];
+  // acduml_t_1 ON_TAKE_DAMAGE: HP ratio LT literal 0.5 (talent 1.hp_ratio is the same number), then Evade
+  // PHYSICAL_AND_MAGICAL, applyWay ALL. Evade nodes carry no chance of their own (nor do the generic evade /
+  // evade_physical templates the 闪避 talents use): it is the blackboard's `prob`, here talent 1.prob 0.1 — PRTS
+  // 假想敌：管 「自身生命值低于50%时，获得10%物理和法术闪避」. A dodge buff like boss:evade (true and element damage
+  // are not dodged). 弦 (acdumm_t_1) has no Evade node.
+  const EVADE_BELOW = 0.5, evadeProb = T(ab, '1.prob') ?? 0;
   return [
     pipeCore(ab, e, b, tpl, { form: 'dark', prefix: 'acduml' }),
+    evadeProb > 0 && {
+      tick(b2, e2) {
+        if (e2.hpRatio < EVADE_BELOW) {
+          if (!e2.findBuff('boss:pipeEvade')) {
+            b2.addBuff(e2, { key: 'boss:pipeEvade', persist: true, mods: { dodgePhys: evadeProb, dodgeArts: evadeProb } });
+          }
+        } else b2.removeBuff(e2, 'boss:pipeEvade');
+      },
+    },
     {
       death(c, b2) { for (const o of b2.aliveEnemies()) if (o.defId === 'enemy_9022_acdumm') b2.kill(o, null); }, // 弦 leaves with 管
     },

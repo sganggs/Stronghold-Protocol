@@ -160,7 +160,7 @@ test('喷射罐 / 喷爆罐 channels 3 spray hits per attack, stands through an 
 });
 
 // 3. MAP10 盐坨子炮 (trap_196_cnnon)
-test('MAP10 盐坨子炮: built role, 2D/3D props, periodic splash + mass<=3 teleport across normal, unite and boss fields, and destruction', () => {
+test('MAP10 盐坨子炮: built role, 2D/3D props, loaded projectile + mass<=3 passenger across normal, unite and boss fields, and destruction', () => {
   const m10 = V.stages.act3autochess_m10;
   const cannons = m10.devices.filter((d) => d.key === 'trap_196_cnnon');
   assert.equal(cannons.length, 4);
@@ -177,7 +177,7 @@ test('MAP10 盐坨子炮: built role, 2D/3D props, periodic splash + mass<=3 tel
   assert.ok(parseStage(m10));
 
   // Normal field: only [13, 6] spawns. The stage runes apply once (ATK 1200−300, HP 30000+30000, 6 SP ×3): at 18 s it deals
-  // 900 phys on the far tile [9, 6] and teleports one mass<=3 ground enemy from an adjacent tile.
+  // 900 phys splash on landing at [9, 6], releasing one loaded mass<=3 ground enemy.
   const h = makeBattle({
     stage: m10, rect: GEO.NORMAL_RECT, content: 'generic', extraContent: [enemiesMod, bossesMod, devicesMod],
     seed: 1, autoFinish: false, timeLimit: 30,
@@ -186,7 +186,7 @@ test('MAP10 盐坨子炮: built role, 2D/3D props, periodic splash + mass<=3 tel
   });
   h.step(1);
   const wall = h.unit('wall3');
-  const liveCannons = h.b.allyUnits.filter((u) => u.defId === 'trap_196_cnnon');
+  const liveCannons = h.b.enemies.filter((u) => u.defId === 'trap_196_cnnon');
   assert.equal(liveCannons.length, 1);
   assert.deepEqual([liveCannons[0].tileR, liveCannons[0].tileC], [13, 6]);
   assert.equal(liveCannons[0].s.maxHp, 60000);
@@ -194,7 +194,7 @@ test('MAP10 盐坨子炮: built role, 2D/3D props, periodic splash + mass<=3 tel
   assert.equal(liveCannons[0].base.def, 3000);
   assert.equal(liveCannons[0].s.blockCnt, 0);
 
-  // Heavy (mass 4) and a flyer are not taken. The sailor stays visible until the shot, then lands on the blast tile.
+  // Heavy (mass 4) and a flyer are not taken. The sailor boards before the shot and reappears on landing.
   const heavy = h.spawn('enemy_1006_shield', { pos: [12, 5], route: waitAt(12, 5) });
   heavy.base.massLevel = 4; heavy.markDirty();
   const flyer = h.spawn('enemy_9027_acfnca', { pos: [12, 7], route: waitAt(12, 7, 'FLY') });
@@ -202,14 +202,16 @@ test('MAP10 盐坨子炮: built role, 2D/3D props, periodic splash + mass<=3 tel
   h.step(2);
   assert.equal(heavy.hidden, false);
   assert.equal(flyer.hidden, false);
-  assert.equal(sailor.hidden, false);
+  assert.equal(sailor.hidden, true);
 
   const hpBefore = wall.hp;
   h.run(6.1);
   assert.equal(wall.hp, hpBefore, 'no shot at 9 s: the ×3 rune makes it 18 s');
   h.run(12.1);
   assert.ok(h.b.time > 18 && h.b.time < 18.6);
-  assert.ok(near(hpBefore - wall.hp, 900), 'cannon shell deals 900 physical splash at [9, 6]');
+  assert.equal(wall.hp, hpBefore, 'the shell is still in flight');
+  h.run(.8);
+  assert.ok(near(hpBefore - wall.hp, 900), 'cannon shell deals 900 physical splash at [9, 6] on landing');
   assert.equal(sailor.hidden, false);
   assert.equal(Math.round(sailor.y), 9);
   assert.equal(Math.round(sailor.x), 6);
@@ -219,7 +221,7 @@ test('MAP10 盐坨子炮: built role, 2D/3D props, periodic splash + mass<=3 tel
   assert.equal(Math.round(flyer.y), 12);
   assert.equal(Math.round(flyer.x), 7);
 
-  const cannonPos = (battle) => battle.allyUnits.filter((u) => u.defId === 'trap_196_cnnon').map((u) => [u.tileR, u.tileC]).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cannonPos = (battle) => battle.enemies.filter((u) => u.defId === 'trap_196_cnnon').map((u) => [u.tileR, u.tileC]).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
 
   // Unite field spawns both [13, 6] and [13, 14]; Boss field spawns both [6, 6] and [6, 14].
   const hUnite = makeBattle({
@@ -236,7 +238,7 @@ test('MAP10 盐坨子炮: built role, 2D/3D props, periodic splash + mass<=3 tel
   hBoss.step(1);
   assert.deepEqual(cannonPos(hBoss.b), [[6, 6], [6, 14]]);
 
-  // Operator facing UP at [12, 6] can attack the separator cannon. It is not holding the sailor, so a kill before the shot leaves the sailor where it stands.
+  // Operator facing UP at [12, 6] can attack the separator cannon. Its one-HP final shot releases the passenger.
   const hKill = makeBattle({
     stage: m10, rect: GEO.NORMAL_RECT, content: 'generic', extraContent: [enemiesMod, bossesMod, devicesMod],
     seed: 1, autoFinish: false, timeLimit: 20,
@@ -244,14 +246,14 @@ test('MAP10 盐坨子炮: built role, 2D/3D props, periodic splash + mass<=3 tel
     units: [{ chessId: 'casterUp', row: 12, col: 6, dir: 'UP' }],
   });
   hKill.step(1);
-  const cn = hKill.b.allyUnits.find((u) => u.defId === 'trap_196_cnnon');
+  const cn = hKill.b.enemies.find((u) => u.defId === 'trap_196_cnnon');
   const pass = hKill.spawn('enemy_10043_sailor', { pos: [12, 6], route: waitAt(12, 6) });
   hKill.step(2);
-  assert.equal(pass.hidden, false);
+  assert.equal(pass.hidden, true);
   const killed = hKill.runUntil(() => !cn.alive, 15);
   assert.equal(killed, true, 'caster facing UP destroys the 60000 HP cannon');
   assert.equal(pass.hidden, false);
-  assert.deepEqual([Math.round(pass.y), Math.round(pass.x)], [12, 6]);
+  assert.deepEqual([Math.round(pass.y), Math.round(pass.x)], [9, 6]);
   checkInvariants(h.b);
   checkInvariants(hKill.b);
 });

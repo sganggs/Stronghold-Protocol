@@ -6,13 +6,14 @@
 // Official numbers are read from the enemy record. Points with no blackboard are marked [ASSUMED].
 
 import { hypot, sin, cos } from '../../detmath.js';
-import { ALLY_COLLIDER_RADIUS, PROJECTILE_SPEEDS } from '../../constants.js';
-import { canTargetAlly } from '../../targeting.js';
+import { ALLY_COLLIDER_RADIUS, PROJECTILE_SPEEDS, MOVE_SCALE } from '../../constants.js';
+import { canTargetAlly, areaSelectable } from '../../targeting.js';
+import { isHpLoss } from '../../attack.js';
 import {
   hurt, elem, areaAllies, areaAlliesInTiles, fieldAllies, targetsNear, auraAllies, remainingRoute, stayRoute, spawnChildren, nthOf, canCast, BOOM_RADIUS, auraBuff, watchDeaths,
-  unbalancedNow,
+  unbalancedNow, castSlot, stepToward,
 } from './helpers.js';
-import { skill, stealth, ep, refraction, reborn, deathBoom } from './archetypes.js';
+import { skill, stealth, ep, refraction, reborn, deathBoom, blockWeight, noAirTargets } from './archetypes.js';
 
 const num = (v, d) => {
   if (typeof v === 'number' && Number.isFinite(v)) return v;
@@ -454,6 +455,39 @@ function kitDthrowDeath(ab) {
   return [{ death(c, b, e) { if (c.reason === 'killed') replaceLater(b, e, key, delay); } }];
 }
 
+/**
+ * 萨卡兹子裔轰击者 / 毁击者: PRTS 萨卡兹子裔轰击者 「攻击发射高爆弹，抵达目标位置后延迟4s引爆，对半径1.1范围内的我方单位造成物理伤害」.
+ * The attack is the engine's (cooldown, stand, the 'atk' event of kind 'bomb'); its shell (projectile_enemy_dthrow: a
+ * ParacurveMovement at `_speed` 8 = PROJECTILE_SPEEDS.bomb, `_delayTime` 4) flies to where the target stood, then blows up
+ * `Attack.attack@projectile_delay_time` s later on every ally its area selection takes within
+ * `Attack.attack@projectile_radius` — whoever stands there then, the dead thrower's shell too (the projectile is not
+ * managed by its source). [ASSUMED] 100 % of the ATK at the throw (no multiplier in the data or the PRTS line). The death
+ * replacement stays kitDthrowDeath's.
+ */
+function kitDthrow(ab) {
+  const delay = tv(ab, 'Attack.attack@projectile_delay_time', 4);
+  const radius = tv(ab, 'Attack.attack@projectile_radius', 1.1);
+  const blast = (b, e, atk, x, y) => {
+    b.fx('explode', { x, y, r: radius, kind: 'dthrowShell' });
+    for (const u of areaAllies(b, e, x, y, radius)) hurt(b, e, u, atk, 'phys', { isSkill: false, tags: ['shell'] });
+  };
+  return [...kitDthrowDeath(ab), {
+    spawn(b, e) { e.profile.deferHit = true; e.profile.shot = 'bomb'; },
+    attack(c, b, e) {
+      const atk = e.s.atk * (e.profile.atkScale ?? 1);
+      for (const t of c.targets) {
+        b.addProjectile({ from: e, to: { x: t.x, y: t.y }, speed: PROJECTILE_SPEEDS.bomb, visual: 'bomb', source: e,
+          onHit: (h) => {
+            const x = h.x, y = h.y;
+            b.fx('telegraph', { x, y, r: radius, dur: delay, kind: 'dthrowShell', id: e.id });
+            if (delay > 0) b.after(delay, () => blast(b, e, atk, x, y));
+            else blast(b, e, atk, x, y);
+          } });
+      }
+    },
+  }];
+}
+
 /** Bone defender: reuse the stationary Blood Amber path already used by the bone torturer. */
 function kitSpnshdDeath(ab) {
   const key = sv(ab.tS, 'Summon.enemy_key');
@@ -464,6 +498,53 @@ function kitSpnshdDeath(ab) {
       spawnChildren(b, e, key, count, { route: stayRoute(e), countInTotal: false, mods: null });
     },
   }];
+}
+
+/**
+ * 萨卡兹骸骨卫士长: PRTS 「受到我方默认类单位造成的伤害后令伤害来源在5s内攻击速度-40（重复时不叠加，不重置持续时间）」 — template
+ * enemy_spnshd_atk_speed: ON_TAKE_DAMAGE (no 流失), the damage's source verified as a unit of our side it may select
+ * (VertifyTarget ENEMY / DEFAULT, ignoreTargetFree false: areaSelectable — no 隐匿, untargetable, sleeping or airborne 起飞 one,
+ * no device), then ATTACK_SPEED ADDITION `Summon.attack_speed` for `Summon.duration` s with override UNIQUE (one shared key,
+ * refresh 'keep': a second hit, from any 卫士长, neither stacks nor restarts it). A 无来源 hit names no source. [ASSUMED]
+ * 默认类 = every ally that is no device (炎佑 included). The two 血珀 stay kitSpnshdDeath's; the 反巫术变位炸弹 aura has no
+ * counterpart in this mode.
+ */
+function kitSpnshd(ab) {
+  const aspd = tv(ab, 'Summon.attack_speed', -40);
+  const dur = tv(ab, 'Summon.duration', 5);
+  return [...kitSpnshdDeath(ab), {
+    taken(c, b, e) {
+      const s = c.source;
+      if (!(dur > 0) || !s || s.side !== 'ally' || isHpLoss(c.dmg) || !areaSelectable(e, s)) return;
+      b.addBuff(s, { key: 'reg:spnshdSlow', duration: dur, refresh: 'keep', mods: { aspd } });
+    },
+  }];
+}
+
+/**
+ * 新生血裔: PRTS 「平时仅进行近战攻击，造成法术伤害；攻击时，攻击倍率提升至：(100% + 20%×目标当前阻挡的敌人数量）；成功造成伤害后，治疗
+ * 自身相当于伤害量220%的生命值」. The melee arts attack is the data's (applyWay MELEE, dmgType arts). Template
+ * enemy_dfello_damge_up: ON_CALCULATE_DAMAGE, atk_scale = |block count × `DamageUp.scale_ratio` + `DamageUp.add_on`| on
+ * the attack (before DEF / RES) — the enemies its target is blocking now, itself included; enemy_dslime_vampire: after
+ * the damage, a heal of `vampire.heal_scale` × the damage dealt. 「被击倒时留下<血珀>」 (`Summon.enemy_key` ×
+ * `Summon.cnt`, template enemy_dfello_summon[dseed]) is the bone defender's path (kitSpnshdDeath).
+ */
+function kitDfello(ab) {
+  const ratio = tv(ab, 'DamageUp.scale_ratio', 0.2);
+  const add = tv(ab, 'DamageUp.add_on', 1);
+  const heal = tv(ab, 'vampire.heal_scale', 2.2);
+  return [{
+    hitOut(c) {
+      const t = c.target;
+      if (!t || !c.dmg || !c.dmg.isAttack) return;
+      let n = 0;
+      for (const o of t.blocking || []) if (o && o.alive && o.blockedBy === t) n++;
+      c.dmg.amount *= Math.abs(n * ratio + add);
+    },
+    dealt(c, b, e) {
+      if (heal > 0 && c.amount > 0 && e.alive) b.heal(e, e, c.amount * heal, { self: true });
+    },
+  }, ...kitSpnshdDeath(ab)];
 }
 
 function auraOf(b, e, ab) {
@@ -537,7 +618,9 @@ function kitDkmage(ab) {
   ];
 }
 
-/** 饲育者: weighted death spawn. move_speed 2 is a move multiplier [ASSUMED]. */
+/** 饲育者: weighted death spawn (dsfull_tr_1 RandomAction prob1, otherwise prob2, otherwise enemy_3).
+ *  The child buff is MOVE_SPEED MULTIPLIER, loadFromBlackboard, value fallback 0. Talent 0.move_speed 2 is ×2.
+ *  _useRandomDelay is false and _delayTime is 0, so the summon is immediate. */
 function kitDsfull(ab) {
   const p1 = tv(ab, '0.prob1', 0.2);
   const p2 = tv(ab, '0.prob2', 0.5);
@@ -730,7 +813,9 @@ function syncRebornBlocker(b, u) {
 /** 大君之触 / 仁慈之触 / 大君之赐 / 慷慨之赐: 90% phys/arts DR (`dmg_res.damage_resistance`; true damage is not in
  *  that key). No buff template names `dmg_res`, so silence not removing it is [ASSUMED] (the sibling block buff
  *  `enemy_bloodsucker_block_cnt[control]` is explicitly unsilenceable). +1 blockCnt per blocked copy, capped by
- *  `max_valid_stack_cnt` (6), recomputed from whoever is actually blocking it. */
+ *  `max_valid_stack_cnt` (6), recomputed from whoever is actually blocking it. These four keys are the 重生造物 of the
+ *  data (their handbook line 「重生造物（受到的物理和法术伤害大幅降低）」): `mem.rebornCreation` marks them for the
+ *  补给车 auras (kitDsuply), whose 凋亡 riders their attacks carry. */
 function kitRebornCreation(ab) {
   const dr = tv(ab, 'dmg_res.damage_resistance', 0.9);
   const blockStep = tv(ab, 'buff_to_blocker.block_cnt', 1);
@@ -739,9 +824,18 @@ function kitRebornCreation(ab) {
   return [{
     spawn(b, e, a) {
       a.blocker = null;
+      e.mem.rebornCreation = true;
       e.mem.rebornBlockStep = blockStep;
       e.mem.rebornBlockCap = blockCap;
       b.addBuff(e, { key: 'reg:rebornCreation', persist: true, mods: { physTakenMul: mul, artsTakenMul: mul } });
+    },
+    // each 补给车 aura held (kitDsuply: one buff per cart kind) adds its own 凋亡 instance to an attack that lands
+    dealt(c, b, e) {
+      const t = c.target;
+      if (!t) return;
+      const shares = [];
+      for (const x of e.buffs) if (x.data && x.data.dsuplyEp > 0) shares.push(x.data.dsuplyEp);
+      for (const s of shares) elem(b, e, t, 'apoptosis', e.s.atk * s);
     },
     blocked(c, b, e, a) {
       const prev = a.blocker;
@@ -841,6 +935,386 @@ function kitWinbom(ab) {
   ];
 }
 
+// --- companions whose abilities come from their PRTS pages (round 84; the round-83 audit's open list) ------------
+
+/**
+ * The ally a straight shot of `e` along (dx, dy) — one axis, a unit step — meets first: its centre within 0.5 of the line
+ * (the row / column band), at most `reach` ahead and no more than an ally collider behind the shooter's centre, nearest
+ * first (ties by id). `pick(u)` admits a candidate.
+ */
+function firstOnLine(b, e, dx, dy, reach, pick) {
+  let best = null;
+  let bd = Infinity;
+  for (const u of b.allies()) {
+    if (!pick(u)) continue;
+    const along = dx ? (u.x - e.x) * dx : (u.y - e.y) * dy;
+    const off = dx ? Math.abs(u.y - e.y) : Math.abs(u.x - e.x);
+    if (off >= 0.5 || along < -ALLY_COLLIDER_RADIUS || along > reach + 1e-9) continue;
+    if (!best || along < bd - 1e-9 || (Math.abs(along - bd) <= 1e-9 && u.id < best.id)) { best = u; bd = along; }
+  }
+  return best;
+}
+
+/** The unit step [dx, dy] of the dominant axis from `e` towards `t` (a tie, or the same point, reads as a row). */
+const axisTo = (e, t) => {
+  const dx = t.x - e.x, dy = t.y - e.y;
+  return Math.abs(dx) >= Math.abs(dy) ? [dx < 0 ? -1 : 1, 0] : [0, dy < 0 ? -1 : 1];
+};
+
+/**
+ * 速射轻弩手 / 速射劲弩手 直击 (`CrossAttack`, cooldown 5, initCooldown 2; PRTS 速射轻弩手 「与我方处于同一直线上时进行直击：向目标
+ * 方向发射3支弩箭，每支弩箭对击中的首个目标造成攻击力100%的物理伤害」). The official ability is a MultiRangedAttack (fx index
+ * units.enemy_1403_gunsho.skills.crossattack: 1 + `additionalTimes` 2 shots, `triggerDelta` 0.1 s apart, animKey Skill =
+ * GUNSHO_CLIP in data/assets.json; projectile_enemy_gunsho at `_speed` 5), so it takes the attack's turn (DESIGN §35.52):
+ * its trigger is its own line check (`own`), its cooldown counts from the clip's end, it stands through the clip. The
+ * nearest ally it can target (canTargetAlly: a ranged pick) in its row or column sets the direction; each bolt flies at
+ * the first such ally in that direction then. [ASSUMED] the reach (GUNSHO_REACH, as 重弩突袭者's 直击), the first bolt at
+ * the cast, a stun / silence or its death cancelling the bolts not yet shot (as 重弩突袭者), a bolt whose ally falls in
+ * flight hitting nothing. Not in ENEMY_ATTACK_SKILL_CLIP: that table holds the default season's keys only.
+ */
+const GUNSHO_SHOTS = 3, GUNSHO_GAP = 0.1, GUNSHO_CLIP = 1.567, GUNSHO_BOLT_SPEED = 5, GUNSHO_REACH = 6;
+
+function kitGunsho(ab) {
+  const sk = ab.sk.CrossAttack;
+  const target = (b, e) => {
+    let best = null;
+    let bd = Infinity;
+    for (const u of b.allies()) {
+      if (!canTargetAlly(e, u, true)) continue;
+      const dx = u.x - e.x, dy = u.y - e.y;
+      if (!(Math.abs(dy) < 0.5 || Math.abs(dx) < 0.5)) continue;
+      const d = hypot(dx, dy);
+      if (d > GUNSHO_REACH + 1e-9) continue;
+      if (!best || d < bd - 1e-9 || (Math.abs(d - bd) <= 1e-9 && u.id < best.id)) { best = u; bd = d; }
+    }
+    return best;
+  };
+  return [skill(sk, (b, e) => {
+    const t = target(b, e);
+    if (!t) return;
+    const [dx, dy] = axisTo(e, t);
+    b.addBuff(e, { key: 'reg:gunshoAim', duration: GUNSHO_CLIP, flags: { noMove: true } });
+    const shoot = () => {
+      if (!e.alive || e.hidden || e.s.flags.stun || e.s.flags.silence) return;
+      const u = firstOnLine(b, e, dx, dy, GUNSHO_REACH, (o) => canTargetAlly(e, o, true));
+      if (!u) return;
+      const atk = e.s.atk;
+      b.addProjectile({ from: e, target: u, speed: GUNSHO_BOLT_SPEED, visual: 'enemy', source: e,
+        onHit: (h) => { if (h.target && h.target.alive) hurt(b, e, h.target, atk, 'phys', { tags: ['crossBolt'] }); } });
+    };
+    shoot();
+    for (let i = 1; i < GUNSHO_SHOTS; i++) b.after(GUNSHO_GAP * i, shoot, { owner: e });
+  }, { sil: true, cond: (b, e) => !!target(b, e), turn: { atk: true, clip: GUNSHO_CLIP, own: true } })];
+}
+
+/**
+ * 无畏掷弹兵 (PRTS: 「仅一次，未受沉默影响且未被阻挡时，受到伤害后进入掷弹模式；掷弹模式下无法攻击/被阻挡」; 投弹 [掷弹模式]
+ * 「向自身上/下/左/右方向各发射一个炸弹（炸弹为直击弹道），每个炸弹接触到首个我方单位时爆炸，对1.1半径范围内我方单位造成攻击力200%的物理
+ * 伤害 ※技能结束后退出掷弹模式，移动速度+0.7，重量-2 ※此技能仅能触发一次，不可沉默，触发技能不需要目标」). Template
+ * enemy_boomer_skill_trigger: ON_TAKE_DAMAGE (no 流失), not SILENCED, not blocked → the D2L mode, whose one skill Bomb
+ * (`atk_scale`, `projectile_range`) is a NoTargetRangedAttack on Skill_1 (BOOMER_CLIP, data/assets.json); each bomb is a
+ * projectile_enemy_boomer at `_speed` 5 and bursts on the first ally (canTargetAlly) in its direction, the burst an area
+ * selection; then the Light mode: `Light.move_speed` flat, `Light.mass_level` 重量. [ASSUMED] it stands through the clip,
+ * the four bombs leave at its start, a bomb flies on to the field's edge (no range in the data or PRTS; nobody in its way:
+ * no burst) and bursts where its ally stood if that ally falls first.
+ */
+const BOOMER_CLIP = 1.467, BOOMER_BOMB_SPEED = 5;
+/** 上 / 右 / 下 / 左 as [dx, dy], in the official neighbour order (grid.js FOUR_WAYS; UP = row + 1). */
+const FOUR_DIRS = Object.freeze([[0, 1], [1, 0], [0, -1], [-1, 0]]);
+
+function kitBoomer(ab) {
+  const sk = ab.sk.Bomb;
+  const scale = bb(sk, 'atk_scale', 2);
+  const radius = bb(sk, 'projectile_range', 1.1);
+  const speed = tv(ab, 'Light.move_speed', 0.7);
+  const mass = tv(ab, 'Light.mass_level', -2);
+  const blast = (b, e, atk, x, y) => {
+    b.fx('explode', { x, y, r: radius, kind: 'boomerBomb' });
+    for (const u of areaAllies(b, e, x, y, radius)) hurt(b, e, u, atk, 'phys', { tags: ['boomerBomb'] });
+  };
+  const light = (b, e, a) => {
+    if (!e.alive || a.mode !== 'bomb') return;
+    a.mode = 'light';
+    b.addBuff(e, { key: 'reg:boomerLight', persist: true, mods: { moveFlat: speed, massFlat: mass } });
+  };
+  return [{
+    taken(c, b, e, a) {
+      if (a.mode || !e.alive || !(e.hp > 0) || isHpLoss(c.dmg) || e.s.flags.silence || e.blockedBy) return;
+      a.mode = 'bomb';
+      b.addBuff(e, { key: 'reg:boomerBomb', duration: BOOMER_CLIP, flags: { unblockable: true, disarm: true, noMove: true },
+        onExpire: ({ battle }) => light(battle, e, a) });
+      if (sk) castSlot(b, e, sk);
+      const atk = e.s.atk * scale;
+      for (const [dx, dy] of FOUR_DIRS) {
+        const t = firstOnLine(b, e, dx, dy, Infinity, (u) => canTargetAlly(e, u, true));
+        if (!t) continue;
+        b.addProjectile({ from: e, target: t, speed: BOOMER_BOMB_SPEED, visual: 'enemy', source: e, hitDead: true,
+          onHit: (h) => blast(b, e, atk, h.x, h.y) });
+      }
+    },
+  }];
+}
+
+/**
+ * 萨卡兹子裔补给车 / 改装补给车 (PRTS 萨卡兹子裔补给车 「不会攻击飞行单位；在场时，场上所有重生造物攻击力提升10%（最多叠加5层），且攻击时
+ * 附加各自攻击力10%的凋亡损伤（可被沉默）※与萨卡兹子裔改装补给车提供的效果分别计算」). Its talent `aura` is a SilenceableTalent
+ * GlobalAuraAbility (fx index); the buff template enemy_dsuply_t[aura] (`_2`: enemy_dsuply_2_t[aura]) gives every 重生造物
+ * one STACK of `[attr_buff]` (ATK MULTIPLIER `.atk`) per cart, valid up to `.max_valid_stack_cnt`, and on each damage it
+ * calculates 凋亡 = its ATK × `aura.ep_damage_ratio` × the valid stacks (`_multiplyWithBuffValidStackCnt`). So: n living
+ * carts of one kind not silenced and not hidden → atkPct `.atk` × min(n, cap) and an 凋亡 share × min(n, cap) on each
+ * attack (kitRebornCreation's rider), one buff per kind. [ASSUMED] the share multiplies with the stacks as the template
+ * says (PRTS's line reads 10 % flat: the two agree for one cart), it rides the attacks only (PRTS 「攻击时」), the creation's
+ * own silence does not stop it, and it lingers DSUPLY_HOLD s after the last cart is gone or silenced.
+ */
+const DSUPLY_HOLD = 0.1;
+
+function kitDsuply(ab) {
+  const talent = (suffix, d) => {
+    const k = Object.keys(ab.t).find((x) => x.startsWith('aura.') && x.endsWith(`[attr_buff].${suffix}`));
+    return k ? tv(ab, k, d) : d;
+  };
+  const atk = talent('atk', 0.1);
+  const cap = Math.max(0, Math.round(talent('max_valid_stack_cnt', 5)));
+  const share = tv(ab, 'aura.ep_damage_ratio', 0.1);
+  return [noAirTargets(), {
+    sil: true,
+    tick(b, e) {
+      let lead = null;
+      let n = 0;
+      for (const o of b.enemies) {
+        if (!o.alive || o.hidden || o.defId !== e.defId || o.s.flags.silence) continue;
+        if (!lead) lead = o;
+        n++;
+      }
+      if (lead !== e) return;                                 // the earliest of its kind writes for all of them
+      const v = Math.min(cap, n);
+      if (!(v > 0)) return;
+      for (const o of b.enemies) {
+        if (!o.alive || o.hidden || !o.mem.rebornCreation) continue;
+        b.addBuff(o, { key: `reg:dsuply:${e.defId}`, duration: DSUPLY_HOLD, refresh: 'replace', mods: { atkPct: atk * v }, data: { dsuplyEp: share * v } });
+      }
+    },
+  }];
+}
+
+/**
+ * 狂暴凶豕兽 (PRTS 「占用2个阻挡数；拥有冲撞光环：碰撞半径0.5，可对空，只会选择位于低地地块的我方单位，造成当前移动速度×800的预计算近战
+ * 途径物理伤害与0秒晕眩；每0.1秒检测一次：①若受晕眩/冻结/浮空/束缚影响，停止冲撞 ②若未受上述异常效果影响、且未被阻挡，开始冲撞；冲撞时，
+ * 每0.333秒尝试获得1层移动速度+33.3%的增益，最多尝试35次（增益于停止冲撞时解除；每次开始冲撞后3秒内的加速尝试将失败），同时普通攻击附加
+ * 的Buff会额外造成一次当前移动速度×600的预计算近战途径物理伤害，成功造成该额外伤害后停止冲撞」), as the templates enemy_mhboar_t_listener
+ * [a]–[e] / [trigger] / _t_atk / _crash read:
+ *   - block weight BOAR_BLOCK (the handbook 「只能被阻挡数大于等于2的单位阻挡」; the data's blockCnt is 1);
+ *   - the listener every BOAR_LISTEN s, its first look at the spawn (as 萨卡兹穿刺手's): 晕眩 / 冻结 / 浮空 / 束缚 (statuses
+ *     stun / freeze / levitate / bind — not 沉睡) end the rush and its layers; free of them and unblocked it starts one —
+ *     a block does not end it;
+ *   - every `Rush.mhboar_t[trigger].interval` s of a rush one try, at most `trig_cnt`, each a layer of move speed
+ *     +`move_speed` (MULTIPLIER, the layers add up) unless it falls inside the first `Rush.mhboar_t_predelay.predelay` s;
+ *   - a normal attack that lands during a rush adds 当前移动速度 × `FirstAttack.atk_scale` and, once that settles, ends it;
+ *   - the crash aura: an ally on low ground (`ground`) coming within BOAR_CRASH_RADIUS — flyers there too, the area
+ *     selection's rules otherwise — takes 当前移动速度 × `Crash.atk_scale` if the boar walks on its own then
+ *     (IfEnemyIsMovingBySelf), and `Crash.stun` s of stun (0 in the data); once per entry.
+ * Both extra hits are precomputed melee physical damage (calculation 'precomputed', applyWay MELEE) that gives 受击回复 SP
+ * (`_ignoreForSp` false, unlike 穿刺手's). [ASSUMED] neither can be dodged (as 穿刺手's), and the aura's entry bookkeeping.
+ */
+const BOAR_LISTEN = 0.1, BOAR_BLOCK = 2, BOAR_CRASH_RADIUS = 0.5;
+
+function kitMhboar(ab) {
+  const ms = tv(ab, 'Rush.mhboar_t[trigger].move_speed', 0.333);
+  const iv = tv(ab, 'Rush.mhboar_t[trigger].interval', 0.333);
+  const tries = Math.max(0, Math.min(100, Math.round(tv(ab, 'Rush.mhboar_t[trigger].trig_cnt', 35))));
+  const predelay = tv(ab, 'Rush.mhboar_t_predelay.predelay', 3);
+  const firstScale = tv(ab, 'FirstAttack.atk_scale', 600);
+  const crashScale = tv(ab, 'Crash.atk_scale', 800);
+  const crashStun = tv(ab, 'Crash.stun', 0);
+  const P = { on: false, tries: 0, n: 0, acc: 0 };
+  const held = (e) => e.buffs.some((x) => x.status === 'stun' || x.status === 'freeze' || x.status === 'levitate' || x.status === 'bind');
+  const start = () => { P.on = true; P.tries = 0; P.n = 0; P.acc = 0; };
+  const stop = (b, e) => { P.on = false; P.n = 0; b.removeBuff(e, 'reg:boarRush'); };
+  const hit = (b, e, u, amount, tag, onApplied = null) => b.dealDamage({
+    source: e, target: u, amount, type: 'phys', calculation: 'precomputed', applyWay: 'MELEE', attackType: 'NORMAL', canDodge: false,
+    isSkill: true, tags: ['enemyAbility', tag], ...(onApplied ? { onApplied } : {}),
+  });
+  return [blockWeight(BOAR_BLOCK), {
+    iv: BOAR_LISTEN,
+    spawn(b, e) { if (!e.blockedBy && !held(e)) start(); },
+    tick(b, e) {
+      if (held(e)) { if (P.on) stop(b, e); return; }
+      if (!P.on && !e.blockedBy) start();
+    },
+  }, {
+    tick(b, e, a, dt) {
+      if (!P.on || P.tries >= tries || !(iv > 0)) return;
+      P.acc += dt;
+      let grew = false;
+      for (let k = 0; k < 8 && P.acc >= iv - 1e-9 && P.tries < tries; k++) {
+        P.acc -= iv;
+        P.tries++;
+        if (P.tries * iv >= predelay - 1e-9) { P.n++; grew = true; }
+      }
+      if (grew) b.addBuff(e, { key: 'reg:boarRush', persist: true, mods: { moveMul: 1 + ms * P.n } });
+    },
+    dealt(c, b, e) {
+      const t = c.target;
+      if (!P.on || !t || !t.alive || !(t.hp > 0)) return;
+      const amount = e.s.moveSpeed * firstScale;
+      if (amount > 0) hit(b, e, t, amount, 'boarRush', () => { if (P.on) stop(b, e); });
+    },
+  }, {
+    spawn(b, e, a) { a.inside = new Map(); },
+    tick(b, e, a) {
+      const now = new Set();
+      for (const u of areaAllies(b, e, e.x, e.y, BOAR_CRASH_RADIUS)) {
+        if (!u.ground) continue;
+        now.add(u);
+        if (a.inside.get(u) === u.deploySeq) continue;
+        a.inside.set(u, u.deploySeq);
+        if (!e.moving) continue;
+        const amount = e.s.moveSpeed * crashScale;
+        if (amount > 0) hit(b, e, u, amount, 'boarCrash');
+        if (crashStun > 0 && u.alive) b.applyStatus(u, 'stun', { duration: crashStun, source: e });
+      }
+      for (const u of [...a.inside.keys()]) if (!now.has(u)) a.inside.delete(u);
+    },
+  }];
+}
+
+/**
+ * 神勇的帕拉杜利斯 冲锋 (`rush`, cooldown 10, initCooldown 5; PRTS: [初始模式] 「仅未被阻挡、且移动方向同一行/列的前方存在非飞行我方单位时
+ * 可触发：标记并开始追踪目标所在地块中心；技能结束时进入冲锋模式」; 冲锋模式 「无法攻击/被阻挡；①仅一次，对进入半径0.45的我方单位造成攻击力
+ * 200%的无途径物理伤害（每次进入此模式时刷新次数，不可对空），成功造成伤害后停止进行追踪并强制触发技能【正常结束】 ②到达追踪位置后强制
+ * 触发技能【正常结束】」, 正常结束 back to the initial mode). The rush ability plays Skill_Begin (MNCTUR_BEGIN, data/assets.json),
+ * the cooldown counting from its end; then the Run mode walks it straight at its own speed to the marked tile's centre,
+ * unblockable and without attacks, and the first non-flying ally its area selection takes within MNCTUR_COLLIDE ends it
+ * with `CollideChar.atk_scale_collide` × ATK (applyWay NONE). The 入戏 branch (`rushEndAdvance`: through our units to a
+ * wall, then true damage and a stun on itself) needs the stage's trap_pirene field state, which no 规程 field has: left
+ * out. [ASSUMED] it stands through Skill_Begin and a stun / its death then cancels the charge; the target is the nearest
+ * such ally its ranged pick takes (canTargetAlly), on a walkable tile with walkable tiles all the way (the charge never
+ * leaves the road), no limit on the distance; stunned, bound or 失衡 it holds still in the Run mode; the collision cannot be
+ * dodged; no stand for the Skill_End clip.
+ */
+const MNCTUR_BEGIN = 1, MNCTUR_COLLIDE = 0.45;
+
+function kitMnctur(ab) {
+  const sk = ab.sk.rush;
+  const endSk = ab.sk.rushEndNormal;
+  const scale = tv(ab, 'CollideChar.atk_scale_collide', 2);
+  const P = { mode: null, to: null };
+  const heading = (e) => {
+    const R = e.route;
+    if (!R || !R.pts || !(R.ptIdx < R.pts.length)) return null;
+    const p = R.pts[R.ptIdx];
+    if (Math.abs(p.x - e.x) < 1e-6 && Math.abs(p.y - e.y) < 1e-6) return null;
+    return axisTo(e, p);
+  };
+  const clearLine = (b, e, t, dx) => {
+    const fixed = dx ? Math.round(e.y) : Math.round(e.x);
+    const from = dx ? Math.round(e.x) : Math.round(e.y);
+    const to = dx ? t.tileC : t.tileR;
+    const step = to >= from ? 1 : -1;
+    for (let i = from, k = 0; k < 40; i += step, k++) {
+      if (!(dx ? b.grid.walkable(fixed, i) : b.grid.walkable(i, fixed))) return false;
+      if (i === to) return true;
+    }
+    return false;
+  };
+  const ahead = (b, e) => {
+    const d = heading(e);
+    if (!d) return null;
+    const [dx, dy] = d;
+    return firstOnLine(b, e, dx, dy, Infinity, (u) => !u.isFlying && canTargetAlly(e, u, true)
+      && (dx ? (u.x - e.x) * dx : (u.y - e.y) * dy) > 0 && clearLine(b, e, u, dx));
+  };
+  const finish = (b, e) => {
+    if (P.mode !== 'run') return;
+    P.mode = null;
+    P.to = null;
+    b.removeBuff(e, 'reg:mncturRun');
+    if (e.route) e.route.pts = null;
+    if (endSk) castSlot(b, e, endSk);
+  };
+  const run = (b, e) => {
+    if (P.mode !== 'mark') return;
+    if (!e.alive || e.hidden || e.s.flags.stun) { P.mode = null; P.to = null; return; }
+    P.mode = 'run';
+    b.addBuff(e, { key: 'reg:mncturRun', flags: { unblockable: true, disarm: true, noMove: true } });
+    b._unblock(e);
+    b.fx('charge', { x: e.x, y: e.y, id: e.id, tx: P.to.x, ty: P.to.y, kind: 'mnctur' });
+  };
+  return [
+    skill(sk, (b, e) => {
+      const t = ahead(b, e);
+      if (!t) return;
+      P.mode = 'mark';
+      P.to = { x: t.tileC, y: t.tileR };
+      b.addBuff(e, { key: 'reg:mncturMark', duration: MNCTUR_BEGIN, flags: { noMove: true } });
+      b.fx('telegraph', { x: P.to.x, y: P.to.y, r: 0.5, dur: MNCTUR_BEGIN, kind: 'mncturMark', id: e.id });
+      b.after(MNCTUR_BEGIN, () => run(b, e), { owner: e });
+    }, { cond: (b, e) => P.mode == null && !e.blockedBy && !!ahead(b, e), turn: { clip: MNCTUR_BEGIN } }),
+    {
+      tick(b, e, a, dt) {
+        if (P.mode !== 'run') return;
+        const still = e.s.flags.stun || e.s.flags.bind || e.s.flags.groundbind || unbalancedNow(b, e);
+        let arrived = false;
+        if (!still) {
+          const px = e.x, py = e.y;
+          arrived = stepToward(e, P.to.x, P.to.y, e.s.moveSpeed * MOVE_SCALE * dt);
+          if (!b.grid.walkable(Math.round(e.y), Math.round(e.x))) { e.x = px; e.y = py; arrived = true; }
+        }
+        let hitU = null;
+        let hd = Infinity;
+        for (const u of areaAllies(b, e, e.x, e.y, MNCTUR_COLLIDE)) {
+          if (u.isFlying) continue;
+          const d = hypot(u.x - e.x, u.y - e.y);
+          if (!hitU || d < hd - 1e-9 || (Math.abs(d - hd) <= 1e-9 && u.id < hitU.id)) { hitU = u; hd = d; }
+        }
+        if (hitU) {
+          b.dealDamage({ source: e, target: hitU, amount: e.s.atk * scale, type: 'phys', applyWay: 'NONE', attackType: 'NORMAL',
+            canDodge: false, isSkill: true, tags: ['enemyAbility', 'mncturRush'] });
+          b.fx('explode', { x: hitU.x, y: hitU.y, r: 0.5, kind: 'mncturRush' });
+          finish(b, e);
+          return;
+        }
+        if (arrived) finish(b, e);
+      },
+    },
+  ];
+}
+
+/**
+ * 诡核集养者 / 异光体集养者 (PRTS: 「拥有分裂检测器：被施加调整值后，若自身生命值低于50%且未受沉默影响，则强制触发技能【应激分裂】，成功触发技能
+ * 后撤去分裂检测器」; 应激分裂 「在自身所在地块中心0.6边长正方形范围内随机位置以自身路径召唤1只与自身当前生命比例相同的、分裂检测器不生效的
+ * 诡核集养者」). Templates dsdivi_tr_1[listener] (ON_APPLIED_MODIFIER: below `0.hp_ratio`, not SILENCED, no split mark) and
+ * dsdivi_tr_1 / [2] (summon the skill's `enemy_key` on its own route, ±`offset_bound` around its tile's centre, WALK_ONLY,
+ * the split mark at once, dsdivi_tr_1[copy_hp] copying the HP ratio; `_delayTime` 0). Each damage instance it survives —
+ * a 流失 too — is a modifier; the offset is two draws of the battle rng (x, then y). The child is uncounted, as every
+ * runtime summon here. [ASSUMED] a stun does not stop the forced trigger, the parent does not stand for the Skill clip;
+ * the talent's `0.interval` / `0.offset_bound` are not used (the summon has no delay; PRTS's 0.6 square is the skill's
+ * `offset_bound` 0.3). Round 84 §37.318 had kept it out (the listener's filter reads a literal 0); PRTS's 50 % is the
+ * talent's `0.hp_ratio`.
+ */
+function kitDsdivi(ab) {
+  const sk = ab.sk['0'];
+  const ratio = tv(ab, '0.hp_ratio', 0.5);
+  const bound = bb(sk, 'offset_bound', 0.3);
+  const childKey = sv(sk && sk.bs, 'enemy_key');
+  return [{
+    taken(c, b, e, a) {
+      if (a.done || e.mem.dsdiviSplit || !e.alive || e.hidden || !(e.hp > 0)) return;
+      if (e.s.flags.silence || !(e.hpRatio < ratio)) return;
+      a.done = true;
+      const ox = (b.rng() * 2 - 1) * bound;
+      const oy = (b.rng() * 2 - 1) * bound;
+      const pos = [Math.round(e.y) + oy, Math.round(e.x) + ox];
+      if (sk) castSlot(b, e, sk);
+      const kids = spawnChildren(b, e, childKey || e.defId, 1, { countInTotal: false, pos, route: remainingRoute(e) });
+      for (const k of kids) {
+        k.mem.dsdiviSplit = true;
+        k.hp = Math.min(k.s.maxHp, k.s.maxHp * e.hpRatio);
+      }
+    },
+  }];
+}
+
 const same = (kit) => kit;
 
 export const REGULATION_KITS = Object.freeze({
@@ -870,9 +1344,19 @@ export const REGULATION_KITS = Object.freeze({
   enemy_1222_dpvt_2: same(kitDeathrattle),
   enemy_1223_dmech: kitDeathrattle,
   enemy_1223_dmech_2: same(kitDeathrattle),
-  enemy_1361_dthrow: kitDthrowDeath,
-  enemy_1361_dthrow_2: same(kitDthrowDeath),
-  enemy_1363_spnshd_2: kitSpnshdDeath,
+  enemy_1361_dthrow: kitDthrow,
+  enemy_1361_dthrow_2: same(kitDthrow),
+  enemy_1363_spnshd_2: kitSpnshd,
+  enemy_1360_dfello: kitDfello,
+  enemy_1224_dsuply: kitDsuply,
+  enemy_1224_dsuply_2: same(kitDsuply),
+  enemy_1403_gunsho: kitGunsho,
+  enemy_1403_gunsho_2: same(kitGunsho),
+  enemy_1405_boomer_2: kitBoomer,
+  enemy_1309_mhboar_2: kitMhboar,
+  enemy_10163_mnctur_2: kitMnctur,
+  enemy_1436_dsdivi: kitDsdivi,
+  enemy_1436_dsdivi_2: same(kitDsdivi),
   enemy_1226_dklord: kitDklord,
   enemy_1226_dklord_2: same(kitDklord),
   enemy_1362_dfat: kitDfat,

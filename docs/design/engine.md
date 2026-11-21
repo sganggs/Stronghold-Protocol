@@ -459,11 +459,24 @@ not a claim of native particles or map-model fidelity.
 ### Regulation Sarkaz death replacements
 
 Child soldiers / mechanics and both bombardiers now register their data-defined death summons; the bone defender
-leaves two stationary Blood Ambers using the existing torturer path. Chain casters and hatred collectors retain
-existing handlers. Delayed replacement callbacks explicitly hold battle completion until they fire; immediate
-punisher replacement has no artificial one-second delay. A leak does not count as a kill and silence does not
-suppress these death talents. Sources, exact ids and retained placement assumptions:
+leaves two stationary Blood Ambers using the existing torturer path (the 新生血裔 leaves one the same way). Chain
+casters and hatred collectors retain existing handlers. Delayed replacement callbacks explicitly hold battle completion
+until they fire; immediate punisher replacement has no artificial one-second delay. A leak does not count as a kill and
+silence does not suppress these death talents. Sources, exact ids and retained placement assumptions:
 [Regulation death-summon investigation](../research/sarkaz-death-spawns-20261113.md).
+
+### Regulation companion abilities
+
+The companions the round-83 audit left on their stats follow their PRTS pages and buff templates
+(`server/sim/content/enemies/regulation.js`, 规程 keys only): 速射轻弩手 / 劲弩手 直击 (an attack-class skill: three bolts
+0.1 s apart at the first ally in its row or column), 无畏掷弹兵 (once, its first damage while unsilenced and unblocked:
+four line bombs, then speed +0.7 and weight −2), 补给车 / 改装补给车 (per kind, one ATK +10 % stack and one 10 % 凋亡
+share per living unsilenced cart, at most 5, on every 重生造物 — 大君之触, 仁慈之触, 大君之赐, 慷慨之赐), 新生血裔 (attack
+scale 1 + 0.2 × the enemies its target blocks, 220 % lifesteal), the bombardiers' shell (it blows up 4 s after landing),
+骸骨卫士长 (its damager loses 40 ASPD for 5 s, not stacked or restarted), 狂暴凶豕兽 (weight 2, rush layers, crash and
+first-hit damage from its current move speed, precomputed), 神勇的帕拉杜利斯 (the initial mode's mark and charge; the 入戏
+branch needs a field state 规程 has not) and 诡核 / 异光体集养者 (one split below half HP). The kits mark their
+assumptions.
 
 ### Regulation Nymph fear garrison
 
@@ -497,3 +510,14 @@ Unite results do not report the inherited balance as a new gain.
 At the next `enterPrep`, `onPrepStart` converters consume a shared pool containing all temporary sources; any
 unconverted remainder is then discarded. Each new personal battle starts with an empty ledger. Only unite restores
 a carried ledger.
+
+### Salt cannon boarding and landing
+
+MAP10's fixed enemy-side cannon retains its stage stats and −1 taunt. It holds at most one selectable ground
+enemy of weight ≤3 within 1.1 tiles (Eat radius 1.0 plus enemy collision radius 0.1). A speed-5 point projectile
+hits the landing tile's 3×3 grid and releases the passenger within a ±0.2 square onto the device's original
+extraRoute; reboarding is blocked for 0.1 seconds. The first lethal hit leaves 1 HP. The next hit destroys an empty
+cannon without operator kill credit, or fires a final shot and waits for that final shot to land or be removed.
+Only final-projectile cancellation kills the passenger. [ASSUMED] An ordinary cancelled shot leaves the passenger
+inside Eat for the next shot. Excluding sleeping enemies from boarding and clearing displacement unbalance on
+release are also [ASSUMED]. See the [source notes](../research/cannon-projectile-20261120.md).

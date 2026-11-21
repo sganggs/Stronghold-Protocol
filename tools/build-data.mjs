@@ -6,18 +6,30 @@
 //   config, chess, bonds, garrisons, items, bands, effects, choices, enemies, factions, waves,
 //   stages, bosses, tokens, backups (every field is documented in docs/DATA.md).
 //
-// Usage:  node tools/build-data.mjs [--version <id>] [--refresh | --offline] [--out <dir>] [--cache <dir>]
-//                                   [--report <file>] [--quiet] [--no-research] [--force]
+// Usage:  node tools/build-data.mjs [--version <id>] [--gamedata-commit <sha>] [--refresh | --offline] [--out <dir>]
+//                                   [--cache <dir>] [--report <file>] [--quiet] [--no-research] [--force]
 //   --version      the official version to build (shared/versions.js; default act2autochess, today's data/*.json).
 //                  Another version reads its profile tools/versions/<slug>.mjs: the official commits it is pinned to,
 //                  its field adapters and expected counts; it writes data/versions/<slug>/ (docs/DATA.md "Official
 //                  versions (M0)")
+//   --gamedata-commit <sha>
+//                  read every official file of this run at one full commit of Kengxxiao/ArknightsGameData (40 hex
+//                  digits; a branch, a tag or a short SHA is refused with exit code 2: the cache is keyed by the commit),
+//                  cached in <cache>@<sha>/ and downloaded from …/ArknightsGameData/<sha>/zh_CN/gamedata/ (DESIGN §37.323,
+//                  #567). It replaces the version profile's pins (and a mirror `source`) for every file, with a printed
+//                  note [ASSUMED: #567 does not say]; --version still picks the profile's adapters, tables, research and
+//                  output directory. --refresh / --offline keep their meaning in that directory, and --offline names
+//                  every missing file at once. Without it the build reads the profile's pins (master for a profile
+//                  without any) exactly as before. Asset downloads (tools/fetch-assets*.mjs, tools/local-extract/) never
+//                  read it
 //   --refresh      re-download every official file; fail on download errors even if cached
 //   --offline      never download; fail when a file is missing from the cache
 //   --out          output directory (default: <repo>/data, or <repo>/data/versions/<slug> for another version)
-//   --cache        official-data cache directory (default: <repo>/.cache/gamedata; a file pinned to a commit is cached
-//                  in <cache>@<sha>)
+//   --cache        official-data cache directory (default: <repo>/.cache/gamedata; a file pinned to a commit, or read at
+//                  --gamedata-commit, is cached in <cache>@<sha>)
 //   --report       build report file (default: <repo>/.cache/build-data-report.json, or build-data-report.<slug>.json)
+//   --quiet        print errors only: the --gamedata-commit note, the counts, the official-data summary and the warnings
+//                  stay in the build report (gamedata.replacedPins / replacedSource, counts, gamedata.groups, warnings)
 //   --no-research  ignore docs/research (research-only fields fall back to defaults; for testing)
 //   --force        write the output even when integrity checks fail (default: keep the old files)
 // Unknown options are errors (exit code 2).
@@ -26,8 +38,10 @@
 // and downloaded from https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/
 // when missing; a version pinned to a commit uses .cache/gamedata@<sha>/ and …/ArknightsGameData/<sha>/zh_CN/gamedata/, or
 // the mirror its profile names (`source`, tools/versions/sources.mjs: .cache/gamedata@aa-<sha>/, normalised on load into
-// Kengxxiao's shape). Research files are optional inputs: when absent, research-only fields fall back to
-// documented defaults and a warning is printed.
+// Kengxxiao's shape). The build report's `gamedata` records, for every official file read, the commit and where it came
+// from: --gamedata-commit ('option'), a profile pin ('pin', with the pins key) or master (commit null); the summary
+// printed after the counts groups them (tools/versions/profiles.mjs gamedataReport / gamedataSummary). Research files
+// are optional inputs: when absent, research-only fields fall back to documented defaults and a warning is printed.
 //
 // Determinism: the output depends only on the input files (object keys are emitted in a stable
 // order, no randomness, no timestamps). Anomalies found while joining are printed and written to
@@ -51,29 +65,30 @@ import { FULL_RANK, atRank, stripPotential } from '../shared/potential.js';
 import { createOfficialUnitBuilders } from '../server/plugins/officialUnitBuilder.js';
 import { DEFAULT_VERSION, VERSIONS } from '../shared/versions.js';
 import { itemTextForbidsDiy } from '../shared/itemRules.js';
-import { loadProfile, pinnedShaOf, tableSpecError, TABLE_NAMES } from './versions/profiles.mjs';
+import { commitNote, commitShaError, gamedataReport, gamedataSummary, loadProfile, originOf, tableSpecError, TABLE_NAMES } from './versions/profiles.mjs';
 import { applyAdapters } from './versions/adapters.mjs';
-import { normalizeMirror, sourceOfProfile } from './versions/sources.mjs';
-import { composeRegulationStage, placeRegulationTemplate, regulationArena } from './versions/layouts.mjs';
+import { normalizeMirror, sourceOfProfile, SOURCES } from './versions/sources.mjs';
+import { cannonDistance, composeRegulationStage, placeRegulationTemplate, regulationArena } from './versions/layouts.mjs';
 
 // ===== CLI & IO ==================================================================================
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const RESEARCH_DIR = join(ROOT, 'docs', 'research');
 const GAMEDATA_URL = 'https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/';
-const USAGE = 'usage: node tools/build-data.mjs [--version <id>] [--refresh | --offline] [--out <dir>] [--cache <dir>] [--report <file>] [--quiet] [--no-research] [--force]';
+const USAGE = 'usage: node tools/build-data.mjs [--version <id>] [--gamedata-commit <sha>] [--refresh | --offline] [--out <dir>] [--cache <dir>] [--report <file>] [--quiet] [--no-research] [--force]';
 
 /**
  * Parse the command line strictly (unknown options and missing values are errors, so a typo can
  * never silently write data somewhere unexpected).
  * @param {string[]} argv
- * @returns {{refresh:boolean, offline:boolean, quiet:boolean, noResearch:boolean, force:boolean, out:string|null, cache:string, report:string|null, version:string|null}}
- *   out / report: null = the version's default (set once the version is known)
+ * @returns {{refresh:boolean, offline:boolean, quiet:boolean, noResearch:boolean, force:boolean, out:string|null, cache:string, report:string|null, version:string|null, gamedataCommit:string|null}}
+ *   out / report: null = the version's default (set once the version is known); gamedataCommit: the
+ *   --gamedata-commit SHA in lower case, null without it
  */
 function parseArgs(argv) {
   const opts = {
     refresh: false, offline: false, quiet: false, noResearch: false, force: false,
-    out: null, cache: join(ROOT, '.cache', 'gamedata'), report: null, version: null,
+    out: null, cache: join(ROOT, '.cache', 'gamedata'), report: null, version: null, gamedataCommit: null,
   };
   const flags = { '--refresh': 'refresh', '--offline': 'offline', '--quiet': 'quiet', '--no-research': 'noResearch', '--force': 'force' };
   const dirs = { '--out': 'out', '--cache': 'cache', '--report': 'report' };
@@ -94,6 +109,14 @@ function parseArgs(argv) {
       opts.version = v;
       continue;
     }
+    if (name === '--gamedata-commit') {
+      const v = inline ?? argv[++i];
+      if (!v || v.startsWith('--')) throw new Error(`--gamedata-commit needs a full commit SHA of Kengxxiao/ArknightsGameData (40 hex characters)\n${USAGE}`);
+      const err = commitShaError(v);
+      if (err) throw new Error(`--gamedata-commit ${v}: ${err}\n${USAGE}`);
+      opts.gamedataCommit = v.toLowerCase();
+      continue;
+    }
     throw new Error(`unknown option ${argv[i]}\n${USAGE}`);
   }
   if (opts.refresh && opts.offline) throw new Error(`--refresh and --offline are mutually exclusive\n${USAGE}`);
@@ -108,6 +131,9 @@ try {
   process.exit(2);
 }
 const CACHE_DIR = OPTS.cache;
+// --gamedata-commit (DESIGN §37.323, #567): every official file of this run at this Kengxxiao commit, or null (the
+// profile's pins, or master)
+const GAMEDATA_COMMIT = OPTS.gamedataCommit;
 // the version this run builds: its registry entry and its build profile (tools/versions/<slug>.mjs)
 const { entry: VERSION, profile: PROFILE, slug: VERSION_SLUG } = await loadProfile(OPTS.version ?? DEFAULT_VERSION);
 const IS_DEFAULT = VERSION.id === DEFAULT_VERSION;
@@ -218,12 +244,22 @@ async function ensureGamedata(rel, { cacheDir = CACHE_DIR, baseUrl = GAMEDATA_UR
 }
 
 /** Load (and cache in memory) an official gamedata JSON file, as the profile's source gives it; a mirror file is
- * normalised into Kengxxiao's shape first (tools/versions/sources.mjs normalizeMirror). */
+ * normalised into Kengxxiao's shape first (tools/versions/sources.mjs normalizeMirror). With --gamedata-commit and
+ * --offline, a file missing from <cache>@<sha>/ is collected in MISSING_OFFLINE and stands in as an empty object until
+ * loadContext throws missingOfflineError, so one run names every missing file (DESIGN §37.323). */
 const jsonCache = new Map();
+/** The origin (tools/versions/profiles.mjs originOf) of every official file read: the build report's `gamedata`. */
+const ORIGINS = { files: new Map(), references: new Map() };
+/** --gamedata-commit --offline: the files missing from the commit's cache, in the order the build asked for them. */
+const MISSING_OFFLINE = [];
 async function loadGamedata(rel, profile = PROFILE) {
   const src = sourceOf(rel, profile);
   const key = `${src.cacheDir}/${rel}`;
   if (jsonCache.has(key)) return jsonCache.get(key);
+  if (GAMEDATA_COMMIT && OPTS.offline && !existsSync(join(src.cacheDir, rel))) {
+    if (!MISSING_OFFLINE.includes(rel)) MISSING_OFFLINE.push(rel);
+    return Object.freeze({});
+  }
   const abs = await ensureGamedata(rel, src);
   let obj = JSON.parse(await readFile(abs, 'utf8'));
   if (src.mirror) {
@@ -233,23 +269,43 @@ async function loadGamedata(rel, profile = PROFILE) {
     obj = n.obj;
     if (n.unresolved.length) warn(`${rel}: ${n.unresolved.length} empty {} of the mirror stay objects, no rule decides them (${n.unresolved.slice(0, 4).join(', ')}${n.unresolved.length > 4 ? ', …' : ''})`);
   }
+  (profile === PROFILE ? ORIGINS.files : ORIGINS.references).set(rel, src.origin);
   jsonCache.set(key, obj);
   return obj;
 }
 
 /**
- * Where a profile reads an official file: master (.cache/gamedata/) or the commit it pins the file's group to
- * (tools/versions/profiles.mjs pinnedShaOf) in its source (tools/versions/sources.mjs: .cache/gamedata@<sha>/ for
- * Kengxxiao, .cache/gamedata@aa-<sha>/ for the ArknightsAssets mirror).
+ * Where a profile reads an official file: the --gamedata-commit commit (Kengxxiao, .cache/gamedata@<sha>/), else master
+ * (.cache/gamedata/) or the commit it pins the file's group to (tools/versions/profiles.mjs originOf / pinnedShaOf) in
+ * its source (tools/versions/sources.mjs: .cache/gamedata@<sha>/ for Kengxxiao, .cache/gamedata@aa-<sha>/ for the
+ * ArknightsAssets mirror). The option and a pin at the same commit share the same directory: the files are the same.
  * @param {string} rel
  * @param {object} [profile]
- * @returns {{ cacheDir: string, baseUrl: string, mirror: boolean }}
+ * @returns {{ cacheDir: string, baseUrl: string, mirror: boolean, origin: ReturnType<typeof originOf> }}
  */
 function sourceOf(rel, profile = PROFILE) {
-  const sha = pinnedShaOf(profile, rel);
-  if (!sha) return { cacheDir: CACHE_DIR, baseUrl: GAMEDATA_URL, mirror: false };
-  const src = sourceOfProfile(profile);
-  return { cacheDir: `${CACHE_DIR}@${src.cacheTag(sha)}`, baseUrl: src.url(sha), mirror: src.mirror };
+  const origin = originOf(profile, rel, GAMEDATA_COMMIT);
+  if (!origin.commit) return { cacheDir: CACHE_DIR, baseUrl: GAMEDATA_URL, mirror: false, origin };
+  const src = origin.from === 'option' ? SOURCES.kengxxiao : sourceOfProfile(profile);
+  return { cacheDir: `${CACHE_DIR}@${src.cacheTag(origin.commit)}`, baseUrl: src.url(origin.commit), mirror: src.mirror, origin };
+}
+
+/**
+ * The error of a --gamedata-commit --offline run whose commit cache lacks files: every missing file, one per line.
+ * `unlisted`: activity_table.json is among them, so the level files it names cannot be listed yet.
+ * @param {boolean} unlisted
+ */
+function missingOfflineError(unlisted) {
+  const dir = `${CACHE_DIR}@${SOURCES.kengxxiao.cacheTag(GAMEDATA_COMMIT)}`;
+  const lines = [
+    `missing cached files for --gamedata-commit ${GAMEDATA_COMMIT} (offline mode): ${MISSING_OFFLINE.length} file(s) not in ${dir}/`,
+    ...MISSING_OFFLINE.map((rel) => `  ${rel}`),
+  ];
+  if (unlisted) lines.push('  (and the level files excel/activity_table.json names, which cannot be listed until it is cached)');
+  lines.push('run once without --offline to download them');
+  const e = new Error(lines.join('\n'));
+  e.code = 'GAMEDATA_MISSING';
+  return e;
 }
 
 /**
@@ -319,6 +375,8 @@ async function loadContext() {
     loadGamedata('excel/enemy_handbook_table.json'),
     loadGamedata('levels/enemydata/enemy_database.json'),
   ]);
+  // --gamedata-commit --offline: activity_table names every further file, so without it the list stops here
+  if (MISSING_OFFLINE.includes('excel/activity_table.json')) throw missingOfflineError(true);
   // the season's tables: activity.AUTOCHESS_SEASON[season] (盟约), or the path a profile names in `section` (规程:
   // activity.AUTOCHESS.act3autochess.V3_1, one entry per sub-version)
   const act = PROFILE.section ? PROFILE.section.reduce((o, k) => o?.[k], activity?.activity) : activity?.activity?.AUTOCHESS_SEASON?.[PROFILE.season];
@@ -330,24 +388,9 @@ async function loadContext() {
   // A templated operator (规程's chess_char_5_26: charId char_002_amiya + tmplId char_1037_amiya3, 阿米娅's 医疗 form) is
   // built as its template: char_patch_table's patchChars holds the template as a character record of its own (skills,
   // phases, the uniequip_00x_amiya3 modules). Loaded only when a shop row names a template (盟约 has none).
+  // Read here, merged into charTable below, once every official file is read.
   const templated = Object.values(act.charShopChessDatas || {}).filter((r) => r.tmplId || r.backupTmplId);
-  if (templated.length) {
-    const patch = await loadGamedata('excel/char_patch_table.json');
-    for (const [id, rec] of Object.entries(patch.patchChars || {})) if (!charTable[id]) charTable[id] = rec;
-    for (const r of templated) {
-      for (const [idKey, tmplKey] of [['charId', 'tmplId'], ['backupCharId', 'backupTmplId']]) {
-        if (!r[tmplKey]) continue;
-        if (!charTable[r[tmplKey]]) throw new Error(`shop row ${r.chessId}: template ${r[tmplKey]} is in neither character_table nor char_patch_table`);
-        r[idKey] = r[tmplKey];
-        r[tmplKey] = null;
-      }
-    }
-  }
-
-  // Note: summons/traps live in character_table (token_table.json only lists 4 unrelated traps).
-
-  const enemyDb = new Map();
-  for (const e of enemyDbRaw.enemies || []) enemyDb.set(e.Key, e.Value);
+  const patch = templated.length ? await loadGamedata('excel/char_patch_table.json') : null;
 
   // Level files: every wave template in battleDataDict + escaped templates + stage terrains +
   // the season-wide enemy override level.
@@ -369,17 +412,43 @@ async function loadContext() {
   for (const id of [...levelSrc.keys()].sort(naturalCmp)) levels[id] = await loadGamedata(levelPath(levelSrc.get(id)));
   // 规程 builds every player's field in one scene: its stages are an atlas of three pieces and its round templates the
   // road only — both become the 盟约 19×21 level here (tools/versions/layouts.mjs), so nothing after this line differs
+  const stagePieces = {};
   if (PROFILE.layout === 'regulation') {
     for (const id of Object.keys(levels)) {
-      if (stageIds.includes(id)) {
-        const pieces = [];
-        for (const n of [1, 2, 3]) pieces.push(await loadGamedata(levelPath(id).replace(/\.json$/, `/level_${id}_sub_0${n}.json`)));
-        // the client draws the official arena (the stage's `arena`); the sim keeps the composed 19×21 level
-        arenas[id] = regulationArena(levels[id], pieces);
-        levels[id] = composeRegulationStage(levels[id], pieces);
-      } else levels[id] = placeRegulationTemplate(levels[id]);
+      if (!stageIds.includes(id)) continue;
+      stagePieces[id] = [];
+      for (const n of [1, 2, 3]) stagePieces[id].push(await loadGamedata(levelPath(id).replace(/\.json$/, `/level_${id}_sub_0${n}.json`)));
     }
   } else if (PROFILE.layout !== undefined) throw new Error(`unknown layout ${PROFILE.layout}`);
+  // every official file is read: --gamedata-commit --offline names all the missing ones at once (DESIGN §37.323)
+  if (MISSING_OFFLINE.length) throw missingOfflineError(false);
+
+  if (patch) {
+    for (const [id, rec] of Object.entries(patch.patchChars || {})) if (!charTable[id]) charTable[id] = rec;
+    for (const r of templated) {
+      for (const [idKey, tmplKey] of [['charId', 'tmplId'], ['backupCharId', 'backupTmplId']]) {
+        if (!r[tmplKey]) continue;
+        if (!charTable[r[tmplKey]]) throw new Error(`shop row ${r.chessId}: template ${r[tmplKey]} is in neither character_table nor char_patch_table`);
+        r[idKey] = r[tmplKey];
+        r[tmplKey] = null;
+      }
+    }
+  }
+
+  // Note: summons/traps live in character_table (token_table.json only lists 4 unrelated traps).
+
+  const enemyDb = new Map();
+  for (const e of enemyDbRaw.enemies || []) enemyDb.set(e.Key, e.Value);
+
+  if (PROFILE.layout === 'regulation') {
+    for (const id of Object.keys(levels)) {
+      if (stagePieces[id]) {
+        // the client draws the official arena (the stage's `arena`); the sim keeps the composed 19×21 level
+        arenas[id] = regulationArena(levels[id], stagePieces[id]);
+        levels[id] = composeRegulationStage(levels[id], stagePieces[id], { charTable, rangeTable });
+      } else levels[id] = placeRegulationTemplate(levels[id]);
+    }
+  }
 
   const research = {
     core: await loadResearch('01-core-data.json'),
@@ -2297,7 +2366,7 @@ function rotateGrid(grid, dir) {
 }
 
 /** Device (predefined token/trap) record with stats and skill blackboard at its instance level. */
-function deviceRecord(ctx, t) {
+function deviceRecord(ctx, t, runes) {
   const key = t.inst?.characterKey;
   const ch = ctx.charTable[key];
   const rec = { key, name: ch?.name || key, alias: t.alias || null, pos: pos(t.position), dir: t.direction, hidden: !!t.hidden, role: DEVICE_ROLES[key] || null };
@@ -2318,6 +2387,21 @@ function deviceRecord(ctx, t) {
   const sk = ch.skills?.[t.skillIndex ?? 0];
   const skill = sk?.skillId ? buildSkill(ctx, sk.skillId, t.mainSkillLvl || 1, null, `device ${key}`) : null;
   rec.skill = skill ? { skillId: skill.skillId, name: skill.name, level: skill.level, desc: skill.desc, descRaw: skill.descRaw, bb: skill.bb, bbStr: skill.bbStr } : null;
+  if (rec.role === 'cannon') {
+    const sp = ctx.skillTable[sk?.skillId]?.levels?.[Math.max(0, (t.mainSkillLvl || 1) - 1)]?.spData;
+    rec.cannon = { level, distance: cannonDistance(ctx, level), initSp: sp?.initSp ?? 0, spCost: sp?.spCost ?? 6,
+      spRecovery: attrs?.spRecoveryPerSec ?? 1, branchId: (t.overrideSkillBlackboard || []).find(b => b.key === 'talent@branch_id')?.valueStr ?? null,
+      route: t.cannonRoute ? resolveRoute(t.cannonRoute) : null };
+    // [ASSUMED] Apply the bare prefab-key selector once; parallel alias selectors are treated as duplicates.
+    for (const rune of runes || []) {
+      const { bb, bbStr } = flattenBB(rune.blackboard);
+      if (!(bbStr.char || '').split('|').includes(key)) continue;
+      if (rune.key === 'char_attribute_add' && rec.stats) {
+        rec.stats.maxHp += bb.MAX_HP ?? 0;
+        rec.stats.atk += bb.ATK ?? 0;
+      } else if (rune.key === 'char_skill_cd_mul' && bb.scale > 0) rec.cannon.spCost *= bb.scale;
+    }
+  }
   const dp = textPair(ch.description);
   rec.desc = dp.desc;
   return rec;
@@ -2429,7 +2513,7 @@ function buildStages(ctx, modesById) {
     if (H !== 19 || W !== 21) warn(`stage ${stageId}: unexpected size ${H}x${W}`);
     const tileAt = (r, c) => tiles[map[H - 1 - r]?.[c]];
     const { rows, glyphTiles } = glyphGrid(stageId, lv);
-    const devices = (lv.predefines?.tokenInsts || []).map((t) => deviceRecord(ctx, t));
+    const devices = (lv.predefines?.tokenInsts || []).map((t) => deviceRecord(ctx, t, lv.runes));
     for (const d of devices) d.active = deviceActiveAtStart(stageId, d);
     const mapChars = (lv.predefines?.characterInsts || []).map((c) => ({
       key: c.inst?.characterKey, alias: c.alias || null, pos: pos(c.position), dir: c.direction, hidden: !!c.hidden,
@@ -3721,6 +3805,9 @@ function validateAll(f) {
 
 async function main() {
   const t0 = Date.now();
+  // --quiet hides the note like the counts, the summary and the warnings; the report keeps replacedPins / replacedSource
+  const note = commitNote(PROFILE, VERSION_SLUG, GAMEDATA_COMMIT);
+  if (note) log(note);
   const ctx = await loadContext();
   log('building…');
   // one pass of the operator builders per potential rank (潜能 1–6, ctx.potRank): the full-potential pass is the data,
@@ -3806,6 +3893,7 @@ async function main() {
       diyOwnedPicks: backups.diy.ownedPool.length,
     },
     sizes, totalBytes: total, out: OPTS.out, written: write, warnings, errors,
+    gamedata: gamedataReport(ORIGINS, PROFILE, GAMEDATA_COMMIT),
   };
   await mkdir(dirname(OPTS.report), { recursive: true });
   await writeFile(OPTS.report, JSON.stringify(report, null, 2));
@@ -3813,6 +3901,7 @@ async function main() {
   if (write) log(`wrote ${Object.keys(files).length + Object.keys(extra).length} files to ${OPTS.out} (${(total / 1024 / 1024).toFixed(2)} MB) in ${Date.now() - t0} ms`);
   else console.error(`integrity errors: ${OPTS.out} left unchanged (re-run with --force to write anyway)`);
   log(Object.entries(report.counts).map(([k, v]) => `${k}=${v}`).join(' '));
+  log(gamedataSummary(report.gamedata.groups));
   if (warnings.length) {
     log(`${warnings.length} warning(s):`);
     for (const w of warnings) log(`  - ${w}`);
@@ -3825,6 +3914,7 @@ async function main() {
 }
 
 main().catch((e) => {
-  console.error('build-data failed:', e && e.stack ? e.stack : e);
+  // a missing-file list (--gamedata-commit --offline) is the whole message; anything else keeps its stack
+  console.error('build-data failed:', e && e.code === 'GAMEDATA_MISSING' ? e.message : e && e.stack ? e.stack : e);
   process.exitCode = 1;
 });

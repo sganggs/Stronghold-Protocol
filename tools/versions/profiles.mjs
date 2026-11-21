@@ -8,7 +8,8 @@
 //   layout    'regulation' (规程: stage atlases of three pieces, road-only templates → the 盟约 19×21 levels,
 //             tools/versions/layouts.mjs); omitted = the levels are 盟约's already
 //   pins      null (master, .cache/gamedata/) or { default: <sha>, <group>: <sha> … } — the commit of each file group
-//             (pinGroupOf), cached in .cache/gamedata@<sha>/ (@aa-<sha>/ for the ArknightsAssets mirror)
+//             (pinGroupOf), cached in .cache/gamedata@<sha>/ (@aa-<sha>/ for the ArknightsAssets mirror); a run of
+//             tools/build-data.mjs --gamedata-commit <sha> reads every file at that one Kengxxiao commit instead (originOf)
 //   adapters  names in tools/versions/adapters.mjs, applied in this order to the loaded activity_table
 //   research  the version's research directory (falls back to docs/research/, with a warning) or null = docs/research/
 //   tables    'default' (the 下半-measured tables of tools/build-data.mjs) or { stock, shopDraft, tacticDraft,
@@ -90,15 +91,132 @@ export function pinGroupOf(rel) {
 }
 
 /**
+ * The key of a profile's `pins` that gives a gamedata file its commit (the file's group, else 'default'), or null for
+ * master.
+ * @param {{ pins: Record<string, string> | null }} profile
+ * @param {string} rel
+ * @returns {string | null}
+ */
+export function pinKeyOf(profile, rel) {
+  if (!profile.pins) return null;
+  const group = pinGroupOf(rel);
+  if (group && profile.pins[group]) return group;
+  return profile.pins.default ? 'default' : null;
+}
+
+/**
  * The commit a profile reads a gamedata file from, or null for master.
  * @param {{ pins: Record<string, string> | null }} profile
  * @param {string} rel
  * @returns {string | null}
  */
 export function pinnedShaOf(profile, rel) {
-  if (!profile.pins) return null;
-  const group = pinGroupOf(rel);
-  return (group && profile.pins[group]) || profile.pins.default || null;
+  const key = pinKeyOf(profile, rel);
+  return key ? profile.pins[key] : null;
+}
+
+/**
+ * Why `value` cannot be tools/build-data.mjs --gamedata-commit, or null when it can: a full commit SHA, 40 hex digits
+ * (DESIGN §37.323, #567). A branch, a tag or a short SHA is refused: the cache directory <cache>@<sha>/ is keyed by the
+ * commit, and a name that moves (or a prefix that may grow ambiguous) would mix files of different commits there.
+ * @param {string} value
+ * @returns {string | null}
+ */
+export function commitShaError(value) {
+  if (/^[0-9a-f]{40}$/i.test(value)) return null;
+  if (/^[0-9a-f]+$/i.test(value)) {
+    if (value.length > 40) return `${value.length} hex characters: a full commit SHA has 40`;
+    return `a short SHA (${value.length} characters) is refused: give the full 40-character commit, the cache directory <cache>@<sha>/ is keyed by it`;
+  }
+  return 'not a full commit SHA (40 hex characters): a branch or tag name is refused, it moves, and the cache directory <cache>@<sha>/ is keyed by the commit';
+}
+
+/**
+ * Where a build reads a gamedata file from, as the build report records it (DESIGN §37.323, #567).
+ *   commit  the 40-hex commit, or null for master (the branch head at download time: no SHA is known)
+ *   from    'option' (tools/build-data.mjs --gamedata-commit: every file of the run at that Kengxxiao commit, over the
+ *           profile's pins and source), 'pin' (the profile's pins) or 'master'
+ *   pin     the pins key that gave the commit (pinKeyOf: 'default', 'character' …), null unless from 'pin'
+ *   source  a tools/versions/sources.mjs SOURCES key: 'kengxxiao', or the profile's mirror for a pinned file
+ * @param {{ pins: Record<string, string> | null, source?: string }} profile
+ * @param {string} rel
+ * @param {string | null} [commit] the --gamedata-commit SHA, or null
+ * @returns {{ commit: string | null, from: 'option' | 'pin' | 'master', pin: string | null, source: string }}
+ */
+export function originOf(profile, rel, commit = null) {
+  if (commit) return { commit, from: 'option', pin: null, source: 'kengxxiao' };
+  const pin = pinKeyOf(profile, rel);
+  if (!pin) return { commit: null, from: 'master', pin: null, source: 'kengxxiao' };
+  return { commit: profile.pins[pin], from: 'pin', pin, source: profile.source ?? 'kengxxiao' };
+}
+
+/** The mirror `source` a profile names, or null when it reads Kengxxiao (the default). */
+const mirrorSourceOf = (profile) => (profile.source && profile.source !== 'kengxxiao' ? profile.source : null);
+
+/**
+ * The note tools/build-data.mjs prints when --gamedata-commit replaces a profile's pins and mirror `source` (DESIGN
+ * §37.323: the option wins for every file [ASSUMED]), or null without the option or when the profile has neither.
+ * @param {{ pins: Record<string, string> | null, source?: string }} profile
+ * @param {string} slug the profile's file name, tools/versions/<slug>.mjs
+ * @param {string | null} commit the --gamedata-commit SHA, or null
+ * @returns {string | null}
+ */
+export function commitNote(profile, slug, commit) {
+  if (!commit) return null;
+  const pins = profile.pins ? Object.entries(profile.pins).map(([k, sha]) => `${k} ${sha.slice(0, 8)}`) : [];
+  const source = mirrorSourceOf(profile);
+  if (!pins.length && !source) return null;
+  const what = [pins.length ? `the pins of tools/versions/${slug}.mjs (${pins.join(', ')})` : '', source ? `its source ${source}` : ''].filter(Boolean).join(' and ');
+  return `note: --gamedata-commit ${commit} replaces ${what}: every official file of this run comes from that commit of Kengxxiao/ArknightsGameData`;
+}
+
+/**
+ * The build report's `gamedata` (DESIGN §37.323, docs/DATA.md "Report"):
+ *   commit          the --gamedata-commit SHA, or null
+ *   replacedPins    a copy of the profile's pins the option replaced, null without the option or without pins
+ *   replacedSource  the profile's mirror `source` the option replaced, null without the option or for Kengxxiao
+ *   files           every official file read → its origin (originOf), sorted by path
+ *   groups          the same files counted per commit and origin, most files first, then by commit (master first
+ *                   among equals): what the printed summary shows (gamedataSummary)
+ *   references      only for a mirror profile: the Kengxxiao files its empty {} were checked against, sorted by path
+ * @param {{ files: Map<string, ReturnType<typeof originOf>>, references: Map<string, ReturnType<typeof originOf>> }} origins
+ *   the files the run read with its own profile, and the reference files read for a mirror
+ * @param {{ pins: Record<string, string> | null, source?: string }} profile
+ * @param {string | null} commit the --gamedata-commit SHA, or null
+ */
+export function gamedataReport(origins, profile, commit) {
+  const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+  const sorted = (map) => Object.fromEntries([...map].sort(([a], [b]) => cmp(a, b)));
+  const groups = new Map();
+  for (const o of origins.files.values()) {
+    const k = JSON.stringify([o.commit, o.from, o.pin, o.source]);
+    if (!groups.has(k)) groups.set(k, { ...o, files: 0 });
+    groups.get(k).files++;
+  }
+  const report = {
+    commit,
+    replacedPins: commit && profile.pins ? { ...profile.pins } : null,
+    replacedSource: commit ? mirrorSourceOf(profile) : null,
+    files: sorted(origins.files),
+    groups: [...groups.values()].sort((a, b) => b.files - a.files || cmp(a.commit ?? '', b.commit ?? '')),
+  };
+  if (origins.references.size) report.references = sorted(origins.references);
+  return report;
+}
+
+/**
+ * The line tools/build-data.mjs prints after the counts: the official files per commit and origin (the report's
+ * gamedata.groups), e.g. `official data: <sha> (pin default): 54 file(s); <sha> (pin character): 4 file(s)`.
+ * @param {Array<ReturnType<typeof originOf> & { files: number }>} groups
+ * @returns {string}
+ */
+export function gamedataSummary(groups) {
+  const one = (g) => {
+    if (g.from === 'master') return `master: ${g.files} file(s)`;
+    const why = g.from === 'option' ? '--gamedata-commit' : `pin ${g.pin}${g.source !== 'kengxxiao' ? `, ${g.source}` : ''}`;
+    return `${g.commit} (${why}): ${g.files} file(s)`;
+  };
+  return `official data: ${groups.map(one).join('; ')}`;
 }
 
 /**

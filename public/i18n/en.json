@@ -2595,5 +2595,6 @@
   "搜索结果": "Search results",
   "找到 {n} 项设置": "Settings found: {n}",
   "没有找到匹配的设置，请尝试其它关键词。": "No matching settings. Try another keyword.",
-  "操作": "Controls"
+  "操作": "Controls",
+  "向前方发射炮弹造成物理溅射伤害，可以将周围1名重量小于等于{weight}的地面敌人传送至爆炸中心": "Fires a shell forward, dealing Physical splash damage and transporting one nearby ground enemy with Weight at most {weight} to the center of the explosion"
 }

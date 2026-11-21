@@ -39,7 +39,8 @@
 //   dodged or barrier-absorbed hit too), whatever its source (PRTS: the stun needs a living enemy source, so sourceless /
 //   ally hits trigger it), "触发型效果不会响应元素伤害" (no 元素伤害; a 流失 or an element fill never reaches the injury step).
 //   The barrier = her ATK when it fires × shield_atk_scale ("根据触发时（而非施加时）冻河的攻击力计算"), losing initial /
-//   shield_time every second ("固定为初始屏障量/10") [ASSUMED: in one-second steps, as 砾's]; firing again "会先清除原有的此
+//   shield_time every second ("固定为初始屏障量/10"; tocka_s1[shield] triggerInterval 1, waitFirstTriggerInterval, minus
+//   dynamic_dec_per_sec); firing again "会先清除原有的此
 //   技能屏障…新的屏障量在原有屏障量与新计算的屏障量间取高" — one S1 barrier per holder whatever 冻河 gave it [ASSUMED]. The
 //   hit that fires it is not absorbed by it [ASSUMED]. The source is stunned `stun` s unless it is missing, dead or ours.
 // - S2 意欲呼啸之心 (AUTO, bb attack_speed / buff_duration / max_target): "对全场1名干员施加触发型效果" — PRTS "优先选择场上创建
@@ -67,8 +68,9 @@
 //   another ally operator of her range by the transfer's order [ASSUMED]. Effect: "开启技能时自身和冻河攻击力+70%（在15秒内
 //   衰减），并将该触发型效果转移给冻河攻击范围内技力比例最高的另一名干员" — on the holder's skill start (after its own start
 //   effects: the skillStart hook [ASSUMED]) the holder and 冻河 get ATK +bonus_init_atk, falling by bonus_atk_dec_per_sec
-//   every second to 0 at bonus_duration (PRTS "在15s内每秒线性衰减固定值，在第15s时衰减至0") [ASSUMED: one-second steps; a
-//   new one restarts it], then it moves to the ally operator of her range with the highest true SP ratio (PRTS: stored
+//   every second to 0 at bonus_duration (PRTS "在15s内每秒线性衰减固定值，在第15s时衰减至0"; tocka_s3[trigger] creates
+//   tocka_s3[bonus] at triggerInterval 1, durationKey bonus_duration) [ASSUMED: a new one restarts it], then it moves
+//   to the ally operator of her range with the highest true SP ratio (PRTS: stored
 //   charges count — 技力上限 = 最大充能数 × 技力需求 —, a running skill that spent its SP is at 0; ties: the latest created
 //   [ASSUMED]) other than its holder and her; "若没有合法的转移对象…则会消失". "冻河技能期间拥有该效果的干员每秒获得1点技力":
 //   while S3 runs its holder gets bonus_sp SP every second of it (no SP during the holder's own timed skill).
@@ -191,7 +193,7 @@ function installShared(battle) {
 
 /**
  * S1's barrier on `holder`: max(its S1 barrier left, `amount`) — the old one cleared first (PRTS S1 备注) — losing a fixed
- * initial / `dur` every second until it is gone [ASSUMED: one-second steps].
+ * initial / `dur` every second until it is gone (tocka_s1[shield] triggerInterval 1).
  */
 function barrier(battle, holder, amount, dur, source) {
   const old = holder.findBuff(BARRIER);
@@ -211,7 +213,7 @@ function barrier(battle, holder, amount, dur, source) {
   battle.fx('shield', { x: holder.x, y: holder.y, id: holder.id });
 }
 
-/** S3's ATK +init on `u`, falling by `dec` every second to 0 [ASSUMED: one-second steps]; a new one restarts it. */
+/** S3's ATK +init on `u`, falling by `dec` every second to 0 (tocka_s3[bonus] triggerInterval 1). A new one restarts it [ASSUMED]. */
 function decayingAtk(battle, u, key, init, dec, dur, source) {
   if (!(init > 0) || !(dur > 0)) return;
   battle.addBuff(u, {
