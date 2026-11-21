@@ -173,14 +173,19 @@ export function cardGroups(list, others, roomVersion) {
 
 /**
  * The players whose outfits the strategy draft's name cards read (#877, DESIGN §37.325): the match's public players
- * (m.public.players[].skins) over the room's seats (room.state seats[].skins) — the match keeps only the operators of the
- * data it plays (server/match/player/basics.js setSkins), so a cross-period card's outfit comes from the room; for one
- * charId the match's choice wins. A player without a room seat keeps its own map.
+ * (m.public.players[].skins), plus — only for the operators the match's data lacks (`matchOps`) — the room's seats'
+ * (room.state seats[].skins). The match keeps only the operators of the data it plays (server/match/player/basics.js
+ * setSkins), so a cross-period card's outfit comes from the room; for an operator of the match's data the match's map
+ * alone decides (#877 review): `room.skins` during a match re-broadcasts no room.state (server/lobby.js skins), so the
+ * room's seats keep the map from before the start, and an outfit a teammate took off in the match's 干员调配 would show
+ * again. A player without a room seat keeps its own map.
  * @param {any[]} players m.public players
  * @param {any[] | null | undefined} roomSeats room.state seats
+ * @param {Set<string> | null} [matchOps] the operators of the match's data (shared/protocol.js operatorCharIds of the
+ *   room's files, the set setSkins keeps); null: none known yet, the room's map fills every gap
  * @returns {any[]}
  */
-export function cardSkinPlayers(players, roomSeats) {
+export function cardSkinPlayers(players, roomSeats, matchOps = null) {
   const list = Array.isArray(players) ? players : [];
   const seats = new Map();
   for (const s of Array.isArray(roomSeats) ? roomSeats : []) if (s && s.playerId != null) seats.set(s.playerId, s);
@@ -188,7 +193,10 @@ export function cardSkinPlayers(players, roomSeats) {
     if (!p || typeof p !== 'object') return p;
     const fromRoom = seats.get(p.playerId)?.skins;
     if (!fromRoom || typeof fromRoom !== 'object') return p;
-    return { ...p, skins: { ...fromRoom, ...(p.skins && typeof p.skins === 'object' ? p.skins : {}) } };
+    const extra = {};
+    for (const [charId, skinId] of Object.entries(fromRoom)) if (!(matchOps instanceof Set && matchOps.has(charId))) extra[charId] = skinId;
+    if (!Object.keys(extra).length) return p;
+    return { ...p, skins: { ...extra, ...(p.skins && typeof p.skins === 'object' ? p.skins : {}) } };
   });
 }
 

@@ -19,6 +19,7 @@ import { CARD_PREF, CARD_KEY, cardStore, setCard, parseStoredCard, cardOperators
   cardName, rosterOperators, cardGroups, cardSkinPlayers } from '../../public/js/ui/seatArt.js';
 import { chessPortraitUrl, chessAvatarUrl } from '../../public/js/ui/assetUrls.js';
 import { CARD_PERIOD_ORDER } from '../../shared/cardRoster.js';
+import { operatorCharIds } from '../../shared/protocol.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const CHESS = Object.values(JSON.parse(readFileSync(path.join(ROOT, 'data/chess.json'), 'utf8')));
@@ -446,4 +447,24 @@ test('cardSkinPlayers: the draft\'s players over the room\'s seats — the match
   // the card wears it: seatCardSkin reads the merged list
   assert.equal(seatCardSkin({ playerId: 'p1' }, A, { myId: 'p9', players: out }), 'room#a');
   assert.equal(seatCardSkin({ playerId: 'p1' }, A, { myId: 'p9', players: out, otherSkins: false }), null, '「显示其他玩家的皮肤」 off');
+});
+
+test('cardSkinPlayers: the room\'s seats fill only the operators the match\'s data lacks — an outfit taken off mid-match stays off (#877 review)', () => {
+  // the room's seats are from before the start (room.skins during a match re-broadcasts no room.state): a teammate took
+  // 斯卡蒂's outfit off in the match's 干员调配, so the match's map no longer has it — the room's old entry must not return
+  const SKADI = 'char_263_skadi', VARKIS = 'char_4166_varkis';
+  const matchOps = operatorCharIds({ chess: Object.fromEntries(CHESS.map((c) => [c.chessId, c])), backups: BACKUPS });
+  assert.ok(matchOps.has(SKADI) && !matchOps.has(VARKIS), '第二期下半\'s data: 斯卡蒂, no 摆渡人');
+  const players = [{ playerId: 'p2', name: 'Two', skins: {} }];
+  const stale = [{ playerId: 'p2', skins: { [SKADI]: `${SKADI}@X`, [VARKIS]: `${VARKIS}@Y` } }];
+  const out = cardSkinPlayers(players, stale, matchOps);
+  assert.deepEqual(out[0].skins, { [VARKIS]: `${VARKIS}@Y` }, 'the cross-period card\'s outfit from the room, none for 斯卡蒂');
+  assert.equal(seatCardSkin({ playerId: 'p2' }, SKADI, { myId: 'p9', players: out }), null, '斯卡蒂 in the default art');
+  assert.equal(seatCardSkin({ playerId: 'p2' }, VARKIS, { myId: 'p9', players: out }), `${VARKIS}@Y`);
+  // the match's own choice for one of its operators shows; a room map of the match's operators only leaves the player as is
+  const live = [{ playerId: 'p2', skins: { [SKADI]: `${SKADI}@Z` } }];
+  assert.deepEqual(cardSkinPlayers(live, stale, matchOps)[0].skins, { [VARKIS]: `${VARKIS}@Y`, [SKADI]: `${SKADI}@Z` });
+  assert.equal(cardSkinPlayers(players, [{ playerId: 'p2', skins: { [SKADI]: `${SKADI}@X` } }], matchOps)[0], players[0]);
+  // no data known yet (null): the room fills every gap, as before
+  assert.deepEqual(cardSkinPlayers(players, stale, null)[0].skins, stale[0].skins);
 });

@@ -94,10 +94,12 @@ map, or its unit's skin when the seat is unavailable, never the viewer's map. Un
 unowned. `OperatorImage` subscribes to choices, visibility and the composed manifest, so open cards refresh on changes.
 Effective stand-in / DIY bodies are resolved before that lookup, preserving §34.23 and #686.
 The strategy draft's name cards (`screens/bandDraft.js` artOf: each doctor's 名片干员 art, as on the room's seat cards)
-follow the seat cards' rule below (`seatCardSkin`), reading for the others the match's `m.public.players[].skins` laid
-over the room's `room.state.seats[].skins` (`ui/seatArt.js cardSkinPlayers`, DESIGN §37.325; for one charId the match's
-wins): the match keeps only the outfits of the operators its data has, so a card of another period wears the one the
-room's seats carry.
+follow the seat cards' rule below (`seatCardSkin`), reading for the others the match's `m.public.players[].skins` and,
+for the operators the match's data lacks, the room's `room.state.seats[].skins` (`ui/seatArt.js cardSkinPlayers`, DESIGN
+§37.325): the match keeps only the outfits of the operators its data has, so a card of another period wears the one the
+room's seats carry. An operator of the match's data wears the match's choice alone: a `room.skins` during a match
+re-broadcasts no `room.state`, so the room's seats still hold the map from before the start, and an outfit taken off in
+the match would come back from them.
 
 ## The waiting room's seat cards (0.3.2, the maintainer's decision 4 of 2026-10-21)
 

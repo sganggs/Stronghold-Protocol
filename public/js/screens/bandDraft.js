@@ -51,6 +51,7 @@ import { reducedMotion } from '../ui/device.js';
 import { useRise } from '../ui/transitions.js';
 import { CARD_KEY, cardStore, cardOperators, cardContext, cardSkinPlayers, rosterOperators, seatOperator, seatCardSkin, seatArtSrc } from '../ui/seatArt.js';
 import { CARD_ROSTER } from '../../../shared/cardRoster.js';
+import { operatorCharIds } from '../../../shared/protocol.js';
 import { skinsStore, SKINS_KEY } from '../ui/skins.js';
 import { settingsStore } from '../ui/settingsStore.js';
 import { chessPortraitUrl, medalIconUrl } from '../ui/assetUrls.js';
@@ -374,7 +375,8 @@ export function BandDraftScreen({ held = null } = {}) {
   // outfit's pictures are not here (chessPortraitUrl) — or fail to load (the row falls back to them: §35.51)
   // (gd.backups: the room version's 自选编队 pool joins the card list, as on the room's seat cards; #877, DESIGN §37.325:
   // so does the cross-period roster — a teammate's card of another period resolves, its outfit from the room's seats,
-  // cardSkinPlayers, since the match keeps only the outfits of the operators it plays)
+  // cardSkinPlayers, since the match keeps only the outfits of the operators it plays: only for those the match's data
+  // lacks, `matchOps` — an operator of its data wears the match's choice alone, the room's seats being from before the start)
   useData(CARD_ROSTER);
   const roster = data.getRaw(CARD_ROSTER);
   const rosterState = data.status(CARD_ROSTER);
@@ -383,7 +385,8 @@ export function BandDraftScreen({ held = null } = {}) {
     const extra = rosterOperators(roster, { exclude: new Set(list.map((c) => c.charId)), lang: data.locale(), localeName: (s) => data.localeName(s) });
     return cardContext(list, { pending: !gd.backups || rosterState === 'idle' || rosterState === 'loading', extra });
   }, [gd.ready, gd.backups, roster, rosterState, data.locale()]);
-  const skinPlayers = useMemo(() => cardSkinPlayers(players, roomSeats), [pub, roomSeats]);
+  const matchOps = useMemo(() => operatorCharIds({ chess: data.getRaw('chess'), backups: data.getRaw('backups') }), [gd.ready, gd.backups]);
+  const skinPlayers = useMemo(() => cardSkinPlayers(players, roomSeats, matchOps), [pub, roomSeats, matchOps]);
   const myCard = useStore((s) => s[CARD_KEY], Object.is, cardStore);
   const localSkins = useStore((s) => s[SKINS_KEY], Object.is, skinsStore);
   const otherSkins = useStore((s) => s.otherSkins !== false, Object.is, settingsStore);
