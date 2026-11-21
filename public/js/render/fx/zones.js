@@ -9,8 +9,17 @@ export const ZONE_PERSIST = 3;
 export const DOMAIN_FILL = 0x160b22;
 const DOMAIN_CORNERS = Object.freeze([[-0.47, 0.47], [0.47, 0.47], [0.47, -0.47], [-0.47, -0.47]]);
 export const DOMAIN_FADE = 0.4;
-/** Disc / edge alpha: a short zone, a persistent one (before the overlap damping), a telegraph. */
-export const ZONE_ALPHA = Object.freeze({ short: [0.28, 0.75], persist: [0.16, 0.5], warn: [0.35, 0.75] });
+/**
+ * Disc / edge alpha: a short zone, a persistent one (before the overlap damping), a telegraph. The edges of the first
+ * two went from 0.75 / 0.5 to 0.6 / 0.4 with their thinner ring (ZONE_EDGE; GitHub #143) [ASSUMED values].
+ */
+export const ZONE_ALPHA = Object.freeze({ short: [0.28, 0.6], persist: [0.16, 0.4], warn: [0.35, 0.75] });
+/**
+ * The edge ring's texture (render/textures.js): a zone's is the thin 'shock' ring, a telegraph's the wide 'ring' band — a
+ * warning stays bold (GitHub #143 「大部分aoe圈特效过于明显…建议减小所有aoe圈边的宽度」: until then every zone had the
+ * wide band) [ASSUMED].
+ */
+export const ZONE_EDGE = Object.freeze({ zone: 'shock', warn: 'ring' });
 
 /**
  * [disc, edge] alpha of zone `zn` among `zones` (additive blending). A persistent area is dimmer and shares its light with
@@ -93,10 +102,11 @@ export class FxZones {
   }
 
   /**
-   * Persistent ground area: soft disc + pulsing edge ring for `dur` real seconds (telegraphs pulse faster). `key` (the
-   * sim fx's `key`): a zone already up under that key is updated in place — moved, resized, its end `dur` from now —
-   * instead of a second one stacked on it (引星棘刺 S2's drifting alchemy unit is re-sent every second: twelve layers of the
-   * same zone used to pile up, community report of 2026-10-06 「炼金单元等范围持续性技能特效太亮（尤其是多层叠加以后）」).
+   * Persistent ground area: soft disc + pulsing edge ring (ZONE_EDGE: thin, a telegraph's wide) for `dur` real seconds
+   * (telegraphs pulse faster). `key` (the sim fx's `key`): a zone already up under that key is updated in place — moved,
+   * resized, its end `dur` from now — instead of a second one stacked on it (引星棘刺 S2's drifting alchemy unit is re-sent
+   * every second: twelve layers of the same zone used to pile up, community report of 2026-10-06
+   * 「炼金单元等范围持续性技能特效太亮（尤其是多层叠加以后）」).
    */
   zone(x, y, z, r, tint, dur, tex = 'soft', warn = false, key = null) {
     if (key != null) {
@@ -110,7 +120,7 @@ export class FxZones {
     const P = this.P;
     const disc = new P.Sprite(this.tex[tex === 'ring' ? 'soft' : tex] || this.tex.soft);
     disc.anchor.set(0.5); disc.blendMode = P.BLEND_MODES.ADD; disc.tint = tint;
-    const edge = new P.Sprite(this.tex.ring);
+    const edge = new P.Sprite(this.tex[warn ? ZONE_EDGE.warn : ZONE_EDGE.zone] || this.tex.ring);
     edge.anchor.set(0.5); edge.blendMode = P.BLEND_MODES.ADD; edge.tint = tint;
     this._onGround(disc, y, z); this._onGround(edge, y, z);
     this.zones.push({ disc, edge, x, y, z, r, t: 0, dur, warn, key, tint });

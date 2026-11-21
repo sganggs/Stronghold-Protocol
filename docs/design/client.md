@@ -222,8 +222,10 @@ history and the open points: DESIGN §32.14.25.
   direct blow's damage lands (else the generic hit by damage type) — a projectile attack's with its projectile's hit, the
   damage or heal the sim lands for a shot before its drawn hit covered by it (round 46, §33.16 "Hits against the sim's
   timing") —; a direct ranged attack with official rows draws no procedural shot; a chain's bounces after an official
-  shot of a chain projectile draw its line and hit (`wiring.chain`). One attack on several targets — the sim sends an
-  'atk' per target in one tick — casts once (its target rows play on each). Index version 2 (0.3.0 Phase 3c, §33.16): a
+  shot of a chain projectile draw its line and hit (`wiring.chain`); an 'atk' of kind 'mortar' (帝国炮火先兆者's shell,
+  which the sim lands with the kit's 'bombard' 3 s later) plays its cast rows only — the kit's 'bombardShell' and
+  'bombard' place its projectile's start, trail and reached effects (§33.16 Enemies' areas; GitHub #143). One attack on
+  several targets — the sim sends an 'atk' per target in one tick — casts once (its target rows play on each). Index version 2 (0.3.0 Phase 3c, §33.16): a
   melee blow of a unit that is blocked or blocks (UF.BLOCKED), and every attack of a mode without `attack`, plays the
   mode's `combat` (so does a 领主's ranged-kind 'atk' on the enemy it blocks, round 46); a group ability plays the sub-abilities that fire (a Parallel group all, a Random group one picked by
   a seed of the unit's id and attack count, the others the one that fits the attack's kind) and flies the first one's
@@ -236,7 +238,8 @@ history and the open points: DESIGN §32.14.25.
   burst attack left out); a shot leaves from its ability's `mount` (a `mountGroup`'s points in turn or at random) and a
   multi attack flies its `additionalTimes` follow-up shots every `triggerDelta` s. Also the generic heal hit, the status
   loops (`generic.status` by the sim's status names) on the unit's mount point while they last, and the unit's own death
-  / deploy effect or the generic one. A drawn official hit replaces the procedural spark and slash (the numbers stay);
+  / deploy effect or the generic one. A drawn official hit replaces the procedural spark and slash and a splash
+  attacker's ground ring (the numbers stay; the ring until GitHub #143);
   what index.json does not drive — a unit it does not list, a chain no official shot opened, an enemy skill no signal opens (Skills,
   below), a talent no signal binds (Talents) — stays procedural. `mounts.js` reads the skin's points (HitPoint, Muzzle,
   HeadPoint, Special points; front / back skeleton, mirrored for a unit facing left) at the unit's feet — a point a

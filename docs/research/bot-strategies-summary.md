@@ -27,7 +27,9 @@ commands to regenerate them under `.cache/`).
 ## Strength (single seat, paired seeds)
 
 Solo, band forced with `--band`, seeds 1001–1010 per cell. Leaks are counted leaks plus bounty leaks, summed over the
-rounds that both matches of a seed pair reached, up to R11. "better / worse" counts seeds against `legacy`.
+rounds that both matches of a seed pair reached, up to R11. "better / worse" counts seeds against `legacy`. The table
+has no win rates and stops at R11, where `ioleta` falls behind: see the later 终极 measurement below before reading it
+as a strength ranking.
 
 | Difficulty | Band | legacy | ioleta | adaptive | ioleta-adaptive |
 |---|---|---:|---:|---:|---:|
@@ -58,6 +60,40 @@ Russell. All 320 matches finished without engine, meta or sim errors.
 | ioleta-adaptive | Russell | HARD | 1006 | 4 → 7 | 13 → 13 |
 | ioleta-adaptive | Russell | ABYSS | 1004 | 5 → 10 | 13 → 12 |
 | ioleta-adaptive | Russell | ABYSS | 1010 | 20 → 21 | 12 → 13 |
+
+## Later measurement: 终极 win rate (2026-11-21, GitHub #742)
+
+Rerun for #742 on dev `d675b81d` (0.4.0 + round 84), default version 第二期下半, `solo:ABYSS`, `--band band_ioleta`,
+seeds 1–40, `--jobs 4` (outcomes do not depend on the jobs), macOS, Node 22:
+
+| | `legacy` | `ioleta` |
+|---|---:|---:|
+| Wins | 13 / 40 (33 %) | 2 / 40 (5 %) |
+| Leaks per match (bounty leaks included) | 19.9 | 31.9 |
+| Bounty cards taken (leaked) | 106 (5) | 108 (5) |
+| Rounds passed / LP left / reached the boss | 12.90 / 11.3 / 33 | 12.85 / 10.6 / 34 |
+| Leader damage per seat (mean) | 2,668,003 | 1,134,309 |
+| Shop level R4 / R7 / R10 / R13 | 2.0 / 3.9 / 5.0 / 5.0 | 1.0 / 2.2 / 3.5 / 5.9 |
+| Errors | 0 | 0 |
+
+Leaks per surviving bot and round:
+
+| Round | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `legacy` | 1.8 | 1.4 | 2.2 | 2.1 | 1.4 | 1.0 | 2.2 | 2.7 | 5.5 |
+| `ioleta` | 0.1 | 0.2 | 0.4 | 0.3 | 0.5 | 0.8 | 4.5 | 12.1 | 12.7 |
+
+Paired by seed: 12 seeds won only by `legacy`, 1 only by `ioleta` (seed 36), 1 by both (seed 14), 26 by neither.
+`ioleta` holds better in the middle rounds and collapses from R11 on, so a leak count that stops at R11 favours it while
+the wins say the opposite. `ioleta` therefore stays optional and is weaker than `legacy` at 终极 on this measurement;
+the default stays `legacy` (the same gap as round 57, AI-STRATEGY.md Cycle 15). Only `ioleta` was rerun —
+`ioleta-adaptive` shares its Russell procurement and was not measured — and HARD and the other bands were not rerun.
+
+```sh
+node tools/botbench.mjs --bot legacy --band band_ioleta --configs solo:ABYSS --seeds 40 --seed 1 --jobs 4 --json .cache/abyss-legacy.json
+node tools/botbench.mjs --bot ioleta --band band_ioleta --configs solo:ABYSS --seeds 40 --seed 1 --jobs 4 --json .cache/abyss-ioleta.json
+node tools/botbench.mjs --compare .cache/abyss-legacy.json .cache/abyss-ioleta.json
+```
 
 ## Rules and scenarios
 

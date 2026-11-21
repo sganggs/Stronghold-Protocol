@@ -49,13 +49,21 @@ const OFFICIAL_LIFT_SPAN = 0.4;
 
 /** Sub-professions whose attacks splash around the struck target (the 阵法术师 / 轰击术师 strike every enemy in range). */
 const SPLASH_SUBS = new Set(['aoesniper', 'splashcaster', 'bombarder', 'fortress', 'hammer']);
+/**
+ * The splash ring (GitHub #143 「建议减小所有aoe圈边的宽度」): a thin shockwave ring (`tex` 'shock', not the wide 'ring'
+ * band) starting at alpha `a0`, growing to `r` tiles over `s` real s, at most one every `gap` s on the screen [ASSUMED:
+ * the client draws no such ring — a readability cue of the remake's own; before #143 a full-alpha 'ring' band].
+ */
+export const SPLASH_RING = Object.freeze({ tex: 'shock', a0: 0.6, r: 1.1, s: 0.3, gap: 0.08 });
 
 export class FxNumbers {
   // ---- hits / numbers -----------------------------------------------------------------------------------------
 
   /**
-   * b.ev 'dmg' visual: glow + sparks in the hit colour; a melee blow (atk 'none' just before) adds its slash.
-   * `o.noSpark`: the official effects drew this hit (render/vfx/wiring.js) — only the number (and the splash ring) stay.
+   * b.ev 'dmg' visual: glow + sparks in the hit colour; a melee blow (atk 'none' just before) adds its slash; a splash
+   * attacker's hit (SPLASH_SUBS) a thin ground ring (SPLASH_RING). `o.noSpark`: the official effects drew this hit
+   * (render/vfx/wiring.js) — only the number stays (#143: the client draws no ring beside its own hit effect; until then
+   * the splash ring was drawn over it).
    */
   damage(view, amount, type, srcView, mark, o) {
     if (!view) return;
@@ -71,10 +79,10 @@ export class FxNumbers {
       if (melee) this._slash(view, srcView, px, py, s, style, big);
       this.burst(px, py, s, big ? 8 : melee ? 6 : 4, tint, { speed: melee ? 2.8 : 2.4, size: big ? 0.6 : 0.46 });
     }
-    if (srcView && this.ctx.subProfOf && SPLASH_SUBS.has(this.ctx.subProfOf(srcView.info?.defId, srcView.info))) {
-      if (!this._lastRing || this.time - this._lastRing > 0.08) {
+    if (!o?.noSpark && srcView && this.ctx.subProfOf && SPLASH_SUBS.has(this.ctx.subProfOf(srcView.info?.defId, srcView.info))) {
+      if (this._lastRing == null || this.time - this._lastRing > SPLASH_RING.gap) {
         this._lastRing = this.time;
-        this.ring(view.x, view.y, view.z || 0, 0.1, 1.1, tint, 0.3);
+        this.ring(view.x, view.y, view.z || 0, 0.1, SPLASH_RING.r, tint, SPLASH_RING.s, SPLASH_RING.tex, null, SPLASH_RING.a0);
       }
     }
     view.onHit?.();
