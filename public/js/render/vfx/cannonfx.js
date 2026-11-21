@@ -82,7 +82,7 @@ export class CannonFx {
     const ground = this.w.ofx.ctx?.heightAt?.(Math.round(y), Math.round(x)) || 0;
     return { pos: boardToUnity(x, y, ground), groundZ: -ground, rootRot: [0, 0, 0, 1] };
   }
-  sync(views) {
+  sync(views, { birth = true } = {}) {
     if (!this.w.ofx.active) {
       this.clear();
       return;
@@ -95,7 +95,7 @@ export class CannonFx {
         const h = this._spawn(CANNON_FX.idle, this._point(v, 'SpecialPoint0'), { owner: v, loop: true });
         if (h) {
           this.idle.set(v.id, h);
-          this._spawn(CANNON_FX.born, this._ground(v), { owner: v });
+          if (birth) this._spawn(CANNON_FX.born, this._ground(v), { owner: v });
         }
       }
       if (!this.markers.get(v.id)?.alive) {
@@ -118,6 +118,7 @@ export class CannonFx {
     for (const s of this.shots) if (!s.h.alive) this.shots.delete(s);
   }
   prep(board) {
+    // [ASSUMED] Reuse battle idle and landing markers in preparation; the source only establishes live-entity effects.
     const devices = board?.board?.devices?.filter(d => d.kind === 'cannon') || [];
     if (!devices.length || !this.w.ofx.active) {
       this.sync([]);
@@ -142,6 +143,7 @@ export class CannonFx {
         z: d.z0,
         alive: true,
       })),
+      { birth: false },
     );
   }
   simFx(kind, x, y, extra = {}) {

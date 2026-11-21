@@ -750,7 +750,8 @@ export class BoardScene {
     const T = this.THREE;
     const self = this;
     const clientCrate = spec.top === 'crateTop' && this.clientCrateGeometry();
-    const geom = this._geometry({ ...(clientCrate || this.boxGeometry()), color: null });
+    const geometry = spec.cannon ? boxWithTop(this.pack?.uv, 'cannon') : (clientCrate || this.boxGeometry());
+    const geom = this._geometry({ ...geometry, color: null });
     const source = clientCrate ? this.mat.crate : this.mat.board;
     const mat = source.clone();
     mat.transparent = true;

@@ -2827,7 +2827,7 @@ export class DeviceView {
   onStatus() {}
   setSkill() {}
   setFacing() {}
-  die() { if (!this.alive) return; this.alive = false; this.dying = 0.45; this.ctx.fx?.crateBreak?.(this.x, this.y, this.z, this.turret ? 0x6c777d : null); }
+  die() { if (!this.alive) return; this.alive = false; this.dying = 0.45; if (!this.cannon) this.ctx.fx?.crateBreak?.(this.x, this.y, this.z, this.turret ? 0x6c777d : null); }
   revive() { this.alive = true; this.dying = 0; this.remove = false; }
   update(dt, cam, t) {
     const shake = this.shake > 0 ? Math.sin(t * 80) * this.shake * 0.05 : 0;

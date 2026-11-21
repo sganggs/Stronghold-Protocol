@@ -44,3 +44,20 @@ TargetEffectManager 经 projectile_cnnon_target_mark 的到达效果指向 trap_
 既有安装须显式重提取 `scene/act3autochess_m10` 与 `fx`，以获得炮架与挂点／动画；本次增加记录，格式版本保持不变。
 模拟命中事件携带实际选中的单位 ID；每个命中单位播放原版 `_effectsWhenHit` 的 `trap_cnnon_explode_hit`，
 地面爆炸仍只播放一次。2D 与 3D 均在战斗中隐藏静态炮台，由活的装置实体显示；准备阶段恢复。
+
+## 查看准备棋盘与表现边界
+
+`m.field.prep` 是准备阶段的只读队友棋盘，保留静态炮台和箱子，不套用真实战斗的静态装置隐藏。
+进入查看、重建地形及重新启用 3D 三条路径均使用该语义；真正开始战斗仍交给活装置实体。
+无炮台模型时沿用旧版炮台顶面的灰色装置盒。炮台死亡只播放原版销毁或通用死亡效果，不叠加碎箱粒子。
+
+[ASSUMED] 准备阶段复用战斗的待机与落点标记；现有官服资料只证明战斗实体的效果。
+准备阶段不播放 `trap_cnnon_start`，该出生效果留给活的战斗炮台。
+
+已有 `used` 全集的安装可用以下命令只补炮台、合并原索引；`--only fx` 单独使用会默认重建 sample：
+
+```sh
+python tools/local-extract/extract.py --game "/path/to/client" --only fx --fx-keys trap_cnnon_idle,trap_cnnon_start,trap_cnnon_attack_start,trap_cnnon_buff,trap_cnnon_lockon,trap_cnnon_trail_1,trap_cnnon_trail_2,trap_cnnon_explode_1,trap_cnnon_explode_2,trap_cnnon_explode_hit,trap_cnnon_destroyed
+```
+
+另需重新提取 `--only scene/act3autochess_m10`；若希望重建整个使用集合，可用 `--only fx --fx-set used`。

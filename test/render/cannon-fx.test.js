@@ -228,3 +228,18 @@ test('impact plays a hit effect for each selected unit, survives missing targets
   w.clear();
   assert.ok(hits.every(h => !h.h.alive));
 });
+
+
+test('preparation keeps assumed idle and markers without replaying cannon birth', async () => {
+  const { w, v, handles } = await fixture();
+  const board = { stage: { id: 'm10' }, board: { devices: [{ kind: 'cannon', r: 13, c: 6, z0: .8, dir: 'DOWN' }] } };
+  w.cannons.prep(board);
+  w.cannons.prep(board);
+  assert.equal(handles.filter((h) => h.key === CANNON_FX.born).length, 0);
+  assert.equal(handles.filter((h) => h.key === CANNON_FX.idle).length, 1);
+  assert.equal(handles.filter((h) => h.key === CANNON_FX.marker).length, 1);
+  w.cannons.prep(null);
+  w.sync([v]);
+  assert.equal(handles.filter((h) => h.key === CANNON_FX.born).length, 1);
+  w.clear();
+});
