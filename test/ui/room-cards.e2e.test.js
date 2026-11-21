@@ -8,8 +8,14 @@
 // 「显示其他玩家的皮肤」 off; an outfit picture that fails to load gives way to the default portrait, not the avatar
 // frame); 默认 clears the pick; Esc closes the picker and gives the focus back; on a phone in landscape
 // the picker fits the screen and its grid scrolls inside it, with no on-screen keyboard.
+// Other periods (#877, DESIGN §37.325): the picker's tiles come in groups (本房间版本 first, then 其他时期 newest first);
+// an operator only another period lists (蜜蜡, 第二期上半 alone) is found by its Chinese name and by its appellation, in
+// that period's group, shows on both screens in its E2 art, survives a reload and a version switch, and a 第二期下半 room
+// loads no other version's data for it (one /data/card-roster.json per page load, no /data/versions/). Without the
+// roster (a 404) the picker keeps the room's group, says so with 重试, a cross-period pref shows the default on both
+// screens and is not sent; 重试 brings the groups and the card back.
 // The rooms are made through net (room.create / room.join), so the test does not depend on the lobby's layout.
-// Server side: test/lobby-card.test.js; the pure rules: test/ui/seat-art.test.js.
+// Server side: test/lobby-card.test.js; the pure rules: test/ui/seat-art.test.js, test/ui/card-sync.test.js.
 //
 //   SP_E2E=1 node --test test/ui/room-cards.e2e.test.js
 //
@@ -73,6 +79,8 @@ const picker = (c) => c.page.evaluate(() => {
   const r = box.getBoundingClientRect();
   return {
     tiles: grid.querySelectorAll('.cardpick__op[data-char]:not([data-char=""])').length,
+    room: grid.querySelectorAll('.cardpick__op[data-group="room"][data-char]:not([data-char=""])').length,
+    groups: [...grid.querySelectorAll('.cardpick__group')].map((e) => e.dataset.group),
     names: [...grid.querySelectorAll('.cardpick__op[data-char]:not([data-char=""]) .cardpick__name')].map((e) => e.textContent),
     on: [...grid.querySelectorAll('.cardpick__op.is-on')].map((e) => e.dataset.char),
     focus: document.activeElement?.dataset?.char ?? (document.activeElement?.tagName || null),
@@ -82,6 +90,79 @@ const picker = (c) => c.page.evaluate(() => {
     pageFits: document.documentElement.scrollWidth <= innerWidth && document.documentElement.scrollHeight <= innerHeight,
   };
 });
+
+// ---- other periods (#877, DESIGN §37.325) -------------------------------------------------------------------------
+const BEE = 'char_344_beewax'; // 蜜蜡 (Beeswax): only 第二期上半 lists her — another period in a 第二期下半 room
+const ROSTER = '/data/card-roster.json';
+/** Her elite portrait (the roster's golden rule: 第二期上半 has her elite chess record). */
+const E2_ART = /\/char_344_beewax_2\.(png|webp)(\?|$)/;
+
+/**
+ * puppeteer-core whose browser hands its first page to `setup` before Client.open loads the site — listeners and
+ * scripts set there see the page's very first request (Client.open takes that same page).
+ */
+const withPage = (P, setup) => ({
+  launch: async (opts) => {
+    const browser = await P.launch(opts);
+    const [page] = await browser.pages();
+    await setup(page);
+    return browser;
+  },
+});
+/** Records every request of the page: `nav` counts the main frame's loads (Client.open's, a reload). */
+const track = (log) => async (page) => {
+  let nav = 0;
+  page.on('request', (r) => {
+    if (r.isNavigationRequest() && r.frame() === page.mainFrame()) nav++;
+    let p = '';
+    try { p = new URL(r.url()).pathname; } catch { /* not a URL */ }
+    log.push({ nav, path: p });
+  });
+};
+/** While `gate.blocked`, the page's data/card-roster.json answers 404 (CDP Fetch: only that file pauses). */
+const rosterGate = (gate) => async (page) => {
+  const cdp = await page.createCDPSession();
+  cdp.on('Fetch.requestPaused', ({ requestId }) => {
+    (gate.blocked
+      ? cdp.send('Fetch.fulfillRequest', { requestId, responseCode: 404, responseHeaders: [{ name: 'Content-Type', value: 'text/plain' }],
+        body: Buffer.from('not here').toString('base64') })
+      : cdp.send('Fetch.continueRequest', { requestId })).catch(() => {});
+  });
+  await cdp.send('Fetch.enable', { patterns: [{ urlPattern: `*${ROSTER}*`, requestStage: 'Request' }] });
+};
+/** The page starts with `charId` as its 名片干员 pref (written before the first load while the browser has none). */
+const seedCard = (charId) => (page) => page.evaluateOnNewDocument((id) => {
+  if (window.top !== window || !/^https?:$/.test(location.protocol)) return;
+  if (localStorage.getItem('sp.pref.room.card') == null) localStorage.setItem('sp.pref.room.card', JSON.stringify(id));
+}, charId);
+/** `name`'s seat card in `c`'s store (room.state seats[]). */
+const storeSeat = (c, name) => c.page.evaluate((name) => {
+  const s = globalThis.__SP__.store.get().room?.seats?.find((x) => x?.name === name);
+  return s ? { card: s.card ?? null, skins: s.skins ?? null } : null;
+}, name);
+const waitStoreCard = (c, name, card, what) => c.page.waitForFunction((name, card) =>
+  (globalThis.__SP__.store.get().room?.seats?.find((x) => x?.name === name)?.card ?? null) === card, { timeout: 10000 }, name, card)
+  .catch((e) => { throw new Error(`${c.label}: ${what}: ${e.message}`); });
+/** Types `text` into the picker's search (the field emptied first). */
+const search = async (c, text) => {
+  await c.page.$eval('.cardpick__search input', (el) => { el.focus(); el.select(); });
+  await c.page.keyboard.press('Backspace');
+  if (text) await c.page.keyboard.type(text);
+};
+const openPicker = async (c) => {
+  await c.click('[data-testid="seat-card-pick"]');
+  await c.page.waitForSelector('.modal__box.cardpick');
+};
+const closePicker = async (c) => {
+  await c.page.keyboard.press('Escape');
+  await c.page.waitForFunction(() => !document.querySelector('.modal__box.cardpick'));
+};
+/** Waits until the room plays `version` and the page shows that version's data (as test/ui/versions.e2e.test.js). */
+const roomOn = (c, version, what) => c.page.waitForFunction((v) => {
+  const r = globalThis.__SP__.store.get().room;
+  return !!r && (r.version ?? 'act2autochess') === v && !r.versionVote
+    && (globalThis.__SP__.data.get('config')?.version?.id ?? 'act2autochess') === v;
+}, { timeout: 30000 }, version).catch((e) => { throw new Error(`${c.label}: ${what}: ${e.message}`); });
 
 describe('名片干员 seat cards (real server)', { skip: !ENABLED && 'set SP_E2E=1 (Chrome + public/assets)' }, () => {
   test('default portraits, the picker, the pick on both screens and after a reload, 默认, a phone', { timeout: 4 * 60 * 1000 }, async () => {
@@ -149,7 +230,9 @@ describe('名片干员 seat cards (real server)', { skip: !ENABLED && 'set SP_E2
       await host.page.waitForFunction(() => document.querySelectorAll('.cardpick__op[data-char]:not([data-char=""])').length > 100);
       await host.click('.cardpick__stars button', '5★');
       pk = await picker(host);
-      assert.ok(pk.tiles > 20 && pk.tiles < 60, `5★ tiles: ${pk.tiles}`);
+      // (#877: the room's own group; the other periods' 5★ follow under their headings)
+      assert.ok(pk.room > 20 && pk.room < 60, `5★ tiles of the room's group: ${pk.room}`);
+      assert.ok(pk.tiles > pk.room, `5★ tiles of every group: ${pk.tiles}`);
       await host.click('.cardpick__stars button', '6★');
       await host.shot('picker');
       await host.page.$eval(`.cardpick__op[data-char="${PICK}"]`, (el) => el.scrollIntoView({ block: 'center' })); // the grid scrolls
@@ -248,6 +331,194 @@ describe('名片干员 seat cards (real server)', { skip: !ENABLED && 'set SP_E2
       }
 
       assert.deepEqual(problemsOf([host, guest]), []);
+    } finally {
+      await host.close();
+      await guest.close();
+      await srv.stop();
+    }
+  });
+
+  test('another period\'s operator: its group, both screens, a reload, a version switch, no version data for it (#877)', { timeout: 4 * 60 * 1000 }, async () => {
+    const srv = await startRealServer();
+    const P = (await import('puppeteer-core')).default;
+    const reqs = { host: [], guest: [] };
+    const host = new Client(withPage(P, track(reqs.host)), srv.base, 'host', { prefix: 'room-cards-other' });
+    const guest = new Client(withPage(P, track(reqs.guest)), srv.base, 'guest', { prefix: 'room-cards-other', w: 1280, h: 720 });
+    try {
+      await host.open();
+      await host.enter('凯尔希');
+      assert.equal(await request(host, 'room.create', { mode: 'coop', difficulty: 'NORMAL' }), 'ok');
+      const { code } = (await host.waitFor((s) => !!s.room?.code, 'room created')).room;
+      await host.page.waitForSelector('.room-screen .seat.is-me');
+      await guest.open();
+      await guest.enter('阿米娅');
+      assert.equal(await request(guest, 'room.join', { code }), 'ok');
+      await guest.page.waitForSelector('.room-screen .seat.is-me');
+      for (const c of [host, guest]) await waitOp(c, '凯尔希', null, 'the host\'s default portrait');
+      assert.ok(reqs.host.length && reqs.guest.length, 'the request logs see the pages');
+
+      // the groups: 本房间版本 first with 默认 as its first tile, then the other periods newest first, each operator once
+      await openPicker(host);
+      await host.page.waitForSelector(`.cardpick__op[data-char="${BEE}"]`, { timeout: 10000 }); // the roster is in
+      let pk = await picker(host);
+      assert.deepEqual(pk.groups, ['room', 'act3autochess@V3_1', 'act2autochess@V2_1', 'act1autochess']);
+      const layout = await host.page.evaluate(() => {
+        const grid = document.querySelector('[data-testid="card-picker"]');
+        const tiles = [...grid.querySelectorAll('.cardpick__op[data-char]:not([data-char=""])')];
+        const per = {};
+        for (const el of tiles) per[el.dataset.group] = (per[el.dataset.group] || 0) + 1;
+        return {
+          first: grid.querySelector('.cardpick__op')?.dataset.char ?? null,
+          unique: new Set(tiles.map((el) => el.dataset.char)).size === tiles.length,
+          per,
+          headingWide: [...grid.querySelectorAll('.cardpick__group')].every((h) => Math.abs(h.getBoundingClientRect().width - grid.clientWidth) < 24),
+          title: grid.querySelector('.cardpick__op[data-char="char_344_beewax"]')?.title ?? null,
+          notices: [...document.querySelectorAll('.cardpick__notice')].map((e) => e.dataset.testid),
+        };
+      });
+      assert.equal(layout.first, '', '默认 is the first tile');
+      assert.ok(layout.unique, 'each operator once');
+      assert.ok(layout.per.room > 100 && Object.keys(layout.per).length === 4 && Object.values(layout.per).every((n) => n > 0), JSON.stringify(layout.per));
+      assert.ok(layout.headingWide, 'each heading spans the grid');
+      assert.match(layout.title, /^蜜蜡 · 第二期上半$/, 'a cross-period tile names its period');
+      assert.deepEqual(layout.notices, [], 'nothing loading, nothing failed, no lost pick');
+      assert.ok(pk.inside && pk.pageFits && !pk.bodyScrolls, JSON.stringify(pk));
+      await host.shot('picker-groups');
+
+      // 蜜蜡 by her Chinese name and by her appellation: one tile, in 第二期上半's group (the other groups' headings hidden)
+      for (const q of ['蜜蜡', 'Beeswax']) {
+        await search(host, q);
+        await host.page.waitForFunction(() => document.querySelectorAll('.cardpick__op[data-char]:not([data-char=""])').length === 1);
+        pk = await picker(host);
+        assert.deepEqual(pk.names, ['蜜蜡'], q);
+        assert.deepEqual(pk.groups, ['room', 'act2autochess@V2_1'], q);
+        assert.equal(await host.page.$eval('.cardpick__op[data-char]:not([data-char=""])', (el) => el.dataset.group), 'act2autochess@V2_1', q);
+      }
+      // her tile shows her avatar (the roster's records draw from the same art manifest)
+      await host.page.waitForFunction((id) => {
+        const img = document.querySelector(`.cardpick__op[data-char="${id}"] .cardpick__img img`);
+        return !!img && img.complete && img.naturalWidth > 0;
+      }, { timeout: 10000 }, BEE);
+      await host.click(`.cardpick__op[data-char="${BEE}"]`);
+      await host.page.waitForFunction(() => !document.querySelector('.modal__box.cardpick'));
+
+      // the pick: one's own card at once, the teammate's through room.card; her E2 art and name; the pref written
+      await waitOp(host, '凯尔希', '蜜蜡', 'one\'s own card shows the pick');
+      await waitOp(guest, '凯尔希', '蜜蜡', 'the teammate sees the pick');
+      await waitStoreCard(guest, '凯尔希', BEE, 'room.state seats[].card');
+      for (const c of [host, guest]) assert.match((await seatNamed(c, '凯尔希')).art, E2_ART, `${c.label}: her elite portrait`);
+      assert.equal(await host.page.evaluate(() => localStorage.getItem('sp.pref.room.card')), JSON.stringify(BEE));
+      await guest.shot('room-picked');
+
+      // a reload: one's own card is still 蜜蜡, the picker's focus on her tile
+      await host.page.reload({ waitUntil: 'domcontentloaded' });
+      await host.page.waitForSelector('.room-screen .seat.is-me');
+      await waitOp(host, '凯尔希', '蜜蜡', 'the pick after a reload');
+      await openPicker(host);
+      await host.page.waitForSelector(`.cardpick__op.is-on[data-char="${BEE}"]`, { timeout: 10000 });
+      await host.page.waitForFunction((id) => document.activeElement?.dataset?.char === id, { timeout: 5000 }, BEE);
+      pk = await picker(host);
+      assert.deepEqual(pk.on, [BEE]);
+      assert.equal(pk.focus, BEE);
+      await closePicker(host);
+
+      // no other version's data for a 第二期下半 room, and one roster download per page load
+      for (const [who, log] of Object.entries(reqs)) {
+        assert.deepEqual(log.filter((r) => r.path.startsWith('/data/versions/')).map((r) => r.path), [], `${who}: no /data/versions/`);
+        const per = {};
+        for (const r of log) if (r.path === ROSTER) per[r.nav] = (per[r.nav] || 0) + 1;
+        assert.ok(Object.values(per).length >= 1 && Object.values(per).every((n) => n === 1), `${who}: roster downloads per page load ${JSON.stringify(per)}`);
+      }
+      assert.ok(Math.max(...reqs.host.map((r) => r.nav)) >= 2, 'the host\'s log spans the reload');
+
+      // the host switches the room to 规程 (the guest agrees): the card stays 蜜蜡 on both screens
+      assert.equal(await request(host, 'room.proposeVersion', { version: 'act3autochess@V3_1' }), 'ok');
+      const voteId = await guest.page.waitForFunction(() => globalThis.__SP__.store.get().room?.versionVote?.id, { timeout: 10000 }).then((h) => h.jsonValue());
+      assert.equal(await request(guest, 'room.versionVote', { voteId, agree: true }), 'ok');
+      for (const c of [host, guest]) await roomOn(c, 'act3autochess@V3_1', 'the room on 规程');
+      for (const c of [host, guest]) {
+        await waitStoreCard(c, '凯尔希', BEE, 'the card kept by the switch');
+        await waitOp(c, '凯尔希', '蜜蜡', 'the card after the switch');
+        assert.match((await seatNamed(c, '凯尔希')).art, E2_ART, `${c.label}: her elite portrait in the 规程 room`);
+      }
+      // in the 规程 room she is still another period's: in 第二期上半's group, the choice
+      await openPicker(host);
+      await host.page.waitForSelector(`.cardpick__op.is-on[data-char="${BEE}"]`, { timeout: 10000 });
+      pk = await picker(host);
+      assert.equal(pk.groups[0], 'room');
+      assert.ok(pk.groups.includes('act2autochess@V2_1') && !pk.groups.includes('act3autochess@V3_1'), JSON.stringify(pk.groups));
+      assert.equal(await host.page.$eval(`.cardpick__op[data-char="${BEE}"]`, (el) => el.dataset.group), 'act2autochess@V2_1');
+      await host.shot('picker-v3');
+      await closePicker(host);
+
+      assert.deepEqual(problemsOf([host, guest]), []);
+    } finally {
+      await host.close();
+      await guest.close();
+      await srv.stop();
+    }
+  });
+
+  test('without the roster: the room\'s group with 重试, a cross-period pref shows the default and waits, 重试 brings it back (#877)', { timeout: 3 * 60 * 1000 }, async () => {
+    const srv = await startRealServer();
+    const P = (await import('puppeteer-core')).default;
+    const gate = { blocked: true };
+    const host = new Client(withPage(P, async (page) => { await seedCard(BEE)(page); await rosterGate(gate)(page); }), srv.base, 'host', { prefix: 'room-cards-noroster' });
+    const guest = new Client(withPage(P, rosterGate(gate)), srv.base, 'guest', { prefix: 'room-cards-noroster', w: 1280, h: 720 });
+    try {
+      await host.open();
+      await host.enter('凯尔希');
+      assert.equal(await request(host, 'room.create', { mode: 'coop', difficulty: 'NORMAL' }), 'ok');
+      const { code } = (await host.waitFor((s) => !!s.room?.code, 'room created')).room;
+      await host.page.waitForSelector('.room-screen .seat.is-me');
+      await guest.open();
+      await guest.enter('阿米娅');
+      assert.equal(await request(guest, 'room.join', { code }), 'ok');
+      await guest.page.waitForSelector('.room-screen .seat.is-me');
+
+      // the picker: only the room's group, the failure with 重试, the pick that cannot show here; 默认 lit
+      await openPicker(host);
+      await host.page.waitForSelector('[data-testid="card-roster-failed"] button', { timeout: 10000 });
+      await host.page.waitForSelector('[data-testid="card-pick-lost"]');
+      let pk = await picker(host);
+      assert.deepEqual(pk.groups, ['room']);
+      assert.equal(await host.page.$(`.cardpick__op[data-char="${BEE}"]`), null);
+      assert.deepEqual(pk.on, ['']);
+      assert.ok(pk.inside && pk.pageFits, JSON.stringify(pk));
+      await host.shot('picker-failed');
+
+      // both screens draw the host's default (the same operator), and the pick never reached the server
+      for (const c of [host, guest]) await waitOp(c, '凯尔希', null, 'the host\'s default portrait');
+      const def = (await seatNamed(host, '凯尔希')).op;
+      assert.notEqual(def, '蜜蜡');
+      assert.equal((await seatNamed(guest, '凯尔希')).op, def, 'the same default on both screens');
+      for (const c of [host, guest]) assert.equal((await storeSeat(c, '凯尔希')).card, null, `${c.label}: no card on the server`);
+      assert.equal(await host.page.evaluate(() => localStorage.getItem('sp.pref.room.card')), JSON.stringify(BEE), 'the pref is kept');
+
+      // 重试 once the roster answers: the groups, 蜜蜡 the choice, the card on one's own screen and on the server
+      gate.blocked = false;
+      await host.click('[data-testid="card-roster-failed"] button');
+      await host.page.waitForSelector(`.cardpick__op.is-on[data-char="${BEE}"]`, { timeout: 10000 });
+      pk = await picker(host);
+      assert.ok(pk.groups.length > 1 && pk.groups.includes('act2autochess@V2_1'), JSON.stringify(pk.groups));
+      assert.deepEqual(pk.on, [BEE]);
+      assert.equal(await host.page.$('.cardpick__notice'), null, 'no notice left');
+      await closePicker(host);
+      await waitOp(host, '凯尔希', '蜜蜡', 'one\'s own card after 重试');
+      await waitStoreCard(guest, '凯尔希', BEE, 'the pick sent once the roster arrived');
+      // the teammate's page without the roster still draws the default; its own 重试 shows the pick
+      assert.equal((await seatNamed(guest, '凯尔希')).op, def);
+      await openPicker(guest);
+      await guest.click('[data-testid="card-roster-failed"] button');
+      await guest.page.waitForSelector(`.cardpick__op[data-char="${BEE}"]`, { timeout: 10000 });
+      await closePicker(guest);
+      await waitOp(guest, '凯尔希', '蜜蜡', 'the teammate after its 重试');
+      assert.match((await seatNamed(guest, '凯尔希')).art, E2_ART);
+
+      // the only problems: the blocked roster's 404s
+      const problems = problemsOf([host, guest]);
+      assert.ok(problems.some((p) => p.includes(ROSTER)), 'the roster was answered 404');
+      assert.deepEqual(problems.filter((p) => !p.includes(ROSTER)), []);
     } finally {
       await host.close();
       await guest.close();

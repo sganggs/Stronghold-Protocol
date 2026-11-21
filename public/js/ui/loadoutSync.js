@@ -6,8 +6,8 @@
 // `diyKitted` = the operators the server lets a DIY slot field, from every `welcome`) and the overlay's screen state
 // (open / origin / tab / selection / filters). `installLoadoutSync()` / `installOwnershipSync()` / `installDiySync()` /
 // `installSkinsSync()` / `installCardSync()` (called once by main.js) keep the server's copies current — one sync engine
-// (installPrefSync), five settings (the fifth, room.card — the 名片干员 of ui/seatArt.js —, is described at
-// installCardSync): after every `welcome` (new or resumed
+// (installPrefSync), five settings (the fifth, room.card — the 名片干员 of ui/seatArt.js, any official period's operator
+// since #877 —, is described at installCardSync): after every `welcome` (new or resumed
 // session — the server keeps them on the session and on the seat, so joining a room needs no resend) and after every
 // edit (debounced; a pending edit goes out at once when the overlay closes), they send `room.loadout { entries, ops }`
 // (sanitised against the loaded data/chess.json: ui/loadoutModel.js sanitizeEntries — a stale entry is dropped, never
@@ -49,6 +49,7 @@ import { OWNERSHIP_PREF, parseStoredOwnership, parseStoredOwnershipChars, toStor
 import { parseStoredDiy, toStoredDiy, cleanPicks, sanitizeDiyPicks, diyPrefKey } from './diyModel.js';
 import { skinsStore, SKINS_KEY, SKINS_SYNC_KEY, parseStoredSkins } from './skins.js';
 import { cardStore, CARD_KEY, CARD_SYNC_KEY, cardOperators } from './seatArt.js';
+import { CARD_ROSTER, parseCardRoster } from '../../../shared/cardRoster.js';
 import { needsContent, serverDefaultVersion } from '../versions.js';
 import { DEFAULT_VERSION } from '../../../shared/versions.js';
 import { toast } from './toasts.js';
@@ -638,18 +639,20 @@ export function installOwnershipSync({ net, timers, target = loadoutStore, notif
  * at once (`Match.setSkins`, any phase: a skin is cosmetic and public) instead of storing it for the next one, so the
  * one refusal that can still arrive is 'locked' — a build whose server predates the message.
  *
- * The server keeps only the operators of the data the room plays (server/lobby.js skins: operatorCharIds), on the
- * session too, so the map goes filtered to the operators of the data on screen (the same set): a content change that
- * changes the kept set (a 第一期-only operator's skin on joining or switching to a 第一期 room, a plugin operator's)
- * changes the payload and is sent; one that does not spends no heavy-message budget (`seatBound: false`). Without the data
- * (it failed to load) the map goes whole and the server filters it.
+ * The server keeps only the operators of the data the room plays and of the cross-period 名片 roster (server/lobby.js
+ * skins: operatorCharIds ∪ the roster, #877 / DESIGN §37.325 — a card of another period wears its outfit for the room;
+ * a match still takes only its own operators', server/lobby.js seatSettings), on the session too, so the map goes
+ * filtered to the same set on screen (skinOperatorIds): a content change that changes the kept set (a plugin operator's
+ * skin on joining or leaving its room) changes the payload and is sent; one that does not spends no heavy-message
+ * budget (`seatBound: false`). Without the room's data (it failed to load) the map goes whole and the server filters it;
+ * without the roster, filtered to the room's data alone.
  * @param {{ net: any, timers?: { setTimeout: Function, clearTimeout: Function }, target?: ReturnType<typeof createStore>,
  *   notify?: (text: string) => void, operatorsReady?: () => Promise<Set<string>|null> }} deps
  */
 export function installSkinsSync({ net, timers, target = skinsStore, notify, content = appContentSet, app = store, gate = null, operatorsReady } = {}) {
   const operators = operatorsReady || (async () => {
-    const [chess, backups] = await Promise.all([data.load('chess'), data.load('backups')]);
-    return chess == null || backups == null ? null : operatorCharIds({ chess: data.getRaw('chess'), backups: data.getRaw('backups') });
+    const [chess, backups] = await Promise.all([data.load('chess'), data.load('backups'), data.load(CARD_ROSTER)]);
+    return chess == null || backups == null ? null : skinOperatorIds({ chess: data.getRaw('chess'), backups: data.getRaw('backups') }, data.getRaw(CARD_ROSTER));
   });
   return installPrefSync({
     net, timers, target, notify, content, app, gate, seatBound: false, key: SKINS_KEY, stateKey: SKINS_SYNC_KEY, msgType: 'room.skins', field: 'skins', tag: 'skins',
@@ -664,28 +667,57 @@ export function installSkinsSync({ net, timers, target = skinsStore, notify, con
 }
 
 /**
+ * The operators whose outfits the server keeps for the room (server/lobby.js skins, #877 / DESIGN §37.325): those of the
+ * room's data (shared/protocol.js operatorCharIds) and those of the cross-period 名片 roster (data/card-roster.json,
+ * shared/cardRoster.js) — the room's alone without a roster. A new set: the cached one of operatorCharIds is never changed.
+ * @param {{ chess: any, backups: any }} raw the room's data as downloaded
+ * @param {unknown} rosterJson data/card-roster.json as loaded, or null
+ * @returns {Set<string>}
+ */
+export function skinOperatorIds(raw, rosterJson) {
+  const ids = new Set(operatorCharIds(raw));
+  const roster = parseCardRoster(rosterJson);
+  if (roster) for (const id of roster.ids) ids.add(id);
+  return ids;
+}
+
+/**
  * Wire the 名片干员 sync once (PR #643 split 6, ui/seatArt.js): `room.card { charId }` after every welcome, every pick
  * and whenever the room's content set arrives or goes — the server keeps it on the session, so it follows the player
- * into every room (server/lobby.js card / humanSeat), and the room sees it as room.state seats[].card. The list is the
- * room's picker's (ui/seatArt.js cardOperators): the visible chess operators plus the room version's 自选编队 pool (#877).
- * A pick the data shown now does not list (a plugin operator, the room left) goes out as '' (默认), as one's own card
- * draws it; the pref
- * keeps it. The engine retries RATE / TIMEOUT / OFFLINE (review fix of PR #813: the room's own effect gave up after
- * them, so teammates kept the old card); BAD_MSG is final ('error', logged).
+ * into every room (server/lobby.js card / humanSeat), and the room sees it as room.state seats[].card. The server takes
+ * any official period's card candidate (server/lobby.js cardAllowed: the roster data/card-roster.json, then the room's
+ * data — #877, DESIGN §37.325). So a pick goes out as itself when the room's picker lists it (ui/seatArt.js
+ * cardOperators: the visible chess operators — no backups.json needed for those —, then the room version's 自选编队
+ * pool) or, waiting for the roster only then, when the roster does; a pick none of them lists (a plugin operator, the
+ * room left) goes out as '' (默认), as one's own card draws it; the pref keeps it. Without the chess list, the pool or
+ * the roster that would decide it nothing is sent (null: 'error') — the server keeps the card it has rather than lose
+ * it; the next welcome, edit or content change tries again, and so does the roster's arrival (the picker's 重试).
+ * The engine retries RATE / TIMEOUT / OFFLINE (review fix of PR #813: the room's own effect gave up after them, so
+ * teammates kept the old card); BAD_MSG is final ('error', logged).
  * @param {{ net: any, timers?: { setTimeout: Function, clearTimeout: Function }, target?: ReturnType<typeof createStore>,
  *   getChessReady?: () => Promise<any>, getBackupsReady?: () => Promise<any>, listChess?: () => any[],
- *   listBackups?: () => any, notify?: (text: string) => void, content?: any }} deps
+ *   listBackups?: () => any, getRosterReady?: () => Promise<any>, listRoster?: () => any,
+ *   watchRoster?: (fn: () => void) => (() => void), notify?: (text: string) => void, content?: any }} deps
+ *   `getRosterReady` loads the roster (a missing one again: data.js invalidate), `listRoster` reads it, `watchRoster`
+ *   calls back once it has arrived
  */
-export function installCardSync({ net, timers, target = cardStore, getChessReady, getBackupsReady, listChess, listBackups, notify, content = appContentSet, app = store, gate = null } = {}) {
+export function installCardSync({ net, timers, target = cardStore, getChessReady, getBackupsReady, listChess, listBackups, getRosterReady, listRoster, watchRoster,
+  notify, content = appContentSet, app = store, gate = null } = {}) {
   const ready = getChessReady || (() => data.load('chess'));
   const readyBackups = getBackupsReady || (() => data.load('backups'));
   const list = listChess || (() => data.list('chess'));
   const backupsOf = listBackups || (() => data.get('backups'));
-  return installPrefSync({
+  const readyRoster = getRosterReady || (() => (data.status(CARD_ROSTER) === 'missing' ? data.invalidate(CARD_ROSTER) : data.load(CARD_ROSTER)));
+  const rosterOf = listRoster || (() => data.getRaw(CARD_ROSTER));
+  const watch = watchRoster || ((fn) => data.subscribe((n) => { if (n === CARD_ROSTER && data.status(CARD_ROSTER) === 'ready') fn(); }));
+  // the last preparation found no roster: its arrival sends the pick (the picker's 重试, a later load)
+  let rosterBlocked = false;
+  const sync = installPrefSync({
     net, timers, target, notify, key: CARD_KEY, stateKey: CARD_SYNC_KEY, msgType: 'room.card', field: null, tag: 'card',
     lockedText: null, // room.card has no phase gate: never WRONG_PHASE / ROOM_STARTED
     content, app, gate, seatBound: false,
     async prepare() {
+      rosterBlocked = false;
       const want = target.get()[CARD_KEY];
       if (!want) return { charId: '' };
       if (await ready() == null) return null;
@@ -694,9 +726,18 @@ export function installCardSync({ net, timers, target = cardStore, getChessReady
       // 自选编队 operator (#877): no chess record of its own, listed only through backups.diy.ownedPool — the same list
       // the room's picker draws (cardOperators(chess, backups)), so a pool pick goes out as itself, never as 默认
       if ((await readyBackups()) == null) return null;
-      return { charId: cardOperators(list(), backupsOf()).some((c) => c.charId === want) ? want : '' };
+      if (cardOperators(list(), backupsOf()).some((c) => c.charId === want)) return { charId: want };
+      // another period's operator (#877, DESIGN §37.325): the roster decides — never '' without it (that would clear the
+      // card the server has)
+      if ((await readyRoster()) == null) { rosterBlocked = true; return null; }
+      return { charId: parseCardRoster(rosterOf())?.ids.has(want) ? want : '' };
     },
   });
+  const offRoster = watch(() => { if (rosterBlocked) { rosterBlocked = false; void sync.flush(); } });
+  return {
+    flush: sync.flush,
+    dispose() { offRoster?.(); sync.dispose(); },
+  };
 }
 
 /**

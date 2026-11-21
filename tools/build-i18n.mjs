@@ -21,6 +21,9 @@
 //      tools/i18n/fallback-pr70.json (PR #70's translations by @YuriRestia, reused with credit) and the UI table
 //      public/i18n/en.json (a data text that is also a UI msgid); anything else stays Chinese.
 //   Ties between several English sources prefer the one whose path shares the record's ids, then the most frequent.
+//   The record-level names also fill the overlay's `names` map (server messages name operators and items in Chinese);
+//   the cross-period 名片 roster data/card-roster.json adds its operators' names to it at the lowest priority, no file
+//   overlay of its own (#877, DESIGN §37.325).
 //   Rich-text tags and placeholders of the official EN texts are the same as in zh_CN, so the client's rich-text
 //   formatting (ui/richText.js) works unchanged; `desc` / `text` (plain) are the stripped `descRaw` / `textRaw`.
 //
@@ -55,6 +58,7 @@ import { existsSync } from 'node:fs';
 import { basename, dirname, join, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildRecordOverlay, applyFileOverlay, OVERLAY_VERSION } from '../shared/i18nData.js';
+import { CARD_ROSTER, parseCardRoster } from '../shared/cardRoster.js';
 import defaultProfile from './versions/act2autochess.mjs';
 import { pinnedShaOf } from './versions/profiles.mjs';
 
@@ -663,10 +667,12 @@ const dictMap = (d, untranslated = (zh, t) => hasCjk(t)) => new Map(Object.entri
 
 /**
  * Build the overlay. Exported for tests (they pass in-memory tables).
- * @param {{ zh: object[], en: object[], data: Record<string, any>, fallback?: { remake?: object, pr70?: object, ui?: object }, corrections?: object, source?: object }} input
- *   zh / en: the picked sub-trees of TABLES, in order; corrections: { zh: en } tried before the official texts
+ * @param {{ zh: object[], en: object[], data: Record<string, any>, fallback?: { remake?: object, pr70?: object, ui?: object }, corrections?: object, source?: object,
+ *   nameSources?: Record<string, any> }} input
+ *   zh / en: the picked sub-trees of TABLES, in order; corrections: { zh: en } tried before the official texts;
+ *   nameSources: files that only add names (data/card-roster.json as `card-roster`, #877) — no file overlay, no coverage
  */
-export function buildOverlay({ zh, en, data, fallback = {}, corrections = {}, source = null, lang = 'en' }) {
+export function buildOverlay({ zh, en, data, fallback = {}, corrections = {}, source = null, lang = 'en', nameSources = {} }) {
   const untranslated = untranslatedTest(lang, LANG_SOURCES[lang]?.untranslated === 'native' ? nativeCharset(zh, en) : null);
   const index = new PairIndex(untranslated);
   for (let i = 0; i < zh.length; i++) index.walk(zh[i], en[i], []);
@@ -701,6 +707,23 @@ export function buildOverlay({ zh, en, data, fallback = {}, corrections = {}, so
       }
     }
     if (Object.keys(out).length) files[file] = out;
+  }
+  // the cross-period 名片 roster's operator names (#877, DESIGN §37.325): the picker names an operator of another period
+  // through `names` (public/js/ui/seatArt.js cardName), so each Chinese name with a translation (by its charId's own
+  // pair first) votes at the lowest priority — a name a data file gives keeps that file's form. No file overlay (the
+  // client never localizes the roster as a file) and no coverage count.
+  for (const json of Object.values(nameSources || {})) {
+    const roster = parseCardRoster(json);
+    if (!roster) continue;
+    for (const row of roster.byChar.values()) {
+      if (!hasCjk(row.name)) continue;
+      const ids = new Set([row.charId]);
+      const res = tr.translate(row.name, { near: ids, record: ids, bb: null, bbStr: null });
+      if (!res || untranslated(row.name, res.en)) continue;
+      const list = nameVotes.get(row.name) || [];
+      list.push({ en: res.en, prio: NAME_PRIORITY.length });
+      nameVotes.set(row.name, list);
+    }
   }
   const names = {};
   const nameConflicts = [];
@@ -769,6 +792,10 @@ async function main() {
     const abs = join(opts.data, `${f}.json`);
     if (existsSync(abs)) data[f] = JSON.parse(await readFile(abs, 'utf8'));
   }
+  // names only (#877): the cross-period 名片 roster
+  const nameSources = {};
+  const rosterFile = join(opts.data, `${CARD_ROSTER}.json`);
+  if (existsSync(rosterFile)) nameSources[CARD_ROSTER] = JSON.parse(await readFile(rosterFile, 'utf8'));
   const readDict = async (abs) => (existsSync(abs) ? JSON.parse(await readFile(abs, 'utf8')) : {});
   // the remake's own strings and PR #70's are English; another language falls back to its pack's UI strings only
   const fallback = opts.lang === 'en' ? {
@@ -779,7 +806,7 @@ async function main() {
   if (opts.dict) fallback.dict = JSON.parse(await readFile(opts.dict, 'utf8'));
   // corrections of the language's own official texts (none for a language without a file)
   const corrections = await readDict(join(ROOT, 'tools', 'i18n', `corrections-${opts.lang}.json`));
-  const { overlay, report } = buildOverlay({ zh, en, data, fallback, corrections, lang: opts.lang, source: client ? { id: opts.source, label: src.label, home: src.home, season: seasonEn } : { id: 'dict', label: src.label } });
+  const { overlay, report } = buildOverlay({ zh, en, data, fallback, corrections, lang: opts.lang, nameSources, source: client ? { id: opts.source, label: src.label, home: src.home, season: seasonEn } : { id: 'dict', label: src.label } });
 
   // self-check: applying the overlay keeps every record's shape (strings replace strings only)
   let applied = 0;

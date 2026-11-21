@@ -312,6 +312,14 @@ export function createDataStore(opts = {}) {
     return l;
   }
 
+  /** The index of a loaded file as downloaded (its Chinese texts), built on first use; null when not loaded. */
+  function rawIndex(name) {
+    const e = entries.get(name);
+    if (!e || e.status !== 'ready') return null;
+    if (!e.index) e.index = buildIndex(name, e.value);
+    return e.index;
+  }
+
   function index(name) {
     const e = entries.get(name);
     if (!e || e.status !== 'ready') return null;
@@ -439,13 +447,15 @@ export function createDataStore(opts = {}) {
      */
     lookupRaw(name, id) {
       if (id == null) return null;
-      const e = entries.get(name);
-      if (!e || e.status !== 'ready') return null;
-      if (!e.index) e.index = buildIndex(name, e.value);
-      return e.index.get(String(id)) ?? null;
+      return rawIndex(name)?.get(String(id)) ?? null;
     },
     /** All records of a loaded file as an array (empty when not loaded). */
     list: (name) => [...(index(name)?.values() ?? [])],
+    /**
+     * All records of a loaded file exactly as downloaded (their Chinese texts), whatever the locale; empty when not
+     * loaded — the 名片干员 picker's search matches the Chinese names in every language (ui/seatArt.js withCardZh).
+     */
+    listRaw: (name) => [...(rawIndex(name)?.values() ?? [])],
     /** Drop a cached file and refetch it now (subscribers are notified when it settles). */
     invalidate(name) {
       if (!entries.has(name)) return Promise.resolve(null);

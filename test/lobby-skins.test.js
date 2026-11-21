@@ -2,7 +2,8 @@
 // that is NOT an isId, ≤ SKIN_LIMITS.entries charId keys), storage on the session and the seat, the seat handed to
 // the Match when it starts, bots refused, and — unlike room.loadout / room.diy / room.ownership — a change while a
 // match runs going straight to it rather than being stored for the next one. The room's members see each seat's map as
-// room.state seats[].skins (the waiting room's 名片干员 seat cards wear the outfit; the maintainer's decision 4 of 2026-10-21).
+// room.state seats[].skins (the waiting room's 名片干员 seat cards wear the outfit; the maintainer's decision 4 of 2026-10-21) —
+// the outfit of a card of another period too (the cross-period roster, DESIGN §37.325), which a match start leaves out.
 //
 // The match here is the StubMatch (server/match/StubMatch.js), which has no setSkins: that is exactly the older server
 // the client's sync reports as 'locked' (ui/loadoutSync.js installSkinsSync), and it is what proves the reply path is
@@ -24,6 +25,10 @@ const OPERATOR = 'char_498_inside';
 const SKIN = 'char_498_inside@kitchen#2';
 const OTHER = 'char_003_kalts';
 const SKIN_OTHER = 'char_003_kalts@boc#6';
+// a 名片干员 of another period (data/card-roster.json, DESIGN §37.325): 规程·序列Ⅰ only — no record of it in 第二期下半's data
+// (蜜蜡 would not do: 第二期下半's chess.json keeps her hidden records, so her skin was always kept)
+const OTHER_PERIOD = 'char_4166_varkis';
+const SKIN_OTHER_PERIOD = 'char_4166_varkis@test#1';
 
 class RecordingStub extends StubMatch {
   static instances = [];
@@ -173,6 +178,25 @@ describe('room.skins (lobby, stub match)', () => {
     await ok(guest, { t: 'g.infoReady' });
     const after = await host.waitFor('room.state', (s) => !s.inMatch, 5000);
     assert.deepEqual(seatOf(after, guest.id).skins, { [OTHER]: SKIN }, 'the room.state at the match\'s end');
+  });
+
+  test('the outfit of a card of another period is kept on the seat and shown to the room; a match start leaves it out (seatSettings)', async () => {
+    const seatOf = (st, id) => st.seats.find((x) => x && x.playerId === id);
+    const host = await pool.player('Host');
+    const st = await createRoom(host);
+    const guest = await pool.player('Guest');
+    await ok(guest, { t: 'room.join', code: st.code });
+    await guest.waitFor('room.state', (s) => !!seatOf(s, guest.id));
+    await ok(guest, { t: 'room.card', charId: OTHER_PERIOD });
+    await ok(guest, { t: 'room.skins', skins: { [OTHER_PERIOD]: SKIN_OTHER_PERIOD, [OPERATOR]: SKIN, char_999_nope: SKIN } });
+    const seen = await host.waitFor('room.state', (s) => seatOf(s, guest.id)?.skins?.[OTHER_PERIOD] === SKIN_OTHER_PERIOD);
+    assert.deepEqual(seatOf(seen, guest.id).skins, { [OTHER_PERIOD]: SKIN_OTHER_PERIOD, [OPERATOR]: SKIN }, 'the unknown operator is still dropped');
+    assert.equal(seatOf(seen, guest.id).card, OTHER_PERIOD);
+    await ok(guest, { t: 'room.ready', ready: true });
+    await ok(host, { t: 'room.start' });
+    await host.waitFor('m.public', (p) => p.phase === 'INFO_CHECK');
+    const seat = RecordingStub.instances.at(-1).opts.seats.find((s) => s.playerId === guest.id);
+    assert.deepEqual(seat.skins, { [OPERATOR]: SKIN }, 'the match gets only the room\'s operators');
   });
 
   test('a bot holds no skins', async () => {

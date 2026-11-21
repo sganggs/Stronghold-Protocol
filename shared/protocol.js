@@ -564,7 +564,8 @@ export const C2S = {
   // any room phase (the loadout locks at INFO_CHECK because it changes what a unit does; a skin changes only the model)
   'room.skins': { skins: isSkinSelection },
   // 名片干员 (PR #643 split 6): the operator whose portrait fills the player's seat card in the waiting room — an
-  // operator charId ('' for none; the server keeps only a visible charId of the room's chess.json); cosmetic, any room phase
+  // operator charId ('' for none; the server keeps only one server/lobby.js cardAllowed takes: the cross-period roster,
+  // DESIGN §37.325, or a card candidate of the room's content); cosmetic, any room phase
   'room.card': { charId: (v) => v === '' || isCharId(v) },
   // operator ownership (干员持有, 0.2.0 补位): stored per session / seat; a match takes the list its seat had when it
   // started (an out-of-match setting — during a match it is stored for the next one: ROOM_STARTED)

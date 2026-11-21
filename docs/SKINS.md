@@ -94,7 +94,12 @@ map, or its unit's skin when the seat is unavailable, never the viewer's map. Un
 unowned. `OperatorImage` subscribes to choices, visibility and the composed manifest, so open cards refresh on changes.
 Effective stand-in / DIY bodies are resolved before that lookup, preserving §34.23 and #686.
 The strategy draft's name cards (`screens/bandDraft.js` artOf: each doctor's 名片干员 art, as on the room's seat cards)
-follow the seat cards' rule below (`seatCardSkin`), reading the match's `m.public.players[].skins` for the others.
+follow the seat cards' rule below (`seatCardSkin`), reading for the others the match's `m.public.players[].skins` and,
+for the operators the match's data lacks, the room's `room.state.seats[].skins` (`ui/seatArt.js cardSkinPlayers`, DESIGN
+§37.325): the match keeps only the outfits of the operators its data has, so a card of another period wears the one the
+room's seats carry. An operator of the match's data wears the match's choice alone: a `room.skins` during a match
+re-broadcasts no `room.state`, so the room's seats still hold the map from before the start, and an outfit taken off in
+the match would come back from them.
 
 ## The waiting room's seat cards (0.3.2, the maintainer's decision 4 of 2026-10-21)
 
@@ -105,7 +110,7 @@ draft's name cards (`public/js/screens/bandDraft.js`) wears the player's outfit 
 - **another doctor's card** wears the map that seat published. The lobby carries it as `room.state.seats[].skins`
   (`server/lobby.js Room.toState`; human seats with a non-empty map only, so a room without skins sends what it sent
   before) — the same public map a match publishes as `Match.publicView().players[].skins`, which the draft's name cards
-  read. A changed map re-broadcasts `room.state` while the room waits (`Lobby.skins`; a resend of the same map does not);
+  read (over the room's map, for a card of another period: above). A changed map re-broadcasts `room.state` while the room waits (`Lobby.skins`; a resend of the same map does not);
   during a match the match carries it, and the `room.state` at its end;
 - with **「显示其他玩家的皮肤」 off** the others' cards draw the default and one's own keeps its outfit;
 - an outfit **this page does not have** (a teammate's appearance plugin this browser lacks, or switched off) draws the
@@ -115,7 +120,10 @@ draft's name cards (`public/js/screens/bandDraft.js`) wears the player's outfit 
 `ui/seatArt.js seatCardSkin` is that rule, on top of `ownerSkin`. The 名片干员 picker is one's own picker: its tiles wear
 this browser's outfits, as 干员调配's roster does. [ASSUMED] The whole map rides in `room.state`, not one skinId per card:
 a seat without a pick shows an operator its clients choose by player id (`seatOperator`), which the server does not
-compute; the map is bounded like `m.public`'s (`SKIN_LIMITS.entries`, the room's operators).
+compute; the map is bounded like `m.public`'s (`SKIN_LIMITS.entries`). `room.skins` keeps the room's operators and the
+whole 名片干员 roster (`data/card-roster.json`, every official period's card candidates — DESIGN §37.325), so a seat card
+of another period wears its outfit; a match start keeps only the room's (`server/lobby.js seatSettings`, then
+`PlayerState.setSkins`), and the client's whitelist is the same union (`ui/loadoutSync.js skinOperatorIds`).
 
 ## The switch model: the owner installs, each player switches on
 
@@ -216,7 +224,7 @@ exists) gets no section rather than an empty grid.
 | `public/js/render/app.js` | `pieceInfo` token branch, `skinOf` | carry the piece's `skin`; a token re-reads its owner's current outfit like an operator body |
 | `shared/protocol.js` | `C2S` | `'room.skins'` — and **no** `'room.skin.install'` |
 | `server/net.js` | `HEAVY_TYPES`, `Session` ctor | `'room.skins'`; `session.skins` |
-| `server/lobby.js` | after `freezeDiy`, `onMessage`, after `diy()`, `humanSeat`, `seatSettings`, `startMatch`, `Room.toState` | `freezeSkins` (charId + skinId, drop operators the room lacks; a bad map is BAD_MSG and does not clear), `case 'room.skins'`, `seats[].skins` in `room.state` (0.3.2 decision 4, broadcast by `skins()` when a waiting room's map changed), `skins()` — **no phase gate**, unlike the loadout — and the selection riding into the match |
+| `server/lobby.js` | after `freezeDiy`, `onMessage`, after `diy()`, `humanSeat`, `seatSettings`, `startMatch`, `Room.toState` | `freezeSkins` (charId + skinId, drop operators neither the room nor the 名片干员 roster has — `skins()` reads the room's data only for an id the roster lacks; a bad map is BAD_MSG and does not clear), `case 'room.skins'`, `seats[].skins` in `room.state` (0.3.2 decision 4, broadcast by `skins()` when a waiting room's map changed), `skins()` — **no phase gate**, unlike the loadout — and the selection riding into the match |
 | `server/match/PlayerState.js` | ctor | `this.skins = Object.freeze({})` + `setSkins(seat.skins)` |
 | `server/match/player/basics.js` | after `setLoadout` | `skinCharIdOf` / `skinFor` / `setSkins` (bots refused; a bad map refused whole, unknown operators dropped) |
 | `server/match/match/platform.js` | after `setLoadout` | `setSkins(playerId, skins)` — any phase, `markPrivate()` (owner, prep scouts, boss partner) and `markPublic()` |
@@ -228,8 +236,8 @@ exists) gets no section rather than an empty grid.
 | `public/js/render/units.js` | `_pictureUrl`, `_modelEntry`, `_wantsBack`, `_loadPicture` | `info.skin` reaches the Spine entry, the diamond and the Front/Back question; the picture's cache key carries the skinId |
 | `public/js/render/app.js` | `otherSkins` setting, `ctx.myPlayerId`, `applyInfo`, `refreshSkins`, `setSettings`, `setMe`, `setSkins`, `pieceInfo` | received `sourceSkin` is retained while displayed `skin` follows the switch and latest public selection; a changed appearance drops the view; read-only prep pieces refresh too |
 | `public/js/render/app/info.js` | `renderInfo` | `skin` |
-| `public/js/ui/loadoutSync.js` | header, `installSkinsSync` | the fourth `installPrefSync` setting (`room.skins { skins }`) |
-| `public/js/ui/seatArt.js`, `public/js/screens/room.js`, `public/js/screens/bandDraft.js` | `seatCardSkin`, the seat cards and the 名片干员 picker, the draft's name cards | the 名片干员 portrait wears its player's outfit (0.3.2 decision 4, above) |
+| `public/js/ui/loadoutSync.js` | header, `installSkinsSync`, `skinOperatorIds` | the fourth `installPrefSync` setting (`room.skins { skins }`); the operators it keeps: the room's and the 名片干员 roster's (DESIGN §37.325) |
+| `public/js/ui/seatArt.js`, `public/js/screens/room.js`, `public/js/screens/bandDraft.js` | `seatCardSkin`, `cardSkinPlayers`, the seat cards and the 名片干员 picker, the draft's name cards | the 名片干员 portrait wears its player's outfit (0.3.2 decision 4, above), a card of another period too (DESIGN §37.325) |
 | `public/js/main.js` | boot | `installSkinsSync({ net })` |
 | `public/js/ui/settings.js` | `CosmeticSection` | the 显示其他玩家的皮肤 switch — with or without a cosmetic plugin |
 | `public/js/ui/gameLogic/settings.js` | `DEFAULT_SETTINGS`, `sanitizeSettings` | `otherSkins: true` |
@@ -255,8 +263,9 @@ exists) gets no section rather than an empty grid.
   a plugin `char_x_…`, never a chess id) and a skinId value (`isSkinId`). An array, a null-prototype object, one bad
   key or value, or more than 256 entries [ASSUMED] is BAD_MSG and does **not** clear a choice already stored. A charId
   the room's content does not have (`operatorCharIds`: chess records, `backups.units`, `diy.ownedPool`,
-  `diy.operators`) is dropped and the rest kept, so the stored map is at most that operator count. An unknown skinId
-  of an operator the room does have still draws the default model (`spineEntry`).
+  `diy.operators`) and the 名片干员 roster does not list either (DESIGN §37.325) is dropped and the rest kept, so the
+  stored map is at most those operators (and 256); a match keeps only the room's (`PlayerState.setSkins`). An unknown
+  skinId of an operator the room does have still draws the default model (`spineEntry`).
 - **The client never sends more than the wire accepts.** `SKIN_LIMITS.entries` (256 [ASSUMED]) is applied in
   `public/js/ui/skins.js parseStoredSkins`, the one place a stored selection is read — the store's initial state, every
   edit and the `room.skins` payload the sync prepares. The limit has to be honoured there because an over-long map is not

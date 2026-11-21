@@ -6,7 +6,7 @@
 //   /data.js   the browser stand-in of server/data.js (server/http/static.js DATA_SHIM_JS, passed in as `shim`)
 //   data/      every data/<name>.json that server/data.js loads, but the presentation files (PRESENTATION_DATA:
 //              assets — the art manifest —, local-assets / local-fx — this machine's extracted art and official
-//              effects —, emotes)
+//              effects —, emotes, card-roster — the cross-period 名片干员 roster, DESIGN §37.325)
 //
 // Until rooms can choose gameplay plugins (P1c) it is the identity of every room — a room's cosmetic plugins change no
 // battle, so they leave it (DESIGN §32.3): welcome.content, room.state.content, /healthz
@@ -26,7 +26,7 @@ import { APP_VERSION } from '../../shared/constants.js';
 import { CONTENT_HASH_VERSION, contentHashOf, simHashOf } from '../../shared/plugins/identity.js';
 
 /** data/*.json files that only the browser's presentation reads (never part of `cs`). */
-export const PRESENTATION_DATA = Object.freeze(['assets', 'local-assets', 'local-fx', 'emotes']);
+export const PRESENTATION_DATA = Object.freeze(['assets', 'local-assets', 'local-fx', 'emotes', 'card-roster']);
 /** server/sim files that are never served (lower-case; static.js SIM_PRIVATE). */
 const SIM_PRIVATE = new Set(['nodedata.js']);
 const noopLog = { info() {}, warn() {}, error() {}, debug() {} };
