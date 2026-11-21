@@ -1283,6 +1283,15 @@ export class UnitView {
   get visFacing() { return this.fixedFacing || (this.face ? this.face.drawSign() : this._visFacing); }
   set visFacing(v) { this._visFacing = v; }
 
+  /**
+   * The way the model looks once the attack turn that runs now is over (`visFacing` when none runs): what the official
+   * effects place by (render/vfx/wiring.js pose, boneOffset). The wind-up's cast effects (render/app/windup.js) and a
+   * late strike's shot (render/app.js: onAttack, then the attack's effects) come in the frame the 0.15 s turn starts,
+   * while the drawn mirror still shows the side the model leaves (DESIGN §37.329; the skeleton stays the one loaded —
+   * a point is read from the skeleton drawn).
+   */
+  get settledFacing() { return this.fixedFacing || (this.face ? this.face.endSign() : this._visFacing); }
+
   setWorld(x, y, z = 0) { this.x = x; this.y = y; this.z = z; }
 
   /**
@@ -1424,8 +1433,10 @@ export class UnitView {
   }
 
   /** The model's horizontal draw sign: −1 when it is drawn mirrored (facing left; an enemy's own quirks applied). */
-  modelFlip() {
-    return (this.isEnemy ? (ENEMY_MODEL_FACES_LEFT ? -this.visFacing : this.visFacing) : this.visFacing) * (this.mirrorX ? -1 : 1);
+  /** @param {boolean} [settled] the mirror the running attack turn ends on (`settledFacing`), not the one drawn now */
+  modelFlip(settled = false) {
+    const f = settled ? this.settledFacing : this.visFacing;
+    return (this.isEnemy ? (ENEMY_MODEL_FACES_LEFT ? -f : f) : f) * (this.mirrorX ? -1 : 1);
   }
 
   /**
@@ -1434,7 +1445,9 @@ export class UnitView {
    * screen's right from the feet (the facing applied), `out.up` tiles up the model (UNIT.modelScale and the enemy factors
    * applied: the scale the model is drawn at), `out.angle` the bone's angle in the skeleton (degrees counter-clockwise
    * from its x axis, before the facing) and `out.flip` the draw sign; null when no model is drawn or none of the names
-   * is a bone of it. `strike`: the bone as the attack clip playing now poses it at its strike frame (SpineActor
+   * is a bone of it. The facing is the one an operator's attack turn that runs now ends on (`settledFacing`, DESIGN
+   * §37.329): the effects placed in the turn's first frames (the wind-up's cast effects, a late strike's shot) belong
+   * to the side the model turns to, not the one it leaves. `strike`: the bone as the attack clip playing now poses it at its strike frame (SpineActor
    * strikePose — a shot leaves the muzzle at the attack's OnAttack frame, whatever frame the model was last posed in:
    * a swung staff moves 0.3 tiles in a frame); else a clip started since the model was last posed (an attack nobody
    * wound up starts at its strike frame, a wind-up just began) is read at its own pose at its track time (bonePose:
@@ -1458,7 +1471,7 @@ export class UnitView {
     const m = b.matrix;
     const tx = m ? m.tx : b.worldX, ty = m ? m.ty : b.worldY;
     if (!Number.isFinite(tx) || !Number.isFinite(ty)) return null;
-    const flip = this.modelFlip();
+    const flip = this.modelFlip(true);
     const k = UNIT.modelScale * this.modelK;
     out.x = tx * k * flip;
     out.up = -ty * k * this.modelKY;

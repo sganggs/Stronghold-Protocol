@@ -17,6 +17,7 @@ import { presetCamera } from '../../public/js/render/projection.js';
 import { spineEntry, hasBackSpine } from '../../public/js/assets.js';
 import { UF } from '../../shared/constants.js';
 import { markAreaAttacks } from '../../public/js/render/facing.js';
+import { FxWiring } from '../../public/js/render/vfx/wiring.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const M = JSON.parse(readFileSync(path.join(ROOT, 'data/assets.json'), 'utf8'));
@@ -136,6 +137,29 @@ describe('when the model turns', () => {
       assert.equal(v.face.turning, false, String(flag));
       assert.equal(v.visFacing, 1);
     }
+  });
+
+  test('the effects of the turn\'s first frame place by the side it turns to (cast effects, a late strike\'s shot)', async () => {
+    // render/app/windup.js calls castStart right after the accepted windUp, render/app.js the attack's effects right
+    // after onAttack: the drawn mirror flips only edge-on, half a turn later (the review of round 84)
+    const pose = (v) => FxWiring.prototype.pose.call({ _camTilt: () => undefined }, v);
+    const v = await op(TEXAS, 'RIGHT');
+    assert.equal(v.windUp(0.2, 'none', null, 1, at(2, 5)), true);
+    assert.equal(v.visFacing, 1, 'drawn: still the deploy side');
+    assert.equal(v.settledFacing, -1, 'the side the turn goes to');
+    assert.equal(pose(v).left, true, 'FxWiring.pose: the cast effects spawn on the left');
+    assert.equal(v.modelFlip(true), -1, 'boneOffset\'s mirror (bone-followed points, the strike-frame muzzle)');
+    assert.equal(v.modelFlip(), 1, 'the drawn model\'s');
+    frames(v, 12);
+    assert.equal(pose(v).left, true);
+    assert.equal(v.visFacing, v.settledFacing, 'once the turn is over the two agree');
+    const w = await op(TEXAS, 'RIGHT');
+    w.onAttack(at(2, 5), 1, 'none', false);
+    assert.equal(w.visFacing, 1);
+    assert.equal(pose(w).left, true, 'a late strike: its shot leaves from the left side');
+    const e = await op(TEXAS, 'LEFT');
+    assert.equal(pose(e).left, true, 'no turn: the facing as drawn');
+    assert.equal(e.settledFacing, e.visFacing);
   });
 
   test('a redeploy and a re-orientation settle on the deploy direction', async () => {

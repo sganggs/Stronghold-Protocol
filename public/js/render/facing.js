@@ -221,6 +221,9 @@ export class FacingState {
     return this._k >= 0.5 ? this._to : (this._from < 0 ? -1 : this._from > 0 ? 1 : this._to);
   }
 
+  /** The mirror the turn ends on (the current one when no turn runs): −1 (left) or 1. */
+  endSign() { return this.sign === FACE_SIGN_LEFT ? -1 : 1; }
+
   /** The horizontal squeeze of the turn now, 0 … 1 (1 when no turn runs). */
   drawScale() { return Math.abs(this.drawValue()); }
 }
