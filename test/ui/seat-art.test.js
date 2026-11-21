@@ -212,6 +212,8 @@ test('room.css: the seat cards and the picker follow 文字大小, no !important
     assert.ok(rule, `${sel} has its own font-size`);
   }
   assert.match(block, /\.cardpick__group \{[^}]*grid-column: 1 \/ -1;/, 'a heading across the grid');
+  // on a short screen the note under the grid gives way to those lines (test/ui/room-fit.e2e.test.js: a row of tiles left)
+  assert.match(block.replace(/\/\*[\s\S]*?\*\//g, ''), /@media \(max-height: 520px\) \{[^@]*\.cardpick__notice ~ \.cardpick__note \{ display: none; \}/);
   assert.match(block, /\.rseat__art img \{[^}]*object-fit: cover/);
   assert.match(block, /\.cardpick__grid[\s\S]*overflow-y: auto/);
   // the review of the text-fit fixes (§35.18): Korean breaks between words; the short screen's avatar frame 2rem at 小 and

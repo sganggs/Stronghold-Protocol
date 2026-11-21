@@ -15,7 +15,7 @@ import { StubMatch } from '../server/match/StubMatch.js';
 import { TestClient } from './helpers/wsClient.js';
 import { ERR } from '../shared/constants.js';
 import { getData } from '../server/data.js';
-import { cardOperators } from '../public/js/ui/seatArt.js';
+import { cardOperators, rosterOperators } from '../public/js/ui/seatArt.js';
 import { CARD_ROSTER, parseCardRoster } from '../shared/cardRoster.js';
 import { DEFAULT_VERSION, LOBBY_DEFAULT_VERSION } from '../shared/versions.js';
 
@@ -97,13 +97,13 @@ describe('room.card (lobby, stub match)', () => {
     assert.equal(seatOf(st, host.id).card, OPERATOR);
   });
 
-  test('the server takes every operator the client picker lists (ui/seatArt.js cardOperators) and every roster operator, in a 第二期下半 room: 250', async () => {
+  test('the server takes every operator the client picker lists (ui/seatArt.js cardOperators and rosterOperators), in a 第二期下半 room: 250', async () => {
     const list = cardOperators(Object.values(getData().chess), getData().backups).map((c) => c.charId);
     assert.ok(list.length > 100);
     assert.ok(list.includes(DIY_ONLY), 'the 自选 pool is offered (ui/seatArt.js cardOperators)');
-    // the other periods' operators (DESIGN §37.325): the roster's rows the room's list lacks
-    const roster = parseCardRoster(getData()[CARD_ROSTER]);
-    const others = [...roster.ids].filter((id) => !list.includes(id));
+    // the other periods' operators (DESIGN §37.325): the roster's rows the room's list lacks, as the picker lists them
+    const others = rosterOperators(getData()[CARD_ROSTER], { exclude: new Set(list) }).map((c) => c.charId);
+    assert.deepEqual(new Set(others), new Set([...parseCardRoster(getData()[CARD_ROSTER]).ids].filter((id) => !list.includes(id))));
     const all = [...list, ...others];
     assert.equal(new Set(all).size, 250);
     assert.ok(others.includes(V21_ONLY) && others.includes(REG_ONLY));

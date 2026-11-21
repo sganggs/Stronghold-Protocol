@@ -86,7 +86,7 @@ after reviewing [official news 5114](https://ak.hypergryph.com/news/5114): the o
 this swap; the second period added it. This is an **INTENTIONAL DEVIATION**, recorded in
 [§36.2](history/0.3.3.md), [design/match.md](design/match.md), [META.md](META.md) and [DATA.md](DATA.md).
 
-0.4.0 未发布变更见 [§37](history/0.4.0.md)。名片干员的可选范围扩展到本版本的自选编队池（#877）见 [§37.50](history/0.4.0.md)：候选 = 可见、非自选的 chess 干员 ∪ `backups.diy.ownedPool`，服务器白名单与 `ui/loadoutSync.js installCardSync` 共用同一份名单；跨时期干员本次不做。
+0.4.0 未发布变更见 [§37](history/0.4.0.md)。名片干员的可选范围扩展到本版本的自选编队池（#877）见 [§37.50](history/0.4.0.md)：候选 = 可见、非自选的 chess 干员 ∪ `backups.diy.ownedPool`，服务器白名单与 `ui/loadoutSync.js installCardSync` 共用同一份名单。之后又扩展到所有官方时期（#877 后半）：五个时期的名片候选合成名册 `data/card-roster.json`，选择窗按时期分组，切换版本后官方干员的名片保留，见 [§37.325](history/0.4.0.md)；房主换插件后复查席位上的名片见 [§37.326](history/0.4.0.md)。
 
 ## Where each section lives
 

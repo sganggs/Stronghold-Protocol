@@ -26,7 +26,7 @@ const SKIN = 'char_498_inside@kitchen#2';
 const OTHER = 'char_003_kalts';
 const SKIN_OTHER = 'char_003_kalts@boc#6';
 // a 名片干员 of another period (data/card-roster.json, DESIGN §37.325): 规程·序列Ⅰ only — no record of it in 第二期下半's data
-// (蜜蜡 would not do: 第二期下半's backups.units has her, so her skin was always kept)
+// (蜜蜡 would not do: 第二期下半's chess.json keeps her hidden records, so her skin was always kept)
 const OTHER_PERIOD = 'char_4166_varkis';
 const SKIN_OTHER_PERIOD = 'char_4166_varkis@test#1';
 

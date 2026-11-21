@@ -1,5 +1,7 @@
 // SP_E2E=1: real lobby + version-host matches, using installed official art.
 // SP_VERSION_ASSET_SHOTS optionally saves review screenshots and the observed match coverage.
+// The 名片干员 picker of each version's room also shows its other periods' groups (#877, DESIGN §37.325): each group's
+// tiles load their avatars (none falls back to the name's glyph).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -27,6 +29,17 @@ async function images(c, selector) {
     });
     return images.length && images.every((e) => e.complete && e.naturalWidth > 0);
   }, { timeout: 20000 }, selector);
+}
+/** The picker's group `key` scrolled to the top of its grid: its tiles in view have loaded avatars, none a glyph. */
+async function groupImages(c, key) {
+  await c.page.$eval(`.cardpick__group[data-group="${key}"]`, (h) => h.scrollIntoView({ block: 'start' }));
+  await c.page.waitForFunction((key) => {
+    const grid = document.querySelector('[data-testid="card-picker"]').getBoundingClientRect();
+    const seen = (e) => { const r = e.getBoundingClientRect(); return r.height > 0 && r.bottom > grid.top && r.top < grid.bottom; };
+    const tiles = [...document.querySelectorAll(`.cardpick__op[data-group="${key}"]`)].filter(seen);
+    const imgs = tiles.map((t) => t.querySelector('.cardpick__img img')).filter(Boolean);
+    return tiles.length > 0 && imgs.length === tiles.length && imgs.every((e) => e.complete && e.naturalWidth > 0);
+  }, { timeout: 20000 }, key).catch((e) => { throw new Error(`${c.label}: the picker's group ${key}: ${e.message}`); });
 }
 async function close(c, selector) {
   await c.page.keyboard.press('Escape');
@@ -74,6 +87,12 @@ for (const version of VERSIONS.filter((v) => v.dir)) test(`${version.label}: lob
     await c.click('[data-testid="seat-card-pick"]');
     await images(c, '.cardpick img');
     await shot(c, `${name}-namecard`);
+    await c.page.waitForSelector('.cardpick__group:not([data-group="room"])', { timeout: 15000 }); // the roster is in
+    const groups = await c.page.$$eval('.cardpick__group', (els) => els.map((e) => e.dataset.group));
+    assert.equal(groups[0], 'room', version.id);
+    assert.ok(groups.length > 1, `${version.id}: the picker lists other periods (${groups})`);
+    for (const g of groups.slice(1)) await groupImages(c, g);
+    await shot(c, `${name}-namecard-others`);
     await close(c, '.cardpick');
     for (let i = 0; i < 3; i++) await req(c, 'room.addBot');
     await req(c, 'room.start');

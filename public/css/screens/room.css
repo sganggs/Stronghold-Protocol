@@ -778,6 +778,11 @@
   /* the picker's names (and with them its tiles, 6.6em wide) capped, so a phone at 特大 keeps five tiles a row. [ASSUMED] */
   .cardpick__grid, .cardpick__name { font-size: min(calc(.14 * var(--t)), 11px); }
   .cardpick__name.is-long { font-size: min(calc(.115 * var(--t)), calc(11px + var(--t-step) / 2)); }
+  /* the lines under the grid (#877, DESIGN §37.325) — the roster loading or failed, a lost pick — capped like the long
+     names, and the note giving way to them, so the grid keeps a row of tiles at 大 / 特大 (in English at 特大 on a 640×360
+     phone the failure, a lost pick and the note left it 22 px, a lost pick and the note 70: tiles are 88 px). [ASSUMED] */
+  .cardpick__notice { font-size: min(calc(.15 * var(--t)), calc(11px + var(--t-step) / 2)); }
+  .cardpick__notice ~ .cardpick__note { display: none; }
   .rs-foot { padding-bottom: 8px; gap: 8px; }
   /* the mode line, the status line (a spectator's runs to two lines) and 独立模拟's briefing, capped so the seat cards keep
      their height (at 特大 the .28 × --t status took four lines on a 640×360 phone and left the cards 40 px); each a pixel
