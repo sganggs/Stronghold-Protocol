@@ -31,6 +31,8 @@ export class CtrlViewData {
     this.coinCount = init.coinCount ?? 0;
     this.refreshCost = init.refreshCost ?? 0;
     this.freeRefreshCnt = init.freeRefreshCnt ?? 0;
+    /** true = the caller's shopBlockReason('refresh') blocks it; null = no gate published (dev page/old callers). */
+    this.refreshBlocked = init.refreshBlocked ?? null;
   }
 }
 

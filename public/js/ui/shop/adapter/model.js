@@ -126,7 +126,10 @@ export function cardModelFromSlot(slot, index, priv, opts = {}) {
  * @param {{ selectSlot?: any, refreshSeq?: number, unfold?: boolean, avalid?: boolean,
  *   show?: boolean, armedSlotId?: number|null, armedAt?: number, maxLevel?: number,
  *   colors?: Record<string, string>, urlOf?: (file: string) => string|null, cardFlags?: any,
- *   ownerSkin?: (charId: string) => string|null }} [opts]
+ *   ownerSkin?: (charId: string) => string|null,
+ *   controls?: { refresh?: string|null, freeze?: string|null, levelUp?: string|null }|null }} [opts]
+ *   `controls`: the caller's per-control block reasons (host `view.controls`): a non-empty `refresh` reason
+ *   blocks the painted refresh button, so the ctrl panel and the hotspot agree; absent → no gate published.
  */
 export function shopModelFromPrivate(priv, opts = {}) {
   const shop = (priv && priv.shop) || {};
@@ -136,6 +139,7 @@ export function shopModelFromPrivate(priv, opts = {}) {
   const coinCount = Number(priv && priv.funds) || 0;
   const slots = Array.isArray(shop.slots) ? shop.slots : [];
   const layout = shop.layout && Number.isInteger(shop.layout.chess) ? shop.layout : null;
+  const controls = opts.controls && typeof opts.controls === 'object' ? opts.controls : null;
   const cards = [];
   slots.forEach((slot, index) => {
     if (slot == null && layout && index >= layout.chess + layout.item) return;
@@ -174,6 +178,7 @@ export function shopModelFromPrivate(priv, opts = {}) {
     currUIFunc: 0,
     dragCharSellPrice: 0,
     refreshSeq: Number(opts.refreshSeq) || 0,
+    refreshBlocked: controls ? !!(controls.refresh) : null,
     slots: cards,
   });
 }

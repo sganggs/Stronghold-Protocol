@@ -13,8 +13,11 @@ import { readFileSync } from 'node:fs';
 const HOST_SOURCE = readFileSync(new URL('../../public/js/ui/shop/host.js', import.meta.url), 'utf8');
 
 import { GEO } from '../../shared/constants.js';
-import { shopSignature, cardModelFromSlot } from '../../public/js/ui/shop/adapter/model.js';
-import { shopCardFlags, shopCardFlagsWithHand, shopCanRefresh } from '../../public/js/ui/shop/ShopCanvas.js';
+import { shopSignature, cardModelFromSlot, shopModelFromPrivate } from '../../public/js/ui/shop/adapter/model.js';
+import { shopCardFlags, shopCardFlagsWithHand } from '../../public/js/ui/shop/ShopCanvas.js';
+import { shopBlockReason } from '../../public/js/ui/gameLogic.js';
+import { canRefreshOf } from '../../public/js/ui/shop/ctrl.js';
+import { CtrlViewData } from '../../public/js/ui/shop/viewData.js';
 import { cardAble } from '../../public/js/ui/shop/cardView.js';
 import { UIButton } from '../../public/js/ui/shop/widgets.js';
 import { AutoChessStylizedShopSlotsPanel } from '../../public/js/ui/shop/slots.js';
@@ -195,11 +198,69 @@ test('the host reads each control guard from the prefab UIButton, not hardcoded 
   assert.doesNotMatch(HOST_SOURCE, /cooldown: 1/);
 });
 
-// ---- refresh affordability: ctrl.canRefresh and the DOM control must agree -------------------------------
+// ---- refresh affordability: the ctrl hotspot and the DOM control use shopBlockReason's one rule -------------
 
-test('refresh is allowed by free refresh, special recruit or enough funds', () => {
-  assert.equal(shopCanRefresh({ funds: 0, shop: { refreshPrice: 3, freeRefreshes: 1 } }), true);
-  assert.equal(shopCanRefresh({ funds: 3, shop: { refreshPrice: 3 } }), true);
-  assert.equal(shopCanRefresh({ funds: 2, shop: { refreshPrice: 3 } }), false);
-  assert.equal(shopCanRefresh({ funds: 0, shop: { refreshPrice: 3, rewardOffer: { source: 'special' } } }), true);
+test('refresh: the server turns a free refresh into refreshPrice 0, and a special offer is not free', () => {
+  const refresh = (priv, editable = true) => shopBlockReason('refresh', { priv, editable });
+  // a free refresh arrives as price 0 (server/match/player/views.js), so enough funds means >= that price
+  assert.equal(refresh({ funds: 0, shop: { refreshPrice: 0, freeRefreshes: 1 } }), null);
+  assert.equal(refresh({ funds: 3, shop: { refreshPrice: 3 } }), null);
+  assert.equal(refresh({ funds: 2, shop: { refreshPrice: 3 } }), '资金不足');
+  // no special-refresh free pass: the ctrl used to paint a 定向投放 refresh as affordable with 0 funds
+  assert.equal(refresh({ funds: 0, shop: { refreshPrice: 3, rewardOffer: { source: 'special' } } }), '资金不足');
+  // a seat that may not act is refused with the phase/ready wording, not with a fund reason
+  assert.equal(refresh({ funds: 9, ready: false, shop: { refreshPrice: 1 } }, false), '当前阶段无法进行该操作');
+  assert.equal(refresh({ funds: 9, ready: true, shop: { refreshPrice: 1 } }, false), '已准备就绪，取消准备后才能操作');
+  assert.equal(refresh({ alive: false, funds: 9, shop: { refreshPrice: 1 } }), '你已被淘汰');
+});
+
+test('the canvas control reasons use shopBlockReason for refresh with editable (not a funds-only helper)', () => {
+  const canvas = readFileSync(new URL('../../public/js/ui/shop/ShopCanvas.js', import.meta.url), 'utf8');
+  assert.match(canvas, /refresh: p\.refreshBusy \? t\('正在刷新…'\) : shopBlockReason\('refresh', \{ config: p\.config, priv: p\.priv, editable: p\.editable \}\)/);
+  assert.doesNotMatch(canvas, /shopCanRefresh/, 'the old funds-only shortcut is gone');
+});
+
+// ---- the painted refresh control follows the hotspot's own rule -------------------------------------------
+
+test('canRefreshOf: the published block reason wins; the cost-only fallback has no special-free pass', () => {
+  assert.equal(canRefreshOf({ refreshBlocked: true, coinCount: 99, refreshCost: 0, freeRefreshCnt: 3 }), false,
+    'blocked (ready / special + no funds) even with free refreshes or cost 0');
+  assert.equal(canRefreshOf({ refreshBlocked: false, coinCount: 0, refreshCost: 3, freeRefreshCnt: 0 }), true,
+    'the hotspot published no reason, so the button is usable');
+  // no gate published (dev page / old callers): a free refresh arrives as refreshCost 0
+  assert.equal(canRefreshOf({ refreshBlocked: null, coinCount: 0, refreshCost: 0, freeRefreshCnt: 0 }), true);
+  assert.equal(canRefreshOf({ refreshBlocked: null, coinCount: 0, refreshCost: 3, freeRefreshCnt: 1 }), true,
+    'the dev mock keeps its free-refresh display (paid price + freeRefreshes)');
+  assert.equal(canRefreshOf({ refreshBlocked: null, coinCount: 2, refreshCost: 3, freeRefreshCnt: 0 }), false);
+  assert.equal(canRefreshOf({ refreshBlocked: null, coinCount: 0, refreshCost: 3, freeRefreshCnt: 0, isSpecialRecruit: true }), false,
+    'a special recruit alone no longer makes the refresh free');
+  assert.equal(canRefreshOf(null), false);
+});
+
+test('the ctrl view data carries the caller\'s refresh block from the model', () => {
+  assert.equal(new CtrlViewData({ refreshBlocked: true }).refreshBlocked, true);
+  assert.equal(new CtrlViewData({}).refreshBlocked, null);
+  const blocked = shopModelFromPrivate({ funds: 0, shop: { level: 1, slots: [] } }, { controls: { refresh: '资金不足' } });
+  assert.equal(blocked.refreshBlocked, true, 'the caller\'s reason blocks the painted button');
+  const open = shopModelFromPrivate({ funds: 9, shop: { level: 1, slots: [] } }, { controls: { refresh: null } });
+  assert.equal(open.refreshBlocked, false);
+  assert.equal(shopModelFromPrivate({ funds: 9, shop: { level: 1, slots: [] } }).refreshBlocked, null, 'no gate published');
+  // wiring: host passes view.controls, mainView hands refreshBlocked to the ctrl, ctrl paints from canRefreshOf
+  assert.match(HOST_SOURCE, /controls: nextView\.controls \|\| null/);
+  const main = readFileSync(new URL('../../public/js/ui/shop/mainView.js', import.meta.url), 'utf8');
+  assert.match(main, /refreshBlocked: model\.refreshBlocked/);
+  const ctrl = readFileSync(new URL('../../public/js/ui/shop/ctrl.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(ctrl, /isSpecialRecruit \|\| data\.freeRefreshCnt/);
+  assert.match(ctrl, /const canRefresh = canRefreshOf\(data\);/);
+});
+
+// ---- the middle deploy level shrinks the canvas shop exactly like the DOM bar ------------------------------
+
+test('the canvas shop takes the #692 70% deploy-partial scale the DOM bar takes', () => {
+  const bar = readFileSync(new URL('../../public/css/screens/game-shop.css', import.meta.url), 'utf8');
+  const canvas = readFileSync(new URL('../../public/css/screens/game-shop-canvas.css', import.meta.url), 'utf8');
+  assert.match(bar, /\.gm\.is-deploy-partial \.shopbar \{ transform: scale\(\.7\); animation: none; \}/,
+    'the DOM bar rule the canvas must match');
+  assert.match(canvas, /\.gm\.is-deploy-partial \.gm__hud > \.shop-webgl\.shop-webgl--game \{\s*transform: scale\(\.7\);\s*animation: none;\s*\}/,
+    'the canvas root scales the same way (canvas, hotspots and overlays move together)');
 });

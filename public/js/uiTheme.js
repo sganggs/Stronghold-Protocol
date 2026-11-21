@@ -120,6 +120,8 @@ export function createThemeLibrary(opts = {}) {
   /** @type {any} */
   let assetManifest = null;
   let manifestLoaded = false;
+  /** @type {Promise<any>|null} one manifest load in flight (a re-check does not start a second fetch) */
+  let manifestLoading = null;
   /** @type {Map<string, string[]>} urls to revoke when that pack is replaced or deleted */
   const urls = new Map();
 
@@ -692,20 +694,34 @@ export function createThemeLibrary(opts = {}) {
     return n;
   }
 
-  async function loadAssetManifest() {
-    if (manifestLoaded) return assetManifest;
-    manifestLoaded = true;
-    const fetchFn = opts.fetchImpl || globalThis.fetch;
-    if (typeof fetchFn !== 'function') { assetManifest = null; return null; }
-    try {
-      const res = await fetchFn('/data/local-assets.json', { cache: 'no-cache' });
-      if (!res?.ok) { assetManifest = null; return null; }
-      const doc = await res.json();
-      assetManifest = doc && typeof doc === 'object' ? doc : null;
-    } catch {
-      assetManifest = null;
-    }
-    return assetManifest;
+  /**
+   * The local art manifest (data/local-assets.json). Cached after the first load; `refresh` (the theme-settings
+   * re-check) asks the server again, and a failed refresh keeps the manifest already in effect instead of
+   * forgetting every served group.
+   * @param {boolean} [refresh]
+   */
+  async function loadAssetManifest(refresh = false) {
+    if (manifestLoaded && !refresh) return assetManifest;
+    if (manifestLoading) return manifestLoading;
+    manifestLoading = (async () => {
+      const fetchFn = opts.fetchImpl || globalThis.fetch;
+      if (typeof fetchFn !== 'function') return refresh ? assetManifest : null;
+      try {
+        const res = await fetchFn('/data/local-assets.json', { cache: 'no-cache' });
+        if (!res?.ok) return refresh ? assetManifest : null;
+        const doc = await res.json();
+        if (doc && typeof doc === 'object') return doc;
+        return refresh ? assetManifest : null;
+      } catch {
+        return refresh ? assetManifest : null;
+      }
+    })().then((next) => {
+      // A failed first load is "no manifest" (lite server); a failed refresh keeps what is already in effect.
+      if (next !== null || !refresh) assetManifest = next;
+      manifestLoaded = true;
+      return assetManifest;
+    }).finally(() => { manifestLoading = null; });
+    return manifestLoading;
   }
 
   /**
@@ -1089,6 +1105,39 @@ async function bootThemesOnce() {
   }
   applyUiTheme(id);
 }
+
+/**
+ * Re-check the stored `uiTheme` after boot. The theme settings call bootUiThemes() again whenever they open
+ * (ui/themeSettings.js), and a pack that was valid at boot can be gone by then — its group no longer served, an
+ * import half-written, this browser's storage cleared. Same checks as the boot (prepareTheme: the installed
+ * official group or the imported official pack; library.get for a custom pack), but a stored id that no longer
+ * resolves now falls back to the built-in terminal WITH the 'broken' notice, so a dead theme does not stay
+ * selected until the next reload. A theme that still resolves is re-applied (applyUiTheme is a no-op then).
+ */
+async function revalidateActiveTheme() {
+  const id = settingsGet().uiTheme;
+  if (!id) return;
+  if (officialThemeById(id)) {
+    // prepareTheme(recheck) checks the served group again before trusting the loaded record: a theme can outlive
+    // the group it came from (a lite server, a manifest that no longer lists it). A loaded pack is not refetched.
+    const prepared = await prepareTheme(id, { recheck: true });
+    if (prepared.ok) { applyUiTheme(id); clearBrokenNotice(); return; }
+    settingsSet({ uiTheme: '' });
+    library.setNotice('broken');
+    applyUiTheme('');
+    return;
+  }
+  if (library.get(id)) { applyUiTheme(id); clearBrokenNotice(); return; }
+  settingsSet({ uiTheme: '' });
+  library.setNotice('broken');
+  applyUiTheme('');
+}
+
+/** A selection that resolves clears a previous 'broken' notice; the 'session' storage warning is not a failure. */
+function clearBrokenNotice() {
+  if (library.lastNotice === 'broken') library.setNotice(null);
+}
+
 let themeBootStarted = false;
 let themeBootResolve = null;
 let themeBootReject = null;
@@ -1107,6 +1156,10 @@ themeReady.catch(() => {});
  * spine and fonts) await `themesReady()`; before this the pack record is null and they would mount with
  * DEFAULT_SKIN_COLORS and no character, which is what a reload with a cold cache exposes.
  *
+ * Every later call (the theme settings mount again whenever they open) re-validates the selected pack instead of
+ * only waiting for the boot: a theme whose files no longer resolve falls back to the built-in terminal with the
+ * broken notice (revalidateActiveTheme).
+ *
  * This function itself never rejects (settings.js starts it without awaiting): a failed boot is logged, and
  * `themesReady()` rejects with the same error so a dependent screen can fall back (the DOM shop bar).
  * @returns {Promise<void>}
@@ -1123,6 +1176,15 @@ export async function bootUiThemes() {
       return;
     }
     if (themeBootResolve) themeBootResolve();
+  } else {
+    // Later calls are the theme settings opening: boot itself ran once, but the selected pack must be checked
+    // again (see revalidateActiveTheme) instead of trusting the boot-time state for the whole session.
+    await themeReady.catch(() => {});
+    if (themeBootError) return;
+    try {
+      await revalidateActiveTheme();
+    } catch { /* a failed re-check keeps the current look; the next open tries again */ }
+    return;
   }
   await themeReady.catch(() => {});
 }
@@ -1142,14 +1204,19 @@ export function themesReady() {
 /**
  * Load an official pack before selectTheme. selectTheme stays synchronous: an import paints
  * in the same turn the zip returns. Missing official group is `missing` (no damage notice).
+ * `recheck` (the theme-settings re-validation) checks the served group again before trusting a loaded record:
+ * a theme can outlive the group it came from, and `/data/local-assets.json` is re-read for that check. The loaded
+ * pack itself is not refetched.
+ * @param {string} id
+ * @param {{ recheck?: boolean }} [opts]
  */
-export async function prepareTheme(id) {
+export async function prepareTheme(id, { recheck = false } = {}) {
   if (!id || id === BUILTIN_ID || !officialThemeById(id)) return { ok: true };
-  if (library.get(id)?.official) return { ok: true };
-  const manifest = await library.loadAssetManifest();
+  const manifest = await library.loadAssetManifest(recheck);
   if (!installedOfficialThemes(manifest).some((row) => row.id === id)) {
     return library.get(id)?.officialPack ? { ok: true } : { ok: false, code: 'missing' };
   }
+  if (library.get(id)?.official) return { ok: true };
   return library.loadOfficial(officialThemeById(id), manifest);
 }
 
@@ -1184,6 +1251,9 @@ export function selectTheme(id) {
   const next = id && id !== BUILTIN_ID ? id : '';
   settingsSet({ uiTheme: next });
   applyUiTheme(next);
+  // A selection that succeeded (the built-in terminal included) is not a broken theme any more; the 'session'
+  // storage warning is not a theme failure and stays until the storage works again.
+  clearBrokenNotice();
 }
 
 export async function importThemeZip(file) {

@@ -2,7 +2,7 @@
  * Derive the render metadata from the theme documents themselves.
  *
  * `shop.json`/`card.json` now carry each node's real prefab `pathID` (from
- * tools/local-extract/legacy/path_ids.py).  The status-driver descriptions
+ * tools/local-extract/path_ids.py).  The status-driver descriptions
  * already carry GAME_OBJECT `pid` values; `colorGroup.nodes` carries the full
  * `_colorElements` id list.  This adapter turns both into the shapes the
  * existing host/renderer consumes, without the older mapping files

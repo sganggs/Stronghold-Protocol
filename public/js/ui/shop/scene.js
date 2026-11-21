@@ -6,7 +6,7 @@ import { applyClip } from '../../render/shop/cardTimeline.js';
 import { CardParticles } from '../../render/shop/cardParticles.js';
 import { applyActiveCurves } from './anim.js';
 import { layoutScene, createMeasure, DESIGN_W, DESIGN_H } from './layoutAdapter.js';
-import { cloneNode, countNodes, indexNodes, findPath, setActive, componentRefs, hideRuntimeImages, hideExternalSprites, hideRuntimeSources, hidePlatformHints } from './prefab.js';
+import { cloneNode, countNodes, indexNodes, findPath, setActive, componentRefs, hideExternalSprites, hideRuntimeSources, hidePlatformHints } from './prefab.js';
 import { AutoChessStylizedShopChromePanel } from './chrome.js';
 import { AutoChessStylizedShopCtrlPanel } from './ctrl.js';
 import { AutoChessStylizedShopSlotsPanel } from './slots.js';
@@ -204,7 +204,7 @@ export class ShopScene {
     this.cardClockLast = null;
     const cardMountedView = {
       // The card documents carry both frame_lv2_obj and frame_lv3_obj, each with a tv_particle. Only the
-      // mounted tier sub-prefabs may emit (reference/card/card2.js:728-731); CardParticles reads this.
+      // mounted tier sub-prefabs may emit; CardParticles reads this.
       get mounted() {
         const out = [];
         for (const root of self.cardRoots || []) {
@@ -493,7 +493,7 @@ export class ShopScene {
       detached.push([node, node.children]);
       node.children = [];
     };
-    let panelBuilt = null;
+    let panelBuilt;
     try {
       detach(row);
       detach(moneyHolder);

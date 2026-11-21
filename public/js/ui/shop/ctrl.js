@@ -1,7 +1,7 @@
 
 
 import { twoStateToggleOf, threeStateToggleOf, ShopCostView } from './widgets.js';
-import { setText, setActive, scriptsOf, resolveScriptRefs, cloneNode, findPath } from './prefab.js';
+import { setText, scriptsOf, resolveScriptRefs, cloneNode, findPath } from './prefab.js';
 import { t } from '../../../../shared/i18n.js';
 
 function repath(node, basePath, name = node.name) {
@@ -9,6 +9,20 @@ function repath(node, basePath, name = node.name) {
   node.path = basePath ? `${basePath}/${name}` : name;
   for (const child of node.children || []) repath(child, node.path);
   return node;
+}
+
+/**
+ * Whether the painted refresh button is usable. The caller's own block reason (ShopCanvas's
+ * shopBlockReason('refresh'), the same value the hotspot is disabled with) wins when it is published: a special
+ * recruit does not make a refresh free — a free refresh arrives as refreshCost 0 — and a ready / non-editable
+ * seat is refused. The cost-only fallback serves the dev page and old callers, which publish no gate.
+ * @param {any} data CtrlViewData-shaped (`refreshBlocked`, `freeRefreshCnt`, `coinCount`, `refreshCost`)
+ * @returns {boolean}
+ */
+export function canRefreshOf(data) {
+  if (!data) return false;
+  if (data.refreshBlocked != null) return !data.refreshBlocked;
+  return Number(data.freeRefreshCnt) > 0 || Number(data.coinCount) >= Number(data.refreshCost);
 }
 
 export class AutoChessStylizedShopCtrlPanel {
@@ -50,7 +64,9 @@ export class AutoChessStylizedShopCtrlPanel {
 
   Render(data) {
     this.initCost();
-    const canRefresh = data.isSpecialRecruit || data.freeRefreshCnt > 0 || data.coinCount >= data.refreshCost;
+    // The caller's shopBlockReason('refresh') reason is authoritative when it is published (the same reason the
+    // hotspot is disabled with); the cost-only fallback serves the dev page and old callers — see canRefreshOf.
+    const canRefresh = canRefreshOf(data);
 
     this.canRefresh = !!canRefresh;
     if (this.enableToggle) this.enableToggle.set_selected(canRefresh);

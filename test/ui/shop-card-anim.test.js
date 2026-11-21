@@ -127,8 +127,8 @@ test('the particle draw cap is reference MAX_POINT_PX=64, not 1024', () => {
   assert.equal(MAX_POINT_PX, 64);
 });
 
-// reference/card/particles.js:175-177/369/373: the TV glow is a point sprite with one square size derived from
-// ParticleSystemRenderer.maxParticleSize (world units -> px) and clamped to the 64 px point cap.
+// The TV glow is a point sprite with one square size derived from ParticleSystemRenderer.maxParticleSize (world
+// units -> px) and clamped to the 64 px point cap, as in the original card prefab.
 test('point size follows the reference maxPx and cap', () => {
   assert.equal(pointMaxSize({ maxPx: 2000 }, 1.6667), 64);
   assert.equal(pointMaxSize({ maxPx: 30 }, 2), 60);
@@ -155,7 +155,7 @@ test('prepare keeps the point path for the TV glow only and derives maxPx from t
   assert.equal(star.pointSprite, false, 'the triple star keeps the masked quad path');
 });
 
-// reference/card/particles.js:340-355 emits before advancing the alive particles. Spawning after the step left
+// The original card prefab emits before advancing the alive particles. Spawning after the step left
 // the fresh particle at spawn()'s placeholder alpha=1, so the TV glow painted one white frame per respawn.
 function tvSystem() {
   return {

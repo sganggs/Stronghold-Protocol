@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { commandText, commandStatus, commandUnlock, aimPath, AIM_STEP } from '../../public/js/ui/bandCommand.js';
+import { commandText, commandStatus, commandUnlock, aimPath, AIM_STEP, shopSlotCommandCards, shopSlotIndexAt } from '../../public/js/ui/bandCommand.js';
 import { data } from '../../public/js/data.js';
 
 const bands = JSON.parse(readFileSync(new URL('../../data/versions/act3autochess-v3_1/bands.json', import.meta.url), 'utf8'));
@@ -20,6 +20,46 @@ test('command HUD distinguishes locks, cooldown, stocks, recruitment and insuffi
   assert.match(commandStatus({ usesLeft: 0 }), /0/);
   assert.notEqual(commandStatus({ reason: 'funds' }), commandStatus({ reason: 'specialRecruit' }));
   assert.notEqual(commandStatus({ reason: 'passive' }), commandStatus({ usesLeft: 1 }));
+});
+
+// ---- SHOP_SLOT command targets are priv indices; the canvas reward row's data-shop-slot is a display index ----
+
+/** A fake shop card: `closest` finds itself for [data-shop-slot] and the reward-row root when asked. */
+function fakeCard(slot, { rewardRow = false } = {}) {
+  const card = {
+    closest(sel) {
+      if (sel === '[data-shop-slot]') return card;
+      if (sel === '[data-shop-reward-row]') return rewardRow ? { root: true } : null;
+      return null;
+    },
+    getAttribute(name) { return name === 'data-shop-slot' ? String(slot) : null; },
+  };
+  return card;
+}
+
+function fakeDoc(cards) {
+  return { querySelectorAll: (sel) => cards.filter((card) => sel === `[data-shop-slot="${card.getAttribute('data-shop-slot')}"]`) };
+}
+
+test('a SHOP_SLOT target never highlights or drops on the canvas reward row', () => {
+  const normal = fakeCard(3);
+  const reward = fakeCard(3, { rewardRow: true });   // display index 3, but the reward row's card
+  const doc = fakeDoc([normal, reward]);
+  assert.deepEqual(shopSlotCommandCards(3, doc), [normal], 'only the normal, priv-indexed row card highlights');
+  assert.deepEqual(shopSlotCommandCards(0, doc), [], 'no card of that priv index');
+  assert.deepEqual(shopSlotCommandCards(3, null), []);
+  assert.equal(shopSlotIndexAt(reward), null, 'the drop over a reward card resolves no SHOP_SLOT target');
+  assert.equal(shopSlotIndexAt(normal), 3);
+  assert.equal(shopSlotIndexAt(null), null);
+  assert.equal(shopSlotIndexAt({ closest: () => ({ closest: () => null, getAttribute: () => '' }) }), null, 'an empty index attr is no target');
+});
+
+test('the command drag uses the helpers at all three sites (highlight, hover and drop)', () => {
+  const source = readFileSync(new URL('../../public/js/ui/bandCommand.js', import.meta.url), 'utf8');
+  assert.equal((source.match(/shopSlotCommandCards\(/g) || []).length, 3, 'the two highlight sites and the definition');
+  assert.match(source, /shopSlotIndexAt\(document\.elementFromPoint\(x, y\)\)/);
+  assert.doesNotMatch(source, /querySelectorAll\(`\[data-shop-slot="\$\{(?:t|target)\.slot\}"\]`\)/,
+    'no raw display-index lookup is left behind');
 });
 
 test('the aiming arrow (§37.201): chevrons every AIM_STEP px along a curve bowed up-screen, the last on the pointer', () => {

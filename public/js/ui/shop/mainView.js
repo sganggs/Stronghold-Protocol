@@ -57,6 +57,9 @@ export class AutoChessBattleShopMainView {
       coinCount: model.coinCount,
       refreshCost: model.refreshCost,
       freeRefreshCnt: model.freeRefreshCnt,
+      // The caller's own block reason (ShopCanvas's shopBlockReason('refresh')): the painted refresh button must
+      // match the hotspot, not recompute a funds-only rule of its own. null = no gate published (dev page).
+      refreshBlocked: model.refreshBlocked,
     });
   }
 

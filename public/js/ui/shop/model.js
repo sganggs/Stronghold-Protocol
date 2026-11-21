@@ -56,6 +56,9 @@ export class AutoChessBattleShopViewModel {
     this.currUIFunc = init.currUIFunc ?? 0;
     this.dragCharSellPrice = init.dragCharSellPrice ?? 0;
     this.refreshSeq = init.refreshSeq ?? 0;
+    /** The caller's own refresh block (ShopCanvas's shopBlockReason('refresh') reason): true = blocked, null = no
+     * gate published (dev page / old callers); the ctrl panel paints the control from it rather than from funds. */
+    this.refreshBlocked = init.refreshBlocked ?? null;
     /** Card row: AutoChessBattleShopCardViewModel-shaped records (see adapter/model.js). */
     this.slots = init.slots || [];
   }
