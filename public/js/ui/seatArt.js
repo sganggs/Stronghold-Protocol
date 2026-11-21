@@ -126,6 +126,37 @@ export function rosterOperators(roster, { exclude = null, lang = 'zh', localeNam
 }
 
 /**
+ * The room's list with each record's Chinese name beside the shown one (#877 review, DESIGN §37.325): in another
+ * language data.js gives the default data's chess and backups records their localized names, and the picker's search
+ * matches the Chinese name in every group (cardMatches) — a cross-period record carries it (rosterOperators `zh`), the
+ * room's take it here, from the same list built from the files as downloaded (data.js listRaw / getRaw). A record whose
+ * name is already the Chinese one (Chinese, a version room's own texts) or that the raw list lacks stays as it is.
+ * @param {any[]} list cardOperators() of the files in the interface language
+ * @param {any[]} rawList cardOperators() of the same files as downloaded
+ * @returns {any[]}
+ */
+export function withCardZh(list, rawList) {
+  const zh = new Map((Array.isArray(rawList) ? rawList : []).map((c) => [c.charId, c.name]));
+  return (Array.isArray(list) ? list : []).map((c) => {
+    const name = zh.get(c.charId);
+    return typeof name === 'string' && name && name !== c.name && c.zh !== name ? { ...c, zh: name } : c;
+  });
+}
+
+/**
+ * Whether a picker record answers the search `needle` (lower case, trimmed; '' answers every record): its shown name, its
+ * Chinese one (`zh`: withCardZh, rosterOperators) or its appellation contains it, in every group alike (#877, DESIGN
+ * §37.325).
+ * @param {any} c a picker record
+ * @param {string} needle
+ * @returns {boolean}
+ */
+export function cardMatches(c, needle) {
+  if (!needle) return true;
+  return [c?.name, c?.zh, c?.appellation].some((v) => String(v || '').toLowerCase().includes(needle));
+}
+
+/**
  * What the seat cards draw from: the pickable operators by charId and the default pool (5★/6★, by charId so every
  * client orders it the same). `extra` (#877): the cross-period records (rosterOperators) — they resolve a pick, never
  * the default pool, and a charId of the room's list keeps the room's record (a plugin's redefinition included).

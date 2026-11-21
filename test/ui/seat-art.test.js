@@ -16,7 +16,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { CARD_PREF, CARD_KEY, cardStore, setCard, parseStoredCard, cardOperators, cardContext, seatOperator, seatCardSkin, seatArtSrc,
-  cardName, rosterOperators, cardGroups, cardSkinPlayers } from '../../public/js/ui/seatArt.js';
+  cardName, rosterOperators, cardGroups, cardSkinPlayers, withCardZh, cardMatches } from '../../public/js/ui/seatArt.js';
 import { chessPortraitUrl, chessAvatarUrl } from '../../public/js/ui/assetUrls.js';
 import { CARD_PERIOD_ORDER } from '../../shared/cardRoster.js';
 import { operatorCharIds } from '../../shared/protocol.js';
@@ -349,6 +349,36 @@ test('cardName: Chinese as it is; another language its game-text name, else the 
   // rosterOperators names its records this way and keeps the Chinese one for the search
   const en = rosterOperators(ROSTER, { lang: 'en', localeName }).find((c) => c.charId === 'char_4166_varkis');
   assert.deepEqual([en.name, en.zh, en.appellation], ['Varkáris', '摆渡人', 'Varkáris']);
+});
+
+test('withCardZh / cardMatches: in another language the room\'s records keep their Chinese names, so the search finds 斯卡蒂 and the 自选 pool\'s 凯尔希 as it finds other periods\' operators (#877 review)', () => {
+  // the room's list as data.js gives it in English (localized names) and as downloaded (data.js listRaw / getRaw)
+  const EN = { char_263_skadi: 'Skadi', char_003_kalts: 'Kal\'tsit' };
+  const enChess = CHESS.map((c) => (EN[c.charId] ? { ...c, name: EN[c.charId] } : c));
+  const ops = BACKUPS.diy.operators;
+  const enBackups = { ...BACKUPS, diy: { ...BACKUPS.diy, operators: Object.fromEntries(Object.entries(ops).map(([id, r]) => [id, EN[id] ? { ...r, name: EN[id] } : r])) } };
+  assert.ok(Object.hasOwn(ops, 'char_003_kalts') && !CHESS.some((c) => c.charId === 'char_003_kalts'), '凯尔希: the 自选 pool only');
+  const rawList = cardOperators(CHESS, BACKUPS);
+  const enList = cardOperators(enChess, enBackups);
+  const list = withCardZh(enList, rawList);
+  assert.equal(list.length, enList.length);
+  const skadi = list.find((c) => c.charId === 'char_263_skadi');
+  const kalts = list.find((c) => c.charId === 'char_003_kalts');
+  assert.deepEqual([skadi.name, skadi.zh, kalts.name, kalts.zh], ['Skadi', '斯卡蒂', 'Kal\'tsit', '凯尔希']);
+  assert.equal(skadi.isGolden, true, 'the record as it was, its Chinese name beside');
+  for (const [c, q] of [[skadi, '斯卡蒂'], [skadi, 'skadi'], [kalts, '凯尔希'], [kalts, 'kal\'tsit']]) assert.ok(cardMatches(c, q), `${c.charId}: ${q}`);
+  assert.ok(!cardMatches(enList.find((c) => c.charId === 'char_263_skadi'), '斯卡蒂'), 'without it the Chinese name was not found');
+  // a record already named in Chinese, or one the raw list lacks (a plugin's), stays the same object
+  const same = list.find((c) => !EN[c.charId]);
+  assert.equal(same, enList.find((c) => c.charId === same.charId));
+  withCardZh(rawList, rawList).forEach((c, i) => assert.equal(c, rawList[i]));
+  const plugin = { charId: 'char_9_plug', name: 'Plug', rarity: 5 };
+  assert.equal(withCardZh([plugin], rawList)[0], plugin);
+  assert.deepEqual(withCardZh(null, null), []);
+  // cardMatches: '' answers every record; a cross-period record by its zh and its appellation
+  assert.ok(cardMatches({ name: 'x' }, ''));
+  const beeswax = { name: 'Beeswax', zh: '蜜蜡', appellation: 'Beeswax' };
+  assert.ok(cardMatches(beeswax, '蜜蜡') && cardMatches(beeswax, 'bees') && !cardMatches(beeswax, '斯卡蒂'));
 });
 
 test('cardContext with the roster: other periods resolve a pick, the default pool and every default stay the same (#877)', () => {

@@ -74,7 +74,8 @@ import { net } from '../net.js';
 import { store, useStore, shallowEqual, emptyMatch, isSpectating, savePref } from '../store.js';
 import { data, useData, getConfig } from '../data.js';
 import { chessAvatarUrl, chessPortraitUrl } from '../ui/assetUrls.js';
-import { CARD_KEY, cardStore, setCard, cardOperators, cardContext, cardGroups, rosterOperators, seatOperator, seatCardSkin, seatArtSrc } from '../ui/seatArt.js';
+import { CARD_KEY, cardStore, setCard, cardOperators, cardContext, cardGroups, cardMatches, rosterOperators, seatOperator, seatCardSkin, seatArtSrc,
+  withCardZh } from '../ui/seatArt.js';
 import { CARD_ROSTER } from '../../../shared/cardRoster.js';
 import { skinsStore, SKINS_KEY, ownerSkin } from '../ui/skins.js';
 import { settingsStore } from '../ui/settingsStore.js';
@@ -227,8 +228,9 @@ function CardThumb({ src, name }) {
  * the current choice takes the focus (no on-screen keyboard on a phone). A local picker: each tile wears this browser's
  * outfit for that operator (`localSkins`, docs/SKINS.md), as the card will.
  * Other periods (#877, DESIGN §37.325): the tiles in groups (ui/seatArt.js cardGroups) — 「本房间版本 · X」 with 默认 first,
- * then 「其他时期 · Y」 newest first, each heading across the grid; the rarity tabs and the search (the shown name, the
- * Chinese one, the appellation) cover every group, and a group with nothing left hides with its heading. A cross-period
+ * then 「其他时期 · Y」 newest first, each heading across the grid; the rarity tabs and the search (ui/seatArt.js
+ * cardMatches: the shown name, the Chinese one — the room's records carry it too, withCardZh —, the appellation) cover
+ * every group, and a group with nothing left hides with its heading. A cross-period
  * tile's title names its periods. Under the grid: the roster still loading, or failed with 重试 (data.js invalidate); a
  * pick this page cannot show (`byChar` lacks it, nothing loading: `pending`) says the card shows the default meanwhile.
  * [ASSUMED] no tabs, no period marks on the cards — the note under the grid says other periods only show on the card.
@@ -248,8 +250,7 @@ function CardPicker({ current, list, others = [], byChar = null, pending = false
   const lost = !!current && !known && !pending;
   const autoOn = !known && !waiting;
   const needle = q.trim().toLowerCase();
-  const shown = groups.map((g) => ({ ...g, ops: g.ops.filter((c) => (!star || c.rarity === star)
-    && (!needle || [c.name, c.zh, c.appellation].some((v) => String(v || '').toLowerCase().includes(needle)))) }));
+  const shown = groups.map((g) => ({ ...g, ops: g.ops.filter((c) => (!star || c.rarity === star) && cardMatches(c, needle)) }));
   const count = shown.reduce((n, g) => n + g.ops.length, 0);
   const rosterBusy = rosterState === 'idle' || rosterState === 'loading';
   const tile = (c, key) => {
@@ -536,9 +537,13 @@ export function RoomScreen() {
   const rosterState = data.status(CARD_ROSTER);
   const lang = data.locale();
   // the room version's chess records and 自选编队 pool (ui/seatArt.js cardOperators — the room's part of the server's
-  // cardAllowed), then the other periods' operators the room lacks (rosterOperators: they resolve a pick, never the
-  // default pool); a pick waits while the pool or the roster loads
-  const cardList = useMemo(() => cardOperators(data.list('chess'), backups), [chess, backups]);
+  // cardAllowed; each with its Chinese name too in another language, withCardZh, for the picker's search), then the other
+  // periods' operators the room lacks (rosterOperators: they resolve a pick, never the default pool); a pick waits while
+  // the pool or the roster loads
+  const rawChess = data.getRaw('chess');
+  const rawBackups = data.getRaw('backups');
+  const cardList = useMemo(() => withCardZh(cardOperators(data.list('chess'), backups), cardOperators(data.listRaw('chess'), rawBackups)),
+    [chess, backups, rawChess, rawBackups]);
   const others = useMemo(() => rosterOperators(roster, { exclude: new Set(cardList.map((c) => c.charId)), lang, localeName: (s) => data.localeName(s) }),
     [roster, cardList, lang]);
   const cards = useMemo(() => cardContext(cardList, { pending: !backups || rosterState === 'idle' || rosterState === 'loading', extra: others }),

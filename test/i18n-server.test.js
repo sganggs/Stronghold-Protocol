@@ -1,6 +1,7 @@
 // Server → client texts in the player's language (docs/I18N.md): m.toast / m.ticker frames carry the Chinese `text`
 // (older clients) plus `msgid` + `params`, a config.broadcasts line its `args`; the client renders them with
-// translateWire / ui/lang.js tickerText; error codes through ui/toasts.js describeError.
+// translateWire / ui/lang.js tickerText; error codes through ui/toasts.js describeError. With the client data store in
+// English here, also the 名片干员 picker's search over the localized room list (#877 review: ui/seatArt.js withCardZh).
 
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -165,4 +166,32 @@ test('server-sent game texts in English: 机变 cards, the draft name, effect en
     setLang('zh');
     await data.setLocale('zh');
   }
+});
+
+test('the 名片干员 picker in English (#877 review, DESIGN §37.325): the room\'s records named in English carry their Chinese names (data.js listRaw), so 斯卡蒂 and the 自选 pool\'s 凯尔希 are found as other periods\' 蜜蜡 is', async () => {
+  await data.loadAll('chess', 'backups');
+  const { cardOperators, withCardZh, cardMatches, rosterOperators } = await import('../public/js/ui/seatArt.js');
+  const roster = JSON.parse(readFileSync(path.join(ROOT, 'data/card-roster.json'), 'utf8'));
+  setLang('en');
+  await data.setLocale('en');
+  try {
+    assert.equal(data.list('chess').length, data.listRaw('chess').length);
+    const list = withCardZh(cardOperators(data.list('chess'), data.get('backups')), cardOperators(data.listRaw('chess'), data.getRaw('backups')));
+    const find = (q) => list.filter((c) => cardMatches(c, q)).map((c) => c.charId);
+    const skadi = list.find((c) => c.charId === 'char_263_skadi');
+    assert.equal(skadi.name, 'Skadi');
+    assert.equal(data.listRaw('chess').find((c) => c.charId === 'char_263_skadi').name, '斯卡蒂', 'listRaw: the Chinese records');
+    assert.ok(find('斯卡蒂').includes('char_263_skadi'), find('斯卡蒂').join());
+    assert.ok(find('skadi').includes('char_263_skadi'));
+    const kalts = list.find((c) => c.charId === 'char_003_kalts');
+    assert.notEqual(kalts.name, '凯尔希', 'the 自选 pool\'s 凯尔希 named in English');
+    assert.ok(find('凯尔希').includes('char_003_kalts'), find('凯尔希').join());
+    // and the other periods' records as before
+    const others = rosterOperators(roster, { exclude: new Set(list.map((c) => c.charId)), lang: 'en', localeName: (s) => data.localeName(s) });
+    assert.deepEqual(others.filter((c) => cardMatches(c, '蜜蜡')).map((c) => [c.charId, c.name]), [['char_344_beewax', 'Beeswax']]);
+  } finally {
+    setLang('zh');
+    await data.setLocale('zh');
+  }
+  assert.deepEqual(data.listRaw('nothing-loaded'), []);
 });
