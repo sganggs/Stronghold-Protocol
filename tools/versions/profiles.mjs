@@ -8,7 +8,8 @@
 //   layout    'regulation' (规程: stage atlases of three pieces, road-only templates → the 盟约 19×21 levels,
 //             tools/versions/layouts.mjs); omitted = the levels are 盟约's already
 //   pins      null (master, .cache/gamedata/) or { default: <sha>, <group>: <sha> … } — the commit of each file group
-//             (pinGroupOf), cached in .cache/gamedata@<sha>/ (@aa-<sha>/ for the ArknightsAssets mirror)
+//             (pinGroupOf), cached in .cache/gamedata@<sha>/ (@aa-<sha>/ for the ArknightsAssets mirror); a run of
+//             tools/build-data.mjs --gamedata-commit <sha> reads every file at that one Kengxxiao commit instead (originOf)
 //   adapters  names in tools/versions/adapters.mjs, applied in this order to the loaded activity_table
 //   research  the version's research directory (falls back to docs/research/, with a warning) or null = docs/research/
 //   tables    'default' (the 下半-measured tables of tools/build-data.mjs) or { stock, shopDraft, tacticDraft,
@@ -90,15 +91,63 @@ export function pinGroupOf(rel) {
 }
 
 /**
+ * The key of a profile's `pins` that gives a gamedata file its commit (the file's group, else 'default'), or null for
+ * master.
+ * @param {{ pins: Record<string, string> | null }} profile
+ * @param {string} rel
+ * @returns {string | null}
+ */
+export function pinKeyOf(profile, rel) {
+  if (!profile.pins) return null;
+  const group = pinGroupOf(rel);
+  if (group && profile.pins[group]) return group;
+  return profile.pins.default ? 'default' : null;
+}
+
+/**
  * The commit a profile reads a gamedata file from, or null for master.
  * @param {{ pins: Record<string, string> | null }} profile
  * @param {string} rel
  * @returns {string | null}
  */
 export function pinnedShaOf(profile, rel) {
-  if (!profile.pins) return null;
-  const group = pinGroupOf(rel);
-  return (group && profile.pins[group]) || profile.pins.default || null;
+  const key = pinKeyOf(profile, rel);
+  return key ? profile.pins[key] : null;
+}
+
+/**
+ * Why `value` cannot be tools/build-data.mjs --gamedata-commit, or null when it can: a full commit SHA, 40 hex digits
+ * (DESIGN §37.323, #567). A branch, a tag or a short SHA is refused: the cache directory <cache>@<sha>/ is keyed by the
+ * commit, and a name that moves (or a prefix that may grow ambiguous) would mix files of different commits there.
+ * @param {string} value
+ * @returns {string | null}
+ */
+export function commitShaError(value) {
+  if (/^[0-9a-f]{40}$/i.test(value)) return null;
+  if (/^[0-9a-f]+$/i.test(value)) {
+    if (value.length > 40) return `${value.length} hex characters: a full commit SHA has 40`;
+    return `a short SHA (${value.length} characters) is refused: give the full 40-character commit, the cache directory <cache>@<sha>/ is keyed by it`;
+  }
+  return 'not a full commit SHA (40 hex characters): a branch or tag name is refused, it moves, and the cache directory <cache>@<sha>/ is keyed by the commit';
+}
+
+/**
+ * Where a build reads a gamedata file from, as the build report records it (DESIGN §37.323, #567).
+ *   commit  the 40-hex commit, or null for master (the branch head at download time: no SHA is known)
+ *   from    'option' (tools/build-data.mjs --gamedata-commit: every file of the run at that Kengxxiao commit, over the
+ *           profile's pins and source), 'pin' (the profile's pins) or 'master'
+ *   pin     the pins key that gave the commit (pinKeyOf: 'default', 'character' …), null unless from 'pin'
+ *   source  a tools/versions/sources.mjs SOURCES key: 'kengxxiao', or the profile's mirror for a pinned file
+ * @param {{ pins: Record<string, string> | null, source?: string }} profile
+ * @param {string} rel
+ * @param {string | null} [commit] the --gamedata-commit SHA, or null
+ * @returns {{ commit: string | null, from: 'option' | 'pin' | 'master', pin: string | null, source: string }}
+ */
+export function originOf(profile, rel, commit = null) {
+  if (commit) return { commit, from: 'option', pin: null, source: 'kengxxiao' };
+  const pin = pinKeyOf(profile, rel);
+  if (!pin) return { commit: null, from: 'master', pin: null, source: 'kengxxiao' };
+  return { commit: profile.pins[pin], from: 'pin', pin, source: profile.source ?? 'kengxxiao' };
 }
 
 /**

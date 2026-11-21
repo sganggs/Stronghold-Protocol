@@ -17,18 +17,41 @@ node tools/build-data.mjs --no-research --out /tmp/x   # research-free build (fa
 node tools/build-data.mjs --cache <dir> --report <file> # other cache dir / report file (tests, CI)
 node tools/build-data.mjs --force      # write data/ even when integrity checks fail (debugging only)
 node tools/build-data.mjs --version act1autochess   # another official version → data/versions/<slug>/ (see "Official versions (M0)")
+node tools/build-data.mjs --gamedata-commit <sha> --out /tmp/x   # every official file from one full upstream commit (#567)
 node --test test/data.test.js          # integrity tests (+ raw-data cross-check and rebuild check when the pinned official files are cached)
 ```
 Unknown options or a missing option value are errors (exit code 2); `--refresh` and `--offline` are exclusive.
 
 - **Cache.** Official files live under `.cache/gamedata/<repo path>` (`excel/activity_table.json`,
   `levels/enemydata/enemy_database.json`, `levels/activities/act1autochess/level_*.json`, …) and are fetched from
-  `https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/<path>` when missing.
+  `https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/<path>` when missing; a file a
+  version profile pins to a commit (every profile pins all of its files today) lives under `.cache/gamedata@<sha>/` and
+  comes from that commit ("Official versions (M0)").
   Downloads are validated (must parse as JSON) and written atomically. With `--refresh`, a download that still fails
   after four attempts aborts the build (exit code 1), even if an older cached file exists. Generated files and the
   previous report remain untouched, including with `--force`; successfully downloaded cache entries are not rolled
   back. Retry `--refresh` to complete the refresh; cached files are not verified to share an upstream revision.
-- **Report.** A run that reaches integrity validation writes `.cache/build-data-report.json` (counts, byte sizes, warnings (each once), errors, `written`).
+- **Upstream commit (`--gamedata-commit <sha>`, GitHub #567, DESIGN §37.323).** Reads every official file of the run at
+  one full commit of Kengxxiao/ArknightsGameData: 40 hex digits (any case, kept in lower case). A branch, a tag or a short
+  SHA exits 2 with the reason, because the cache is keyed by the commit. The files are cached in `<cache>@<sha>/`
+  (`.cache/gamedata@<sha>/` by default: the directory a profile pin at the same commit uses, since the files are the same)
+  and downloaded from `https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/<sha>/zh_CN/gamedata/<path>`. It
+  replaces the version profile's `pins` (and a mirror `source`) for every file and prints a note saying so [ASSUMED: #567
+  settles the option, not how it meets a pinned profile]; `--version` still picks the profile's adapters, tables,
+  research, expected counts and output directory (`--out` keeps `data/` untouched). `--refresh` downloads every file of
+  the commit again; `--offline` downloads nothing and, when files are missing from `<cache>@<sha>/`, fails (exit code 1)
+  naming all of them at once (while `excel/activity_table.json` is missing, the level files it names cannot be listed,
+  and the message says so). Without the option nothing changes: the profile's pins, or master for a profile without
+  pins (`test/build-data-commit.test.js` rebuilds `data/*.json` without it, and `data/versions/act3autochess-v3_1/`
+  with it set to that profile's own pin, byte for byte). Asset downloads (`tools/fetch-assets.mjs`,
+  `tools/fetch-stats-assets.mjs`, `tools/local-extract/`) never read it, and the switch between the official versions
+  does not stand in for it (the maintainer on #567).
+- **Report.** A run that reaches integrity validation writes `.cache/build-data-report.json` (counts, byte sizes, warnings (each once), errors, `written`,
+  and `gamedata`: `files[<path>]` = `{ commit, from, pin, source }` for every official file read, `from` being `option`
+  (`--gamedata-commit`), `pin` (`pin` = the profile's pins key, `default` / `character` …) or `master` (`commit` null: the
+  branch head at download time); `groups`, the same files counted per commit and origin, which the run also prints after
+  the counts as `official data: <sha> (pin default): <n> file(s); …`; `commit`, the `--gamedata-commit` value or null; and
+  `replacedPins`, the profile pins the option replaced, or null).
   Integrity errors (see §17) make the exit code 1 **and leave the previous output untouched** (unless `--force`);
   warnings never do. Each output file is written atomically (temp file + rename).
 - **Determinism.** Same inputs ⇒ byte-identical outputs (stable key order, no timestamps, no randomness).
@@ -883,7 +906,8 @@ every file system and URL).
   group), V1_2 over two, `21b1f240` 48 MB with 6 tables and the levels plus
   `ee2cabff` 13 MB with the 2 enemy tables, V2_1 in one, `1457587e` 65 MB with the 8 tables and the 50 level files of
   both seasons). `--offline` / `--refresh` keep their per-file meaning; `--cache
-  <dir>` moves every cache (`<dir>` and `<dir>@<sha>`).
+  <dir>` moves every cache (`<dir>` and `<dir>@<sha>`). `--gamedata-commit <sha>` reads every file at one commit instead
+  of the pins (the "Upstream commit" note at the top of this file).
 - **`adapters`** (`tools/versions/adapters.mjs`, applied to the season section right after it is loaded, never for the
   default; each throws on a shape it does not know):
   - `bondActiveType` — 上半's `bondInfoDict` activates by `activeType` + `isActiveInDeck`; 下半 by `activeCondition` +
