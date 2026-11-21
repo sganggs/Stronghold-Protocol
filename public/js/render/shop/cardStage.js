@@ -218,6 +218,11 @@ export function create(canvas, card, view, options = {}) {
   // context that may already be gone. The host falls back to the old shop bar when `lost` turns true.
   let lost = false;
   let destroyed = false;
+  // The host builds a fresh canvas per mount, so a removed canvas keeps its live WebGL context until the
+  // browser collects it (a battle hides the shop: every prep/battle round leaked one). WEBGL_lose_context is
+  // the only portable release, and it is grabbed here, while the context is alive: getExtension returns null
+  // once the context is lost.
+  const loseContextExt = typeof gl.getExtension === 'function' ? gl.getExtension('WEBGL_lose_context') : null;
   // The only whole-canvas upload this stage does is the spine compose canvas (drawExternalQuad): it is cached
   // so a paint that sees the same source frame reuses the GPU copy instead of re-uploading a full canvas.
   // Declared with the stage's other lifetime state because a lost context invalidates the texture it names.
@@ -714,10 +719,14 @@ export function create(canvas, card, view, options = {}) {
 
         gl.useProgram(program);
         gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-        gl.enableVertexAttribArray(aPos);
-        gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 16, 0);
-        gl.enableVertexAttribArray(aUV);
-        gl.vertexAttribPointer(aUV, 2, gl.FLOAT, false, 16, 8);
+        if (aPos >= 0) {
+          gl.enableVertexAttribArray(aPos);
+          gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 16, 0);
+        }
+        if (aUV >= 0) {
+          gl.enableVertexAttribArray(aUV);
+          gl.vertexAttribPointer(aUV, 2, gl.FLOAT, false, 16, 8);
+        }
         gl.colorMask(true, true, true, true);
       }
       const pose = rec.pose || {};
@@ -883,10 +892,9 @@ export function create(canvas, card, view, options = {}) {
         continue;
       }
 
-      let baseUrl = null;
       if (material) {
         const drawRec = material.draw || {};
-        baseUrl = drawRec.baseFile || (image && image.file) || null;
+        const baseUrl = drawRec.baseFile || (image && image.file) || null;
         const base = loadTexture(baseUrl);
         const mask = loadTexture(drawRec.maskFile);
         const diss = loadTexture(drawRec.dissolve && drawRec.dissolve.file);
@@ -1026,8 +1034,9 @@ export function create(canvas, card, view, options = {}) {
     gl.colorMask(true, true, true, true);
   };
 
-  // Release every GL object this stage owns. Idempotent: the host calls it from dispose, possibly after
-  // the context was already lost (delete* on a lost context is a no-op) or a second time.
+  // Release every GL object this stage owns and then the context itself. Idempotent: the host calls it from
+  // dispose, possibly after the context was already lost (delete* on a lost context is a no-op) or a second
+  // time, and the `destroyed` guard keeps loseContext to exactly one call.
   const destroy = () => {
     if (destroyed) return;
     destroyed = true;
@@ -1050,6 +1059,11 @@ export function create(canvas, card, view, options = {}) {
     if (program) gl.deleteProgram(program);
     program = null;
     if (canvas && typeof canvas.removeEventListener === 'function') canvas.removeEventListener('webglcontextlost', onContextLost);
+    // After the deletes, never before: delete* on a lost context is a no-op, so losing first would leave every
+    // texture/buffer/program to the browser's collection - which is exactly the leak this release fixes.
+    if (loseContextExt && typeof loseContextExt.loseContext === 'function') {
+      try { loseContextExt.loseContext(); } catch { /* the context is already gone */ }
+    }
   };
 
   return {
