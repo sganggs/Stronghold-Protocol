@@ -1893,8 +1893,11 @@ Sources: local official v3 index/prefabs; `pkgrps/btl_pfb_tokens_0.ab` mode `_re
 `CastEffectOptions.CreateEffect`, `ParticleEffect.FaceTo`, `YuS3EffectBehaviour.OnPlay` and
 `YuS3EffectWithEdgeBehaviour` (addresses and replay evidence in history §34.31). No sim rules change.
 
-### MAP10 盐坨子炮
+### MAP10 salt cannon
 
-`CannonFx` 按装置持有待机、出生、落点标记、发射、飞弹、命中和销毁效果；战斗沿快照时钟。
-提取器读取显式 SpecialPoint0／FixedMuzzle 绑定及 projectile 引用，按需更新索引并保留其它单位记录。
-原始 clip 的首姿炮口注册仍标记为显示适配，详见[研究](../research/cannon-native-20261120.md)。
+`CannonFx` owns idle, birth, landing marker, cast, flight, ground explosion, per-unit hit and destruction effects.
+Battle effects follow the snapshot clock. The extractor reads explicit SpecialPoint0 / FixedMuzzle bindings and
+projectile references, updating the index while preserving other unit records. Existing installations must explicitly
+re-extract `scene/act3autochess_m10` and `fx`; no format-version bump is needed for these additional records.
+The original clip's first-pose muzzle registration remains a display adaptation; see the
+[source notes](../research/cannon-native-20261120.md).

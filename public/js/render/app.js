@@ -150,6 +150,7 @@ import { FxSystem, ensureDamageFonts, projSpeed } from './fx.js';
 import { OfficialFx } from './vfx/system.js';
 import { TerrainFx } from './vfx/terrainfx.js';
 import { FxWiring } from './vfx/wiring.js';
+import { CANNON_UNIT } from './vfx/cannonfx.js';
 import { PluginFxPlayer } from './vfx/pluginPlayer.js';
 import { resolveOfficialFx } from './vfx/tier.js';
 import { createDragController, pieceTile, dragStandTile } from './drag.js';
@@ -1797,7 +1798,7 @@ export async function createFieldView(host, options = {}) {
         const used = consumedIds.delete(e[1]);
         if (v && v.alive) {
           v.die(e[2] === FORCED_EXIT);
-          if ((!used && e[2]!==FORCED_EXIT && v.info?.defId==='trap_196_cnnon') || showsDeathFx(v.info, used, e[2])) { if (!wiring.death(v)) fx.death(v); } else wiring.release(v);
+          if ((!used && e[2]!==FORCED_EXIT && v.info?.defId===CANNON_UNIT) || showsDeathFx(v.info, used, e[2])) { if (!wiring.death(v)) fx.death(v); } else wiring.release(v);
         }
         break;
       }

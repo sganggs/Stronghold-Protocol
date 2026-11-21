@@ -153,11 +153,11 @@ env=NS(prefabs=lambda *a,**kw:{'trap':root},tt=lambda o:o.data,
 normal=fx.skin_points(env,'bundle','trap',None)
 bound=fx.skin_points(env,'bundle','trap',None,bound_mounts=True)
 print(json.dumps([normal,bound]))`);
-    const [normal,bound]=out;
-    assert.equal(normal.SpecialPoint0,undefined);
-    assert.deepEqual(bound.SpecialPoint0.all.pos,[0,0,0]);
-    assert.deepEqual(bound.Muzzle.all.pos,[0,-.138,-.456]);
-    assert.deepEqual(bound.Muzzle,bound.FixedMuzzle);
+    const [normal, bound] = out;
+    assert.equal(normal.SpecialPoint0, undefined);
+    assert.deepEqual(bound.SpecialPoint0.all.pos, [0, 0, 0]);
+    assert.deepEqual(bound.Muzzle.all.pos, [0, -.138, -.456]);
+    assert.deepEqual(bound.Muzzle, bound.FixedMuzzle);
   });
 
   test('emitter lists and the live-particle estimate', () => {

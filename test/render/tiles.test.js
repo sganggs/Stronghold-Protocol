@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseStage, mixColor } from '../../public/js/render/tiles.js';
+import { TileField, parseStage, mixColor } from '../../public/js/render/tiles.js';
 import { GLYPH, TILE_H, dmgStyleKey, STATUS_ICON, PROJ } from '../../public/js/render/style.js';
 import { STATUS_KEYS } from '../../public/js/render/textures.js';
 
@@ -155,4 +155,18 @@ test('healing range fill and stripes use their own colours; attacks keep the def
     assert.ok(lines.includes(healing ? 0x8ae5ff : 0xffc27a));
     assert.ok(!lines.includes(healing ? 0xffc27a : 0x8ae5ff));
   }
+});
+
+
+test('2D battle hides static cannons on separator tiles and preparation restores them', () => {
+  const cannon = { role: 'cannon', row: 13, col: 6, visible: true };
+  const crate = { role: 'crate', row: 10, col: 6, visible: true };
+  const field = { battleRect: { r0: 9, r1: 12, c0: 2, c1: 10 }, devBoxes: [cannon, crate], devices: [] };
+  TileField.prototype._applyBattleRect.call(field);
+  assert.equal(cannon.visible, false);
+  assert.equal(crate.visible, false);
+  field.battleRect = null;
+  TileField.prototype._applyBattleRect.call(field);
+  assert.equal(cannon.visible, true);
+  assert.equal(crate.visible, true);
 });

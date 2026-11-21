@@ -37,5 +37,10 @@ TargetEffectManager 经 projectile_cnnon_target_mark 的到达效果指向 trap_
 
 出生后立即装载的乘客沿依赖分支的首快照等待处理，避免图片出现在炮身处；落地快照后恢复显示。
 
-浏览器与最终检查结果保存在本机 `.state/cannon-pr-20261120`，以最终收据为准。
 使用真实渲染器与本分支 Battle 帧、受控编队，不作为完整 WS 对局的证明。完整本机模拟／golden 继续暂停。
+
+## 评审补充
+
+既有安装须显式重提取 `scene/act3autochess_m10` 与 `fx`，以获得炮架与挂点／动画；本次增加记录，格式版本保持不变。
+模拟命中事件携带实际选中的单位 ID；每个命中单位播放原版 `_effectsWhenHit` 的 `trap_cnnon_explode_hit`，
+地面爆炸仍只播放一次。2D 与 3D 均在战斗中隐藏静态炮台，由活的装置实体显示；准备阶段恢复。

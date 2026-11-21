@@ -1370,30 +1370,63 @@ test('terrain fallback visibility is safe before the first board build and resto
 });
 
 test('MAP10 runtime cannon reuses native geometry, replaces the static mesh and releases its GPU resources', () => {
-  const stage = JSON.parse(readFileSync(path.join(ROOT,'data/versions/act3autochess-v3_1/stages.json'))).act3autochess_m10;
-  const {doc,bin}=fakeScene([{material:'MT_trap_196_cnnon',group:'device:trap_196_cnnon',x0:0,y0:0,z:.7}]);
-  doc.layout='pieces';doc.deviceModels={trap_196_cnnon:'device:trap_196_cnnon'};
-  doc.materials.MT_trap_196_cnnon={shader:'Torappu/Scene/Trap/Shadow-Standard',map:'TX_A',colors:{},floats:{},textures:{}};
-  const chunks=parseSceneChunks(doc,bin);
-  const pack={key:'cannon',doc,chunks,groups:sceneGroupRects(chunks),images:{tex:{TX_A:{width:4,height:4}},lm:[]}};
-  const board=new BoardScene(THREE,fakePack(),{renderer:stubRenderer()});
-  board.setScenePack(stage.id,pack);board.setStage(arenaField(stage,'normal'));
+  const stage = JSON.parse(
+    readFileSync(path.join(ROOT, 'data/versions/act3autochess-v3_1/stages.json')),
+  ).act3autochess_m10;
+  const { doc, bin } = fakeScene([
+    { material: 'MT_trap_196_cnnon', group: 'device:trap_196_cnnon', x0: 0, y0: 0, z: 0.7 },
+  ]);
+  doc.layout = 'pieces';
+  doc.deviceModels = { trap_196_cnnon: 'device:trap_196_cnnon' };
+  doc.materials.MT_trap_196_cnnon = {
+    shader: 'Torappu/Scene/Trap/Shadow-Standard',
+    map: 'TX_A',
+    colors: {},
+    floats: {},
+    textures: {},
+  };
+  const chunks = parseSceneChunks(doc, bin);
+  const pack = {
+    key: 'cannon',
+    doc,
+    chunks,
+    groups: sceneGroupRects(chunks),
+    images: { tex: { TX_A: { width: 4, height: 4 } }, lm: [] },
+  };
+  const board = new BoardScene(THREE, fakePack(), { renderer: stubRenderer() });
+  board.setScenePack(stage.id, pack);
+  board.setStage(arenaField(stage, 'normal'));
   try {
-    const before=chunks[0].position.slice(),model=board.cannonModel();
-    assert.deepEqual([...model.chunk.position.slice(0,3)],[0,0,Math.fround(.7)]);
-    assert.deepEqual(chunks[0].position,before,'shared scene vertices are immutable');
-    assert.equal(board.prepCannons.length,1);
-    board.setBattleRect({r0:9,r1:12,c0:2,c1:10});
-    assert.equal(board.prepCannons.length,0,'runtime replaces the static cannon');
-    const h=board.createDevice({cannon:true});assert.equal(h.native,true);
-    h.update(null,{x:6,y:13,z:.675,height:model.height,alpha:1});
-    const mesh=board.dynamic.children.find(m=>m.geometry?.getAttribute('position')?.count===4);
-    assert.ok(mesh);assert.deepEqual(mesh.position.toArray(),[6,13,.675]);
-    let geomDisposed=false,matDisposed=false;
-    mesh.geometry.addEventListener('dispose',()=>{geomDisposed=true;});
-    mesh.material.addEventListener('dispose',()=>{matDisposed=true;});
-    board.setBattleRect(null);assert.equal(board.prepCannons.length,1,'prep restores static model');
-    assert.equal(h.destroyed,false,'scene rebuild leaves live handle owned by DeviceView');
-    h.destroy();h.destroy();assert.equal(geomDisposed,true);assert.equal(matDisposed,true);assert.equal(board.devices.has(h),false);
-  } finally {board.destroy();}
+    const before = chunks[0].position.slice(),
+      model = board.cannonModel();
+    assert.deepEqual([...model.chunk.position.slice(0, 3)], [0, 0, Math.fround(0.7)]);
+    assert.deepEqual(chunks[0].position, before, 'shared scene vertices are immutable');
+    assert.equal(board.prepCannons.length, 1);
+    board.setBattleRect({ r0: 9, r1: 12, c0: 2, c1: 10 });
+    assert.equal(board.prepCannons.length, 0, 'runtime replaces the static cannon');
+    const h = board.createDevice({ cannon: true });
+    assert.equal(h.native, true);
+    h.update(null, { x: 6, y: 13, z: 0.675, height: model.height, alpha: 1 });
+    const mesh = board.dynamic.children.find(m => m.geometry?.getAttribute('position')?.count === 4);
+    assert.ok(mesh);
+    assert.deepEqual(mesh.position.toArray(), [6, 13, 0.675]);
+    let geomDisposed = false,
+      matDisposed = false;
+    mesh.geometry.addEventListener('dispose', () => {
+      geomDisposed = true;
+    });
+    mesh.material.addEventListener('dispose', () => {
+      matDisposed = true;
+    });
+    board.setBattleRect(null);
+    assert.equal(board.prepCannons.length, 1, 'prep restores static model');
+    assert.equal(h.destroyed, false, 'scene rebuild leaves live handle owned by DeviceView');
+    h.destroy();
+    h.destroy();
+    assert.equal(geomDisposed, true);
+    assert.equal(matDisposed, true);
+    assert.equal(board.devices.has(h), false);
+  } finally {
+    board.destroy();
+  }
 });

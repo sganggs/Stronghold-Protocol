@@ -612,7 +612,7 @@ export class TileField {
   _applyBattleRect() {
     const R = this.battleRect;
     const inside = (d) => !!R && d.row >= R.r0 && d.row <= R.r1 && d.col >= R.c0 && d.col <= R.c1;
-    for (const d of this.devBoxes) d.visible = !(inside(d) && (d.role === 'crate' || d.role === 'turret'));
+    for (const d of this.devBoxes) d.visible = !(R && d.role === 'cannon') && !(inside(d) && (d.role === 'crate' || d.role === 'turret'));
     for (const d of this.devices) { d.visible = true; d.gfx.visible = true; }
   }
 

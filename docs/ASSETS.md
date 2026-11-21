@@ -1093,8 +1093,9 @@ The reporting fork's small-pack cap motivates the 15 MB piece size; upstream acc
 Actual unmodified #977 MAP05 / MAP10 / MAP12 binaries are 19,614,492 / 31,660,444 / 32,194,384 bytes. Validation
 can repartition existing bytes without rerunning Unity extraction.
 
-### MAP10 盐坨子炮
+### MAP10 salt cannon
 
-MAP10 的 pieces 场景可附 `deviceModels.trap_196_cnnon` 指向局部网格组；准备／战斗分别拥有设备实例。
-更新本地素材时显式重提取 `scene/act3autochess_m10` 及 `fx`。原版炮架、11 份独立特效、挂点与验证见
-[盐坨子炮表现](research/cannon-native-20261120.md)。
+MAP10's pieces scene can include `deviceModels.trap_196_cnnon`, a local mesh group instantiated separately by
+preparation and battle views. Existing installations must explicitly re-extract `scene/act3autochess_m10` and `fx`
+to obtain the cannon model, eleven native effect prefabs and attachment points. The scene and FX format versions
+remain unchanged because the data schema is unchanged. See the [rendering notes](research/cannon-native-20261120.md).
