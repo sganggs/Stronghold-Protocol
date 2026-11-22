@@ -2314,7 +2314,11 @@ export function sellJunk(m, ps, policy = null) {
   for (const { p } of junk.slice(0, 4)) if (m.round >= 5 && ps.find(p.uid)) tryDo(() => ps.sell(p.uid));
 }
 
-/** Take the queued pick-one offers (merge rewards, special refreshes — free; they last until picked, the bot takes them at once). */
+/**
+ * Take the queued pick-one offers (merge rewards, special refreshes — free; one left unpicked lapses at the end of the
+ * prep it could be taken in, DESIGN §37.339: the bot takes them at once — an offer queued after its Ready, at the prep
+ * end or in SETTLE is taken at the start of its next prep).
+ */
 function takeOffers(m, ps, policy = null) {
   const gd = ps?.gd || m.gd;
   for (let guard = 0; guard < 4 && ps.offers.length; guard++) {

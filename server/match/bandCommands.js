@@ -142,7 +142,9 @@ export function commandView(ps) {
   const usesLeft = s.availType === 'ALL_LIMIT' ? Math.max(0, s.availCount - state.totalUsed)
     : s.availType === 'ROUND_RESET' ? Math.max(0, s.availCount - used) : null;
   const cooldown = Math.max(0, state.readyRound - ps.m.round);
-  // [ASSUMED] A queued special-recruit/reward offer is the local special-recruit state.
+  // [ASSUMED] A queued special-recruit/reward offer is the local special-recruit state. It ends with the offer: picked,
+  // or lapsed at the end of the prep it could be picked in (PlayerState.lapseOffers, §37.339) — so the lock never
+  // outlasts that prep, except for an offer queued after Ready / at the prep end, which locks the next prep instead.
   const specialRecruit = s.unusableAtSpecialRecruit && ps.offers.length > 0;
   const reason = s.type === 'NONE' ? 'locked' : s.type !== 'ACTIVE' ? 'passive'
     : cooldown ? 'cooldown' : usesLeft === 0 ? 'exhausted' : specialRecruit ? 'specialRecruit'

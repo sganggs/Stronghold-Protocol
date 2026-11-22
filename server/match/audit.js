@@ -8,10 +8,16 @@
 //                 the next one when it arrived after Ready / at the prep end, else (COMBAT, SETTLE, ROUND_START, 机变)
 //                 the next prep to end; a piece that got into temp by other means counts as due at the prep in
 //                 progress when it is first seen at a prep end. No temp piece may outlive its due prep.
+//   offers        every queued reward offer (pushRewardOffer / pushItemOffer) is due at the deadline of the first prep
+//                 in which its player could act on it — the same due prep as a temp piece; un-readying makes what was
+//                 offered while ready due at this prep; an offer queued by other means counts as due at the prep in
+//                 progress when it is first seen at a prep end. It lapses there, unpicked: none may outlive its due
+//                 prep, none may lapse before it (the official tip 「晋级的特殊奖励…也不会保留至下一回合」, §37.339)
 //   prep end      leftover funds lost (carry bands excepted), temp resolved (only pieces due at a later prep stay),
-//                 queued reward offers kept until picked (2026-10-15)
+//                 reward offers due at this prep lapsed (only offers due at a later prep stay)
 //   round start   income = config income(r) (= min(3 + r, 12)) + pending funds, upgrade price −1 (floor 0) from R2,
-//                 temp not wiped (nothing overdue), every queued offer kept, frozen slots kept in
+//                 temp not wiped (nothing overdue), no queued offer dropped (the ones queued after the last prep's
+//                 deadline are shown in this prep), frozen slots kept in
 //                 place (same id; chess slots keep their index, the item slot(s) follow the chess slots, so a
 //                 level-up moves them right), everything else rerolled with tier ≤ shop level from the unbanned pool,
 //                 freeze toggle released
@@ -21,7 +27,7 @@
 //                 order legal for it — board.js mergeTile; a 突变细胞 carrier destroyed before the gain is no copy) with
 //                 its facing, else into the hand / temp; the deploy count never grows (PRTS 卫戍协议/帮助, user playtest
 //                 #6 follow-up)
-//   combat start  nothing overdue in temp, everyone ready, funds lost (carry bands excepted), unfrozen shop cleared,
+//   combat start  nothing overdue in temp or the offer queue, everyone ready, funds lost (carry bands excepted), unfrozen shop cleared,
 //                 one field per alive player
 //   drafts        every seat holds an allowed band with LP = totalHp; 机变: one card per alive player, card ↔ picker
 //                 maps consistent, 6 (co-op) / 3 (solo) cards
@@ -105,7 +111,24 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
       if (due != null && due < endedOf(ps)) fail(`${ps.playerId}: temp piece ${p.id} (due at prep ${due}) survived ${label} (${endedOf(ps)} preps ended)`);
     }
   };
+  // queued reward offers: ps → Map(offer → index of the prep whose deadline lapses it)
+  const offerDue = new Map();
+  const offerDueOf = (ps) => { let d = offerDue.get(ps); if (!d) offerDue.set(ps, (d = new Map())); return d; };
+  const offerName = (o) => `${o.label || o.source || 'offer'} [${(o.slots || []).map((s) => s && s.id).join(', ')}]`;
+  const overdueOffers = (ps, label) => {
+    const d = offerDueOf(ps);
+    for (const o of ps.offers) {
+      const due = d.get(o);
+      if (due != null && due < endedOf(ps)) fail(`${ps.playerId}: a queued reward offer ${offerName(o)} (due at prep ${due}) survived ${label} (${endedOf(ps)} preps ended)`);
+    }
+  };
   for (const ps of m.players.values()) {
+    // after Ready / at the prep end the player cannot act on it any more: due at the next prep (as a temp piece)
+    for (const name of ['pushRewardOffer', 'pushItemOffer']) wrap(ps, name, function (orig, ...args) {
+      const offer = orig(...args);
+      if (offer) offerDueOf(ps).set(offer, endedOf(ps) + (m.phase === PHASE.PREP && ps.ready ? 1 : 0));
+      return offer;
+    });
     wrap(ps, '_putTemp', function (orig, i, piece) {
       const res = orig(i, piece);
       // after Ready / at the prep end the player cannot act on it any more: due at the next prep
@@ -116,7 +139,10 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
       const was = ps.ready;
       const res = orig(on);
       // un-ready: the player can act on what arrived while it was ready — due at this prep again
-      if (res && res.ok && was && !on) for (const p of ps.tempPieces()) if (p && (dueOf(ps).get(p.uid) ?? 0) > endedOf(ps)) dueOf(ps).set(p.uid, endedOf(ps));
+      if (res && res.ok && was && !on) {
+        for (const p of ps.tempPieces()) if (p && (dueOf(ps).get(p.uid) ?? 0) > endedOf(ps)) dueOf(ps).set(p.uid, endedOf(ps));
+        for (const o of ps.offers) if ((offerDueOf(ps).get(o) ?? 0) > endedOf(ps)) offerDueOf(ps).set(o, endedOf(ps));
+      }
       if (res && res.ok && on) check('ready', () => { if (!ps.tempEmpty) fail(`${ps.playerId}: ready with a non-empty temp`); });
       return res;
     });
@@ -164,8 +190,9 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
         if (ps.pendingFunds !== 0) fail(`${id}: pending funds not cleared`);
         // temp is not wiped here: what overflowed after the last prep's deadline is shown in this prep
         overdue(ps, 'the round start');
-        // queued reward offers last until picked: none is dropped at the round start (the maintainer's decision of 2026-10-15)
+        // offers lapse only at a prep end: what was queued after the last prep's deadline is shown in this prep (§37.339)
         if (offers0.some((o) => !ps.offers.includes(o))) fail(`${id}: a queued reward offer was dropped at the round start`);
+        overdueOffers(ps, 'the round start');
         if (ps.shop.frozen) fail(`${id}: freeze toggle still on after the round start`);
         const { chess, item } = gd.shopSlots(ps.shop.level);
         if (ps.shop.slots.length !== chess + item) fail(`${id}: ${ps.shop.slots.length} shop slots at level ${ps.shop.level}, expected ${chess}+${item}`);
@@ -274,12 +301,21 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
     wrap(ps, 'endPrep', function (orig) {
       // a temp piece that got there by other means (not _putTemp) was in temp during this prep: due now
       for (const p of ps.tempPieces()) if (p && !dueOf(ps).has(p.uid)) dueOf(ps).set(p.uid, endedOf(ps));
+      // likewise an offer queued by other means (not pushRewardOffer / pushItemOffer)
+      for (const o of ps.offers) if (!offerDueOf(ps).has(o)) offerDueOf(ps).set(o, endedOf(ps));
+      const offers0 = ps.offers.slice();
       const res = orig();
       prepsEnded.set(ps, endedOf(ps) + 1);
       check('prep end', () => {
         // leftover funds are lost at prep end (carry bands excepted); gains after this (SETTLE effects) are kept
         if (ps.funds !== 0 && !carries(ps)) fail(`${ps.playerId}: kept ${ps.funds} funds past the prep end without a carry band`);
         overdue(ps, 'its prep end');
+        // the offers due at this prep lapsed with it; the ones queued after Ready / during onPrepEnd wait for the next
+        overdueOffers(ps, 'its prep end');
+        for (const o of offers0) {
+          const due = offerDueOf(ps).get(o);
+          if (!ps.offers.includes(o) && due >= endedOf(ps)) fail(`${ps.playerId}: a queued reward offer ${offerName(o)} lapsed before its due prep ${due} (${endedOf(ps)} preps ended)`);
+        }
       });
       return res;
     });
@@ -388,6 +424,7 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
       for (const ps of m.alivePlayers()) {
         const id = ps.playerId;
         overdue(ps, 'into combat');
+        overdueOffers(ps, 'into combat');
         if (!ps.ready) fail(`${id}: not ready at combat start`);
         if (ps.funds !== 0 && !carries(ps)) fail(`${id}: kept ${ps.funds} funds into combat`);
         for (const s of ps.shop.slots) if (s && (!s.frozen || s.sold)) fail(`${id}: unfrozen/sold slot ${s.id} survived into combat`);

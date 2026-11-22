@@ -137,18 +137,21 @@ test('merge from two board copies with a full hand (a gained copy; a purchase is
   m.dispose();
 });
 
-test('a promotion offer left unpicked stays queued into the next round and can be taken there (2026-10-15)', () => {
+test('a promotion offer left unpicked lapses at the end of its prep: nothing is picked for the player, the next prep shows none (official tip, §37.339)', () => {
   const { h, m, ps } = prep(25);
   ps.pushRewardOffer('merge');
   const offer = ps.offers[0];
-  const pick = offer.slots[0].id;
+  assert.equal(ps.offerDue(offer), ps.prepsEnded, 'queued before Ready: due at this prep');
+  const owned = ps.allChess().length;
+  // a queued offer never blocks Ready (「晋级的特殊奖励无法被刷新、冻结，也不会保留至下一回合」)
   assert.deepEqual(m.handle('p_0', { t: 'g.ready', ready: true }), { ok: true });
+  h.run(() => m.phase !== PHASE.PREP);
+  assert.equal(ps.offers.length, 0, 'lapsed at the prep end');
+  assert.equal(ps.privateView().shop.rewardOffer, null);
+  assert.equal(ps.allChess().length, owned, 'no operator was picked for the player');
   h.drive(() => m.phase === PHASE.PREP && m.round === 2);
-  assert.equal(ps.offers.length, 1, 'still queued in the next prep');
-  assert.equal(ps.offers[0], offer, 'the same offer, the same cards');
-  assert.deepEqual(m.handle('p_0', { t: 'g.reward', idx: 0 }), { ok: true });
-  assert.equal(ps.offers.length, 0);
-  assert.ok([...ps.hand, ...ps.temp].some((p) => p && p.id === pick), 'the picked operator arrived');
+  assert.equal(ps.offers.length, 0, 'not shown again in the next prep');
+  assert.equal(m.handle('p_0', { t: 'g.reward', idx: 0 }).error, ERR.BAD_TARGET);
   checkInvariants(m);
   m.dispose();
 });
@@ -172,7 +175,7 @@ test('merge whose copies are not deployed (temp) with a full hand overflows the 
   m.dispose();
 });
 
-test('displayed operator rewards survive stock exhaustion, respect a full hand and stay queued past the prep end', () => {
+test('displayed operator rewards survive stock exhaustion, respect a full hand and lapse at the prep end', () => {
   const { h, m, ps } = prep(24);
   ps.pushRewardOffer('merge');
   const offer = ps.offers[0];
@@ -191,8 +194,8 @@ test('displayed operator rewards survive stock exhaustion, respect a full hand a
   assert.deepEqual(m.handle('p_0', { t: 'g.ready', ready: true }), { ok: true });
   h.sched.runNext();
   h.sched.runNext();
-  // a queued offer lasts until picked (the maintainer's decision of 2026-10-15): the prep end keeps it for the next prep
-  assert.equal(ps.offers.length, 1, 'the offer stays after the prep end');
+  // queued before Ready, it lapses with this prep (the official tip, §37.339)
+  assert.equal(ps.offers.length, 0, 'offer gone at prep end');
   checkInvariants(m);
   m.dispose();
 });
@@ -386,6 +389,7 @@ test('a merge completed during SETTLE (突变细胞) keeps its reward offer for 
     const elite = ps.allChess().find((p) => p.id === m.gd.goldenIdOf(X));
     assert.ok(elite, 'the elite survived the round start');
     assert.deepEqual(ps.offers.map((o) => o.source), ['merge'], 'the promotion reward waits for this prep');
+    assert.equal(ps.offerDue(ps.offers[0]), ps.prepsEnded, 'due at this prep (queued after the last one, §37.339)');
     assert.ok(ps.privateView().shop.rewardOffer, 'and is shown');
     const loc = ps.find(elite.uid);
     if (holderTile) assert.ok(!ps.board.has(holderTile), `${label}: the carrier's tile is empty`);
@@ -410,10 +414,9 @@ test('a merge completed during SETTLE (突变细胞) keeps its reward offer for 
     assert.equal([...ps.hand, ...ps.temp].filter((p) => p && p.id === CELL).length, 1, `${label}: the cell came back`);
     assert.ok(ps.temp.every((p) => !p || p.id === CELL), `${label}: nothing else waits in temp`);
     checkInvariants(m);
-    // it stays queued through the round like any other offer (kept until picked, 2026-10-15)
-    const queued = ps.offers.length;
+    // left unpicked, it lapses at the end of this prep like any other offer (the official tip, §37.339)
     h.drive(() => m.phase === PHASE.COMBAT && m.round === 2);
-    assert.equal(ps.offers.length, queued);
+    assert.equal(ps.offers.length, 0);
     m.dispose();
   }
 });

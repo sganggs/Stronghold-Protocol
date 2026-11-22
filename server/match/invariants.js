@@ -18,7 +18,8 @@
 //            (where a merge's elite goes — a consumed deployed copy's tile, else the hand — needs the state before the
 //            merge: audit.js checks it per merge)
 //   bonds    ps.bonds equals a fresh computeBonds() (every mutation recomputed them); every bond's layers 0 … BOND_LAYER_CAP
-//   shop     slot count follows the rolled layout; ids known; banned chess never offered by the shop / rewards
+//   shop     slot count follows the rolled layout; ids known; banned chess never offered by the shop / rewards; no
+//            queued reward offer past its due prep (offer.due < prepsEnded: it lapses at that prep's end, §37.339)
 //   elim.    an eliminated player owns nothing (board, hand, temp, shop, offers, bounties, funds)
 //   choice   a player's open 教鞭 choice (`personalChoice`) is one of an alive, not-Ready player in the PREP of its own round,
 //            with one to three different cards
@@ -192,6 +193,7 @@ export function collectViolations(m, { limit = 25 } = {}) {
           if (s.kind !== 'item' && gd.chess(s.id)?.isDiy && !(ps.diyStock && ps.diyStock.has(gd.baseIdOf(s.id)))) fail(`${id}: 自选 slot ${s.id} offered without its stock`);
         }
         if (!o.slots || !o.slots.length || o.slots.length > 6) fail(`${id}: reward offer with ${o.slots && o.slots.length} slots`);
+        if (Number.isInteger(o.due) && o.due < ps.prepsEnded) fail(`${id}: reward offer due at prep ${o.due} still queued (${ps.prepsEnded} preps ended)`);
       }
     }
     // 自选 stock accounting (player/diy.js): left + held == cap per slotted slot; a slot without stock holds nothing

@@ -1,6 +1,6 @@
 // server/match/player/basics.js — PlayerState methods: the basics — seat flags and counts (isHumanActive,
 // botControlled, deployCap, deployCount, tempEmpty), the prep that resolves a temp piece (tempDue, _putTemp: every
-// write into a temp slot), the operator loadout (DESIGN §16: setLoadout, loadoutFor; 0.2.2 潜能 / 练度: cultivationFor), the not-owned operators fielded
+// write into a temp slot) or lapses a queued reward offer (offerDue), the operator loadout (DESIGN §16: setLoadout, loadoutFor; 0.2.2 潜能 / 练度: cultivationFor), the not-owned operators fielded
 // as their stand-ins (0.2.0 补位: setNotOwned, fieldsStandIn, fieldRecord), the deploy map on the field the
 // player deploys on (Match.deployFieldOf) and the withdrawal of pieces a terrain / deploy-field change left on tiles
 // they may no longer occupy (_evictIllegal), dirty.
@@ -44,9 +44,19 @@ export class PlayerBasics {
   }
 
   /**
-   * Due prep of a piece entering temp now: the current prep while the player can still act on it (PREP, not ready);
-   * after Ready or at the prep end (onPrepEnd grants) the next one; outside PREP (COMBAT, SETTLE, ROUND_START, 机变)
-   * the next prep to end — `prepsEnded` then already names it.
+   * Index of the prep whose deadline lapses a queued reward offer (compare with `prepsEnded`; DESIGN §37.339): recorded
+   * when the offer was queued (pushRewardOffer / pushItemOffer, `_tempDueNow` — the same due prep as a temp piece); an
+   * offer queued by other means counts as due at the current (or next) prep.
+   */
+  offerDue(offer) {
+    const due = offer ? offer.due : undefined;
+    return Number.isInteger(due) ? due : this.prepsEnded;
+  }
+
+  /**
+   * Due prep of a piece entering temp — or of a reward offer queued (offerDue) — now: the current prep while the player
+   * can still act on it (PREP, not ready); after Ready or at the prep end (onPrepEnd grants) the next one; outside PREP
+   * (COMBAT, SETTLE, ROUND_START, 机变) the next prep to end — `prepsEnded` then already names it.
    */
   _tempDueNow() {
     return this.prepsEnded + (this.m.phase === PHASE.PREP && this.ready ? 1 : 0);

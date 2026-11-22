@@ -225,6 +225,17 @@ test('target ownership, ready, stale ids, funds and special recruit refuse witho
   assert.ok(ps.useCommand(commandView(ps).effectId, { slot: 0 }).error);
 });
 
+test('the special-recruit lock ends with the prep: an unpicked offer lapses at its end (§37.339)', t => {
+  const { h, ps } = setup(t, 'band_transfer');
+  assert.ok(ps.pushRewardOffer('merge'));
+  assert.equal(commandView(ps).reason, 'specialRecruit');
+  assert.equal(ps.privateView().command.reason, 'specialRecruit');
+  h.toPrep(2);
+  assert.equal(ps.offers.length, 0, 'the offer lapsed with the prep');
+  assert.notEqual(commandView(ps).reason, 'specialRecruit');
+  assert.notEqual(ps.privateView().command.reason, 'specialRecruit', 'the view carries no special-recruit state');
+});
+
 test('ALL_LIMIT persists across rounds and replacement drafts; drafts queue and survive snapshots', t => {
   const { ps, use, view } = setup(t, 'band_upgrade');
   const p = grant(ps); assert.ok(use({ uid: p.uid }).ok); assert.equal(ps.gd.isGolden(p.id), true);
