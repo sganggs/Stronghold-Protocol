@@ -16,6 +16,7 @@ public/fonts/
 # The repository never stores those official files.
 # 规程 scene extract (regulation_scenes.py): written under out/ for review, then installed into
 # public/assets/local. The directory is official art and must not be committed.
+# extract.py --only skins / library (skins.py, §37.331) write under out/local-extract/ unless --out names a folder.
 /out/
 data/local-assets.json
 # tools/local-extract/fx.py → the official battle effects' file list (DESIGN §33; the files under public/assets/local/fx/)

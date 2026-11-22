@@ -17,9 +17,11 @@
 // pickGroup), an UberAnimation emitter's replace groups with their animation, an InCertainMode emitter's rows in its mode
 // only (_rowOk). The skill, talent and charge effects (render/vfx/skills.js plans) are played by `this.skills`
 // (render/vfx/skillfx.js SkillFx): the skill's start / loop / end / ready / range, its attacks' rows, hit groups and
-// projectile, its trigger, the 秘术师 charge, an enemy's skill window and the kit 'fx' tuples it stands for. What
-// index.json cannot drive (an unknown unit, an enemy skill no signal opens) stays procedural: each entry point returns
-// whether it drew the official effect.
+// projectile, its trigger, the 秘术师 charge, an enemy's skill window and the kit 'fx' tuples it stands for. An 'atk' of
+// kind 'mortar' (帝国炮火先兆者's shell, which lands with the kit's 'bombard' 3 s later) plays its casts only: the kit's
+// 'bombardShell' / 'bombard' place its projectile's target, flying and reached effects at the sim's times (skills.js
+// ENEMY_FX_BINDINGS, #143). What index.json cannot drive (an unknown unit, an enemy skill no signal opens) stays
+// procedural: each entry point returns whether it drew the official effect.
 //
 //   const w = new FxWiring(ofx, { unitKey: (info) => string|string[]|null, record: (info) => data record,
 //                                 view: (id) => view, speed: (kind) => tiles per game s })
@@ -39,6 +41,7 @@
 // 领主's ranged-kind 'atk' on the enemy it blocks is its Combat blow (`_combatKind`); a sim-melee attack whose official
 // ability shoots flies its projectile for show (蒂比: `attack`); a chain's line stays CHAIN_LINE_S (`chain`).
 
+import { CannonFx, CANNON_UNIT } from './cannonfx.js';
 import { spawnPoint, mountPoint, unitPoint, spawnKind, mountKind, spawnRotation, mountRotation, graphicRotation } from './mounts.js';
 import { projectileParts, paracurve, arcHeight, wobble } from './flight.js';
 import { GROUND_SPAWNS } from './effect.js';
@@ -238,6 +241,7 @@ export class FxWiring {
     this.pendingHit = new Map();  // target id → battle time until which an official hit still to come covers its damage
     this.healed = new Map();      // target id → battle time of an official heal projectile hit
     this.inAir = new Map();       // target id → official hits on their way [{ from, until, frame, t }] (_expect)
+    this.blasts = new Map();      // target id → the frame of an official enemy shell's landing around it (_blasted)
     this.chains = new Map();      // target id → the chain an official shot opened on it { proj, rows, src, line, at, until }
     this.keyCache = new Map();    // unit id → index unit key | null
     this.attackN = new Map();     // unit id → attacks so far (onlyOnce / hookEffectAfterFirstAttack rows)
@@ -245,6 +249,7 @@ export class FxWiring {
     this.skills = new SkillFx(this);
     this.talents = new TalentFx(this);
     this.funnels = new FunnelFx(this);
+    this.cannons = new CannonFx(this);
   }
 
   get index() { return this.idx; }
@@ -313,10 +318,12 @@ export class FxWiring {
 
   /**
    * Where a view stands, as mounts.js reads it: board feet + facing, the view itself (its model's bones: the
-   * BoneFollower points) and the camera's tilt (the plane the drawn model faces).
+   * BoneFollower points) and the camera's tilt (the plane the drawn model faces). The facing is the one an operator's
+   * attack turn that runs now ends on (UnitView.settledFacing, DESIGN §37.329): the cast effects of a wind-up and the
+   * shot of a late strike spawn in the frame the turn starts.
    */
   pose(v) {
-    return { x: v.x, y: v.y, z: (v.z || 0) + (v.hover || 0), left: (v.visFacing ?? v.facing ?? 1) < 0, back: typeof v._wantsBack === 'function' ? !!v._wantsBack() && !!v.entryBack : false, view: v, tilt: this._camTilt() };
+    return { x: v.x, y: v.y, z: (v.z || 0) + (v.hover || 0), left: (v.settledFacing ?? v.visFacing ?? v.facing ?? 1) < 0, back: typeof v._wantsBack === 'function' ? !!v._wantsBack() && !!v.entryBack : false, view: v, tilt: this._camTilt() };
   }
 
   /** The battle camera's tilt (degrees from straight down), or undefined (mounts.js SKELETON_TILT). */
@@ -327,6 +334,7 @@ export class FxWiring {
 
   /** The battle's units' effect keys (for preloading; `generic` false: the units' own only). */
   keysFor(views, generic = true) {
+    views = Array.isArray(views) ? views : [...views];
     const keys = new Set();
     const g = generic ? this.idx?.generic : null;
     if (g) {
@@ -368,6 +376,7 @@ export class FxWiring {
     for (const k of this.skills.keys(views)) keys.add(k);
     for (const k of this.talents.keys(views)) keys.add(k);
     for (const k of this.funnels.keys(views)) keys.add(k);   // the 驭械术士's floating units (render/vfx/funnelfx.js)
+    for (const k of this.cannons.keys(views)) keys.add(k);
     return [...keys].map(lc).filter((k) => k && this.ofx.lib.has(k));
   }
 
@@ -850,8 +859,9 @@ export class FxWiring {
    * melee whose official ability is a ranged one with a projectile (蒂比: RangedAttack, the sim's 天空行者 melee) flies
    * that projectile for show, at its own speed (R16) [ASSUMED: display only — the sim's damage lands at the blow, covered
    * until the drawn hit]; a direct ranged attack (no projectile of its own: 能天使's, a 阵法术师's beam) is drawn by its
-   * official rows alone when it has any (R4). Returns true when the unit's official attack was drawn (the procedural
-   * shot is skipped).
+   * official rows alone when it has any (R4); a 'mortar' (帝国炮火先兆者's delayed shell, #143) plays its casts only —
+   * the kit's 'bombardShell' / 'bombard' place its projectile's effects at the sim's times (skills.js EMPPNT_SHELL).
+   * Returns true when the unit's official attack was drawn (the procedural shot is skipped).
    */
   attack(src, tgt, kind, time, wound = false) {
     if (!this.ofx.active || !src || !this.idx) return false;
@@ -875,6 +885,10 @@ export class FxWiring {
     if (a) this._casts(a, src, tgt, phase, { owner: !again });
     if (sk) { this.skills.casts(sk, src, tgt, phase, { owner: !again }); if (!again) this.skills.attacked(sk); }
     if (!again) this.attackN.set(id, nth + 1);
+    // a delayed shell (the sim's 'mortar': 帝国炮火先兆者's kitShell — its damage comes with the kit's 'bombard' SHELL_FLIGHT
+    // s later, docs/SIM.md): no projectile flown and no hit window here; the official shell — its target's crosshair,
+    // its falling missile and its explosion — plays with the kit's 'bombardShell' / 'bombard' (skills.js EMPPNT_SHELL)
+    if (kind === 'mortar') return this._drawable(a, sk, src, nth);
     // the hit rows wait for the damage (each target hit: HitEffectOptions); useOwnerToTargetDirection turns the hit
     // along the blow
     const keysOf = (rows) => rows.flatMap((e) => this._rowKeys(e, src, nth).map((k) => ({ k, along: !!e.useOwnerToTargetDirection })));
@@ -1356,6 +1370,9 @@ export class FxWiring {
     const hpHit = type == null || HP_TYPES.has(type);
     if (hpHit) this.skills.trigger(v);
     const id = v.id ?? v.info?.id;
+    // an official enemy shell's explosion around it this frame stands for its first HP hit (_blasted), ahead of the
+    // records other attacks wait with (the blast is none of their hits)
+    if (hpHit && this._blasted(id)) return true;
     const m = this._pending(id, time);
     // an attached floating unit's hit lands with its damage (荒芜拉普兰德's wolves: render/vfx/funnelfx.js)
     const fun = hpHit ? this.funnels.damage(v, time, type) : false;
@@ -1372,6 +1389,18 @@ export class FxWiring {
     const ph = this.pendingHit.get(id);
     if (ph != null && this.ofx.time <= ph) return true;
     return drawn;
+  }
+
+  /**
+   * Whether an official enemy shell landed around unit `id` in this frame (SkillFx._shellLanded; the sim deals the
+   * shell's damage in the tick of its 'bombard', right after it): the mark is used up by the unit's first HP hit and
+   * lapses with the frame, so a later hit or a heal on the unit keeps its own effect.
+   */
+  _blasted(id) {
+    const f = this.blasts.get(id);
+    if (f == null) return false;
+    this.blasts.delete(id);
+    return f === this.skills.frame;
   }
 
   /**
@@ -1487,6 +1516,7 @@ export class FxWiring {
     this.skills.release(v);
     this.talents.release(v);
     this.funnels.release(v);
+    this.cannons.release(v);
   }
 
   /** b.ev ['skill', id, on] (SkillFx.skill): true when the official layer shows the skill (no procedural burst / aura). */
@@ -1508,9 +1538,11 @@ export class FxWiring {
   sync(views) {
     if (!this.idx) return;
     const list = Array.isArray(views) ? views : [...views];   // (render/app.js passes the views Map's iterator)
-    this.skills.sync(list);
-    this.talents.sync(list);
-    this.funnels.sync(list);
+    this.cannons.sync(list);
+    const actors = list.filter((v) => v.info?.defId !== CANNON_UNIT);
+    this.skills.sync(actors);
+    this.talents.sync(actors);
+    this.funnels.sync(actors);
   }
 
   /**
@@ -1520,6 +1552,7 @@ export class FxWiring {
    */
   simFx(kind, x, y, extra) {
     if (!this.idx) return false;
+    if (this.cannons.simFx(kind, x, y, extra)) return true;
     const t = this.talents.fx(kind, extra, x, y);
     // the floating units stand for the kit's 'drone' / 'drones' / 'droneLock' / 'overload' (render/vfx/funnelfx.js)
     const f = this.funnels.simFx(kind, x, y, extra);
@@ -1529,6 +1562,7 @@ export class FxWiring {
   /** b.ev 'die': the unit's own death effect or the generic one. */
   death(v) {
     if (!v) return false;
+    if (v.info?.defId===CANNON_UNIT) { const drew=this.cannons.release(v,true); this.release(v); return drew; }
     this.release(v);
     if (!this.ofx.active || !this.idx) return false;
     const u = this.unitOf(v);
@@ -1562,7 +1596,7 @@ export class FxWiring {
    * (TalentFx.deployed, once per life: an enemy's AppearSyncedTalent auras, its birth effects). Returns true when drawn.
    */
   spawned(v) {
-    if (!v || !this.idx) return false;
+    if (!v || !this.idx || v.info?.defId === CANNON_UNIT) return false;
     return this.talents.deployed(v);
   }
 
@@ -1577,6 +1611,7 @@ export class FxWiring {
     this.pendingHit.clear();
     this.healed.clear();
     this.inAir.clear();
+    this.blasts.clear();
     this.chains.clear();
     this.keyCache.clear();
     this.attackN.clear();
@@ -1584,6 +1619,7 @@ export class FxWiring {
     this.skills.clear();
     this.talents.clear();
     this.funnels.clear();
+    this.cannons.clear();
     this.forms.clear();
     this.lastTargets.clear();
     this.picks.clear();

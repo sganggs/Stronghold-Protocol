@@ -12,9 +12,10 @@
 // a plugin may write (ASSET_CONTAINERS), each record in the manifest's own shape:
 //   chars[charId]            { avatar, avatarE2, portrait, portraitE2, illust: image, spine: { front, back: Spine },
 //                              skins: { <skin id>: { name, group: text, avatar, avatarE2, portrait, portraitE2, illust:
-//                              image, spine: { front, back: Spine } } } }
+//                              image, spine: { front, back: Spine }, voice / voiceJp / voiceEn / voiceKr / voiceNative:
+//                              { <slot>: audio or a list of 1–16 } } } }
 //   enemies[key]             { icon: image, spine: Spine }
-//   tokens[id]               { avatar: image, spine: Spine, skins: { <owner skin id>: { …a skin… } } }
+//   tokens[id]               { avatar: image, spine: Spine, skins: { <owner skin id>: { …a skin, without lines… } } }
 //   bonds / items / bands / skills / modules / ui[key], prof.icon / large / battlecard / sub[key]     image
 //   audio.bgm[lobby|prep|combat|unite|boss], audio.bossBgm[bossId]     a track { loop, intro? }: replaced as a whole
 //   audio.voice / voiceJp / voiceEn / voiceKr / voiceNative[charId]  { <slot>: audio or a list of 1–16 }      audio.sfx.ui / battle[key]  audio
@@ -27,7 +28,8 @@
 // char_102_texas_epoque_7) is taken too, for an installation that has no skin id for it [ASSUMED]. One operator's record
 // takes at most 64 skins, and so does one summon's; `name` is 1–64 characters, `group` 0–64 (an outfit a plugin adds may
 // have no series; every official operator skin has one); the rest of a skin's record is the operator's own kinds and
-// fields. A reference from a skin resolves against the entry's own skin of the same key, so it means something only once
+// fields, and an operator's skin may also carry that outfit's own lines: the dub trees of `audio.voice` … by slot (#733,
+// DESIGN §37.330 — a slot it lacks is the operator's own line). A reference from a skin resolves against the entry's own skin of the same key, so it means something only once
 // the installation's manifest carries `skins` itself (the committed data/assets.json has none); until then only the
 // operator's own record can be referenced.
 // A value is a path inside the plugin folder (an image .png .jpg .webp, audio .mp3 .ogg), a Spine object
@@ -148,16 +150,28 @@ const SKIN_KEY = /^[A-Za-z0-9_][A-Za-z0-9_@#+.-]{0,63}$/;
 const TEXT_MAX = 64;
 /** The most skins one operator's record takes (the overlay schema's maxProperties). */
 const SKINS_MAX = 64;
-/** One skin of an operator: the pictures and models the operator's own record has, under its key, and its name. */
+/** One appearance: the pictures and models the operator's own record has, under its key, and its name — a summon's skin
+ *  (`tokens[id].skins`) as it is, and the base of an operator's (OPERATOR_SKIN_RECORD). */
 const SKIN_RECORD = { fields: { name: 'text', group: 'text', avatar: 'image', avatarE2: 'image', portrait: 'image',
   portraitE2: 'image', illust: 'image', spine: { fields: { front: 'spine', back: 'spine' } } } };
+/** One dub of an operator's lines: its voice slots (start, faceEnemy, select, place, skill1 …), each one file or a list. */
+const VOICE_TREE = { each: 'audioList', key: SLOT };
+/**
+ * One skin of an operator (`chars[charId].skins`): an appearance, plus that outfit's own lines (#733, DESIGN §37.330) —
+ * one tree per dub, named and slotted like the manifest's (`audio.voice` 中文, `voiceJp`, `voiceEn`, `voiceKr`,
+ * `voiceNative`). While the outfit is worn a slot it has plays instead of the operator's line of the same dub, a slot
+ * it lacks (or leaves an empty list) the operator's own (public/js/audio.js voiceLine). A summon says nothing, so its
+ * skins carry no lines.
+ */
+const OPERATOR_SKIN_RECORD = { fields: { ...SKIN_RECORD.fields,
+  voice: VOICE_TREE, voiceJp: VOICE_TREE, voiceEn: VOICE_TREE, voiceKr: VOICE_TREE, voiceNative: VOICE_TREE } };
 const SFX_UNIT = { fields: { attack: 'audio', hit: 'audio', skill: 'audio', die: 'audio', born: 'audio',
   skills: { each: 'audio', key: INDEX }, attacks: { each: 'audio', key: INDEX }, hits: { each: 'audio', key: INDEX } } };
 
 /** @type {readonly AssetContainer[]} the record containers a cosmetic plugin writes (see the header) */
 export const ASSET_CONTAINERS = Object.freeze(/** @type {AssetContainer[]} */ ([
   { path: ['chars'], record: { fields: { avatar: 'image', avatarE2: 'image', portrait: 'image', portraitE2: 'image', illust: 'image',
-      spine: { fields: { front: 'spine', back: 'spine' } }, skins: { each: SKIN_RECORD, key: SKIN_KEY, max: SKINS_MAX, keyName: 'key (letters, digits, _ @ # + . -, at most 64 characters)', keyProblem: true } } } },
+      spine: { fields: { front: 'spine', back: 'spine' } }, skins: { each: OPERATOR_SKIN_RECORD, key: SKIN_KEY, max: SKINS_MAX, keyName: 'key (letters, digits, _ @ # + . -, at most 64 characters)', keyProblem: true } } } },
   { path: ['enemies'], record: { fields: { icon: 'image', spine: 'spine' } } },
   { path: ['tokens'], record: { fields: { avatar: 'image', spine: 'spine', skins: { each: SKIN_RECORD, key: SKIN_KEY, max: SKINS_MAX, keyName: 'key (letters, digits, _ @ # + . -, at most 64 characters)', keyProblem: true } } } },
   ...['bonds', 'items', 'bands', 'skills', 'modules', 'ui'].map((k) => ({ path: [k], record: 'image' })),
@@ -165,12 +179,12 @@ export const ASSET_CONTAINERS = Object.freeze(/** @type {AssetContainer[]} */ ([
   // audio.bgm: the tracks by name — not combatAlts, a list of tracks the client reads by round
   { path: ['audio', 'bgm'], record: 'track', keys: ['lobby', 'prep', 'combat', 'unite', 'boss'] },
   { path: ['audio', 'bossBgm'], record: 'track' },
-  { path: ['audio', 'voice'], record: { each: 'audioList', key: SLOT } },
-  { path: ['audio', 'voiceJp'], record: { each: 'audioList', key: SLOT } },
+  { path: ['audio', 'voice'], record: VOICE_TREE },
+  { path: ['audio', 'voiceJp'], record: VOICE_TREE },
   // the other official dubs of round 40 (DESIGN §32.14.11): English, Korean, the operator's own-language dub
-  { path: ['audio', 'voiceEn'], record: { each: 'audioList', key: SLOT } },
-  { path: ['audio', 'voiceKr'], record: { each: 'audioList', key: SLOT } },
-  { path: ['audio', 'voiceNative'], record: { each: 'audioList', key: SLOT } },
+  { path: ['audio', 'voiceEn'], record: VOICE_TREE },
+  { path: ['audio', 'voiceKr'], record: VOICE_TREE },
+  { path: ['audio', 'voiceNative'], record: VOICE_TREE },
   { path: ['audio', 'sfx', 'ui'], record: 'audio' },
   { path: ['audio', 'sfx', 'battle'], record: 'audio' },
   { path: ['audio', 'sfx', 'units'], record: SFX_UNIT },

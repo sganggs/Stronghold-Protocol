@@ -101,7 +101,8 @@ describe('D4 暴鸰: the drone lets go of its bomb on screen', () => {
     assert.match(src, /function applyInfo\(u\)\s*\{\s*const info = renderInfo\(u\)/);
     const { renderInfo } = await import('../../public/js/render/app.js');
     assert.equal(renderInfo({ id: 7, kind: 'enemy', side: 'enemy', defId: 'enemy_1040_bombd', form: 'bombed' }).form, 'bombed');
-    assert.match(src, /src\.onAttack\?\.\(tgt, now, e\[3\]\)/);
+    // (+ whether the look-ahead wound it up and whether it is an area attack: the operator facing, DESIGN §37.329)
+    assert.match(src, /src\.onAttack\?\.\(tgt, now, e\[3\], woundUp\.has\(e\), areaAtk\.has\(e\)\)/);
     // the wind-up look-ahead (render/app/windup.js) hands the kind to the view (+ the slot of a strike cast in its tick,
     // §35.48 — its behaviour: test/render/enemy-strike-clip.test.js)
     assert.match(readFileSync(path.join(ROOT, 'public/js/render/app/windup.js'), 'utf8'), /v\.windUp\(t - upcomingT, e\[3\], /);

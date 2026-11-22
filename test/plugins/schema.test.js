@@ -119,6 +119,9 @@ const OVERLAYS = [
     'char_4058_pepe@sightseer#2': { name: '悠然假日', group: '珊瑚海岸', avatar: 'art/a.png', avatarE2: 'art/b.webp', portrait: 'p.jpg', portraitE2: 'P.PNG', illust: 'art/pepe.png',
       spine: { front: { skel: 'm/t.skel', atlas: 'm/t.atlas', textures: ['m/t.png', 'm/t2.png'], pma: true }, back: { skel: 'b/t.skel', anims: 'auto' } } },
     char_4058_pepe_sightseer_2: { ref: 'char_112_siege', name: 'stem form' } } } } }],
+  ['an outfit with its own lines in every dub (#733)', { chars: { char_102_texas: { skins: { 'char_102_texas@epoque#7': { name: '意志',
+    voice: { select: ['v/a.mp3', 'v/b.ogg'], skill1: 'v/s.mp3', place: { ref: 'char_112_siege' } }, voiceJp: { select: 'v/j.mp3' }, voiceEn: { start: 'v/e.mp3' },
+    voiceKr: { faceEnemy: 'v/k.mp3' }, voiceNative: { ref: 'char_112_siege' } } } } } }],
   ['an enemy, a summon', { enemies: { enemy_1007_slime: { icon: 'e.png', spine: { skel: 'e/s.skel' } } }, tokens: { token_x: { avatar: 't.png', spine: { ref: 'token_y' } } } }],
   ['a summon and the appearances its owner\'s outfits bring', { tokens: { token_10006_vodfox_doll: { avatar: 't.png', skins: {
     'char_498_inside@kitchen#2': { name: '厨房', group: '罗德厨房', avatar: 't2.png', illust: 't3.png',
@@ -157,6 +160,8 @@ const OVERLAYS = [
   ['a skin key of 65 characters', { chars: { char_102_texas: { skins: { ['s'.repeat(65)]: { name: 'x' } } } } }],
   ['seventeen lines in one slot', { audio: { voice: { c: { select: Array.from({ length: 17 }, (_, i) => `v${i}.mp3`) } } } }],
   ['an empty list of lines', { audio: { voice: { c: { select: [] } } } }],
+  ['an outfit line that is a picture', { chars: { char_102_texas: { skins: { s: { voice: { select: 'a.png' } } } } } }],
+  ['an empty list of an outfit\'s lines', { chars: { char_102_texas: { skins: { s: { voiceJp: { select: [] } } } } } }],
   // broken — a warning
   ['a section a cosmetic plugin does not change', { fonts: { a: 'f.woff2' } }],
   ['a field of a record that does not exist', { chars: { char_102_texas: { skin: 'a.png' } } }],
@@ -166,6 +171,9 @@ const OVERLAYS = [
   ['an unknown field of a track', { audio: { bgm: { lobby: { loop: 'a.mp3', volume: 1 } } } }],
   ['an unknown field of a model', { chars: { char_102_texas: { spine: { front: { skel: 'm/t.skel', scale: 2 } } } } }],
   ['a field of a skin that does not exist', { chars: { char_102_texas: { skins: { sightseer_2: { skin: 'a.png' } } } } }],
+  ['an outfit line slot that is no slot name', { chars: { char_102_texas: { skins: { s: { voice: { '1bad': 'a.mp3' } } } } } }],
+  ['a dub of an outfit the manifest has not', { chars: { char_102_texas: { skins: { s: { voiceDe: { select: 'a.mp3' } } } } } }],
+  ['lines under a summon\'s skin (a summon says nothing)', { tokens: { token_x: { skins: { s: { voice: { select: 'a.mp3' } } } } } }],
 ];
 
 test('the manifest schema accepts exactly what the checks find clean (no problem, no warning)', () => {

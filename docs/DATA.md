@@ -8,6 +8,8 @@ with `docs/research/*.json`. Do not edit them by hand — change the build scrip
 fails while it is stale).
 `data/assets.json` is written by `tools/fetch-assets.mjs`, which keeps the current file rather than drop entries whose
 downloads failed on this machine unless `--allow-shrink` (or `--prune`) is passed (docs/ASSETS.md, DESIGN §21.25).
+`data/card-roster.json` (the 名片干员 roster of every official period) is written by `node tools/build-card-roster.mjs`,
+which `tools/build-data.mjs` runs after writing a version's default output directory ("Cross-period 名片干员 roster" below).
 
 ```
 node tools/build-data.mjs              # build (downloads missing official files into .cache/gamedata@<commit>/, the profile's pins)
@@ -1131,8 +1133,9 @@ it under `enabled` and keeps the configured `default`. The default version is th
 
 The vanilla `/cs/<cs16>/index.json` is byte-identical (no `version`, no `bounds`, URLs under `/data/`). The build tag
 (`server/http/buildTag.js`) counts the served version directories only, so rebuilding a version the server does not offer
-is no new build. `/healthz` adds `versions: { enabled, default, hosts: { workers, matches, transport } }` only when a
-non-default version is enabled.
+is no new build. `/healthz` adds `versions: { enabled, default, loaded, hosts: { workers, matches, transport } }` only when
+a non-default version is enabled (`loaded`: how many versions other than 第二期下半 have their data in memory now, the lobby's default 规程 included — they load on
+first use; a 名片干员 of another period loads none, DESIGN §37.325).
 
 **Match hosts**: unmodded rooms of a non-default version start their matches in `server/match/host/` with `kind: 'version'` —
 one child process per version `cs`, at most `maxHosts`, counted apart from the plugin hosts (docs/design/match.md). The
@@ -1145,6 +1148,37 @@ Gameplay plugins that explicitly list a room's official version in `versions` co
 manifest and changed files, and run in the plugin pool under its existing composition/host limits. Missing `versions`
 means act2autochess only, independently of the lobby default. Official generated data and unmodded version identities
 keep their existing format.
+
+### Cross-period 名片干员 roster (`card-roster.json`, #877)
+
+DESIGN §37.325. The waiting room's seat card may show any official period's card candidate, so one file lists them all:
+`data/card-roster.json` — `{ format: 1, periods, operators }`, one operator per line (sorted by charId, a newline at
+the end: a readable diff), each `{ charId, name, appellation, rarity, golden, periods }`. `periods` are the official
+periods (registry ids, oldest first: `act1autochess@V1_1`, `act1autochess`, `act2autochess@V2_1`, `act2autochess`,
+`act3autochess@V3_1` — `shared/cardRoster.js CARD_PERIOD_ORDER`) whose data lists it; `golden` is true when any of them
+has a visible elite chess record (its E2 art), false for an operator only a 自选编队 pool lists (its E1 art, as in its
+own period's rooms).
+
+- **Source**: per period, `cardEntries(chess, backups)` (`shared/cardRoster.js`) — the visible, non-自选 chess records
+  (an elite record preferred) and `backups.diy.ownedPool` (name and rarity from `backups.diy.operators`, else
+  `backups.units`; appellation from `backups.units`) — the same candidates the room's picker lists and `room.card` accepts
+  for a room's own content. Merged by charId; a name, rarity or appellation that differs between periods, an unknown or
+  repeated period id, a missing name or a rarity outside 1–6 is an error.
+- **Build**: `node tools/build-card-roster.mjs [--check] [--data <dir>]` (`npm run build:roster`) reads `chess.json` and
+  `backups.json` of the default data and of every version's directory (`server/data.js versionDataDir`), writes atomically
+  (temp file + rename); `--check` compares only and exits 1 with "run npm run build:roster" when the file is stale.
+  `tools/build-data.mjs` calls it after writing a version's default output directory (`data/`, or `data/versions/<slug>/`
+  with `--version`; an `--out` elsewhere leaves it alone), a failure counting as an error (exit 1), so every data rebuild
+  keeps it current. `test/card-roster.test.js` regenerates it and compares byte for byte.
+- **Served and read**: a top-level data file, so `/data/card-roster.json` serves it (no route of its own) and
+  `server/data.js loadData` reads it into `getData()` with the others; `server/lobby.js` parses it once per data object
+  (`parseCardRoster`, which drops a malformed row and answers null for another format). It is presentation data
+  (`server/plugins/identity.js PRESENTATION_DATA`, like `assets.json`): outside the content hash, `/cs/` manifests,
+  plugin content sets and the version directories (not in `DATA_FILES`). A data directory without it (a test fixture)
+  falls back to each room's own candidates.
+- **Counts** (current data): 250 operators — 第二期下半 187, 第二期上半 182, 第一期下半 167, 第一期上半 166, 规程 200; 217
+  golden, 33 only in a 自选 pool; 45 059 bytes, 6 477 gzipped. Every row has its avatar and portrait in `data/assets.json`
+  (a golden row also `avatarE2` / `portraitE2`).
 
 ### Per-form equipment capacity and special recruitment
 

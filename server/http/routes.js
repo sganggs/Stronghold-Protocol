@@ -65,9 +65,10 @@ export function healthReport({ startedAt, network, registry, lobby, content = nu
     sockets: network.connectionCount, sessions: registry.size, ...lobby.stats(),
   };
   if (trusted && Object.keys(trusted).length) report.plugins = trusted;
-  // the official versions (DESIGN §35.23): only when another one than 第二期下半 is enabled
+  // the official versions (DESIGN §35.23): only when another one than 第二期下半 is enabled — `loaded`: how many of the
+  // others have their data in memory now (loaded on first use, server/versions.js; DESIGN §37.325)
   if (versions && versions.nonDefault.length) {
-    report.versions = { enabled: [...versions.ids], default: versions.defaultId,
+    report.versions = { enabled: [...versions.ids], default: versions.defaultId, loaded: versions.stats().loaded,
       hosts: versionHosts ? versionHosts.stats() : { workers: 0, matches: 0, transport: 'process' } };
   }
   if (withTraffic && traffic) report.traffic = traffic.snapshot();

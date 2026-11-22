@@ -1351,10 +1351,11 @@ index.json — version 1 and the version 2 fields (§33.12, §33.15; Phase 3c) �
   key says how its fx finds the enemy — `id`; `died`: one of that key that died in the fx's frame within OWNER_NEAR (1)
   tile of its point (a death zone: the sim makes it in the death hook, after the 'die'); `cast`: one whose skill (its
   prefabKey) was cast in that frame (castSlot comes in the same tick); `near`: a standing one within OWNER_NEAR of it;
-  `any`: the kind is that enemy's alone. Tried as: the unit the zone's id names, then a death within OWNER_NEAR, then a
-  cast the zone does not name, then a unit at the point, then the kind alone [ASSUMED: a zone with no id belongs to the
-  death at the point, else to the cast]. A binding that draws nothing does not claim the fx. A zone plays its prefabs at
-  the fx's point on the ground, the looping ones for its `dur`: 萨卡兹枯朽战士 / 组长's death pool (PollutedDie's
+  `any`: the kind is that enemy's alone; `shell`: a shell a `shell` binding took at the fx's point (its landing). Tried
+  as: the unit the zone's id names, then a death within OWNER_NEAR, then a cast the zone does not name, then a unit at
+  the point, then the kind alone [ASSUMED: a zone with no id belongs to the death at the point, else to the cast]. A
+  binding that draws nothing does not claim the fx. A zone plays its prefabs at the fx's point on the ground, the looping
+  ones for its `dur`: 萨卡兹枯朽战士 / 组长's death pool (PollutedDie's
   `projectile_enemy_nhpbr_polluted`, whose `toTargetOnStart` `enemy_nhpbr_attack_range` loops until the projectile stops
   — its life the blackboard's `projectile_life_time`), 萨卡兹枯朽战车 / 尖端's 秽蚀轰击 pool (AttackPolluted's
   `projectile_enemy_nhtank_polluted` reached `enemy_nhtank_attack_range`; the zone's id keeps it when a warrior also died
@@ -1369,8 +1370,18 @@ index.json — version 1 and the version 2 fields (§33.12, §33.15; Phase 3c) �
   spark. A mode's loops: 水遁忍者's spin ('telegraph' of kind 'spin') plays its mode M1's RotateEffect loop
   (`enemy_ymgtop_skill_01_buff_01`, a buff its template creates at its tick, which talents.js leaves unmapped) for its
   record's `EndRotate.rotate_duration`, until 失衡's 'phase' spinStop or its death [ASSUMED: the loop lasts the sim's
-  spin]. The bound prefabs preload with the battle's units (SkillFx.keys). Layer off, or the prefabs not installed: the
-  procedural fx.
+  spin]. A shell (GitHub #143, history §37.327): 帝国炮火先兆者 / 中枢先兆者's attack is an 'atk' of kind 'mortar' (the
+  wiring plays its cast row `enemy_emppnt_attack_01_start_02` only and flies nothing), a 'bombardShell' at the target's
+  spot (id = it, `t` = 3 s) and, t s later, a 'bombard' of kind 'emppnt' there with the damage. Its projectile
+  `projectile_enemy_emppnt` is an AttachToTarget with `_delayToStart` 3: the 'bombardShell' plays its `toTargetOnStart`
+  `enemy_emppnt_attack_01_start` (the crosshair 2.6 s, the light pillar 2.4 s) and its own effect
+  `enemy_emppnt_attack_01_trail` (root FxDelay 2.75 s, then its clip drops the missile from 5.27 tiles up in 0.27 s) at
+  the spot on the ground, held for `t` (`holdKey`) until the shell's 'bombard' — at most 0.5 s past it —, which plays the
+  reached `enemy_emppnt_attack_01_hit` there and stands for the shell's HP hit on each ally within its `r` (+ 0.25):
+  that ally's first HP hit in the landing's frame (`FxWiring.blasts`; heals and later hits keep their own effects)
+  [ASSUMED: the trail at the sim's spot with its root unturned]. The bound prefabs preload with the battle's units
+  (SkillFx.keys). Layer off, or the prefabs not installed: the procedural fx (a 'bombard' whose shell was drawn
+  procedurally stays procedural too).
 * **Summons' skills** (v2) play like an operator's.
 * **Talents and abilities (v3, Phase 3d)**: `render/vfx/talents.js` plans every talent node and ability of a unit with
   the skills' planner and binds it by `when`; `render/vfx/talentfx.js` plays it. In force: an operator's or a summon's
@@ -1892,3 +1903,26 @@ Sources: local official v3 index/prefabs; `pkgrps/btl_pfb_tokens_0.ab` mode `_re
 `SwitchToMelee/Range`; `skill_table.json` (`skchr_wildmn_2`, `skchr_yu_3`, `skchr_mlyss_3`); official client
 `CastEffectOptions.CreateEffect`, `ParticleEffect.FaceTo`, `YuS3EffectBehaviour.OnPlay` and
 `YuS3EffectWithEdgeBehaviour` (addresses and replay evidence in history §34.31). No sim rules change.
+
+### MAP10 salt cannon
+
+`CannonFx` owns idle, birth, landing marker, cast, flight, ground explosion, per-unit hit and destruction effects.
+Battle effects follow the snapshot clock. The extractor reads explicit SpecialPoint0 / FixedMuzzle bindings and
+projectile references, updating the index while preserving other unit records. Existing installations must explicitly
+re-extract `scene/act3autochess_m10` and `fx`; no format-version bump is needed for these additional records.
+The original clip's first-pose muzzle registration remains a display adaptation; see the
+[source notes](../research/cannon-native-20261120.md).
+
+For an existing installation, re-extract the MAP10 scene, then merge the eleven named cannon prefabs and their
+unit bindings into the installed FX index:
+
+```sh
+python tools/local-extract/extract.py --game "/path/to/client" --only scene/act3autochess_m10
+python tools/local-extract/extract.py --game "/path/to/client" --only fx --fx-keys trap_cnnon_idle,trap_cnnon_start,trap_cnnon_attack_start,trap_cnnon_buff,trap_cnnon_lockon,trap_cnnon_trail_1,trap_cnnon_trail_2,trap_cnnon_explode_1,trap_cnnon_explode_2,trap_cnnon_explode_hit,trap_cnnon_destroyed
+```
+
+The named-key run preserves existing `used` entries. To rebuild the entire used set instead, use
+`--only fx --fx-set used`; bare `--only fx` defaults to the sample set.
+Preparation reuses battle idle and landing markers [ASSUMED]; it plays no cannon birth effect. Scouting a teammate's
+preparation board keeps its static devices, including after a stage rebuild or 2D/3D switch. Cannon death uses the
+native destruction effect, or the generic death fallback when it is unavailable, without crate-break debris.

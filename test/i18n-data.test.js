@@ -91,6 +91,40 @@ test('build-i18n matching: exact, blackboard templates, plain from raw, composit
   assert.equal(shapeKey('攻击力<@ba.vup>+{atk:0%}</>'), shapeKey('攻击力+80%'));
 });
 
+test('build-i18n names from the cross-period 名片 roster (#877): names only, the lowest priority, no file overlay, no coverage', () => {
+  const zh = [{ chars: { char_1_a: { name: '甲员' }, char_2_b: { name: '乙员' }, char_3_c: { name: '丙员' }, char_9_d: { name: '丙员' } } }];
+  const en = [{ chars: { char_1_a: { name: 'Alpha' }, char_2_b: { name: 'Beta' }, char_3_c: { name: 'Gamma' }, char_9_d: { name: 'Gamma Alter' } } }];
+  const data = { chess: { chess_a: { charId: 'char_1_a', name: '甲员' } } };
+  const row = (charId, name) => ({ charId, name, appellation: '', rarity: 5, golden: false, periods: ['act2autochess@V2_1'] });
+  const roster = { format: 1, periods: ['act2autochess@V2_1'], operators: [row('char_1_a', '甲员'), row('char_2_b', '乙员'), row('char_9_d', '丙员'), row('char_5_e', '戊员'), row('char_6_f', 'W')] };
+  const plain = buildOverlay({ zh, en, data });
+  const { overlay, report } = buildOverlay({ zh, en, data, nameSources: { 'card-roster': roster } });
+  assert.equal(overlay.names['乙员'], 'Beta', 'a roster operator no data file names gets its official name');
+  assert.equal(overlay.names['丙员'], 'Gamma Alter', 'its own charId\'s pair first');
+  assert.equal(overlay.names['甲员'], 'Alpha');
+  assert.ok(!('戊员' in overlay.names), 'no official pair: nothing (the client shows the appellation)');
+  assert.ok(!('W' in overlay.names), 'a Latin name needs no entry');
+  assert.deepEqual(Object.keys(overlay.files), Object.keys(plain.overlay.files), 'no file overlay for the roster');
+  assert.ok(!('card-roster' in overlay.files));
+  assert.deepEqual(overlay.meta, plain.overlay.meta, 'no coverage counted');
+  assert.deepEqual(report.coverage, plain.report.coverage);
+  // a data file's name wins over the roster's (the lowest priority): 甲员 is Alpha for char_1_a, Alpha Prime for char_8_g
+  const zh2 = [{ chars: { ...zh[0].chars, char_8_g: { name: '甲员' } } }];
+  const en2 = [{ chars: { ...en[0].chars, char_8_g: { name: 'Alpha Prime' } } }];
+  const clash = buildOverlay({ zh: zh2, en: en2, data, nameSources: { 'card-roster': { ...roster, operators: [row('char_8_g', '甲员')] } } });
+  assert.equal(clash.overlay.names['甲员'], 'Alpha', 'chess.json\'s form, not the roster operator\'s');
+  assert.ok(clash.report.nameConflicts.includes('甲员 → Alpha | Alpha Prime'), 'the other form is reported');
+  assert.equal(buildOverlay({ zh: zh2, en: en2, data: {}, nameSources: { 'card-roster': { ...roster, operators: [row('char_8_g', '甲员')] } } }).overlay.names['甲员'],
+    'Alpha Prime', 'alone, the roster operator\'s own form');
+  assert.deepEqual(buildOverlay({ zh, en, data, nameSources: { 'card-roster': { format: 2, operators: roster.operators } } }).overlay.names, plain.overlay.names,
+    'a roster in another format adds nothing');
+  // the generated overlays carry them: 摆渡人 (char_4166_varkis, a 规程 operator no data/*.json of 第二期下半 names) in English
+  assert.equal(OVERLAY.names['摆渡人'], 'Varkáris');
+  const roster0 = readJson('data/card-roster.json');
+  assert.ok(roster0.operators.some((o) => o.charId === 'char_4166_varkis' && o.name === '摆渡人'));
+  assert.ok(!('card-roster' in OVERLAY.files));
+});
+
 test('build-i18n corrections: tried before the official text, the plain twin is stripped from the corrected raw one', () => {
   const zh = [{ t: { a: '攻击力<@ba.vup>+50%</>' } }];
   const en = [{ t: { a: 'ATK <@ba.vup>+50%</> flat' } }];

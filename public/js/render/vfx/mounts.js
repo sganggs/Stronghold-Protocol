@@ -3,8 +3,8 @@
 // mirrored for a left-facing unit and taken from the Back skeleton for one facing up, placed at the unit's feet in the
 // battle's Unity frame. A point a BoneFollower keeps on a Spine bone (the skin's `bone`: Muzzle, the Special points —
 // the client moves them with the skeleton, and the skin's `pos` is only the bone in the prefab's edit-time Default
-// pose) is read from the unit's model as it is drawn now (`unit.view.boneOffset`, render/units.js), with its rotation
-// (`mountRotation`). Pure functions (Node tests).
+// pose) is read from the unit's model as it is drawn now (`unit.view.boneOffset`, render/units.js; mirrored as the
+// operator's running attack turn ends, DESIGN §37.329), with its rotation (`mountRotation`). Pure functions (Node tests).
 //
 //   spawnPoint(skin, spawn, unit, out)   unit = { x, y, z (board: col, row, height), left: bool, back: bool, scale?,
 //                                        view? (a UnitView: boneOffset), tilt? (the camera's, degrees), strike? (the

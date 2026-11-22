@@ -583,6 +583,37 @@ describe('room content sets (P1c: gameplay plugins)', () => {
     await ok(host, { t: 'room.leave' });
   });
 
+  test('room.setPlugins checks the seat cards again (DESIGN §37.326): a plugin operator\'s card goes with its set, the session keeps it; an official card of another period stays', async () => {
+    const OP = 'char_x_data_demo_guard';
+    const V21_ONLY = 'char_344_beewax';   // 蜜蜡: a card of 第二期上半 only (data/card-roster.json, DESIGN §37.325)
+    const host = await player('Texas');
+    const guest = await player('Exusiai');
+    const s0 = await room(host);
+    await ok(guest, { t: 'room.join', code: s0.code });
+    await ok(host, { t: 'room.setPlugins', plugins: [{ id: 'data-demo' }] });
+    await host.waitFor('room.state', (s) => s.content?.vanilla === false);
+    await ok(host, { t: 'room.card', charId: OP });
+    await ok(guest, { t: 'room.card', charId: V21_ONLY });
+    await guest.waitFor('room.state', (s) => seatOf(s, host.id)?.card === OP && seatOf(s, guest.id)?.card === V21_ONLY);
+    // the set goes: the plugin operator's card leaves the seat, the official one stays
+    guest.clearInbox();
+    await ok(host, { t: 'room.setPlugins', plugins: [] });
+    const plain = await guest.waitFor('room.state', (s) => s.content?.vanilla === true);
+    assert.ok(!('card' in seatOf(plain, host.id)), 'the plugin operator\'s card is gone from room.state');
+    assert.equal(seatOf(plain, guest.id).card, V21_ONLY);
+    assert.equal(srv.registry.byId(host.id).card, OP, 'the session keeps it (the page sends the card it can show)');
+    // the set comes back: the official card still stays (the plugin one is the page's to send again)
+    guest.clearInbox();
+    await ok(host, { t: 'room.setPlugins', plugins: [{ id: 'data-demo' }] });
+    const modded = await guest.waitFor('room.state', (s) => s.content?.vanilla === false);
+    assert.equal(seatOf(modded, guest.id).card, V21_ONLY);
+    assert.ok(!('card' in seatOf(modded, host.id)));
+    await ok(host, { t: 'room.card', charId: OP });
+    await guest.waitFor('room.state', (s) => seatOf(s, host.id)?.card === OP);
+    await ok(host, { t: 'room.leave' });
+    await ok(guest, { t: 'room.leave' });
+  });
+
   test('a page that drops checks the content again; the room\'s queue answers a worker room\'s requests in order', async () => {
     const host = await player('Skadi');
     const guest = await player('Specter');

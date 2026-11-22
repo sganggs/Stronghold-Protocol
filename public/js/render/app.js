@@ -150,6 +150,7 @@ import { FxSystem, ensureDamageFonts, projSpeed } from './fx.js';
 import { OfficialFx } from './vfx/system.js';
 import { TerrainFx } from './vfx/terrainfx.js';
 import { FxWiring } from './vfx/wiring.js';
+import { CANNON_UNIT } from './vfx/cannonfx.js';
 import { PluginFxPlayer } from './vfx/pluginPlayer.js';
 import { resolveOfficialFx } from './vfx/tier.js';
 import { createDragController, pieceTile, dragStandTile } from './drag.js';
@@ -168,6 +169,7 @@ import { promotionsOf } from './promote.js';
 import { ensurePixi } from './app/pixi.js';
 import { advanceEffectClock } from './app/playback.js';
 import { createWindUpLookahead } from './app/windup.js';
+import { markAreaAttacks } from './facing.js';
 import { pieceDirOf, pickUnitOf } from './app/pick.js';
 import { CAMERA_MS, BOARD3D_STABLE_MS, BOARD3D_RETRY_MS, PEN_CAMERA_MS, RANGE_GROUPS, LEADER_HIT_STYLE, DRAG_HOLD_TILES, CHAIN_KINDS, DROP_PENDING_MS, DEPLOY_REPLAY_MS } from './app/tune.js';
 import { boardPreference, switchableBox, bandFor, fieldRows, boardArea, viewKind, restView, flightView } from './app/view.js';
@@ -336,6 +338,9 @@ export async function createFieldView(host, options = {}) {
   // dead units for DIE_ANIM_TIME), which must not bring the view back; a spawn / deploy / live sample clears it
   const gone = new Set();
   const woundUp = new WeakSet(); // atk event tuples whose attack wind-up already started
+  // atk event tuples of area attacks (more than one distinct target of one source in a batch, render/facing.js
+  // markAreaAttacks): an operator's model does not turn for them (DESIGN §37.329)
+  const areaAtk = new WeakSet();
   const interp = new SnapshotBuffer({ delay: 0.1, rate: 2 });
   const presentation = new BattlePresentation();
   const sample = new Map();
@@ -425,6 +430,7 @@ export async function createFieldView(host, options = {}) {
   layers.vfxOver.addChild(terrainOfx.over);
   const wiring = new FxWiring(ofx, {
     speed: projSpeed,
+    stage: () => stageRec,
     // the index unit of a battle unit: the drawn operator (a stand-in's, a 自选 pick's), the chess' operator, the enemy / token
     unitKey: (info) => {
       if (!info) return null;
@@ -498,7 +504,7 @@ export async function createFieldView(host, options = {}) {
       b.setArea(boardArea(viewKind(camKind, camOpts)));
       if (stageRec) { b.setStage(stageRec); useOfficialScene(stageRec); }
       b.setFocus(camRect());
-      b.setBattleRect(mode === 'battle' && battleMeta ? battleMeta.rect : null);
+      b.setBattleRect(mode === 'battle' && battleMeta && !battleMeta.prep ? battleMeta.rect : null);
       tiles.project(cam, true);
       recover.since = performance.now();
       for (const [g, r] of hlReq) drawHighlight(r.tiles, r.style, g);
@@ -775,8 +781,8 @@ export async function createFieldView(host, options = {}) {
   function drawStage(st) {
     stageRec = st;
     tiles.setStage(st);
-    tiles.setBattleRect(mode === 'battle' && battleMeta ? battleMeta.rect : null);
-    if (board3d) { board3d.setStage(st); board3d.setBattleRect(mode === 'battle' && battleMeta ? battleMeta.rect : null); useOfficialScene(st); }
+    tiles.setBattleRect(mode === 'battle' && battleMeta && !battleMeta.prep ? battleMeta.rect : null);
+    if (board3d) { board3d.setStage(st); board3d.setBattleRect(mode === 'battle' && battleMeta && !battleMeta.prep ? battleMeta.rect : null); useOfficialScene(st); }
     tiles.project(cam, true);
     // a pen laid out before the stage arrived (setPrep / a scouting board first) used the default zones and the old
     // tile heights: lay it out again on this stage
@@ -1572,8 +1578,9 @@ export async function createFieldView(host, options = {}) {
       const st = data.stage(meta.stageId);
       if (st) setStage(st);
     }
-    tiles.setBattleRect(rect);
-    board3d?.setBattleRect(rect);
+    const deviceRect = battleMeta.prep ? null : rect;
+    tiles.setBattleRect(deviceRect);
+    board3d?.setBattleRect(deviceRect);
     for (const u of Array.isArray(meta.units) ? meta.units : []) applyInfo(u);
     // the official effects of this battle's units load now (the prep → battle switch), the board's heights for their
     // depth-tested materials
@@ -1712,12 +1719,14 @@ export async function createFieldView(host, options = {}) {
     }
     // the official effects of units joining the battle load ahead of their first attack (render/vfx/wiring.js more)
     if (fresh) wiring.more(fresh);
+    // the batch's area attacks, before anything reads them: the look-ahead and a late strike alike (DESIGN §37.329)
+    markAreaAttacks(list, areaAtk);
     return interp.pushEvents(attackRateEvents(list), performance.now() / 1000, t);
   }
 
   // attack wind-ups: an 'atk' still queued in the buffer starts its Spine clip early enough for the strike frame to
   // land when the event is rendered (app/windup.js; the official cast effects play with the clip — vfx/wiring.js castStart)
-  const lookahead = createWindUpLookahead({ views, woundUp, castStart: (v, tv, kind, o) => wiring.castStart(v, tv, kind, o) });
+  const lookahead = createWindUpLookahead({ views, woundUp, areaAtk, castStart: (v, tv, kind, o) => wiring.castStart(v, tv, kind, o) });
   function windUpAttacks(renderT) { lookahead.run(interp, renderT); }
 
   const EVS = [];
@@ -1757,7 +1766,8 @@ export async function createFieldView(host, options = {}) {
         const src = views.get(e[1]) || battleView(e[1]);
         const tgt = views.get(e[2]) || battleView(e[2]);
         // chain / chainHeal bounces: the "source" is the previous target of the bounce, not an attacker
-        if (src && !CHAIN_KINDS.has(e[3])) src.onAttack?.(tgt, now, e[3]);
+        // (wound up: its clip and an operator's facing started already; area: an operator does not turn, DESIGN §37.329)
+        if (src && !CHAIN_KINDS.has(e[3])) src.onAttack?.(tgt, now, e[3], woundUp.has(e), areaAtk.has(e));
         if (e[3] === 'none' || !e[3]) { if (tgt && src) meleePending.set(tgt.id, { src, t: now }); }
         // the unit's official attack (casts, projectile, melee hits — render/vfx/wiring.js) or a chain's bounce (the line of
         // the official shot that opened the chain: wiring.chain), else the procedural one
@@ -1796,7 +1806,7 @@ export async function createFieldView(host, options = {}) {
         const used = consumedIds.delete(e[1]);
         if (v && v.alive) {
           v.die(e[2] === FORCED_EXIT);
-          if (showsDeathFx(v.info, used, e[2])) { if (!wiring.death(v)) fx.death(v); } else wiring.release(v);
+          if ((!used && e[2] !== FORCED_EXIT && v.info?.defId === CANNON_UNIT) || showsDeathFx(v.info, used, e[2])) { if (!wiring.death(v)) fx.death(v); } else wiring.release(v);
         }
         break;
       }
@@ -2079,6 +2089,8 @@ export async function createFieldView(host, options = {}) {
           }
         }
       } else if (mode === 'prep') {
+        wiring.cannons.prep(board3d);
+        if (ofx.active) { ofx.setGround(heightAt,`${board3d?.stageKey}|${board3d?.areaKey}`); ofx.update(dt); }
         for (const [key, pd] of pending) {
           if (now - pd.t > DROP_PENDING_MS) {
             pending.delete(key);

@@ -1,18 +1,23 @@
 // test/lobby-card.test.js — room.card (名片干员, PR #643 split 6) end to end over WebSocket: the wire check, the
-// whitelist (a visible charId of chess.json, or a 自选 operator of the room version's `backups.diy.ownedPool` (#877) —
-// not a hidden preset, a stand-in body or an unknown id), storage
-// on the session (it follows the player into the next room) and the seat, room.state seats[].card for every member (human seats with a
-// card only), '' clearing it, and no phase gate (cosmetic: a running match is neither asked nor refused).
+// whitelist (server/lobby.js cardAllowed: an operator of the cross-period roster data/card-roster.json — any official
+// period's visible chess operators and 自选编队 pool, DESIGN §37.325, #877 — or a card candidate of the room's content;
+// not a hidden preset, a stand-in body or an unknown id), storage on the session (it follows the player into the next
+// room) and the seat, room.state seats[].card for every member (human seats with a card only), '' clearing it, no phase
+// gate (cosmetic: a running match is neither asked nor refused), a card of another period taken in any room without
+// loading that period's data, and a Lobby whose data has no roster falling back to the room's content.
 import { describe, test, before, after, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { startServer } from '../server/index.js';
+import { Lobby } from '../server/lobby.js';
+import { SessionRegistry } from '../server/net.js';
 import { StubMatch } from '../server/match/StubMatch.js';
 import { TestClient } from './helpers/wsClient.js';
 import { ERR } from '../shared/constants.js';
 import { getData } from '../server/data.js';
-import { cardOperators } from '../public/js/ui/seatArt.js';
-import { DEFAULT_VERSION } from '../shared/versions.js';
+import { cardOperators, rosterOperators } from '../public/js/ui/seatArt.js';
+import { CARD_ROSTER, parseCardRoster } from '../shared/cardRoster.js';
+import { DEFAULT_VERSION, LOBBY_DEFAULT_VERSION } from '../shared/versions.js';
 
 // settings outside a room are checked against the server's default version: these tests use 第二期下半's records
 const CLASSIC = Object.freeze({ default: DEFAULT_VERSION });
@@ -22,6 +27,8 @@ const OTHER = 'char_1012_skadi2';     // 浊心斯卡蒂 (chess.json)
 const STAND_IN = 'char_600_cpione';   // a 补位 body (backups.units), no chess record
 const DIY_ONLY = 'char_003_kalts';    // a 自选 operator (backups.diy.ownedPool), no chess record
 const HIDDEN = 'char_616_pithst';     // a hidden preset (chess.json visible: false), not in the picker
+const V21_ONLY = 'char_344_beewax';   // 蜜蜡: a card of 第二期上半 only (data/card-roster.json)
+const REG_ONLY = 'char_4166_varkis';  // a card of 规程·序列Ⅰ only
 
 function clientPool(getUrl) {
   const open = new Set();
@@ -90,13 +97,41 @@ describe('room.card (lobby, stub match)', () => {
     assert.equal(seatOf(st, host.id).card, OPERATOR);
   });
 
-  test('the server takes every operator the client picker lists (ui/seatArt.js cardOperators), in a room too', async () => {
+  test('the server takes every operator the client picker lists (ui/seatArt.js cardOperators and rosterOperators), in a 第二期下半 room: 250', async () => {
     const list = cardOperators(Object.values(getData().chess), getData().backups).map((c) => c.charId);
     assert.ok(list.length > 100);
     assert.ok(list.includes(DIY_ONLY), 'the 自选 pool is offered (ui/seatArt.js cardOperators)');
+    // the other periods' operators (DESIGN §37.325): the roster's rows the room's list lacks, as the picker lists them
+    const others = rosterOperators(getData()[CARD_ROSTER], { exclude: new Set(list) }).map((c) => c.charId);
+    assert.deepEqual(new Set(others), new Set([...parseCardRoster(getData()[CARD_ROSTER]).ids].filter((id) => !list.includes(id))));
+    const all = [...list, ...others];
+    assert.equal(new Set(all).size, 250);
+    assert.ok(others.includes(V21_ONLY) && others.includes(REG_ONLY));
     const c = await pool.player('All');
-    await createRoom(c, 'solo');
-    for (const charId of list) await ok(c, { t: 'room.card', charId });
+    const st = await createRoom(c, 'solo');
+    assert.equal(st.version ?? DEFAULT_VERSION, DEFAULT_VERSION);
+    for (const charId of all) await ok(c, { t: 'room.card', charId });
+  });
+
+  test('a card of another period (第二期上半 蜜蜡, 规程 only) is taken in a 第二期下半 room; every member sees it', async () => {
+    const host = await pool.player('Host');
+    const guest = await pool.player('Guest');
+    const st0 = await createRoom(host);
+    await ok(guest, { t: 'room.join', code: st0.code });
+    await guest.waitFor('room.state', (s) => !!seatOf(s, guest.id));
+    await ok(host, { t: 'room.card', charId: V21_ONLY });
+    await guest.waitFor('room.state', (s) => seatOf(s, host.id)?.card === V21_ONLY);
+    await ok(guest, { t: 'room.card', charId: REG_ONLY });
+    const seen = await host.waitFor('room.state', (s) => seatOf(s, guest.id)?.card === REG_ONLY);
+    assert.equal(seatOf(seen, host.id).card, V21_ONLY);
+  });
+
+  test('a card of another period picked outside a room is taken and lands on the seat of the next room (humanSeat)', async () => {
+    const c = await pool.player('Lobby');
+    await ok(c, { t: 'room.card', charId: REG_ONLY });
+    assert.equal(srv.registry.byId(c.id).card, REG_ONLY);
+    const st = await createRoom(c);
+    assert.equal(seatOf(st, c.id).card, REG_ONLY);
   });
 
   test('every member sees it as room.state seats[].card; "" clears it; bots and card-less seats carry no key', async () => {
@@ -136,4 +171,62 @@ describe('room.card (lobby, stub match)', () => {
     const st = await host.waitFor('room.state', (s) => seatOf(s, host.id)?.card === OPERATOR);
     assert.equal(st.inMatch, true);
   });
+});
+
+describe('room.card on a server with every version (default 规程·序列Ⅰ)', () => {
+  let srv;
+  let pool;
+  before(async () => {
+    srv = await startServer({ port: 0, host: '127.0.0.1', versions: { enabled: 'all', default: LOBBY_DEFAULT_VERSION }, log: quietLog(),
+      MatchClass: StubMatch, assetIndex: false, studio: false });
+    pool = clientPool(() => `ws://127.0.0.1:${srv.port}/ws`);
+  });
+  afterEach(async () => { await pool.closeAll(); });
+  after(async () => { await srv?.close(); });
+
+  test('a card of another period loads no version\'s data: in the lobby (whose default is 规程) and in a 第二期下半 room', async () => {
+    assert.equal(srv.versions.stats().loaded, 0);
+    const c = await pool.player('Light');
+    await ok(c, { t: 'room.card', charId: V21_ONLY });   // outside a room: the roster answers before the default version's data
+    assert.equal(srv.versions.stats().loaded, 0, 'the lobby\'s card loaded no version');
+    await ok(c, { t: 'room.create', mode: 'solo', difficulty: 'NORMAL', version: DEFAULT_VERSION });
+    const st = await c.waitFor('room.state', (s) => s.hostId === c.id);
+    assert.equal(seatOf(st, c.id).card, V21_ONLY, 'humanSeat took it from the roster');
+    await ok(c, { t: 'room.card', charId: REG_ONLY });
+    await c.waitFor('room.state', (s) => seatOf(s, c.id)?.card === REG_ONLY);
+    assert.equal(srv.versions.stats().loaded, 0, 'the room\'s card loaded no version');
+    assert.equal((await (await fetch(`${srv.url}/healthz`)).json()).versions.loaded, 0, '/healthz says so');
+    // the refused ones still are
+    for (const charId of [HIDDEN, STAND_IN, 'char_999_nobody']) await err(c, { t: 'room.card', charId }, ERR.BAD_MSG);
+  });
+
+  test('a 规程 room takes the cards of every other period too (a sample of five)', async () => {
+    const c = await pool.player('Reg');
+    await ok(c, { t: 'room.create', mode: 'solo', difficulty: 'NORMAL', version: LOBBY_DEFAULT_VERSION });
+    const st = await c.waitFor('room.state', (s) => s.hostId === c.id);
+    assert.equal(st.version, LOBBY_DEFAULT_VERSION);
+    const roster = parseCardRoster(getData()[CARD_ROSTER]);
+    const elsewhere = [...roster.byChar.values()].filter((r) => !r.periods.includes(LOBBY_DEFAULT_VERSION)).map((r) => r.charId);
+    assert.ok(elsewhere.includes(V21_ONLY));
+    const sample = [V21_ONLY, OPERATOR, ...elsewhere.filter((id) => id !== V21_ONLY && id !== OPERATOR).slice(0, 3)];
+    assert.equal(sample.length, 5);
+    for (const charId of sample) {
+      await ok(c, { t: 'room.card', charId });
+      await c.waitFor('room.state', (s) => seatOf(s, c.id)?.card === charId);
+    }
+  });
+});
+
+test('a Lobby whose data has no card roster falls back to the room\'s content: another period\'s operator is refused', () => {
+  const { [CARD_ROSTER]: roster, ...rest } = getData();
+  assert.ok(roster, 'the server\'s data has the roster');
+  const data = Object.freeze(rest);
+  const lobby = new Lobby({ registry: new SessionRegistry(), log: quietLog(), getData: () => data });
+  const session = { playerId: 'p_card', name: 'C', connected: true, roomCode: null, ws: null };
+  assert.equal(lobby.officialCardIds().size, 0);
+  assert.equal(lobby.card(session, { charId: V21_ONLY }).error, ERR.BAD_MSG);
+  assert.deepEqual(lobby.card(session, { charId: OPERATOR }), { ok: true });
+  assert.deepEqual(lobby.card(session, { charId: DIY_ONLY }), { ok: true });
+  assert.equal(session.card, DIY_ONLY);
+  lobby.shutdown();
 });

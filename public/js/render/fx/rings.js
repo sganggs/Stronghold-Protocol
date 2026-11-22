@@ -8,9 +8,10 @@ export class FxRings {
 
   /**
    * Ground ring going from r0 to r1 tiles over `dur` real seconds (easing out, fading). `mode` 'in': a warning closing
-   * in — linear, brightening towards its end; 'pulse': throbbing at full size until its end.
+   * in — linear, brightening towards its end; 'pulse': throbbing at full size until its end. `a0`: the alpha it starts
+   * at (scales the whole fade).
    */
-  ring(x, y, z, r0, r1, tint, dur = 0.4, tex = 'ring', mode = null) {
+  ring(x, y, z, r0, r1, tint, dur = 0.4, tex = 'ring', mode = null, a0 = 1) {
     const P = this.P;
     let r = this.ringFree.pop();
     if (!r) {
@@ -26,6 +27,7 @@ export class FxRings {
     r.sp.alpha = 0;
     this._onGround(r.sp, y, z);
     r.x = x; r.y = y; r.z = z; r.r0 = r0; r.r1 = r1; r.t = 0; r.dur = Math.max(0.01, dur); r.mode = mode;
+    r.a0 = Number.isFinite(a0) ? Math.max(0, Math.min(1, a0)) : 1;
     this.rings.push(r);
     if (this.rings.length > 80) { const o = this.rings.shift(); o.sp.visible = false; this.ringFree.push(o); }
   }
@@ -45,9 +47,9 @@ export class FxRings {
       const rx = p.s * rad, ry = Math.max(1, p.y - q.y);
       r.sp.position.set(p.x, p.y);
       r.sp.scale.set((rx * 2) / 128, (ry * 2) / 128);
-      r.sp.alpha = r.mode === 'in' ? 0.35 + 0.65 * u
+      r.sp.alpha = r.a0 * (r.mode === 'in' ? 0.35 + 0.65 * u
         : r.mode === 'pulse' ? (0.35 + 0.35 * Math.abs(Math.sin(r.t * 9))) * Math.min(1, (r.dur - r.t) / 0.06, r.t / 0.06)
-          : 1 - u;
+          : 1 - u);
       this.rings[w++] = r;
     }
     this.rings.length = w;

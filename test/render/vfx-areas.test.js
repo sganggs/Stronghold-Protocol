@@ -5,7 +5,9 @@
 // pulse and its hit on the units in it, 鼎沸's boil and its debuff loop), the operators' area bindings and covers (号角 S1,
 // 浊心斯卡蒂 S3, 银灰 S2, 琴柳, 珊比, 假日威龙陈), a bound area's point on the ground and its reached effects played once,
 // an attack-rooted enemy skill fired by its kit, 盐风主教昆图斯's 'tide' under its 【大潮】 window (ENEMY_FX_COVER, 0.3.2), a
-// ground-placed effect's root at its point — and the procedural looks kept with the layer off or the prefabs not installed.
+// ground-placed effect's root at its point, 帝国炮火先兆者's shell (#143: its 'mortar' attack flies nothing, its
+// 'bombardShell' holds the crosshair and the falling missile at the spot until its 'bombard' plays the explosion) — and the
+// procedural looks kept with the layer off or the prefabs not installed.
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
@@ -13,7 +15,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { FxWiring } from '../../public/js/render/vfx/wiring.js';
-import { AURA_HOLD_S } from '../../public/js/render/vfx/skillfx.js';
+import { AURA_HOLD_S, SHELL_GRACE_S } from '../../public/js/render/vfx/skillfx.js';
 import {
   ENEMY_FX_BINDINGS, ENEMY_FX_KINDS, auraTargets, enemyBindingKeys, modeLoopKeys, bindingEffects, bindingKeys, FX_BINDINGS, FX_COVER, coverOf,
   ENEMY_FX_COVER, enemyCoverOf,
@@ -27,12 +29,14 @@ const HAS_INDEX = existsSync(INDEX);
 const LOOPING = new Set(['ymgtop_spin', 'enemy_nhpbr_attack_range', 'enemy_nhtank_attack_range', 'enemy_actoxi_idle', 'enemy_wintun_range', 'dsubrl_aura', 'cjhot_aura',
   'enemy_cjhot_debuff', 'horn_skill_01_hit_02_buff', 'skadi2_skill_03_buff', 'svrash_skill_02_buff', 'tinman_skill_01_range_01', 'sleach_skill_02_flag_01',
   'sleach_skill_02_ground_01', 'sleach_skill_03_flag_01', 'sleach_skill_03_range_loop_01', 'thumpy_skill_03_range_01',
-  'hbound_skill1_range_01', 'hbound_skill2_range_01', 'hbound_trail_01', 'greyy2_skill_02_range', 'greyy2_skill_02_trail', 'thorn2_skill_02_token']);
+  'hbound_skill1_range_01', 'hbound_skill2_range_01', 'hbound_trail_01', 'greyy2_skill_02_range', 'greyy2_skill_02_trail', 'thorn2_skill_02_token',
+  'enemy_emppnt_attack_01_trail']);
 const KEYS = [...LOOPING, 'mousek_skill_02_range', 'mousek_skill_02_start', 'bombd_cast', 'enemy_dsubrl_attack_hit', 'horn_skill_01_hit_02', 'g_hit', 'g_enemy', 'g_heal',
   'tank_shell_hit', 'sleach_skill_03_range_start_01', 'chen2_skill_02_range_01', 'enemy_dslily_skill_02_start_l', 'enemy_dslily_skill_02_range',
   'enemy_dslily_skill_01_start', 'hbound_skill1_hit_01', 'hbound_skill2_hit_01', 'greyy2_skill_02_hit_02', 'greyy2_skill_02_start', 'tinman_skill_01_hit_01',
-  'thorn2_token_start'];
-const GROUND = new Set(['enemy_nhpbr_attack_range', 'enemy_nhtank_attack_range', 'enemy_actoxi_idle', 'enemy_wintun_range', 'mousek_skill_02_range']);
+  'thorn2_token_start', 'enemy_emppnt_attack_01_start', 'enemy_emppnt_attack_01_start_02', 'enemy_emppnt_attack_01_hit'];
+const GROUND = new Set(['enemy_nhpbr_attack_range', 'enemy_nhtank_attack_range', 'enemy_actoxi_idle', 'enemy_wintun_range', 'mousek_skill_02_range',
+  'enemy_emppnt_attack_01_start', 'enemy_emppnt_attack_01_hit']);
 
 function makeIndex({ installed = KEYS } = {}) {
   const prefabs = Object.fromEntries(installed.map((k) => [k, { file: `prefabs/${k}.json`, looping: LOOPING.has(k), ...(GROUND.has(k) ? { spawn: 5 } : {}) }]));
@@ -84,6 +88,11 @@ function makeIndex({ installed = KEYS } = {}) {
           { role: 'start', keys: ['enemy_dslily_skill_01_start'], from: 'UberEffectEmitter._castEffects', node: 'RockfallG2', ability: 'MeleeAttack', startEvent: 'ON_CAST_START', oneshot: true, list: 'cast' },
         ] },
       } }),
+      // 帝国炮火先兆者: its RangedAttack (the real rows: fx/index.json units.enemy_1112_emppnt) — the muzzle cast row, the
+      // AttachToTarget projectile
+      enemy_1112_emppnt: enemy({ modes: [{ name: 'Default', attack: { class: 'RangedAttack', projectileKey: 'projectile_enemy_emppnt', mount: 'MUZZLE',
+        cast: [{ effects: ['enemy_emppnt_attack_01_start_02'], directionType: 0, oneshot: 1, startEvent: 2, endEvent: 3 }], hit: [] }, combat: null }],
+      projectiles: ['projectile_enemy_emppnt'] }),
       char_4039_horn: { kind: 'char', modes: melee('g_hit'), startEffect: null, deadEffect: null, skills: { skchr_horn_1: { rootClass: 'ReplacementSkillFixed', mode: null, projectiles: ['projectile_chr_horn_s1_light'], uses: [] } } },
       char_1012_skadi2: { kind: 'char', modes: melee('g_hit'), startEffect: null, deadEffect: null, skills: { skchr_skadi2_3: { rootClass: 'CastSkill', mode: null, projectiles: [], uses: [aura('skadi2_skill_03_buff')] } } },
       char_172_svrash: { kind: 'char', modes: melee('g_hit'), startEffect: null, deadEffect: null, skills: { skchr_svrash_2: { rootClass: 'ToggleSkill', mode: null, projectiles: [], uses: [
@@ -108,6 +117,8 @@ function makeIndex({ installed = KEYS } = {}) {
       projectile_enemy_nhtank_polluted: { main: null, onReached: ['enemy_nhtank_attack_range'], effects: ['enemy_nhtank_attack_range'] },
       projectile_enemy_actoxi: { main: null, onReached: ['enemy_actoxi_idle'], effects: ['enemy_actoxi_idle'] },
       projectile_enemy_wintun_range: { main: null, onReached: ['enemy_wintun_range'], effects: ['enemy_wintun_range'] },
+      projectile_enemy_emppnt: { main: 'enemy_emppnt_attack_01_trail', movement: null, onReached: ['enemy_emppnt_attack_01_hit'], toTargetOnStart: ['enemy_emppnt_attack_01_start'],
+        effects: ['enemy_emppnt_attack_01_hit', 'enemy_emppnt_attack_01_start', 'enemy_emppnt_attack_01_trail'] },
       projectile_chr_horn_s1_light: { main: null, onReached: ['horn_skill_01_hit_02_buff', 'horn_skill_01_hit_02'], effects: [] },
       projectile_chr_tinman_s1: { main: null, onReached: ['tinman_skill_01_range_01'], effects: [] },
       projectile_chr_thorn2_s2: { main: 'thorn2_attack_trail', onReached: ['thorn2_token_start', 'thorn2_skill_02_token'], movement: { class: 'Thorn2S2AdvancedMovement' }, effects: [] },
@@ -181,7 +192,7 @@ describe('skills.js: the enemies\' kit-fx bindings', () => {
   test('every binding names its kind, owner and prefabs; the kinds index lists the units', () => {
     for (const [key, kinds] of Object.entries(ENEMY_FX_BINDINGS)) {
       for (const [kind, b] of Object.entries(kinds)) {
-        assert.ok(['id', 'died', 'cast', 'near', 'any'].includes(b.owner), `${key} ${kind} owner`);
+        assert.ok(['id', 'died', 'cast', 'near', 'any', 'shell'].includes(b.owner), `${key} ${kind} owner`);
         assert.ok(b.talent || b.projectile || b.keys || b.modeLoops || b.endMode, `${key} ${kind} plays something`);
         assert.ok(ENEMY_FX_KINDS[kind].includes(key));
         if (b.owner === 'cast') assert.equal(typeof b.skill, 'string', 'a cast owner names the skill (its prefabKey, lower case)');
@@ -590,6 +601,126 @@ describe("a bound area's place", () => {
     assert.deepEqual(at('ParticleEffect', 5), [1, 2, 0], 'GROUND_CENTER: at the anchor (萨卡兹枯朽战士\'s pool is saved 10 tiles under the board)');
     assert.deepEqual(at('ParticleEffect', 2), [1, 2, 0], 'a HitPoint effect: at the anchor too (§34.6.1: every root)');
     assert.deepEqual(at('ProjectileEffect', 0), [1, 2, 0], "a projectile's own effect: on the projectile's body (§34.6.1)");
+  });
+});
+
+describe("帝国炮火先兆者's shell (GitHub #143: the official explosion came ~2.8 s before the damage, then the procedural one)", () => {
+  const emppnt = (k) => k.startsWith('enemy_emppnt_');
+  const round = (x) => Math.round(x * 100) / 100;
+  const SHELL = { r: 1.3, t: 3 };   // fly.js kitShell: r = SHELL_REACH, t = SHELL_FLIGHT
+
+  test("the binding's prefabs: the projectile's start effect on its target and its own trail; the landing: its reached hit", () => {
+    const idx = makeIndex();
+    assert.deepEqual(bindingEffects(idx, ENEMY_FX_BINDINGS.enemy_1112_emppnt.bombardShell), ['enemy_emppnt_attack_01_start', 'enemy_emppnt_attack_01_trail']);
+    assert.deepEqual(bindingEffects(idx, ENEMY_FX_BINDINGS.enemy_1112_emppnt.bombard), ['enemy_emppnt_attack_01_hit']);
+    assert.equal(ENEMY_FX_BINDINGS.enemy_1112_emppnt_2, ENEMY_FX_BINDINGS.enemy_1112_emppnt, '中枢先兆者: the same shell');
+    assert.deepEqual(enemyBindingKeys(idx, 'enemy_1112_emppnt').sort(), ['enemy_emppnt_attack_01_hit', 'enemy_emppnt_attack_01_start', 'enemy_emppnt_attack_01_trail']);
+  });
+
+  test("its 'mortar' attack plays the muzzle cast and flies nothing: no shot, no early explosion, no hit window", async () => {
+    const { w, view, frame, spawned, ofx } = await setup();
+    const e = view(1, 'enemy_1112_emppnt', 9), op = view(2, 'char_4151_tinman', 7);
+    frame();
+    assert.equal(w.attack(e, op, 'mortar', ofx.time, false), true, 'its official cast stands for the attack');
+    assert.deepEqual(spawned.filter(emppnt), ['enemy_emppnt_attack_01_start_02']);
+    for (let i = 0; i < 30; i++) frame();   // 1 s: an ordinary shot over 2 tiles at 10 tiles/s landed after 0.2 s
+    assert.deepEqual(spawned.filter(emppnt), ['enemy_emppnt_attack_01_start_02'], 'no trail, crosshair or explosion from the attack');
+    assert.equal(w.damage(op, 'phys', null, ofx.time), false, 'no hit waits for a damage of the attack');
+  });
+
+  test("its 'bombardShell' holds the crosshair and the falling missile at the spot for t; its 'bombard' there plays the explosion, ends them and covers the shell's hits", async () => {
+    const { w, view, frame, spawned, handles, ofx } = await setup();
+    view(1, 'enemy_1112_emppnt', 9);
+    const op = view(2, 'char_4151_tinman', 6.5), far = view(3, 'char_4151_tinman', 6.5, 11);
+    frame();
+    assert.equal(w.simFx('bombardShell', 6.5, 9, { id: 1, ...SHELL }), true, 'the procedural shell and its closing ring are skipped');
+    assert.deepEqual(spawned.filter(emppnt).sort(), ['enemy_emppnt_attack_01_start', 'enemy_emppnt_attack_01_trail']);
+    const start = live(handles, 'enemy_emppnt_attack_01_start')[0], trail = live(handles, 'enemy_emppnt_attack_01_trail')[0];
+    for (const h of [start, trail]) {
+      assert.equal(round(h.place.pos[0]), -3.5, 'at the spot (Unity x = board x − 10), not on the shooter');
+      assert.equal(h.opts.owner.id, 'fx:point');
+    }
+    ofx.time += 2.9; frame();
+    assert.ok(start.alive && trail.alive, "held through the flight (the trail's FxDelay 2.75 s: its missile drops in the last 0.27 s)");
+    ofx.time += 0.1; frame();
+    assert.equal(w.simFx('bombard', 6.5, 9, { r: 1.3, kind: 'emppnt' }), true, 'the procedural blast is skipped');
+    const hit = live(handles, 'enemy_emppnt_attack_01_hit');
+    assert.equal(hit.length, 1);
+    assert.equal(hit[0].opts.loop, false, 'a one-shot of its own life');
+    assert.equal(round(hit[0].place.pos[0]), -3.5);
+    assert.ok(!start.alive && !trail.alive, 'the landing ends the shell');
+    assert.equal(w.damage(op, 'phys', null, ofx.time), true, "the explosion stands for the shell's hit on the operator inside it (no procedural spark)");
+    assert.equal(w.damage(far, 'phys', null, ofx.time), false, 'two tiles off the blast: its own spark');
+    assert.equal(w.simFx('bombard', 6.5, 9, { r: 1.3, kind: 'emppnt' }), false, 'one landing per shell');
+  });
+
+  test("the landing covers one HP hit per ally in its frame only: a heal or a later hit on the allies around it keeps its own effect (#143 review)", async () => {
+    const { w, view, frame, spawned, ofx } = await setup();
+    view(1, 'enemy_1112_emppnt', 9);
+    const op = view(2, 'char_4151_tinman', 6.5), medic = view(3, 'char_4151_tinman', 7), spared = view(4, 'char_4151_tinman', 6);
+    frame();
+    assert.equal(w.simFx('bombardShell', 6.5, 9, { id: 1, ...SHELL }), true);
+    ofx.time += 3; frame();
+    assert.equal(w.simFx('bombard', 6.5, 9, { r: 1.3, kind: 'emppnt' }), true);
+    const heals = () => spawned.filter((k) => k === 'g_heal').length;
+    assert.equal(w.damage(op, 'phys', null, ofx.time), true, "the shell's hit");
+    assert.equal(w.heal(op, ofx.time), true);
+    assert.equal(heals(), 1, 'a heal in the same frame on a blasted ally plays its generic heal hit');
+    assert.equal(w.damage(op, 'phys', null, ofx.time), false, "a second hit in that frame is not the shell's");
+    // an ally inside the blast the sim's hit missed (interpolated view): its next frame's damage and heal are its own
+    frame();
+    assert.equal(w.damage(spared, 'phys', null, ofx.time), false, 'the mark lapses with the frame');
+    assert.equal(w.heal(medic, ofx.time), true);
+    assert.equal(heals(), 2, 'a heal 0.03 s after the landing on an ally inside it is drawn');
+  });
+
+  test("the hold reads the fx's `t`: without its 'bombard' the shell ends SHELL_GRACE_S after it, and a later 'bombard' stays procedural", async () => {
+    const { w, view, frame, handles, ofx } = await setup();
+    view(1, 'enemy_1112_emppnt', 9);
+    frame();
+    assert.equal(w.simFx('bombardShell', 6, 9, { id: 1, r: 1.3, t: 1 }), true);
+    const trail = live(handles, 'enemy_emppnt_attack_01_trail')[0];
+    ofx.time += 1 + SHELL_GRACE_S - 0.1; frame();
+    assert.ok(trail.alive, 't + SHELL_GRACE_S');
+    ofx.time += 0.2; frame();
+    assert.ok(!trail.alive);
+    assert.equal(w.simFx('bombard', 6, 9, { r: 1.3, kind: 'emppnt' }), false, 'no shell in flight there any more');
+  });
+
+  test("only its own shells: another unit's 'bombardShell' (蕾缪安 S3, 涤火杰西卡 S3), a 'bombard' of no kind or at another spot are not taken", async () => {
+    const { w, view, frame, spawned } = await setup();
+    view(1, 'enemy_1112_emppnt', 9);
+    view(2, 'char_4151_tinman', 4);
+    frame();
+    assert.equal(w.simFx('bombardShell', 6, 9, { id: 2, r: 1.2, t: 0.3 }), false, "an operator's shell keeps its own drawing");
+    assert.deepEqual(spawned.filter(emppnt), []);
+    assert.equal(w.simFx('bombardShell', 6, 9, { id: 1, ...SHELL }), true);
+    assert.equal(w.simFx('bombard', 6, 9, { id: 2, r: 1.2 }), false, "蕾缪安's bombard (no kind) is hers");
+    assert.equal(w.simFx('bombard', 8, 9, { r: 1.3, kind: 'emppnt' }), false, 'no shell of it at that spot');
+    assert.equal(w.simFx('bombard', 6, 9, { r: 1.3, kind: 'emppnt' }), true);
+  });
+
+  test('with the layer off, or its prefabs not installed, the procedural shell, ring and blast stay', async () => {
+    const off = await setup({ active: false });
+    const e = off.view(1, 'enemy_1112_emppnt', 9), op = off.view(2, 'char_4151_tinman', 7);
+    off.frame();
+    assert.equal(off.w.attack(e, op, 'mortar', off.ofx.time, false), false);
+    assert.equal(off.w.simFx('bombardShell', 7, 9, { id: 1, ...SHELL }), false);
+    assert.equal(off.w.simFx('bombard', 7, 9, { r: 1.3, kind: 'emppnt' }), false);
+    // the start effect and the trail missing: the hit alone does not take the landing of a shell drawn procedurally
+    const lite = await setup({ installed: KEYS.filter((k) => !/^enemy_emppnt_attack_01_(start|trail)$/.test(k)) });
+    lite.view(1, 'enemy_1112_emppnt', 9);
+    lite.frame();
+    assert.equal(lite.w.simFx('bombardShell', 7, 9, { id: 1, ...SHELL }), false);
+    lite.ofx.time += 3; lite.frame();
+    assert.equal(lite.w.simFx('bombard', 7, 9, { r: 1.3, kind: 'emppnt' }), false);
+    assert.ok(!lite.spawned.includes('enemy_emppnt_attack_01_hit'));
+    // the cast row missing: the attack is not drawn (the procedural layer draws no 'mortar' either)
+    const bare = await setup({ installed: KEYS.filter((k) => k !== 'enemy_emppnt_attack_01_start_02') });
+    const e2 = bare.view(1, 'enemy_1112_emppnt', 9), op2 = bare.view(2, 'char_4151_tinman', 7);
+    bare.frame();
+    assert.equal(bare.w.attack(e2, op2, 'mortar', bare.ofx.time, false), false);
+    assert.deepEqual(bare.spawned.filter(emppnt), []);
   });
 });
 

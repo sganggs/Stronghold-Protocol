@@ -86,13 +86,16 @@ test('the other way, a target within 0.1 tile, and a wind-up that has not starte
   assert.equal(none.visFacing, -1, 'no target: stay as the walk left it');
 });
 
-test('an operator keeps its deploy direction, and a fixed-facing leader does not turn', async () => {
+test('an operator turns by its own rule (DESIGN §37.329), and a fixed-facing leader does not turn', async () => {
   const op = await unit({ side: 'ally', kind: 'chess', defId: 'char_x', dir: 'LEFT', facing: -1 });
   assert.equal(op.isEnemy, false);
   assert.equal(op.visFacing, -1);
   assert.equal(op.windUp(0.2, 'none', null, 1, { x: 9, y: 12 }), true);
   assert.equal(op.actor.current, 'Attack');
-  assert.equal(op.visFacing, -1, 'operators keep their deploy direction');
+  assert.equal(op.visFacing, -1, 'the 0.15 s turn starts from the deploy facing');
+  for (let i = 0; i < 12; i++) op.update(1 / 60, cam(), i / 60);
+  assert.equal(op.visFacing, 1, 'and ends on the target to the right (test/render/facing-events.test.js covers the rule)');
+  assert.equal(op.dir, 'LEFT', 'display only: the deploy direction stays');
 
   const boss = await unit({ defId: 'enemy_9013_acstmk', x: 8 });
   assert.equal(boss.visFacing, 1, 'FIXED_FACING draws this leader to the right');

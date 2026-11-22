@@ -220,6 +220,32 @@ const combined = {
 The registered `ioleta` strategy selects procurement alone; measurements are in the
 [strategy summary](research/bot-strategies-summary.md).
 
+### Strength at 终极 (2026-11-21, GitHub #742)
+
+`ioleta` stays optional, and on the current measurement it is weaker than the default at 终极: dev `d675b81d`, version
+第二期下半 (`act2autochess`, the default), solo 终极 (`solo:ABYSS`), 伊奥莱塔 forced at the opening (`--band
+band_ioleta`), seeds 1–40.
+
+| | `legacy` | `ioleta` |
+|---|---:|---:|
+| Wins | 13 / 40 (33 %) | 2 / 40 (5 %) |
+| Leaks per match (bounty leaks included) | 19.9 | 31.9 |
+| Rounds passed / reached the boss | 12.90 / 33 | 12.85 / 34 |
+| Leader damage per seat (mean) | 2.67 M | 1.13 M |
+
+Paired by seed: 12 seeds won only by `legacy`, 1 only by `ioleta`, 1 by both, 26 by neither; no errors. `ioleta` leaks
+less in R5–R10 (0.1–0.8 against 1.0–2.2 per surviving bot and round) and collapses in R11–R13 (4.5 / 12.1 / 12.7
+against 2.2 / 2.7 / 5.5), which is why the summary's 2026-10-22 leak table — leaks summed up to R11, no win rates —
+reads the other way. Round 57 found the same gap ([AI-STRATEGY](AI-STRATEGY.md) Cycle 15). The default stays `legacy`;
+`ioleta` stays a community strategy that has to be selected explicitly. Only `ioleta` was rerun; `ioleta-adaptive`
+uses the same Russell procurement and was not measured here. Reproduce (deterministic per seed and head):
+
+```sh
+node tools/botbench.mjs --bot legacy --band band_ioleta --configs solo:ABYSS --seeds 40 --seed 1 --jobs 4 --json .cache/abyss-legacy.json
+node tools/botbench.mjs --bot ioleta --band band_ioleta --configs solo:ABYSS --seeds 40 --seed 1 --jobs 4 --json .cache/abyss-ioleta.json
+node tools/botbench.mjs --compare .cache/abyss-legacy.json .cache/abyss-ioleta.json
+```
+
 ## #673 compatibility audit (2026-10-18)
 
 The registered Russell definition passes through createBotRegistry → defineBotStrategy. The resulting frozen

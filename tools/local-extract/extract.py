@@ -74,6 +74,17 @@ aklz4.py registers a decoder for it. This script pulls the art the web sources l
     panel_act3autochess_on_entry, clips autochess_entry_season_on and autochess_season_on_entry_loop) without the
     screen's own controls → ui/season/act3autochess/entry/prefabs.json + sprites/*.webp, which the title screen plays
     before a 规程 start (public/js/ui/regulationFilm.js)
+  - official outfits (时装) and the operator picture gallery (skins.py; ported from PR #776 by @xcdoge, DESIGN §37.331):
+    opt-in like fx and theme, never in a plain run and never listed in data/local-assets.json. --only skins[/<charId>]
+    → skins/local-skins/ (and local-skins-2 … past one plugin's ceilings): cosmetic plugin source folders
+    (plugin.json, skins.json with chars[<charId>].skins[<skinId>] from the official skin_table.json, --skin-table;
+    avatar, portrait, 立绘 and the Front / Back battle models of every alternative outfit, picture-only when its
+    battleSkin keeps the operator's own model), packed with `node tools/plugin.mjs pack`; the operators of the
+    installation's data/assets.json unless named. --only library[/opillust|opportrait|opavatar] → library/<kind>/ +
+    library/index.json: every 立绘, 半身像 and 头像 of the client, each kind deduplicated on its own. --limit N samples
+    N outfits (N pictures per kind). Both write under --out when given, else under out/local-extract/ (git ignores it;
+    the server does not serve it, unlike public/assets/). Copy the part folders into plugins/ to use them; official art
+    stays on this machine
 
 Usage:
   python3 -m venv .venv && .venv/bin/pip install -r tools/local-extract/requirements.txt
@@ -89,7 +100,11 @@ Usage:
   .venv/bin/python tools/local-extract/extract.py --only theme [--themes <backup or AB root>] [--only theme/<id>]
                                                         --out <scratch> --manifest <scratch>/local-assets.json
   .venv/bin/python tools/local-extract/extract.py --only shopdocs [--only shopdocs/<id>] [--themes <backup or AB root>]
-                                                        --out <scratch> --manifest <scratch>/local-assets.json
+                                                       --out <scratch> --manifest <scratch>/local-assets.json
+  .venv/bin/python tools/local-extract/extract.py --only skins [--only skins/<charId>] [--skin-table <skin_table.json>]
+                                                       [--limit N] [--out <dir>] (writes <out>/skins/local-skins*;
+                                                       <out> is out/local-extract without --out)
+  .venv/bin/python tools/local-extract/extract.py --only library [--only library/<kind>] [--limit N] [--out <dir>]
 
 Writes <out>/**.png|.webp|.skel|.atlas and data/local-assets.json (manifest of what was extracted). With --only, only
 the jobs whose output subdir one of the prefixes names run (`enemy` selects `spine/enemy` as `spine/enemy` does), and
@@ -115,6 +130,7 @@ import versions  # noqa: E402 (the official-version roster's missing presentatio
 import autochess_themes  # noqa: E402 (official in-match UI themes; UnityPy only when a theme run executes)
 import fonts  # noqa: E402 (local-only Font bytes -> public/assets/local/fonts; ignored by git)
 import season_entry  # noqa: E402 (规程's opening for the title screen; UnityPy only when it runs)
+import skins  # noqa: E402 (official outfits and the picture gallery, opt-in; UnityPy only when they run)
 from bundles import client_bundles  # noqa: E402 (Windows hot updates over the packaged client)
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -942,6 +958,12 @@ def atlas_pages(text):
     return [lines[i].strip() for i in range(len(lines)) if _is_page_line(lines, i)]
 
 
+def rename_atlas_pages(text, rename):
+    """Spine atlas text with every page name replaced by rename(page name); everything else is kept."""
+    lines = text.replace('\r\n', '\n').replace('\r', '\n').lstrip('\ufeff').split('\n')
+    return '\n'.join(rename(lines[i].strip()) if _is_page_line(lines, i) else lines[i] for i in range(len(lines)))
+
+
 def normalize_atlas(text, sizes):
     """Spine atlas text with every page header carrying its real `size: w,h` (`sizes`: page name → (w, h)) and no
     `pma`: merge_alpha writes straight pages, and a literal `pma: true` would stop pixi-spine from premultiplying them.
@@ -975,20 +997,29 @@ def normalize_atlas(text, sizes):
     return '\n'.join(out)
 
 
-def write_spine(objects, sda, sub, name, out_root, manifest, log):
+def write_spine(objects, sda, sub, name, out_root, manifest, log, rename=None):
     """Write one Spine model of a SkeletonDataAsset type tree — its skeleton TextAsset, its atlas TextAsset(s) (straight
     pages, no `pma`: normalize_atlas) and the page textures of the atlas materials (_MainTex with its _AlphaTex merged
     in: merge_alpha) — to <out_root>/<sub>/ as <stem>.skel, <stem>.atlas (one stem: pixi-spine finds the atlas by the
     skeleton's name) and <page>.png, and list them in the manifest group `sub`. Returns the file count; 0 when a part is
     missing or the textures do not match the atlas pages (nothing is written then). `name` labels the log lines and
-    names a skeleton without a name."""
+    names a skeleton without a name.
+
+    `rename` (optional) names the files instead of safe_name: rename('skel', skeleton name) is the stem of the .skel
+    and the .atlas, rename('page', page name) the stem of a page image (the same name must give the same stem), and the
+    atlas's page lines are rewritten to those files — the outfits of skins.py, whose official names carry `#`, which a
+    plugin file name may not (docs/PLUGINS.md §5), and whose Front / Back models share one name."""
     get = lambda pptr: objects.get(pptr['m_PathID']) if pptr and not pptr.get('m_FileID') else None  # noqa: E731
     skel = get(sda.get('skeletonJSON'))
     if skel is None:
         log(f'  warn {name}: skeleton TextAsset not in this bundle')
         return 0
     ta = skel.read()
-    stem = safe_name(getattr(ta, 'm_Name', '') or name).removesuffix('.skel')
+    if rename is None:
+        stem = safe_name(getattr(ta, 'm_Name', '') or name).removesuffix('.skel')
+    else:
+        raw = str(getattr(ta, 'm_Name', '') or name)
+        stem = rename('skel', raw[:-5] if raw.endswith('.skel') else raw)
     texts, pages = [], {}
     for aref in sda.get('atlasAssets') or []:
         aa = get(aref)
@@ -1008,11 +1039,14 @@ def write_spine(objects, sda, sub, name, out_root, manifest, log):
             if main is None:
                 continue
             mt = main.read()
-            pages[safe_name(mt.m_Name) + '.png'] = merge_alpha(mt.image, alpha.read().image if alpha is not None else None)
+            page = safe_name(mt.m_Name) if rename is None else rename('page', mt.m_Name)
+            pages[page + '.png'] = merge_alpha(mt.image, alpha.read().image if alpha is not None else None)
     if not texts or not pages:
         log(f'  warn {name}: atlas or page textures missing')
         return 0
     atlas = texts[0] if len(texts) == 1 else '\n\n'.join(t.strip('\n') for t in texts) + '\n'
+    if rename is not None:
+        atlas = rename_atlas_pages(atlas, lambda page: rename('page', page[:-4] if page.lower().endswith('.png') else page) + '.png')
     names = atlas_pages(atlas)
     if set(names) != set(pages):
         if len(names) != 1 or len(pages) != 1:
@@ -1297,10 +1331,41 @@ def export_token_spines(ab_root, out_root, manifest, log, ids=None):
     return n
 
 
+def skin_jobs(only, table_path, plugin_root):
+    """--only skins: (the outfit jobs of skins.plan, the operators of the installation's data/assets.json), or None when
+    the official skin_table.json is not there. A plain `skins` takes the outfits of the installation's operators (their
+    plugin needs only `assets.override`); `skins/<charId>` names any operator of the table."""
+    try:
+        table = json.loads(Path(table_path).read_text(encoding='utf-8'))
+    except (OSError, ValueError) as e:
+        print(f'--only skins needs the official skin_table.json ({e}): pass --skin-table <file> (Kengxxiao/'
+              'ArknightsGameData zh_CN gamedata/excel/skin_table.json)', file=sys.stderr)
+        return None
+    try:
+        installed = sorted((json.loads((Path(plugin_root) / 'data' / 'assets.json').read_text(encoding='utf-8'))
+                            .get('chars') or {}))
+    except (OSError, ValueError):
+        installed = []
+    owners = skins.table_owners(table)
+    named = {c for c in owners if any(p.rstrip('/') == f'{skins.SUB}/{c}' for p in only)}
+    plain = set(owners) & set(installed) if names_sub(only, skins.SUB) else set()
+    return skins.plan(table, plain | named), installed
+
+
+def app_version():
+    """package.json's version ('' when unreadable)."""
+    try:
+        return str(json.loads((ROOT / 'package.json').read_text(encoding='utf-8')).get('version') or '')
+    except (OSError, ValueError):
+        return ''
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--game', help='install directory or AssetBundle root (…/AB/Windows or PlayCover …/Documents/Bundles)')
-    ap.add_argument('--out', default=str(ROOT / 'public/assets/local'))
+    ap.add_argument('--out', default=None,
+                    help='output root (default public/assets/local; for --only skins / library '
+                         f'{skins.DEFAULT_OUT}, a scratch folder the server does not serve)')
     ap.add_argument('--manifest', default=str(ROOT / 'data/local-assets.json'))
     ap.add_argument('--plugin-root', default=str(ROOT), help='installation whose plugin JSON and roster are scanned')
     ap.add_argument('--plugin-art', action='store_true', help='explicitly include referenced official operator art in a full run')
@@ -1324,10 +1389,20 @@ def main():
     ap.add_argument('--webp', action='store_true',
                     help='only write the WebP copies of the board textures and the guide pages from the PNGs already '
                          'under --out and list them in the manifest (needs Pillow, not the client)')
+    ap.add_argument('--skin-table', default=str(ROOT / '.cache/gamedata/excel/skin_table.json'), metavar='FILE',
+                    help='with --only skins: the official skin_table.json (Kengxxiao/ArknightsGameData zh_CN '
+                         'gamedata/excel/skin_table.json)')
+    ap.add_argument('--limit', type=int, default=0, metavar='N',
+                    help='with --only skins / library: at most N outfits / N pictures per kind (a sample)')
     ap.add_argument('--themes', action='append', default=[], metavar='DIR',
                     help='AB root of the official in-match UI themes (repeatable). Used only with --only theme or '
                          '--only shopdocs. Searched before --game')
     args = ap.parse_args()
+    # §37.331: the outfits and the gallery are staging for the server's owner, not art the game loads: without --out
+    # they go to a scratch folder git ignores (out/), not public/assets/, which the server serves to every player and
+    # hashes in the background (server/http/assetIndex.js)
+    args.art_out = args.out or str(ROOT / skins.DEFAULT_OUT)
+    args.out = args.out or str(ROOT / 'public/assets/local')
 
     if args.print_jobs:
         jobs = [{'bundle': rel, 'sub': sub, 'kinds': sorted(kinds), 'keep': keep.pattern if keep else None,
@@ -1368,7 +1443,12 @@ def main():
                                        'producer': 'autochess_themes.export_themes(shopdocs=True)'},
                           'seasonEntry': {'sub': season_entry.SUB, 'bundle': season_entry.BUNDLE,
                                           'prefab': season_entry.PREFAB, 'clips': list(season_entry.CLIPS),
-                                          'format': season_entry.FORMAT}},
+                                          'format': season_entry.FORMAT},
+                          'skins': {'sub': skins.SUB, 'optIn': True, 'plugin': skins.PLUGIN_FILE,
+                                    'defaultOut': skins.DEFAULT_OUT,
+                                    'bundles': [skins.SKIN_PACK.format('<charId>'), skins.AVATARS, skins.PORTRAITS]},
+                          'library': {'sub': skins.LIB_SUB, 'optIn': True, 'kinds': list(skins.LIB_KINDS),
+                                      'index': skins.LIB_INDEX, 'defaultOut': skins.DEFAULT_OUT}},
                          ensure_ascii=False))
         return 0
     if args.webp:
@@ -1408,7 +1488,12 @@ def extract(args, ab_root, game_arg=None, game_data=None):
     versions_on = client and (not args.only or 'versions' in args.only)
     entry_on = client and wants_sub(args.only, season_entry.SUB)
     font_on = client and wants_sub(args.only, fonts.SUB)
-    if not jobs and not enemy_ids and not token_ids and not stage_ids and not reg_ids and not fx_on and not art_on and not versions_on and not theme_ids and not entry_on and not font_on and not shopdoc_ids and not cursor_on:
+    # §37.331: opt-in only, like fx and theme, and never listed in the manifest (skins.py)
+    skins_on = client and bool(args.only) and wants_sub(args.only, skins.SUB)
+    library_kinds = spine_ids(args.only, skins.LIB_SUB, skins.LIB_KINDS) if client and args.only else []
+    listed = any((jobs, enemy_ids, token_ids, stage_ids, reg_ids, fx_on, art_on, versions_on, theme_ids, entry_on,
+                  cursor_on, font_on, shopdoc_ids))
+    if not listed and not skins_on and not library_kinds:
         print(f'--only {args.only}: no job matches', file=sys.stderr)
         return 2
     if theme_ids and not args.themes:
@@ -1417,8 +1502,13 @@ def extract(args, ab_root, game_arg=None, game_data=None):
     if shopdoc_ids and not args.themes:
         print('--only shopdocs needs --themes <backup or AssetBundle root>', file=sys.stderr)
         return 2
+    outfits = skin_jobs(args.only, args.skin_table, args.plugin_root) if skins_on else None
+    if skins_on and outfits is None:
+        return 2
     out_root = Path(args.out)
-    out_root.mkdir(parents=True, exist_ok=True)
+    if listed:
+        out_root.mkdir(parents=True, exist_ok=True)
+    art_root = Path(getattr(args, 'art_out', None) or args.out)
     manifest, total = {}, 0
     chars = {}
     if cursor_on:
@@ -1472,6 +1562,14 @@ def extract(args, ab_root, game_arg=None, game_data=None):
                 print('warn fonts: none of the pinned official faces was listed (the client is missing them or '
                       'their bytes failed the pinned SHA-256); the local font fallback stays active',
                       file=sys.stderr)
+    if outfits is not None:
+        total += skins.export(ab_root, art_root, print, outfits[0], outfits[1], app_version(), args.limit,
+                              Path(args.plugin_root))
+    if library_kinds:
+        total += skins.export_library(ab_root, art_root, print, library_kinds, args.limit)
+    if not listed:  # only skins / library ran: nothing of theirs goes into data/local-assets.json
+        print(f'done: {total} files extracted (outfits / gallery; {args.manifest} unchanged)')
+        return 0 if total else 1
     old, old_chars = {}, {}
     if Path(args.manifest).exists():
         try:

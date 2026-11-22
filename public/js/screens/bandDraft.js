@@ -43,13 +43,15 @@ import { MatchEnemies } from '../ui/matchEnemies.js';
 import { actions, act } from '../ui/gameActions.js';
 import { normalizeDraft, sortedPlayers, pregameStepCount, pregameStepIndex } from '../ui/gameLogic.js';
 import { useStore } from '../store.js';
-import { data } from '../data.js';
+import { data, useData } from '../data.js';
 import { audio } from '../audio.js';
 import { TurnBanner, TURN_BANNER_LATE_MS } from '../ui/turnBanner.js';
 import { onBootArt, preloadBootArt } from '../ui/protocolBoot.js';
 import { reducedMotion } from '../ui/device.js';
 import { useRise } from '../ui/transitions.js';
-import { CARD_KEY, cardStore, cardOperators, cardContext, seatOperator, seatCardSkin, seatArtSrc } from '../ui/seatArt.js';
+import { CARD_KEY, cardStore, cardOperators, cardContext, cardSkinPlayers, rosterOperators, seatOperator, seatCardSkin, seatArtSrc } from '../ui/seatArt.js';
+import { CARD_ROSTER } from '../../../shared/cardRoster.js';
+import { operatorCharIds } from '../../../shared/protocol.js';
 import { skinsStore, SKINS_KEY } from '../ui/skins.js';
 import { settingsStore } from '../ui/settingsStore.js';
 import { chessPortraitUrl, medalIconUrl } from '../ui/assetUrls.js';
@@ -371,8 +373,20 @@ export function BandDraftScreen({ held = null } = {}) {
   // for the seat cards; ui/seatArt.js seatCardSkin): one's own choice at once, a teammate's from the match's public
   // players (m.public.players[].skins), none for another seat while 「显示其他玩家的皮肤」 is off, the default art when the
   // outfit's pictures are not here (chessPortraitUrl) — or fail to load (the row falls back to them: §35.51)
-  // (gd.backups: the room version's 自选编队 pool joins the card list, as on the room's seat cards)
-  const cards = useMemo(() => cardContext(cardOperators(gd.list('chess'), gd.backups), { pending: !gd.backups }), [gd.ready, gd.backups]);
+  // (gd.backups: the room version's 自选编队 pool joins the card list, as on the room's seat cards; #877, DESIGN §37.325:
+  // so does the cross-period roster — a teammate's card of another period resolves, its outfit from the room's seats,
+  // cardSkinPlayers, since the match keeps only the outfits of the operators it plays: only for those the match's data
+  // lacks, `matchOps` — an operator of its data wears the match's choice alone, the room's seats being from before the start)
+  useData(CARD_ROSTER);
+  const roster = data.getRaw(CARD_ROSTER);
+  const rosterState = data.status(CARD_ROSTER);
+  const cards = useMemo(() => {
+    const list = cardOperators(gd.list('chess'), gd.backups);
+    const extra = rosterOperators(roster, { exclude: new Set(list.map((c) => c.charId)), lang: data.locale(), localeName: (s) => data.localeName(s) });
+    return cardContext(list, { pending: !gd.backups || rosterState === 'idle' || rosterState === 'loading', extra });
+  }, [gd.ready, gd.backups, roster, rosterState, data.locale()]);
+  const matchOps = useMemo(() => operatorCharIds({ chess: data.getRaw('chess'), backups: data.getRaw('backups') }), [gd.ready, gd.backups]);
+  const skinPlayers = useMemo(() => cardSkinPlayers(players, roomSeats, matchOps), [pub, roomSeats, matchOps]);
   const myCard = useStore((s) => s[CARD_KEY], Object.is, cardStore);
   const localSkins = useStore((s) => s[SKINS_KEY], Object.is, skinsStore);
   const otherSkins = useStore((s) => s.otherSkins !== false, Object.is, settingsStore);
@@ -380,7 +394,7 @@ export function BandDraftScreen({ held = null } = {}) {
     if (p.isBot) return null;
     const seat = (Array.isArray(roomSeats) && roomSeats.find((x) => x && x.playerId === p.playerId)) || { playerId: p.playerId };
     const op = seatOperator(seat, cards, { myId, myCard });
-    const skin = op ? seatCardSkin(p, op.chess.charId, { myId, localSkins, players, otherSkins }) : null;
+    const skin = op ? seatCardSkin(p, op.chess.charId, { myId, localSkins, players: skinPlayers, otherSkins }) : null;
     return op ? [chessPortraitUrl(data.get('assets'), op.chess, { skin }), skin ? chessPortraitUrl(data.get('assets'), op.chess) : null] : null;
   };
   // this browser's records (up to the stats store's size): read once, after the screen and its entry are up, not while

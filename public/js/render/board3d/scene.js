@@ -288,6 +288,8 @@ export class BoardScene {
   }
 
   _clear() {
+    for (const h of this.prepCannons || []) h.destroy();
+    this.prepCannons = [];
     for (const ch of [...this.root.children]) {
       this.root.remove(ch);
       ch.traverse?.((o) => { if (o.geometry) o.geometry.dispose(); });
@@ -324,6 +326,10 @@ export class BoardScene {
 
   /** DeviceView's dimensions follow the active model; 2D and missing-art boxes keep their old spec. */
   deviceSpec(spec) {
+    if (spec?.cannon) {
+      const model = this.cannonModel();
+      return model ? { ...spec, size:model.size, height:model.height } : spec;
+    }
     if (spec?.top !== 'crateTop' || !this.clientCrateGeometry()) return spec;
     if (!this._crateSpec) {
       const { min, max } = this.pack.meshes.crate.bounds;
@@ -500,6 +506,7 @@ export class BoardScene {
   _buildDevices(board) {
     const crates = [], blowers = [], platforms = [];
     this.staticCrates = [];
+    this.staticCannons = [];
     const wind = this.pack?.meshes?.blower ? objToBoard(this.pack.meshes.blower, 1) : null;
     const plat = this.platformGeometry();
     for (const mat of [this.mat.platform, this.mat.crate]) if (mat) {
@@ -508,10 +515,11 @@ export class BoardScene {
       mat.uniforms.uLightDir.value.set(...(Array.isArray(dir) && dir.length === 3 ? dir : LIGHTING.key.dir)).normalize();
     }
     for (const d of board.devices) {
-      if (d.kind === 'crate') this.staticCrates.push(d);
+      if (d.kind === 'cannon') this.staticCannons.push(d);
+      else if (d.kind === 'crate') this.staticCrates.push(d);
       else if (d.kind === 'platform' && plat) platforms.push(placeMesh(plat, { x: d.c, y: d.r, z: d.z0 }));
       else if (d.kind === 'blower' && wind && this.mat.wind) blowers.push(placeMesh(wind, { x: d.c, y: d.r, z: d.z0 + 0.078, rot: DIR_TURNS[d.dir] ?? 0 }));
-      else if (d.kind === 'blower' || d.kind === 'turret' || d.kind === 'cannon') crates.push(placeMesh(boxWithTop(this.pack?.uv, d.kind), { x: d.c, y: d.r, z: d.z0 }));
+      else if (d.kind === 'blower' || d.kind === 'turret') crates.push(placeMesh(boxWithTop(this.pack?.uv, d.kind), { x: d.c, y: d.r, z: d.z0 }));
       else if (d.kind === 'mound') crates.push(placeMesh(this.boxGeometry(), { x: d.c, y: d.r, z: d.z0, s: 0.95, sz: 0.55 }));
       else if (d.kind === 'bush') crates.push(placeMesh(bushData(), { x: d.c, y: d.r, z: d.z0 }));
     }
@@ -525,6 +533,14 @@ export class BoardScene {
     if (this.meshes.crates) { this.root.remove(this.meshes.crates); this.meshes.crates.geometry.dispose(); this.meshes.crates = null; }
     const R = this.battleRect;
     const inside = (d) => !!R && d.r >= R.r0 && d.r <= R.r1 && d.c >= R.c0 && d.c <= R.c1;
+    for (const h of this.prepCannons || []) h.destroy();
+    this.prepCannons = [];
+    for (const d of (this.battleRect ? [] : this.staticCannons || [])) {
+      const h = this.createDevice({ cannon: true, top: 'turretTop' });
+      const model = this.cannonModel();
+      h.update(null, { x:d.c, y:d.r, z:d.z0, dir:d.dir, size:model?.size || .55, height:model?.height || .62, alpha:1 });
+      this.prepCannons.push(h);
+    }
     const list = (this.staticCrates || []).filter((d) => !inside(d)).map((d) => placeMesh(this.crateGeometry(), { x: d.c, y: d.r, z: d.z0 }));
     if (list.length) this.meshes.crates = this._mesh(mergeInto(list), this.clientCrateGeometry() ? this.mat.crate : this.mat.board);
     this.renderer.shadowMap.needsUpdate = true;
@@ -680,12 +696,62 @@ export class BoardScene {
 
   // ---- dynamic devices (battle) ------------------------------------------------------------------------------
 
+  cannonModel() {
+    const pack = this.stage && this.scenePacks.get(this.stage.id);
+    if (!pack?.doc?.deviceModels?.trap_196_cnnon) return null;
+    if (this._cannonModel?.pack === pack) return this._cannonModel;
+    const c = pack.chunks.find(c => c.group === pack.doc.deviceModels.trap_196_cnnon);
+    if (!c) return null;
+    const position = c.position;
+    let lo = Infinity, hi = -Infinity, height = 0;
+    for (let i = 0; i < position.length; i += 3) {
+      lo = Math.min(lo, position[i]); hi = Math.max(hi, position[i]); height = Math.max(height, position[i + 2]);
+    }
+    return this._cannonModel = { pack, chunk: { ...c, position }, size: hi - lo, height };
+  }
+
+  createCannon() {
+    const model = this.cannonModel();
+    if (!model) return null;
+    const T = this.THREE, c = model.chunk, res = this._sceneResources(model.pack);
+    const info = model.pack.doc.materials[c.material], geom = new T.BufferGeometry();
+    geom.setAttribute('position', new T.BufferAttribute(c.position, 3));
+    geom.setAttribute('normal', new T.BufferAttribute(c.normal, 4, true));
+    geom.setAttribute('uv', new T.BufferAttribute(c.uv, 2));
+    geom.setIndex(new T.BufferAttribute(c.index, 1));
+    const mat = trapMaterial(T, res.tex[info.map], this.focus, info, model.pack.doc.light?.dir);
+    const mesh = new T.Mesh(geom, mat);
+    this.dynamic.add(mesh);
+    let dead = false;
+    const h = { mesh: null, native: true, cannonModel: model, board: this, get destroyed() { return dead; },
+      update(cam, b) {
+        if (!b || dead) return;
+        mesh.visible = (b.alpha ?? 1) > .01;
+        mesh.position.set(b.x, b.y, b.z ?? 0);
+        mesh.rotation.z = ({ DOWN:0, RIGHT:Math.PI/2, UP:Math.PI, LEFT:-Math.PI/2 })[b.dir] ?? 0; // prefab vertices are relative to the tile's surface
+        mesh.scale.set(1, 1, Math.max(.001, (b.height ?? model.height) / model.height));
+        mat.uniforms.uOpacity.value = b.alpha ?? 1;
+      },
+      destroy: () => {
+        if (dead) return;
+        dead = true; this.dynamic.remove(mesh); geom.dispose(); mat.dispose(); this.devices.delete(h);
+      },
+    };
+    this.devices.add(h);
+    return h;
+  }
+
   /** A crate / device box driven by render/units.js DeviceView (see header). */
   createDevice(spec = { top: 'crateTop' }) {
+    if (spec.cannon) {
+      const cannon = this.createCannon();
+      if (cannon) return cannon;
+    }
     const T = this.THREE;
     const self = this;
     const clientCrate = spec.top === 'crateTop' && this.clientCrateGeometry();
-    const geom = this._geometry({ ...(clientCrate || this.boxGeometry()), color: null });
+    const geometry = spec.cannon ? boxWithTop(this.pack?.uv, 'cannon') : (clientCrate || this.boxGeometry());
+    const geom = this._geometry({ ...geometry, color: null });
     const source = clientCrate ? this.mat.crate : this.mat.board;
     const mat = source.clone();
     mat.transparent = true;
