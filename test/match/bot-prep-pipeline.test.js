@@ -5,7 +5,7 @@ import { createPrepSteps } from '../../server/match/botPrep.js';
 
 function fixture() {
   const calls = [], job = { pending: true };
-  const ps = { alive: true, ready: false, room: false, chess: [], allChess() { return this.chess; } };
+  const ps = { alive: true, ready: false, room: false, chess: [], offers: [], allChess() { return this.chess; } };
   const m = { autoPickPersonalChoice(player, source) { assert.equal(player, ps); calls.push(['personal', source]); } };
   const actions = {};
   for (const name of ['takeOffers', 'sellJunk', 'levelUp', 'spendDown', 'maybeFreeze', 'equipItems', 'resolveTemp', 'freeHandSlot']) {
@@ -44,8 +44,17 @@ test('prep keeps legacy action order, yield boundaries and delegated job identit
     ['buyLoopSteps', { fillOnly: true, maxRefreshes: 0 }], ['takeOffers', undefined], ['levelUp', undefined],
     ['buyLoopSteps', { fillOnly: false, maxRefreshes: 16 }], ['takeOffers', undefined], ['levelUp', { spare: true }],
     ['planSpendSteps'], ['spendDown', undefined], ['maybeFreeze', undefined], ['arrangeSteps'], ['equipItems', undefined],
-    ['arrangeSteps', { final: true, defer: true, delegate: true, pooled: false }],
+    ['takeOffers', undefined], ['arrangeSteps', { final: true, defer: true, delegate: true, pooled: false }],
   ]);
+});
+
+test('§37.339: an offer queued after the last take of prepBegin is taken before Ready, temp resolved again after it', () => {
+  const f = fixture(); f.ps.room = true;
+  f.ps.offers.push({ source: 'item' });
+  f.actions.takeOffers = (match, player) => { f.calls.push(['takeOffers']); player.offers.length = 0; };
+  finish(createPrepSteps(f.actions, { maxRefreshes: 16 }).prepEnd(f.m, f.ps));
+  assert.deepEqual(f.calls.map(x => x[0]), ['resolveTemp', 'takeOffers', 'resolveTemp', 'remember', 'personal', 'ready']);
+  assert.deepEqual(f.ps.offers, []);
 });
 
 test('pausing and cancelling at a yield never runs later economy or placement actions', () => {

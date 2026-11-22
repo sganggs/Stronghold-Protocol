@@ -34,6 +34,9 @@ export function createPrepSteps(actions, { maxRefreshes, arrangeBeforeLevel = fa
       yield;
       yield* ops.arrangeSteps(m, ps);
       ops.equipItems(m, ps);
+      // §37.339: a queued offer lapses at the end of this prep — take what the spending and the equipping queued (a
+      // merge's reward, a 寻呼模块 / 信标 pick, an onEquip grant's merge) before the final layout, which may field the pick
+      ops.takeOffers(m, ps);
       yield;
       return yield* ops.arrangeSteps(m, ps, { final: true, defer: true, delegate, pooled });
     },
@@ -41,6 +44,12 @@ export function createPrepSteps(actions, { maxRefreshes, arrangeBeforeLevel = fa
       if (!ps.alive || ps.ready) return;
       if (job && job.done && job.best !== job.plans[0]) yield* ops.applyPlanSteps(m, ps, job.chosen, job.best);
       ops.resolveTemp(m, ps);
+      // §37.339: the last take before Ready — what the steps since prepBegin's last one queued (the Final Assault item
+      // hunt in resolveTemp, an effect of the rehearsed layout); a pick's merge may hand equipment back to a full hand
+      if (ps.offers.length) {
+        ops.takeOffers(m, ps);
+        ops.resolveTemp(m, ps);
+      }
       if (!ops.hasHandRoom(ps)) ops.freeHandSlot(m, ps);
       // §37.71: nothing re-arranges after the rehearsed layout (the advisor pass of §35.13 here put the unrehearsed
       // default layout back whenever it bought a piece)

@@ -37,6 +37,7 @@
 import { progressLabel } from '../itemProgress.js';
 import { itemText, garrisonText } from './showTags.js';
 import { BondTimers } from './bondTimers.js';
+import { bondDisplay } from './bondStrip.js';
 import { useEffect, useMemo } from '../../vendor/hooks.module.js';
 import { html, Icon, TierChip, MicroLabel, Button, confirmDialog, useTicker } from './components.js';
 import { OperatorImage, Img, RichText, UnitThumb, BondGlyph, GIcon, diyToken, TokenAvatar } from './gameComponents.js';
@@ -289,13 +290,16 @@ export function BondChips({ bondIds, bonds = [], onBond = null, off = null, gran
       const count = Number.isFinite(e?.count) ? e.count : 0;
       const tier = isOff ? 0 : Number.isFinite(e?.tier) ? e.tier : bondTier(count, th, rec?.maxCount ?? null);
       const active = !isOff && (e ? !!e.active : tier > 0);
+      // the 阶 the label names is the strip's numeral (bondStrip bondDisplay: 规程's official phase level, which can count
+      // layers, §37.341); the pips stay the member thresholds. 盟约: the same tier as before
+      const stage = active ? (e ? bondDisplay(id, e).stage : tier) : 0;
       const next = nextThreshold(count, th);
       const cap = next ?? th[th.length - 1] ?? null;
       const isoTag = iso.has(id) ? t('（变形同构体）') : '';
       // the count holds 调和's +1 (the server's bond entry says so, DESIGN §21.26)
       const harmonyTag = !isOff && Number.isInteger(e?.harmony) && e.harmony > 0 ? t('（含调和 +{harmony}）', { harmony: e.harmony }) : '';
       const label = isOff ? briefingBondTip(rec?.name || id, 'off')
-        : `${rec?.name || id}${isoTag}${cap != null ? t('：在场 {count}/{cap}', { count, cap }) : t('：在场 {count}', { count })}${harmonyTag}${active ? t('，已激活 {tier} 阶', { tier }) : t('，未激活')}`;
+        : `${rec?.name || id}${isoTag}${cap != null ? t('：在场 {count}/{cap}', { count, cap }) : t('：在场 {count}', { count })}${harmonyTag}${!active ? t('，未激活') : stage > 0 ? t('，已激活 {tier} 阶', { tier: stage }) : t('，已激活')}`;
       const body = isOff
         ? html`
         <${BondGlyph} bondId=${id} class="dbond__icon" />

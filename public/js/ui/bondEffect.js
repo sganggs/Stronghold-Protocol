@@ -20,6 +20,9 @@ export function bondEffectRecord(bond, effect, layers = 0) {
     effectDescParams: effect.effectDescParams || [],
     bb: effect.params && typeof effect.params === 'object' ? effect.params : bond.bb,
     thresholds: effect.displayThresholds || bond.thresholds,
+    // the stage numeral reads the replacement's phase table (bondeffect_yan [3,6,9] makes Ⅲ possible; §37.341)
+    phaseType: effect.phaseType ?? null,
+    phaseCounts: effect.phaseCounts ?? null,
   };
   // The replacement includes every threshold clause. Do not leave the base bond text under it.
   record.desc = record.descRaw = formatBondEffect(record, layers);

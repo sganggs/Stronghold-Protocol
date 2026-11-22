@@ -211,8 +211,10 @@ all four, so `welcome.versions` lists them and the default version stays 第二�
 plays one version; `act2autochess` is a code constant: a message or a record without a version means it, whatever the
 server's default.
 
-- S→C `welcome.versions?` = `[{ id, cs, family, label, roomModes, default?: true }]` in registry order (`label`: the
-  registry msgid; `default` on the server's default only) — present only when more than one version is enabled or the only
+- S→C `welcome.versions?` = `[{ id, cs, family, label, roomModes, i18n?: ['en'], default?: true }]` in registry order (`label`: the
+  registry msgid; `i18n`: the game-text packs a non-default version ships, `['en']` when `i18n/en.json` exists — the
+  version picker shows its "Chinese-only" note unless the UI language is covered, `en` covering en / ja / ko; `default`
+  on the server's default only) — present only when more than one version is enabled or the only
   one is not `act2autochess`; a version whose data failed to load at run time is left out of later welcomes (when it
   was the server's default, `default` moves to `act2autochess`, else to the first version left — the version a
   `room.create` without `version` then gets);
@@ -265,12 +267,17 @@ server's default.
   `创建者取消了切换版本投票` (info, everyone but the host). The page toasts a successful switch itself, on a change of
   `room.version`. When a version's match host stops: `本局模拟长时间无响应，已结束` · `该版本的模拟无法启动` ·
   `本局模拟出错，已结束` (`summary.reason` 'version-hang' / 'version-start' / 'version-crash');
-- `GET /cs/<cs16>/index.json` of a version (immutable): `{ v: 1, cs, app, vanilla: true, version, sim, simFiles, data: {
+- `GET /cs/<cs16>/index.json` of a version (`Cache-Control: no-cache`, ETag of the body): `{ v: 1, cs, app, vanilla: true, version, sim, simFiles, data: {
   <name>: { url: '/data/versions/<slug>/<name>.json?v=<sha8>', sha256, bytes } }, plugins: [], settings: {}, bounds: {
   official: { url: '/cs/<cs16>/bounds/official.json', sha256, bytes } } }` with `cs === contentHashOf({ app, sim, data: {
-  <name>: sha256 } })`; the page accepts it only when `cs` and `version` are the expected ones, `vanilla` is true, plugins
-  and settings are empty, every data URL lies under `/data/versions/<slug>/` without `..`, the bounds URL under
-  `/cs/<cs16>/`, and every file's bytes and sha256 match;
+  <name>: sha256 } })`, plus an optional `i18n: { <lang>: { url: '/data/versions/<slug>/i18n/<lang>.json?v=<sha8>',
+  sha256, bytes } }` — presentation only (game-text overlays, never part of `cs`, so a changed overlay does not change
+  the room's content identity; the index is revalidated so a browser that cached a pre-overlay manifest still picks it
+  up). Data files and `bounds/official.json` stay `immutable`. The page accepts the index only when `cs` and `version`
+  are the expected ones, `vanilla` is true, plugins and settings are empty, every data URL lies under
+  `/data/versions/<slug>/` without `..`, every `i18n` URL under `/data/versions/<slug>/i18n/`, the bounds URL under
+  `/cs/<cs16>/`, and every file's bytes and sha256 match; a cached set is shown at once and the index is re-fetched with
+  `cache: 'reload'` in the background, calling `setContent` again only when the `i18n` entry changed;
 - errors: `VERSION_UNKNOWN`, `VERSION_UNSUPPORTED`, `VERSION_VOTE` (ERR_TEXT: 本服务器没有启用该版本 ·
   该版本不能用于当前房间（例如房间开着改变玩法的插件） · 切换版本投票进行中，请等投票结束).
 - match frames: `m.public` and `m.result` carry `version` (the registry id) in a non-default version's match only, so a

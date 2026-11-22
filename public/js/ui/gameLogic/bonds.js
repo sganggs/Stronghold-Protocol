@@ -52,6 +52,33 @@ export function nextThreshold(count, thresholds) {
 }
 
 /**
+ * The stage numeral over an active bond disc and the popup's 阶段 tag (0 = none drawn; §37.341). 规程 draws the
+ * official bond phase level (client AutoChessBondItemModel.phaseLevel, ActAutoChessBondPhaseType): how many entries of
+ * the active effect's phase table (bonds.json / effects.json `phaseCounts`, the official bondPhaseCountList) the count
+ * reaches. STACK_COUNT counts the layers (temporary ones included [ASSUMED]); PEOPLE_COUNT counts the members (the
+ * entry's `tier` when it has one, so 调和's +1 and the 绝技 count stay the server's). For 助力 that tier counts the upper
+ * tiers by operators differing in name OR elite state (server bondsMeta.js); whether the official phase level counts
+ * the same way is not known [ASSUMED: no recording shows a 助力 disc]. NONE draws nothing. Reaching
+ * is ≥ [ASSUMED at the exact value: 「达到N层」, and 投资人 shows Ⅰ at 0 layers]. An inactive bond draws nothing, even
+ * past a milestone. Without a phase table (the 盟约 periods have none) it is the member tier, as before [ASSUMED].
+ * @param {{ active?: boolean, tier?: number, count?: number, layers?: number, tempLayers?: number }|null|undefined} entry
+ * @param {{ phaseType?: string|null, phaseCounts?: number[]|null }|null|undefined} phase the active effect's record (or the bond's)
+ * @returns {number}
+ */
+export function bondStage(entry, phase) {
+  if (!isObj(entry) || !entry.active) return 0;
+  const n = (v) => (Number.isFinite(v) ? v : 0);
+  const counts = Array.isArray(phase?.phaseCounts) ? phase.phaseCounts : [];
+  const reached = (value) => counts.filter((c) => Number.isFinite(c) && value >= c).length;
+  switch (phase?.phaseType) {
+    case 'NONE': return 0;
+    case 'STACK_COUNT': return reached(n(entry.layers) + n(entry.tempLayers));
+    case 'PEOPLE_COUNT': return Number.isFinite(entry.tier) ? n(entry.tier) : reached(n(entry.count));
+    default: return n(entry.tier);
+  }
+}
+
+/**
  * Bonds granted by 变形同构体: an item with `canGiveBond` worn together with an item that has a `giveBondId` makes the
  * wearer a member of that other item's bond (band 变形者集群 "与特定装备一同装备时装备者将视为特定盟约成员"; the item's
  * talent, character_table trap_1073_acarm073, lists the 14 pairings). The same rule as the server's count

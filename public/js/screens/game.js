@@ -2019,10 +2019,11 @@ function MatchScreen() {
     return () => showRange(view, null, 0, 0, null, SEL_RANGE);
   }, [view, cardRangeKey, showPrep, field]);
   // the card's bond chips — and the popup a chip opens: a battle / scouted unit's OWNER's bonds (yours, or that
-  // teammate's — m.public + live layers), your own piece's yours, a popup member card the popup's player; shop / reward
-  // cards read the strip's (ui/watchBonds.js detailBondOwner)
+  // teammate's — m.public + live and temporary layers, the same as the popup: the chip names the 规程 stage, which can
+  // count layers, §37.341), your own piece's yours, a popup member card the popup's player; shop / reward cards read the
+  // strip's (ui/watchBonds.js detailBondOwner)
   const detailOwner = detailBondOwner(detailTarget, { pub, myId, stripOwnerId: strip.ownerId });
-  const detailBonds = detailOwner === strip.ownerId ? stripBonds : playerBonds({ pub, priv, myId, ownerId: detailOwner, live: liveLayers });
+  const detailBonds = detailOwner === strip.ownerId ? stripBonds : playerBonds({ pub, priv, myId, ownerId: detailOwner, live: liveLayers, temporary: tempLayersSnapshot });
   // bonds this mode never activates (标准: 10 of 23, 奥术 among them) — shown 本局禁用 on cards, chips and the popup.
   // A greyed regulation core uses another sentence (its operators cannot appear); covenant add-ons keep `off`.
   const offBonds = modeOffBonds(getMode(pub?.modeId));

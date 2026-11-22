@@ -67,6 +67,17 @@ it took from ak-spa-database.pages.dev (no licence) are excluded; arknights.wiki
 into a GPL-3.0 work (the one-way compatibility Creative Commons declared) — thanks to its contributors. Official game
 terms and names in those files remain © Hypergryph / Yostar.
 
+Act3 / 规程 version English (`data/versions/act3autochess-v3_1/i18n/en.json`, built via `tools/i18n/import-terra-act3-en.mjs`)
+uses [Terra Archive](https://terra-archive.net/)’s Chinese→English TL dictionary
+(`https://files.terra-archive.net/assets/tl/en/manifest.json`). Its terms are in
+<https://files.terra-archive.net/assets/tl/en/README.md> (read 2026-11-21): attribute it as an unofficial (partly
+machine-translated) translation — **English text: Terra Archive (terra-archive.net), unofficial (partly
+machine-translated) translation**. Dictionary entries without `"x":1` are official Global EN text; the rest is Terra’s
+own. Operator-kit texts are not imported yet: the importer runs with `--no-kits` by default, and Terra’s separate
+`autochess-kits.json` (listed in the same README and manifest since 2026-11-22, same terms) is not wired in. The downloaded dictionary is only cached
+under `.cache/terra-tl-en/` (never committed); the committed overlay is the built `i18n/en.json`. Official Hypergryph /
+Yostar names and text remain theirs; Terra grants rights only to the translation.
+
 ---
 
 ## Licence texts

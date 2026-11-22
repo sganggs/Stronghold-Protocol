@@ -47,7 +47,8 @@
 //     not the plugin Worker — a version set runs no script) and, in a room, the page tells the room (room.contentReady,
 //     exactly as for a content set — never from the lobby). The set on screen stays until the next one is checked (going
 //     from one version to another never shows 第二期下半 in between); gameplay compositions also retain their version.
-//     The last two checked version sets are kept, so a lobby ⇄ room round trip checks nothing twice.
+//     The last two checked version sets are kept, so a lobby ⇄ room round trip reuses data/bounds; the index is
+//     revalidated in the background (i18n overlays are outside cs) and setContent runs again only when i18n changed.
 //     A version set that fails is said once per set (a toast) and told to the room ({ ok: false }).
 //   * The catalogue is fetched only on a server that has plugins — `content.plugins` > 0 in /healthz (the build guard's
 //     first check, before any hello) or welcome (main.js keeps it as the store's `installedPlugins`: installedCount; a
@@ -618,10 +619,10 @@ const waiting = new Map();
  * and parsed. Transient failures (network, a timeout, HTTP 5xx / 408 / 429) are tried again.
  * @param {string} url @param {{ sha256?: string, bytes?: number } | null} want null: the manifest itself (checked later)
  * @param {{ fetch: typeof fetch, retryDelays?: readonly number[], wait?: (ms: number) => Promise<void>, timeoutMs?: number,
- *   onBytes?: (n: number) => void }} opts
+ *   onBytes?: (n: number) => void, cache?: RequestCache }} opts
  * @returns {Promise<any>} the parsed JSON (rejects with the reason)
  */
-export async function fetchChecked(url, want, { fetch: doFetch, retryDelays = CONTENT_RETRY_MS, wait = sleep, timeoutMs = CONTENT_TIMEOUT_MS, onBytes = null }) {
+export async function fetchChecked(url, want, { fetch: doFetch, retryDelays = CONTENT_RETRY_MS, wait = sleep, timeoutMs = CONTENT_TIMEOUT_MS, onBytes = null, cache = 'default' }) {
   for (let attempt = 0; ; attempt++) {
     const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
     let timer = null;
@@ -629,7 +630,7 @@ export async function fetchChecked(url, want, { fetch: doFetch, retryDelays = CO
     let res;
     let buf = null;
     try {
-      res = await Promise.race([doFetch(url, { cache: 'default', signal: ctrl?.signal }), timedOut]);
+      res = await Promise.race([doFetch(url, { cache, signal: ctrl?.signal }), timedOut]);
       if (res && res.ok) buf = await Promise.race([res.arrayBuffer(), timedOut]);
     } catch { res = null; }
     clearTimeout(timer);
@@ -722,12 +723,39 @@ export async function loadContentSet(cs, { fetch: doFetch = defaultFetch, retryD
  * @returns {Promise<{ cs: string, index: any, values: Map<string, any>, bounds: any, version: string, scripts: [],
  *   canSim: true, nativeVerified: false }>} (rejects with the reason)
  */
+/**
+ * Well-formed per-version i18n entries under the version's data prefix (presentation only; not part of cs).
+ * @param {any} index @param {string} prefix `/data/versions/<slug>/`
+ * @returns {Record<string, { url: string, sha256: string, bytes: number }>}
+ */
+function versionI18nOf(index, prefix) {
+  /** @type {Record<string, { url: string, sha256: string, bytes: number }>} */
+  const out = {};
+  if (!isObj(index?.i18n)) return out;
+  for (const [lang, f] of Object.entries(index.i18n)) {
+    if (!isObj(f) || typeof f.url !== 'string' || !isContentHash(f.sha256) || !Number.isInteger(f.bytes)) continue;
+    if (!f.url.startsWith(`${prefix}i18n/`) || f.url.includes('..')) throw new Error(`i18n/${lang}: an address outside the version's i18n`);
+    out[lang] = { url: f.url, sha256: f.sha256, bytes: f.bytes };
+  }
+  return out;
+}
+
+/** Stable fingerprint of a version index's i18n map (url / sha / bytes per lang). */
+function i18nFingerprint(i18n) {
+  if (!isObj(i18n)) return '';
+  return JSON.stringify(Object.keys(i18n).sort().map((lang) => {
+    const f = i18n[lang];
+    return [lang, f?.url, f?.sha256, f?.bytes];
+  }));
+}
+
 export async function loadVersionSet(cs, id, { fetch: doFetch = defaultFetch, retryDelays = CONTENT_RETRY_MS, wait = sleep, timeoutMs = CONTENT_TIMEOUT_MS, onProgress = null } = {}) {
   if (!isContentHash(cs)) throw new Error('no content hash');
   const entry = versionById(id);
   if (!entry || entry.id === DEFAULT_VERSION) throw new Error(`not another official version: ${String(id)}`);
   const own = `/cs/${csUrlPart(cs)}/`;
-  const index = await fetchChecked(`${own}index.json`, null, { fetch: doFetch, retryDelays, wait, timeoutMs });
+  // i18n is outside cs: bypass a stale immutable HTTP cache from before the overlay existed
+  const index = await fetchChecked(`${own}index.json`, null, { fetch: doFetch, retryDelays, wait, timeoutMs, cache: 'reload' });
   if (!isObj(index) || index.cs !== cs || index.vanilla !== true || index.version !== id || !isObj(index.data)) throw new Error('the manifest is not that version\'s set');
   if (!Array.isArray(index.plugins) || index.plugins.length || !isObj(index.settings) || Object.keys(index.settings).length) throw new Error('a version set names plugins or settings');
   const entries = Object.entries(index.data);
@@ -753,7 +781,12 @@ export async function loadVersionSet(cs, id, { fetch: doFetch = defaultFetch, re
   await Promise.all(Array.from({ length: Math.min(CONTENT_PARALLEL, entries.length) }, worker));
   const bounds = await fetchChecked(official.url, official, { fetch: doFetch, retryDelays, wait, timeoutMs });
   if (!isObj(bounds) || bounds.v !== 1) throw new Error('bounds: not an official-bounds snapshot');
-  return { cs, index, values, bounds, version: id, scripts: [], canSim: true, nativeVerified: false };
+  // optional per-version game-text overlays (M3): not part of cs; only validated entries reach showVersion
+  const i18n = versionI18nOf(index, prefix);
+  const indexOut = { ...index };
+  if (Object.keys(i18n).length) indexOut.i18n = i18n;
+  else delete indexOut.i18n;
+  return { cs, index: indexOut, values, bounds, version: id, scripts: [], canSim: true, nativeVerified: false };
 }
 
 /**
@@ -861,18 +894,48 @@ export function installContentSet({ store = appStore, data = dataStore, net = ap
     versionCache.delete(set.cs);
     versionCache.set(set.cs, set);
     while (versionCache.size > VERSION_CACHE) versionCache.delete(versionCache.keys().next().value);
-    // (a version's index carries no translations: its files take only the Chinese texts until M3 — data.js versionFiles)
-    data.setContent({ id: set.cs, values: set.values, overlay: null, langs: [] });
+    // version game texts: index.i18n/<lang> under /data/versions/<slug>/i18n/ (M3); absent → Chinese only (versionFiles)
+    const i18n = isObj(set.index?.i18n) ? set.index.i18n : {};
+    const overlay = (lang) => (isObj(i18n[lang])
+      ? fetchChecked(i18n[lang].url, i18n[lang], { fetch: doFetch, retryDelays, wait })
+      : Promise.resolve(null));
+    data.setContent({ id: set.cs, values: set.values, overlay, langs: Object.keys(i18n) });
     contentSet.set({ cs: set.cs, kind: 'version', version: set.version, status: 'ready', error: null, kitted: null });
     settleWaiting(set.cs);
     tell(set.cs, true);
+  };
+  /**
+   * Re-read a cached version's index (i18n is outside cs). Returns an updated set when the i18n map changed, else null.
+   * Data files and bounds stay as checked; only the presentation overlay entry can move.
+   */
+  const refreshVersionIndex = async (set) => {
+    const entry = versionById(set.version);
+    if (!entry || entry.id === DEFAULT_VERSION) return null;
+    const own = `/cs/${csUrlPart(set.cs)}/`;
+    const index = await fetchChecked(`${own}index.json`, null, { fetch: doFetch, retryDelays, wait, cache: 'reload' });
+    if (!isObj(index) || index.cs !== set.cs || index.vanilla !== true || index.version !== set.version) return null;
+    const prefix = `/data/versions/${versionSlug(entry)}/`;
+    let i18n;
+    try { i18n = versionI18nOf(index, prefix); } catch { return null; }
+    if (i18nFingerprint(i18n) === i18nFingerprint(set.index?.i18n)) return null;
+    const indexOut = { ...set.index };
+    if (Object.keys(i18n).length) indexOut.i18n = i18n;
+    else delete indexOut.i18n;
+    return { ...set, index: indexOut };
   };
   const loadVersion = (cs, version) => {
     const mine = ++req;
     // the set on screen stays until this one is checked (header "Official versions")
     settleWaiting(null);
     const cached = versionCache.get(cs);
-    if (cached && cached.version === version) { showVersion(cached); return; }
+    if (cached && cached.version === version) {
+      // sync lobby⇄room: data/bounds stay; index revalidated in the background (i18n outside cs)
+      showVersion(cached);
+      refreshVersionIndex(cached)
+        .then((next) => { if (mine === req && next) showVersion(next); })
+        .catch((err) => console.warn(`[content] version index refresh ${version}: ${err?.message || err}`));
+      return;
+    }
     contentSet.set({ cs, kind: 'version', version, status: 'loading', loaded: 0, total: 0, error: null, kitted: null });
     loadVersionSet(cs, version, { fetch: doFetch, retryDelays, wait, onProgress: (loaded, total) => { if (mine === req) contentSet.set({ loaded, total }); } })
       .then((set) => { if (mine === req) showVersion(set); })

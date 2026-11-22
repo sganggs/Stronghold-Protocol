@@ -330,6 +330,7 @@ full-rank build from the others; the build fails unless `atRank` rebuilds every 
 | `countsHand`, `countsGoldenOnly` | `false`, `false` | convenience flags |
 | `activeType`, `isActiveInDeck`, `noStack`, `weight`, `maxInactiveBondCount` | `"BATTLE"`, `false`, `false`, `10`, `-1` | `weight` 0 ⇒ never drawn for per-match bans |
 | `layerMilestones[]` | `[{"layer":25,"mode":"every","effect":"bond_layer_added_reward_equip"}]` | layer-based powers: `reach` (while L ≥ layer), `every` (each multiple), `first` (latched once) |
+| `phaseType`, `phaseCounts[]` (规程 only) | `"PEOPLE_COUNT"`, `[2,3]` (迅捷 `"STACK_COUNT"`, `[0,40]`) | the official phase table of the bond's own effect, copied from `effects.json` (§7). The client draws the numeral over an active disc from it (gameLogic `bondStage`, §37.341). Display only: the server, the sim and the bots read `thresholds`. 盟约 seasons omit both |
 | `desc`, `descRaw` | | bond panel text |
 | `effectId`, `effectName`, `effectDesc`, `effectDescRaw` | `"bondeffect_deput"`, …, `"所有干员防御力+{0:0%}（受层数影响）…"` | in-battle text with **positional** placeholders |
 | `effectDescParams[]` | `[{"index":0,"format":"0%","base":"base_def","perStack":"def_per_stack"}]` | `{i:fmt}` = `bb[base] + bb[perStack] × layers` — layers never exceed 999 (the official `MAX_GARRISON_STACK`, not in any table: shared/constants.js `BOND_LAYER_CAP`, research 11). 盟约's bond rows list the keys (`descParamBaseList` / `descParamPerStackList`); 规程 keeps them in `effectDescParamDataDict[effectId].descParamInfos`, whose `descParamMax` becomes `max` (the number never exceeds it: 萨尔贡's slow 60 %, the chances 100 %; §37.208) |
@@ -402,6 +403,7 @@ Types: `BAND_INITIAL` 41, `BOND` 23, `EQUIP` 115, `ENEMY_GAIN` 129 (悬赏), `BU
 | `buffs[]` | `{"key":"…","countType":"NONE","bb":{…},"bbStr":{…}}` | |
 | `params` | `{"layer":2}` | merged convenience view |
 | `effectDescParams[]`, `displayThresholds[]` (规程 `BOND` only) | `{ index, format, base, perStack, max? }`, `[3,6,9]` | Present when `effectDescParamDataDict[effectId].descParamInfos` is non-empty. Same `{i:fmt}` binding as a bond's `effectDescParams` (§3), read from that effect so a strategy's `auto_chess_effect_replace` target formats its own numbers. `displayThresholds` is `bondPhaseCountList` when `phaseType` is `PEOPLE_COUNT`. `max` is omitted unless `descParamMax` > 0. Older seasons omit both. |
+| `phaseType`, `phaseCounts[]` (规程 `BOND` only) | `"STACK_COUNT"`, `[80,150]` (远见) | `effectDescParamDataDict[effectId].phaseType` and `bondPhaseCountList`, written for every `BOND` effect that has an entry, also when `descParamInfos` is empty. `phaseType` is the client's `ActAutoChessBondPhaseType`: `PEOPLE_COUNT` (counts members), `STACK_COUNT` (counts layers) or `NONE` (`[]`: 调和, 协防干员, 独行). The phase level is how many entries the count reaches; the bond strip draws it over an active disc (§37.341). Older seasons omit both. |
 
 ## 8. `choices.json` — 机变 draft data
 

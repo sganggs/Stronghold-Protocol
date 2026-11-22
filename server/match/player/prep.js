@@ -20,7 +20,8 @@ export class PlayerPrep {
   /**
    * g.reward {idx}: the pick of the first queued offer (promotion reward, a strategy's special refresh, an item offer).
    * A pick is a 招募 like a purchase: a full regular hand refuses it, also when it would complete a merge (PRTS
-   * 卫戍协议/帮助 §手牌区, see buy; GitHub #82).
+   * 卫戍协议/帮助 §手牌区, see buy; GitHub #82). Refused once the player is ready; an offer left unpicked lapses at its
+   * due prep's end (PlayerState.lapseOffers, DESIGN §37.339).
    */
   pickReward(idx) {
     const g = this._gate(); if (g) return g;
@@ -80,8 +81,12 @@ export class PlayerPrep {
     if (on && !this.tempEmpty) return fail(ERR.TEMP_NOT_EMPTY);
     if (this.ready === !!on) return OK;
     this.ready = !!on;
-    // un-ready: the player can act again, so what overflowed while it was ready is due at this prep's deadline
-    if (!on) for (const p of this.tempPieces()) if (this.tempDue(p) > this.prepsEnded) this._tempDue.set(p.uid, this.prepsEnded);
+    // un-ready: the player can act again, so what overflowed — or was offered — while it was ready is due at this
+    // prep's deadline (tempDue, offerDue)
+    if (!on) {
+      for (const p of this.tempPieces()) if (this.tempDue(p) > this.prepsEnded) this._tempDue.set(p.uid, this.prepsEnded);
+      for (const o of this.offers) if (this.offerDue(o) > this.prepsEnded) o.due = this.prepsEnded;
+    }
     this.dirty();
     this.m.onReadyChanged(this);
     return OK;

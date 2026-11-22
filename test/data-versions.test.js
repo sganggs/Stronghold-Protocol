@@ -465,7 +465,9 @@ test('HTTP (M1, DESIGN §35.23): an enabled version\'s data is served (immutable
       const cs = srv.versions.csOf(id);
       const ir = await get(`/cs/${cs.slice(0, 16)}/index.json`);
       assert.equal(ir.status, 200);
-      assert.equal(ir.headers.get('cache-control'), 'public, max-age=31536000, immutable');
+      // i18n is not part of cs: the index must revalidate (no-cache + ETag); data/bounds stay immutable
+      assert.equal(ir.headers.get('cache-control'), 'no-cache');
+      assert.ok(ir.headers.get('etag'), 'version index carries an ETag');
       const index = await ir.json();
       assert.equal(index.cs, cs);
       assert.equal(index.version, id);
@@ -473,6 +475,7 @@ test('HTTP (M1, DESIGN §35.23): an enabled version\'s data is served (immutable
       for (const d of Object.values(index.data)) assert.ok(d.url.startsWith(`/data/${v.dir}`), d.url);
       const br = await get(index.bounds.official.url);
       assert.equal(br.status, 200);
+      assert.match(br.headers.get('cache-control') || '', /immutable/);
       assert.equal(Buffer.from(await br.arrayBuffer()).length, index.bounds.official.bytes);
       for (const d of Object.values(index.data).slice(0, 3)) {
         const dr = await get(d.url);

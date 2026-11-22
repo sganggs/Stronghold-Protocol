@@ -8,8 +8,10 @@ import { bossLayerGainsEnabled } from '../../server/match/finalAssault.js';
 import { commitBattleLayerGains } from '../../server/match/match/common.js';
 import { validateClientResult } from '../../server/match/fields.js';
 import { buildBattleSpec } from '../../server/sim/spec.js';
+import { Battle } from '../../server/sim/Battle.js';
+import { setGameData } from '../../server/sim/content/support/index.js';
 import { makeBattle } from '../helpers/battleHarness.js';
-import { DATA, makeMatch } from './harness.js';
+import { DATA, makeMatch, give, legalTileFor } from './harness.js';
 import { FakeBattle } from './fakeBattle.js';
 
 const QUIET = { warn() {}, error() {}, info() {} };
@@ -189,5 +191,84 @@ test('regulation R14 keeps both players\' gains into the R15 prep; R15 keeps its
     assert.equal(h.ps('p_0').layers.swiftShip, 999);
   } finally {
     m.dispose();
+  }
+});
+
+// GitHub #991 (reported on 0.4.0, whose boss fields always ran with layerGainsEnabled false): the reported case end to end
+// on the real engine. 霍尔海雅's elite 规程 trait garrison_101_b 「每次开启技能时使自身已激活的盟约层数+8（每场战斗至多叠加
+// 24层）」 on the right half of the R14 pair field, server-run and client-run (the production default) combat alike: the
+// live copy rises during the fight (what the bond strip and the layer readers see) and the gain is kept after it.
+const HEYAK = 'chess_char_4_18_b';
+
+test('#991: 霍尔海雅\'s skill-start layers count on a real regulation R14 pair field, server and client combat', () => {
+  // a version's match host runs on that version's data; garrison records are read from the process singleton
+  setGameData(RAW);
+  try {
+    for (const clientCombat of [false, true]) {
+      const h = makeMatch({ mode: 'coop', difficulty: 'HARD', humans: 2, seed: 991, fake: true, data: RAW, clientCombat }).start();
+      const m = h.m;
+      try {
+        h.drive(() => m.phase === PHASE.PREP && m.round === 14, { band: 'band_sarkazb' });
+        const ps = h.ps('p_1');
+        for (const piece of [...ps.board.values(), ...ps.hand.filter(Boolean), ...ps.temp.filter(Boolean)]) {
+          if (piece.kind === 'chess') ps.returnCopies(piece);
+        }
+        ps.board.clear();
+        ps.hand.fill(null);
+        ps.temp.fill(null);
+        ps.layers = { preciShip: 170, arcaneShip: 100 };
+        ps.bondCountBonus.preciShip = 20;
+        ps.bondCountBonus.arcaneShip = 20;
+        ps.lp = Math.max(30, ps.lp);
+        ps.recompute();
+        give(m, ps, HEYAK, 'board', legalTileFor(m, ps, HEYAK));
+        assert.deepEqual(RAW.chess[HEYAK].bonds, ['arcaneShip', 'preciShip']);
+        assert.deepEqual(RAW.chess[HEYAK].garrisonIds, ['garrison_101_b']);
+        // The real engine for the boss round only. Her skill (32 SP) is ready at each deployment: the leader knocks her out
+        // long before it charges, and the trait is about the skill start, not the charge.
+        const fields = [];
+        class RealBattle extends Battle {
+          constructor(...args) {
+            super(...args);
+            if (this.kind !== 'boss') return;
+            const live = [];
+            fields.push({ battle: this, live });
+            this.on('deploy', ({ unit }) => { if (unit.def?.raw?.chessId === HEYAK && unit.skill) unit.skill.sp = unit.skill.spCost; });
+            this.on('bondLayersChanged', (c) => live.push([c.playerId, c.bondId, this.getPlayer(c.playerId)?.bonds?.[c.bondId]?.layers]));
+          }
+        }
+        m.BattleClass = RealBattle;
+        if (h.clients) for (const c of h.clients.values()) c.o.BattleClass = RealBattle;
+        const reports = [];
+        const orig = m.dispatch.bind(m);
+        m.dispatch = (p, ev, ctx) => {
+          if (ev === 'onBattleResult' && ctx && ctx.boss) reports.push({ pid: p.playerId, gains: { ...ctx.result.layerGains } });
+          return orig(p, ev, ctx);
+        };
+        h.drive(() => m.phase === PHASE.FINAL_ASSAULT, { band: 'band_sarkazb' });
+        assert.equal(m.fields.length, 1, 'one pair field');
+        assert.deepEqual(m.fields[0].players, ['p_0', 'p_1']);
+        h.drive(() => m.phase !== PHASE.FINAL_ASSAULT || h.ended != null, { band: 'band_sarkazb' });
+        const tag = clientCombat ? 'client' : 'server';
+        // client-run: each browser builds the field from its b.start, only the authority's copy is stepped here (SimClient)
+        const ran = fields.filter((f) => f.battle.time > 0);
+        assert.equal(ran.length, 1, `${tag}: the boss field ran once on the real engine`);
+        for (const f of ran) {
+          assert.equal(f.battle.kind, 'boss');
+          assert.equal(f.battle.flags.layerGainsEnabled, true, tag);
+          // the first skill start: both of her active bonds +8 on the live copy, during the fight
+          assert.deepEqual(f.live.slice(0, 2), [['p_1', 'arcaneShip', 108], ['p_1', 'preciShip', 178]], tag);
+        }
+        const r = reports.find((x) => x.pid === 'p_1');
+        assert.ok(r, `${tag}: p_1's boss result was settled`);
+        assert.deepEqual(r.gains, { arcaneShip: 24, preciShip: 24 }, `${tag}: +8 per skill start, at most 24 per battle`);
+        assert.equal(ps.layers.arcaneShip, 124, tag);
+        assert.equal(ps.layers.preciShip, 194, tag);
+      } finally {
+        m.dispose();
+      }
+    }
+  } finally {
+    setGameData(null);
   }
 });

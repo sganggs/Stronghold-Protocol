@@ -152,12 +152,15 @@ describe('installContentSet with official versions', () => {
       store.set({ room: versionRoom(V21, 'ready') });
       await tick();
       assert.equal(requests.length, 2, 'not while the seat shows it');
-      // leave: the lobby's V1 again, from the kept sets
+      // leave: the lobby's V1 again, from the kept sets (data/bounds not re-fetched; index revalidated in the background)
       const before = seen.length;
       store.set({ room: null });
       assert.equal(contentSet.get().status, 'ready');
       assert.equal(data.get('config').version.id, 'act1autochess');
-      assert.equal(seen.length, before, 'nothing downloaded again');
+      await tick();
+      await tick();
+      const after = seen.slice(before);
+      assert.ok(after.every((u) => u.includes('/index.json')), `only the version index is re-read: ${after.join(' ')}`);
       assert.equal(requests.length, 2, 'nothing told from the lobby');
       // back to the default: the server's files
       store.set({ lobbyVersion: 'act2autochess' });
@@ -242,6 +245,62 @@ describe('installContentSet with official versions', () => {
       retryContentSet();
       await until(() => contentSet.get().status === 'ready', 'loaded on retry');
       assert.equal(data.get('config').version.id, 'act1autochess@V1_1');
+    } finally { stop(); }
+  });
+
+  test('cached version: show at once, re-read index in the background, setContent again only when i18n changes', async () => {
+    const store = createStore(initialState);
+    const contentCalls = [];
+    const data = createDataStore({ fetch: async () => ({ ok: true, json: async () => ({}) }), retryDelays: [] });
+    const origSet = data.setContent.bind(data);
+    data.setContent = (next) => { contentCalls.push(next && { id: next.id, langs: [...(next.langs || [])] }); return origSet(next); };
+    const { fetchFn, seen } = serve([V1]);
+    // after the first load, the served index gains an i18n entry (same cs — overlay is not part of the hash)
+    const indexUrl = `/cs/${V1.cs.slice(0, 16)}/index.json`;
+    const overlayBuf = Buffer.from(JSON.stringify({ version: 1, lang: 'en', names: {}, files: {} }));
+    const overlaySha = sha256Hex(new Uint8Array(overlayBuf));
+    const overlayUrl = `/data/versions/act1autochess/i18n/en.json?v=${overlaySha.slice(0, 8)}`;
+    let withI18n = false;
+    const fetchFlip = async (url, opts) => {
+      seen.push(url);
+      if (withI18n && url === indexUrl) {
+        const index = JSON.parse(V1.bodies.get(indexUrl).toString('utf8'));
+        index.i18n = { en: { url: overlayUrl, sha256: overlaySha, bytes: overlayBuf.length } };
+        return bytesRes(Buffer.from(JSON.stringify(index)));
+      }
+      if (url === overlayUrl) return bytesRes(overlayBuf);
+      // fetchFn also pushes to seen — drop the duplicate we just added
+      seen.pop();
+      return fetchFn(url, opts);
+    };
+    const stop = installContentSet({ store, data, net: null, fetch: fetchFlip, toast: () => {}, wait: noWait });
+    try {
+      store.set({ versions: sanitizeVersions([{ ...V1.entry }]), lobbyVersion: 'act1autochess' });
+      await until(() => contentSet.get().status === 'ready', 'V1 loaded');
+      assert.deepEqual(contentCalls.at(-1)?.langs, [], 'first show: no i18n yet');
+      const afterFirst = seen.filter((u) => u.includes('/index.json')).length;
+      // leave to default then back: cache hit shows sync, background reload picks up i18n
+      store.set({ lobbyVersion: 'act2autochess' });
+      await tick();
+      withI18n = true;
+      contentCalls.length = 0;
+      store.set({ lobbyVersion: 'act1autochess' });
+      assert.equal(contentSet.get().status, 'ready', 'cached set shown at once');
+      assert.equal(data.get('config').version.id, 'act1autochess');
+      await until(() => contentCalls.some((c) => c && c.langs.includes('en')), 'i18n refresh applied');
+      assert.ok(seen.filter((u) => u.includes('/index.json')).length > afterFirst, 'index re-read with cache bypass');
+      // a second round trip with the same i18n: sync show once; background refresh must not call setContent again
+      contentCalls.length = 0;
+      store.set({ lobbyVersion: 'act2autochess' });
+      await tick();
+      store.set({ lobbyVersion: 'act1autochess' });
+      assert.equal(contentSet.get().status, 'ready');
+      await tick();
+      await tick();
+      await tick();
+      const enShows = contentCalls.filter((c) => c && c.id === V1.cs);
+      assert.equal(enShows.length, 1, `sync show once, no refresh rewrite: ${JSON.stringify(enShows)}`);
+      assert.deepEqual(enShows[0].langs, ['en']);
     } finally { stop(); }
   });
 

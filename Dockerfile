@@ -66,6 +66,8 @@ COPY --from=build /app/tools/plugin.mjs ./tools/plugin.mjs
 COPY --from=build /app/test/helpers/battleHarness.js ./test/helpers/battleHarness.js
 COPY --from=build /app/schemas ./schemas
 COPY --from=build /app/docs/PLUGIN*.md /app/docs/plugin-catalog.example.json ./docs/
+# the in-game 更新说明 reads /app/CHANGELOG.md; the licence and notices travel with the image like with the release zips
+COPY CHANGELOG.md LICENSE NOTICE.md THIRD-PARTY-NOTICES.md ./
 # Root-owned templates and author guides remain visible when /app/plugins is a bind mount or named volume.
 COPY --from=build /app/plugin-resources ./plugin-resources
 RUN mkdir -p /app/plugins && chown node:node /app/plugins
