@@ -401,8 +401,19 @@ The gate is a capability, not a flag: `ui/shop/gate.js shopCapability` requires 
 local group carries `prefabs.json`, `card.json` and `shop.json`, and `shopWebglGate` then requires a ready preload only: a spectator seat has no `m.private` and gets no shop at all, while a stand-in or
 DIY row renders like any other card (the model composes its record); a promotion or special reward keeps the canvas and
 draws every `offer.slots` card at price 0 in the same row instead (a 6-slot offer grows the row, a 2/3-slot offer keeps
-the last positions, the item slot is hidden; 稍后 returns to the normal row, and the strip above carries the DOM bar's
-title, queued count and 稍后).
+the last positions, the item slot is hidden; 稍后 returns to the normal row, and the in-canvas control then names the
+pending offer — 选择{title} (选择晋升奖励 / 选择定向投放 / 选择见者有份 / 选择寻呼模块 / 选择松果 / 选择特殊招募 /
+选择装备补给): the seven known names are six glyphs at most in zh, while any other title (a plugin's or a custom
+strategy's) still names the offer, and the prefab's `bestFit` shrinks the face to the pill exactly as the other
+languages' templates (en drops the verb) already do. The hotspot's aria-label carries the offer's title in both states
+(including 稍后); no separate header strip is drawn on the canvas). Card marks (skill badge,
+替补 / 自选, owned-copy pips, 可晋升) are a DOM overlay inside the card hotspot, in the DOM shop's own wording and
+colours: they follow the card box every frame, keep their `title` tooltips, enter the card's accessible name, and
+grow to the right so the four languages fit. Positions are the owner's PSD percentages of the visible card box
+(156 × 200 design units) converted to the overlay's own box — the card prefab's root, 157 × 207 — with
+`x' = (0.5 + x·156)/157` and `y' = y·200/207` (2026-11-22), and 设置 → 外观 has three switches (`shopMarkSkill`, `shopMarkStandIn`, `shopMarkProgress` — 可晋升 and the
+owned-copy pips share the last — all on by default). The marks never take the two taps or the right-click detail
+away.
 No config value takes part; choosing a theme without the documents is the rollback, and `ShopBar` renders
 as before. `ui/prefab/shopDocs.js` reads the three documents from that group (an imported
 official pack's documents come from its stored bytes — the page's `connect-src 'self'` forbids fetching a blob) and

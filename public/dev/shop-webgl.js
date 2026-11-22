@@ -113,15 +113,33 @@ function buildPriv(stateName) {
 }
 
 function viewFor(stateName) {
-  if (stateName === 'fold') return { state: 'fold' };
-  if (stateName === 'disable') return { state: 'disable', avalid: false };
+  // The card-mark overlay (ui/shop/marks.js) is normally built by ShopCanvas from m.private; the dev
+  // page has no board / hand / standIns / diy rows, so it injects a model directly — one mark of each
+  // kind on the first cards, so the PSD positions and the right-growing text can be checked by eye
+  // (also in the 0.7 deploy fold and at another dpr).
+  const skill = { file: null, slot: 'S2', custom: false, aria: '技能', title: '技能：S2' };
+  const cardMarks = [
+    {
+      skill,
+      standIn: { label: '替补', aria: '银灰的替补', title: '未持有银灰：由替补干员 Sharp 上场' },
+      merge: { label: '可晋升', aria: '可晋升', title: '再买 1 张合成精锐' },
+      pips: { copies: 2, need: 3, aria: '已拥有 2/3', title: '已拥有 2/3' },
+    },
+    { skill, diy: { label: '自选', aria: '自选编队：银灰', title: '自选编队：银灰（只在你的商店出现）' } },
+    { skill, pips: { copies: 1, need: 3, aria: '已拥有 1/3', title: '已拥有 1/3' } },
+    { skill },
+    { skill, merge: { label: '可晋升', aria: '可晋升', title: '再买 1 张合成精锐' } },
+    null,
+  ];
+  if (stateName === 'fold') return { state: 'fold', cardMarks };
+  if (stateName === 'disable') return { state: 'disable', avalid: false, cardMarks };
   if (stateName === 'armed') {
-    return { state: 'unfold', armedSlotId: 2, armedAt: performance.now() - 1200, selectSlot: { slotId: 2, isGoods: true } };
+    return { state: 'unfold', armedSlotId: 2, armedAt: performance.now() - 1200, selectSlot: { slotId: 2, isGoods: true }, cardMarks };
   }
   if (stateName === 'repeated') {
-    return { state: 'unfold', cardFlags: { 0: { hasSame: true, canComb: true, hasFusePartner: true }, 1: { hasFusePartner: true } } };
+    return { state: 'unfold', cardFlags: { 0: { hasSame: true, canComb: true, hasFusePartner: true }, 1: { hasFusePartner: true } }, cardMarks };
   }
-  return { state: 'unfold' };
+  return { state: 'unfold', cardMarks };
 }
 
 function options() {

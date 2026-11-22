@@ -642,9 +642,9 @@ test('playtest6b QA residuals (DESIGN §20.14): the held boss result, the cue be
   assert.match(s14, /it is \*\*held\*\* \(`f\.heldResult`/);
   assert.match(META, /waits for the budget instead \(`f\.heldResult`/);
   assert.match(s2014, /\*\*Fast boss kills handed over \(fixed\)\.\*\*/);
-  // the promotion cue between two preps (render/app.js promoBase) and the touch line (shopBar mergeHint)
+  // the promotion cue between two preps (render/app.js promoBase) and the touch line (ui/gameLogic/shop.js mergeHint)
   assert.match(doc('public/js/render/app.js'), /if \(prepPieces\.length\) promoBase = prepPieces;/);
-  assert.match(doc('public/js/ui/shopBar.js'), /export function mergeHint\(priv, chessId\)/);
+  assert.match(doc('public/js/ui/gameLogic/shop.js'), /export function mergeHint\(priv, chessId, getChess = \(\) => null\)/);
   assert.match(s2014, /`promoBase`/);
   assert.match(s2014, /可晋升：精锐干员将出现在作战区原位置/);
   assert.match(PLAYING, /详情卡里也会写明去向/);

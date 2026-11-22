@@ -68,6 +68,21 @@ export function mergeTarget(priv, chessId, getChess = () => null) {
   return { row: board[0].row, col: board[0].col, dir: board[0].dir || 'RIGHT' };
 }
 
+/**
+ * The shop card's 可晋升 tooltip, or null when the card completes no merge: where the elite will land (the tile's
+ * position when a board copy exists, else the hand). Lives here rather than in shopBar.js so the canvas card-mark
+ * model (ui/shop/marks.js) reads it without pulling the DOM shop's component graph in.
+ * @param {any} priv
+ * @param {string} chessId
+ * @param {(id:string)=>any} [getChess]
+ * @returns {string|null}
+ */
+export function mergeHint(priv, chessId, getChess = () => null) {
+  const prog = mergeProgress(priv, chessId, getChess);
+  if (!(prog.copies > 0 && prog.copies + 1 >= prog.need)) return null;
+  return mergeTarget(priv, chessId, getChess) ? t('精锐干员将出现在作战区原位置') : t('精锐干员将进入整备区');
+}
+
 /** Whether every hand slot is taken (the server refuses every purchase / reward pick then: HAND_FULL, GitHub #82). */
 export function handFull(priv, kind = 'chess', config = null) {
   if (kind === 'item' && config?.version?.rules?.equipHand === true) {

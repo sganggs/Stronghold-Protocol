@@ -49,6 +49,20 @@ const CONTROL_LABELS = Object.freeze({
 /** Ambient (idle spine / card FX / particles) repaint cap; interaction and clips still paint every frame. */
 const AMBIENT_INTERVAL_MS = 1000 / 20;
 
+/**
+ * The reward hotspot's accessible name. Minimized, the painted label already names the offer (选择{title}),
+ * so it is used as is; while the row is shown (label 稍后) the offer's title is prepended. The DOM bar's
+ * header carries the same two facts for the same offer.
+ * @param {any} reward `view.reward` (ShopCanvas.shopRewardView)
+ * @returns {string}
+ */
+export function rewardAriaLabel(reward) {
+  if (!reward) return t('选择奖励');
+  const label = reward.label || t('选择奖励');
+  if (!reward.title || !reward.visible) return label;
+  return t('{title}：{label}', { title: reward.title, label });
+}
+
 /** Whether any ambient loop (spine idle, card FX, particles) still needs a repaint. */
 export function ambientPaintNeeded({ particleAnim, cardFxAnim, spineAnim, spinePaint }) {
   return !!(particleAnim || cardFxAnim || spineAnim || spinePaint);
@@ -222,7 +236,11 @@ export function shopModelPaintKey(model) {
 /**
  * @param {{ container: HTMLElement, priv: any, view?: any, options?: any, callbacks?: any }} opts
  *   `view`: `{ state?, unfold?, avalid?, selectSlot?, armedSlotId?, armedAt?, refreshSeq?, cardFlags?,
- *     controls? }`
+ *     cardMarks?, reward?, controls? }`
+ *   `view.cardMarks`: one `cardMarkModel` (or null) per display slot — the DOM overlay inside each card
+ *     hotspot (ui/shop/marks.js); absent draws no marks (the dev page and old callers).
+ *   `view.reward`: `{ count, visible, label, title, micro, sub, more }` or null — the reward control
+ *     (ShopCanvas.shopRewardView); `label` is the painted 稍后 / 选择{title} text, `title` the offer's name.
  *   `view.controls`: `{ refresh?: string|null, freeze?: string|null, levelUp?: string|null }` — the block
  *     reason per control hotspot (ShopCanvas's shopBlockReason wording); a non-empty reason disables the
  *     hotspot and becomes its tooltip. Absent → no control gating (the dev page and old callers).
@@ -365,12 +383,25 @@ export async function createShopHost(opts = {}) {
     return model;
   }
 
-  /** A card hotspot's label: name and price plus the two-tap state (shopBar.js's card aria-label). */
-  function cardLabel(card, model) {
+  /**
+   * A card hotspot's label: name and price, the card's own marks (the same facts the DOM card shows: a
+   * stand-in's operator, the DIY pick, owned copies, the skill, 可晋升) and the two-tap state.
+   * @param {any} card the model card
+   * @param {any} model the shop model
+   * @param {any} [marks] the card's mark model (ui/shop/marks.js)
+   */
+  function cardLabel(card, model, marks) {
     if (!card || card.isEmpty) return t('空栏位');
     const label = t('{name}，价格 {price}', { name: card.name || card.id, price: card.price });
-    if (!card.armed) return label;
-    return `${label}${cardBlocked(card, model) ? t('，无法购买') : t('，再次点击确认')}`;
+    const extra = [];
+    if (marks) {
+      for (const key of ['standIn', 'diy', 'pips', 'skill', 'merge']) {
+        if (marks[key] && marks[key].aria) extra.push(marks[key].aria);
+      }
+    }
+    const named = extra.length ? `${label}，${extra.join('，')}` : label;
+    if (!card.armed) return named;
+    return `${named}${cardBlocked(card, model) ? t('，无法购买') : t('，再次点击确认')}`;
   }
 
   /**
@@ -391,11 +422,12 @@ export async function createShopHost(opts = {}) {
     const freeze = controlEls.get('freeze');
     if (freeze) freeze.el.setAttribute('aria-label', t(model && model.isFrozen ? N_('解冻') : N_('冻结')));
     const reward = controlEls.get('reward');
-    if (reward) reward.el.setAttribute('aria-label', (model && model.reward && model.reward.label) || t(N_('选择奖励')));
+    if (reward) reward.el.setAttribute('aria-label', rewardAriaLabel(model && model.reward));
     const cards = (model && Array.isArray(model.slots)) ? model.slots : [];
+    const marks = (view && Array.isArray(view.cardMarks)) ? view.cardMarks : [];
     for (const [index, el] of cardEls) {
       const card = cards[index];
-      el.setAttribute('aria-label', cardLabel(card, model));
+      el.setAttribute('aria-label', cardLabel(card, model, marks[index]));
       if (card && card.armed) el.setAttribute('aria-pressed', 'true');
       else el.removeAttribute('aria-pressed');
       el.setAttribute('aria-disabled', cardBlocked(card, model) ? 'true' : 'false');
@@ -437,6 +469,9 @@ export async function createShopHost(opts = {}) {
     el.style.top = `${box.y * unit}px`;
     el.style.width = `${box.w * unit}px`;
     el.style.height = `${box.h * unit}px`;
+    // The card mark overlay sizes its text from the card box (game-shop-canvas.css).
+    el.style.setProperty('--card-w', `${box.w * unit}px`);
+    el.style.setProperty('--card-h', `${box.h * unit}px`);
   }
 
   const controlEls = new Map();
@@ -542,12 +577,69 @@ export async function createShopHost(opts = {}) {
   }
 
   /**
+   * The project's own marks on one card hotspot (ui/shop/marks.js): a DOM overlay inside the hotspot
+   * button, so it follows the card box every frame, keeps the browser's title tooltips, the interface
+   * font size and the accessible name, and never blocks the two-tap flow (the spans have no handlers).
+   * A key on the button's dataset skips the DOM work when nothing changed.
+   * @param {HTMLButtonElement} el the card hotspot
+   * @param {any} marks cardMarkModel output, already filtered by the 卡面标记 switches
+   */
+  function syncCardMarks(el, marks) {
+    const key = marks ? JSON.stringify(marks) : '';
+    if (el.dataset.shopMarks === key) return;
+    el.dataset.shopMarks = key;
+    let root = el.querySelector(':scope > .shop-marks');
+    if (!root) {
+      root = document.createElement('span');
+      root.className = 'shop-marks';
+      root.setAttribute('aria-hidden', 'true');
+      el.append(root);
+    }
+    root.textContent = '';
+    if (!marks) return;
+    const add = (cls, text, title) => {
+      const span = document.createElement('span');
+      span.className = `shop-mark ${cls}`;
+      if (title) span.title = title;
+      if (text) span.textContent = text;
+      root.append(span);
+      return span;
+    };
+    if (marks.standIn) add('shop-mark--standin', marks.standIn.label, marks.standIn.title);
+    if (marks.diy) add('shop-mark--diy', marks.diy.label, marks.diy.title);
+    if (marks.merge) add('shop-mark--merge', marks.merge.label, marks.merge.title);
+    if (marks.pips) {
+      const pips = add('shop-mark--pips', '', marks.pips.title);
+      for (let i = 0; i < marks.pips.need; i += 1) {
+        const pip = document.createElement('i');
+        if (i < marks.pips.copies) pip.className = 'on';
+        pips.append(pip);
+      }
+    }
+    if (marks.skill) {
+      const skill = add('shop-mark--skill', '', marks.skill.title);
+      if (marks.skill.custom) skill.classList.add('is-custom');
+      if (marks.skill.file) {
+        const img = document.createElement('img');
+        img.src = marks.skill.file;
+        img.alt = '';
+        skill.append(img);
+      } else if (marks.skill.slot) {
+        const glyph = document.createElement('b');
+        glyph.textContent = marks.skill.slot;
+        skill.append(glyph);
+      }
+    }
+  }
+
+  /**
    * The card hotspots the painted frame shows: create one for a slot that holds a card, place it on that card's
    * box, and drop the hotspot of a slot that is empty or was sold (the row shrank after a purchase). A folded
    * shop paints no card box, so nothing stays clickable behind the fold.
    */
   function syncCardHotspots() {
     const cards = (scene.model && Array.isArray(scene.model.slots)) ? scene.model.slots : [];
+    const marks = (view && Array.isArray(view.cardMarks)) ? view.cardMarks : [];
     const roots = scene.cardRoots || [];
     for (const [index, el] of [...cardEls]) {
       const card = cards[index];
@@ -565,7 +657,13 @@ export async function createShopHost(opts = {}) {
         cardEls.set(index, el);
       }
       place(el, visibleBox(scene.frame.boxes.get(roots[index].path) || null));
+      syncCardMarks(el, filterMarks(marks[index]));
     }
+  }
+
+  /** The mark model the overlay draws: the caller's filtered one, or null when the dev page has none. */
+  function filterMarks(marks) {
+    return marks && (marks.skill || marks.standIn || marks.diy || marks.pips || marks.merge) ? marks : null;
   }
 
   function updateHotspots() {
@@ -623,6 +721,7 @@ export async function createShopHost(opts = {}) {
       select ? `${select.slotId ?? ''}:${select.isUpgrade ? 1 : 0}:${select.isGoods ? 1 : 0}` : '',
       view.armedSlotId, view.armedAt,
       JSON.stringify(view.cardFlags || null),
+      JSON.stringify(view.cardMarks || null),
       JSON.stringify(view.controls || null),
       JSON.stringify(view.reward || null),
     ].join('|');

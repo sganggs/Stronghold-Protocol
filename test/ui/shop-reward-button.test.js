@@ -6,15 +6,30 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { shopModelFromPrivate } from '../../public/js/ui/shop/adapter/model.js';
 import { CtrlViewData } from '../../public/js/ui/shop/viewData.js';
 import { AutoChessStylizedShopCtrlPanel, buildRewardButtonNode, freezeState } from '../../public/js/ui/shop/ctrl.js';
-import { applyControlState, CONTROL_HOTSPOTS, runControlClick } from '../../public/js/ui/shop/host.js';
-import { shopControlReasons } from '../../public/js/ui/shop/ShopCanvas.js';
+import { applyControlState, CONTROL_HOTSPOTS, runControlClick, rewardAriaLabel } from '../../public/js/ui/shop/host.js';
+import { shopControlReasons, shopRewardView, rewardPickLabel } from '../../public/js/ui/shop/ShopCanvas.js';
 import { findPath } from '../../public/js/ui/shop/prefab.js';
 import { PHASE } from '../../shared/constants.js';
-import { t } from '../../shared/i18n.js';
+import { t, setLang, setMessages, setNameResolver } from '../../shared/i18n.js';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const PACKS = {};
+const NAMES = {};
+function packOf(lang) {
+  PACKS[lang] = PACKS[lang] || JSON.parse(readFileSync(path.join(ROOT, `public/i18n/${lang}.json`), 'utf8'));
+  return PACKS[lang];
+}
+function namesOf(lang) {
+  NAMES[lang] = NAMES[lang] || JSON.parse(readFileSync(path.join(ROOT, `data/i18n/${lang}.json`), 'utf8')).names || {};
+  return NAMES[lang];
+}
 
 function find(node, name) {
   if (!node) return null;
@@ -249,4 +264,129 @@ test('the host registers the reward hotspot', () => {
   assert.equal(Object.isFrozen(reward), true, 'a caller cannot rewire the host hotspots');
   assert.equal(Object.isFrozen(reward.paths), true);
   assert.equal(Object.isFrozen(CONTROL_HOTSPOTS), true);
+});
+
+// ---- the minimized label names the offer, in every language ----------------------------------------------
+
+test('rewardPickLabel: 选择{title} for every offer kind, six glyphs at most in zh', () => {
+  const cases = [
+    ['晋升奖励', rewardOffer()],
+    ['定向投放', rewardOffer({ source: 'special', label: '定向投放', slots: [{ kind: 'item', id: 'y' }] })],
+    ['见者有份', rewardOffer({ source: 'special', label: '见者有份', slots: [{ kind: 'item', id: 'z' }] })],
+    ['寻呼模块', rewardOffer({ source: 'special', label: '寻呼模块' })],
+    ['松果', rewardOffer({ source: 'special', label: '松果' })],
+    ['特殊招募', rewardOffer({ source: 'special', slots: [{ kind: 'chess', id: 'w' }] })],
+    ['装备补给', rewardOffer({ source: 'special', slots: [{ kind: 'item', id: 'v' }] })],
+  ];
+  for (const [title, offer] of cases) {
+    const view = shopRewardView(offer, { rewardMin: true, phase: PHASE.PREP });
+    assert.equal(view.label, `选择${title}`, `${title}: the button names the offer`);
+    assert.ok(view.label.length <= 6, `${title}: ${view.label} must fit the 120-unit text node at 19 px`);
+  }
+  assert.equal(rewardPickLabel(null), t('选择奖励'));
+  assert.equal(rewardPickLabel({ title: '' }), t('选择奖励'));
+  assert.equal(rewardPickLabel({ title: '一个很长的策略名称' }), '选择一个很长的策略名称',
+    'a long name still names the offer; the prefab bestFit shrinks the face');
+});
+
+test('the minimized label names the offer in every language, not just zh', () => {
+  // named offers (strategy effect / item / operator trait) and offers without a name (promotion, generic)
+  const named = [
+    ['定向投放', rewardOffer({ source: 'special', label: '定向投放', slots: [{ kind: 'item', id: 'y' }] })],
+    ['寻呼模块', rewardOffer({ source: 'special', label: '寻呼模块' })],
+    ['松果', rewardOffer({ source: 'special', label: '松果' })],
+  ];
+  const generic = [
+    ['晋升奖励', rewardOffer()],
+    ['特殊招募', rewardOffer({ source: 'special', slots: [{ kind: 'chess', id: 'w' }] })],
+    ['装备补给', rewardOffer({ source: 'special', slots: [{ kind: 'item', id: 'v' }] })],
+  ];
+  const restore = () => { setLang('zh'); setNameResolver(null); };
+  try {
+    for (const lang of ['en', 'ja', 'ko', 'zh-TW']) {
+      setMessages(lang, packOf(lang));
+      setNameResolver((name) => namesOf(lang)[name] || name);
+      setLang(lang);
+      const titleOf = (zhName) => namesOf(lang)[zhName] || zhName;
+      const pack = packOf(lang);
+      for (const [zhName, offer] of named) {
+        const view = shopRewardView(offer, { rewardMin: true, phase: PHASE.PREP });
+        assert.ok(view.label.includes(titleOf(zhName)), `${lang}: ${view.label} should name ${titleOf(zhName)}`);
+        assert.equal(rewardAriaLabel(view), view.label, `${lang}: the minimized aria label is the painted one`);
+      }
+      for (const [msgid, offer] of generic) {
+        const view = shopRewardView(offer, { rewardMin: true, phase: PHASE.PREP });
+        assert.ok(view.label.includes(pack[msgid]), `${lang}: ${view.label} should name ${pack[msgid]}`);
+      }
+      if (lang === 'en' || lang === 'ko') {
+        for (const [, offer] of [...named, ...generic]) {
+          assert.doesNotMatch(shopRewardView(offer, { rewardMin: true, phase: PHASE.PREP }).label, /[\u4e00-\u9fff]/,
+            `${lang}: no Chinese fallback`);
+        }
+      }
+      assert.notEqual(shopRewardView(rewardOffer(), { rewardMin: true, phase: PHASE.PREP }).label, t('选择奖励'),
+        `${lang}: the generic label would make offers look alike`);
+    }
+  } finally {
+    restore();
+  }
+});
+
+// ---- the reward view: 稍后 names the action, minimized names the offer ------------------------------------
+
+const rewardOffer = (over = {}) => ({ source: 'merge', slots: [{ kind: 'chess', id: 'x' }], ...over });
+
+test('shopRewardView: the row shown reads 稍后, minimized reads 选择{title} and the title comes from offerHeader', () => {
+  const shown = shopRewardView(rewardOffer(), { phase: PHASE.PREP });
+  assert.equal(shown.label, t('稍后'));
+  assert.equal(shown.visible, true);
+  assert.equal(shown.title, t('晋升奖励'));
+  assert.equal(shown.micro, 'PROMOTION');
+  assert.equal(shown.sub, t('免费选择 1 名'));
+  assert.equal(shown.count, 1);
+
+  const minimized = shopRewardView(rewardOffer(), { rewardMin: true, phase: PHASE.PREP });
+  assert.equal(minimized.label, t('选择{title}', { title: t('晋升奖励') }));
+  assert.equal(minimized.visible, false);
+
+  const cathy = shopRewardView(rewardOffer({ source: 'special', label: '定向投放', slots: [{ kind: 'item', id: 'y' }] }), { rewardMin: true });
+  assert.equal(cathy.title, '定向投放');
+  assert.equal(cathy.label, t('选择{title}', { title: '定向投放' }));
+  assert.equal(cathy.sub, t('免费选择 1 件'), 'an item offer says 1 件');
+});
+
+test('shopRewardView: queued offers raise the count and say 之后还有 N 项', () => {
+  const view = shopRewardView(rewardOffer({ queued: 2 }), { phase: PHASE.PREP });
+  assert.equal(view.count, 3);
+  assert.equal(view.more, t('之后还有 {queued} 项', { queued: 2 }));
+  assert.equal(shopRewardView(rewardOffer({ queued: 0 }), {}).more, null);
+});
+
+test('shopRewardView follows the offer the server makes current after a pick', () => {
+  const first = shopRewardView(rewardOffer({ queued: 1 }), { rewardMin: true });
+  assert.equal(first.label, t('选择{title}', { title: t('晋升奖励') }));
+  assert.equal(first.count, 2, 'two offers were waiting');
+  // the server drops the picked offer and pushes the next one as rewardOffer
+  const next = shopRewardView(rewardOffer({ source: 'special', label: '定向投放', slots: [{ kind: 'item', id: 'y' }], queued: 0 }), { rewardMin: true });
+  assert.equal(next.label, t('选择{title}', { title: '定向投放' }), 'the button names the offer that is now current');
+  assert.equal(next.count, 1);
+  assert.equal(next.more, null);
+});
+
+test('shopRewardView is empty outside PREP and without a pending offer', () => {
+  assert.equal(shopRewardView(null), null);
+  assert.equal(shopRewardView({ slots: [] }), null);
+  assert.equal(shopRewardView(rewardOffer(), { phase: PHASE.SP_DRAFT }), null);
+  assert.equal(shopRewardView(rewardOffer(), { phase: PHASE.ROUND_START }), null);
+  assert.ok(shopRewardView(rewardOffer(), { phase: PHASE.PREP }));
+});
+
+test('rewardAriaLabel names the offer once, not twice', () => {
+  const title = t('晋升奖励');
+  const minimized = { title, label: t('选择{title}', { title }), visible: false };
+  assert.equal(rewardAriaLabel(minimized), minimized.label, 'the minimized label already names the offer');
+  assert.equal(rewardAriaLabel({ title, label: t('稍后'), visible: true }),
+    t('{title}：{label}', { title, label: t('稍后') }), '稍后 carries the title');
+  assert.equal(rewardAriaLabel({ label: t('稍后'), visible: true }), t('稍后'), 'no title: the action alone');
+  assert.equal(rewardAriaLabel(null), t('选择奖励'));
 });

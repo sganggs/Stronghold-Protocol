@@ -48,8 +48,12 @@ export const TEXT_SIZES = Object.freeze(['sm', 'md', 'lg', 'xl']);
  *  of the operator's own model. A pure client preference (never sent): off, only this player's own pieces wear a skin.
  *  uiTheme: 设置「界面主题」 (docs/THEMES.md). Empty is the built-in 卫戍协议终端. A stored id is this browser's
  *  pack only — never sent, and it does not change a match.
+ *  shopMarkSkill / shopMarkStandIn / shopMarkProgress: 设置 → 外观「卡面标记」 (the canvas shop's DOM
+ *  overlay): the skill badge, 替补 / 自选, and the 可晋升 + owned-copy pips together. All on by default; only an
+ *  explicit false hides a group. The DOM shop bar keeps its own marks: these switches belong to the canvas
+ *  overlay (2026-11-22).
  */
-export const DEFAULT_SETTINGS = Object.freeze({ bgm: 0.6, sfx: 0.8, voice: 0.8, voiceLang: 'cn', voiceNative: false, voiceOverrides: Object.freeze({}), muted: false, damageNumbers: true, officialDamageNumbers: false, ammoEnergyCount: false, fullscreenWakeLock: false, bondTimers: false, combatMetrics: false, watchDuringBattle: false, prepDeployFold: true, quality: 'high', officialFx: 'auto', otherSkins: true, textSize: 'sm', uiTheme: '', themeMotion: true, arknightsCursor: false, keys: DEFAULT_HOTKEYS });
+export const DEFAULT_SETTINGS = Object.freeze({ bgm: 0.6, sfx: 0.8, voice: 0.8, voiceLang: 'cn', voiceNative: false, voiceOverrides: Object.freeze({}), muted: false, damageNumbers: true, officialDamageNumbers: false, ammoEnergyCount: false, fullscreenWakeLock: false, bondTimers: false, combatMetrics: false, watchDuringBattle: false, prepDeployFold: true, quality: 'high', officialFx: 'auto', otherSkins: true, textSize: 'sm', uiTheme: '', themeMotion: true, arknightsCursor: false, keys: DEFAULT_HOTKEYS, shopMarkSkill: true, shopMarkStandIn: true, shopMarkProgress: true });
 const QUALITIES = ['high', 'medium', 'low'];
 /** The values of 设置「官方特效」 (render/vfx/tier.js OFFICIAL_FX). Display order in the dialog is low / medium / high. */
 export const OFFICIAL_FX_MODES = Object.freeze(['auto', 'off', 'lite', 'full']);
@@ -106,6 +110,10 @@ export function sanitizeSettings(raw) {
     uiTheme: uiThemeOf(r.uiTheme),
     // 主题动画: the official packs' looping tweens and clips (ui/prefab); off draws them still
     themeMotion: r.themeMotion !== false,
+    // 卡面标记 (the canvas shop's DOM overlay): on unless the player switches a group off
+    shopMarkSkill: r.shopMarkSkill !== false,
+    shopMarkStandIn: r.shopMarkStandIn !== false,
+    shopMarkProgress: r.shopMarkProgress !== false,
     keys: sanitizeHotkeys(r.keys),
   };
 }

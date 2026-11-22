@@ -31,7 +31,7 @@ test('shopStill: 主题动画 off OR reducedMotion(); a missing setting keeps to
 });
 
 test('the host mount key is still-aware, so a still toggle re-runs the mount effect', () => {
-  // game.js still keys the component by the one-argument language form the shop-i18n test pins.
+  // game.js uses the one-argument (language) form as the component's key; shop-i18n.test.js pins the helper.
   assert.equal(shopMountKey('zh'), 'zh');
   assert.equal(shopMountKey('zh', false), 'zh');
   assert.equal(shopMountKey('en'), 'en');

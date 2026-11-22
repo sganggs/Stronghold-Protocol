@@ -30,7 +30,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, HexBadge, TierChip, Tooltip, MicroLabel, Fragment } from './components.js';
 import { OperatorImage, Img, BondGlyph, CoinGlyph, GIcon, RichText } from './gameComponents.js';
-import { priceTone, mergeProgress, mergeTarget, shopBlockReason, chessLoadout, offerHeader, briefingBondTip, ownStandIn, standInLoadout, standInLabel, standInTip, standInForText, ownDiyRecord, diyGetter } from './gameLogic.js';
+import { priceTone, mergeProgress, mergeHint, shopBlockReason, chessLoadout, offerHeader, briefingBondTip, ownStandIn, standInLoadout, standInLabel, standInTip, standInForText, ownDiyRecord, diyGetter } from './gameLogic.js';
 import { itemIconUrl, profIconUrl, profMarkUrl, uiUrl, skillIconUrl, skillRecordIconUrl, moduleTypeIconUrl } from './assetUrls.js';
 import { data, localAsset } from '../data.js';
 import { hotkeyLabelOf, useSettings } from './settings.js';
@@ -118,11 +118,8 @@ export function splitShopSlots(slots, layout = null) {
  * Where a merge-completing buy sends the elite (DESIGN §20.11), null when the card completes no merge: the 可晋升 tag's
  * title, and a line of the detail card the first tap opens — a touch screen never shows a title (QA 6b).
  */
-export function mergeHint(priv, chessId) {
-  const prog = mergeProgress(priv, chessId, LOOKUPS.getChess);
-  if (!(prog.copies > 0 && prog.copies + 1 >= prog.need)) return null;
-  return mergeTarget(priv, chessId, LOOKUPS.getChess) ? t('精锐干员将出现在作战区原位置') : t('精锐干员将进入整备区');
-}
+// mergeHint lives in ui/gameLogic/shop.js (gameLogic.js re-exports it); this alias keeps the old import path.
+export { mergeHint };
 
 /**
  * Whether a shop card shows its frost: its own slot's `frozen` (m.private shop.slots[i].frozen) — the 冻结 toggle copies onto

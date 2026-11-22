@@ -60,6 +60,7 @@ import {
   applyUiTheme, bindThemeSettings, bootUiThemes, composeLocalManifest, importedThemeGroups, onImportedThemeGroups, syncThemeVoiceVolume,
 } from '../uiTheme.js';
 import { data } from '../data.js';
+import { shopCapability } from './shop/gate.js';
 import { askPersistStorage, importSupport, storagePersisted } from '../assetCache.js';
 import { assetImport, pruneImportedAssets } from '../assetPack.js';
 import { cosmetics } from '../cosmetics.js';
@@ -489,6 +490,14 @@ export function SettingsModal({ open, onClose }) {
   const s = useSettings();
   const [tested, setTested] = useState(false);
   const [touchUi] = useState(() => detectFeatures().coarse && !detectFeatures().fine);
+  // The canvas shop's card-mark switches belong to a canvas theme: read the same local groups game.js hands to
+  // shopCapability, and re-read them when the local manifest arrives (the settings dialog can open first).
+  const [localGroups, setLocalGroups] = useState(() => data.get('local')?.groups || null);
+  useEffect(() => {
+    const read = () => setLocalGroups(data.get('local')?.groups || null);
+    read();
+    return data.subscribe((name) => { if (name === 'local') read(); });
+  }, []);
   const mtNote = machineTranslationNote(); // a pack marked as machine translation says so under the switch
   const communityNote = communityTranslationNote(); // version i18n marked communityTranslated (act3 Terra fills)
   const [fxOk, setFxOk] = useState(false);  // effects extracted from the local client: the 官方特效 row shows
@@ -626,6 +635,16 @@ export function SettingsModal({ open, onClose }) {
       <${Toggle} label=${t('主题动画')} micro="THEME MOTION" value=${s.themeMotion} onChange=${(v) => updateSettings({ themeMotion: v })} />
       <p class="set-hint" data-testid="theme-motion-hint">${t('规程里乌萨斯齐心团、可露希尔主题界面的循环动画（倒计时与按钮的闪光等）。关闭后只显示静态画面，适合配置较低的设备；系统开启“减少动态效果”时也不播放。')}</p>
     ` },
+    { id: 'shopMarks', category: 'appearance', render: () => {
+      // Only while the selected theme can mount the canvas shop (the gate's own capability test): every other
+      // theme keeps the DOM bar, where these switches would do nothing — so they are not offered there.
+      if (!shopCapability(localGroups, s.uiTheme).ok) return null;
+      return html`
+        <${Toggle} label=${t('卡面技能图标展示')} micro="SKILL ICON" value=${s.shopMarkSkill} onChange=${(v) => updateSettings({ shopMarkSkill: v })} />
+        <${Toggle} label=${t('替补自选标记展示')} micro="STAND-IN / DIY" value=${s.shopMarkStandIn} onChange=${(v) => updateSettings({ shopMarkStandIn: v })} />
+        <${Toggle} label=${t('晋升和持有进度展示')} micro="PROMOTION & OWNED" value=${s.shopMarkProgress} onChange=${(v) => updateSettings({ shopMarkProgress: v })} />
+      `;
+    } },
     { id: 'hotkeys', category: 'controls', render: active => html`
       <${HotkeySection} active=${active} keys=${s.keys} touchUi=${touchUi} />
     ` },

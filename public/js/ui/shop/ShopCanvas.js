@@ -20,10 +20,12 @@ import { PHASE } from '../../../../shared/constants.js';
 import { PLUGIN_OFFER_SLOTS } from '../../../../shared/plugins/limits.js';
 import { data } from '../../data.js';
 import { mergeHint } from '../shopBar.js';
-import { shopBlockReason, mergeProgress, handFull } from '../gameLogic.js';
+import { shopBlockReason, mergeProgress, handFull, offerHeader } from '../gameLogic.js';
 import { useStore } from '../../store.js';
 import { skinsStore, ownerSkin } from '../skins.js';
+import { useSettings } from '../settings.js';
 import { createShopHost } from './host.js';
+import { shopCardMarks, filterCardMarks } from './marks.js';
 
 /** Taps inside the shop, its detail panel or a dialog do not disarm (the old ShopBar's useTwoTap rule). */
 const KEEP_ARMED = '[data-shop-webgl], .dpanel, .modal';
@@ -204,6 +206,51 @@ export function rewardControlReason(offer, rewardMin = false, phase = null) {
 }
 
 /**
+ * The minimized reward control's label: 选择{title}. The title is the offerHeader's (already localized)
+ * title — 晋升奖励 / 定向投放 / 见者有份 / 寻呼模块 / 松果 / 特殊招募 / 装备补给 — so the two shops name an
+ * offer the same way. The seven known names are six glyphs at most in zh; any other title still names the
+ * offer and the prefab's `bestFit` shrinks the face to the pill, as the other languages' templates already
+ * do (en drops the verb). No title (an empty offer) keeps the generic 选择奖励.
+ * @param {{ title?: string }|null} head `offerHeader(offer)`
+ * @returns {string}
+ */
+export function rewardPickLabel(head) {
+  const title = head && typeof head.title === 'string' ? head.title.trim() : '';
+  return title ? t('选择{title}', { title }) : t('选择奖励');
+}
+
+/**
+ * The reward control's view (`view.reward`): the ctrl paints its label, the count badge shows how many
+ * offers wait (this one + `queued`), and the hotspot's aria-label reads the offer's own name.
+ *
+ * The label names what the button holds. While the offer row is drawn it is 稍后 (the row's cards already
+ * show what the reward is); once the player put the pick off, the row is the normal shop again and the
+ * button reads 选择{title} — 选择晋升奖励, 选择定向投放, 选择见者有份 … — composed from offerHeader's
+ * localized title, so a promotion reward and a strategy's special refresh no longer look alike. A queued
+ * offer that becomes the current one after a pick is the new `offer`, so the label and the count follow the
+ * server's push (this view is a pure function of `priv.shop.rewardOffer.queued` and the offer itself).
+ * @param {any} offer `priv.shop.rewardOffer`
+ * @param {{ rewardMin?: boolean, phase?: string|null }} [o]
+ * @returns {{ count: number, visible: boolean, label: string, title: string, micro: string,
+ *   sub: string, more: string|null }|null} null without a pending offer, or outside PREP
+ */
+export function shopRewardView(offer, { rewardMin = false, phase = null } = {}) {
+  if (!offer || !Array.isArray(offer.slots) || !offer.slots.length) return null;
+  if (phase && phase !== PHASE.PREP) return null;
+  const head = offerHeader(offer);
+  return {
+    count: Math.max(1, (Number(offer.queued) || 0) + 1),
+    visible: !rewardMin,
+    label: rewardMin ? rewardPickLabel(head) : t('稍后'),
+    // The DOM bar's own header fields, carried for the aria label (no extra strip is drawn on the canvas).
+    title: head.title,
+    micro: head.micro,
+    sub: head.sub,
+    more: head.more,
+  };
+}
+
+/**
  * The block reason per control hotspot (null = may fire), the same wording the old ShopBar shows. The reward
  * row occupies the shop's refresh/freeze controls until 稍后 (`rewardControlReason`); the level-up card is
  * never gated by the offer. Refresh uses shopBlockReason's own rule: the server already turns a free refresh
@@ -290,6 +337,16 @@ export function ShopCanvas(props) {
   // The shop owner's outfit choices (§37.273): the card portrait follows them exactly like the DOM card's
   // `OperatorImage` does through the same store.
   const localSkins = useStore((s) => s.skins, Object.is, skinsStore);
+  // 卡面标记 switches (设置 → 外观): every group is on unless the player switched it off. The overlay is DOM
+  // on the card hotspots, so a switch change only repaints the mounted host. 可晋升 and the owned-copy pips
+  // share the progress switch; 替补 and 自选 share the stand-in one.
+  const settings = useSettings();
+  const marksOnRef = useRef(null);
+  marksOnRef.current = {
+    skill: settings.shopMarkSkill,
+    standIn: settings.shopMarkStandIn,
+    progress: settings.shopMarkProgress,
+  };
 
   // The arm timestamp is read, never recomputed: viewOf() must report when the tap happened, otherwise every
   // priv push restarts the confirm strip's clip clock.
@@ -312,13 +369,7 @@ export function ShopCanvas(props) {
     const a = armedRef.current;
     const displayPriv = shopDisplayPrivate(p.priv, !!p.rewardMin, p.phase);
     const offer = p.priv && p.priv.shop && p.priv.shop.rewardOffer;
-    const hasOffer = !!(offer && Array.isArray(offer.slots) && offer.slots.length);
-    const rewardAllowed = !p.phase || p.phase === PHASE.PREP;
-    const reward = hasOffer && rewardAllowed ? {
-      count: Math.max(1, (Number(offer.queued) || 0) + 1),
-      visible: !p.rewardMin,
-      label: p.rewardMin ? t('选择奖励') : t('稍后'),
-    } : null;
+    const reward = shopRewardView(offer, { rewardMin: !!p.rewardMin, phase: p.phase });
     const selectSlot = levelArmedRef.current ? { isUpgrade: true }
       : (a ? { slotId: a.index + 1, isGoods: true } : null);
     return {
@@ -328,6 +379,11 @@ export function ShopCanvas(props) {
       armedSlotId: a ? a.index + 1 : null,
       armedAt: a ? armedAtRef.current : 0,
       cardFlags: shopCardFlagsWithHand(displayPriv, (kind, id) => data.lookup(kind, id), p.config),
+      // The project's own marks (替补 / 自选 / owned pips / skill / 可晋升) as a DOM overlay on the card
+      // hotspots; the 卡面标记 switches drop them one by one.
+      cardMarks: shopCardMarks(displayPriv, displayPriv && displayPriv.shop && displayPriv.shop.slots, {
+        lookups: { getChess: (id) => data.lookup('chess', id) },
+      }).map((marks) => filterCardMarks(marks, marksOnRef.current)),
       controls: controlReasons(),
       reward,
       // The owner is this seat, so the local selection is what the DOM card resolves for it (§37.273).
@@ -364,6 +420,11 @@ export function ShopCanvas(props) {
   useEffect(() => {
     pushView();
   }, [localSkins]);
+
+  // A 卡面标记 switch changes only the DOM overlay on the card hotspots: repaint, no remount.
+  useEffect(() => {
+    pushView();
+  }, [settings.shopMarkSkill, settings.shopMarkStandIn, settings.shopMarkProgress]);
 
   // The host captures its renderer options at construction (createShopHost), so a motion-setting change
   // re-mounts it instead of mutating the live scene: the preloaded runtime is cached, only the scene/spine is

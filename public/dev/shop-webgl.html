@@ -17,6 +17,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Shop WebGL · dev host</title>
   <link rel="icon" href="data:," />
+  <!-- the card-mark overlay (ui/shop/marks.js → host.syncCardMarks) is styled only in the game sheet; the
+       page adds its `shop-webgl--game` scope so the marks can be checked without a match -->
+  <link rel="stylesheet" href="/css/screens/game-shop-canvas.css" />
   <style>
     html, body { margin: 0; height: 100%; background: #0b0e12; color: #cdd6d6; font: 13px/1.5 system-ui, sans-serif; overflow: hidden; }
     body { display: flex; flex-direction: column; justify-content: flex-end; }
@@ -44,7 +47,7 @@
   </style>
 </head>
 <body>
-  <div id="host"></div>
+  <div id="host" class="shop-webgl shop-webgl--game"></div>
   <div id="panel">
     <h1>Shop WebGL · dev host（Stage A）</h1>
     <div class="row"><span id="status">loading…</span></div>
