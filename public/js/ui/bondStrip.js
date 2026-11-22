@@ -31,7 +31,7 @@
 
 import { cloneElement } from '../../vendor/preact.module.js';
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { html, BondDisc, Icon, MicroLabel, Tooltip } from './components.js';
+import { html, BondDisc, bondFrame, Icon, MicroLabel, Tooltip } from './components.js';
 import { RichText, BondGlyph, GIcon, Sprite, Img, SquareOperatorThumb } from './gameComponents.js';
 import { sortBonds, bondMembers, nextThreshold, bondTier, harmonyMembers, HARMONY_BOND, briefingBondTip, diyGetter, diyRecordFor, memberStandIn, standInForText } from './gameLogic.js';
 import { bondIconUrl, uiUrl } from './assetUrls.js';
@@ -207,15 +207,15 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
     ${owner ? html`<${OwnerTag} owner=${owner} />` : null}
     ${shown.map((b) => {
       const { record: rec, thresholds: th, count, tier, tempLayers, total } = bondDisplay(b.bondId, b);
-      const segments = Math.max(1, Math.min(4, th.length));
-      const reached = b.active && !b.off ? Math.max(1, Math.min(segments, tier)) : 0;
-      const frameStyle = `--bond-frame-size: ${reached === segments ? '.815' : '.688'}rem; --bond-rim-top: ${reached === segments ? 13 / 77 : 8 / 65}`;
+      // the disc's sprite (the full ring once active, at every tier): the stage numeral sits on its rim
+      const { full } = bondFrame(b.off ? { disabled: true } : { active: !!b.active, members: count, minCount: th[0] ?? 0 });
+      const frameStyle = `--bond-frame-size: ${full ? '.815' : '.688'}rem; --bond-rim-top: ${full ? 13 / 77 : 8 / 65}`;
       if (b.off) {
         // a bond the mode never activates, with members: the briefing's grey ✕ disc, no stack count, 本局禁用 under it
         const name = rec?.name || b.bondId;
         return html`<div key=${b.bondId} role="listitem" data-bond=${b.bondId} data-off="1"
             class=${cx('bslot', 'is-off', openId === b.bondId && 'is-open')} style=${frameStyle}>
-          <${BondDisc} name=${name} icon=${bondIconUrl(m, b.bondId)} tier=${0} maxTier=${Math.max(1, th.length)} active=${false}
+          <${BondDisc} name=${name} icon=${bondIconUrl(m, b.bondId)} tier=${0} active=${false}
             disabled=${true} size="sm" showName=${true} layersDisabled=${layersDisabled} onClick=${() => onOpen(b.bondId)}
             title=${t('{tip} · {n} 名成员', { tip: briefingBondTip(name, 'off'), n: count })} />
           <span class="bslot__count bslot__off">${t('本局禁用')}</span>
@@ -223,9 +223,9 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
       }
       const next = nextThreshold(count, th);
       return html`<div key=${b.bondId} role="listitem" data-bond=${b.bondId} data-harmony=${b.harmony > 0 ? b.harmony : null}
-          class=${cx('bslot', b.active && 'is-active', tempLayers > 0 && 'has-temp-layers', reached === segments && 'is-full', openId === b.bondId && 'is-open')} style=${frameStyle}>
+          class=${cx('bslot', b.active && 'is-active', tempLayers > 0 && 'has-temp-layers', full && 'is-full', openId === b.bondId && 'is-open')} style=${frameStyle}>
         <${BondDisc} name=${rec?.name || b.bondId} icon=${bondIconUrl(m, b.bondId)} layers=${rec?.noStack ? undefined : total}
-          tier=${tier} maxTier=${Math.max(1, th.length)} members=${count} minCount=${th[0] ?? 0} active=${!!b.active} size="sm" showName=${true}
+          tier=${tier} members=${count} minCount=${th[0] ?? 0} active=${!!b.active} size="sm" showName=${true}
           layersDisabled=${layersDisabled} onClick=${() => onOpen(b.bondId)}
           title=${`${rec?.name || b.bondId} ${count}/${next ?? th[th.length - 1] ?? '-'}${b.harmony > 0 ? t('（含调和 +{harmony}）', { harmony: b.harmony }) : ''}`} />
     <${BondStage} tier=${b.active ? tier : 0} />
@@ -289,7 +289,7 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
   <header class=${cx('bpop__head', active && 'is-active')}>
     <div class="bpop__disc">
       <${BondDisc} name=${b.name} icon=${bondIconUrl(data.get('assets'), bondId)} tier=${tier}
-        maxTier=${Math.max(1, th.length)} members=${count} minCount=${th[0] ?? 0} active=${active} disabled=${modeOff || coreAbsent} showName=${false} />
+        members=${count} minCount=${th[0] ?? 0} active=${active} disabled=${modeOff || coreAbsent} showName=${false} />
     </div>
     <div class="bpop__titles">
       ${owner ? html`<span class="bpop__owner"><${GIcon} name="eye" />${tParts('{owner} 的盟约', { owner: html`<b>${owner}</b>` })}</span>` : null}

@@ -1,13 +1,13 @@
 // Design-system components (Preact + htm, no build step). Styles live in css/components.css.
 //
 // Exports: html (bound htm), Icon, Button, Panel, MicroLabel, Chevrons, HexBadge, TierChip,
-// BondDisc, SevenSeg, Countdown, Modal, confirmDialog/alertDialog + DialogHost, Tooltip +
+// BondDisc + bondFrame, SevenSeg, Countdown, Modal, confirmDialog/alertDialog + DialogHost, Tooltip +
 // TooltipLayer, ProgressBar, Tabs, Spinner, AvatarFrame, PhaseBanner, ResultDialog, PingPill, DifficultyTag,
 // DifficultyIcon, TextField, UiHosts (mount once: dialogs + tooltips), useTicker, secondsLeft/hasDeadline,
 // roman(), doctorNo().
 //
 // Look: research 06 §11–§12 — near-black green-grey panels, 1px lines, mint accents, bracket
-// corners, hexagon badges, roman tier chips, bond discs with segmented rings, 7-segment countdown
+// corners, hexagon badges, roman tier chips, bond discs in the official rings, 7-segment countdown
 // (orange ≤10 s), chevron phase banners. Motion 150–250 ms. All sizes are rem (1rem = 100 design
 // px at 1920×1080, see css/theme.css).
 
@@ -212,49 +212,57 @@ export function TierChip({ tier, golden = false, size = 'md', class: cls, overla
 }
 
 /**
- * Bond disc: round glyph disc with segmented tier ring, stack count and name.
- * @param {{ name?: string, icon?: string, count?: number, layers?: number, tier?: number, maxTier?: number,
- *   active?: boolean, disabled?: boolean, layersDisabled?: boolean, size?: 'sm'|'md'|'lg', showName?: boolean,
- *   onClick?: Function, class?: string, title?: string, cross?: boolean, tag?: any }} props
- *   cross: the red ✕ corner (default: when disabled); tag: a corner mark drawn in its place, on the disc's box (the
- *   briefing's official 阵容不完整 corner, ui/matchInfo.js BondLackTag)
+ * The official bond board sprite a disc draws (`bondBoardIcon/<key>`), and whether it is one of the 77-unit sprites with
+ * the glow (1_1 and the full N_N; the others are 65 units).
+ * An active bond (not disabled) draws the full unbroken ring around the lit centre (1_1) at every tier, as the official
+ * 规程 does: in the official screenshot (PR #923 comment, round 11) 灵巧 Ⅱ, 精准 Ⅰ, 不屈 Ⅱ and 绝技 Ⅰ have the same centre
+ * and the same full ring, the tier shows only in the numeral above the disc. The owner applied it to every version
+ * (2026-11-22, §37.340); the 盟约 periods have no official image of their own [ASSUMED: same as 规程].
+ * The segmented N_k rings are the member count toward activation (inactive progress: k of N members); disabled
+ * (本局禁用) or no count → 1_0.
+ * @param {{ active?: boolean, disabled?: boolean, members?: number, minCount?: number }} [props]
+ * @returns {{ key: string, lit: boolean, progress: boolean, filled: number, full: boolean }}
+ */
+export function bondFrame({ active = false, disabled = false, members = 0, minCount = 0 } = {}) {
+  const lit = !!active && !disabled;
+  const progress = !active && !disabled && minCount > 0;
+  const n = Math.max(1, Math.min(4, minCount | 0 || 1));
+  const filled = progress ? Math.max(0, Math.min(n, members | 0)) : 0;
+  const key = lit ? '1_1' : progress ? `${n}_${Math.max(1, filled)}` : '1_0';
+  return { key: `bondBoardIcon/${key}`, lit, progress, filled, full: lit || (progress && filled === n) };
+}
+
+/**
+ * Bond disc: round glyph disc in the official ring (full once active, member progress before it: bondFrame), stack
+ * count and name.
+ * @param {{ name?: string, icon?: string, count?: number, layers?: number, members?: number, minCount?: number,
+ *   tier?: number, active?: boolean, disabled?: boolean, layersDisabled?: boolean, size?: 'sm'|'md'|'lg',
+ *   showName?: boolean, onClick?: Function, class?: string, title?: string, cross?: boolean, tag?: any }} props
+ *   tier: the reached tier, kept on the element as data-tier (the ring does not show it; the bond strip draws the
+ *   numeral above the disc); cross: the red ✕ corner (default: when disabled); tag: a corner mark drawn in its place,
+ *   on the disc's box (the briefing's official 阵容不完整 corner, ui/matchInfo.js BondLackTag)
  */
 export function BondDisc({
-  name = '', icon, count, layers, members = 0, minCount = 0, tier = 0, maxTier = 3, active = false, disabled = false, layersDisabled = false,
+  name = '', icon, count, layers, members = 0, minCount = 0, tier = 0, active = false, disabled = false, layersDisabled = false,
   size = 'md', showName = true, onClick, class: cls, title, cross = disabled, tag = null,
 }) {
   // Remember which URL failed (a per-URL flag can't race a reset effect).
   const [badSrc, setBadSrc] = useState(null);
   const imgOk = !!icon && badSrc !== icon;
-  const progress = !active && !disabled && minCount > 0;
-  const n = Math.max(1, Math.min(4, (progress ? minCount : maxTier) | 0 || 3));
-  const filled = progress ? Math.max(0, Math.min(n, members | 0))
-    : active && !disabled ? Math.max(1, Math.min(n, tier | 0)) : 0;
-  const full = !progress && filled === n;
-  const key = `bondBoardIcon/${progress ? `${n}_${Math.max(1, filled)}` : filled ? `${n}_${filled}` : '1_0'}`;
+  const { key, lit, progress, filled, full } = bondFrame({ active, disabled, members, minCount });
   const [badFrame, setBadFrame] = useState(null);
   const frameUrl = uiUrl(data.get('assets'), key);
   const frame = badFrame === frameUrl ? null : frameUrl;
-  // Partial-tier sprites have a grey centre. An activated bond uses the lit plate independently of its ring (PR #994).
-  // [ASSUMED] the ring keeps showing the tier: the official 规程 screenshot shows a full ring once active, and the 盟约
-  // periods have no official image.
-  const lit = active && !disabled;
-  const [badCoreFrame, setBadCoreFrame] = useState(null);
-  const coreUrl = lit ? uiUrl(data.get('assets'), 'bondBoardIcon/1_1') : null;
-  const core = badCoreFrame === coreUrl ? null : coreUrl;
-  const coreFrame = lit ? (core ? `url("${core}")` : 'none') : 'var(--bond-frame)';
-  const coreSize = lit ? `calc(var(--disc) * ${.815 / .52})` : 'var(--bond-frame-size)';
-  const frameStyle = `--bond-frame: ${frame ? `url("${frame}")` : 'none'}; --bond-frame-size: calc(var(--disc) * ${full ? .815 / .52 : .688 / .52}); `
-    + `--bond-core-frame: ${coreFrame}; --bond-core-size: ${coreSize}`;
+  // one sprite draws the ring and, enlarged (bond.css .bond__core::before), the centre plate: 1_1's centre is lit
+  const frameStyle = `--bond-frame: ${frame ? `url("${frame}")` : 'none'}; --bond-frame-size: calc(var(--disc) * ${full ? .815 / .52 : .688 / .52})`;
   const stack = layers ?? count;
   const glyph = (name || '?').trim().charAt(0) || '?';
   const Tag = onClick ? 'button' : 'div';
   return html`<${Tag} type=${onClick ? 'button' : undefined}
       class=${cx('bond', 'is-sprite', !frame && 'is-frame-missing', full && 'is-full', progress && !filled && 'is-empty-progress', `bond--${size}`, active && 'is-active', disabled && 'is-disabled', layersDisabled && 'is-frozen', onClick && 'is-clickable', cls)}
-      style=${frameStyle} onClick=${onClick} title=${title || name}>
+      style=${frameStyle} onClick=${onClick} title=${title || name} data-tier=${lit && tier > 0 ? tier : undefined}>
     <span class="bond__disc">
       ${frame ? html`<img src=${frame} alt="" hidden onError=${() => setBadFrame(frame)} />` : null}
-      ${core ? html`<img src=${core} alt="" hidden onError=${() => setBadCoreFrame(core)} />` : null}
       <span class="bond__core">
         ${imgOk
           ? html`<img class="bond__icon" src=${icon} alt="" draggable=${false} onError=${() => setBadSrc(icon)} />`

@@ -314,7 +314,8 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 }
 .bpop__body > * { flex-shrink: 0; }
 
-/* Original bond board sprites supply both the disc and the segmented ring. */
+/* Original bond board sprites supply both the disc and its ring: the full ring around the lit centre (1_1) once active, at
+   every tier as in the official 规程; the segmented member progress before activation (components.js bondFrame). */
 .bond.is-sprite .bond__disc::before {
   content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
   width: var(--bond-frame-size); height: var(--bond-frame-size);
@@ -326,10 +327,11 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .bond.is-sprite .bond__glyph { color: var(--text-lo); }
 .bond.is-sprite.is-active:not(.is-disabled) .bond__glyph { color: #06221a; }
 
-/* Enlarge only the central plate; clip away the ring in this second sprite layer. */
+/* Enlarge only the central plate of the same sprite; clip away the ring in this second layer. The mint underneath keeps an
+   active centre lit while the sprite loads. */
 .bond.is-sprite .bond__core::before {
   content: ''; position: absolute; inset: 0; pointer-events: none;
-  background: var(--bond-core-frame) center / calc(var(--bond-core-size) * 1.08) calc(var(--bond-core-size) * 1.08) no-repeat;
+  background: var(--bond-frame) center / calc(var(--bond-frame-size) * 1.08) calc(var(--bond-frame-size) * 1.08) no-repeat;
   clip-path: circle(46% at 50% 50%);
 }
 .bond.is-sprite.is-active:not(.is-disabled) .bond__core::before { background-color: var(--mint-400); }
