@@ -59,7 +59,8 @@ export class PlayerRound {
    * official client tip 「晋级的特殊奖励无法被刷新、冻结，也不会保留至下一回合」 (autoChessData.gameTipsList, every season)
    * names the promotion reward; the strategies' special refreshes and the item / 调度中心 offers follow it [ASSUMED]
    * (the owner's decision of 2026-11-22, DESIGN §37.339 — it reverses the keep-until-picked rule of §32.14.32). Offers
-   * queued after the player could no longer act in this prep (after Ready, during onPrepEnd) wait for the next prep.
+   * queued after the player could no longer act in this prep (after Ready, during onPrepEnd) wait for the next prep
+   * [ASSUMED: the tip does not cover them].
    * The Final Assault and Hidden Core preps end the same way [ASSUMED, as before].
    */
   lapseOffers() {

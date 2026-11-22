@@ -183,6 +183,48 @@ test('a bot seat takes an offer queued after its Ready in the next prep (AI team
   m.dispose();
 });
 
+test('AI seats take the offers their own late prep steps queue before Ready: a 寻呼模块 equipped in equipItems (AI teammate, human seat under AI 托管)', () => {
+  // review of §37.339: the shared prep skeleton took offers for the last time before spending and equipping, so a pick
+  // queued there (寻呼模块 / 信标, an onEquip grant's merge) lapsed at Ready — it is now taken right after equipItems and
+  // once more before Ready (botPrep.js createPrepSteps)
+  const PAGER = Object.values(DATA.items).find((i) => i.name === '寻呼模块' && !i.isGolden);
+  assert.ok(PAGER, '寻呼模块 in the data');
+  const pagerId = PAGER.itemId ?? PAGER.id;
+  for (const who of ['p_0', 'ai_0']) {
+    const h = makeMatch({ mode: 'coop', difficulty: 'NORMAL', humans: 2, bots: 1, seed: 1708, fake: true }).start();
+    const m = h.m;
+    const audit = attachAudit(m);
+    h.toPrep(2);
+    const ps = h.ps(who);
+    assert.equal(ps.ready, false, `${who}: its prep has not run yet`);
+    assert.ok(ps.acquireItem(pagerId, { silent: true }), `${who}: holds a 寻呼模块`);
+    const queued = [], picked = [], lapsed = [];
+    const equip = ps.equip.bind(ps);
+    ps.equip = (itemUid, targetUid, replaceUid) => {
+      const id = ps.find(itemUid)?.piece.id;
+      const before = new Set(ps.offers);
+      const r = equip(itemUid, targetUid, replaceUid);
+      if (id === pagerId && r.ok) for (const o of ps.offers) if (!before.has(o)) queued.push({ offer: o, ready: ps.ready });
+      return r;
+    };
+    const pick = ps.pickReward.bind(ps);
+    ps.pickReward = (idx) => { const o = ps.offers[0]; const r = pick(idx); if (r.ok) picked.push(o); return r; };
+    const lapse = ps.lapseOffers.bind(ps);
+    ps.lapseOffers = () => { for (const o of ps.offers) if (ps.offerDue(o) <= ps.prepsEnded) lapsed.push(o); return lapse(); };
+    if (who === 'p_0') assert.deepEqual(m.handle('p_0', { t: 'g.autoplay', on: true }), { ok: true });
+    assert.ok(h.run(() => ps.ready || m.phase !== PHASE.PREP));
+    assert.equal(queued.length, 1, `${who}: equipping the 寻呼模块 in its own prep queued its offer`);
+    assert.equal(queued[0].ready, false, `${who}: before Ready (due at this prep)`);
+    assert.ok(picked.includes(queued[0].offer), `${who}: the AI took it before Ready`);
+    if (!h.ps('p_1').ready) assert.deepEqual(m.handle('p_1', { t: 'g.ready', ready: true }), { ok: true });
+    h.run(() => m.phase !== PHASE.PREP);
+    assert.deepEqual(lapsed, [], `${who}: nothing the AI queued in its own prep lapsed`);
+    checkInvariants(m);
+    assert.deepEqual(audit.violations, [], `${who}:\n${audit.violations.join('\n')}`);
+    m.dispose();
+  }
+});
+
 test('the rule auditor flags an offer kept past its prep and one dropped before its due prep (engine regression guards)', () => {
   {
     const { h, m, ps, audit } = setup({ seed: 1706 });

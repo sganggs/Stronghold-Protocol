@@ -31,7 +31,7 @@
 //     playtest #6 item 19; a short tier tops up from the tier below; the player's stocked 自选 of that tier joins,
 //     §30.23; pick 1; like every queued offer it lapses unpicked at the end of the prep in which the player could
 //     act on it — an offer earned after Ready or after the prep (onPrepEnd, SETTLE / Final Assault effects) is shown
-//     in the next prep and lapses at its end: offerDue, the official tip 「晋级的特殊奖励无法被刷新、冻结，也不会保留至下一
+//     in the next prep and lapses at its end [ASSUMED]: offerDue, the official tip 「晋级的特殊奖励无法被刷新、冻结，也不会保留至下一
 //     回合」, §37.339). Where the elite goes (PRTS
 //     卫戍协议/帮助 "发送1名【精锐】状态的该干员至手牌区（若消耗已部署至作战区的干员，则发送至作战区对应位置）", user
 //     playtest #6 follow-up): when a consumed copy stood on the board, onto that copy's tile with its facing (of several,
