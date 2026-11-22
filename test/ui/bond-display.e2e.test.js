@@ -44,9 +44,10 @@ test('active bonds draw the full ring at every tier, the numeral shows the tier;
     await page.waitForSelector('.match-bond-dialog .bpop', { visible: true });
     await page.keyboard.press('Escape');
     await page.waitForSelector('.match-bond-dialog', { hidden: true });
-    // the briefing's drawn bonds are all lit: one full ring each
+    // the briefing's drawn bonds are all lit: one full ring each, no tier on the element (none is reached before the match)
     const briefRings = await page.$$eval('.brief-bond:not(.is-off) .bond', (nodes) => nodes.map((el) => getComputedStyle(el.querySelector('.bond__disc'), '::before').backgroundImage));
     assert.ok(briefRings.length > 0 && briefRings.every((ring) => /bondBoardIcon\/1_1\.png/.test(ring)), JSON.stringify(briefRings));
+    assert.deepEqual(await page.$$eval('.brief-bond .bond[data-tier]', (nodes) => nodes.length), 0);
     await page.evaluate(async () => {
       const { h, render } = await import('/vendor/preact.module.js');
       const { BondDisc } = await import('/js/ui/components.js');
@@ -164,6 +165,19 @@ test('active bonds draw the full ring at every tier, the numeral shows the tier;
       imgs: el.querySelectorAll('img').length,
     }));
     assert.deepEqual(fallback, { core: 'rgb(89, 244, 202)', ring: 'none', imgs: 0 });
+    // the strip's active discs share that one sprite, so they all fall back together; each stage numeral still sits on the
+    // plain disc's top edge (the full ring's rim is .815rem × (½ − 13/77) ≈ .27rem above the centre, the plain disc's
+    // edge .26rem: no gap opens under the numeral)
+    await bare.waitForFunction(() => {
+      const active = [...document.querySelectorAll('.bslot.is-active .bond')];
+      return active.length > 0 && active.every((el) => el.classList.contains('is-frame-missing'));
+    });
+    const numerals = await bare.$$eval('.bslot.is-active', (nodes) => nodes.filter((el) => el.querySelector('.bslot__stage')).map((el) => {
+      const s = el.querySelector('.bslot__stage').getBoundingClientRect();
+      return s.y + s.height / 2 - el.querySelector('.bond__core').getBoundingClientRect().y;
+    }));
+    assert.ok(numerals.length > 0 && numerals.every((dy) => Math.abs(dy) < 2), `numeral centre minus the plain disc's top edge: ${JSON.stringify(numerals)}`);
+    await bare.screenshot({ path: `${OUT}/bond-strip-ring-missing.png` });
     assert.deepEqual(errors, []);
   } finally {
     await browser?.close();

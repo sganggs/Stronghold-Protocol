@@ -95,7 +95,7 @@ test('MatchBondRow: greyed by state (✕ when the mode never activates it, the o
   assert.equal([...walk(row)].some((v) => hasClass(v, 'brief-bond__ban')), false);
   // 奥术: switched off by the mode — greyed, ✕, no corner, no tier, tip 本局禁用
   assert.ok(hasClass(cell('arcaneShip'), 'is-off') && !hasClass(cell('arcaneShip'), 'is-incomplete'));
-  assert.deepEqual([disc('arcaneShip').props.disabled, disc('arcaneShip').props.active, disc('arcaneShip').props.tier], [true, false, 0]);
+  assert.deepEqual([disc('arcaneShip').props.disabled, disc('arcaneShip').props.active, disc('arcaneShip').props.tier], [true, false, undefined]);
   assert.deepEqual([disc('arcaneShip').props.cross, disc('arcaneShip').props.tag], [true, null]);
   assert.equal(tipOf('arcaneShip').props.text, '奥术：本局禁用（该盟约不会激活）');
   // 坚守: drawn (D) — greyed as well, marked incomplete: the official corner instead of the ✕, the 阵容不完整 tip
@@ -113,7 +113,8 @@ test('MatchBondRow: greyed by state (✕ when the mode never activates it, the o
   assert.ok(!hasClass(cell('deputShip'), 'is-off') && !hasClass(cell('deputShip'), 'is-partial'));
   assert.deepEqual([disc('deputShip').props.cross, disc('deputShip').props.tag], [false, null]);
   assert.equal(tipOf('deputShip').props.text, '助力');
-  assert.equal(disc('deputShip').props.tier, DATA.bonds.deputShip.thresholds.length);
+  // no tier is reached before the match (§37.340 review): the disc carries none (the lit disc is the full ring anyway)
+  assert.equal(disc('deputShip').props.tier, undefined);
   // the box beside the tip: one line per banned member (avatar, name, its bonds with this one highlighted); none ⇒ null
   const aside = tipOf('preciShip').props.aside;
   const ops = [...walk(aside)].filter((v) => hasClass(v, 'brief-bantip__op'));

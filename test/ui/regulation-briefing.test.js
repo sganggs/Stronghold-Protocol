@@ -177,6 +177,8 @@ test('a banned operator is the official grey portrait with the 禁用 corner; a 
   assert.equal(byName.extra.cross, true);
   assert.equal(byName.extra.tag, null);
   assert.equal(byName.yan.cross, false);
+  // no tier is reached before the match (§37.340 review): no disc carries one
+  assert.deepEqual(discs.map((d) => d.props.tier), discs.map(() => undefined));
   // the CSS: portraits at the official proportions (rows of at most 7), tier mark bottom-left, the corner on the top-right
   const css = readFileSync(path.join(ROOT, 'public/css/screens/briefing.css'), 'utf8');
   assert.match(css, /--ban-ut: 1\.3rem/);
