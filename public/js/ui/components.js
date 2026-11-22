@@ -235,7 +235,17 @@ export function BondDisc({
   const [badFrame, setBadFrame] = useState(null);
   const frameUrl = uiUrl(data.get('assets'), key);
   const frame = badFrame === frameUrl ? null : frameUrl;
-  const frameStyle = `--bond-frame: ${frame ? `url("${frame}")` : 'none'}; --bond-frame-size: calc(var(--disc) * ${full ? .815 / .52 : .688 / .52})`;
+  // Partial-tier sprites have a grey centre. An activated bond uses the lit plate independently of its ring (PR #994).
+  // [ASSUMED] the ring keeps showing the tier: the official 规程 screenshot shows a full ring once active, and the 盟约
+  // periods have no official image.
+  const lit = active && !disabled;
+  const [badCoreFrame, setBadCoreFrame] = useState(null);
+  const coreUrl = lit ? uiUrl(data.get('assets'), 'bondBoardIcon/1_1') : null;
+  const core = badCoreFrame === coreUrl ? null : coreUrl;
+  const coreFrame = lit ? (core ? `url("${core}")` : 'none') : 'var(--bond-frame)';
+  const coreSize = lit ? `calc(var(--disc) * ${.815 / .52})` : 'var(--bond-frame-size)';
+  const frameStyle = `--bond-frame: ${frame ? `url("${frame}")` : 'none'}; --bond-frame-size: calc(var(--disc) * ${full ? .815 / .52 : .688 / .52}); `
+    + `--bond-core-frame: ${coreFrame}; --bond-core-size: ${coreSize}`;
   const stack = layers ?? count;
   const glyph = (name || '?').trim().charAt(0) || '?';
   const Tag = onClick ? 'button' : 'div';
@@ -244,6 +254,7 @@ export function BondDisc({
       style=${frameStyle} onClick=${onClick} title=${title || name}>
     <span class="bond__disc">
       ${frame ? html`<img src=${frame} alt="" hidden onError=${() => setBadFrame(frame)} />` : null}
+      ${core ? html`<img src=${core} alt="" hidden onError=${() => setBadCoreFrame(core)} />` : null}
       <span class="bond__core">
         ${imgOk
           ? html`<img class="bond__icon" src=${icon} alt="" draggable=${false} onError=${() => setBadSrc(icon)} />`

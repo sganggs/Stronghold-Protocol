@@ -98,6 +98,17 @@
   box-shadow: 0 0 4px rgba(0, 0, 0, .6);
 }
 .bond__ban .icon { width: 80%; height: 80%; }
+/* Keep the 阵容不完整 corner out of the disc's grid, including its CSS-only fallback. */
+.bond__tag {
+  position: absolute; top: calc(var(--disc) * -.27); right: calc(var(--disc) * -.27);
+  width: calc(var(--disc) * .54); height: calc(var(--disc) * .54); pointer-events: none;
+  background: var(--tag) center / 100% 100% no-repeat;
+}
+.bond__tag.is-plain {
+  display: grid; place-items: start end; color: #e3e7e6;
+  background: linear-gradient(225deg, rgba(18, 22, 21, .94) 50%, transparent 50%);
+}
+.bond__tag.is-plain .icon { width: 46%; height: 46%; margin: 6% 6% 0 0; }
 .bond.is-frozen { opacity: .5; }
 .bond.is-clickable { cursor: var(--sp-cursor-pointer, pointer); }
 .bond--sm { --disc: .42rem; }
@@ -311,16 +322,17 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 }
 .bond.is-sprite .bond__core { position: relative; background: none; box-shadow: none; }
 .bond.is-sprite .bond__icon { filter: brightness(0) invert(.65); }
-.bond.is-sprite.is-full .bond__icon { filter: brightness(0) opacity(.85); }
+.bond.is-sprite.is-active:not(.is-disabled) .bond__icon { filter: brightness(0) opacity(.85); }
 .bond.is-sprite .bond__glyph { color: var(--text-lo); }
-.bond.is-sprite.is-full .bond__glyph { color: #06221a; }
+.bond.is-sprite.is-active:not(.is-disabled) .bond__glyph { color: #06221a; }
 
 /* Enlarge only the central plate; clip away the ring in this second sprite layer. */
 .bond.is-sprite .bond__core::before {
   content: ''; position: absolute; inset: 0; pointer-events: none;
-  background: var(--bond-frame) center / calc(var(--bond-frame-size) * 1.08) calc(var(--bond-frame-size) * 1.08) no-repeat;
+  background: var(--bond-core-frame) center / calc(var(--bond-core-size) * 1.08) calc(var(--bond-core-size) * 1.08) no-repeat;
   clip-path: circle(46% at 50% 50%);
 }
+.bond.is-sprite.is-active:not(.is-disabled) .bond__core::before { background-color: var(--mint-400); }
 .bond.is-sprite .bond__core > .bond__icon, .bond.is-sprite .bond__core > .bond__glyph { position: relative; }
 
 /* Fielded members glow; elite portraits retain their existing gold border. */
@@ -335,7 +347,7 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 /* Missing or failed frame images retain a readable disc without requesting guessed URLs. */
 .bond.is-frame-missing .bond__core { background: #29332f; border: 2px solid #718079; }
 .bond.is-frame-missing.is-active .bond__core { border-color: var(--mint-400); }
-.bond.is-frame-missing.is-full .bond__core { background: var(--mint-400); }
+.bond.is-frame-missing.is-active:not(.is-disabled) .bond__core { background: var(--mint-400); }
 
 /* Match information opens the same card above its drawer / dialog, without replacing the parent (#915). */
 .match-bond-modal { padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
