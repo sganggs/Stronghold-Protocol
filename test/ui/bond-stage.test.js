@@ -28,7 +28,7 @@ globalThis.fetch = async (url) => {
 const { bondStage } = await import('../../public/js/ui/gameLogic.js');
 const { BondStrip, BondPopup, bondDisplay } = await import('../../public/js/ui/bondStrip.js');
 const { BondChips } = await import('../../public/js/ui/detailPanel.js');
-const { stripView, screenStrip, popupView } = await import('../../public/js/ui/watchBonds.js');
+const { stripView, screenStrip, popupView, playerBonds } = await import('../../public/js/ui/watchBonds.js');
 const { data } = await import('../../public/js/data.js');
 await data.loadAll('bonds', 'effects', 'chess', 'assets', 'config');
 
@@ -71,7 +71,8 @@ test('bondStage: STACK_COUNT counts the layers (temporary ones too), PEOPLE_COUN
   const visi = { phaseType: 'STACK_COUNT', phaseCounts: [80, 150] };
   assert.deepEqual([30, 79, 80, 149, 150, 464].map((n) => bondStage(on(n), visi)), [0, 0, 1, 1, 2, 2]);
   assert.equal(bondStage(on(0), { phaseType: 'NONE', phaseCounts: [] }), 0);
-  // PEOPLE_COUNT: the entry's tier (调和's +1, 助力 and 绝技 rules are the server's), else the members against the table
+  // PEOPLE_COUNT: the entry's tier (调和's +1 and the 绝技 count are the server's; 助力's name-or-elite upper tiers too
+  // [ASSUMED]: no recording shows a 助力 disc), else the members against the table
   const core = { phaseType: 'PEOPLE_COUNT', phaseCounts: [3, 6] };
   assert.equal(bondStage({ active: true, tier: 2, count: 6, layers: 129 }, core), 2);
   assert.equal(bondStage({ active: true, tier: 1, count: 6, layers: 999 }, core), 1, 'the tier wins over the count and ignores layers');
@@ -181,6 +182,20 @@ test('the detail card\'s chip names the strip\'s stage in 规程; the 盟约 lab
   });
   assert.match(label([{ bondId: 'swiftShip', count: 2, tier: 1, active: true, layers: 85, thresholds: [2] }], 'swiftShip'), /：在场 2\/2，已激活 1 阶$/);
 });
+
+test('a teammate\'s unit on a shared field: the chip and the popup it opens name the same stage (temporary layers on both)', () => withRegulation(() => {
+  const label = (bonds, id) => [...walk(BondChips({ bondIds: [id], bonds }))].find((v) => v.props?.['data-bond'] === id).props.title;
+  // 联防 field: I fight there and the strip follows me; teammate b has 远见 75 permanent + 10 temporary layers
+  const pub = { players: [{ playerId: 'a', name: 'A', bonds: [] }, { playerId: 'b', name: 'B', bonds: [{ bondId: 'visiShip', count: 2, active: true, tier: 1, layers: 75 }] }] };
+  const live = { b: { visiShip: 75 } };
+  const temporary = { b: { visiShip: 10 } };
+  // screens/game.js detailBonds: playerBonds with the live and the temporary layers, as popupView reads them
+  const pop = popupView({ open: { id: 'visiShip', ownerId: 'b' }, pub, myId: 'a', live, temporary });
+  assert.equal(bondDisplay(pop.bondId, pop.entry).stage, 1, '75 + 10 reach 80 [ASSUMED: temporary layers count]');
+  assert.match(label(playerBonds({ pub, myId: 'a', ownerId: 'b', live, temporary }), 'visiShip'), /：在场 2\/2，已激活 1 阶$/);
+  // without the temporary layers the chip would name no stage while the popup shows 阶段 Ⅰ
+  assert.match(label(playerBonds({ pub, myId: 'a', ownerId: 'b', live }), 'visiShip'), /，已激活$/);
+}));
 
 test('盟约 (default data, no phase table): 迅捷 at 85 layers keeps Ⅰ, the member tier as before [ASSUMED]', () => {
   const entry = { bondId: 'swiftShip', count: 2, tier: 1, active: true, layers: 85, thresholds: [2] };

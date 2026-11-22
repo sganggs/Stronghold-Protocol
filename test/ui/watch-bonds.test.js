@@ -388,6 +388,8 @@ test('§20.15 wiring: the game screen feeds the strip, the popup and the detail 
   assert.match(src, /bondId=\$\{bondPop\.bondId\} entry=\$\{bondPop\.entry\} priv=\$\{bondPop\.priv\}[^>]*owner=\$\{bondPop\.name\}/);
   assert.match(src, /onOpen=\$\{\(id\) => openBond\(id, strip\.ownerId, 'strip'\)\}/, 'the strip opens its owner\'s bond');
   assert.match(src, /const detailOwner = detailBondOwner\(detailTarget, \{ pub, myId, stripOwnerId: strip\.ownerId \}\)/);
+  // a teammate's chips read the same live and temporary layers as the popup they open (the 规程 stage can count layers, §37.341)
+  assert.match(src, /const detailBonds = detailOwner === strip\.ownerId \? stripBonds : playerBonds\(\{ pub, priv, myId, ownerId: detailOwner, live: liveLayers, temporary: tempLayersSnapshot \}\)/);
   assert.match(src, /onBond=\$\{\(id\) => openBond\(id, detailOwner, 'detail'\)\}/, 'a card\'s chip opens the same owner\'s bond as its chips show');
   assert.match(src, /onMember=\$\{\(id, items, standInFor, diy\) => \{[\s\S]*?setDetail\(\{ kind: 'chess', id, owner: bondPop\.ownerId, items: items \|\| null, standInFor: standInFor \|\| null, diy: diy \|\| null \}\);/,
     'a member card keeps the popup\'s player (and a 变形同构体 row\'s items, a 补位 row\'s standInFor, a teammate\'s 自选 row\'s pick)');

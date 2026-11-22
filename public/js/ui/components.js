@@ -216,7 +216,8 @@ export function TierChip({ tier, golden = false, size = 'md', class: cls, overla
  * the glow (1_1 and the full N_N; the others are 65 units).
  * An active bond (not disabled) draws the full unbroken ring around the lit centre (1_1) at every tier, as the official
  * 规程 does: in the official screenshot (PR #923 comment, round 11) 灵巧 Ⅱ, 精准 Ⅰ, 不屈 Ⅱ and 绝技 Ⅰ have the same centre
- * and the same full ring, the tier shows only in the numeral above the disc. The owner applied it to every version
+ * and the same full ring; the disc never shows the tier. The numeral above it is the tier in the 盟约 periods and the
+ * official phase level in 规程 (gameLogic bondStage, §37.341: 灵巧's Ⅱ comes from 40 layers). The owner applied it to every version
  * (2026-11-22, §37.340); the 盟约 periods have no official image of their own [ASSUMED: same as 规程].
  * The segmented N_k rings are the member count toward activation (inactive progress: k of N members); disabled
  * (本局禁用) or no count → 1_0.
@@ -238,8 +239,8 @@ export function bondFrame({ active = false, disabled = false, members = 0, minCo
  * @param {{ name?: string, icon?: string, count?: number, layers?: number, members?: number, minCount?: number,
  *   tier?: number, active?: boolean, disabled?: boolean, layersDisabled?: boolean, size?: 'sm'|'md'|'lg',
  *   showName?: boolean, onClick?: Function, class?: string, title?: string, cross?: boolean, tag?: any }} props
- *   tier: the reached tier, kept on the element as data-tier (the ring does not show it; the bond strip draws the
- *   numeral above the disc); cross: the red ✕ corner (default: when disabled); tag: a corner mark drawn in its place,
+ *   tier: the reached tier, kept on the element as data-tier (the ring does not show it; the bond strip draws the stage
+ *   numeral above the disc, which in 规程 is the official phase level: bondStrip BondStage, §37.341); cross: the red ✕ corner (default: when disabled); tag: a corner mark drawn in its place,
  *   on the disc's box (the briefing's official 阵容不完整 corner, ui/matchInfo.js BondLackTag)
  */
 export function BondDisc({

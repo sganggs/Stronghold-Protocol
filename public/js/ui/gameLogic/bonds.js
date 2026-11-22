@@ -56,7 +56,9 @@ export function nextThreshold(count, thresholds) {
  * official bond phase level (client AutoChessBondItemModel.phaseLevel, ActAutoChessBondPhaseType): how many entries of
  * the active effect's phase table (bonds.json / effects.json `phaseCounts`, the official bondPhaseCountList) the count
  * reaches. STACK_COUNT counts the layers (temporary ones included [ASSUMED]); PEOPLE_COUNT counts the members (the
- * entry's `tier` when it has one, so 调和's +1 and the 助力 / 绝技 rules stay the server's); NONE draws nothing. Reaching
+ * entry's `tier` when it has one, so 调和's +1 and the 绝技 count stay the server's). For 助力 that tier counts the upper
+ * tiers by operators differing in name OR elite state (server bondsMeta.js); whether the official phase level counts
+ * the same way is not known [ASSUMED: no recording shows a 助力 disc]. NONE draws nothing. Reaching
  * is ≥ [ASSUMED at the exact value: 「达到N层」, and 投资人 shows Ⅰ at 0 layers]. An inactive bond draws nothing, even
  * past a milestone. Without a phase table (the 盟约 periods have none) it is the member tier, as before [ASSUMED].
  * @param {{ active?: boolean, tier?: number, count?: number, layers?: number, tempLayers?: number }|null|undefined} entry
