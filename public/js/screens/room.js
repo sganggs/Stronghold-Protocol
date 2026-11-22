@@ -79,7 +79,7 @@ import { CARD_KEY, cardStore, setCard, cardOperators, cardContext, cardGroups, c
 import { CARD_ROSTER } from '../../../shared/cardRoster.js';
 import { skinsStore, SKINS_KEY, ownerSkin } from '../ui/skins.js';
 import { settingsStore } from '../ui/settingsStore.js';
-import { difficultyInfo, modeInfo, ProtocolSelect } from './lobby.js';
+import { AI_LAST_PREF, difficultyInfo, modeInfo, ProtocolSelect } from './lobby.js';
 import { useRise } from '../ui/transitions.js';
 import { t, tc } from '../../../shared/i18n.js';
 
@@ -624,7 +624,12 @@ export function RoomScreen() {
   };
   const setDifficulty = (difficulty) => run('diff', () => net.request('room.setDifficulty', { difficulty }));
   const setAiTakeover = (on) => run('aihandover', () => net.request('room.setAiTakeover', { on }));
-  const setAiLast = (on) => run('ailast', () => net.request('room.setAiPicksLast', { on }));
+  // the room is the authority; an accepted switch is this browser's default for the next co-op room it creates (#995:
+  // lobby.js sendRememberedAiLast) — a guest's read-only switch sends nothing, so it remembers nothing
+  const setAiLast = async (on) => {
+    const sent = await run('ailast', () => net.request('room.setAiPicksLast', { on }));
+    if (sent) savePref(AI_LAST_PREF, on === true);
+  };
   // the room is the authority; the lobby card reads the same pref the next time this browser creates a solo room
   const setSoloUnlimited = async (on) => {
     const sent = await run('solofree', () => net.request('room.setSoloUnlimited', { on }));
