@@ -264,7 +264,14 @@ export class AutoChessStylizedShopSlotsPanel {
       const model = slots[index];
       let view = prev[index];
       let fresh = false;
-      if (!view || view.model.slotId !== model.slotId) {
+      const prevModel = view && view.model;
+      // Slot identity alone is not enough: an empty slot can later be filled, and an operator slot can
+      // become an equipment slot in the reward row. Either change needs a fresh card root, or the reused
+      // root keeps the empty frame (dark card) or the operator face (no equipment icon).
+      const needsRebuild = !view || prevModel.slotId !== model.slotId
+        || !!prevModel.isEmpty !== !!model.isEmpty
+        || !!prevModel.isChar !== !!model.isChar;
+      if (needsRebuild) {
         const root = this.scene.buildCard(model, index);
         if (!root) continue;
         view = this.scene.cardViews[index];

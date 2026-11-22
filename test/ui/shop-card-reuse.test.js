@@ -4,6 +4,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import { AutoChessBattleShopCardView } from '../../public/js/ui/shop/cardView.js';
 
@@ -18,4 +19,10 @@ test('a chess card view reused for an item re-activates its equip node', () => {
   assert.equal(equip.active, true, 'the equip node must be active when the card turns into an item');
   assert.equal(equip.image.file, '/assets/item.png');
   assert.equal(equip.image.sprite, 'trap_1');
+});
+
+test('slots.reconcile rebuilds a reused root when isEmpty/isChar changes', () => {
+  const slots = readFileSync(new URL('../../public/js/ui/shop/slots.js', import.meta.url), 'utf8');
+  assert.match(slots, /!!prevModel\.isEmpty !== !!model\.isEmpty/);
+  assert.match(slots, /!!prevModel\.isChar !== !!model\.isChar/);
 });
