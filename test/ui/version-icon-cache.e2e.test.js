@@ -77,9 +77,10 @@ async function plate(c, offer) {
   // Compare the drawn canvas pixels, not just info.icon (which was already correct before the fix).
   const observed = await c.page.evaluate(async (offer) => {
     const { assets } = await import('/js/assets.js');
-    const { itemTexture } = await import('/js/render/textures.js');
+    const { itemIconTexture } = await import('/js/render/textures.js');
     const v = [...globalThis.__SP_VIEW__.raw.debug.views.values()].find(v => v.info.kind === 'item' && v.info.defId === offer.id);
-    const expected = itemTexture(`verification:${offer.url}`, await assets.image(offer.url), v.info.color);
+    // the bench draws the frameless shop icon (GitHub #993)
+    const expected = itemIconTexture(`verification:${offer.url}`, await assets.image(offer.url), v.info.color);
     return { url: v.info.icon, actual: v.plate.texture.baseTexture.resource.source.toDataURL(),
       expected: expected.baseTexture.resource.source.toDataURL() };
   }, offer);

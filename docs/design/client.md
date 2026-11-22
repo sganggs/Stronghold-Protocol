@@ -10,6 +10,13 @@ icons follow the adjusted head height at their original sizes. Own and scouted p
 Dragging / deployment restores normal presentation. Tile geometry, logical coordinates, tile picking, loose equipment,
 temporary reserves, summons and battle operators keep their existing behaviour.
 
+Loose equipment in the hand, the temporary row and 规程's equipment row is its shop icon without the plate's frame and
+black backing (GitHub #993, §37.335): the icon's longer side is `BENCH_ITEM.size` 0.62 tile, the official world size of
+the 坚守盾牌 model (228 skeleton units × 0.01 × 0.27), inside the box the plate took, so the drawn rect, the drag point
+and tile picking are unchanged. A soft glow in the tier / 精锐 colour replaces the frame's colour; the framed '?' plate
+shows until the icon loads, and equipped-item pips keep their frame. [ASSUMED] One size for every item, the existing
+0.12-tile float, and the glow (the official model carries no tier mark).
+
 Normal healing ranges use cyan-blue battlefield highlights; damaging ranges keep orange. Placement previews and
 inspected operators / healing summons resolve the same loadout record (dmgType heal or attackKind heal).
 The solid fill, Pixi stripes and SVG stripes share that choice, preserving highlight groups and orientation.
