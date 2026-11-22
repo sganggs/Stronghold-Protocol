@@ -48,7 +48,8 @@ or leaving preparation also removes it. In-game ownership, live layers, morph ru
 view data; opening a member closes the information overlays before showing its operator card. Before combat the
 member grid is informational. Mode activation bans and drawn incomplete lineups keep their existing distinct meanings.
 On 规程, when the owner's bond entry carries `effectId`, the popup and the strip tier read that effect
-(`effectDescParams`, `displayThresholds`, `params`) instead of the bond's own effect. The effects column shows the
+(`effectDescParams`, `displayThresholds`, `params`, and `phaseType` / `phaseCounts` for the stage numeral, §37.341)
+instead of the bond's own effect. The effects column shows the
 current command line, each replacement the battle uses, and a retained opening passive when that buff is still the
 opening band's. A zero-count mapped row is popup data only; the strip does not draw it. A mode-off bond stays the
 grey disc and does not take the replacement text.
@@ -1292,7 +1293,7 @@ Covenant rendering and controls retain the mixed hand and visible temporary row.
 
 盟约卡片标题参照维护者提供的官方截图：左侧为盟约图标、名称，下方显示人数、激活勾选及阶段标签；右上角独立显示层数，背景使用统一的青绿色 `bondDetail/active_stack_deco` 装饰图标。人数分母沿用原有下一门槛（满阶显示最高门槛）；调和、整备区计数、禁用和不显示层数的提示保留。
 
-盟约卡片不提供右上角关闭按钮，沿用点击卡片外部关闭；移除单独的「当前效果」区块，保留盟约效果说明。标题中的「阶段Ⅰ／Ⅱ／Ⅲ……」读取盟约激活阶数（tier），与层数独立；未激活及本局禁用分别显示对应状态。
+盟约卡片不提供右上角关闭按钮，沿用点击卡片外部关闭；移除单独的「当前效果」区块，保留盟约效果说明。标题中的「阶段Ⅰ／Ⅱ／Ⅲ……」与顶部盟约栏圆盘上方的罗马数字相同（`gameLogic` `bondStage`，§37.341）。规程按当前生效效果的官方阶段表（`phaseType` / `phaseCounts`）计算：人数型（`PEOPLE_COUNT`）取激活阶数（tier）；层数型（`STACK_COUNT`：迅捷、灵巧、突袭、投资人、奇迹、远见）数层数达到了几个表项，临时层数也算（[ASSUMED]）；无阶段型（`NONE`：调和、协防干员、独行）为 0。阶段为 0 时（例如远见不足 80 层）不显示阶段标签，只显示激活勾选。盟约各期没有官方阶段表，仍取激活阶数，与层数无关（[ASSUMED]，待维护者确认）。未激活及本局禁用分别显示对应状态。
 
 禁用圆盘的内盘与外环一起灰显；相机避让常量与 CSS 顶部位置保持一致（#923）。
 
@@ -1306,7 +1307,7 @@ Covenant rendering and controls retain the mixed hand and visible temporary row.
 
 盟约卡片的干员头像使用 `ui/gameComponents.js` 中的通用 `SquareOperatorThumb` 方形组件，不切角；通用 `UnitThumb` 及其在开局信息、统计和其他界面的样式保持原样。
 
-局内顶部盟约栏移除人数角标，圆形正上方按激活阶段显示罗马数字Ⅰ／Ⅱ／Ⅲ；未激活不显示阶段。阶段素材使用 `hudBondItem/bond_level_3`，Ⅰ和Ⅱ按原像素列裁出，层数仍显示在圆形内。
+局内顶部盟约栏移除人数角标，圆形正上方按阶段显示罗马数字Ⅰ／Ⅱ／Ⅲ（规程为官方阶段等级，见上文盟约卡片的「阶段」标签；战斗中按实时层数计算，层数越过表项时数字随之变化）；未激活或阶段为 0 时不显示。阶段素材使用 `hudBondItem/bond_level_3`，Ⅰ和Ⅱ按原像素列裁出，层数仍显示在圆形内。干员详情卡盟约条目的提示文字（「已激活 N 阶」）用同一个阶段，阶段为 0 时只写「已激活」；条目上的小圆点仍表示人数门槛。
 
 顶部盟约栏的圆形底板和外环使用原版 `bondBoardIcon` 素材：已激活的盟约在每一档都用 `1_1`（完整的一圈外环和点亮的中央盘）；未激活时按「已有人数／最低激活人数」显示分段进度 `N_k`，零人时保留分段但全部灰显；本局禁用仍使用 `1_0`（`components.js` `bondFrame`）。不再叠加 CSS／SVG 绘制的底板和外环。
 

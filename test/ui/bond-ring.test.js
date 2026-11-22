@@ -82,11 +82,11 @@ test('the bond strip: every active slot sits its stage numeral on the full ring\
     assert.ok(hasClass(slot(id), 'is-full'), id);
     assert.equal(inSlot(id, 'BondDisc').props.tier, tier);
     assert.equal(inSlot(id, 'BondDisc').props.maxTier, undefined);
-    assert.equal(inSlot(id, 'BondStage').props.tier, tier);
+    assert.equal(inSlot(id, 'BondStage').props.stage, tier);
   }
   assert.equal(slot('sargonShip').props.style, part);
   assert.ok(!hasClass(slot('sargonShip'), 'is-full'));
-  assert.equal(inSlot('sargonShip', 'BondStage').props.tier, 0);
+  assert.equal(inSlot('sargonShip', 'BondStage').props.stage, 0);
   assert.deepEqual([inSlot('sargonShip', 'BondDisc').props.members, inSlot('sargonShip', 'BondDisc').props.minCount], [2, 3]);
   assert.equal(slot('miraShip').props.style, part);
   // the detail card's header disc: the tier and the member count, no tier count

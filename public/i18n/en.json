@@ -512,6 +512,7 @@
   "所属盟约": "Alliances",
   "（变形同构体）": " (Damazti Isomorph)",
   "，已激活 {tier} 阶": ", active at tier {tier}",
+  "，已激活": ", active",
   "，未激活": ", inactive",
   "特质": "Attribute",
   "生命上限": "Max HP",

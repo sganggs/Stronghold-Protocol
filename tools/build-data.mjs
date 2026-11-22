@@ -1333,10 +1333,17 @@ function buildEffects(ctx) {
         ? { displayThresholds: descInfos.bondPhaseCountList } : {}),
       ...(effectDescParams.length ? { effectDescParams } : {}),
     } : {};
+    // The official bond phase table (§37.341): the numeral over a 规程 bond disc. Every BOND entry has one, also those
+    // whose descParamInfos is empty (远见 投资人 绝技 调和 …). 盟约 seasons have no effectDescParamDataDict: nothing is added.
+    const phase = e.effectType === 'BOND' && descInfos ? {
+      phaseType: typeof descInfos.phaseType === 'string' && descInfos.phaseType ? descInfos.phaseType : 'NONE',
+      phaseCounts: (Array.isArray(descInfos.bondPhaseCountList) ? descInfos.bondPhaseCountList : []).map(Number).filter(Number.isFinite),
+    } : {};
     out[effectId] = {
       effectId, effectType: e.effectType, name: e.effectName || null,
       desc: stripRich(e.effectDesc), descRaw: richRaw(e.effectDesc),
       ...bondExtra,
+      ...phase,
       counterType: e.effectCounterType || 'NONE', continuedRound: e.continuedRound ?? -1,
       decoIconId: e.effectDecoIconId || null, enemyPrice: e.enemyPrice || 0,
       buffs, params: effectParams(buffs),
@@ -1428,6 +1435,8 @@ function buildBonds(ctx, chess, effects) {
       activeType: b.activeType, isActiveInDeck: !!b.isActiveInDeck,
       noStack: !!b.noStack, weight: b.weight, maxInactiveBondCount: b.maxInactiveBondCount,
       layerMilestones,
+      // 规程: the phase table of the bond's own effect (buildEffects; §37.341). A strategy's replacement effect carries its own.
+      ...(eff && typeof eff.phaseType === 'string' ? { phaseType: eff.phaseType, phaseCounts: eff.phaseCounts } : {}),
       desc: dp.desc, descRaw: dp.descRaw,
       effectId: b.effectId, effectName: eff?.name || null, effectDesc: eff?.desc || null, effectDescRaw: eff?.descRaw || null,
       // Positional {i:fmt} placeholders of effectDesc = bb[baseParams[i]] + bb[perStackParams[i]] * layers.

@@ -164,7 +164,9 @@ test('bond navigation keeps the card and invokes only the requested direction', 
 });
 
 
-test('bond header stage follows activation tier, independently of stack count', () => {
+// §37.341: the default (盟约) data has no phase table, so the stage is the member tier whatever the layers — like a
+// PEOPLE_COUNT bond in 规程; 规程's STACK_COUNT bonds count layers (test/ui/bond-stage.test.js)
+test('bond header stage (盟约 data: no phase table) follows the member tier, independently of stack count', () => {
   const props = { bondId: 'arcaneShip', priv: { board: [], hand: [] } };
   for (const [tier, numeral] of [[1, 'Ⅰ'], [2, 'Ⅱ'], [3, 'Ⅲ']]) {
     const popup = BondPopup({ ...props, entry: { active: true, tier, count: 6, layers: 99 } });
