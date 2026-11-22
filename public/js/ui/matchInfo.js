@@ -156,7 +156,7 @@ export function MatchBondRow({ title, micro, bonds, model, onBond, head = null }
           aside=${bannedN > 0 ? BondBannedAside(b, model, banned) : null}>
           <div class=${cx('brief-bond', off && 'is-off', state === 'drawn' && 'is-incomplete', !off && bannedN > 0 && 'is-partial')} data-bond=${b.bondId}>
             <${BondDisc} name=${b.name} icon=${bondIconUrl(m, b.bondId)} active=${!off} disabled=${off} tier=${off ? 0 : (b.thresholds?.length || 1)}
-              maxTier=${Math.max(1, b.thresholds?.length || 1)} size="md" onClick=${onBond ? () => onBond(b.bondId) : undefined}
+              size="md" onClick=${onBond ? () => onBond(b.bondId) : undefined}
               cross=${state === 'off'} tag=${state === 'drawn' ? html`<${BondLackTag} />` : null} />
           </div>
         <//>`;
@@ -298,7 +298,7 @@ export function BannedByBond({ model, onBond }) {
           <${Tooltip} text=${briefingBondTip(bond.name, state, bannedN, model.regulation && bond.isCore)}>
             <div class="reg-banned__disc">
               <${BondDisc} name=${bond.name} icon=${bondIconUrl(m, bond.bondId)} active=${!off} disabled=${off}
-                tier=${off ? 0 : (bond.thresholds?.length || 1)} maxTier=${Math.max(1, bond.thresholds?.length || 1)}
+                tier=${off ? 0 : (bond.thresholds?.length || 1)}
                 size="md" onClick=${onBond ? () => onBond(bond.bondId) : undefined}
                 cross=${state === 'off'} tag=${state === 'drawn' ? html`<${BondLackTag} />` : null} />
             </div>
