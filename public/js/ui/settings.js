@@ -581,6 +581,15 @@ export function SettingsModal({ open, onClose }) {
       </div>
       <p class="set-hint">${t('拖动及选择朝向时：关闭保持原视角；适度缩小保留七成大小的商店，镜头适度放大；完全收起使用原有放大视角。结束后恢复原状。')}</p>
     ` },
+    { id: 'shopFoldRewardHint', category: 'controls', render: () => {
+      // The canvas shop only (a DOM-bar player has the reminder pill already); offered while a canvas theme is
+      // selected, like the card-mark switches.
+      if (!shopCapability(localGroups, s.uiTheme).ok) return null;
+      return html`
+        <${Toggle} label=${t('折叠商店时保留奖励按钮')} micro="FOLDED REWARD" value=${s.shopFoldRewardHint} onChange=${(v) => updateSettings({ shopFoldRewardHint: v })} />
+        <p class="set-hint">${t('折叠商店后，如果还有待选奖励，在展开按钮旁保留奖励按钮（显示奖励名和数量）；默认关闭，折叠时和刷新/冻结一起收起。')}</p>
+      `;
+    } },
     { id: 'wakeLock', category: 'controls', render: () => html`
       <${Toggle} label=${t('全屏时保持屏幕常亮')} micro="SCREEN WAKE LOCK" value=${s.fullscreenWakeLock} onChange=${(v) => updateSettings({ fullscreenWakeLock: v })} />
       <p class="set-hint" data-testid="wake-lock-hint">${tParts(isIOS()

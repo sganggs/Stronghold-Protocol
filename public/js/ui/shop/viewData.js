@@ -35,6 +35,8 @@ export class CtrlViewData {
     this.refreshBlocked = init.refreshBlocked ?? null;
     this.freezeBlocked = init.freezeBlocked ?? null;
     this.reward = init.reward || null;
+    /** The folded tab keeps a reward pill (设置 → 操作): only while a pending offer should stay reachable. */
+    this.foldReward = !!init.foldReward;
   }
 }
 

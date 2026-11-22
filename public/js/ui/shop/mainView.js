@@ -63,6 +63,7 @@ export class AutoChessBattleShopMainView {
       refreshBlocked: model.refreshBlocked,
       freezeBlocked: model.freezeBlocked,
       reward: model.reward,
+      foldReward: !!model.foldReward,
     });
   }
 

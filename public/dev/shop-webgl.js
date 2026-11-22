@@ -131,7 +131,15 @@ function viewFor(stateName) {
     { skill, merge: { label: '可晋升', aria: '可晋升', title: '再买 1 张合成精锐' } },
     null,
   ];
-  if (stateName === 'fold') return { state: 'fold', cardMarks };
+  if (stateName === 'fold') {
+    // A folded shop with a pending offer and 设置 → 操作「折叠商店时保留奖励按钮」: the reward pill stays on the tab.
+    return {
+      state: 'fold',
+      cardMarks,
+      foldReward: true,
+      reward: { count: 2, visible: false, label: '选择晋升奖励', title: '晋升奖励', micro: 'PROMOTION', sub: '免费选择 1 名', more: null },
+    };
+  }
   if (stateName === 'disable') return { state: 'disable', avalid: false, cardMarks };
   if (stateName === 'armed') {
     return { state: 'unfold', armedSlotId: 2, armedAt: performance.now() - 1200, selectSlot: { slotId: 2, isGoods: true }, cardMarks };

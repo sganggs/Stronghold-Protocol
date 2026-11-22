@@ -62,6 +62,8 @@ export class AutoChessBattleShopViewModel {
     this.freezeBlocked = init.freezeBlocked ?? null;
     /** Pending reward control: `{ count, visible, label }` or null (see ShopCanvas.viewOf). */
     this.reward = init.reward || null;
+    /** Keep the reward control on the folded tab (设置 → 操作): true only while a pending offer should stay reachable. */
+    this.foldReward = !!init.foldReward;
     /** Card row: AutoChessBattleShopCardViewModel-shaped records (see adapter/model.js). */
     this.slots = init.slots || [];
   }

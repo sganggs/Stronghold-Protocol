@@ -2,21 +2,18 @@
 // It must not close the WebGL shop, must not show the item slot or a FREE flag, and must not survive as a
 // separate golden layer. Every offer slot is drawn: a 2-slot offer (信标) and a 3-slot promotion reward keep
 // their old last-two / last-three positions, a 6-slot 精锐版一次性促销券 (server MAX_OFFER_SLOTS) must not lose
-// the slots behind the third. In canvas mode the row's title / queued count and 稍后 live in a DOM strip that
-// feeds the same rewardMin state as the DOM bar, so 稍后 falls back to the normal, buyable row.
+// the slots behind the third. In canvas mode the in-canvas control (稍后 / 选择{奖励名}) feeds the same rewardMin
+// state as the DOM bar, so 稍后 falls back to the normal, buyable row. The row's own helpers are the seam the
+// screen and the canvas call, so this file tests them rather than the source text that wires them.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import {
-  shopRewardRow, shopDisplayPrivate, shopDisplaySlot, shopRewardIndex, shopHotkeyBuyIndex,
+  shopRewardRow, shopRewardRowActive, shopDisplayPrivate, shopDisplaySlot, shopRewardIndex, shopHotkeyBuyIndex,
+  rewardControlReason,
 } from '../../public/js/ui/shop/ShopCanvas.js';
 import { PHASE } from '../../shared/constants.js';
-
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 const normalSlots = [
   { kind: 'chess', id: 'chess_char_1_01_a', price: 3, basePrice: 3, sold: false },
@@ -128,9 +125,12 @@ test('the reward row is drawn only in the PREP phase', () => {
   assert.equal(shopRewardRow(p, false, PHASE.PREP)?.count, 6, 'prep still synthesises the offer row');
 });
 
-test('the canvas root marks the reward row so SHOP_SLOT commands skip its display indices', () => {
-  assert.match(CANVAS_SOURCE, /const rewardRowOn = shopRewardRow\(props\.priv, !!props\.rewardMin, props\.phase\) !== null;/);
-  assert.match(CANVAS_SOURCE, /data-shop-reward-row=\$\{rewardRowOn \? '1' : undefined\}/);
+test('the root marks the reward row while its display indices are shown', () => {
+  const p = priv(offerSlots(3));
+  assert.equal(shopRewardRowActive(p, false, PHASE.PREP), true, 'the offer row occupies the display indices');
+  assert.equal(shopRewardRowActive(p, true, PHASE.PREP), false, '稍后 draws the ordinary, priv-indexed row');
+  assert.equal(shopRewardRowActive(p, false, PHASE.SP_DRAFT), false, 'a non-PREP phase keeps the ordinary row');
+  assert.equal(shopRewardRowActive(priv(null), false, PHASE.PREP), false, 'no offer, no reward row');
 });
 
 // ---- 稍后 (rewardMin): the normal row returns, mouse and hotkey both index priv.shop.slots --------------
@@ -157,45 +157,15 @@ test('the row helpers treat a minimized pick as no offer, per call (rewardMin is
   assert.equal(shopRewardRow(p, false)?.count, 6, 'the same private still synthesises the offer row');
 });
 
-// ---- wiring: game.js rewardMin → the row helpers -------------------------------------------------------
+// ---- the buy hotkey: the row on screen decides what the display index means ------------------------------
 
-const GAME_SOURCE = readFileSync(path.join(ROOT, 'public/js/screens/game.js'), 'utf8');
-const CANVAS_SOURCE = readFileSync(path.join(ROOT, 'public/js/ui/shop/ShopCanvas.js'), 'utf8');
-const SHOPBAR_SOURCE = readFileSync(path.join(ROOT, 'public/js/ui/shopBar.js'), 'utf8');
-
-/** The buy hotkey branch, delimited by the next prep-shortcut branch (retreat / sell). */
-function buyHotkeyBranch(source) {
-  const start = source.search(/if\s*\(\s*act\s*===\s*['"]buy['"]\s*\)/);
-  assert.notEqual(start, -1, 'game.js has a buy hotkey branch');
-  const rest = source.slice(start);
-  const end = rest.search(/if\s*\(\s*act\s*===\s*['"](?:retreat|sell)['"]/);
-  assert.ok(end > 0, 'the buy branch ends before the retreat / sell branch');
-  return rest.slice(0, end);
-}
-
-/** The RewardCards component body: the offer's cards in the DOM bar. */
-function rewardCardsSource(source) {
-  const start = source.indexOf('export function RewardCards');
-  const end = source.indexOf('function FundsChar', start);
-  assert.ok(start > 0 && end > start, 'shopBar.js has a RewardCards component');
-  return source.slice(start, end);
-}
-
-test('DOM + pending offer + 稍后: W buys the card under the pointer at its priv index', () => {
+test('DOM + pending offer + 稍后: the card under the pointer buys at its priv index', () => {
   const p = priv(offerSlots(3));
-  // Before 稍后 the DOM bar has no normal card at all: the offer replaces the row with RewardCards, whose
-  // cards are `free` and therefore carry no data-shop-slot (the normal cards below do).
-  assert.match(SHOPBAR_SOURCE, /showReward \? html`<\$\{RewardCards\}/, 'the offer replaces the normal cards');
-  assert.doesNotMatch(rewardCardsSource(SHOPBAR_SOURCE), /data-shop-slot/, 'offer cards are not hotkey targets');
-  assert.match(SHOPBAR_SOURCE, /data-shop-slot=\$\{free \? undefined : idx\}/, 'normal cards are the only hotkey targets');
-  // 稍后 puts the normal row back: display index 3 is priv slot 3, and the branch buys exactly that slot.
+  // Before 稍后 the DOM bar draws the offer's own cards (no data-shop-slot, so they are not hotkey targets);
+  // 稍后 puts the normal row back, where display index 3 is priv slot 3.
   const idx = shopHotkeyBuyIndex(p, 3, { canvas: false, rewardMin: true });
   assert.equal(idx, 3);
   assert.equal(p.shop.slots[idx].id, normalSlots[3].id, 'the card under the pointer is the priv slot');
-  const branch = buyHotkeyBranch(GAME_SOURCE);
-  assert.match(branch, /shopHotkeyBuyIndex\(L\.priv, Number\(card\.dataset\.shopSlot\), \{ canvas: !!L\.canvasShop, rewardMin: !!L\.rewardMin, phase: L\.pub\?\.phase \}\)/);
-  assert.ok(branch.indexOf('shopHotkeyBuyIndex') < branch.indexOf('await buy('), 'the helper runs before the purchase');
-  assert.match(GAME_SOURCE, /live\.current = \{[^}]*rewardMin[^}]*canvasShop: webglShopOn\.on/, 'the once-bound key handler sees both flags');
 });
 
 test('the canvas keeps the two-tap flow: its synthesised offer row is not a buy-hotkey row', () => {
@@ -210,27 +180,10 @@ test('the canvas keeps the two-tap flow: its synthesised offer row is not a buy-
   assert.equal(shopHotkeyBuyIndex(p, 1.5), -1);
 });
 
-test('the canvas row still receives the rewardMin state', () => {
-  assert.match(GAME_SOURCE, /rewardMin=\$\{rewardMin\}/, 'the host receives the minimized state');
-  assert.match(CANVAS_SOURCE, /shopDisplayPrivate\(propsRef\.current\.priv, !!propsRef\.current\.rewardMin, propsRef\.current\.phase\)/);
-  assert.match(CANVAS_SOURCE, /shopDisplaySlot\(p\.priv, index, !!p\.rewardMin, p\.phase\)/);
-  assert.match(CANVAS_SOURCE, /shopRewardIndex\(p\.priv, index, !!p\.rewardMin, p\.phase\)/);
-});
-
-test('the DOM fallback keeps its reward pill; the canvas draws no DOM pill', () => {
-  assert.match(GAME_SOURCE, /phase === PHASE\.PREP && priv\?\.shop\?\.rewardOffer && !webglShopOn\.on/,
-    'the DOM fallback mount is unchanged');
-  assert.equal((GAME_SOURCE.match(/<\$\{RewardOverlay\}/g) || []).length, 1, 'only the DOM fallback mounts the pill');
-  assert.doesNotMatch(GAME_SOURCE, /webglShopOn\.on && \(rewardMin \|\| barCollapsed\)/,
-    'the canvas mode no longer mounts a DOM pill');
-});
-
-test('the R/F hotkeys reuse the canvas reward guard', () => {
-  assert.match(GAME_SOURCE, /L\.canvasShop && L\.pub\?\.phase === PHASE\.PREP && L\.priv\?\.shop\?\.rewardOffer[\s\S]*?act === 'refresh' \|\| act === 'freeze'/);
-  assert.match(GAME_SOURCE, /toast\(t\('请先选择奖励'\), 'warn'\)/);
-});
-
-test('no reward slot count is pinned any more', () => {
-  assert.doesNotMatch(CANVAS_SOURCE, /REWARD_SLOT_COUNT/);
-  assert.doesNotMatch(GAME_SOURCE, /REWARD_SLOT_COUNT/);
+test('the reward row blocks refresh/freeze (and the R/F hotkeys use the same reason)', () => {
+  const offer = { slots: offerSlots(3) };
+  assert.equal(rewardControlReason(offer, false, PHASE.PREP), '请先选择奖励');
+  assert.equal(rewardControlReason(offer, true, PHASE.PREP), null, '稍后 puts the ordinary controls back');
+  assert.equal(rewardControlReason(offer, false, PHASE.SP_DRAFT), null, 'only the PREP offer row gates them');
+  assert.equal(rewardControlReason(null, false, PHASE.PREP), null);
 });

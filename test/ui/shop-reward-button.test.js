@@ -14,7 +14,8 @@ import { shopModelFromPrivate } from '../../public/js/ui/shop/adapter/model.js';
 import { CtrlViewData } from '../../public/js/ui/shop/viewData.js';
 import { AutoChessStylizedShopCtrlPanel, buildRewardButtonNode, freezeState } from '../../public/js/ui/shop/ctrl.js';
 import { applyControlState, CONTROL_HOTSPOTS, runControlClick, rewardAriaLabel } from '../../public/js/ui/shop/host.js';
-import { shopControlReasons, shopRewardView, rewardPickLabel } from '../../public/js/ui/shop/ShopCanvas.js';
+import { shopControlReasons, shopRewardView, rewardPickLabel, shopFoldReward } from '../../public/js/ui/shop/ShopCanvas.js';
+import { DEFAULT_SETTINGS, sanitizeSettings } from '../../public/js/ui/gameLogic/settings.js';
 import { findPath } from '../../public/js/ui/shop/prefab.js';
 import { PHASE } from '../../shared/constants.js';
 import { t, setLang, setMessages, setNameResolver } from '../../shared/i18n.js';
@@ -256,14 +257,34 @@ test('runControlClick: a blocked tool refuses, a blocked panel still runs, coold
   assert.deepEqual(calls, ['press', 'run']);
 });
 
-test('the host registers the reward hotspot', () => {
+test('the host registers the reward hotspots', () => {
   const reward = CONTROL_HOTSPOTS.find((spec) => spec.key === 'reward');
   assert.equal(reward.event, 'reward');
   assert.equal(reward.paths.length, 1);
   assert.equal(reward.paths[0], 'btn_reward/hotspot');
+  const fold = CONTROL_HOTSPOTS.find((spec) => spec.key === 'rewardFold');
+  assert.equal(fold.event, 'reward', 'the folded copy reports the same event');
+  assert.equal(fold.paths[0], 'state_able/btn_reward/hotspot');
   assert.equal(Object.isFrozen(reward), true, 'a caller cannot rewire the host hotspots');
   assert.equal(Object.isFrozen(reward.paths), true);
   assert.equal(Object.isFrozen(CONTROL_HOTSPOTS), true);
+});
+
+test('shopFoldReward: the folded pill only with the setting, a pending offer and PREP', () => {
+  const offer = rewardOffer();
+  assert.equal(shopFoldReward({ collapsed: true, offer, enabled: true, phase: PHASE.PREP }), true);
+  assert.equal(shopFoldReward({ collapsed: false, offer, enabled: true }), false, 'unfolded shows the normal control');
+  assert.equal(shopFoldReward({ collapsed: true, offer, enabled: false }), false, 'off by default');
+  assert.equal(shopFoldReward({ collapsed: true, offer: null, enabled: true }), false, 'no pending offer, nothing to show');
+  assert.equal(shopFoldReward({ collapsed: true, offer: { slots: [] }, enabled: true }), false);
+  assert.equal(shopFoldReward({ collapsed: true, offer, enabled: true, phase: PHASE.SP_DRAFT }), false, 'PREP only');
+});
+
+test('the folded-reward setting defaults off and only an explicit true enables it', () => {
+  assert.equal(DEFAULT_SETTINGS.shopFoldRewardHint, false);
+  assert.equal(sanitizeSettings({}).shopFoldRewardHint, false, 'a profile saved before the switch stays folded');
+  assert.equal(sanitizeSettings({ shopFoldRewardHint: true }).shopFoldRewardHint, true);
+  for (const junk of ['true', 1, null, {}]) assert.equal(sanitizeSettings({ shopFoldRewardHint: junk }).shopFoldRewardHint, false, String(junk));
 });
 
 // ---- the minimized label names the offer, in every language ----------------------------------------------

@@ -413,7 +413,9 @@ grow to the right so the four languages fit. Positions are the owner's PSD perce
 (156 × 200 design units) converted to the overlay's own box — the card prefab's root, 157 × 207 — with
 `x' = (0.5 + x·156)/157` and `y' = y·200/207` (2026-11-22), and 设置 → 外观 has three switches (`shopMarkSkill`, `shopMarkStandIn`, `shopMarkProgress` — 可晋升 and the
 owned-copy pips share the last — all on by default). The marks never take the two taps or the right-click detail
-away.
+away. A folded shop folds the reward control away with refresh/freeze; 设置 → 操作 → 折叠商店时保留奖励按钮
+(default off) keeps a copy of the same prefab pill on the folded tab while an offer is pending, and clicking it
+unfolds and shows the reward row.
 No config value takes part; choosing a theme without the documents is the rollback, and `ShopBar` renders
 as before. `ui/prefab/shopDocs.js` reads the three documents from that group (an imported
 official pack's documents come from its stored bytes — the page's `connect-src 'self'` forbids fetching a blob) and

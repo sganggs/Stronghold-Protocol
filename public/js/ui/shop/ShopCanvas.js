@@ -71,6 +71,19 @@ export function shopRewardRow(priv, rewardMin = false, phase = null) {
   return { slots, start, count, offer };
 }
 
+/**
+ * Whether the row on screen is the synthesised reward row. ShopCanvas marks its root with this
+ * (`data-shop-reward-row`) so bandCommand's SHOP_SLOT drag — whose targets are privacy indices — never
+ * highlights or drops on the offer's display positions.
+ * @param {any} priv
+ * @param {boolean} [rewardMin]
+ * @param {string|null} [phase]
+ * @returns {boolean}
+ */
+export function shopRewardRowActive(priv, rewardMin = false, phase = null) {
+  return shopRewardRow(priv, rewardMin, phase) !== null;
+}
+
 /** A copy of private with the reward row synthesised into shop.slots (no item slot, no FREE flag). */
 export function shopDisplayPrivate(priv, rewardMin = false, phase = null) {
   const row = shopRewardRow(priv, rewardMin, phase);
@@ -217,6 +230,20 @@ export function rewardControlReason(offer, rewardMin = false, phase = null) {
 export function rewardPickLabel(head) {
   const title = head && typeof head.title === 'string' ? head.title.trim() : '';
   return title ? t('选择{title}', { title }) : t('选择奖励');
+}
+
+/**
+ * Whether the folded shop keeps the reward control (设置 → 操作「折叠商店时保留奖励按钮」, default off). The canvas
+ * has no DOM pill: with the setting on, the same prefab pill stays on the folded tab so a pending offer is reachable
+ * without unfolding; off (the default) the whole shop — pill included — folds away like the refresh/freeze controls.
+ * @param {{ collapsed?: boolean, phase?: string|null, offer?: any, enabled?: boolean }} [o]
+ * @returns {boolean}
+ */
+export function shopFoldReward({ collapsed = false, phase = null, offer = null, enabled = false } = {}) {
+  if (!enabled || !collapsed) return false;
+  if (!offer || !Array.isArray(offer.slots) || !offer.slots.length) return false;
+  if (phase && phase !== PHASE.PREP) return false;
+  return true;
 }
 
 /**
@@ -370,6 +397,7 @@ export function ShopCanvas(props) {
     const displayPriv = shopDisplayPrivate(p.priv, !!p.rewardMin, p.phase);
     const offer = p.priv && p.priv.shop && p.priv.shop.rewardOffer;
     const reward = shopRewardView(offer, { rewardMin: !!p.rewardMin, phase: p.phase });
+    const foldReward = shopFoldReward({ collapsed: !!p.collapsed, phase: p.phase, offer, enabled: settings.shopFoldRewardHint });
     const selectSlot = levelArmedRef.current ? { isUpgrade: true }
       : (a ? { slotId: a.index + 1, isGoods: true } : null);
     return {
@@ -386,6 +414,7 @@ export function ShopCanvas(props) {
       }).map((marks) => filterCardMarks(marks, marksOnRef.current)),
       controls: controlReasons(),
       reward,
+      foldReward,
       // The owner is this seat, so the local selection is what the DOM card resolves for it (§37.273).
       ownerSkin: (charId) => ownerSkin(charId, { localSkins }),
     };
@@ -421,10 +450,10 @@ export function ShopCanvas(props) {
     pushView();
   }, [localSkins]);
 
-  // A 卡面标记 switch changes only the DOM overlay on the card hotspots: repaint, no remount.
+  // A 卡面标记 / 折叠奖励 switch changes only the overlay or the folded pill: repaint, no remount.
   useEffect(() => {
     pushView();
-  }, [settings.shopMarkSkill, settings.shopMarkStandIn, settings.shopMarkProgress]);
+  }, [settings.shopMarkSkill, settings.shopMarkStandIn, settings.shopMarkProgress, settings.shopFoldRewardHint]);
 
   // The host captures its renderer options at construction (createShopHost), so a motion-setting change
   // re-mounts it instead of mutating the live scene: the preloaded runtime is cached, only the scene/spine is
@@ -454,6 +483,13 @@ export function ShopCanvas(props) {
           const p = propsRef.current;
           const offer = p.priv && p.priv.shop && p.priv.shop.rewardOffer;
           if (!offer || !Array.isArray(offer.slots) || !offer.slots.length) return;
+          // A folded shop's copy (设置 → 操作): unfolding is the point of the click, and 稍后 is undone so the
+          // offer row meets the player — the same state a 选择{title} click leaves.
+          if (p.collapsed) {
+            p.onCollapse(false);
+            if (p.rewardMin) p.onRewardToggle?.();
+            return;
+          }
           p.onRewardToggle?.();
         },
         onRefuse: (reason) => propsRef.current.onRefuse?.(reason),
@@ -607,9 +643,9 @@ export function ShopCanvas(props) {
   }
 
   // While the reward row is drawn, [data-shop-slot] is a DISPLAY index (shopRewardRow), not a priv.shop.slots
-  // index: the attribute marks the root so bandCommand's SHOP_SLOT drag (its targets are priv indices) never
+  // index: the attribute marks the root so bandCommand's SHOP_SLOT drag (its targets are privacy indices) never
   // highlights or drops on these cards.
-  const rewardRowOn = shopRewardRow(props.priv, !!props.rewardMin, props.phase) !== null;
+  const rewardRowOn = shopRewardRowActive(props.priv, !!props.rewardMin, props.phase);
 
   return html`<div class="shop-webgl shop-webgl--game" data-shop-webgl="" data-shop-reward-row=${rewardRowOn ? '1' : undefined} role="region" aria-label=${t('商店')}
     ref=${(el) => {

@@ -28,6 +28,9 @@ const CONTROL_HOTSPOT_SPECS = [
   { key: 'refresh', paths: ['btn_refresh/hotspot'], event: 'refresh' },
   { key: 'freeze', paths: ['btn_frozen/hotspot'], event: 'freeze' },
   { key: 'reward', paths: ['btn_reward/hotspot'], event: 'reward' },
+  // The folded shop keeps a copy of the reward pill on the `state_able` tab (设置 → 操作, default off); the
+  // unfolded one is hidden while folded, so the two never show together.
+  { key: 'rewardFold', paths: ['state_able/btn_reward/hotspot'], event: 'reward' },
   { key: 'levelUp', paths: ['hotspot_normal', 'upgrade'], event: 'levelUp', panel: true },
 ].map((spec) => Object.freeze({ ...spec, paths: Object.freeze([...spec.paths]) }));
 
@@ -370,6 +373,7 @@ export async function createShopHost(opts = {}) {
       cardFlags: nextView.cardFlags || null,
       controls: nextView.controls || null,
       reward: nextView.reward || null,
+      foldReward: !!nextView.foldReward,
       ownerSkin: nextView.ownerSkin || null,
     });
   }
@@ -423,6 +427,8 @@ export async function createShopHost(opts = {}) {
     if (freeze) freeze.el.setAttribute('aria-label', t(model && model.isFrozen ? N_('解冻') : N_('冻结')));
     const reward = controlEls.get('reward');
     if (reward) reward.el.setAttribute('aria-label', rewardAriaLabel(model && model.reward));
+    const rewardFold = controlEls.get('rewardFold');
+    if (rewardFold) rewardFold.el.setAttribute('aria-label', rewardAriaLabel(model && model.reward));
     const cards = (model && Array.isArray(model.slots)) ? model.slots : [];
     const marks = (view && Array.isArray(view.cardMarks)) ? view.cardMarks : [];
     for (const [index, el] of cardEls) {
@@ -444,7 +450,10 @@ export async function createShopHost(opts = {}) {
 
   /** Apply the current block reason + the reward hotspot's visibility to one control element. */
   function syncControlState(entry) {
-    if (entry.spec.event === 'reward') entry.el.hidden = !(view && view.reward);
+    if (entry.spec.event === 'reward') {
+      const visible = entry.spec.key === 'rewardFold' ? (view && view.foldReward) : (view && view.reward);
+      entry.el.hidden = !visible;
+    }
     applyControlState(entry.el, entry.button, controlReason(entry.spec.event));
   }
 
