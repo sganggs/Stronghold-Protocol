@@ -2314,7 +2314,13 @@ export function sellJunk(m, ps, policy = null) {
   for (const { p } of junk.slice(0, 4)) if (m.round >= 5 && ps.find(p.uid)) tryDo(() => ps.sell(p.uid));
 }
 
-/** Take the queued pick-one offers (merge rewards, special refreshes — free; they last until picked, the bot takes them at once). */
+/**
+ * Take the queued pick-one offers (merge rewards, special refreshes, item offers — free). One left unpicked lapses at
+ * the end of the prep it could be taken in (DESIGN §37.339), so the prep skeleton (botPrep.js createPrepSteps) calls
+ * this at the prep start, after each buy loop, right after equipItems and once more before Ready: nothing the seat
+ * queues in its own prep lapses. An offer queued after its Ready, at the prep end or in SETTLE waits for the first take
+ * of its next prep.
+ */
 function takeOffers(m, ps, policy = null) {
   const gd = ps?.gd || m.gd;
   for (let guard = 0; guard < 4 && ps.offers.length; guard++) {
@@ -4732,7 +4738,8 @@ function faItemHunt(m, ps) {
 // Explicit operation references keep the default policy and RNG consumption unchanged.
 const LEGACY_PREP_ACTIONS = Object.freeze({
   takeOffers, sellJunk, buyLoopSteps, levelUp, planSpendSteps, spendDown, maybeFreeze, arrangeSteps,
-  equipItems: (m, ps) => { equipItems(m, ps); if (ps.command) { botUseCommand(m, ps, true); takeOffers(m, ps); } },
+  // (the skeleton takes the queued offers right after, createPrepSteps — a 规程 command's included)
+  equipItems: (m, ps) => { equipItems(m, ps); if (ps.command) botUseCommand(m, ps, true); },
   applyPlanSteps, resolveTemp, freeHandSlot, rememberOwned,
   hasHandRoom: (ps) => freeSlot(ps.hand) >= 0,
   ready: (ps) => tryDo(() => ps.setReady(true)),

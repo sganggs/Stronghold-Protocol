@@ -29,8 +29,10 @@
 //   * Merge: 3 normal copies (风丸 2) on board/hand/temp → 1 elite; equipment returns to the hand; a
 //     reward offer of 3 different free chess of tier min(level+1, 6) is queued (never one operator twice — user
 //     playtest #6 item 19; a short tier tops up from the tier below; the player's stocked 自选 of that tier joins,
-//     §30.23; pick 1, expires at prep end; an offer earned
-//     after the prep — SETTLE / Final Assault effects — is kept for the next prep). Where the elite goes (PRTS
+//     §30.23; pick 1; like every queued offer it lapses unpicked at the end of the prep in which the player could
+//     act on it — an offer earned after Ready or after the prep (onPrepEnd, SETTLE / Final Assault effects) is shown
+//     in the next prep and lapses at its end [ASSUMED]: offerDue, the official tip 「晋级的特殊奖励无法被刷新、冻结，也不会保留至下一
+//     回合」, §37.339). Where the elite goes (PRTS
 //     卫戍协议/帮助 "发送1名【精锐】状态的该干员至手牌区（若消耗已部署至作战区的干员，则发送至作战区对应位置）", user
 //     playtest #6 follow-up): when a consumed copy stood on the board, onto that copy's tile with its facing (of several,
 //     the one that deploys first — board.js mergeTile, [ASSUMED]); it replaces a deployed copy, so the deploy count
@@ -208,7 +210,10 @@ export class PlayerState {
     this.skins = Object.freeze({});
     if (!this.isBot && seat.skins) this.setSkins(seat.skins);
     this.shop = { level: 1, upgradePrice: this.gd.upgradeBase(1) ?? 0, slots: [], frozen: false, freeRefreshes: 0 };
-    /** reward offers queue (merge rewards, special refreshes): { tier, source, label, slots: [{ kind, id, price, sold }] } */
+    /**
+     * reward offers queue (merge rewards, special refreshes, item offers): { tier, source, label, slots: [{ kind, id,
+     * price, sold }], picks?, taken?, due } — `due` the prep whose deadline lapses it unpicked (offerDue, §37.339)
+     */
     this.offers = [];
     /** @type {Array<any>} */
     this.hand = new Array(HAND_SIZE).fill(null);
