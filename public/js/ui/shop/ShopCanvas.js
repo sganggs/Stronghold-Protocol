@@ -172,12 +172,16 @@ export function shopCardFlagsWithHand(priv, lookup, config = null) {
 }
 
 /**
- * The React key of the shop host: a language switch must destroy and re-mount it, because the canvas texts
- * and the card/bond/item model are built at mount time. Exported for the pure language-key test.
+ * The re-mount key of the shop host: a language switch must destroy and re-mount it, because the canvas texts
+ * and the card/bond/item model are built at mount time; a still toggle must too, because createShopHost
+ * captures `still` at construction. game.js keys the component by the one-argument (language) form; the host
+ * effect below keys itself with the still-aware form, so a still change is what re-runs it.
  * @param {string|null|undefined} lang
+ * @param {boolean} [still]
  */
-export function shopMountKey(lang) {
-  return String(lang || 'zh');
+export function shopMountKey(lang, still = false) {
+  const key = String(lang || 'zh');
+  return still ? `${key}#still` : key;
 }
 
 /**
@@ -190,6 +194,31 @@ export function shopMountKey(lang) {
  */
 export function shopStill(settings, reduced = false) {
   return (settings && settings.themeMotion === false) || !!reduced;
+}
+
+/** The reason a control hotspot refuses a click while the reward row occupies the shop. */
+export function rewardControlReason(offer, rewardMin = false, phase = null) {
+  const visible = !!(offer && Array.isArray(offer.slots) && offer.slots.length && !rewardMin
+    && (!phase || phase === PHASE.PREP));
+  return visible ? t('请先选择奖励') : null;
+}
+
+/**
+ * The block reason per control hotspot (null = may fire), the same wording the old ShopBar shows. The reward
+ * row occupies the shop's refresh/freeze controls until 稍后 (`rewardControlReason`); the level-up card is
+ * never gated by the offer. Refresh uses shopBlockReason's own rule: the server already turns a free refresh
+ * into refreshPrice 0, and a special offer does not refresh for free; a non-editable seat is refused there too.
+ * @param {any} p ShopCanvas props (`priv`, `editable`, `config`, `phase`, `rewardMin`)
+ * @returns {{ refresh: string|null, freeze: string|null, levelUp: string|null }}
+ */
+export function shopControlReasons(p = {}) {
+  const offer = p.priv && p.priv.shop && p.priv.shop.rewardOffer;
+  const chooseFirst = rewardControlReason(offer, p.rewardMin, p.phase);
+  return {
+    refresh: chooseFirst || shopBlockReason('refresh', { config: p.config, priv: p.priv, editable: p.editable }),
+    freeze: chooseFirst || (p.editable ? null : shopBlockReason('freeze', { config: p.config, priv: p.priv, editable: p.editable })),
+    levelUp: shopBlockReason('levelUp', { config: p.config, priv: p.priv, editable: p.editable }),
+  };
 }
 
 /**
@@ -212,14 +241,23 @@ export function shopHotkeyBuyIndex(priv, displayIndex, { canvas = false, rewardM
 }
 
 /**
- * Park the themed spine idle for a still mount. `scene.stillCards` pins the card clips, but the spine is a live
- * PIXI tick (spineView.tick advances the actor every frame and its compose canvas repaints with it), so a
- * paused spine is what stops the shop's ambient animation. `pause` is safe before the async `start()` settles:
- * the flag makes the first forced paint a still frame.
+ * Park the themed spine idle for a still mount; a motion mount leaves it running. `scene.stillCards` pins the
+ * card clips, but the spine is a live PIXI tick (spineView.tick advances the actor every frame and its compose
+ * canvas repaints with it), so a paused spine is what stops the shop's ambient animation. `pause` is safe
+ * before the async `start()` settles: the flag makes the first forced paint a still frame.
  * @param {any} host the createShopHost handle
+ * @param {boolean} still
+ * @returns {boolean} whether the spine was asked to pause
  */
-function pauseSpine(host) {
-  try { host.spine?.pause?.(true); } catch { /* a spine that never loaded has nothing to pause */ }
+export function pauseSpine(host, still) {
+  if (!still) return false;
+  if (typeof host?.spine?.pause !== 'function') return false;
+  try {
+    host.spine.pause(true);
+    return true;
+  } catch {
+    return false; // a spine that never loaded has nothing to pause
+  }
 }
 
 /**
@@ -267,18 +305,7 @@ export function ShopCanvas(props) {
    * Refresh uses shopBlockReason's own rule: the server already turns a free refresh into refreshPrice 0, and a
    * special offer does not refresh for free; a non-editable seat is refused there too.
    */
-  const controlReasons = () => {
-    const p = propsRef.current;
-    const offer = p.priv && p.priv.shop && p.priv.shop.rewardOffer;
-    const rewardVisible = !!(offer && Array.isArray(offer.slots) && offer.slots.length && !p.rewardMin
-      && (!p.phase || p.phase === PHASE.PREP));
-    const chooseFirst = rewardVisible ? t('请先选择奖励') : null;
-    return {
-      refresh: chooseFirst || shopBlockReason('refresh', { config: p.config, priv: p.priv, editable: p.editable }),
-      freeze: chooseFirst || (p.editable ? null : shopBlockReason('freeze', { config: p.config, priv: p.priv, editable: p.editable })),
-      levelUp: shopBlockReason('levelUp', { config: p.config, priv: p.priv, editable: p.editable }),
-    };
-  };
+  const controlReasons = () => shopControlReasons(propsRef.current);
 
   const viewOf = () => {
     const p = propsRef.current;
@@ -379,7 +406,7 @@ export function ShopCanvas(props) {
       host = created;
       hostApi.current = created;
       // `options.still` pins the card clips; the themed spine is a separate live tick, so park it too.
-      if (still) pauseSpine(created);
+      pauseSpine(created, still);
     }).catch((err) => {
       if (dead) return;
       failHost(err, 'mount');
@@ -389,7 +416,7 @@ export function ShopCanvas(props) {
       hostApi.current = null;
       if (host) host.dispose();
     };
-  }, [props.runtime, failed, props.lang, props.still]);
+  }, [props.runtime, failed, shopMountKey(props.lang, !!props.still)]);
 
   // m.private / fold / selection changes are plain model pushes; the host repaints.
   useEffect(() => {

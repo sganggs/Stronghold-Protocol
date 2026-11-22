@@ -123,7 +123,7 @@ test('a malformed offer longer than the server cap is clamped to MAX_OFFER_SLOTS
 
 test('the reward row is drawn only in the PREP phase', () => {
   const p = priv(offerSlots(6));
-  assert.equal(shopRewardRow(p, false, PHASE.SP_DRAFT), null, 'round start / strategy draft keeps the normal row');
+  assert.equal(shopRewardRow(p, false, PHASE.SP_DRAFT), null, 'ROUND_START / 机变阶段 (SP_DRAFT) draws the normal row');
   assert.equal(shopDisplayPrivate(p, false, PHASE.SP_DRAFT), p);
   assert.equal(shopRewardRow(p, false, PHASE.PREP)?.count, 6, 'prep still synthesises the offer row');
 });
@@ -161,7 +161,6 @@ test('the row helpers treat a minimized pick as no offer, per call (rewardMin is
 
 const GAME_SOURCE = readFileSync(path.join(ROOT, 'public/js/screens/game.js'), 'utf8');
 const CANVAS_SOURCE = readFileSync(path.join(ROOT, 'public/js/ui/shop/ShopCanvas.js'), 'utf8');
-const CTRL_SOURCE = readFileSync(path.join(ROOT, 'public/js/ui/shop/ctrl.js'), 'utf8');
 const SHOPBAR_SOURCE = readFileSync(path.join(ROOT, 'public/js/ui/shopBar.js'), 'utf8');
 
 /** The buy hotkey branch, delimited by the next prep-shortcut branch (retreat / sell). */
@@ -226,11 +225,9 @@ test('the DOM fallback keeps its reward pill; the canvas draws no DOM pill', () 
     'the canvas mode no longer mounts a DOM pill');
 });
 
-test('the R/F hotkeys reuse the canvas reward guard, and a frozen shop keeps its unfreeze face', () => {
+test('the R/F hotkeys reuse the canvas reward guard', () => {
   assert.match(GAME_SOURCE, /L\.canvasShop && L\.pub\?\.phase === PHASE\.PREP && L\.priv\?\.shop\?\.rewardOffer[\s\S]*?act === 'refresh' \|\| act === 'freeze'/);
   assert.match(GAME_SOURCE, /toast\(t\('请先选择奖励'\), 'warn'\)/);
-  assert.match(CTRL_SOURCE, /data\.isFrozen \? 2 : \(data\.freezeBlocked \? 0 : 1\)/,
-    'a frozen shop shows 解冻 even after the ready lock');
 });
 
 test('no reward slot count is pinned any more', () => {

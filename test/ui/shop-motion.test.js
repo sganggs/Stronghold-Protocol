@@ -1,24 +1,22 @@
-// test/ui/shop-motion.test.js — the WebGL shop's still mode (S4, 设置 → 主题动画 off or prefers-reduced-motion).
-// A still shop must not animate on its own: the host gets `still` at construction (pinned card clips), the themed
-// spine idle is parked (its compose canvas follows the idle tick, so a paused spine is what empties the host's
-// ambient repaint), and a settings change re-mounts the host because createShopHost captures its options then.
+// test/ui/shop-motion.test.js — the WebGL shop's still mode (设置 → 主题动画 off or prefers-reduced-motion).
+//
+// Covered behavior: 主题动画 off / reduced motion resolves to `still`; the host mount key changes when `still`
+// changes (so the mount effect re-runs and createShopHost picks the option up again); the host passes `still`
+// through to the scene options; a still mount parks the themed spine (and a spine-less fake host is harmless);
+// a still scene reports no card FX; and the host's ambient repaint follows the same loops. The full Preact
+// mount effect and a real WebGL/PIXI host are not exercised here (the SP_E2E suite owns those).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-import { shopStill } from '../../public/js/ui/shop/ShopCanvas.js';
+import {
+  shopStill,
+  shopMountKey,
+  pauseSpine,
+} from '../../public/js/ui/shop/ShopCanvas.js';
 import { ShopSpineView } from '../../public/js/ui/shop/spineView.js';
-
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const read = (rel) => readFileSync(path.join(ROOT, rel), 'utf8');
-
-const GAME_SOURCE = read('public/js/screens/game.js');
-const CANVAS_SOURCE = read('public/js/ui/shop/ShopCanvas.js');
-const HOST_SOURCE = read('public/js/ui/shop/host.js');
-const SCENE_SOURCE = read('public/js/ui/shop/scene.js');
+import { ShopScene } from '../../public/js/ui/shop/scene.js';
+import { ambientPaintNeeded, shopSceneOptions } from '../../public/js/ui/shop/host.js';
 
 test('shopStill: 主题动画 off OR reducedMotion(); a missing setting keeps today\'s motion', () => {
   assert.equal(shopStill({ themeMotion: false }), true);
@@ -32,29 +30,61 @@ test('shopStill: 主题动画 off OR reducedMotion(); a missing setting keeps to
   assert.equal(shopStill({}), false, 'a missing themeMotion is the default (motion on)');
 });
 
-test('game.js computes the canvas still from the player setting and the OS preference', () => {
-  assert.match(GAME_SOURCE, /still=\$\{shopStill\(playerSettings, reducedMotion\(\)\)\}/);
-  assert.match(GAME_SOURCE, /import \{ ShopCanvas, shopMountKey, shopStill, shopHotkeyBuyIndex \} from '\.\.\/ui\/shop\/ShopCanvas\.js';/);
+test('the host mount key is still-aware, so a still toggle re-runs the mount effect', () => {
+  // game.js still keys the component by the one-argument language form the shop-i18n test pins.
+  assert.equal(shopMountKey('zh'), 'zh');
+  assert.equal(shopMountKey('zh', false), 'zh');
+  assert.equal(shopMountKey('en'), 'en');
+  // The host effect uses the two-argument form: a motion → still switch must produce a new key.
+  assert.notEqual(shopMountKey('zh', true), shopMountKey('zh', false));
+  assert.notEqual(shopMountKey('en', true), shopMountKey('en', false));
+  assert.notEqual(shopMountKey('zh', true), shopMountKey('en', true), 'a language change still re-mounts too');
+  assert.equal(shopMountKey('zh', true), shopMountKey('zh', true), 'the same still state is the same key');
 });
 
-test('the canvas passes still as a host option and parks the spine on a still mount', () => {
-  assert.match(CANVAS_SOURCE, /options: \{ runtime, still \}/);
-  assert.match(CANVAS_SOURCE, /if \(still\) pauseSpine\(created\);/);
-  assert.match(CANVAS_SOURCE, /host\.spine\?\.pause\?\.\(true\)/);
+test('the host passes still (and the pinned times) through to the scene options', () => {
+  const still = shopSceneOptions({ still: true });
+  assert.equal(still.still, true, 'the host → ShopScene still pass-through');
+  assert.equal(shopSceneOptions({ still: false }).still, false);
+  assert.equal(shopSceneOptions({}).still, undefined, 'a host without the option does not invent one');
+  const pinned = shopSceneOptions({ still: true, cardTime: 0, particleTime: 1.5, arrowAt: 2, cardParticles: false });
+  assert.equal(pinned.cardTime, 0);
+  assert.equal(pinned.particleTime, 1.5);
+  assert.equal(pinned.arrowAt, 2);
+  assert.equal(pinned.cardParticles, false);
 });
 
-test('a motion-setting change re-mounts the host (options are captured at construction)', () => {
-  assert.match(CANVAS_SOURCE, /\}, \[props\.runtime, failed, props\.lang, props\.still\]\)/,
-    'still stays in the mount effect deps');
-  assert.match(CANVAS_SOURCE, /captures its renderer options at construction/,
-    'the re-mount choice is documented where the effect is');
+test('pauseSpine parks a still spine, leaves motion alone, and tolerates a host without one', () => {
+  const calls = [];
+  const host = { spine: { pause: (value) => calls.push(value) } };
+  assert.equal(pauseSpine(host, true), true);
+  assert.deepEqual(calls, [true], 'a still mount pauses the themed spine');
+  assert.equal(pauseSpine(host, false), false);
+  assert.deepEqual(calls, [true], 'motion on never calls pause');
+  assert.equal(pauseSpine({}, true), false, 'a host without a spine is harmless');
+  assert.equal(pauseSpine(null, true), false);
+  assert.doesNotThrow(() => pauseSpine({ spine: { pause() { throw new Error('no pixi'); } } }, true),
+    'a spine that throws on pause must not break the mount');
 });
 
-test('the host and scene honour still: pinned card clips, no card FX, ambient repaint from the spine only', () => {
-  assert.match(HOST_SOURCE, /still: options\.still/);
-  assert.match(SCENE_SOURCE, /this\.stillCards = !!opts\.still/);
-  assert.match(SCENE_SOURCE, /if \(this\.stillCards\) return false;/);
-  assert.match(HOST_SOURCE, /const ambient = !!\(particleAnim \|\| cardFxAnim \|\| spineAnim \|\| spinePaint\);/);
+test('a still scene pins card FX; a pinned card time also stops them', () => {
+  const scene = Object.create(ShopScene.prototype);
+  scene.stillCards = true;
+  scene.cardTime = null;
+  assert.equal(scene.cardFxAnimating(), false, 'still cards do not animate');
+  scene.stillCards = false;
+  scene.cardTime = 0;
+  assert.equal(scene.cardFxAnimating(), false, 'a pinned card time is still');
+  scene.cardTime = null;
+  assert.equal(scene.cardFxAnimating(), true, 'motion on with no pinned time animates');
+});
+
+test('the host ambient repaint follows any ambient loop', () => {
+  assert.equal(ambientPaintNeeded({}), false);
+  assert.equal(ambientPaintNeeded({ particleAnim: true }), true);
+  assert.equal(ambientPaintNeeded({ cardFxAnim: true }), true);
+  assert.equal(ambientPaintNeeded({ spineAnim: true }), true);
+  assert.equal(ambientPaintNeeded({ spinePaint: true }), true);
 });
 
 test('a paused spine reports no animation, which empties the host ambient repaint', () => {

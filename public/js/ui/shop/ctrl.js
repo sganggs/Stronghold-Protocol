@@ -25,6 +25,57 @@ export function canRefreshOf(data) {
   return Number(data.freeRefreshCnt) > 0 || Number(data.coinCount) >= Number(data.refreshCost);
 }
 
+/** The freeze toggle's state: frozen wins so a ready-blocked frozen shop still shows 解冻. */
+export function freezeState(data) {
+  return data && data.isFrozen ? 2 : (data && data.freezeBlocked ? 0 : 1);
+}
+
+/**
+ * The reward control on the left of freeze/refresh: a clone of the refresh button with its icon nodes
+ * removed (the button is text-only and centred), the refresh background, and the refresh cost holder
+ * reused for the queued count. This keeps the prefab's pill, glow, font and badge shape.
+ */
+export function buildRewardButtonNode(template, rootPath) {
+  const node = cloneNode(template);
+  repath(node, rootPath, 'btn_reward');
+  // The refresh/freeze sprites carry transparent side margins: -391 puts the reward pill's
+  // solid edge 4 units from freeze, matching the 4-unit freeze/refresh visual gap.
+  node.rect = { ...(node.rect || {}), sizeDelta: [168, 76], anchoredPosition: [-391, 0] };
+  node.active = true;
+  node.children = (node.children || []).filter((child) => child.name !== 'group_lock');
+
+  const normal = findPath(node, 'group_normal');
+  if (normal) {
+    normal.children = (normal.children || []).filter((child) => child.name === 'bg' || child.name === 'text');
+    const text = findPath(normal, 'text');
+    if (text) {
+      text.rect = { ...(text.rect || {}), sizeDelta: [120, 26], anchoredPosition: [0, 2] };
+      // Match the refresh label: same 19px NotoSansHans face and #1F1F1F fill.
+      text.text = { ...(text.text || {}), bestFit: true, fontSize: 19, minSize: 1, maxSize: 19, color: '#1F1F1F' };
+    }
+  }
+
+  const cost = findPath(node, 'root_cost');
+  if (cost) {
+    cost.children = (cost.children || []).filter((child) => child.name === 'group_free');
+    const free = findPath(cost, 'group_free');
+    if (free) {
+      free.active = true;
+      const bg = findPath(free, 'bg');
+      if (bg) {
+        bg.image = { ...(bg.image || {}), type: 'simple', sprite: 'cost_bg_1', file: 'sprites/cost_bg_1.webp', w: 44, h: 36, color: '#FFFFFF' };
+        bg.rect = { ...(bg.rect || {}), sizeDelta: [44, 36], anchoredPosition: [0, -1] };
+      }
+      const num = findPath(free, 'text_num');
+      if (num) {
+        num.text = { ...(num.text || {}), text: '', font: 'Novecentowide-Medium', fontSize: 20, minSize: 1, maxSize: 20, color: '#FFC600', align: 4, bestFit: true };
+        num.rect = { ...(num.rect || {}), anchoredPosition: [0, 4] };
+      }
+    }
+  }
+  return node;
+}
+
 export class AutoChessStylizedShopCtrlPanel {
 
   constructor({ scene, root }) {
@@ -46,52 +97,12 @@ export class AutoChessStylizedShopCtrlPanel {
     this.costView = null;
   }
 
-  /**
-   * The reward control on the left of freeze/refresh: a clone of the refresh button with its icon nodes
-   * removed (the button is text-only and centred), the refresh background, and the refresh cost holder
-   * reused for the queued count. This keeps the prefab's pill, glow, font and badge shape.
-   */
+  /** Append the reward pill to the panel once; Render only updates it, so a repeated call returns the same node. */
   buildRewardButton() {
+    if (this.rewardButton) return this.rewardButton;
     const template = findPath(this.root, 'btn_refresh');
     if (!template) return null;
-    const node = cloneNode(template);
-    repath(node, this.root.path, 'btn_reward');
-    // The refresh/freeze sprites carry transparent side margins: -391 puts the reward pill's
-    // solid edge 4 units from freeze, matching the 4-unit freeze/refresh visual gap.
-    node.rect = { ...(node.rect || {}), sizeDelta: [168, 76], anchoredPosition: [-391, 0] };
-    node.active = true;
-    node.children = (node.children || []).filter((child) => child.name !== 'group_lock');
-
-    const normal = findPath(node, 'group_normal');
-    if (normal) {
-      normal.children = (normal.children || []).filter((child) => child.name === 'bg' || child.name === 'text');
-      const text = findPath(normal, 'text');
-      if (text) {
-        text.rect = { ...(text.rect || {}), sizeDelta: [120, 26], anchoredPosition: [0, 2] };
-        // Match the refresh label: same 19px NotoSansHans face and #1F1F1F fill.
-        text.text = { ...(text.text || {}), bestFit: true, fontSize: 19, minSize: 1, maxSize: 19, color: '#1F1F1F' };
-      }
-    }
-
-    const cost = findPath(node, 'root_cost');
-    if (cost) {
-      cost.children = (cost.children || []).filter((child) => child.name === 'group_free');
-      const free = findPath(cost, 'group_free');
-      if (free) {
-        free.active = true;
-        const bg = findPath(free, 'bg');
-        if (bg) {
-          bg.image = { ...(bg.image || {}), type: 'simple', sprite: 'cost_bg_1', file: 'sprites/cost_bg_1.webp', w: 44, h: 36, color: '#FFFFFF' };
-          bg.rect = { ...(bg.rect || {}), sizeDelta: [44, 36], anchoredPosition: [0, -1] };
-        }
-        const num = findPath(free, 'text_num');
-        if (num) {
-          num.text = { ...(num.text || {}), text: '', font: 'Novecentowide-Medium', fontSize: 20, minSize: 1, maxSize: 20, color: '#FFC600', align: 4, bestFit: true };
-          num.rect = { ...(num.rect || {}), anchoredPosition: [0, 4] };
-        }
-      }
-    }
-
+    const node = buildRewardButtonNode(template, this.root.path);
     this.root.children = [...(this.root.children || []), node];
     return node;
   }
@@ -128,8 +139,7 @@ export class AutoChessStylizedShopCtrlPanel {
     if (this.specToggle) this.specToggle.set_selected(data.isSpecRefresh);
 
     if (this.freezeToggle) {
-      const state = data.isFrozen ? 2 : (data.freezeBlocked ? 0 : 1);
-      this.freezeToggle.set_state(state);
+      this.freezeToggle.set_state(freezeState(data));
     }
 
     setText(findPath(this.root, 'btn_refresh/group_normal/text'), t('刷新'));

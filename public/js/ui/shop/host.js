@@ -22,14 +22,17 @@ import { AutoChessBattleShopMainView } from './mainView.js';
 import { UIButton } from './widgets.js';
 
 /** Control hotspots the prefab's UIButtons cover; their guards are read from each UIButton's _clickGuard. */
-const CONTROL_HOTSPOTS = Object.freeze([
+const CONTROL_HOTSPOT_SPECS = [
   { key: 'enable', paths: ['entry_enable_hotspot', 'btn_open'], event: 'open' },
   { key: 'fold', paths: ['btn_close', 'fold_hot_spot'], event: 'close' },
   { key: 'refresh', paths: ['btn_refresh/hotspot'], event: 'refresh' },
   { key: 'freeze', paths: ['btn_frozen/hotspot'], event: 'freeze' },
   { key: 'reward', paths: ['btn_reward/hotspot'], event: 'reward' },
   { key: 'levelUp', paths: ['hotspot_normal', 'upgrade'], event: 'levelUp', panel: true },
-]);
+].map((spec) => Object.freeze({ ...spec, paths: Object.freeze([...spec.paths]) }));
+
+/** The same hotspots, deep-frozen: a caller must not rewire the host at runtime. */
+export const CONTROL_HOTSPOTS = Object.freeze(CONTROL_HOTSPOT_SPECS);
 
 const DESIGN = Object.freeze([1920, 372]);
 
@@ -45,6 +48,71 @@ const CONTROL_LABELS = Object.freeze({
 
 /** Ambient (idle spine / card FX / particles) repaint cap; interaction and clips still paint every frame. */
 const AMBIENT_INTERVAL_MS = 1000 / 20;
+
+/** Whether any ambient loop (spine idle, card FX, particles) still needs a repaint. */
+export function ambientPaintNeeded({ particleAnim, cardFxAnim, spineAnim, spinePaint }) {
+  return !!(particleAnim || cardFxAnim || spineAnim || spinePaint);
+}
+
+/**
+ * The ShopScene options a host mount derives from its own options. `still` pins the card clips, the pinned
+ * times freeze the scrub / dev poses, and `cardParticles` gates the card emitters. Kept pure so the
+ * host → scene pass-through is testable without a WebGL context.
+ * @param {{ still?: boolean, cardTime?: number, particleTime?: number, arrowAt?: number, cardParticles?: boolean }} [options]
+ * @returns {{ still: boolean|undefined, cardTime: number|undefined, particleTime: number|undefined,
+ *   arrowAt: number|undefined, cardParticles: boolean|undefined }}
+ */
+export function shopSceneOptions(options = {}) {
+  return {
+    still: options.still,
+    cardTime: options.cardTime,
+    particleTime: options.particleTime,
+    arrowAt: options.arrowAt,
+    cardParticles: options.cardParticles,
+  };
+}
+
+/**
+ * Disable a control hotspot for the reason the view published, and give that reason a tooltip. A blocked
+ * tool button stays clickable: a native disabled button swallows both the title tooltip and the click, so the
+ * player cannot learn why it is locked; aria-disabled + a click that reports onRefuse keeps the explanation
+ * reachable. The scene's tinted button must not press either. Exported so a fake element/button can pin the
+ * four DOM effects without a WebGL context.
+ * @param {any} el the hotspot element
+ * @param {{ interactable: boolean }|null} button the scene's tinted button (optional)
+ * @param {string|null} reason the block reason (null = usable)
+ */
+export function applyControlState(el, button, reason) {
+  const disabled = !!reason;
+  el.disabled = false;
+  if (disabled) {
+    el.setAttribute('aria-disabled', 'true');
+    el.title = reason;
+  } else {
+    el.removeAttribute('aria-disabled');
+    el.removeAttribute('title');
+  }
+  if (button) button.interactable = !disabled;
+}
+
+/**
+ * What a control-hotspot click does, in order: a blocked tool button reports its reason through `onRefuse`
+ * and does nothing else; a blocked panel control (level up) still runs its action so the caller can refuse it
+ * with the old bar's wording; a usable control presses the scene button and runs the action. `press` returns
+ * the scene button's Press() result (false = still in a click cooldown).
+ * @param {{ reason?: string|null, panel?: boolean, press?: () => boolean,
+ *   onRefuse?: ((reason: string) => void)|null, run?: (() => void)|null }} o
+ * @returns {'refuse'|'blocked'|'run'}
+ */
+export function runControlClick({ reason = null, panel = false, press = () => true, onRefuse = null, run = null } = {}) {
+  if (reason && !panel) {
+    onRefuse?.(reason);
+    return 'refuse';
+  }
+  if (!reason && !press()) return 'blocked';
+  run?.();
+  return 'run';
+}
 
 /** Preloaded shop runtime per theme id: the pack's shop/card/prefab documents, loaded once. */
 const runtimeCache = new Map();
@@ -218,13 +286,7 @@ export async function createShopHost(opts = {}) {
     particlesEnabled: !!options.particles,
     statusEnabled: options.status !== false,
     particleComponents: null,
-    options: {
-      still: options.still,
-      cardTime: options.cardTime,
-      particleTime: options.particleTime,
-      arrowAt: options.arrowAt,
-      cardParticles: options.cardParticles,
-    },
+    options: shopSceneOptions(options),
   });
   let priv = opts.priv || {};
   let view = { state: 'unfold', ...(opts.view || {}) };
@@ -348,29 +410,10 @@ export async function createShopHost(opts = {}) {
     return typeof reason === 'string' && reason ? reason : null;
   }
 
-  /**
-   * Disable a control hotspot for the reason the view published, and give that reason a tooltip. The prefab's
-   * level-up panel stays focusable and reports the tap (the old bar's upgrade card is aria-disabled, not
-   * disabled, so the caller can refuse it with a reason); the tool buttons are natively disabled like the old
-   * bar's 刷新/冻结, which only show their reason as the title.
-   */
-  function applyControlState(entry) {
-    const reason = controlReason(entry.spec.event);
-    const disabled = !!reason;
-    // A blocked tool button must stay clickable: a native disabled button swallows both the title
-    // tooltip and the click, so the player cannot learn why it is locked. aria-disabled + a
-    // click that calls onRefuse keeps the explanation reachable.
-    entry.el.disabled = false;
+  /** Apply the current block reason + the reward hotspot's visibility to one control element. */
+  function syncControlState(entry) {
     if (entry.spec.event === 'reward') entry.el.hidden = !(view && view.reward);
-    if (disabled) {
-      entry.el.setAttribute('aria-disabled', 'true');
-      entry.el.title = reason;
-    } else {
-      entry.el.removeAttribute('aria-disabled');
-      entry.el.removeAttribute('title');
-    }
-    // The scene's tinted button must not press either (a stale click can still reach the handler).
-    if (entry.button) entry.button.interactable = !disabled;
+    applyControlState(entry.el, entry.button, controlReason(entry.spec.event));
   }
 
   function visibleBox(box) {
@@ -475,15 +518,17 @@ export async function createShopHost(opts = {}) {
       const entry = controlEls.get(key);
       if (!entry) return;
       const reason = controlReason(entry.spec.event);
-      // A blocked tool button is not natively disabled (that would swallow the click and its title);
-      // report the reason through the same toast the old shop bar uses.
-      if (reason && !entry.spec.panel) {
-        if (callbacks.onRefuse) callbacks.onRefuse(reason);
-        return;
-      }
-      if (!reason && !entry.button.Press(now())) return;
       const handler = callbacks[`on${entry.spec.event[0].toUpperCase()}${entry.spec.event.slice(1)}`];
-      if (handler) handler();
+      // A blocked tool button is not natively disabled (that would swallow the click and its title);
+      // report the reason through the same toast the old shop bar uses. A blocked panel control still runs
+      // its handler so the caller can refuse it with the old wording.
+      runControlClick({
+        reason,
+        panel: !!entry.spec.panel,
+        press: () => entry.button.Press(now()),
+        onRefuse: callbacks.onRefuse || null,
+        run: handler || null,
+      });
     });
     // Right-click on a card opens its detail without arming it (the old shop bar's onContextMenu). The caller
     // owns what the detail shows, so this only forwards the slot index.
@@ -530,7 +575,7 @@ export async function createShopHost(opts = {}) {
       let box = null;
       for (const path of entry.spec.paths) { box = boxFor(path); if (box) break; }
       place(entry.el, box);
-      applyControlState(entry);
+      syncControlState(entry);
     }
     stage.style.width = canvas.style.width;
     stage.style.height = canvas.style.height;
@@ -710,7 +755,7 @@ export async function createShopHost(opts = {}) {
     const urgent = !!(scene.dirty || clips.length || cardAnim || texChanged || tintChanged || needsPaint);
     // The spine compose canvas changes on every tick (its envelope follows the idle animation), so it is
     // an ambient repaint, not an urgent one; otherwise it would defeat the ambient cap below.
-    const ambient = !!(particleAnim || cardFxAnim || spineAnim || spinePaint);
+    const ambient = ambientPaintNeeded({ particleAnim, cardFxAnim, spineAnim, spinePaint });
     const hidden = typeof document !== 'undefined' && document.hidden;
     if (!hidden && (urgent || (ambient && now - lastPaintAt >= AMBIENT_INTERVAL_MS))) {
       // The spine canvas is only read by a paint, so tick it right before one; ticking it every rAF
