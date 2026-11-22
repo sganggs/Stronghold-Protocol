@@ -4,9 +4,9 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 import { AutoChessBattleShopCardView } from '../../public/js/ui/shop/cardView.js';
+import { cardNeedsRebuild } from '../../public/js/ui/shop/slots.js';
 
 test('a chess card view reused for an item re-activates its equip node', () => {
   const view = Object.create(AutoChessBattleShopCardView.prototype);
@@ -21,8 +21,14 @@ test('a chess card view reused for an item re-activates its equip node', () => {
   assert.equal(equip.image.sprite, 'trap_1');
 });
 
-test('slots.reconcile rebuilds a reused root when isEmpty/isChar changes', () => {
-  const slots = readFileSync(new URL('../../public/js/ui/shop/slots.js', import.meta.url), 'utf8');
-  assert.match(slots, /!!prevModel\.isEmpty !== !!model\.isEmpty/);
-  assert.match(slots, /!!prevModel\.isChar !== !!model\.isChar/);
+test('a reused card root is rebuilt when the slot kind changes', () => {
+  const empty = { slotId: 'slot-1', isEmpty: true, isChar: false };
+  const filled = { slotId: 'slot-1', isEmpty: false, isChar: true };
+  const item = { slotId: 'slot-1', isEmpty: false, isChar: false };
+
+  assert.equal(cardNeedsRebuild(empty, filled), true, 'an empty slot that gains a chess card');
+  assert.equal(cardNeedsRebuild(filled, item), true, 'an operator slot that becomes an item');
+  assert.equal(cardNeedsRebuild(item, filled), true, 'an item slot that becomes an operator');
+  assert.equal(cardNeedsRebuild(filled, { ...filled }), false, 'the same kind keeps the reused root');
+  assert.equal(cardNeedsRebuild(null, filled), true, 'a new slot always builds a root');
 });
