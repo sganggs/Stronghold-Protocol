@@ -2066,6 +2066,76 @@ describe('规程·序列Ⅰ bonds', { concurrency: 1 }, () => {
     assertLethaniaRuntime(h);
   });
 
+  test('莱塔尼亚: notes and choruses hold 禁疗 (cannot be directly healed, still benefit from hpRegen and 聚合)', (t) => {
+    const base = v3();
+    const agoatId = chessIdOf('char_1016_agoat2');
+    for (const { count, layers, expectedId } of [
+      { count: 3, layers: 0, expectedId: NOTE },
+      { count: 6, layers: 700, expectedId: CHORUS },
+    ]) {
+      const data = {
+        ...base,
+        enemies: {
+          ...base.enemies,
+          reg_tank: enemyRec({ key: 'reg_tank', hp: 1e7, def: 0, res: 0, atk: 0, speed: 0 }),
+        },
+      };
+      setGameData(data);
+      t.after(() => setGameData(null));
+      const h = makeBattle({
+        seed: 1,
+        data,
+        timeLimit: 40,
+        autoFinish: false,
+        bonds: { lethaniaShip: bond(count, layers), docShip: bond(2, 0, 1) },
+        units: [
+          { chessId: agoatId, row: 10, col: 7, skillIndex: 1 }, // 纯烬艾雅法拉 S2 (云霭荫佑: AoE direct heal) + 聚合 member
+          { chessId: 'chess_char_1_19_a', row: 10, col: 8, skillIndex: 0 }, // ordinary injured ally in range
+        ],
+      });
+      h.step();
+      const agoat = h.unit(agoatId);
+      const ally = h.unit('chess_char_1_19_a');
+      assert.ok(agoat && ally, '纯烬艾雅法拉 and ally deployed');
+      const corpse = tank(h, [10, 8]);
+      h.b.kill(corpse, null);
+      const [summon] = lethaniaSummons(h);
+      assert.ok(summon && summon.defId === expectedId, `summoned ${expectedId}`);
+      assert.ok(Array.isArray(summon.def.abnormal) && summon.def.abnormal.includes('healFree'), `${expectedId} carries abnormal healFree`);
+      assert.equal(!!summon.s.flags.noHeal, true, `${expectedId} sets noHeal`);
+      assert.equal(!!summon.s.flags.healFree, true, `${expectedId} sets healFree`);
+
+      // Injure summon and keep ally at full HP: 纯烬艾雅法拉 must not target summon for normal healing
+      summon.hp = summon.s.maxHp * 0.5;
+      ally.hp = ally.s.maxHp;
+      assert.equal(h.b.injuredAlliesInKeys(agoat.rangeKeys, agoat).includes(summon), false, `${expectedId} excluded from injuredAlliesInKeys`);
+      assert.equal(acquireTargets(h.b, agoat, agoat.profile).includes(summon), false, `${expectedId} excluded from healer acquireTargets`);
+
+      // Direct heals (from 纯烬艾雅法拉 or self non-regen) return 0 and never apply 氤氲
+      const hpBeforeDirect = summon.hp;
+      assert.equal(h.b.heal(agoat, summon, 500), 0, `${expectedId} blocks direct heal from 纯烬艾雅法拉`);
+      assert.equal(h.b.heal(summon, summon, 500), 0, `${expectedId} blocks self direct heal`);
+      assert.equal(summon.hp, hpBeforeDirect, `${expectedId} HP unchanged after blocked direct heals`);
+      assert.equal(summon.findBuff(`agoat2:mist:${agoat.id}`), null, `${expectedId} does not receive 氤氲`);
+
+      // 纯烬艾雅法拉 S2 AoE direct heal heals the ordinary ally in range, but does NOT heal the summon
+      ally.hp = ally.s.maxHp * 0.5;
+      const allyBeforeS2 = ally.hp;
+      const summonBeforeS2 = summon.hp;
+      agoat.skill.setSpTotal(999);
+      assert.equal(agoat.skill.activate('manual'), true, '纯烬艾雅法拉 activates S2');
+      assert.ok(ally.hp > allyBeforeS2, 'S2 still heals ordinary allies in range');
+      assert.equal(summon.hp, summonBeforeS2, `S2 AoE direct heal does not heal ${expectedId}`);
+
+      // HP regeneration (生命回复速度), including 聚合 aura, still applies to both NOTE and CHORUS
+      const hpBeforeRegen = summon.hp;
+      h.run(0.5);
+      assert.ok(summon.findBuff(`bond:doc:regen:${agoat.id}`), `${expectedId} receives 聚合 hpRegen aura`);
+      assert.ok(summon.hp > hpBeforeRegen, `${expectedId} recovers HP from 聚合 hpRegen aura (${hpBeforeRegen} → ${summon.hp})`);
+      assertLethaniaRuntime(h);
+    }
+  });
+
   test('聚合: stacked heals, element recovery, shelter is the strongest not the sum', (t) => {
     const bb = params(v3().bonds.docShip, 'act3autochess_bond_eff_doc');
     assert.equal(bb.heal_base, 0.16);
