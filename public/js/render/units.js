@@ -67,8 +67,8 @@
 // like a filling progress ring, and its refill was the same white as the 元素值 left. The disc comes from the hudRings
 // atlas, the bars are tinted Texture.WHITE sprites; built on first use and hidden when idle.
 //
-// ItemView renders hand items as a floating icon plate; DeviceView renders battle devices (crates) as 3D boxes
-// with an HP bar once damaged.
+// ItemView renders hand items as their floating shop icon (frameless, GitHub #993); DeviceView renders battle devices
+// (crates) as 3D boxes with an HP bar once damaged.
 //
 // Cost control (low-end devices): a unit whose body is outside the viewport (`ctx.viewport()`, with a margin) is not
 // animated or drawn at all (its clock catches up, ≤ 0.5 s, when it comes back); `opts.lod: 'idle'` (the enemy preview
@@ -80,7 +80,7 @@
 // until then the unit is drawn directly —, and a clip too large for the box is drawn directly while it plays.
 //
 // Picking is by tile (render/pick.js, user playtest #4 item 1): views carry no hit shapes; `bounds()` is the drawn body's
-// screen rect for tooltips and overlays (view.pieceScreenRect). A dragged (lifted) item plate is drawn centred on its
+// screen rect for tooltips and overlays (view.pieceScreenRect). A dragged (lifted) item icon is drawn centred on its
 // ground point, i.e. on the pointer (render/app.js).
 
 import { progressLabel } from '../itemProgress.js';
@@ -89,8 +89,8 @@ import { UF, ANIM } from '../../../shared/constants.js';
 import { SpineActor } from './spine.js';
 import { skillAttackMode } from './skillAttack.js';
 import { MANIFOLD, isManifold, manifoldCopyForm, manifoldAttackForm } from './manifold.js';
-import { diamondTexture, shadowTexture, fxAtlas, tierChip, statusTexture, itemTexture, hudRings, ringArc, downLabel, HUD_DISC, ELEMENT_RING } from './textures.js';
-import { COLORS, TIER_COLORS, ENEMY_FRAME, UNIT, PROJ, BENCH_UNIT, statusIconKey, statusIconSuppressed } from './style.js';
+import { diamondTexture, shadowTexture, fxAtlas, tierChip, statusTexture, itemTexture, itemIconTexture, ITEM_ICON, hudRings, ringArc, downLabel, HUD_DISC, ELEMENT_RING } from './textures.js';
+import { COLORS, TIER_COLORS, ENEMY_FRAME, UNIT, PROJ, BENCH_UNIT, BENCH_ITEM, statusIconKey, statusIconSuppressed } from './style.js';
 import { drawCrate, rowDepthKey, ROW_KEY, deviceBoxOf, DEVICE_BOX } from './tiles.js';
 import { startAtkInterval, nextAtkInterval, clampAtkInterval } from './attackRate.js';
 import { FacingState, faceModeFlags, faceModeFor, faceAction } from './facing.js';
@@ -2908,8 +2908,9 @@ function defaultInterval(ctx, info) {
 // =============================================================================================================
 
 /**
- * Hand item: icon plate floating above its slot. While dragged (`lift` > 0) the plate is centred on its ground point —
- * the pointer (render/app.js moveDragVisual); it drops on (and equips the unit on) the tile under the pointer.
+ * Hand item: its shop icon, frameless (GitHub #993), floating above its slot in a BENCH_ITEM.size box; the framed '?'
+ * plate until the icon loads. While dragged (`lift` > 0) the box is centred on its ground point — the pointer
+ * (render/app.js moveDragVisual); it drops on (and equips the unit on) the tile under the pointer.
  */
 export class ItemView {
   constructor(ctx, info) {
@@ -2930,6 +2931,7 @@ export class ItemView {
     this.plate = new P.Sprite(itemTexture('none', null, info.color || 0x9aa5a0));
     this.plate.anchor.set(0.5, 1);
     this.root.addChild(this.plate);
+    this.bare = false; // the plate shows the frameless icon (itemIconTexture), not the framed '?' plate
     this.info.icon = null;
     this.setIcon(info.icon);
     this.hud = null;
@@ -2939,10 +2941,16 @@ export class ItemView {
     if (this.destroyed || url === this.info.icon) return;
     this.info.icon = url;
     // Item ids are reused across official versions. Cache the resolved art, like equipped-item pips do.
-    this.plate.texture = itemTexture(url || 'none', null, this.info.color || 0x9aa5a0);
+    this._picture(url || 'none', null);
     if (!url) return;
     const a = this.ctx.assets;
-    if (a?.image) a.image(url).then((img) => { if (!this.destroyed && img && this.info.icon === url) this.plate.texture = itemTexture(url, img, this.info.color || 0x9aa5a0); }, () => {});
+    if (a?.image) a.image(url).then((img) => { if (!this.destroyed && img && this.info.icon === url) this._picture(url, img); }, () => {});
+  }
+  /** The loaded icon frameless (GitHub #993: the official bench shows the bare picture), else the framed '?' plate. */
+  _picture(url, img) {
+    const color = this.info.color || 0x9aa5a0;
+    this.bare = !!(img && img.width && img.height);
+    this.plate.texture = this.bare ? itemIconTexture(url, img, color) : itemTexture(url, null, color);
   }
   setWorld(x, y, z = 0) { this.x = x; this.y = y; this.z = z; }
   /** A battle snapshot sample (syncBattle syncs every unit of the field): a hand item on a scouted prep board rides
@@ -2950,13 +2958,15 @@ export class ItemView {
   sync(s) { this.x = s.x; this.y = s.y; }
   update(dt, cam, t) {
     const lifted = this.lift > 0;
-    const p = cam.project(this.x, this.y, lifted ? this.z : this.z + this.lift + 0.12 + Math.sin(t * 2 + this.bob) * 0.03, this.screen);
+    const p = cam.project(this.x, this.y, lifted ? this.z : this.z + BENCH_ITEM.lift + Math.sin(t * 2 + this.bob) * 0.03, this.screen);
     this.placed = true;
     this.root.position.set(p.x, p.y);
     this.root.zIndex = unitDepthKey(cam, this.x, this.y, this.lift);
-    const size = p.s * 0.62;
-    this.plate.scale.set(size / 128);
-    this.plate.anchor.set(0.5, lifted ? 0.5 : 1);
+    // a `size` px box: the icon's longer side (its texture has a glow margin around it), or the whole '?' plate
+    const size = p.s * BENCH_ITEM.size;
+    this.plate.scale.set(size / (this.bare ? ITEM_ICON.art : 128));
+    const margin = this.bare ? (ITEM_ICON.box - ITEM_ICON.art) / 2 / ITEM_ICON.box : 0;
+    this.plate.anchor.set(0.5, lifted ? 0.5 : 1 - margin);
     this.root.alpha = this.dimmed ? 0.35 : 1;
     placeOnGround(this.ctx, this.shadow, this.ctx.layers.shadow, this.y, this.z);
     const sh = cam.project(this.x, this.y, this.z, SH_P);
@@ -2965,9 +2975,9 @@ export class ItemView {
     this.shadow.alpha = 0.35;
     this.screen.top = lifted ? p.y - size / 2 : p.y - size;
   }
-  /** Canvas-space bounds (CSS px) of the plate (centred on the pointer while dragged). */
+  /** Canvas-space bounds (CSS px) of the icon's box (centred on the pointer while dragged). */
   bounds() {
-    const w = (this.screen.s || 1) * 0.62;
+    const w = (this.screen.s || 1) * BENCH_ITEM.size;
     return { x: this.screen.x - w / 2, y: this.lift > 0 ? this.screen.y - w / 2 : this.screen.y - w, width: w, height: w };
   }
   setHover() {}

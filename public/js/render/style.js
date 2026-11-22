@@ -4,6 +4,17 @@
 /** [ASSUMED] UI tuning (2026-11-17), not extracted official constants: smaller, slightly forward on the same pad. */
 export const BENCH_UNIT = Object.freeze({ forward: 0.15, scale: 0.9 });
 
+/**
+ * A bench item (GitHub #993): the longer side of its icon in tiles, and how far that box floats over the slot. The size
+ * is the official world size of the 坚守盾牌 model in the reporter's official screenshot: its trap prefab draws a 228
+ * skeleton unit picture at SkeletonDataAsset scale 0.01 × FaceSwitcher 0.27 (the operators' own scale chain), 0.6156
+ * world units with one tile = 1 unit. 0.62 is also the box the framed plate took, so the drawn rect and the tile under
+ * it stay where they were. [ASSUMED] One size for every item: the official models run from about 190 to 410 skeleton
+ * units, but the shop icons are all scaled to 160 px. [ASSUMED] The float and its bob stay; the official model stands
+ * on its tile.
+ */
+export const BENCH_ITEM = Object.freeze({ size: 0.62, lift: 0.12 });
+
 export const TILE_H = Object.freeze({
   wall: 0.42,      // 'h' high ground
   forbid: 0.3,     // '#' forbidden block (data: HIGH)

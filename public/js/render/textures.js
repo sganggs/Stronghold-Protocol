@@ -1266,7 +1266,8 @@ export function shadowTexture() {
   return _shadow;
 }
 
-/** Item pedestal composite (icon in a rounded frame coloured by tier), keyed by resolved icon URL, never item id. */
+/** Item pedestal composite (icon in a rounded frame coloured by tier), keyed by resolved icon URL, never item id: the
+ *  equipped-item pips, and a bench item until its icon has loaded (itemIconTexture). */
 const _items = new Map();
 export function itemTexture(url, img, color) {
   const k = `${url}|${img ? 1 : 0}|${color}`;
@@ -1288,6 +1289,35 @@ export function itemTexture(url, img, color) {
   }
   tex = P.Texture.from(canvas);
   _items.set(k, tex);
+  return tex;
+}
+
+/**
+ * A bench item's picture (GitHub #993): the shop icon itself, without the plate's frame and black backing. The official
+ * bench draws the item's battle model there, and that model is the same picture (trap_1047_acarm047 and its shop icon).
+ * The icon is fitted into the middle `art` px of a `box` px square, which is its own size, since the shop icons are at
+ * most 160 px. The margin holds a soft glow in the tier / 精锐 colour that the plate's frame used to show [ASSUMED:
+ * the official bench model has no tier mark, so the glow keeps what the frame told]. Without the image (still loading,
+ * or no art) it is the framed '?' plate of itemTexture. Keyed by resolved icon URL and colour, never item id.
+ */
+export const ITEM_ICON = Object.freeze({ box: 176, art: 160, glow: 8 });
+const _itemIcons = new Map();
+export function itemIconTexture(url, img, color) {
+  if (!img || !img.width || !img.height) return itemTexture(url, null, color);
+  const k = `${url}|${color}`;
+  let tex = _itemIcons.get(k);
+  if (tex) return tex;
+  const { box: S, art: A, glow } = ITEM_ICON;
+  const canvas = makeCanvas(S, S);
+  const c = canvas.getContext('2d');
+  c.shadowColor = '#' + (color >>> 0).toString(16).padStart(6, '0');
+  c.shadowBlur = glow;
+  const sc = Math.min(A / img.width, A / img.height);
+  const w = img.width * sc, h = img.height * sc;
+  // twice: one pass of the blur is too faint for a 精锐 item's gold at bench size (opaque pixels stay as they are)
+  try { for (let i = 0; i < 2; i++) c.drawImage(img, (S - w) / 2, (S - h) / 2, w, h); } catch { /* ignore */ }
+  tex = PIXI().Texture.from(canvas);
+  _itemIcons.set(k, tex);
   return tex;
 }
 
