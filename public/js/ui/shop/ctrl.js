@@ -128,7 +128,7 @@ export class AutoChessStylizedShopCtrlPanel {
     if (this.specToggle) this.specToggle.set_selected(data.isSpecRefresh);
 
     if (this.freezeToggle) {
-      const state = data.freezeBlocked ? 0 : (data.isFrozen ? 2 : 1);
+      const state = data.isFrozen ? 2 : (data.freezeBlocked ? 0 : 1);
       this.freezeToggle.set_state(state);
     }
 

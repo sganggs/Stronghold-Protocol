@@ -355,6 +355,15 @@ elif scenario == 'bundles':
     ab.mkdir()
     make(ab, '.')
     out['root'] = locate(ab)
+    # A hot-updated install can hold the theme only in PersistentData and the unchanged battle bundle only in
+    # StreamingAssets; each bundle is resolved independently, not forced under one root.
+    split = root / 'split' / 'Arknights_Data'
+    theme_only = split / 'PersistentData' / 'Bundles' / RELS[0]
+    battle_only = split / 'StreamingAssets' / 'AB' / 'Windows' / RELS[1]
+    for path in (theme_only, battle_only):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b'x')
+    out['split'] = locate(split)
     out['gameData'] = [path_ids.game_data(data) == data, path_ids.game_data(ab) == ab]
     out['tmp'] = str(root)
     result = out
@@ -473,7 +482,8 @@ test('--only shopdocs registers prefabs.json / card.json / shop.json, prints the
     'shopdocs: themes/ac_n_iron/card.json',
     'shopdocs: themes/ac_n_iron/shop.json',
   ]);
-  assert.match(result.logs.at(-1), /base documents only .* enrichment/);
+  assert.equal(result.logs.at(-1), 'shopdocs: themes/ac_n_iron/shop.json',
+    'no misleading base-documents-only line after the enrichment steps');
   assert.equal(result.code, 2);
   assert.match(result.stderr, /--only shopdocs needs --themes/);
 });
@@ -540,6 +550,8 @@ test('bundle_paths: PersistentData, then StreamingAssets/AB/Windows, then a hand
     assert.ok(result.persistent[name][1].includes('PersistentData'), name);
     assert.ok(result.root[name][0].startsWith(result.tmp) && result.root[name][0].includes('Bundles'), `${name}: a handed AB root resolves`);
     assert.ok(result.root[name][1].startsWith(result.tmp), name);
+    assert.ok(result.split[name][0].includes('PersistentData'), `${name}: theme may be hot-update only`);
+    assert.ok(result.split[name][1].includes('StreamingAssets'), `${name}: battle may be packaged only`);
   }
   assert.deepEqual(result.gameData, [true, true],
     'path_ids.game_data accepts both an Arknights_Data and a bare AB root');

@@ -1121,9 +1121,6 @@ def export_shopdocs(ab_root, out_root, manifest, log, ids, themes_dirs, game_dat
         log(f'shopdocs: {rel}')
     if not written:
         log('shopdocs: no prefabs.json / card.json / shop.json was registered (check --themes and the theme bundles)')
-    else:
-        log('shopdocs: base documents only — pathId / particle / mask fields need the producer\'s enrichment steps, '
-            'which only warn on failure')
     return total
 
 
@@ -1557,7 +1554,8 @@ def extract(args, ab_root, game_arg=None, game_data=None):
             # and the local font fallback stays active; a run that extracted anything else still exits 0.
             print('skip fonts: no Arknights_Data directory (local font fallback stays active)', file=sys.stderr)
         else:
-            total += fonts.export_fonts(font_game, out_root, manifest, print, only=None)
+            font_only = [p.split('/', 1)[1] for p in args.only if p.startswith(fonts.SUB + '/')]
+            total += fonts.export_fonts(font_game, out_root, manifest, print, only=font_only or None)
             if not manifest.get('fonts'):
                 print('warn fonts: none of the pinned official faces was listed (the client is missing them or '
                       'their bytes failed the pinned SHA-256); the local font fallback stays active',

@@ -16,6 +16,7 @@
 import { useEffect, useRef, useState } from '../../../vendor/hooks.module.js';
 import { html } from '../components.js';
 import { t } from '../../../../shared/i18n.js';
+import { PHASE } from '../../../../shared/constants.js';
 import { PLUGIN_OFFER_SLOTS } from '../../../../shared/plugins/limits.js';
 import { data } from '../../data.js';
 import { mergeHint } from '../shopBar.js';
@@ -46,8 +47,8 @@ export const LOCALE_FILES = Object.freeze(['chess', 'items', 'bonds', 'garrisons
  * @param {boolean} [rewardMin] the player put the pick off: draw the normal shop row
  * @returns {{ slots: any[]|null, start: number, count: number, offer: any }|null}
  */
-export function shopRewardRow(priv, rewardMin = false) {
-  if (rewardMin) return null;
+export function shopRewardRow(priv, rewardMin = false, phase = null) {
+  if (rewardMin || (phase && phase !== PHASE.PREP)) return null;
   const offer = priv && priv.shop && priv.shop.rewardOffer;
   if (!offer || !Array.isArray(offer.slots) || !offer.slots.length) return null;
   const shop = priv.shop || {};
@@ -69,8 +70,8 @@ export function shopRewardRow(priv, rewardMin = false) {
 }
 
 /** A copy of private with the reward row synthesised into shop.slots (no item slot, no FREE flag). */
-export function shopDisplayPrivate(priv, rewardMin = false) {
-  const row = shopRewardRow(priv, rewardMin);
+export function shopDisplayPrivate(priv, rewardMin = false, phase = null) {
+  const row = shopRewardRow(priv, rewardMin, phase);
   if (!row) return priv;
   return {
     ...priv,
@@ -83,16 +84,16 @@ export function shopDisplayPrivate(priv, rewardMin = false) {
 }
 
 /** The display slot at a host index (empty reward fronts are null). */
-export function shopDisplaySlot(priv, index, rewardMin = false) {
-  const row = shopRewardRow(priv, rewardMin);
+export function shopDisplaySlot(priv, index, rewardMin = false, phase = null) {
+  const row = shopRewardRow(priv, rewardMin, phase);
   if (row) return row.slots[index] || null;
   const slots = priv && priv.shop && Array.isArray(priv.shop.slots) ? priv.shop.slots : [];
   return slots[index] || null;
 }
 
 /** The reward.slots index a display index selects, or -1 when it is an empty front slot or the pick is minimized. */
-export function shopRewardIndex(priv, index, rewardMin = false) {
-  const row = shopRewardRow(priv, rewardMin);
+export function shopRewardIndex(priv, index, rewardMin = false, phase = null) {
+  const row = shopRewardRow(priv, rewardMin, phase);
   if (!row) return -1;
   return index >= row.start && index < row.start + row.count ? index - row.start : -1;
 }
@@ -203,9 +204,9 @@ export function shopStill(settings, reduced = false) {
  * @param {{ canvas?: boolean, rewardMin?: boolean }} [o] canvas: the WebGL shop is mounted; rewardMin: 稍后 pressed
  * @returns {number} the priv.shop.slots index to buy, or -1 when this display index must not buy
  */
-export function shopHotkeyBuyIndex(priv, displayIndex, { canvas = false, rewardMin = false } = {}) {
+export function shopHotkeyBuyIndex(priv, displayIndex, { canvas = false, rewardMin = false, phase = null } = {}) {
   if (!Number.isInteger(displayIndex) || displayIndex < 0) return -1;
-  if (canvas && shopRewardRow(priv, rewardMin)) return -1;
+  if (canvas && shopRewardRow(priv, rewardMin, phase)) return -1;
   const slots = priv && priv.shop && Array.isArray(priv.shop.slots) ? priv.shop.slots : [];
   return displayIndex < slots.length ? displayIndex : -1;
 }
@@ -269,7 +270,8 @@ export function ShopCanvas(props) {
   const controlReasons = () => {
     const p = propsRef.current;
     const offer = p.priv && p.priv.shop && p.priv.shop.rewardOffer;
-    const rewardVisible = !!(offer && Array.isArray(offer.slots) && offer.slots.length && !p.rewardMin);
+    const rewardVisible = !!(offer && Array.isArray(offer.slots) && offer.slots.length && !p.rewardMin
+      && (!p.phase || p.phase === PHASE.PREP));
     const chooseFirst = rewardVisible ? t('请先选择奖励') : null;
     return {
       refresh: chooseFirst || shopBlockReason('refresh', { config: p.config, priv: p.priv, editable: p.editable }),
@@ -281,10 +283,11 @@ export function ShopCanvas(props) {
   const viewOf = () => {
     const p = propsRef.current;
     const a = armedRef.current;
-    const displayPriv = shopDisplayPrivate(p.priv, !!p.rewardMin);
+    const displayPriv = shopDisplayPrivate(p.priv, !!p.rewardMin, p.phase);
     const offer = p.priv && p.priv.shop && p.priv.shop.rewardOffer;
     const hasOffer = !!(offer && Array.isArray(offer.slots) && offer.slots.length);
-    const reward = hasOffer ? {
+    const rewardAllowed = !p.phase || p.phase === PHASE.PREP;
+    const reward = hasOffer && rewardAllowed ? {
       count: Math.max(1, (Number(offer.queued) || 0) + 1),
       visible: !p.rewardMin,
       label: p.rewardMin ? t('选择奖励') : t('稍后'),
@@ -323,7 +326,7 @@ export function ShopCanvas(props) {
     const host = hostApi.current;
     if (!host || failedRef.current) return;
     try {
-      host.update(shopDisplayPrivate(propsRef.current.priv, !!propsRef.current.rewardMin), viewOf());
+      host.update(shopDisplayPrivate(propsRef.current.priv, !!propsRef.current.rewardMin, propsRef.current.phase), viewOf());
     } catch (err) {
       failHost(err);
     }
@@ -347,7 +350,7 @@ export function ShopCanvas(props) {
     const still = !!propsRef.current.still;
     createShopHost({
       container: el,
-      priv: shopDisplayPrivate(propsRef.current.priv, !!propsRef.current.rewardMin),
+      priv: shopDisplayPrivate(propsRef.current.priv, !!propsRef.current.rewardMin, propsRef.current.phase),
       view: viewOf(),
       options: { runtime, still },
       callbacks: {
@@ -400,7 +403,7 @@ export function ShopCanvas(props) {
     }
     const a = armedRef.current;
     if (a) {
-      const slot = shopDisplaySlot(p.priv, a.index, !!p.rewardMin);
+      const slot = shopDisplaySlot(p.priv, a.index, !!p.rewardMin, p.phase);
       if (!slot || slot.id !== a.id) {
         armCard(null);
         p.onArm?.(null);
@@ -408,7 +411,7 @@ export function ShopCanvas(props) {
       }
     }
     pushView();
-  }, [props.priv, props.collapsed, props.editable, armed, levelArmed, props.refreshBusy, props.rewardMin]);
+  }, [props.priv, props.collapsed, props.editable, armed, levelArmed, props.refreshBusy, props.rewardMin, props.phase]);
 
   // A language switch remounts the host (game.js keys it by lang); the data overlays may arrive later, so a
   // localized copy of the card/bond/item files must also repaint the live host.
@@ -448,10 +451,10 @@ export function ShopCanvas(props) {
   function tapCard(index) {
     const p = propsRef.current;
     if (!p.editable) return;
-    const slot = shopDisplaySlot(p.priv, index, !!p.rewardMin);
+    const slot = shopDisplaySlot(p.priv, index, !!p.rewardMin, p.phase);
     if (!slot || slot.sold) return;
     const kind = slot.kind === 'item' ? 'item' : 'chess';
-    const rewardIndex = shopRewardIndex(p.priv, index, !!p.rewardMin);
+    const rewardIndex = shopRewardIndex(p.priv, index, !!p.rewardMin, p.phase);
     const key = `${rewardIndex >= 0 ? 'r' : kind}:${kind === 'chess' ? slot.id : String(index)}:${slot.id}`;
     const current = armedRef.current;
     const armedHere = current && current.index === index && current.key === key;
@@ -478,7 +481,7 @@ export function ShopCanvas(props) {
    * onContextMenu). An empty or sold slot has nothing to show. */
   function detailCard(index) {
     const p = propsRef.current;
-    const slot = shopDisplaySlot(p.priv, index, !!p.rewardMin);
+    const slot = shopDisplaySlot(p.priv, index, !!p.rewardMin, p.phase);
     if (!slot || slot.sold) return;
     const kind = slot.kind === 'item' ? 'item' : 'chess';
     p.onDetail?.(slot.id, kind, kind === 'chess' ? mergeHint(p.priv, slot.id) : null);
@@ -518,7 +521,7 @@ export function ShopCanvas(props) {
   // While the reward row is drawn, [data-shop-slot] is a DISPLAY index (shopRewardRow), not a priv.shop.slots
   // index: the attribute marks the root so bandCommand's SHOP_SLOT drag (its targets are priv indices) never
   // highlights or drops on these cards.
-  const rewardRowOn = shopRewardRow(props.priv, !!props.rewardMin) !== null;
+  const rewardRowOn = shopRewardRow(props.priv, !!props.rewardMin, props.phase) !== null;
 
   return html`<div class="shop-webgl shop-webgl--game" data-shop-webgl="" data-shop-reward-row=${rewardRowOn ? '1' : undefined} role="region" aria-label=${t('商店')}
     ref=${(el) => {

@@ -60,7 +60,6 @@ The run prints the documents it registered, for example:
 shopdocs: themes/ac_s_closur/prefabs.json
 shopdocs: themes/ac_s_closur/card.json
 shopdocs: themes/ac_s_closur/shop.json
-shopdocs: base documents only — pathId / particle / mask fields need the producer's enrichment steps, which only warn on failure
 ```
 
 `--only shopdocs` is opt-in: a plain extraction writes no theme group at all. To put the documents into a real

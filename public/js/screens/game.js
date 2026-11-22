@@ -1845,7 +1845,7 @@ function MatchScreen() {
         // priv.shop.slots index: the two-tap flow owns those cards until 稍后 (rewardMin) puts the normal row
         // back. The DOM bar draws the offer as RewardCards instead, which carry no data-shop-slot (shopBar.js
         // passes `free`), so its cards only exist on the normal, priv-indexed row — see shopHotkeyBuyIndex.
-        const idx = shopHotkeyBuyIndex(L.priv, Number(card.dataset.shopSlot), { canvas: !!L.canvasShop, rewardMin: !!L.rewardMin });
+        const idx = shopHotkeyBuyIndex(L.priv, Number(card.dataset.shopSlot), { canvas: !!L.canvasShop, rewardMin: !!L.rewardMin, phase: L.pub?.phase });
         if (idx < 0) return;
         const reason = shopBlockReason('buy', { config: data.get('config'), priv: L.priv, editable: L.editable, slot: L.priv.shop?.slots?.[idx] });
         if (reason) { toast(reason, 'warn'); audio.sfx('error', { volume: 0.5 }); return; }
@@ -1860,6 +1860,14 @@ function MatchScreen() {
         const available = underframeActions(L.placeCtx, uid);
         if (act === 'retreat' && available?.retreat) await retreatPiece(uid);
         else if (act === 'sell' && available?.sell != null) await sellOwnPiece(uid);
+        return;
+      }
+      // [ASSUMED] The canvas reward row is the project's own gate: while it occupies the shop, R/F must be
+      // refused like the painted refresh/freeze buttons, not act on the ordinary row hidden behind it.
+      if (L.canvasShop && L.pub?.phase === PHASE.PREP && L.priv?.shop?.rewardOffer
+          && !L.rewardMin && (act === 'refresh' || act === 'freeze')) {
+        toast(t('请先选择奖励'), 'warn');
+        audio.sfx('error', { volume: 0.5 });
         return;
       }
       const reason = shopBlockReason(act, { config: data.get('config'), priv: L.priv, editable: L.editable });
@@ -2073,7 +2081,7 @@ function MatchScreen() {
 
       ${showShop ? (webglShopOn.on
         ? html`<${ShopCanvas} key=${shopMountKey(lang)} lang=${lang} priv=${priv} editable=${editable} collapsed=${barCollapsed} refreshBusy=${refreshBusy} config=${data.get('config')}
-          runtime=${webglShop.runtime} barRef=${barRef} offBonds=${offBonds} rewardMin=${rewardMin} still=${shopStill(playerSettings, reducedMotion())}
+          runtime=${webglShop.runtime} barRef=${barRef} offBonds=${offBonds} rewardMin=${rewardMin} phase=${phase} still=${shopStill(playerSettings, reducedMotion())}
           onBuy=${buy} onReward=${(i) => actions.reward(i)} onLevel=${() => actions.levelUp()} onRefresh=${() => actions.refresh()} onFreeze=${() => actions.freeze()}
           onRewardToggle=${() => setRewardMin((m) => !m)}
           onCollapse=${setCollapsed}

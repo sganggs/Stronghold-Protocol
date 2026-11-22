@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 import {
   shopRewardRow, shopDisplayPrivate, shopDisplaySlot, shopRewardIndex, shopHotkeyBuyIndex,
 } from '../../public/js/ui/shop/ShopCanvas.js';
+import { PHASE } from '../../shared/constants.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -120,8 +121,15 @@ test('a malformed offer longer than the server cap is clamped to MAX_OFFER_SLOTS
   assert.equal(shopDisplayPrivate(p).shop.slots.length, 6);
 });
 
+test('the reward row is drawn only in the PREP phase', () => {
+  const p = priv(offerSlots(6));
+  assert.equal(shopRewardRow(p, false, PHASE.SP_DRAFT), null, 'round start / strategy draft keeps the normal row');
+  assert.equal(shopDisplayPrivate(p, false, PHASE.SP_DRAFT), p);
+  assert.equal(shopRewardRow(p, false, PHASE.PREP)?.count, 6, 'prep still synthesises the offer row');
+});
+
 test('the canvas root marks the reward row so SHOP_SLOT commands skip its display indices', () => {
-  assert.match(CANVAS_SOURCE, /const rewardRowOn = shopRewardRow\(props\.priv, !!props\.rewardMin\) !== null;/);
+  assert.match(CANVAS_SOURCE, /const rewardRowOn = shopRewardRow\(props\.priv, !!props\.rewardMin, props\.phase\) !== null;/);
   assert.match(CANVAS_SOURCE, /data-shop-reward-row=\$\{rewardRowOn \? '1' : undefined\}/);
 });
 
@@ -153,6 +161,7 @@ test('the row helpers treat a minimized pick as no offer, per call (rewardMin is
 
 const GAME_SOURCE = readFileSync(path.join(ROOT, 'public/js/screens/game.js'), 'utf8');
 const CANVAS_SOURCE = readFileSync(path.join(ROOT, 'public/js/ui/shop/ShopCanvas.js'), 'utf8');
+const CTRL_SOURCE = readFileSync(path.join(ROOT, 'public/js/ui/shop/ctrl.js'), 'utf8');
 const SHOPBAR_SOURCE = readFileSync(path.join(ROOT, 'public/js/ui/shopBar.js'), 'utf8');
 
 /** The buy hotkey branch, delimited by the next prep-shortcut branch (retreat / sell). */
@@ -185,7 +194,7 @@ test('DOM + pending offer + 稍后: W buys the card under the pointer at its pri
   assert.equal(idx, 3);
   assert.equal(p.shop.slots[idx].id, normalSlots[3].id, 'the card under the pointer is the priv slot');
   const branch = buyHotkeyBranch(GAME_SOURCE);
-  assert.match(branch, /shopHotkeyBuyIndex\(L\.priv, Number\(card\.dataset\.shopSlot\), \{ canvas: !!L\.canvasShop, rewardMin: !!L\.rewardMin \}\)/);
+  assert.match(branch, /shopHotkeyBuyIndex\(L\.priv, Number\(card\.dataset\.shopSlot\), \{ canvas: !!L\.canvasShop, rewardMin: !!L\.rewardMin, phase: L\.pub\?\.phase \}\)/);
   assert.ok(branch.indexOf('shopHotkeyBuyIndex') < branch.indexOf('await buy('), 'the helper runs before the purchase');
   assert.match(GAME_SOURCE, /live\.current = \{[^}]*rewardMin[^}]*canvasShop: webglShopOn\.on/, 'the once-bound key handler sees both flags');
 });
@@ -204,9 +213,9 @@ test('the canvas keeps the two-tap flow: its synthesised offer row is not a buy-
 
 test('the canvas row still receives the rewardMin state', () => {
   assert.match(GAME_SOURCE, /rewardMin=\$\{rewardMin\}/, 'the host receives the minimized state');
-  assert.match(CANVAS_SOURCE, /shopDisplayPrivate\(propsRef\.current\.priv, !!propsRef\.current\.rewardMin\)/);
-  assert.match(CANVAS_SOURCE, /shopDisplaySlot\(p\.priv, index, !!p\.rewardMin\)/);
-  assert.match(CANVAS_SOURCE, /shopRewardIndex\(p\.priv, index, !!p\.rewardMin\)/);
+  assert.match(CANVAS_SOURCE, /shopDisplayPrivate\(propsRef\.current\.priv, !!propsRef\.current\.rewardMin, propsRef\.current\.phase\)/);
+  assert.match(CANVAS_SOURCE, /shopDisplaySlot\(p\.priv, index, !!p\.rewardMin, p\.phase\)/);
+  assert.match(CANVAS_SOURCE, /shopRewardIndex\(p\.priv, index, !!p\.rewardMin, p\.phase\)/);
 });
 
 test('the DOM fallback keeps its reward pill; the canvas draws no DOM pill', () => {
@@ -215,6 +224,13 @@ test('the DOM fallback keeps its reward pill; the canvas draws no DOM pill', () 
   assert.equal((GAME_SOURCE.match(/<\$\{RewardOverlay\}/g) || []).length, 1, 'only the DOM fallback mounts the pill');
   assert.doesNotMatch(GAME_SOURCE, /webglShopOn\.on && \(rewardMin \|\| barCollapsed\)/,
     'the canvas mode no longer mounts a DOM pill');
+});
+
+test('the R/F hotkeys reuse the canvas reward guard, and a frozen shop keeps its unfreeze face', () => {
+  assert.match(GAME_SOURCE, /L\.canvasShop && L\.pub\?\.phase === PHASE\.PREP && L\.priv\?\.shop\?\.rewardOffer[\s\S]*?act === 'refresh' \|\| act === 'freeze'/);
+  assert.match(GAME_SOURCE, /toast\(t\('请先选择奖励'\), 'warn'\)/);
+  assert.match(CTRL_SOURCE, /data\.isFrozen \? 2 : \(data\.freezeBlocked \? 0 : 1\)/,
+    'a frozen shop shows 解冻 even after the ready lock');
 });
 
 test('no reward slot count is pinned any more', () => {

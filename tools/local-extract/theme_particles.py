@@ -26,15 +26,21 @@ BUNDLE_REL = ('ui/autochess/autochessvariantskin/[uc]ac_s_closur.ab',
 
 
 def bundle_paths(data):
-    """(theme, battle) bundle under `data`: PersistentData first, then StreamingAssets/AB/Windows, then `data` itself."""
+    """(theme, battle) bundle under `data`: PersistentData first, then StreamingAssets/AB/Windows, then `data` itself.
+
+    Each bundle is looked up on its own: a hot-updated client commonly has the theme only in PersistentData and
+    the unchanged battle bundle only in StreamingAssets, and requiring both under the same root skipped every
+    enrichment step on such an install.
+    """
     roots = (Path(data) / 'PersistentData' / 'Bundles',
              Path(data) / 'StreamingAssets' / 'AB' / 'Windows',
              Path(data))
-    for root in roots:
-        theme, battle = (root / rel for rel in BUNDLE_REL)
-        if theme.is_file() and battle.is_file():
-            return theme, battle
-    theme, battle = (roots[0] / rel for rel in BUNDLE_REL)
+    theme, battle = (next((path for path in (root / rel for root in roots) if path.is_file()), None)
+                     for rel in BUNDLE_REL)
+    if theme is not None and battle is not None:
+        return theme, battle
+    theme = theme or roots[0] / BUNDLE_REL[0]
+    battle = battle or roots[0] / BUNDLE_REL[1]
     raise RuntimeError(f'missing current bundles: {theme} / {battle} (also looked in '
                        + ', '.join(str(root) for root in roots[1:]) + ')')
 
