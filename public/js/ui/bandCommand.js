@@ -27,11 +27,28 @@ export function commandStatus(c) {
   return t('可使用');
 }
 
+/** Localized skill / effect body for a command card (server still sends Chinese). */
+function localizedCommandRaw(c) {
+  const sent = c?.descRaw || c?.desc || '';
+  const bands = data.get('bands') || {};
+  const band = (c?.bandId && bands[c.bandId])
+    || Object.values(bands).find((b) => b?.skills?.some((s) => s?.effectId === c?.effectId))
+    || null;
+  const skill = band?.skills?.find((s) => s?.effectId === c?.effectId) || null;
+  const effect = c?.effectId ? data.lookup('effects', c.effectId) : null;
+  return skill?.descRaw || skill?.desc || effect?.descRaw || effect?.desc || sent;
+}
+
 /** PRTS expands replacement text; [ASSUMED] the two rows without a replacement render an empty tag, as on PRTS. */
 export function commandText(c) {
-  const band = Object.values(data.get('bands') || {}).find(b => b.skills?.some(s => s.effectId === c.effectId));
-  const raw = c.descRaw || c.desc || '';
-  const extra = raw.includes('{@tag}') ? (band?.descRaw || '').match(/(?:<@[^>]+>)?<在场6名不同[^>]*>[\s\S]*/)?.[0] || '' : '';
+  const band = (c?.bandId && data.lookup('bands', c.bandId))
+    || Object.values(data.get('bands') || {}).find((b) => b?.skills?.some((s) => s?.effectId === c?.effectId))
+    || null;
+  const raw = localizedCommandRaw(c);
+  // {@tag} extras: match CN or EN "6 different … on field" condition blocks from the strategy card
+  const extra = raw.includes('{@tag}')
+    ? (band?.descRaw || '').match(/(?:<@[^>]+>)?<(?:在场6名不同[^>]*|With[^>]*6[^>]*different[^>]*)>[\s\S]*/)?.[0] || ''
+    : '';
   // The unlock sentence already occurs in the skill row; the full strategy text supplies it for the locked row.
   const unlock = raw.includes('{@unlock}') && c.type === 'NONE' ? (band?.descRaw || '').split('\n').at(-1) : '';
   return [raw.replaceAll('{@tag}', '').replaceAll('{@unlock}', ''), extra, unlock].filter(Boolean).join('\n');

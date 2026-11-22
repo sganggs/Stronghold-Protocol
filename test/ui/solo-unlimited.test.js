@@ -10,6 +10,11 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const ROOM = readFileSync(path.join(ROOT, 'public/js/screens/room.js'), 'utf8');
 const LOBBY = readFileSync(path.join(ROOT, 'public/js/screens/lobby.js'), 'utf8');
 const PICKER = readFileSync(path.join(ROOT, 'public/js/ui/versionPicker.js'), 'utf8');
+
+test('versionPicker: zh-TW still sees the Chinese-only game-text note (covered check handles en/ja/ko)', () => {
+  assert.match(PICKER, /const chineseTexts = lang !== 'zh';/);
+  assert.doesNotMatch(PICKER, /lang !== 'zh' && lang !== 'zh-TW'/);
+});
 const EN = JSON.parse(readFileSync(path.join(ROOT, 'public/i18n/en.json'), 'utf8'));
 
 const roomMod = () => import(pathToFileURL(path.join(ROOT, 'public/js/screens/room.js')).href);

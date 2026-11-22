@@ -134,18 +134,32 @@ export function computeVanillaContent({ simDir, sharedDir, dataDir, shim, app = 
  * A file the set does not change points at its plain URL with `?v=` (the first 8 digits of its hash: immutable there).
  * An official version's manifest (DESIGN §35.23; server/versions.js) passes `dataUrl` (its data/versions/<slug>/ URL),
  * `version` (its registry id) and `bounds` (its official-bounds snapshot's { url, sha256, bytes }); neither key is
- * written without them, so the vanilla manifest is unchanged.
+ * written without them, so the vanilla manifest is unchanged. Optional `i18n` lists per-language overlays under the
+ * version data dir (`i18n/<lang>.json`); they are presentation only and are not part of the version `cs` hash.
  * @param {VanillaContent} content
- * @param {{ dataUrl?: string, version?: string | null, bounds?: { url: string, sha256: string, bytes: number } | null }} [opts]
+ * @param {{ dataUrl?: string, version?: string | null, bounds?: { url: string, sha256: string, bytes: number } | null,
+ *   i18n?: Record<string, { file: string, sha256: string, bytes: number }> | null }} [opts]
  */
-export function contentIndexOf(content, { dataUrl = '/data/', version = null, bounds = null } = {}) {
+export function contentIndexOf(content, { dataUrl = '/data/', version = null, bounds = null, i18n = null } = {}) {
   const data = {};
   for (const [name, f] of Object.entries(content.data)) data[name] = { url: `${dataUrl}${encodeURIComponent(f.file)}?v=${f.sha256.slice(0, 8)}`, sha256: f.sha256, bytes: f.bytes };
+  /** @type {Record<string, { url: string, sha256: string, bytes: number }> | undefined} */
+  let i18nOut;
+  if (i18n && typeof i18n === 'object' && !Array.isArray(i18n)) {
+    i18nOut = {};
+    for (const [lang, f] of Object.entries(i18n)) {
+      if (!f || typeof f.sha256 !== 'string' || !Number.isInteger(f.bytes)) continue;
+      const file = typeof f.file === 'string' ? f.file : `i18n/${lang}.json`;
+      i18nOut[lang] = { url: `${dataUrl}${file.split('/').map(encodeURIComponent).join('/')}?v=${f.sha256.slice(0, 8)}`, sha256: f.sha256, bytes: f.bytes };
+    }
+    if (!Object.keys(i18nOut).length) i18nOut = undefined;
+  }
   return {
     v: CONTENT_HASH_VERSION, cs: content.cs, app: content.app, vanilla: true,
     ...(version ? { version } : {}),
     sim: content.sim, simFiles: { ...content.simFiles }, data, plugins: [], settings: {},
     ...(bounds ? { bounds: { official: { ...bounds } } } : {}),
+    ...(i18nOut ? { i18n: i18nOut } : {}),
   };
 }
 
