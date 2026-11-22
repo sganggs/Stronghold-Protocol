@@ -4,14 +4,16 @@
 // the server rule: the other doctors ready again) and switches 「AI 队友最后选择」 under ⚙ 同盟设置; another doctor sees
 // both read-only — the pill opens 选择模拟协议 without 确认 (the cards shown, not chosen, 由创建者选择), ⚙ lists the
 // difficulty with 由创建者选择 and the switch with 由创建者设置 — gets a toast when the host changes the difficulty and
-// has to ready again (server/lobby.js setDifficulty un-readies the other humans).
+// has to ready again (server/lobby.js setDifficulty un-readies the other humans). The switch the server took is the
+// host's default for the next co-op room that browser creates, across a reload (#995, §37.334: sent right after
+// room.create through room.setAiPicksLast); the read-only guest remembers nothing and the room it took over keeps its value.
 //
 //   SP_E2E=1 node --test test/ui/room-settings.e2e.test.js
 //
 // Screenshots: test/e2e/out/room-settings-*.png.
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { Client, hasChrome, startRealServer, problemsOf, sleep } from '../e2e/client.mjs';
+import { Client, hasChrome, startRealServer, problemsOf, passEntryFilm, sleep } from '../e2e/client.mjs';
 
 const ENABLED = process.env.SP_E2E === '1' && hasChrome();
 
@@ -21,8 +23,12 @@ const roomOf = (c) => c.page.evaluate(() => {
   return { difficulty: s.room?.difficulty, aiPicksLast: s.room?.aiPicksLast === true, ready: !!s.room?.seats?.find((x) => x?.playerId === s.me.playerId)?.ready };
 });
 
+/** This browser's remembered 「AI 队友最后选择」 (lobby.js AI_LAST_PREF; null before the host ever switched it). */
+const aiLastPref = (c) => c.page.evaluate(() => localStorage.getItem('sp.pref.lobby.aiPicksLast'));
+const request = (c, type, body) => c.page.evaluate((t, b) => globalThis.__SP__.net.request(t, b).then(() => 'ok', (e) => e?.code || String(e)), type, body);
+
 describe('co-op room settings (real server)', { skip: !ENABLED && 'set SP_E2E=1 (and have Chrome)' }, () => {
-  test('创建同盟 → the room at once; the host changes the difficulty and 「AI 队友最后选择」 in it, the other doctor reads them', { timeout: 3 * 60 * 1000 }, async () => {
+  test('创建同盟 → the room at once; the host changes the difficulty and 「AI 队友最后选择」 in it, the other doctor reads them, the host remembers the switch (#995)', { timeout: 3 * 60 * 1000 }, async () => {
     const srv = await startRealServer();
     const P = (await import('puppeteer-core')).default;
     const host = new Client(P, srv.base, 'host', { prefix: 'room-settings' });
@@ -100,6 +106,38 @@ describe('co-op room settings (real server)', { skip: !ENABLED && 'set SP_E2E=1 
       await guest.page.waitForSelector('.rs-opts [role="switch"][aria-checked="true"]', { visible: true });
       assert.equal(await guest.page.$eval('.rs-opts [role="switch"][aria-checked="true"]', (b) => b.disabled), true);
       await guest.shot('guest-options-on');
+
+      // #995 (§37.334): the switch the server took is the host's default for the next co-op room this browser creates;
+      // the read-only guest remembers nothing
+      assert.equal(await aiLastPref(host), 'true');
+      assert.equal(await aiLastPref(guest), null, 'a read-only guest remembers nothing');
+      // the host leaves: the guest takes the room over and it keeps the value the old host set
+      assert.equal(await request(host, 'room.leave', {}), 'ok');
+      await guest.page.waitForFunction(() => { const s = globalThis.__SP__.store.get(); return s.room?.hostId === s.me.playerId; }, { timeout: 10000 });
+      assert.equal((await roomOf(guest)).aiPicksLast, true, 'a host handover keeps the room\'s value');
+      // after a reload, 创建同盟 makes a room that turns on once the remembered value follows
+      await host.page.reload({ waitUntil: 'domcontentloaded' });
+      await host.page.waitForFunction(() => !!globalThis.__SP__ && !!document.querySelector('.screen'), { timeout: 30000 });
+      await passEntryFilm(host.page);
+      await host.page.waitForSelector('.lobby-screen', { timeout: 20000 });
+      assert.equal(await aiLastPref(host), 'true', 'kept across the reload');
+      const second = await host.createCoop();
+      assert.notEqual(second.code, room.code);
+      await host.page.waitForFunction(() => globalThis.__SP__.store.get().room?.aiPicksLast === true, { timeout: 10000 });
+      assert.equal((await roomOf(guest)).aiPicksLast, true, 'the other room is not touched');
+      // the host turns it off in the new room: remembered as well, and the next room stays off
+      await host.click('.rs-pill__gear');
+      await host.page.waitForSelector('.rs-opts', { visible: true });
+      await host.click('.rs-opts [role="switch"]', 'AI 队友最后选择');
+      await host.page.waitForFunction(() => globalThis.__SP__.store.get().room?.aiPicksLast === false, { timeout: 10000 });
+      assert.equal(await aiLastPref(host), 'false');
+      await host.page.keyboard.press('Escape');
+      await host.page.waitForSelector('.rs-opts', { hidden: true });
+      await host.click('.rs-exit');
+      await host.page.waitForSelector('.lobby-screen', { timeout: 20000 });
+      const third = await host.createCoop();
+      await sleep(800); // time for a follow-up that must not come
+      assert.equal((await roomOf(host)).aiPicksLast, false, `${third.code}: off is remembered too`);
 
       assert.deepEqual(problemsOf([host, guest]), []);
     } finally {
