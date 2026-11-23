@@ -32,6 +32,20 @@ export function sortBonds(bonds, getBond = () => null) {
 }
 
 /**
+ * The top strip's discs in strip order (BondStrip): every bond with a member, layers or an active effect; a mode-off
+ * bond (`off`, grey 本局禁用 disc) only with members. A zero-count mapped row — a strategy that replaces a bond's
+ * effect adds that bond with count 0 so the popup can resolve it, also for a player with no member of it — is not a
+ * disc. The strip popup's ‹ › walk this same list (teamPanel.js bondPopupNav), so › never opens a bond with no disc.
+ * @template {{bondId:string, active?:boolean, layers?:number, count?:number, tier?:number, off?:boolean}} B
+ * @param {B[]} bonds
+ * @param {(id:string)=>any} [getBond]
+ * @returns {B[]}
+ */
+export function stripBondList(bonds, getBond = () => null) {
+  return sortBonds(bonds, getBond).filter((b) => (b.off ? b.count > 0 : b.active || b.count > 0 || b.layers > 0));
+}
+
+/**
  * Tier reached for a member count against ascending thresholds (downward bonds: active while count ≤ max).
  * @param {number} count
  * @param {number[]} thresholds

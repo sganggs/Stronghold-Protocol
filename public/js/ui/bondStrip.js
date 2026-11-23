@@ -33,7 +33,7 @@ import { cloneElement } from '../../vendor/preact.module.js';
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, BondDisc, bondFrame, Icon, MicroLabel, Tooltip } from './components.js';
 import { RichText, BondGlyph, GIcon, Sprite, Img, SquareOperatorThumb } from './gameComponents.js';
-import { sortBonds, bondMembers, bondCountCap, bondTier, bondStage, bondPhased, harmonyMembers, HARMONY_BOND, briefingBondTip, diyGetter, diyRecordFor, memberStandIn, standInForText } from './gameLogic.js';
+import { stripBondList, bondMembers, bondCountCap, bondTier, bondStage, bondPhased, harmonyMembers, HARMONY_BOND, briefingBondTip, diyGetter, diyRecordFor, memberStandIn, standInForText } from './gameLogic.js';
 import { bondIconUrl, uiUrl } from './assetUrls.js';
 import { formatBondEffect } from './richText.js';
 import { bondEffectRecord } from './bondEffect.js';
@@ -206,9 +206,8 @@ export function bondDisplay(bondId, entry) {
  *   owner?: string|null }} props — owner: the watched teammate's name (null = your own bonds)
  */
 export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null, owner = null }) {
-  // A zero-count mapped row exists so the popup can resolve it. It is not a strip icon.
-  const sorted = sortBonds(bonds, (id) => data.lookup('bonds', id))
-    .filter((b) => b.off ? b.count > 0 : b.active || b.count > 0 || b.layers > 0);
+  // A zero-count mapped row exists so the popup can resolve it. It is not a strip icon (stripBondList).
+  const sorted = stripBondList(bonds, (id) => data.lookup('bonds', id));
   if (!sorted.length) {
     return html`<div class=${cx('bstrip', 'bstrip--empty', owner && 'is-other')} data-owner=${owner || null}>
       ${owner ? html`<${OwnerTag} owner=${owner} />` : html`<${MicroLabel}>BONDS</${MicroLabel}>`}<span>${owner ? t('{owner} 尚未激活盟约', { owner }) : t('部署干员以激活盟约')}</span></div>`;

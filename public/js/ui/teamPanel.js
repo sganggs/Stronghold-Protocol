@@ -26,7 +26,7 @@ import { PHASE } from '../../../shared/constants.js';
 import { html, Icon, Tooltip, BondDisc } from './components.js';
 import { PlayerAvatar, LpTower, GIcon, LocalSprite, UnitThumb, BandIcon, RichText } from './gameComponents.js';
 import { EmoteBubble } from './emotes.js';
-import { STATUS_META, sortedPlayers, teamFrameIds, sortBonds, nextThreshold } from './gameLogic.js';
+import { STATUS_META, sortedPlayers, teamFrameIds, sortBonds, stripBondList, nextThreshold } from './gameLogic.js';
 import { MissTag, uniteRemaining } from './hud.js';
 import { WinStreakBadge, BossDamageBadge, avatarBadgeTips } from './avatarBadges.js';
 import { localAsset, data } from '../data.js';
@@ -238,7 +238,7 @@ export function flyBondList(bonds, lookup = (id) => data.lookup('bonds', id)) {
 
 /**
  * The bond popup's ‹ › list: the bonds of the place it was opened from, and whose they are. A disc of the top strip
- * (`from: 'strip'`) walks the strip's bonds; a disc of this flyout (`from: 'fly'`) walks that seat's row only — the
+ * (`from: 'strip'`) walks the strip's discs (stripBondList: no zero-count mapped row, §37.348); a disc of this flyout (`from: 'fly'`) walks that seat's row only — the
  * strip's list names another player's bonds, so ‹ › used to jump to the viewer's own strip (PR #922 review). Every
  * other popup (a card's chip, 本局信息) has no arrows.
  * @param {{ id?: string, ownerId?: string|null, from?: string }|null} open the open popup (game.js bondOpen)
@@ -246,7 +246,7 @@ export function flyBondList(bonds, lookup = (id) => data.lookup('bonds', id)) {
  * @returns {{ ids: string[], ownerId: string|null }}
  */
 export function bondPopupNav(open, { stripBonds = null, stripOwnerId = null, players = null, lookup = (id) => data.lookup('bonds', id) } = {}) {
-  if (open?.from === 'strip') return { ids: sortBonds(Array.isArray(stripBonds) ? stripBonds : [], lookup).map((b) => b.bondId), ownerId: stripOwnerId ?? null };
+  if (open?.from === 'strip') return { ids: stripBondList(stripBonds, lookup).map((b) => b.bondId), ownerId: stripOwnerId ?? null };
   if (open?.from === 'fly') {
     const seat = (Array.isArray(players) ? players : []).find((p) => p?.playerId === open.ownerId);
     return { ids: flyBondList(seat?.bonds, lookup).map((b) => b.bondId), ownerId: open.ownerId ?? null };

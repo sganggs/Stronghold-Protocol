@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { flyOpRec, flyOpsFor, flyOpChessId, mergeFlyOps, flyBondList, bondPopupNav } from '../../public/js/ui/teamPanel.js';
+import { stripBondList } from '../../public/js/ui/gameLogic.js';
 
 const players = [
   { playerId: 'p_0', alive: true, fieldId: 'n:p_0' },
@@ -161,6 +162,10 @@ test('bondPopupNav: a flyout disc walks its own seat\'s row; the strip walks the
   assert.deepEqual(bondPopupNav({ id: 'b_x', ownerId: 'p_0', from: 'strip' }, o), { ids: ['b_x', 'b_y'], ownerId: 'p_0' });
   assert.deepEqual(bondPopupNav({ id: 'b_x', ownerId: 'p_0', from: 'strip' }, { ...o, stripOwnerId: 'p_1', stripBonds: seats[1].bonds }).ownerId, 'p_1',
     'the strip keeps following its owner (a scouted teammate)');
+  assert.deepEqual(bondPopupNav({ id: 'b_y', ownerId: 'p_1', from: 'strip' }, { ...o, stripOwnerId: 'p_1', stripBonds: seats[1].bonds }).ids,
+    ['b_y', 'b_core', 'b_z', 'b_w', 'b_off'], 'the strip\'s ‹ › walk its discs: the grey mode-off disc with members stays, the zero-count mapped row (no disc) is skipped (§37.348)');
+  assert.deepEqual(stripBondList([{ bondId: 'b_off', off: true, count: 0 }, { bondId: 'b_mapped', count: 0, layers: 0, effectId: 'e' }], lookupBond), [],
+    'no disc for a mode-off bond without members nor for a mapped zero-count row');
   assert.deepEqual(bondPopupNav({ id: 'b_x', ownerId: 'p_0', from: 'detail' }, o), { ids: [], ownerId: null });
   assert.deepEqual(bondPopupNav({ id: 'b_x', ownerId: 'p_0', from: 'info' }, o), { ids: [], ownerId: null });
   assert.deepEqual(bondPopupNav(null, o), { ids: [], ownerId: null });
