@@ -126,12 +126,18 @@ describe('App screen wake lock', { skip: !ENABLED && 'set SP_E2E=1 (and have Chr
     await page.waitForSelector(`.fsbtn[aria-pressed="${on}"]`);
   }
   async function explanation(page, lang, ios = false) {
+    // the language row is in 界面 and the wake-lock row in 操作 since the categories of PR #982 (§37.276): pick the
+    // language there, then come back
+    await page.click('[data-settings-tab="interface"]');
+    await page.waitForSelector('.modal [data-testid="lang-toggle"]', { visible: true });
     const radio = await page.$(`.modal [data-testid="lang-toggle"] button[data-lang="${lang}"]`);
     if (radio) await radio.click();
     else {
       await page.click('.modal [data-testid="lang-toggle"] [role="combobox"]');
       await page.click(`.modal [data-testid="lang-toggle"] [role="option"][data-lang="${lang}"]`);
     }
+    await page.click('[data-settings-tab="controls"]');
+    await page.waitForSelector('[data-testid="wake-lock-hint"]', { visible: true });
     const pack = lang === 'zh' ? null : JSON.parse(readFileSync(path.join(ROOT, `public/i18n/${lang}.json`), 'utf8'));
     const tr = (key) => pack?.[key] || key;
     const hint = tr(ios ? IOS_HINT : HINT).replace('{support}', tr(SUPPORT));

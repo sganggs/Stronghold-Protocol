@@ -6,7 +6,7 @@
 //   SP_E2E=1 SP_E2E_OUT=<dir> node --test test/ui/feedback1-gaps.e2e.test.js   # screenshots elsewhere
 //
 // At 1920×1080 and on phones (844×390, 756×366, touch): the 变形同构体 card from the shop lists its 14 pairings (5 marked 本局禁用),
-// the wearer's card highlights 维多利亚 (生效中), and the popup of a core bond holding 调和's +1 says 在场 n（含调和 +1） with the
+// the wearer's card highlights 维多利亚 (生效中), and the popup of a core bond holding 调和's +1 says 在场 n/m [尚未激活]（含调和 +1） with the
 // 调和 row naming 缪尔赛思 — every line inside its panel (the detail card without sideways scrolling), text ≥ 9 px on the
 // phones. The strategy draft of a 标准 match (?phase=BAND_DRAFT&variant=funny, 1920×1080 and 844×390): 潘格尼尼, 克莱门莎 and
 // 玛恩纳 — and no other — read 本局禁用 on their card, the detail pane says "本局禁用【拉特兰】盟约，此策略效果可能无法发挥", and
@@ -106,13 +106,21 @@ describe('0.1.1 gaps: 变形同构体 pairings and 调和\'s +1 (mock harness, h
       await sleep(300);
 
       // 3. the popup of a core bond whose count holds 调和's +1 (the strip disc)
-      const bond = await page.evaluate(() => (globalThis.__MOCK__.store.get().match.private.bonds.find((b) => b.harmony > 0) || {}).bondId);
-      assert.ok(bond, 'a bond entry with the +1');
+      const entry = await page.evaluate(() => {
+        const e = globalThis.__MOCK__.store.get().match.private.bonds.find((b) => b.harmony > 0);
+        return e ? { bondId: e.bondId, count: e.count, active: !!e.active, first: e.thresholds?.[0] } : null;
+      });
+      assert.ok(entry, 'a bond entry with the +1');
+      const bond = entry.bondId;
       await tap(`.bslot[data-bond="${bond}"] .bond`);
       await page.waitForSelector('.bpop .bpop__harmony', { timeout: 5000 });
       await page.screenshot({ path: path.join(OUT, `fb1-gaps-harmony-${name}.png`) });
       const facts = await page.$eval('.bpop .bpop__facts', (el) => el.textContent);
-      assert.match(facts, /在场\s*\d+\/\d+（含调和 \+1）/);
+      // members / first threshold (§37.342), then the state — the ✓ icon (no text) or 「尚未激活」, which PR #923 (§37.258)
+      // put between the count and the note — then the 调和 note
+      const m = facts.match(/在场\s*(\d+)\/(\d+)(尚未激活)?（含调和 \+1）/);
+      assert.ok(m, `the facts line: ${facts}`);
+      assert.deepEqual([Number(m[1]), Number(m[2]), !m[3]], [entry.count, entry.first, entry.active], `count / first threshold / state: ${facts}`);
       const note = await page.$eval('.bpop .bpop__hnote', (el) => parseFloat(getComputedStyle(el).fontSize));
       assert.ok(note >= (touch ? 8 : 11.5), `the note at ${note} px`);
       await page.evaluate(() => document.querySelector('.bpop .bpop__harmony')?.scrollIntoView({ block: 'center' }));

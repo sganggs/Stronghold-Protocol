@@ -5,6 +5,9 @@
 // root `--t` (css/theme.css) instead of the layout root: the readable text grows, while `documentElement`'s font-size,
 // the modal's rem-sized box and — through the dev mock's 休整期 screen — the field host, the canvas and the shop bar stay
 // exactly where they were. Static counterpart: test/ui/text-scale.test.js.
+// Since the settings categories (PR #982, §37.276) a row's label in the settings modal has a 14 px floor on a phone
+// (components.css: max(14px, .18 × --t) at ≤ 1100 × 600), so on this phone it stays 14 px up to 大 and grows only at 特大:
+// the steps are measured on the 文字大小 buttons themselves (.16 × --t, no floor).
 
 import { seedReleaseRead } from '../helpers/releaseNotes.js';
 import { test, describe, before, after } from 'node:test';
@@ -73,6 +76,8 @@ describe('文字大小 on a phone (headless Chrome)', { skip: !ENABLED && 'set S
       // a row's label (round 72 put the section captions — also .set-row__label — above the first row)
       label: px('.set-row .set-row__label'),
       micro: px('.set-row .set-row__label .micro'),
+      // the 文字大小 buttons: readable text without the label's phone floor
+      seg: px('[data-testid="text-size"] button'),
       modalWidth: box ? Math.round(box.width) : null,
       bodyOverflowX: body ? body.scrollWidth - body.clientWidth : null,
       outRight: Math.round(outRight),
@@ -94,7 +99,8 @@ describe('文字大小 on a phone (headless Chrome)', { skip: !ENABLED && 'set S
     const small = await modalMetrics(page);
     assert.equal(small.step, '小', 'the default is the design\'s own sizes');
     assert.equal(small.root, 40, 'a landscape phone clamps the layout root at 40 px');
-    assert.ok(Math.abs(small.label - 0.18 * 40) < 0.1, `the body text starts at the reported 7.2 px (${small.label})`);
+    assert.ok(Math.abs(small.seg - 0.16 * 40) < 0.1, `the body text starts at the design's 6.4 px (${small.seg})`);
+    assert.equal(small.label, 14, 'a row\'s label keeps its 14 px floor on a phone (PR #982, §37.276)');
     assert.ok(small.hint && /棋盘/.test(small.hint), 'the row says the layout is not touched');
 
     const step = async (name) => {
@@ -111,9 +117,11 @@ describe('文字大小 on a phone (headless Chrome)', { skip: !ENABLED && 'set S
     const xl = await step('特大');
     assert.equal(md.step, '中');
     assert.equal(xl.step, '特大', 'the pick sticks');
-    assert.ok(md.label > small.label * 1.5 && lg.label > md.label && xl.label > lg.label,
-      `the readable text grows step by step (${[small.label, md.label, lg.label, xl.label].join(' → ')})`);
-    assert.ok(Math.abs(xl.label - 0.18 * 88) < 0.2, `特大 reaches the 88 px text root (${xl.label})`);
+    assert.ok(md.seg > small.seg * 1.5 && lg.seg > md.seg && xl.seg > lg.seg,
+      `the readable text grows step by step (${[small.seg, md.seg, lg.seg, xl.seg].join(' → ')})`);
+    assert.ok(Math.abs(xl.seg - 0.16 * 88) < 0.2, `特大 reaches the 88 px text root (${xl.seg})`);
+    assert.deepEqual([md.label, lg.label], [14, 14], 'the labels stay on their floor up to 大 (.18 × 64 / 76 px is below 14)');
+    assert.ok(Math.abs(xl.label - 0.18 * 88) < 0.2, `and pass it at 特大 (${xl.label})`);
     assert.ok(xl.micro > small.micro * 1.9, `the 4.4 px micro labels follow (${small.micro} → ${xl.micro})`);
     for (const m of [md, lg, xl]) {
       assert.equal(m.root, 40, 'the layout root never moves: the field camera and the DOM board read 1rem');
@@ -152,7 +160,8 @@ describe('文字大小 on a phone (headless Chrome)', { skip: !ENABLED && 'set S
           field: box('.gm__field'),
           canvas: box('.gm__field canvas'),
           shopbar: box('.gm__hud .shopbar'),
-          label: (() => { const el = document.querySelector('.set-row__label'); return el ? parseFloat(getComputedStyle(el).fontSize) : null; })(),
+          // the 文字大小 buttons (a row's label has a 14 px phone floor since PR #982, §37.276)
+          label: (() => { const el = document.querySelector('[data-testid="text-size"] button'); return el ? parseFloat(getComputedStyle(el).fontSize) : null; })(),
         };
       });
       return { ...m, problems, page };

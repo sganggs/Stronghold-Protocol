@@ -42,15 +42,25 @@ describe('settlement layout (#745, headless Chrome)', { skip: !enabled }, () => 
   }
 
   async function checkButtons(page, noart) {
-    const buttons = await page.$$eval('.settle__next, .sbtn', (els) => els.map((el) => {
-      el.blur(); // sample idle styling atomically, after any delayed page-entry focus
-      const bg = el.querySelector('.settle__btnbg'), style = getComputedStyle(el);
-      return { tag: bg?.tagName, loaded: bg instanceof HTMLImageElement && bg.complete && bg.naturalWidth > 0,
-        fallback: bg?.className.includes('--'), background: style.backgroundColor, image: style.backgroundImage,
-        // A keyboard focus ring is intentional. Blur in the test to check the idle decoration.
-        shadow: style.boxShadow, fallbackImage: bg && getComputedStyle(bg).backgroundImage,
-        fallbackColor: bg && getComputedStyle(bg).backgroundColor };
-    }));
+    const buttons = await page.$$eval('.settle__next, .sbtn', async (els) => {
+      // Sample the idle styling after a blur has settled. Under prefers-reduced-motion every element transitions all
+      // properties for 1 ms (theme.css), so a style read in the same task as blur() still returns the focus ring
+      // (the transition's start value): blur, wait two frames, and repeat while the delayed page-entry focus
+      // (settle.js: 下一步 1.8 s, the team page's back button 0.9 s after mounting) lands in between.
+      for (let i = 0; i < 5; i++) {
+        for (const el of els) el.blur();
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        if (!els.some((el) => el.matches(':focus'))) break;
+      }
+      return els.map((el) => {
+        const bg = el.querySelector('.settle__btnbg'), style = getComputedStyle(el);
+        return { tag: bg?.tagName, loaded: bg instanceof HTMLImageElement && bg.complete && bg.naturalWidth > 0,
+          fallback: bg?.className.includes('--'), background: style.backgroundColor, image: style.backgroundImage,
+          // A keyboard focus ring is intentional. Blur in the test to check the idle decoration.
+          shadow: style.boxShadow, fallbackImage: bg && getComputedStyle(bg).backgroundImage,
+          fallbackColor: bg && getComputedStyle(bg).backgroundColor };
+      });
+    });
     assert.ok(buttons.length);
     for (const b of buttons) {
       assert.equal(b.background, 'rgba(0, 0, 0, 0)');

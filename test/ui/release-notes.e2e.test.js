@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { APP_VERSION } from '../../shared/constants.js';
+import { releaseSections, releaseLink } from '../../public/js/ui/releaseNotesModel.js';
 import { skipEntryFilm } from '../helpers/releaseNotes.js';
 const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 
@@ -23,9 +24,21 @@ test('release notes: fresh install, dismiss/reload, history, update overlay and 
     await page.goto(base);
     await page.waitForSelector('.release-notes');
     assert.match(await page.$eval('.release-notes', (e) => e.textContent), new RegExp(APP_VERSION.replaceAll('.', '\\.')));
+    // a list item's link renders as <a>: in the first shipped section (from this version back) whose list carries one. The
+    // 0.4.0 notes (2026-11-15) have no link, so the check no longer assumes the current version's notes do.
+    const sections = releaseSections(readFileSync(new URL('../../CHANGELOG.md', import.meta.url), 'utf8'), APP_VERSION);
+    const linked = sections.findIndex((s) => s.body.split('\n').some((l) => /^[-*] /.test(l)
+      && [...l.matchAll(/\[[^\]]+\]\(([^\s)]+)\)/g)].some((m) => releaseLink(m[1]))));
+    assert.ok(linked >= 0, 'a shipped section with a link');
+    const earlier = () => page.evaluate(() => [...document.querySelectorAll('.release-notes button')].find((b) => b.textContent.includes('更早版本')).click());
+    for (let i = 0; i < linked; i++) await earlier();
+    await page.waitForFunction((title) => document.querySelector('.release-notes')?.textContent.includes(title), {}, sections[linked].title);
     assert.ok(await page.$('.release-notes-body li a'));
-    await page.evaluate(() => [...document.querySelectorAll('.release-notes button')].find((b) => b.textContent.includes('更早版本')).click());
-    assert.match(await page.$eval('.release-notes', (e) => e.textContent), /0\.3\.2/);
+    for (let i = 0; i < linked; i++) await page.evaluate(() => [...document.querySelectorAll('.release-notes button')].find((b) => b.textContent.includes('更新版本')).click());
+    await page.waitForFunction((title) => document.querySelector('.release-notes')?.textContent.includes(title), {}, sections[0].title);
+    // 更早版本 shows the previous shipped version (0.3.2 when this suite was written at 0.3.3; 0.3.3 since 0.4.0)
+    await earlier();
+    await page.waitForFunction((title) => document.querySelector('.release-notes')?.textContent.includes(title), {}, sections[1].title);
     await page.keyboard.press('Escape');
     await page.waitForSelector('.release-notes', { hidden: true });
     await page.reload();
