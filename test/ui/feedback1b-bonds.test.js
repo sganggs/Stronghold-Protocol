@@ -70,9 +70,10 @@ test('a real 标准 match: 奥术 operators are buyable, three on the board neve
   assert.ok(arc && arc.off === true && arc.active === false && arc.tier === 0 && arc.count === 3, 'the view lists the members as a grey 本局禁用 disc');
   assert.ok(priv.bonds.slice(priv.bonds.findIndex((b) => b.off)).every((b) => b.off), 'off entries come last');
   const off = modeOffBonds(getMode(m.modeId));
-  // without the mode's off set the chip would read the new entry as an ordinary inactive bond (在场 3/3，未激活)
+  // without the mode's off set the chip would read the new entry as an ordinary inactive bond (在场 3/2，未激活: the
+  // first threshold in a 盟约 period, §37.342)
   const bare = chipOf(BondChips({ bondIds: DATA.chess[members[0]].bonds, bonds: priv.bonds }), 'arcaneShip');
-  assert.match(bare.props.title, /在场 3\/3，未激活/);
+  assert.match(bare.props.title, /在场 3\/2，未激活/);
   const chip = chipOf(BondChips({ bondIds: DATA.chess[members[0]].bonds, bonds: priv.bonds, off }), 'arcaneShip');
   assert.ok(hasClass(chip, 'is-off') && !hasClass(chip, 'is-active'));
   assert.equal(chip.props.title, '奥术：本局禁用（该盟约不会激活）');

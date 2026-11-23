@@ -1,5 +1,5 @@
 // Bond strip (active-bond discs under the top bar) and the bond detail popup: the key facts first (user playtest #2
-// item 9: name, members in play / next threshold, layers and reached tier), then the full description and the member list with owned / on-board state — operators that
+// item 9: name, members in play / threshold (gameLogic bondCountCap), layers and reached tier), then the full description and the member list with owned / on-board state — operators that
 // are members through 变形同构体 included (tagged 同构, gameLogic bondMembers; such a row opens the wearer's card with its
 // items: the pair and the granted chip), so the list's count agrees with 在场 (a bond the mode never activates says
 // 本局禁用 — gameLogic modeOffBonds). A core bond whose count holds 调和's +1 (the view entry's `harmony`, sent by the
@@ -33,7 +33,7 @@ import { cloneElement } from '../../vendor/preact.module.js';
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, BondDisc, bondFrame, Icon, MicroLabel, Tooltip } from './components.js';
 import { RichText, BondGlyph, GIcon, Sprite, Img, SquareOperatorThumb } from './gameComponents.js';
-import { sortBonds, bondMembers, nextThreshold, bondTier, bondStage, bondPhased, harmonyMembers, HARMONY_BOND, briefingBondTip, diyGetter, diyRecordFor, memberStandIn, standInForText } from './gameLogic.js';
+import { sortBonds, bondMembers, bondCountCap, bondTier, bondStage, bondPhased, harmonyMembers, HARMONY_BOND, briefingBondTip, diyGetter, diyRecordFor, memberStandIn, standInForText } from './gameLogic.js';
 import { bondIconUrl, uiUrl } from './assetUrls.js';
 import { formatBondEffect } from './richText.js';
 import { bondEffectRecord } from './bondEffect.js';
@@ -233,13 +233,14 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
           <span class="bslot__count bslot__off">${t('本局禁用')}</span>
         </div>`;
       }
-      const next = nextThreshold(count, th);
+      // the tooltip's count: the popup's denominator (gameLogic bondCountCap)
+      const cap = bondCountCap(count, th, phased);
       return html`<div key=${b.bondId} role="listitem" data-bond=${b.bondId} data-harmony=${b.harmony > 0 ? b.harmony : null}
           class=${cx('bslot', b.active && 'is-active', tempLayers > 0 && 'has-temp-layers', full && 'is-full', openId === b.bondId && 'is-open')} style=${frameStyle}>
         <${BondDisc} name=${rec?.name || b.bondId} icon=${bondIconUrl(m, b.bondId)} layers=${rec?.noStack ? undefined : total}
           tier=${tier} members=${count} minCount=${th[0] ?? 0} active=${!!b.active} phased=${phased} size="sm" showName=${true}
           layersDisabled=${layersDisabled} onClick=${() => onOpen(b.bondId)}
-          title=${`${rec?.name || b.bondId} ${count}/${next ?? th[th.length - 1] ?? '-'}${b.harmony > 0 ? t('（含调和 +{harmony}）', { harmony: b.harmony }) : ''}`} />
+          title=${`${rec?.name || b.bondId} ${count}/${cap ?? '-'}${b.harmony > 0 ? t('（含调和 +{harmony}）', { harmony: b.harmony }) : ''}`} />
     <${BondStage} stage=${stage} />
       </div>`;
     })}
@@ -286,10 +287,9 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
   const rawChess = (id) => data.lookup('chess', id);
   const siOf = (mb) => (mb.diy || mb.rec ? null : memberStandIn(priv, rawChess(mb.id), data.get('backups'), rawChess));
   const countsHand = entry?.countsHand ?? b.countsHand;
-  const next = nextThreshold(count, th);
-  // the 在场 count's denominator: 规程 the next threshold (the top one when maxed); a 盟约 period the FIRST threshold, as
-  // the official popup draws it (§37.342: 维多利亚 7/3 ✓ at 7 members, BV1yyC9BPEXV 1600 s; 投资人 4/3, 调和 1/1)
-  const cap = phased ? (next ?? th[th.length - 1] ?? '-') : (th[0] ?? '-');
+  // the 在场 count's denominator (gameLogic bondCountCap): 规程 the next threshold (the top one when maxed); a 盟约 period
+  // the FIRST threshold, as the official popup draws it (§37.342: 维多利亚 7/3 ✓ at 7 members, BV1yyC9BPEXV 1600 s)
+  const cap = bondCountCap(count, th, phased) ?? '-';
   const at = place || (beside === 'left' ? 'beside' : 'left');
   // 调和's +1 in this count (the server's word), and the 调和 operators on that board who give it
   const harmony = !modeOff && Number.isInteger(entry?.harmony) && entry.harmony > 0 ? entry.harmony : 0;

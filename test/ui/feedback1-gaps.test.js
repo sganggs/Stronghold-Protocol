@@ -304,13 +304,14 @@ describe('§21.26 2 — 调和\'s +1 in the bond popup', () => {
     const slot = [...walk(strip)].find((x) => x.props?.['data-bond'] === 'yanShip');
     assert.equal(slot.props['data-harmony'], 1);
     const disc = [...walk(slot)].find((x) => typeof x.props?.title === 'string' && x.props.title.startsWith('炎'));
-    assert.equal(disc.props.title, '炎 3/6（含调和 +1）');
+    // 盟约 (§37.342): the tooltip and the chip count against the first threshold, like the popup (gameLogic bondCountCap)
+    assert.equal(disc.props.title, '炎 3/3（含调和 +1）');
     const chips = BondChips({ bondIds: ['yanShip'], bonds: [entry], onBond() {} });
     const chip = [...walk(chips)].find((x) => x.props?.['data-bond'] === 'yanShip');
     // 盟约 (§37.342): no stage numeral, so the chip says just 已激活
-    assert.equal(chip.props.title, '炎：在场 3/6（含调和 +1），已激活');
+    assert.equal(chip.props.title, '炎：在场 3/3（含调和 +1），已激活');
     const noPlus = [...walk(BondChips({ bondIds: ['yanShip'], bonds: [{ ...entry, harmony: undefined }] }))].find((x) => x.props?.['data-bond'] === 'yanShip');
-    assert.equal(noPlus.props.title, '炎：在场 3/6，已激活');
+    assert.equal(noPlus.props.title, '炎：在场 3/3，已激活');
   });
 });
 

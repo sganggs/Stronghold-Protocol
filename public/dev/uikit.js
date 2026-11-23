@@ -165,9 +165,9 @@
             })}
           </div>
           <div class="row"><span class="cap">sizes · layers disabled · glyph fallback · member progress</span>
-            <${BondDisc} name="炎" size="sm" layers=${4} tier=${1} active=${true} />
-            <${BondDisc} name="萨尔贡" size="lg" layers=${12} tier=${2} active=${true} icon=${bond('sargonShip').icon} />
-            <${BondDisc} name="助力" layers=${34} tier=${1} active=${true} layersDisabled=${true} />
+            <${BondDisc} name="炎" size="sm" layers=${4} tier=${1} active=${true} minCount=${bond('yanShip').minCount} />
+            <${BondDisc} name="萨尔贡" size="lg" layers=${12} tier=${2} active=${true} icon=${bond('sargonShip').icon} minCount=${bond('sargonShip').minCount} />
+            <${BondDisc} name="助力" layers=${34} tier=${1} active=${true} layersDisabled=${true} minCount=${bond('deputShip').minCount} />
             <${BondDisc} name="谢拉格" layers=${0} members=${1} minCount=${3} />
           </div>
         <//>

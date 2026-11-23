@@ -27,7 +27,7 @@ globalThis.fetch = async (url) => {
 };
 
 const { options } = await import('../../public/vendor/preact.module.js');
-const { bondPhased } = await import('../../public/js/ui/gameLogic.js');
+const { bondPhased, bondCountCap } = await import('../../public/js/ui/gameLogic.js');
 const { BondDisc, bondFrame } = await import('../../public/js/ui/components.js');
 const { BondStrip, BondPopup } = await import('../../public/js/ui/bondStrip.js');
 const { BondChips } = await import('../../public/js/ui/detailPanel.js');
@@ -186,10 +186,19 @@ test('盟约 popup: 维多利亚 7/3 ✓, 层数 155, the 3_3 header disc, no �
   });
 });
 
-test('盟约 detail chip: 「，已激活」 with no 阶 (the strip draws no numeral)', () => {
-  const label = (bonds, id) => [...walk(BondChips({ bondIds: [id], bonds }))].find((v) => v.props?.['data-bond'] === id).props.title;
+test('bondCountCap: the first threshold in a 盟约 period; 规程 the next one, the top one when maxed', () => {
+  assert.deepEqual([[7, [3, 6]], [4, [3]], [1, [1]], [1, [2]], [0, [3, 6, 9]], [5, []]].map(([c, th]) => bondCountCap(c, th, false)), [3, 3, 1, 2, 3, null]);
+  assert.deepEqual([[7, [3, 6]], [4, [3, 6]], [1, [2]], [0, [3, 6, 9]], [5, []]].map(([c, th]) => bondCountCap(c, th, true)), [6, 6, 2, 3, null]);
+  assert.equal(bondCountCap(7, [3, 6]), 6, 'default: 规程');
+});
+
+test('盟约 detail chip and strip tooltip: the popup\'s count (7/3), and 「，已激活」 with no 阶 (the strip draws no numeral)', () => {
+  const chipOf = (bonds, id) => [...walk(BondChips({ bondIds: [id], bonds }))].find((v) => v.props?.['data-bond'] === id);
+  const label = (bonds, id) => chipOf(bonds, id).props.title;
   eachCovenant((v) => {
-    assert.match(label([VIC], 'victoriaShip'), /：在场 7\/6，已激活$/, v);
+    assert.match(label([VIC], 'victoriaShip'), /：在场 7\/3，已激活$/, v);
+    assert.equal(textOf([...walk(chipOf([VIC], 'victoriaShip'))].find((n) => hasClass(n, 'dbond__count'))), '7/3', v);
+    assert.equal(slotOf([VIC], 'victoriaShip').disc.title, '维多利亚 7/3', v);
     assert.match(label([SWIFT], 'swiftShip'), /：在场 2\/2，已激活$/, v);
     assert.match(label([{ ...SWIFT, count: 1, tier: 0, active: false }], 'swiftShip'), /，未激活$/, v);
   });
@@ -212,6 +221,10 @@ test('规程 is unchanged: 迅捷 85 still Ⅱ on the unbroken 1_1, 维多利亚
   assert.deepEqual(popupOf('victoriaShip', { ...VIC, count: 3, tier: 1, layers: 8 }), { population: '在场3/6', check: true, stages: ['阶段 Ⅰ'], inactive: false, layers: '层数8', ring: '1_1' });
   assert.deepEqual(popupOf('swiftShip', SWIFT), { population: '在场2/2', check: true, stages: ['阶段 Ⅱ'], inactive: false, layers: '层数85', ring: '1_1' });
   assert.deepEqual(popupOf('ursusShip', { bondId: 'ursusShip', count: 7, tier: 2, active: true, layers: 129, thresholds: [3, 6] }).population, '在场7/6');
+  // the tooltip and the chip follow the popup (gameLogic bondCountCap)
+  assert.equal(slotOf([{ ...VIC, count: 3, tier: 1, layers: 8 }], 'victoriaShip').disc.title, '维多利亚 3/6');
+  const chip = [...walk(BondChips({ bondIds: ['victoriaShip'], bonds: [{ ...VIC, count: 3, tier: 1, layers: 8 }] }))].find((v) => v.props?.['data-bond'] === 'victoriaShip');
+  assert.match(chip.props.title, /：在场 3\/6，已激活 1 阶$/);
   const bonds = ['victoriaShip', 'swiftShip', 'maniShip'].map((id) => data.lookup('bonds', id));
   const model = { banned: [], perBond: new Map(), stateOf: () => null, regulation: true };
   const discs = [...walk(MatchBondRow({ title: '附加盟约', micro: 'ADD-ON BONDS', bonds, model }))].filter((v) => v.type === BondDisc);

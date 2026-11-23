@@ -66,6 +66,22 @@ export function bondPhased(config) {
 }
 
 /**
+ * The denominator of a bond's 在场 count. The popup's 「👥 n/cap」, the strip disc's tooltip and the detail chip all use
+ * it, so the three never disagree. A 盟约 period: the FIRST threshold, as the official popup draws it (§37.342: 维多利亚
+ * 7/3 ✓ at 7 members, BV1yyC9BPEXV 1600 s; 投资人 4/3, 调和 1/1). 规程: the next threshold, the top one when maxed.
+ * The tooltip and the chip have no official reference; they follow the popup.
+ * @param {number} count
+ * @param {number[]} thresholds
+ * @param {boolean} [phased] the version draws the bond phase (bondPhased; default true)
+ * @returns {number|null} null without thresholds
+ */
+export function bondCountCap(count, thresholds, phased = true) {
+  const th = Array.isArray(thresholds) ? thresholds : [];
+  if (!phased) return th[0] ?? null;
+  return nextThreshold(count, th) ?? th[th.length - 1] ?? null;
+}
+
+/**
  * The stage numeral over an active bond disc and the popup's 阶段 tag (0 = none drawn; §37.341). 规程 draws the
  * official bond phase level (client AutoChessBondItemModel.phaseLevel, ActAutoChessBondPhaseType): how many entries of
  * the active effect's phase table (bonds.json / effects.json `phaseCounts`, the official bondPhaseCountList) the count

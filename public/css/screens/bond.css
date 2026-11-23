@@ -314,8 +314,9 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 }
 .bpop__body > * { flex-shrink: 0; }
 
-/* Original bond board sprites supply both the disc and its ring: the full ring around the lit centre (1_1) once active, at
-   every tier as in the official 规程; the segmented member progress before activation (components.js bondFrame). */
+/* Original bond board sprites supply both the disc and its ring. Once active, the full lit ring around the lit centre at
+   every tier: the unbroken 1_1 in 规程, N_N split by the first threshold in a 盟约 period (§37.342). Before activation,
+   the segmented member progress (components.js bondFrame). */
 .bond.is-sprite .bond__disc::before {
   content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
   width: var(--bond-frame-size); height: var(--bond-frame-size);
