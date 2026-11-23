@@ -152,7 +152,9 @@ export function ChessCard({ slot, idx, priv, frozen = false, reason = null, free
   const m = data.get('assets');
   const tier = c?.tier ?? 1;
   const prog = mergeProgress(priv, slot.id, (id) => data.lookup('chess', id));
-  const hint = mergeHint(priv, slot.id);
+  // The same resolver as the pips: the merge need (upgradeNum) lives on the chess record, so the tag would otherwise
+  // fall back to three copies and miss an operator that merges at two (风丸, chess_char_2_11_a).
+  const hint = mergeHint(priv, slot.id, (id) => data.lookup('chess', id));
   const willMerge = !!hint;
   // §37.201: an operator the player already holds (≥ 1 copy on the board, the bench or the temp row) — the official card's
   // repeated-operator effect (autochess_shop_card_item _repeatedFxNode), in 盟约 and 规程 alike (the owner, 2026-11-14)
@@ -605,7 +607,7 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
   /** First tap arms + opens the detail; the second buys (or says why it can't). */
   const tapCard = (kind, idx, slot, detailKind, reason, buy) => {
     const key = armKey(kind, idx, slot);
-    if (armed !== key) { setArmed(key); onDetail(slot.id, detailKind, detailKind === 'chess' ? mergeHint(priv, slot.id) : null); return; }
+    if (armed !== key) { setArmed(key); onDetail(slot.id, detailKind, detailKind === 'chess' ? mergeHint(priv, slot.id, (id) => data.lookup('chess', id)) : null); return; }
     if (reason) { onRefuse?.(reason); return; }
     setArmed(null);
     onDetailClose?.();

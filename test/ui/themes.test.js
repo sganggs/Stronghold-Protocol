@@ -76,7 +76,7 @@ function entry(path, text) {
 test('a good pack keeps colours, tokens, images, banners and voice', () => {
   const report = assess({
     thumbnail: 'thumb.png',
-    colors: { skinLightColor: '#00FFC4', garrisonIconColor2: '#FFFFFF33', noSuch: '#fff' },
+    colors: { skinLightColor: '#00FFC4', garrisonIconColor2: '#FFFFFF33', garrisonIconColor3: '#96E1EA', noSuch: '#fff' },
     tokens: { '--mint-400': '#112233', '--not-a-token': 'red' },
     images: {
       shop_main: 'ui/shop.png',
@@ -104,6 +104,9 @@ test('a good pack keeps colours, tokens, images, banners and voice', () => {
   assert.equal(report.colors.skinLightColor, '#00FFC4');
   // garrison 2/3 have no CSS variable but the canvas card renderer needs them in the pack.
   assert.equal(report.colors.garrisonIconColor2, '#FFFFFF33');
+  assert.equal(report.colors.garrisonIconColor3, '#96E1EA');
+  assert.ok(!report.used.colors.includes('garrisonIconColor2'), 'still no CSS variable');
+  assert.ok(!report.used.colors.includes('garrisonIconColor3'), 'still no CSS variable');
   assert.deepEqual(report.tokens, { '--mint-400': '#112233' });
   assert.deepEqual(report.images.shop_main, { path: 'ui/shop.png', slice: null });
   assert.deepEqual(report.images.prep_ready.slice, [12, 24, 12, 24]);
@@ -111,7 +114,9 @@ test('a good pack keeps colours, tokens, images, banners and voice', () => {
   assert.equal(report.banners.perfectStreak, undefined);
   assert.deepEqual(report.voice.AUTOCHESS_GAME_START, ['v/a.ogg', 'v/b.ogg']);
   assert.ok(report.used.images.includes('thumbnail'));
-  assert.ok(report.unused.colors.includes('garrisonIconColor2'));
+  // garrison 2/3 are painted by the canvas card, not by ui-theme.css: kept in the pack, never reported unused.
+  assert.ok(!report.unused.colors.includes('garrisonIconColor2'));
+  assert.ok(!report.unused.colors.includes('garrisonIconColor3'));
   assert.ok(report.unused.colors.includes('noSuch'));
   assert.ok(report.unused.images.includes('win_streak'));
   assert.ok(report.unused.banners.includes('perfectStreak'));

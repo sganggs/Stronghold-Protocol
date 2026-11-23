@@ -171,6 +171,20 @@ function cardSubClip(doc, entry) {
   return null;
 }
 
+/**
+ * A looping clip's phase: `clock` measured from `start`, folded into `[0, len)`. The card's `loop_triple`
+ * (entry.len = the clip's stop time) and a panel auto-clip (start = the moment its node became visible, so a
+ * legacy Animation restarts at 0 when it is shown again) share this one formula.
+ * @param {number} clock the scene clock in seconds
+ * @param {number} [start] the origin (0 for the free-running card loop); a falsy value is 0
+ * @param {number} len the clip length; anything not > 0 is 0.001 so the modulo stays finite
+ * @returns {number} the phase in `[0, len)`
+ */
+export function clipPhase(clock, start, len) {
+  const length = Math.max(0.001, Number(len) || 0.001);
+  return ((((clock || 0) - (start || 0)) % length) + length) % length;
+}
+
 export class ShopScene {
   constructor({ theme, canvas, size = [DESIGN_W, DESIGN_H], tintTargets = null, pathIdMap = null, particlesEnabled = false, statusEnabled = true, particleComponents = null, options = {} }) {
     const self = this;
@@ -398,7 +412,11 @@ export class ShopScene {
     this.ctrl.initCost();
     this.upgrade.initCost();
     this.cardRoots = [];
+    // The card views of the last reconcile (an array, index = display slot: slots.js GetView reads it), and the
+    // per-build record view keyed by the card root (paint's clip lookup). Kept apart so the rebuild below cannot
+    // change the shape GetView/TraverseCards expect.
     this.cardViews = [];
+    this.cardViewMap = new Map();
     this.state = 'unfold';
     this.staticActives = null;
     this.animBase = null;
@@ -537,7 +555,7 @@ export class ShopScene {
 
     let cardCount = 0;
 
-    this.cardViews = new Map();
+    this.cardViewMap = new Map();
     for (const cardRoot of this.cardRoots) {
       const origin = full.boxes.get(cardRoot.path);
       if (!origin) continue;
@@ -556,7 +574,7 @@ export class ShopScene {
         if (rec.node && rec.node.path) byPath.set(rec.node.path, rec);
         boxes.set(rec.node.path || rec.node.name, rec.box);
       }
-      this.cardViews.set(cardRoot, {
+      this.cardViewMap.set(cardRoot, {
         order: card.order,
         byPath: (path) => localPaths.get(path) || null,
         paths: () => localPaths.keys(),
@@ -691,17 +709,21 @@ export class ShopScene {
     return !!node;
   }
 
-  /** True when an auto-clip's targets are drawn, so the host has to keep painting (these are not motion tracks). */
+  /** True when an auto-clip's targets are drawn, so the host has to keep painting (these are not motion tracks).
+   * A still mount (设置 → 主题动画 off / reduced motion, or a pinned card time) samples no auto-clip at all:
+   * otherwise the loop would move on its own and keep the host painting every frame (ShopCanvas.shopStill). */
   autoClipAnimating() {
+    if (this.stillCards || this.cardTime != null) return false;
     for (const entry of this.autoClips.values()) {
       if (entry.targets.some((node) => this.autoClipShown(node))) return true;
     }
     return false;
   }
 
-  /** The auto-clips' current frames. Nothing plays while their nodes are hidden, so a normal shop stays idle. */
+  /** The auto-clips' current frames. Nothing plays while their nodes are hidden, so a normal shop stays idle;
+   * nothing plays on a still mount either (the refresh button keeps its static pose). */
   sampleAutoClips() {
-    if (!this.autoClips.size) return [];
+    if (!this.autoClips.size || this.stillCards || this.cardTime != null) return [];
     const now = performance.now();
     const dt = this.autoClipLast == null ? 0 : Math.min(0.05, (now - this.autoClipLast) / 1000);
     this.autoClipLast = now;
@@ -717,7 +739,7 @@ export class ShopScene {
       entries.push({
         clip: entry.clip,
         clipName: entry.clipName,
-        t: ((this.autoClipClock - (entry.start || 0)) % len + len) % len,
+        t: clipPhase(this.autoClipClock, entry.start, len),
         basePath: entry.basePath,
       });
     }
@@ -805,7 +827,7 @@ export class ShopScene {
       clipEntries.push({ clip: moneyClip, t: Number(moneyClip.len) || 0, basePath: this.moneyRoot.path });
     }
     for (const root of this.cardRoots) {
-      const local = (this.cardViews && this.cardViews.get(root)) || null;
+      const local = (this.cardViewMap && this.cardViewMap.get(root)) || null;
       for (const entry of root.__clips || []) {
 
         const clip = (this.cardDoc.clips || {})[entry.clipName] || cardSubClip(this.cardDoc, entry);
@@ -822,7 +844,7 @@ export class ShopScene {
             t = Number(entry.stillT);
           } else {
             const len = Math.max(0.001, Number(entry.len) || Number(clip.len) || 0.001);
-            t = ((this.cardClock % len) + len) % len;
+            t = clipPhase(this.cardClock, 0, len);
           }
         }
         clipEntries.push({

@@ -76,7 +76,7 @@
 | `obIconColor` | 观战图标 |
 | `garrisonIconColor1` | 驻守特性的标签 |
 
-`garrisonIconColor2`、`garrisonIconColor3` 会收下，但本作没有对应的位置。
+`garrisonIconColor2`、`garrisonIconColor3` 会收下并保留：画布商店用它们给 5 阶 / 6 阶驻守图标上色，导入报告不再把它们列为「未使用」。
 
 `tokens` 改的是整个界面（大厅也算）的设计变量，只影响你自己的屏幕。可以用的名字有：背景 `--bg-0`～`--bg-4`、`--bg-glass`，线条 `--line`、`--line-2`、`--line-3`，主色 `--mint-400`～`--mint-900` 等，`--gold`、`--amber`、`--orange`、`--red`、`--ice` 系列，文字 `--text-hi`、`--text-md`、`--text-lo`、`--text-dim`，难度和阶数颜色 `--diff-*`、`--tier-1`～`--tier-6`，以及动画的 `--t-fast`、`--t-med`、`--t-slow`（0–2000ms）和 `--ease-out`、`--ease-in-out`。完整名单和写法见 [PLUGIN-GUIDE.md](PLUGIN-GUIDE.md) 的「主题与公告」。例如 `"tokens": { "--t-fast": "0s" }` 会关掉界面里的快速过渡动画。
 

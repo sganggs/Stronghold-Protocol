@@ -60,8 +60,35 @@ test('the refresh button auto-clip samples against group_normal and only while r
 
   rootSpecial.active = true;
   assert.equal(scene.autoClipAnimating(), true, 'a shown special state keeps painting');
+  // Sample a wrapped phase: the clock is 5.5 s while the clip is 5 s long, from the origin set above.
+  entry.live = true;
+  entry.start = 0;
+  scene.autoClipClock = 5.5;
+  scene.autoClipLast = null;
   const [frame] = scene.sampleAutoClips();
   assert.equal(frame.clipName, 'loop_btn_refresh_sweep_closure');
   assert.equal(frame.basePath, groupNormal.path);
-  assert.ok(frame.t >= 0 && frame.t < 5, 'the phase stays inside the clip length');
+  assert.equal(frame.t, 0.5, 'the phase wraps at the clip length (5 s)');
+});
+
+test('a hidden special state parks the clip, and showing it again restarts at t=0', () => {
+  const clip = { len: 5, curves: [['root_special/icon', 'rot', [[0, [0, 0, 0, 1]]]]] };
+  const icon = { path: 'p/root_special/icon', name: 'icon', active: true };
+  const entry = { clip, clipName: 'loop_x', basePath: 'p', targets: [icon], live: true, start: 0 };
+  const scene = Object.assign(Object.create(ShopScene.prototype), {
+    panelDoc: { clips: {} },
+    panel: { path: 'p', name: 'p', children: [icon] },
+    autoClips: new Map([['p', entry]]),
+    autoClipParent: new Map([[icon, null]]),
+    autoClipClock: 5.5,
+    autoClipLast: null,
+  });
+  const [frame] = scene.sampleAutoClips();
+  assert.equal(frame.t, 0.5, '5.5 s from a 0 origin on a 5 s clip');
+  icon.active = false;
+  assert.deepEqual(scene.sampleAutoClips(), [], 'a hidden state samples no frame');
+  assert.equal(entry.live, false, 'and the clip is marked stopped');
+  icon.active = true;
+  const [restarted] = scene.sampleAutoClips();
+  assert.ok(restarted.t < 0.05, `a state shown again restarts the clip at 0 (got ${restarted.t})`);
 });

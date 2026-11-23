@@ -24,7 +24,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import aklz4  # noqa: F401  (registers the LZ4AK decoder)
-import UnityPy  # noqa: E402
 import autochess_themes as themes  # noqa: E402
 import card_prefab as cp  # noqa: E402
 import unity_deps  # noqa: E402

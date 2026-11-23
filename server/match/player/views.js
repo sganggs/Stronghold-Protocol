@@ -140,9 +140,10 @@ export class PlayerViews {
         frozen: this.shop.frozen,
         refreshSeq: Number(this.shop.refreshSeq) || 0,
         specialRefresh: !!this.shop.specialRefresh,
-        // A charge that is waiting for its roll, from either source: 佩佩's level-up arm, or a garrison's
-        // queued bondRefresh. It is what draws the refresh button's special state immediately.
-        specialRefreshArmed: !!this.shop.specialRefreshArmed
+        // A charge that is waiting for its roll, from either source: 佩佩's armed count (one per 2/4/6 upgrade,
+        // specialRefreshCharges), or a garrison's queued bondRefresh. Boolean in the view: the button shows
+        // its special state while AT LEAST one charge is pending.
+        specialRefreshArmed: (Number(this.shop.specialRefreshCharges) || 0) > 0
           || (Array.isArray(this.shop.bondRefresh) && this.shop.bondRefresh.length > 0),
         layout: { ...(this.shop.layout || this.gd.shopSlots(this.shop.level)) },
         slots,

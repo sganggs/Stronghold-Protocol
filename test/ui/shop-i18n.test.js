@@ -63,7 +63,9 @@ test('the shop mount key changes with the language and defaults to zh', () => {
   assert.equal(shopMountKey(undefined), 'zh');
 });
 
-test('the card model watches every data file it reads', () => {
+test('LOCALE_FILES lists every data file the card model reads', () => {
+  // The live repaint is the ShopCanvas data subscription (a Preact mount this suite has no DOM renderer for),
+  // and its filter is exactly this list, so the list is the contract pinned here.
   for (const name of ['chess', 'items', 'bonds', 'garrisons', 'assets', 'backups', 'local']) {
     assert.ok(LOCALE_FILES.includes(name), `${name} repaints the canvas when it arrives`);
   }

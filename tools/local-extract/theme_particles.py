@@ -12,6 +12,7 @@ systems (notably the card sub `frame_lv2/3 tv_particle`) stay untouched.
 from __future__ import annotations
 
 import json
+import shutil
 import sys
 from pathlib import Path
 
@@ -68,62 +69,69 @@ def enrich_theme(theme_dir, game, log=print):
     impl.THEME = str(theme_dir)
     impl.OUT_JSON = str(theme_dir / '_particles.json')
     impl.BACKUP = str(theme_dir / '.particle-backup')
-    impl.main()
+    try:
+        impl.main()
+        systems = json.loads((theme_dir / '_particles.json').read_text(encoding='utf-8'))['prefabs']
+        by_path = {}
+        for rec in systems.values():
+            for s in rec.get('systems') or []:
+                by_path[s['path']] = s
+        stats = {'entries': 0, 'pathId': 0, 'emission': 0, 'renderer': 0, 'unresolved': 0}
 
-    systems = json.loads((theme_dir / '_particles.json').read_text(encoding='utf-8'))['prefabs']
-    by_path = {}
-    for rec in systems.values():
-        for s in rec.get('systems') or []:
-            by_path[s['path']] = s
-    stats = {'entries': 0, 'pathId': 0, 'emission': 0, 'renderer': 0, 'unresolved': 0}
+        def merge(entry):
+            s = by_path.get(entry.get('path'))
+            if not s:
+                stats['unresolved'] += 1
+                return
+            stats['entries'] += 1
+            if entry.get('pathId') is None:
+                entry['pathId'] = s.get('pathId')
+                stats['pathId'] += 1
+            mods = entry.setdefault('modules', {})
+            if 'emission' not in mods:
+                mods['emission'] = s.get('emission') or {}
+                stats['emission'] += 1
+            r = entry.setdefault('renderer', {})
+            lab_r = s.get('renderer') or {}
+            for key in ('pathId', 'materials', 'renderMode'):
+                if key not in r and key in lab_r:
+                    r[key] = lab_r[key]
+                    stats['renderer'] += 1
+            if 'materials' not in entry and lab_r.get('materials'):
+                entry['materials'] = lab_r['materials']
+            if 'material' not in entry and lab_r.get('materials'):
+                entry['material'] = lab_r['materials'][0].get('name')
+            if 'texture' not in entry and lab_r.get('materials'):
+                entry['texture'] = lab_r['materials'][0].get('mainTexture')
 
-    def merge(entry):
-        s = by_path.get(entry.get('path'))
-        if not s:
-            stats['unresolved'] += 1
-            return
-        stats['entries'] += 1
-        if entry.get('pathId') is None:
-            entry['pathId'] = s.get('pathId')
-            stats['pathId'] += 1
-        mods = entry.setdefault('modules', {})
-        if 'emission' not in mods:
-            mods['emission'] = s.get('emission') or {}
-            stats['emission'] += 1
-        r = entry.setdefault('renderer', {})
-        lab_r = s.get('renderer') or {}
-        for key in ('pathId', 'materials', 'renderMode'):
-            if key not in r and key in lab_r:
-                r[key] = lab_r[key]
-                stats['renderer'] += 1
-        if 'materials' not in entry and lab_r.get('materials'):
-            entry['materials'] = lab_r['materials']
-        if 'material' not in entry and lab_r.get('materials'):
-            entry['material'] = lab_r['materials'][0].get('name')
-        if 'texture' not in entry and lab_r.get('materials'):
-            entry['texture'] = lab_r['materials'][0].get('mainTexture')
+        def walk(node):
+            if isinstance(node, dict):
+                if isinstance(node.get('particles'), list):
+                    for e in node['particles']:
+                        merge(e)
+                for v in node.values():
+                    walk(v)
+            elif isinstance(node, list):
+                for v in node:
+                    walk(v)
 
-    def walk(node):
-        if isinstance(node, dict):
-            if isinstance(node.get('particles'), list):
-                for e in node['particles']:
-                    merge(e)
-            for v in node.values():
-                walk(v)
-        elif isinstance(node, list):
-            for v in node:
-                walk(v)
-
-    for name in ('shop.json', 'card.json'):
-        p = theme_dir / name
-        doc = json.loads(p.read_text(encoding='utf-8'))
-        walk(doc)
-        p.write_bytes(json.dumps(doc, ensure_ascii=False, separators=(',', ':')).encode())
-        log(f'  particles {name}: {stats}')
-    (theme_dir / '_particles.json').unlink(missing_ok=True)
-    import shutil
-    shutil.rmtree(theme_dir / '.particle-backup', ignore_errors=True)
-    return stats
+        total = dict.fromkeys(stats, 0)
+        for name in ('shop.json', 'card.json'):
+            stats = dict.fromkeys(total, 0)  # per document: the log line reports that document's own additions
+            p = theme_dir / name
+            doc = json.loads(p.read_text(encoding='utf-8'))
+            walk(doc)
+            p.write_bytes(json.dumps(doc, ensure_ascii=False, separators=(',', ':')).encode())
+            for key in total:
+                total[key] += stats[key]
+            log(f'  particles {name}: {stats}')
+        return total
+    finally:
+        # Neither is theme data: the dump names the client's absolute bundle paths and the backup copies the base
+        # documents, so a failed step must not leave them for extract.py's list_theme_files to register, or a theme
+        # pack to carry.
+        (theme_dir / '_particles.json').unlink(missing_ok=True)
+        shutil.rmtree(theme_dir / '.particle-backup', ignore_errors=True)
 
 
 if __name__ == '__main__':

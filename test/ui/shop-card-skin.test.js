@@ -6,8 +6,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { data } from '../../public/js/data.js';
 import { cardModelFromSlot, cardPortraitFile } from '../../public/js/ui/shop/adapter/model.js';
+import { withContent as withContentSet } from '../helpers/contentSet.js';
 
 const CHESS_ID = 'chess_char_1_01_a';
 const CHAR_ID = 'char_498_inside';
@@ -28,14 +28,7 @@ const MANIFEST = {
 const SLOT = Object.freeze({ kind: 'chess', id: CHESS_ID, price: 2, basePrice: 2 });
 
 /** Runs `fn` with the client's content set holding the record and the manifest, then gives the files back. */
-function withContent(fn) {
-  data.setContent({ id: 'shop-card-skin', values: { chess: { [CHESS_ID]: CHESS }, assets: MANIFEST } });
-  try {
-    return fn();
-  } finally {
-    data.setContent(null);
-  }
-}
+const withContent = (fn) => withContentSet({ chess: { [CHESS_ID]: CHESS }, assets: MANIFEST }, fn, 'shop-card-skin');
 
 test('the card portrait takes the owner outfit the caller resolved', () => {
   withContent(() => {

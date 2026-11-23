@@ -273,6 +273,10 @@ export function materialSlots(card, name) {
     shader: material.shader || null,
     baseSlot: chosen ? chosen.slot : null,
     baseFile: chosen ? chosen.file || null : null,
+    // The slot record itself, so the texture cache sees its TextureSettings (wrapU/wrapV/filter): with the
+    // official UV maths (uv * ST.xy + ST.zw, no frc) an out-of-range UV is the texture's wrap and nowhere else.
+    baseRecord: chosen,
+    maskRecord: mask && mask.file ? mask : null,
     baseST: textureST(chosen),
     maskFile: mask && mask.file ? mask.file : null,
     maskST: textureST(mask),
@@ -436,7 +440,11 @@ export function prepare(spec, index, card, options = {}) {
     hasMesh: !!(component && component.mesh && Number(component.mesh.m_PathID)),
     slots,
     baseFile: slots ? slots.baseFile : (spec.file || null),
+    // Sampling records (wrap/filter) of the slots their files came from; null when the file is a plain spec URL
+    // or the material did not resolve, which keeps the stage's fixed CLAMP_TO_EDGE/LINEAR default.
+    baseRecord: slots ? slots.baseRecord : null,
     maskFile: slots ? slots.maskFile : null,
+    maskRecord: slots ? slots.maskRecord : null,
     baseST: slots ? slots.baseST : [1, 1, 0, 0],
     maskST: slots ? slots.maskST : [1, 1, 0, 0],
     channel: slots ? slots.channel : 0,
@@ -1037,7 +1045,8 @@ export function create(canvas, card, textures, mounted) {
   // colour that already carries `_TintColor` (baked in spawn). No ST / mask / channel / V flip and no gamma.
   const drawPointSprites = (system, state) => {
     if (!point) return 0;
-    const texture = textures(system.file || system.baseFile);
+    // A spec-level `file` has no TextureSettings record; the material slot does, so pass it along.
+    const texture = textures(system.file || system.baseFile, system.file ? null : system.baseRecord);
     if (!texture || !texture.tex) return 0;
     const scale = state.unitScale > 0 ? state.unitScale : simulation.unitPx;
     const cx = state.rect.x + state.rect.w / 2;
@@ -1096,9 +1105,12 @@ export function create(canvas, card, textures, mounted) {
         drawn += drawPointSprites(system, state);
         continue;
       }
-      const baseTex = textures(system.baseFile);
+      // Pass the material slot records so the stage applies their TextureSettings: the quad shader samples
+      // uv * ST.xy + ST.zw with no frc (and uBaseScroll advances V), so a scroll or a tiled ST relies on the
+      // texture's own wrap -- with the bare URL every particle texture stayed CLAMP_TO_EDGE.
+      const baseTex = textures(system.baseFile, system.baseRecord);
       if (!baseTex || !baseTex.tex) continue;
-      const maskTex = system.maskFile ? textures(system.maskFile) : null;
+      const maskTex = system.maskFile ? textures(system.maskFile, system.maskRecord) : null;
       const scaleX = (state.scale ? state.scale[0] : 1) * (state.unitScale > 0 ? state.unitScale : simulation.unitPx);
       const scaleY = (state.scale ? state.scale[1] : 1) * (state.unitScale > 0 ? state.unitScale : simulation.unitPx);
       const cx = state.rect.x + state.rect.w / 2;

@@ -96,6 +96,7 @@ import { regLook } from '../ui/regHud.js';
 import { ShopCanvas, shopMountKey, shopStill, shopHotkeyBuyIndex } from '../ui/shop/ShopCanvas.js';
 import { shopWebglGate, shopCapability } from '../ui/shop/gate.js';
 import { preloadShopRuntime } from '../ui/shop/host.js';
+import { uninstallThemeFontFaces } from '../ui/prefab/shopDocs.js';
 import { useLang } from '../ui/lang.js';
 import { selectedBondTimers } from '../ui/bondTimers.js';
 import { DetailPanel, resolveDetail } from '../ui/detailPanel.js';
@@ -316,8 +317,8 @@ function MatchScreen() {
   const cardTap = useRef(0);
   const [collapsed, setCollapsed] = useState(false);
   // GitHub #501: a g.refresh is still waiting for its reply — the shop's 刷新 action is single-flighted
-  // (gameActions.js drops the second intent and the R hotkey); the button keeps its normal face instead of
-  // being painted as locked, so an in-flight refresh never looks disabled.
+  // (gameActions.js drops the second intent and the R hotkey). The canvas shop drops the click without painting
+  // the button as locked; the DOM ShopBar fallback still disables it and says 正在刷新… (ui/shopBar.js).
   const [refreshBusy, setRefreshBusy] = useState(false);
   useEffect(() => onRefreshBusy(setRefreshBusy), []);
   const [rewardMin, setRewardMin] = useState(false);
@@ -377,22 +378,6 @@ function MatchScreen() {
     return data.subscribe((name) => { if (name === 'local') read(); });
   }, []);
   const shopWebglCapable = shopCapability(shopWebglGroups, playerSettings.uiTheme).ok;
-  useEffect(() => {
-    if (!shopWebglCapable) {
-      setWebglShop((prev) => (prev.status === 'idle' ? prev : { status: 'idle', runtime: null }));
-      return undefined;
-    }
-    let dead = false;
-    setWebglShop((prev) => (prev.status === 'loading' || prev.status === 'ready' ? prev : { status: 'loading', runtime: null }));
-    preloadShopRuntime()
-      .then((runtime) => { if (!dead) setWebglShop({ status: 'ready', runtime }); })
-      .catch((err) => {
-        if (dead) return;
-        setWebglShop({ status: 'failed', runtime: null });
-        console.warn('[shop-webgl] preload failed; keeping the DOM shop bar', err);
-      });
-    return () => { dead = true; };
-  }, [shopWebglCapable, playerSettings.uiTheme]);
   const cc = isClientCombat(pub);
   const battleState = useStore((s) => s.match.battle, shallowEqual); // local battle runner (client-side combat)
 
@@ -434,7 +419,13 @@ function MatchScreen() {
   const prepLoadoutOpen = ruleOption(roomRules, 'prepLoadout') === 'prep';
   const hasOffers = !!pub?.offers?.length;
   const editable = !offerBlocksPrep(pub?.offers) && phase === PHASE.PREP && !!priv && alive && !priv.ready && !watchingOther && !hasPersonalChoice;
-  const showShop = !!priv && alive && (phase === PHASE.PREP || phase === PHASE.SP_DRAFT || phase === PHASE.ROUND_START) && !watchingOther;
+  // the phases that can draw a shop (showShop mounts the canvas in them; the preload below is seat-gated, not phase-gated)
+  const shopPhase = phase === PHASE.PREP || phase === PHASE.SP_DRAFT || phase === PHASE.ROUND_START;
+  const showShop = !!priv && alive && shopPhase && !watchingOther;
+  // A seat that can own a shop at all: a spectator has no m.private and an eliminated seat has no shop to draw.
+  // The preload is gated on this (a spectator / an eliminated seat must not install the theme's faces), not on the
+  // current turn: the runtime is cached, so a ready shop survives combat instead of flipping back to the DOM bar.
+  const seatHasShop = !!priv && alive;
   // which shop renders here: the gate is fail-closed (official theme/pack capability, preloaded runtime);
   // stand-ins and DIY are resolved by the card model, a spectator has no shop to draw.
   const webglShopOn = shopWebglGate({
@@ -442,6 +433,44 @@ function MatchScreen() {
     groups: shopWebglGroups,
     runtime: webglShop.status,
   });
+  // The WebGL runtime (and the theme's @font-face sheet it installs) is preloaded only for a seat that can own a
+  // shop, and the sheet is dropped when that seat loses it: a later mount installs it again (ui/shop/host.js
+  // createShopHost), so nothing here has to know whether a canvas is currently mounted. The phase gate belongs to
+  // showShop (the mount), not here: gating the load on it would show the DOM bar at the first prep of the match.
+  useEffect(() => {
+    // A seat without a shop must not install the theme's faces: preloadShopRuntime installs them before any host
+    // exists, and a host that never mounts has no dispose to remove them. Leaving the seat or the match ends here.
+    if (!shopWebglCapable || !seatHasShop) {
+      setWebglShop((prev) => (prev.status === 'idle' ? prev : { status: 'idle', runtime: null }));
+      uninstallThemeFontFaces();
+      return undefined;
+    }
+    let dead = false;
+    setWebglShop((prev) => (prev.status === 'loading' || prev.status === 'ready' ? prev : { status: 'loading', runtime: null }));
+    preloadShopRuntime()
+      .then((runtime) => {
+        if (dead) {
+          // A load that finishes after its seat lost the shop was made to install the theme's faces on the way
+          // (preloadShopRuntime does it before it resolves). Nothing owns them now: a pending load means no canvas
+          // of that runtime is mounted, and a later mount installs them again.
+          uninstallThemeFontFaces();
+          return;
+        }
+        // The same runtime (a cached load, e.g. a theme switched back) must not re-render this screen.
+        setWebglShop((prev) => (prev.status === 'ready' && prev.runtime === runtime ? prev : { status: 'ready', runtime }));
+      })
+      .catch((err) => {
+        if (dead) return;
+        setWebglShop({ status: 'failed', runtime: null });
+        console.warn('[shop-webgl] preload failed; keeping the DOM shop bar', err);
+      });
+    return () => {
+      dead = true;
+      // The preload installs the theme faces before a host exists; a host that never mounted cannot remove them,
+      // and a mount installs them again, so the sheet goes with the preload (idempotent: a host dispose is too).
+      uninstallThemeFontFaces();
+    };
+  }, [shopWebglCapable, seatHasShop, playerSettings.uiTheme]);
   const layersDisabled = bondLayersFrozen(phase, data.get('config'));
   const sp = phase === PHASE.SP_DRAFT ? normalizeSp(pub?.sp, players) : null;
   const total = phaseTotalSeconds(pub, gd.config, myId);

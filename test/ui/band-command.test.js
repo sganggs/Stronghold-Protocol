@@ -54,10 +54,12 @@ test('a SHOP_SLOT target never highlights or drops on the canvas reward row', ()
   assert.equal(shopSlotIndexAt({ closest: () => ({ closest: () => null, getAttribute: () => '' }) }), null, 'an empty index attr is no target');
 });
 
-test('the command drag uses the helpers at all three sites (highlight, hover and drop)', () => {
+test('the command drag resolves the card through the shared helpers, never a raw display index', () => {
+  // The two behaviour cases above pin what the helpers mean; the drag's highlight / hover / drop call sites are
+  // module-private DOM handlers with no seam, so this keeps the old raw display-index lookup from coming back.
+  // (It deliberately does not count call sites: that broke on any refactor without testing anything.)
   const source = readFileSync(new URL('../../public/js/ui/bandCommand.js', import.meta.url), 'utf8');
-  assert.equal((source.match(/shopSlotCommandCards\(/g) || []).length, 3, 'the two highlight sites and the definition');
-  assert.match(source, /shopSlotIndexAt\(document\.elementFromPoint\(x, y\)\)/);
+  assert.match(source, /shopSlotIndexAt\(document\.elementFromPoint\(x, y\)\)/, 'the drop uses the helper');
   assert.doesNotMatch(source, /querySelectorAll\(`\[data-shop-slot="\$\{(?:t|target)\.slot\}"\]`\)/,
     'no raw display-index lookup is left behind');
 });

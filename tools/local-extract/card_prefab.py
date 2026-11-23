@@ -230,20 +230,28 @@ def _sprite(pointer, ctx, export=True):
     return out
 
 
+def _sprite_key(sprite_object, name):
+    """The exported-picture cache key of a sprite: its name is not unique (an atlas repeats names), its path id is."""
+    path_id = getattr(sprite_object, 'path_id', None)
+    return name, path_id if path_id is not None else id(sprite_object)
+
+
 def _export_sprite(sprite_object, name, ctx):
     """Write a sprite that lives in another bundle into this theme's sprites/, under a name of its own.
 
-    The name is derived from the sprite's, so a second run reuses the file it wrote before instead of adding a
-    numbered copy; a second sprite of the same name in one run gets the next number.
+    The name is derived from the sprite's, so a second run reuses the file it wrote before instead of adding a numbered
+    copy; the cache is keyed by the sprite's own path id, so a second *different* sprite of the same name gets the next
+    number instead of silently showing the first one's picture.
     """
-    if name in ctx['ext_sprites']:
-        return ctx['ext_sprites'][name]
+    key = _sprite_key(sprite_object, name)
+    if key in ctx['ext_sprites']:
+        return ctx['ext_sprites'][key]
     try:
         image = themes._sprite_raster(sprite_object.read())
     except Exception:  # noqa: BLE001
         image = None
     if image is None:
-        ctx['ext_sprites'][name] = None
+        ctx['ext_sprites'][key] = None
         return None
     stem = themes.safe_stem(name)
     prefix = ctx.get('sprite_prefix') or EXTERNAL_SPRITE_PREFIX
@@ -258,7 +266,7 @@ def _export_sprite(sprite_object, name, ctx):
         rel = f'sprites/{written}'
     ctx['ext_used'].add(rel)
     ctx['files'].add(rel)
-    ctx['ext_sprites'][name] = rel
+    ctx['ext_sprites'][key] = rel
     return rel
 
 
@@ -342,16 +350,28 @@ def _texture(pointer, ctx):
 
 
 def _texture_file(texture_object, name, ctx):
-    """An exported picture of a texture: a sprite of the same name, else sprites/tex_<name>.webp."""
+    """An exported picture of a texture: a sprite of the same name, else sprites/tex_<name>.webp.
+
+    Keyed by the texture's own path id: a different texture of the same name gets the next number instead of the
+    first one's file (the same rule as `_export_sprite`).
+    """
     info = ctx['book'].resolve(name) if ctx['book'] is not None else None
     if info and info.get('file'):
         ctx['files'].add(info['file'])
         return info['file']
-    if name in ctx['tex_files']:
-        return ctx['tex_files'][name]
-    rel = f'{TEXTURE_PREFIX}{themes.safe_stem(name)}.webp'
+    key = _sprite_key(texture_object, name)
+    if key in ctx['tex_files']:
+        return ctx['tex_files'][key]
+    stem = themes.safe_stem(name)
+    rel = f'{TEXTURE_PREFIX}{stem}.webp'
+    used = ctx.setdefault('tex_used', set())
+    number = 2
+    while rel in used:
+        rel = f'{TEXTURE_PREFIX}{stem}_{number}.webp'
+        number += 1
+    used.add(rel)
     if (Path(ctx['dest']) / rel).exists():
-        ctx['tex_files'][name] = rel
+        ctx['tex_files'][key] = rel
         ctx['files'].add(rel)
         return rel
     try:
@@ -359,12 +379,12 @@ def _texture_file(texture_object, name, ctx):
     except Exception:  # noqa: BLE001
         image = None
     if image is None:
-        ctx['tex_files'][name] = None
+        ctx['tex_files'][key] = None
         return None
     written = themes._save_raster(image, Path(ctx['dest']) / rel)
     rel = f'sprites/{written}'
     ctx['files'].add(rel)
-    ctx['tex_files'][name] = rel
+    ctx['tex_files'][key] = rel
     return rel
 
 
@@ -690,7 +710,19 @@ def _raw(tree, ctx):
 
 
 def _minmax(curve):
-    """A MinMaxCurve as stored, without reordering the ends (Unity's min may exceed its max)."""
+    """A MinMaxCurve as stored, without reordering the ends (Unity's min may exceed its max).
+
+    A two-curves value (`minMaxState == 2`) keeps both curves, as `_minmax_tree` does: a reader that only got the max
+    curve would draw one curve where the system animates between two.
+    """
+
+    def rows(holder):
+        try:
+            keys = getattr(holder, 'm_Curve', None) or []
+        except Exception:  # noqa: BLE001
+            keys = []
+        return [[_round(getattr(key, 'time', 0)), _round(getattr(key, 'value', 0))] for key in keys]
+
     if curve is None:
         return None
     state = int(getattr(curve, 'minMaxState', 0) or 0)
@@ -700,12 +732,10 @@ def _minmax(curve):
         return {'mode': 'range', 'min': _round(getattr(curve, 'minScalar', 0)), 'max': _round(getattr(curve, 'scalar', 0)),
                 'raw': {'scalar': _round(getattr(curve, 'scalar', 0)),
                         'minScalar': _round(getattr(curve, 'minScalar', 0))}}
-    try:
-        keys = curve.maxCurve.m_Curve or []
-    except Exception:  # noqa: BLE001
-        keys = []
-    return {'mode': 'curve', 'keys': [[_round(getattr(key, 'time', 0)), _round(getattr(key, 'value', 0))]
-                                      for key in keys]}
+    keys = rows(getattr(curve, 'maxCurve', None))
+    if state == 2:
+        return {'mode': 'twoCurves', 'keys': keys, 'minKeys': rows(getattr(curve, 'minCurve', None))}
+    return {'mode': 'curve', 'keys': keys}
 
 
 def _minmax_tree(curve):
@@ -1611,11 +1641,10 @@ def _shaders(ctx):
     """One record per shader the card's materials use; each material links to its record.
 
     The record is per shader, never per material: ten materials share three shaders, and the property table, the
-    pass state and the uniform list are identical for every material that uses one.
-
-    The porting page (`card_shader.docs_markdown`) is a developer note, not theme data: it is no longer written
-    into the theme pack, so it cannot be listed in data/local-assets.json or ship in the packages. The record
-    (compiled/properties/subShaders) stays in card.json, where the renderer reads it.
+    pass state and the uniform list are identical for every material that uses one. The record (compiled / properties
+    / subShaders) is kept in card.json for reference; the client draws from the material records instead
+    (public/js/ui/shop/prefab.js), and no code reads `card.shaders`. No porting page is written into the theme pack,
+    so no `shaders/*.md` is listed in data/local-assets.json or ships in the packages.
     """
     shaders = {}
     for name, (obj, cab) in sorted(ctx['shader_objects'].items()):

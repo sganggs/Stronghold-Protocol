@@ -124,7 +124,9 @@ export class AutoChessBattleShopCardView {
       coin,
       srcPrice,
       handFull: !!this.state.handFull,
-      enough: coin >= price && !this.state.handFull,
+      // `locked` (the seat may not buy at all, e.g. ROUND_START / 准备 pressed) draws the same unbuyable matte as
+      // an unaffordable card; the click itself is refused by the caller (ShopCanvas.tapCard).
+      enough: coin >= price && !this.state.handFull && !this.state.locked,
       priceNormal: price <= coin,
     };
   }
@@ -227,7 +229,11 @@ export class AutoChessBattleShopCardView {
     const list = findNode(tree, 'bond_list');
     const bondItem = this.doc.sub && this.doc.sub.bond_item;
     const bonds = (this.model && this.model.bondList) || [];
-    if (!list || !bondItem || !bonds.length) return;
+    if (!list) return;
+    // The card root is reused across renders (slots.js keeps it while slotId/kind stay put), and bond_list is not
+    // one of the mount bases resetMounts restores: a record without bonds must drop the previous card's rows.
+    list.children = [];
+    if (!bondItem || !bonds.length) return;
     const template = clone(bondItem.root);
     const rowH = (template.rect && template.rect.sizeDelta && template.rect.sizeDelta[1]) || 18;
     const rowW = (template.rect && template.rect.sizeDelta && template.rect.sizeDelta[0]) || 154;
@@ -307,10 +313,12 @@ export class AutoChessBattleShopCardView {
       tier: Number(model.tier) || 1,
 
       // A sold/empty card and a full hand cannot be bought (server HAND_FULL, GitHub #82): the model carries
-      // both, so the card view derives the flag instead of assuming every drawn card is purchasable.
-      able: cardAble(model),
+      // both, so the card view derives the flag instead of assuming every drawn card is purchasable. A locked
+      // seat (not editable) is the third: the panel still shows the row, but no card is buyable.
+      able: cardAble(model) && !model.isLocked,
       coin: model.currCoin != null ? Number(model.currCoin) : null,
       handFull: !!model.isHandFull,
+      locked: !!model.isLocked,
       srcPrice: model.srcPrice != null ? Number(model.srcPrice) : null,
       frozen: !!model.isFrozen,
 

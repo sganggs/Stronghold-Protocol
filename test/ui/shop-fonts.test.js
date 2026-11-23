@@ -131,3 +131,19 @@ test('loadDocumentFonts waits for the faces of the families the documents draw, 
   await loadDocumentFonts(['Bad")'], 10, []);
   assert.deepEqual(calls, [], 'a family that would end the query string is not loaded');
 });
+
+test('loadDocumentFonts resolves when a face never loads (timeout), when one rejects, and without document.fonts', async (t) => {
+  const real = globalThis.document;
+  t.after(() => { globalThis.document = real; });
+  // A hung face must not hold the mount: the timeout wins and the families are returned for the bake.
+  globalThis.document = { fonts: { load: () => new Promise(() => {}) } };
+  const started = Date.now();
+  assert.deepEqual(await loadDocumentFonts(['Hanging'], 25, []), ['Hanging'], 'the timeout wins over a hung face');
+  assert.ok(Date.now() - started < 2000, 'the mount is not held for a hung font');
+  // A rejected face is swallowed (the browser falls back to the next family) rather than failing the mount.
+  globalThis.document = { fonts: { load: () => Promise.reject(new Error('404')) } };
+  assert.deepEqual(await loadDocumentFonts(['Broken'], 50, []), ['Broken'], 'a rejected face does not fail the mount');
+  // No Font Loading API at all: nothing to wait for.
+  globalThis.document = undefined;
+  assert.deepEqual(await loadDocumentFonts(['Nowhere'], 10, []), [], 'no document.fonts: nothing to wait for');
+});

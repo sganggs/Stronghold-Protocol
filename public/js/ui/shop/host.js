@@ -13,12 +13,13 @@ import { themePack, themesReady } from '../../uiTheme.js';
 // and the rest is read through the same namespace.
 import * as shopDocs from '../prefab/shopDocs.js';
 import { t, N_ } from '../../../../shared/i18n.js';
-import { shopModelFromPrivate, shopSignature } from './adapter/model.js';
+import { shopModelFromPrivate, shopSignature, refreshSeqFor } from './adapter/model.js';
 import { buildShopMeta } from './adapter/prefabMeta.js';
 import { resolveShopMeta } from './meta.js';
 import { ShopScene } from './scene.js';
 import { ShopSpineView } from './spineView.js';
 import { AutoChessBattleShopMainView } from './mainView.js';
+import { cardMarkElements } from './marks.js';
 import { UIButton } from './widgets.js';
 
 /** Control hotspots the prefab's UIButtons cover; their guards are read from each UIButton's _clickGuard. */
@@ -221,7 +222,7 @@ export function shopModelPaintKey(model) {
     card.slotId, card.id, card.isEmpty ? 1 : 0, card.isFrozen ? 1 : 0,
     card.price, card.srcPrice, card.currCoin, card.tier, card.level,
     card.armed ? 1 : 0, card.armedAt || 0,
-    card.isHandFull ? 1 : 0, card.hasSame ? 1 : 0, card.canComb ? 1 : 0, card.hasFusePartner ? 1 : 0,
+    card.isHandFull ? 1 : 0, card.isLocked ? 1 : 0, card.hasSame ? 1 : 0, card.canComb ? 1 : 0, card.hasFusePartner ? 1 : 0,
     card.name, card.nameColor, card.bondColor,
     // The localized art/labels a data overlay can replace while the slot's id stays put.
     card.portraitFile, card.profMarkFile, card.garrisonIconFile, card.garrisonTint, card.iconFile,
@@ -230,13 +231,118 @@ export function shopModelPaintKey(model) {
       : '',
   ].join(':')).join('|');
   return [
-    model.avalid ? 1 : 0, model.unfold ? 1 : 0, model.level, model.maxLevel, model.coinCount,
+    model.avalid ? 1 : 0, model.unfold ? 1 : 0, model.locked ? 1 : 0, model.level, model.maxLevel, model.coinCount,
     model.refreshCost, model.upgradeCost, model.freeRefreshCnt,
     model.isFrozen ? 1 : 0, model.isSpecRefresh ? 1 : 0, model.isSpecialRecruit ? 1 : 0,
     model.remainCharCnt, model.refreshSeq,
     select ? `${select.slotId}:${select.isGoods ? 1 : 0}:${select.isUpgrade ? 1 : 0}:${select.sold ? 1 : 0}:${select.isChar ? 1 : 0}` : '',
     row,
   ].join('|');
+}
+
+/**
+ * The view fields whose change is visible (everything else on a private push is not). Pure, so a test can pin
+ * that a folded-reward switch or a locked seat repaints without a browser.
+ * @param {any} view the host's merged view
+ * @returns {string} the key
+ */
+export function viewPaintKey(view) {
+  const select = view.selectSlot;
+  return [
+    view.state, view.avalid, view.unfold, view.refreshSeq,
+    // A locked seat repaints the cards (their unbuyable matte and aria) even when nothing else moved.
+    view.locked ? 1 : 0,
+    select ? `${select.slotId ?? ''}:${select.isUpgrade ? 1 : 0}:${select.isGoods ? 1 : 0}` : '',
+    view.armedSlotId, view.armedAt,
+    JSON.stringify(view.cardFlags || null),
+    JSON.stringify(view.cardMarks || null),
+    JSON.stringify(view.controls || null),
+    JSON.stringify(view.reward || null),
+    // The folded shop's copy of the pill is painted from this flag (`state_able/btn_reward`), so a
+    // 设置 → 操作 toggle while folded must repaint even when nothing else on the shop changed.
+    view.foldReward ? 1 : 0,
+  ].join('|');
+}
+
+/**
+ * Whether the model already says the card cannot be bought. The block reason itself belongs to the caller
+ * (ui/gameLogic's shopBlockReason); this is only what the view model carries: a disabled shop, a locked seat
+ * (a shop the player cannot edit), or not enough funds. It feeds aria-disabled, never the click: an
+ * unaffordable card stays tappable so the caller can refuse it with a reason.
+ * @param {any} card the model card
+ * @param {any} model the shop model
+ * @returns {boolean}
+ */
+export function cardBlocked(card, model) {
+  if (!card || card.isEmpty) return true;
+  if (model && model.avalid === false) return true;
+  if (model && model.locked) return true;
+  const funds = Number(card.currCoin != null ? card.currCoin : (model && model.coinCount)) || 0;
+  return Number(card.price) > funds;
+}
+
+/**
+ * A card hotspot's accessible name: the operator/item and its price, plus the 卡面标记 model's `aria` text
+ * (stand-in's operator, DIY pick, owned copies, the skill, 可晋升) and the two-tap state. Pure, so the
+ * accessible name is testable without a host.
+ * @param {any} card the model card
+ * @param {any} model the shop model
+ * @param {any} [marks] the card's mark model (ui/shop/marks.js)
+ * @returns {string}
+ */
+export function cardAriaLabel(card, model, marks) {
+  if (!card || card.isEmpty) return t('空栏位');
+  const label = t('{name}，价格 {price}', { name: card.name || card.id, price: card.price });
+  const extra = [];
+  if (marks) {
+    for (const key of ['standIn', 'diy', 'pips', 'skill', 'merge']) {
+      if (marks[key] && marks[key].aria) extra.push(marks[key].aria);
+    }
+  }
+  const named = extra.length ? `${label}，${extra.join('，')}` : label;
+  if (!card.armed) return named;
+  return `${named}${cardBlocked(card, model) ? t('，无法购买') : t('，再次点击确认')}`;
+}
+
+/**
+ * A control hotspot's UIButton._clickGuard, read from the prefab tree by a path suffix (a bare name would be
+ * ambiguous once two pills share it). Pure, so the prefab's own cooldown is testable without a host.
+ * @param {any} panel the scene panel tree
+ * @param {string[]} paths the hotspot's path suffixes, in resolution order
+ * @returns {{ cooldown?: any, seconds?: any }|null}
+ */
+export function controlGuardFor(panel, paths) {
+  for (const suffix of paths) {
+    const node = (function walk(n) {
+      if (!n) return null;
+      const path = String(n.path || '');
+      if (path === suffix || path.endsWith('/' + suffix)) return n;
+      for (const child of n.children || []) {
+        const hit = walk(child);
+        if (hit) return hit;
+      }
+      return null;
+    })(panel);
+    if (!node) continue;
+    const comp = (node.components || []).find((c) => c && c.class === 'UIButton');
+    if (comp && comp.fields && comp.fields._clickGuard) return comp.fields._clickGuard;
+  }
+  return null;
+}
+
+/**
+ * Whether a control hotspot is shown at all. Only the reward pills are view-gated: a reward the view keeps
+ * but the frame does not show (an inactive node, no painted box) must leave no hidden-but-focusable 0×0
+ * button behind. A non-reward control is placed by its own painted box (see `place`).
+ * @param {{ key?: string, event?: string }} spec the hotspot spec
+ * @param {any} view the host's merged view
+ * @param {boolean} hasBox whether the frame painted the hotspot's box
+ * @returns {boolean}
+ */
+export function controlHotspotVisible(spec, view, hasBox) {
+  if (!spec || spec.event !== 'reward') return true;
+  const wanted = spec.key === 'rewardFold' ? !!(view && view.foldReward) : !!(view && view.reward);
+  return wanted && !!hasBox;
 }
 
 /**
@@ -326,27 +432,8 @@ export async function createShopHost(opts = {}) {
   scene.externalQuad = (rec) => (rec.node === scene.spineHolderNode ? spine.quad() : null);
   spine.start();
 
-  /** Find a node under the panel by a path suffix and return its UIButton._clickGuard (C# bool + seconds). */
-  function clickGuardFor(paths) {
-    for (const suffix of paths) {
-      const node = (function walk(n) {
-        if (!n) return null;
-        const path = String(n.path || '');
-        if (path === suffix || path.endsWith('/' + suffix)) return n;
-        for (const child of n.children || []) {
-          const hit = walk(child);
-          if (hit) return hit;
-        }
-        return null;
-      })(scene.panel);
-      if (!node) continue;
-      const comp = (node.components || []).find((c) => c && c.class === 'UIButton');
-      if (comp && comp.fields && comp.fields._clickGuard) return comp.fields._clickGuard;
-    }
-    return null;
-  }
   const buttons = Object.fromEntries(CONTROL_HOTSPOTS.map((spec) => [spec.key,
-    new UIButton({ clickGuard: clickGuardFor(spec.paths), tintRoot: spec.key === 'levelUp' ? scene.panel : null,
+    new UIButton({ clickGuard: controlGuardFor(scene.panel, spec.paths), tintRoot: spec.key === 'levelUp' ? scene.panel : null,
       tintTargets: spec.key === 'levelUp' ? scene.tintTargets.panel : [] })]));
 
   let dead = false;
@@ -355,21 +442,36 @@ export async function createShopHost(opts = {}) {
   /** A lost context or a thrown frame: the next `update()` rethrows it so the caller's guard falls back. */
   let fatalError = null;
   let needsPaint = true;
-  let refreshSeq = Number(view.refreshSeq) || Number(priv && priv.shop && priv.shop.refreshSeq) || 0;
+  let refreshSeq = 0;
+  /** The fallback row clock (adapter/model.js refreshSeqFor) while the push carries no shop.refreshSeq. */
+  let refreshFallback = null;
+
+  /** The row clock this push draws from: the view's forwarded number, else the private's server field, else the
+   * signature-based fallback (adapter/model.js refreshSeqFor). */
+  function refreshSeqOf(nextView, nextPriv) {
+    const serverSeq = nextView && nextView.refreshSeq != null
+      ? nextView.refreshSeq
+      : (nextPriv && nextPriv.shop && nextPriv.shop.refreshSeq);
+    const next = refreshSeqFor(nextPriv, { viewSeq: serverSeq, fallback: refreshFallback });
+    refreshFallback = next.fallback;
+    return next.refreshSeq;
+  }
 
   function modelOf(nextView = view, nextPriv = priv) {
     const state = nextView.state || 'unfold';
     const unfold = nextView.unfold != null ? !!nextView.unfold : !(state === 'fold' || state === 'disable');
     const avalid = nextView.avalid != null ? !!nextView.avalid : state !== 'disable';
-    // The server owns the refresh sequence (ShopData.refreshSeq); the view may forward it, otherwise the
-    // private shop carries it. A mount/reconnect has the same sequence as the server, so it never plays.
-    const seq = Number(nextView.refreshSeq != null ? nextView.refreshSeq
-      : (nextPriv && nextPriv.shop && nextPriv.shop.refreshSeq)) || 0;
+    // The server owns the refresh sequence (ShopData.refreshSeq); the view may forward it, otherwise the private
+    // shop carries it. A push with neither (an older server) gets the client fallback counter instead of a frozen
+    // 0, which would keep the slots panel from ever replaying its refresh clip. A mount/reconnect has the same
+    // sequence as the server, so it never plays.
+    const seq = refreshSeqOf(nextView, nextPriv);
     return shopModelFromPrivate(nextPriv, {
       colors: (pack && pack.colors) || {},
       urlOf: docs.url,
       unfold,
       avalid,
+      locked: !!nextView.locked,
       selectSlot: nextView.selectSlot || null,
       armedSlotId: nextView.armedSlotId != null ? Number(nextView.armedSlotId) : null,
       armedAt: nextView.armedAt,
@@ -391,40 +493,6 @@ export async function createShopHost(opts = {}) {
     return model;
   }
 
-  /**
-   * A card hotspot's label: name and price, the card's own marks (the same facts the DOM card shows: a
-   * stand-in's operator, the DIY pick, owned copies, the skill, 可晋升) and the two-tap state.
-   * @param {any} card the model card
-   * @param {any} model the shop model
-   * @param {any} [marks] the card's mark model (ui/shop/marks.js)
-   */
-  function cardLabel(card, model, marks) {
-    if (!card || card.isEmpty) return t('空栏位');
-    const label = t('{name}，价格 {price}', { name: card.name || card.id, price: card.price });
-    const extra = [];
-    if (marks) {
-      for (const key of ['standIn', 'diy', 'pips', 'skill', 'merge']) {
-        if (marks[key] && marks[key].aria) extra.push(marks[key].aria);
-      }
-    }
-    const named = extra.length ? `${label}，${extra.join('，')}` : label;
-    if (!card.armed) return named;
-    return `${named}${cardBlocked(card, model) ? t('，无法购买') : t('，再次点击确认')}`;
-  }
-
-  /**
-   * Whether the model already says the card cannot be bought. The block reason itself belongs to the caller
-   * (ui/gameLogic's shopBlockReason); this is only what the view model carries: a disabled shop or not enough
-   * funds. It feeds aria-disabled, never the click: an unaffordable card stays tappable so the caller can
-   * refuse it with a reason.
-   */
-  function cardBlocked(card, model) {
-    if (!card || card.isEmpty) return true;
-    if (model && model.avalid === false) return true;
-    const funds = Number(card.currCoin != null ? card.currCoin : (model && model.coinCount)) || 0;
-    return Number(card.price) > funds;
-  }
-
   /** Accessible labels and state follow the current language, the card model and the control reasons. */
   function syncAria(model) {
     const freeze = controlEls.get('freeze');
@@ -437,7 +505,7 @@ export async function createShopHost(opts = {}) {
     const marks = (view && Array.isArray(view.cardMarks)) ? view.cardMarks : [];
     for (const [index, el] of cardEls) {
       const card = cards[index];
-      el.setAttribute('aria-label', cardLabel(card, model, marks[index]));
+      el.setAttribute('aria-label', cardAriaLabel(card, model, marks[index]));
       if (card && card.armed) el.setAttribute('aria-pressed', 'true');
       else el.removeAttribute('aria-pressed');
       el.setAttribute('aria-disabled', cardBlocked(card, model) ? 'true' : 'false');
@@ -458,10 +526,7 @@ export async function createShopHost(opts = {}) {
    * node) must leave no hidden-but-focusable 0×0 button behind.
    */
   function syncControlState(entry, box) {
-    if (entry.spec.event === 'reward') {
-      const wanted = entry.spec.key === 'rewardFold' ? (view && view.foldReward) : (view && view.reward);
-      entry.el.hidden = !wanted || !box;
-    }
+    if (entry.spec.event === 'reward') entry.el.hidden = !controlHotspotVisible(entry.spec, view, box);
     applyControlState(entry.el, entry.button, controlReason(entry.spec.event));
   }
 
@@ -614,38 +679,32 @@ export async function createShopHost(opts = {}) {
     }
     root.textContent = '';
     if (!marks) return;
-    const add = (cls, text, title) => {
+    // The overlay's spans are plain data (ui/shop/marks.js cardMarkElements): paint order, classes and tooltips
+    // stay testable without a browser.
+    for (const item of cardMarkElements(marks)) {
       const span = document.createElement('span');
-      span.className = `shop-mark ${cls}`;
-      if (title) span.title = title;
-      if (text) span.textContent = text;
-      root.append(span);
-      return span;
-    };
-    if (marks.standIn) add('shop-mark--standin', marks.standIn.label, marks.standIn.title);
-    if (marks.diy) add('shop-mark--diy', marks.diy.label, marks.diy.title);
-    if (marks.merge) add('shop-mark--merge', marks.merge.label, marks.merge.title);
-    if (marks.pips) {
-      const pips = add('shop-mark--pips', '', marks.pips.title);
-      for (let i = 0; i < marks.pips.need; i += 1) {
-        const pip = document.createElement('i');
-        if (i < marks.pips.copies) pip.className = 'on';
-        pips.append(pip);
+      span.className = `shop-mark ${item.cls}`;
+      if (item.title) span.title = item.title;
+      if (item.text) span.textContent = item.text;
+      if (item.custom) span.classList.add('is-custom');
+      if (item.pips) {
+        for (const on of item.pips) {
+          const pip = document.createElement('i');
+          if (on) pip.className = 'on';
+          span.append(pip);
+        }
       }
-    }
-    if (marks.skill) {
-      const skill = add('shop-mark--skill', '', marks.skill.title);
-      if (marks.skill.custom) skill.classList.add('is-custom');
-      if (marks.skill.file) {
+      if (item.image) {
         const img = document.createElement('img');
-        img.src = marks.skill.file;
+        img.src = item.image;
         img.alt = '';
-        skill.append(img);
-      } else if (marks.skill.slot) {
+        span.append(img);
+      } else if (item.glyph) {
         const glyph = document.createElement('b');
-        glyph.textContent = marks.skill.slot;
-        skill.append(glyph);
+        glyph.textContent = item.glyph;
+        span.append(glyph);
       }
+      root.append(span);
     }
   }
 
@@ -730,23 +789,6 @@ export async function createShopHost(opts = {}) {
 
   let lastPaintKey = null;
 
-  /** The view fields whose change is visible (everything else on a private push is not). */
-  function viewPaintKey() {
-    const select = view.selectSlot;
-    return [
-      view.state, view.avalid, view.unfold, view.refreshSeq,
-      select ? `${select.slotId ?? ''}:${select.isUpgrade ? 1 : 0}:${select.isGoods ? 1 : 0}` : '',
-      view.armedSlotId, view.armedAt,
-      JSON.stringify(view.cardFlags || null),
-      JSON.stringify(view.cardMarks || null),
-      JSON.stringify(view.controls || null),
-      JSON.stringify(view.reward || null),
-      // The folded shop's copy of the pill is painted from this flag (`state_able/btn_reward`), so a
-      // 设置 → 操作 toggle while folded must repaint even when nothing else on the shop changed.
-      view.foldReward ? 1 : 0,
-    ].join('|');
-  }
-
   function update(nextPriv, nextView = {}) {
     if (dead) return null;
     // A lost context or a thrown frame cannot be painted any more: the caller's next push is what carries the
@@ -754,8 +796,9 @@ export async function createShopHost(opts = {}) {
     if (fatalError) throw fatalError;
     if (nextPriv) priv = nextPriv;
     view = { ...view, ...nextView };
-    refreshSeq = Number(view.refreshSeq != null ? view.refreshSeq
-      : (priv && priv.shop && priv.shop.refreshSeq)) || 0;
+    // `view.refreshSeq` is null when the caller had no server number to forward; refreshSeqOf then runs the
+    // signature-based fallback so an older server still replays the refresh clip.
+    refreshSeq = refreshSeqOf(view, priv);
     if (view.state && view.state !== lastState) applyState(view.state);
     else if (view.state) scene.state = view.state;
     // A private push mostly carries state the shop does not draw (ready flags, timers, other players).
@@ -764,7 +807,7 @@ export async function createShopHost(opts = {}) {
     let model;
     try {
       model = updateModel({ paint: false });
-      const key = `${scene.state}|${refreshSeq}|${shopSignature(priv)}|${viewPaintKey()}|${shopModelPaintKey(model)}`;
+      const key = `${scene.state}|${refreshSeq}|${shopSignature(priv)}|${viewPaintKey(view)}|${shopModelPaintKey(model)}`;
       if (key !== lastPaintKey) {
         lastPaintKey = key;
         // A refresh re-renders the cards; re-bind the panel holder (the panel itself is not rebuilt) and
@@ -895,11 +938,20 @@ export async function createShopHost(opts = {}) {
   const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(() => resize()) : null;
   if (observer) observer.observe(container);
 
-  resize();
-  update(priv, {});
-  paintFrame();
-  bootAt = performance.now();
-  raf = requestAnimationFrame(loop);
+  // A mount that throws after the PIXI app, the card renderer and the observer exist must not leave them behind:
+  // a leaked WebGL context per failed round would eventually cost every later mount. Tear down exactly like
+  // dispose() (observer, spine, renderer/context, stage, fonts — all idempotent), then let the caller's guard
+  // fall back to the DOM shop bar.
+  try {
+    resize();
+    update(priv, {});
+    paintFrame();
+    bootAt = performance.now();
+    raf = requestAnimationFrame(loop);
+  } catch (err) {
+    dispose();
+    throw err;
+  }
 
   /**
    * Teardown order: stop the loop and the observer first (no paint may race the release), drop our listeners,

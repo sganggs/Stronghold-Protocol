@@ -13,16 +13,15 @@ import { fileURLToPath } from 'node:url';
 import { shopModelFromPrivate } from '../../public/js/ui/shop/adapter/model.js';
 import { CtrlViewData } from '../../public/js/ui/shop/viewData.js';
 import { AutoChessStylizedShopCtrlPanel, buildRewardButtonNode, freezeState } from '../../public/js/ui/shop/ctrl.js';
-import { applyControlState, CONTROL_HOTSPOTS, runControlClick, rewardAriaLabel } from '../../public/js/ui/shop/host.js';
+import { applyControlState, CONTROL_HOTSPOTS, controlHotspotVisible, runControlClick, rewardAriaLabel, viewPaintKey } from '../../public/js/ui/shop/host.js';
 import { shopControlReasons, shopRewardView, rewardPickLabel, shopFoldReward } from '../../public/js/ui/shop/ShopCanvas.js';
 import { DEFAULT_SETTINGS, sanitizeSettings } from '../../public/js/ui/gameLogic/settings.js';
 import { findPath } from '../../public/js/ui/shop/prefab.js';
-import { AutoChessBattleShopMainView } from '../../public/js/ui/shop/mainView.js';
+import { AutoChessBattleShopMainView, ctrlKey } from '../../public/js/ui/shop/mainView.js';
 import { PHASE } from '../../shared/constants.js';
 import { t, setLang, setMessages, setNameResolver } from '../../shared/i18n.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const HOST_SOURCE = readFileSync(new URL('../../public/js/ui/shop/host.js', import.meta.url), 'utf8');
 const PACKS = {};
 const NAMES = {};
 function packOf(lang) {
@@ -309,13 +308,23 @@ test('the main view renders the ctrl while folded, so the kept pill can turn on'
   assert.deepEqual(calls, ['chrome'], 'a disabled shop paints neither the row nor the ctrl');
 });
 
-test('the folded pill is repainted on a view-only change and leaves no empty hotspot', () => {
-  const main = readFileSync(new URL('../../public/js/ui/shop/mainView.js', import.meta.url), 'utf8');
-  assert.match(main, /model\.foldReward \? 1 : 0/, 'the ctrl key covers the folded pill');
-  const host = HOST_SOURCE;
-  assert.match(host, /view\.foldReward \? 1 : 0/, 'the host paint key covers the folded pill');
+test('a view-only change repaints the folded pill and never leaves an empty hotspot', () => {
+  // A folded-reward toggle is a view-only change: both the host paint key and the ctrl key must move, or the
+  // folded pill stays at its construction-time active=false and nothing repaints (`_RenderShopMainPanels`
+  // above covers the ctrl actually being called).
+  const folded = { state: 'fold', avalid: true, unfold: false, reward: null, foldReward: false, locked: false };
+  assert.notEqual(viewPaintKey({ ...folded, foldReward: true }), viewPaintKey(folded), 'the host paint key covers the pill');
+  assert.equal(viewPaintKey({ ...folded }), viewPaintKey(folded), 'an unchanged push is the same key');
+  assert.notEqual(viewPaintKey({ ...folded, locked: true }), viewPaintKey(folded), 'a locked seat repaints the row');
+  assert.notEqual(ctrlKey({ foldReward: true }), ctrlKey({ foldReward: false }), 'the ctrl key covers the pill');
+  assert.notEqual(ctrlKey({ reward: { count: 1 } }), ctrlKey({}), 'a changed offer re-renders the ctrl');
   // A reward the view keeps but the frame does not show must not leave a 0x0, focusable button behind.
-  assert.match(host, /entry\.el\.hidden = !wanted \|\| !box;/);
+  const reward = { key: 'rewardFold', event: 'reward' };
+  assert.equal(controlHotspotVisible(reward, { foldReward: false }, true), false, 'the switch is off');
+  assert.equal(controlHotspotVisible(reward, { foldReward: true }, false), false, 'no painted box, no button');
+  assert.equal(controlHotspotVisible(reward, { foldReward: true }, true), true, 'both → the button is placed');
+  assert.equal(controlHotspotVisible({ key: 'refresh', event: 'refresh' }, {}, false), true,
+    'a non-reward control is not gated by the view flags');
 });
 
 test('shopFoldReward: the folded pill only with the setting, a pending offer and PREP', () => {

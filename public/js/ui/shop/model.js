@@ -35,6 +35,9 @@ export class AutoChessBattleShopViewModel {
     this.show = init.show ?? true;
     this.avalid = init.avalid ?? true;
     this.unfold = init.unfold ?? true;
+    /** The seat may look but not buy (not editable: ROUND_START, 准备 pressed, a pending personal choice). The
+     * panel stays unfolded like the DOM bar's locked card row; only the cards dim and refuse. */
+    this.locked = !!init.locked;
     this.showMainPanel = init.showMainPanel ?? true;
     this.showSellCharPanel = !!init.showSellCharPanel;
     this.showSellEquipPanel = !!init.showSellEquipPanel;

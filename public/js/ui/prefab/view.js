@@ -87,6 +87,9 @@ export function measureText(text, node, fonts = null) {
 
 const packCache = new Map();
 const jsonCache = new Map();
+/** Parsed theme documents kept: three per pack revision, so a re-import or a re-extract (new content-hash URLs,
+ * new blob URLs) evicts the oldest instead of holding every revision's card.json/shop.json for the session. */
+const JSON_CACHE_MAX = 12;
 
 /** A `blob:` / `data:` document, which this page never fetches: its connect-src is 'self' (docs/THEMES.md §37.232). */
 const INLINE_DOC = /^(?:blob|data):/i;
@@ -143,6 +146,10 @@ export function packJson(url) {
   const inline = inlinePackJson(url);
   const load = inline || fetch(url).then((r) => (r.ok ? r.json() : null)).catch(() => null);
   jsonCache.set(url, load);
+  if (jsonCache.size > JSON_CACHE_MAX) {
+    const oldest = jsonCache.keys().next().value;
+    if (oldest !== url) jsonCache.delete(oldest);
+  }
   load.then((doc) => { if (doc == null && jsonCache.get(url) === load) jsonCache.delete(url); });
   return load;
 }

@@ -49,8 +49,10 @@
   outline-offset: -2px;
 }
 
-/* A blocked control must look blocked (the old bar dims disabled buttons; the canvas cannot). */
-.shop-webgl--game .shop-webgl__hit:disabled {
+/* A blocked control must look blocked (the old bar dims disabled buttons; the canvas cannot): the hotspot stays a
+   native button (a real `disabled` would swallow the title tooltip and the click that reports the reason), so the
+   blocked state is aria-disabled. */
+.shop-webgl--game .shop-webgl__hit[aria-disabled="true"] {
   opacity: 0.55;
   cursor: default;
 }

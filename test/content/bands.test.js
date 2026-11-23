@@ -236,13 +236,18 @@ test('佩佩 博学多通: upgrading to 2 / 4 / 6 makes the next refresh special
   assert.equal(ps.shop.freeRefreshes, 0, 'no free refresh comes with it (community report of 2026-10-06)');
   // The upgrade grants the charge AND the shop shows it at once: the refresh button's special state is the
   // waiting charge, not the roll (the roll only happens on the next refresh).
-  assert.equal(ps.shop.specialRefreshArmed, true, 'the button is special from the upgrade itself');
-  assert.equal(ps.privateView().shop.specialRefreshArmed, true, 'and the private push carries it');
+  assert.equal(ps.shop.specialRefreshCharges, 1, 'the upgrade arms one charge');
+  assert.equal(ps.privateView().shop.specialRefreshArmed, true, 'the button is special from the upgrade itself');
   assert.equal(ps.shop.specialRefresh, false, 'no roll has happened yet');
   const f0 = ps.funds;
   assert.deepEqual(m.handle('p_0', { t: 'g.refresh' }), OK);
-  assert.equal(ps.shop.specialRefreshArmed, false, 'the roll spent the charge');
+  assert.equal(ps.shop.specialRefreshCharges, 0, 'the roll spent the charge');
+  assert.equal(ps.privateView().shop.specialRefreshArmed, false, 'so the button is back to normal');
   assert.equal(ps.shop.specialRefresh, true, 'and that roll carries the special marker');
+  // The private push carries the server's row clock and this roll's one-shot marker too (the canvas shop's slots
+  // panel reads both; the projection is what makes the refresh clip replay at all).
+  assert.equal(ps.privateView().shop.refreshSeq, ps.shop.refreshSeq, 'the private push forwards the row clock');
+  assert.equal(ps.privateView().shop.specialRefresh, ps.shop.specialRefresh, 'and the special marker');
   assert.equal(ps.funds, f0 - m.gd.refreshPrice, 'the usual refresh price');
   const chess = ps.shop.slots.filter((sl) => sl && sl.kind === 'chess');
   assert.ok(chess.length >= 3 && chess.every((sl) => DATA.chess[sl.id].bonds.includes('sargonShip')), 'all 萨尔贡');
@@ -251,6 +256,45 @@ test('佩佩 博学多通: upgrading to 2 / 4 / 6 makes the next refresh special
   assert.deepEqual(m.handle('p_0', { t: 'g.levelUp' }), OK);
   assert.equal(ps.shop.level, 3);
   assert.equal(ps.shop.freeRefreshes, 0, 'level 3 is not in lvlist');
+  cover('band_pepe');
+});
+
+test('佩佩 博学多通: two upgrades armed before one refresh keep the button special for the second charge', () => {
+  const seed = seedWithBond('sargonShip', 2, 2);
+  const { m, ps } = setup({ band: 'band_pepe', seed });
+  // 2 and 4 both arm; a player can reach 4 before spending the level-2 charge (level 3 arms nothing).
+  for (let i = 0; i < 3; i++) {
+    ps.shop.upgradePrice = 0;
+    assert.deepEqual(m.handle('p_0', { t: 'g.levelUp' }), OK);
+  }
+  assert.equal(ps.shop.level, 4);
+  assert.equal(ps.shop.specialRefreshCharges, 2, 'each listed level arms one charge');
+  assert.equal(ps.privateView().shop.specialRefreshArmed, true);
+  assert.deepEqual(m.handle('p_0', { t: 'g.refresh' }), OK);
+  assert.equal(ps.shop.specialRefreshCharges, 1, 'one charge spent');
+  assert.equal(ps.shop.specialRefresh, true, 'this roll is the special one');
+  assert.equal(ps.privateView().shop.refreshSeq, ps.shop.refreshSeq, 'the row clock reaches the private push');
+  assert.equal(ps.privateView().shop.specialRefreshArmed, true, 'the second charge still shows on the button');
+  assert.deepEqual(m.handle('p_0', { t: 'g.refresh' }), OK);
+  assert.equal(ps.shop.specialRefreshCharges, 0, 'the second charge spent');
+  assert.equal(ps.privateView().shop.specialRefreshArmed, false, 'no charge is pending any more');
+  cover('band_pepe');
+});
+
+test('佩佩 博学多通: a garrison charge spent by a roll does not clear the 佩佩 arm', () => {
+  const { m, ps } = setup({ band: 'band_pepe', seed: 42 });
+  ps.shop.upgradePrice = 0;
+  assert.deepEqual(m.handle('p_0', { t: 'g.levelUp' }), OK);
+  assert.equal(ps.shop.specialRefreshCharges, 1, 'the upgrade armed 佩佩\'s charge');
+  // A garrison's queued charge is a different source (shop.bondRefresh): the next roll spends it and marks
+  // that roll special, but it must not touch 佩佩's armed count.
+  ps.shop.bondRefresh = [{ bond: 'sargonShip', count: 1 }];
+  ps.rollShop();
+  assert.equal(ps.shop.bondRefresh, undefined, 'the garrison charge is consumed by the roll');
+  assert.equal(ps.shop.specialRefresh, true, 'and marks this roll special');
+  assert.equal(ps.shop.specialRefreshCharges, 1, '佩佩\'s charge is untouched');
+  assert.equal(ps.counters['band:pepe:special'], 1, 'and no 佩佩 refresh happened');
+  assert.equal(ps.privateView().shop.specialRefreshArmed, true, 'the button stays special for 佩佩');
   cover('band_pepe');
 });
 

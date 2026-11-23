@@ -604,16 +604,30 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
     /**
      * This roll is a special refresh (the slots panel plays whole_card_refresh_special). Used by a band's
      * onRefresh path that rewrites the row itself (佩佩: the charge is armed on level-up and spent by
-     * the next manual refresh); the bondRefresh path marks it in rollShop instead.
+     * the next manual refresh); the bondRefresh path marks it in rollShop instead. Spending a 佩佩 charge
+     * decrements the armed count by one: a second armed charge (the next 2/4/6 upgrade before a refresh)
+     * stays pending, so the button keeps its special state.
      */
-    markSpecialRefresh: () => { ps.shop.specialRefresh = true; ps.shop.specialRefreshArmed = false; ps.dirty(); return true; },
+    markSpecialRefresh: () => {
+      ps.shop.specialRefresh = true;
+      const charges = Number(ps.shop.specialRefreshCharges) || 0;
+      if (charges > 0) ps.shop.specialRefreshCharges = charges - 1;
+      ps.dirty();
+      return true;
+    },
     /**
      * Arm one special refresh WITHOUT rolling: the charge waits for the next roll, but the shop draws the
      * refresh button's special state right away (C# ctrl `_specToggle`; the roll marker `isSpecialRecruit`
      * only exists once that roll happens). 佩佩's 博学多通 uses this so 「至2、4和6级后，获得1次特殊刷新」
-     * lights the button on the upgrade itself, not on the next manual refresh.
+     * lights the button on the upgrade itself, not on the next manual refresh. Counted, because the upgrades
+     * can arrive faster than the refreshes (两连升级 with no roll in between = two pending charges).
+     * @returns {number} the charges now pending
      */
-    armSpecialRefresh: () => { ps.shop.specialRefreshArmed = true; ps.dirty(); return true; },
+    armSpecialRefresh: () => {
+      ps.shop.specialRefreshCharges = (Number(ps.shop.specialRefreshCharges) || 0) + 1;
+      ps.dirty();
+      return ps.shop.specialRefreshCharges;
+    },
     /** Resolved sell price of an owned piece (an effect override, else the table). */
     sellPrice: (uid) => {
       const loc = ps.find(uid);

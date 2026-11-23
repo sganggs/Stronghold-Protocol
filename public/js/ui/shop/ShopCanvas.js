@@ -30,6 +30,10 @@ import { shopCardMarks, filterCardMarks } from './marks.js';
 /** Taps inside the shop, its detail panel or a dialog do not disarm (the old ShopBar's useTwoTap rule). */
 const KEEP_ARMED = '[data-shop-webgl], .dpanel, .modal';
 
+/** The chess record resolver the merge hint needs: the merge need (upgradeNum) lives on the record, and the hint
+ * must read the same one as the owned pips (viewOf's card flags use data.lookup('chess', id) too). */
+const lookupChess = (id) => data.lookup('chess', id);
+
 /**
  * Game-data files whose localized or late-arriving copies feed the card model: the record names and bonds,
  * the item icons, the garrison icons/colours, the imported theme group (`local`), and the stand-in / DIY
@@ -348,6 +352,22 @@ export function pauseSpine(host, still) {
  *   onFail?: (err?: any) => void,
  * }} props
  */
+/**
+ * The 卡面标记 switches (设置 → 外观) in the shape `filterCardMarks` reads: each group is on unless the player
+ * switched it off, and 可晋升 / the owned pips both follow `progress`. Pure, so the settings → filter wiring is
+ * testable without a mount.
+ * @param {{ shopMarkSkill?: boolean, shopMarkStandIn?: boolean, shopMarkProgress?: boolean }|null|undefined} settings
+ * @returns {{ skill: boolean, standIn: boolean, progress: boolean }}
+ */
+export function cardMarkSwitches(settings) {
+  const s = settings || {};
+  return {
+    skill: s.shopMarkSkill,
+    standIn: s.shopMarkStandIn,
+    progress: s.shopMarkProgress,
+  };
+}
+
 export function ShopCanvas(props) {
   const hostEl = useRef(null);
   const hostApi = useRef(null);
@@ -369,11 +389,10 @@ export function ShopCanvas(props) {
   // share the progress switch; 替补 and 自选 share the stand-in one.
   const settings = useSettings();
   const marksOnRef = useRef(null);
-  marksOnRef.current = {
-    skill: settings.shopMarkSkill,
-    standIn: settings.shopMarkStandIn,
-    progress: settings.shopMarkProgress,
-  };
+  marksOnRef.current = cardMarkSwitches(settings);
+  // The live push: the data subscription below is created once, so calling a closure captured at mount would push
+  // the mount-time `settings` / `localSkins` snapshot (viewOf reads the fold-reward switch and the owner's outfit).
+  const pushRef = useRef(null);
 
   // The arm timestamp is read, never recomputed: viewOf() must report when the tap happened, otherwise every
   // priv push restarts the confirm strip's clip clock.
@@ -400,13 +419,21 @@ export function ShopCanvas(props) {
     const foldReward = shopFoldReward({ collapsed: !!p.collapsed, phase: p.phase, offer, enabled: settings.shopFoldRewardHint });
     const selectSlot = levelArmedRef.current ? { isUpgrade: true }
       : (a ? { slotId: a.index + 1, isGoods: true } : null);
+    // The server's own row clock; null when this push has none (an older server sends no shop.refreshSeq), so the
+    // host can run its signature-based fallback instead of freezing the sequence at 0 and losing the refresh clip.
+    const serverRefreshSeq = displayPriv && displayPriv.shop ? displayPriv.shop.refreshSeq : null;
     return {
       state: p.collapsed ? 'fold' : 'unfold',
+      // `avalid` is not `editable`: false would switch the chrome to ShopDisplayStatus.DISABLE (state_disable, the
+      // panel folded away), while a non-editable seat keeps the unfolded shop like the DOM bar, which only dims the
+      // cards (`is-locked`). The lock travels as `locked` so the cards, their aria and the taps follow it.
       avalid: true,
+      locked: !p.editable,
       selectSlot,
       armedSlotId: a ? a.index + 1 : null,
       armedAt: a ? armedAtRef.current : 0,
-      refreshSeq: Number(displayPriv && displayPriv.shop && displayPriv.shop.refreshSeq) || 0,
+      refreshSeq: serverRefreshSeq != null && Number.isFinite(Number(serverRefreshSeq))
+        ? Number(serverRefreshSeq) : null,
       cardFlags: shopCardFlagsWithHand(displayPriv, (kind, id) => data.lookup(kind, id), p.config),
       // The project's own marks (替补 / 自选 / owned pips / skill / 可晋升) as a DOM overlay on the card
       // hotspots; the 卡面标记 switches drop them one by one.
@@ -444,6 +471,8 @@ export function ShopCanvas(props) {
       failHost(err);
     }
   };
+  // Re-point the live push at this render's closure (see pushRef above).
+  pushRef.current = pushView;
 
   // A skin selection is card content: repaint the mounted host when it changes (the DOM card follows the
   // same store live). Kept apart from the model push below, which also disarms a stale card.
@@ -539,11 +568,13 @@ export function ShopCanvas(props) {
   }, [props.priv, props.collapsed, props.editable, armed, levelArmed, props.refreshBusy, props.rewardMin, props.phase]);
 
   // A language switch remounts the host (game.js keys it by lang); the data overlays may arrive later, so a
-  // localized copy of the card/bond/item files must also repaint the live host.
+  // localized copy of the card/bond/item files must also repaint the live host. The subscription is created once,
+  // so it goes through pushRef to reach the current render's closure (the mount-time one closed over the
+  // settings / outfit snapshot viewOf reads).
   useEffect(() => {
     const unsubscribe = data.subscribe((name) => {
       if (!LOCALE_FILES.includes(name)) return;
-      pushView();
+      pushRef.current?.();
     });
     return unsubscribe;
   }, []);
@@ -575,7 +606,10 @@ export function ShopCanvas(props) {
 
   function tapCard(index) {
     const p = propsRef.current;
-    if (!p.editable) return;
+    // A shop the player cannot buy from (ROUND_START, 准备 pressed, a pending personal choice) opens the card's
+    // detail on the tap instead, exactly like the DOM bar's disabled ChessCard (shopBar.js: its `tap` falls through
+    // to onDetail when the card has a reason); nothing arms and nothing buys.
+    if (!p.editable) { detailCard(index); return; }
     const slot = shopDisplaySlot(p.priv, index, !!p.rewardMin, p.phase);
     if (!slot || slot.sold) return;
     const kind = slot.kind === 'item' ? 'item' : 'chess';
@@ -599,7 +633,7 @@ export function ShopCanvas(props) {
     armCard({ kind, key, index, id: slot.id, reward: rewardIndex >= 0 });
     pushView();
     p.onArm?.({ kind, id: slot.id });
-    p.onDetail?.(slot.id, kind, kind === 'chess' ? mergeHint(p.priv, slot.id) : null);
+    p.onDetail?.(slot.id, kind, kind === 'chess' ? mergeHint(p.priv, slot.id, lookupChess) : null);
   }
 
   /** Right-click / the host's onCardDetail: open the detail of a live card without arming it (shopBar's
@@ -609,7 +643,7 @@ export function ShopCanvas(props) {
     const slot = shopDisplaySlot(p.priv, index, !!p.rewardMin, p.phase);
     if (!slot || slot.sold) return;
     const kind = slot.kind === 'item' ? 'item' : 'chess';
-    p.onDetail?.(slot.id, kind, kind === 'chess' ? mergeHint(p.priv, slot.id) : null);
+    p.onDetail?.(slot.id, kind, kind === 'chess' ? mergeHint(p.priv, slot.id, lookupChess) : null);
   }
 
   /** A control hotspot click re-checks the reason the view published: the host gates on it too, but a stale

@@ -105,6 +105,14 @@ const COLOR_ATTR = Object.freeze({
   garrisonIconColor1: 'garrison1',
 });
 
+/**
+ * Official colours the canvas shop reads although ui-theme.css has no custom property for them: the card's
+ * garrison mark takes garrisonIconColor2 at tier 5 and garrisonIconColor3 at tier 6 (ui/shop/adapter/model.js
+ * garrisonTintFor). They are accepted and kept in the pack like any other colour, but they paint no CSS
+ * variable, so the import report must not call them unused.
+ */
+const CANVAS_ONLY_COLORS = new Set(['garrisonIconColor2', 'garrisonIconColor3']);
+
 /** Slots our screens actually draw. Order is the official skin_config order, then our two panels. */
 export const WIRED_IMAGE_SLOTS = Object.freeze([
   'hud_player_info', 'game_start', 'help_battle', 'round_start', 'round_result',
@@ -531,7 +539,10 @@ export function assessTheme(input) {
       // Keep every accepted official colour in the pack: the canvas card renderer reads
       // garrisonIconColor2/3 even though ui-theme.css has no custom property for them.
       colors[key] = colour;
-      if (!COLOR_VAR[key]) { unused.colors.push(key); continue; }
+      if (!COLOR_VAR[key]) {
+        if (!CANVAS_ONLY_COLORS.has(key)) unused.colors.push(key);
+        continue;
+      }
       used.colors.push(key);
     }
   }

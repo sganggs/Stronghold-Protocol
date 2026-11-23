@@ -142,11 +142,27 @@ def _read_fonts(game_data):
     return found
 
 
+def _entry(spec):
+    """The manifest record of one pinned face."""
+    return {
+        'path': f'/assets/local/fonts/{spec["file"]}',
+        'bytes': spec['bytes'],
+        'sha256': spec['sha256'],
+        'family': spec['family'],
+        'weight': spec['weight'],
+        'kind': 'Font',
+    }
+
+
 def export_fonts(game_root, out_root, manifest, log=print, only=None):
     """Extract pinned fonts to <out_root>/fonts and add an optional local manifest group.
 
-    Existing files are compared by SHA-256 and left alone when equal.  A byte mismatch is
-    reported and never overwritten.  Returns the number of files written (0 on all skips).
+    The group is assembled face by face over every `FONT_SPECS` row, not only over `only`: a local file whose bytes
+    match the pinned size and SHA-256 is kept and listed even when the source is missing or this run names another
+    face, so a run that lists a subset does not drop the faces an earlier run verified. A local file that differs from
+    the pinned bytes is never overwritten and is removed from the group (the pinned record would be a lie); a pinned
+    face with neither a verified local file nor a usable source is not listed. `only` limits which faces are written.
+    Returns the number of files written (0 on skips).
     """
     game_data = locate_game_data(game_root)
     if game_data is None:
@@ -161,45 +177,47 @@ def export_fonts(game_root, out_root, manifest, log=print, only=None):
     group = {}
     written = 0
     for spec in FONT_SPECS:
-        if spec['name'] not in wanted:
-            continue
+        name = spec['name']
         target = out_dir / spec['file']
-        source = found.get(spec['name'])
         target_sha = ''
         target_bytes = 0
         if target.is_file():
-            target_bytes = target.stat().st_size
-            target_sha = hashlib.sha256(target.read_bytes()).hexdigest()
+            try:
+                target_bytes = target.stat().st_size
+                target_sha = hashlib.sha256(target.read_bytes()).hexdigest()
+            except OSError as exc:  # an unreadable local file cannot be verified: do not list it, do not overwrite it
+                log(f'skip font {name}: local file unreadable ({type(exc).__name__}: {exc})')
+                continue
+        if target.is_file() and target_bytes == spec['bytes'] and target_sha == spec['sha256']:
+            # Byte-for-byte the pinned face: keep it, list it, and do not need the source at all.
+            group[name] = _entry(spec)
+            log(f'keep font {name}: local bytes already match ({target_bytes} B)')
+            continue
+        if target.is_file():
+            # A local copy that differs from the pinned bytes is never overwritten, and is not listed as the pinned
+            # face: the old entry would claim bytes that are not on disk.
+            log(f'conflict font {name}: local {target_bytes} B {target_sha[:12]} != pinned; not overwritten')
+            continue
+        if name not in wanted:
+            # Not attempted this run (`only` names other faces) and no local file is left to serve: not listed.
+            continue
+        source = found.get(name)
         if source is None:
-            # Missing source: never guess, never touch an existing local file.
-            log(f'skip font {spec["name"]}: source not found; no write, caller falls back')
+            # Missing source and no local file: nothing to keep, never guess.
+            log(f'skip font {name}: source not found; no write, caller falls back')
             continue
         raw, src_file, path_id = source
         if not _sfnt_ok(raw):
-            log(f'skip font {spec["name"]}: source is not sfnt ({src_file}/{path_id}, {len(raw)} B)')
+            log(f'skip font {name}: source is not sfnt ({src_file}/{path_id}, {len(raw)} B)')
             continue
         source_sha = hashlib.sha256(raw).hexdigest()
         if len(raw) != spec['bytes'] or source_sha != spec['sha256']:
-            log(f'conflict font {spec["name"]}: source {len(raw)} B {source_sha[:12]} != pinned')
+            log(f'conflict font {name}: source {len(raw)} B {source_sha[:12]} != pinned')
             continue
-        if target.is_file():
-            if target_bytes == spec['bytes'] and target_sha == spec['sha256']:
-                log(f'keep font {spec["name"]}: local bytes already match ({target_bytes} B)')
-            else:
-                log(f'conflict font {spec["name"]}: local {target_bytes} B {target_sha[:12]} != pinned; not overwritten')
-                continue
-        else:
-            target.write_bytes(raw)
-            written += 1
-            log(f'write font {spec["name"]}: {target} ({len(raw)} B)')
-        group[spec['name']] = {
-            'path': f'/assets/local/fonts/{spec["file"]}',
-            'bytes': spec['bytes'],
-            'sha256': spec['sha256'],
-            'family': spec['family'],
-            'weight': spec['weight'],
-            'kind': 'Font',
-        }
+        target.write_bytes(raw)
+        written += 1
+        group[name] = _entry(spec)
+        log(f'write font {name}: {target} ({len(raw)} B)')
     if group:
-        manifest.setdefault('fonts', {}).update(group)
+        manifest[SUB] = group
     return written

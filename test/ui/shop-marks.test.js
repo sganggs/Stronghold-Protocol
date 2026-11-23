@@ -9,21 +9,23 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { stubFetch } from '../helpers/fetchStub.js';
+
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-globalThis.fetch = async (url) => {
+// data.loadAll fetches /data/<name>.json: serve it from disk (the shared stub the other data tests use).
+stubFetch((url) => {
   const name = String(url).split('/').pop();
   try {
-    const body = readFileSync(path.join(ROOT, 'data', name), 'utf8');
-    return { ok: true, status: 200, json: async () => JSON.parse(body) };
+    return JSON.parse(readFileSync(path.join(ROOT, 'data', name), 'utf8'));
   } catch {
-    return { ok: false, status: 404, json: async () => ({}) };
+    return null;
   }
-};
+});
 
 const { data } = await import('../../public/js/data.js');
 const { DATA } = await import('../match/harness.js');
 await data.loadAll('chess', 'bonds', 'assets', 'garrisons', 'items', 'backups');
-const { cardMarkModel, filterCardMarks } = await import('../../public/js/ui/shop/marks.js');
+const { cardMarkModel, filterCardMarks, cardMarkElements } = await import('../../public/js/ui/shop/marks.js');
 const { mergeProgress } = await import('../../public/js/ui/gameLogic.js');
 const { DEFAULT_SETTINGS, sanitizeSettings } = await import('../../public/js/ui/gameLogic/settings.js');
 const { t } = await import('../../shared/i18n.js');
@@ -90,6 +92,20 @@ test('a merge-completing operator shows 可晋升 with the hint as its tooltip',
   assert.equal(marks.pips.copies, need - 1);
 });
 
+test('风丸 (upgradeNum 2) shows 可晋升 at one owned copy: the hint reads the same resolver as the pips', () => {
+  // The merge need lives on the chess record (upgradeNum). mergeHint without the resolver falls back to three
+  // copies, so a two-copy operator showed the pips at 1/2 with no 可晋升 mark at the one copy that completes it.
+  const KAZE = 'chess_char_2_11_a';
+  assert.equal(data.lookup('chess', KAZE).upgradeNum, 2, 'the data still needs two copies');
+  const p = priv({ board: [{ kind: 'chess', id: KAZE, uid: 1 }] });
+  const marks = cardMarkModel(p, slot(KAZE));
+  assert.equal(marks.pips.copies, 1);
+  assert.equal(marks.pips.need, 2);
+  assert.ok(marks.merge, 'one more copy completes the merge');
+  assert.equal(marks.merge.label, t('可晋升'));
+  assert.ok(marks.merge.title, 'the merge hint is the tooltip');
+});
+
 test('item, sold and empty slots carry no marks', () => {
   for (const s of [null, slot(ANY, { sold: true }), { kind: 'item', id: 'chess_item_1_01_e_a', price: 1, sold: false }]) {
     assert.deepEqual(cardMarkModel(priv(), s), { skill: null, pips: null, standIn: null, diy: null, merge: null });
@@ -130,4 +146,34 @@ test('the 卡面标记 switches default on and only an explicit false turns one 
     for (const junk of ['false', 0, null, 1]) assert.equal(sanitizeSettings({ ...DEFAULT_SETTINGS, [key]: junk })[key], true, `${key} ${JSON.stringify(junk)}`);
   }
   assert.equal(Object.hasOwn(DEFAULT_SETTINGS, 'shopMarkPromotable'), false, '可晋升 shares the progress switch');
+});
+
+test('the overlay elements keep the draw order, classes, tooltips and the pip/icon facts', () => {
+  // host.js syncCardMarks builds the DOM from these descriptors, so this is the overlay's paint contract.
+  const marks = {
+    standIn: { label: '替补', title: '银灰的替补', aria: '…' },
+    diy: null,
+    merge: { label: '可晋升', title: '精锐干员将出现在…', aria: '…' },
+    pips: { need: 3, copies: 1, title: '已拥有 1/3', aria: '…' },
+    skill: { slot: 'S2', custom: true, file: null, title: '技能：X', aria: '…' },
+  };
+  const els = cardMarkElements(marks);
+  assert.deepEqual(els.map((el) => el.cls),
+    ['shop-mark--standin', 'shop-mark--merge', 'shop-mark--pips', 'shop-mark--skill'],
+    'stand-in, DIY, 可晋升, pips, skill — the overlay order');
+  assert.equal(els[0].text, '替补');
+  assert.equal(els[0].title, '银灰的替补');
+  assert.equal(els[1].text, '可晋升');
+  assert.deepEqual(els[2].pips, [true, false, false], 'owned copies are the filled pips');
+  assert.equal(els[2].text, '', 'the pips span carries no text');
+  assert.equal(els[3].glyph, 'S2', 'a sprite-less skill draws its S-number');
+  assert.equal(els[3].image, null);
+  assert.equal(els[3].custom, true, 'a non-default skill keeps the is-custom class');
+  const fileSkill = cardMarkElements({ skill: { file: '/assets/skill.png', slot: 'S2' } })[0];
+  assert.equal(fileSkill.image, '/assets/skill.png');
+  assert.equal(fileSkill.glyph, null, 'a sprite wins over the S-number');
+  assert.equal(cardMarkElements({ pips: { need: 0, copies: 0 } })[0].pips.length, 0);
+  assert.deepEqual(cardMarkElements(null), []);
+  assert.deepEqual(cardMarkElements({ skill: null, pips: null, standIn: null, diy: null, merge: null }), [],
+    'an all-off model draws nothing');
 });

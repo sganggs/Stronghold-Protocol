@@ -45,7 +45,9 @@ export function cardMarkModel(priv, slot, o = {}) {
       effects: o.effects !== undefined ? o.effects : data.get('effects'),
     });
   const progress = mergeProgress(priv, slot.id, lookups.getChess);
-  const hint = mergeHint(priv, slot.id);
+  // The same resolver as the pips: with the default (no lookup) the need falls back to three copies, so 风丸
+  // (upgradeNum 2) would show "1/2" without its 可晋升 mark at one owned copy.
+  const hint = mergeHint(priv, slot.id, lookups.getChess);
   const mod = lo && lo.module && !lo.module.none ? lo.module : null;
   // The canvas skill mark is the sprite box only: the DOM SkillBadge's module chip (`.scard__mod`) stays in the
   // tooltip here — the owner's PSD reserves the box for the skill icon, and the module is not in the requested
@@ -121,4 +123,40 @@ export function filterCardMarks(marks, switches) {
     merge: on.progress === false ? null : marks.merge,
   };
   return out.skill || out.standIn || out.diy || out.pips || out.merge ? out : null;
+}
+
+/**
+ * The mark overlay's spans as plain data (host.js syncCardMarks builds the DOM from this, so the paint order,
+ * classes and tooltips are testable without a browser). One entry per drawn mark, in draw order; `title` is the
+ * tooltip (`null` = none). The card hotspot's accessible name is host.js cardAriaLabel, built from the same
+ * model's `aria` fields.
+ * @param {any} marks cardMarkModel output, already filtered by the 卡面标记 switches
+ * @returns {{ cls: string, text: string, title: string|null, pips?: boolean[],
+ *   custom?: boolean, image?: string|null, glyph?: string|null }[]}
+ */
+export function cardMarkElements(marks) {
+  if (!marks) return [];
+  const out = [];
+  if (marks.standIn) out.push({ cls: 'shop-mark--standin', text: marks.standIn.label || '', title: marks.standIn.title || null });
+  if (marks.diy) out.push({ cls: 'shop-mark--diy', text: marks.diy.label || '', title: marks.diy.title || null });
+  if (marks.merge) out.push({ cls: 'shop-mark--merge', text: marks.merge.label || '', title: marks.merge.title || null });
+  if (marks.pips) {
+    out.push({
+      cls: 'shop-mark--pips',
+      text: '',
+      title: marks.pips.title || null,
+      pips: Array.from({ length: Math.max(0, Math.ceil(Number(marks.pips.need) || 0)) }, (_, i) => i < (Number(marks.pips.copies) || 0)),
+    });
+  }
+  if (marks.skill) {
+    out.push({
+      cls: 'shop-mark--skill',
+      text: '',
+      title: marks.skill.title || null,
+      custom: !!marks.skill.custom,
+      image: marks.skill.file || null,
+      glyph: marks.skill.file ? null : (marks.skill.slot || null),
+    });
+  }
+  return out;
 }

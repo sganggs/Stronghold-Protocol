@@ -210,7 +210,7 @@ function round(v) {
   return Math.round(Number(v) * 1000) / 1000;
 }
 
-function ctrlKey(model) {
+export function ctrlKey(model) {
   // foldReward belongs to the ctrl panel too: without it a folded shop whose reminder turns on (or off)
   // matched the previous key, so the ctrl never re-rendered and the folded pill stayed inactive.
   return `${model && model.refreshBlocked ? 1 : 0}|${model && model.freezeBlocked ? 1 : 0}|${model && model.foldReward ? 1 : 0}|${JSON.stringify(model && model.reward || null)}`;
@@ -235,6 +235,8 @@ function renderKey(model) {
   return [
     model.avalid ? 1 : 0,
     model.unfold ? 1 : 0,
+    // A locked seat paints the unbuyable matte on every card: re-render the row when it flips.
+    model.locked ? 1 : 0,
     model.coinCount,
     model.level,
     model.maxLevel,

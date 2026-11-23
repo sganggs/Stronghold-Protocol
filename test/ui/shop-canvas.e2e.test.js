@@ -13,8 +13,6 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync, mkdirSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import puppeteer from 'puppeteer-core';
-import { startServer } from '../../server/index.js';
 
 const CANDIDATES = [
   process.env.CHROME_PATH,
@@ -86,6 +84,12 @@ test('canvas shop: hotspots on top, fold state, accessibility and context loss a
   skip: !ENABLED && 'set SP_E2E=1, have Chrome and a local ac_s_closur extraction (shop/card/prefabs.json)',
   timeout: 180000,
 }, async () => {
+  // Loaded only when the suite actually runs (SP_E2E=1 + Chrome + the local extraction). A skipped file would
+  // otherwise import puppeteer-core and the whole server on every `node --test` run; the assertions are unchanged.
+  const [{ default: puppeteer }, { startServer }] = await Promise.all([
+    import('puppeteer-core'),
+    import('../../server/index.js'),
+  ]);
   const server = await startServer({ port: 0, host: '127.0.0.1', quiet: true, workers: 0, assetIndex: false });
   const browser = await puppeteer.launch({
     executablePath: CHROME,

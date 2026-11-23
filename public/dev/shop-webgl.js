@@ -297,13 +297,26 @@ function onLevelUp() {
   sync();
 }
 
-stateSel.addEventListener('change', () => apply(stateSel.value));
-levelSel.addEventListener('change', () => { mock.shop.level = Number(levelSel.value) || 1; mock.shop.upgradePrice = mock.shop.level >= 6 ? 0 : UPGRADE_PRICE; sync(); });
-coinIn.addEventListener('change', () => { mock.funds = Math.max(0, Number(coinIn.value) || 0); sync(); });
-for (const el of [stillIn, particlesIn]) el.addEventListener('change', () => remount());
-spineSel.addEventListener('change', () => remount());
-dprSel.addEventListener('change', () => { host.resize(); render(); });
-remountBtn.addEventListener('click', () => remount());
+/** A control that talks to the mounted host is meaningless without one (after the debug surface's dispose()): do
+ * nothing rather than throw on `null`, which the page's own error listener would record as a failure. */
+const guard = (fn) => (...args) => { if (!host) return undefined; return fn(...args); };
+
+stateSel.addEventListener('change', guard(() => apply(stateSel.value)));
+levelSel.addEventListener('change', guard(() => { mock.shop.level = Number(levelSel.value) || 1; mock.shop.upgradePrice = mock.shop.level >= 6 ? 0 : UPGRADE_PRICE; sync(); }));
+coinIn.addEventListener('change', guard(() => { mock.funds = Math.max(0, Number(coinIn.value) || 0); sync(); }));
+dprSel.addEventListener('change', guard(() => { host.resize(); render(); }));
+
+/** Dispose + mount again. Not guarded: remount() tolerates a null host, and these controls are also the way back
+ * from a failed mount. A throw is recorded and shown, never left as an unhandled rejection. */
+function retry() {
+  remount().catch((err) => {
+    recordError(err);
+    statusEl.textContent = `failed: ${(err && err.message) || err}`;
+  });
+}
+for (const el of [stillIn, particlesIn]) el.addEventListener('change', retry);
+spineSel.addEventListener('change', retry);
+remountBtn.addEventListener('click', retry);
 
 async function remount() {
   if (host) { host.dispose(); host = null; }
@@ -320,7 +333,12 @@ window.__shopWebglDebug = {
   meta: null,
   metrics: () => (host ? host.metrics() : null),
   setState: (name) => apply(name),
-  dispose: () => { if (host) host.dispose(); host = null; },
+  dispose: () => {
+    if (host) host.dispose();
+    host = null;
+    // The debug surface must not keep a disposed handle: `metrics()` guards, `.host` did not.
+    if (window.__shopWebglDebug) window.__shopWebglDebug.host = null;
+  },
 };
 
 (async () => {

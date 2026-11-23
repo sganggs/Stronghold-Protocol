@@ -78,7 +78,7 @@ elif scenario == 'conflict':
     fonts._read_fonts = source(DATA)
 elif scenario == 'missing':
     fonts._read_fonts = lambda game_data: {}
-elif scenario not in ('full-run', 'full-fonts', 'font-exit', 'hot-update', 'shopdocs', 'theme-files', 'card-shaders', 'bundles'):
+elif scenario not in ('full-run', 'full-fonts', 'font-exit', 'hot-update', 'shopdocs', 'theme-files', 'card-shaders', 'bundles', 'font-faces', 'font-face-exit'):
     raise SystemExit('unknown scenario ' + scenario)
 
 if scenario == 'full-run':
@@ -367,6 +367,78 @@ elif scenario == 'bundles':
     out['gameData'] = [path_ids.game_data(data) == data, path_ids.game_data(ab) == ab]
     out['tmp'] = str(root)
     result = out
+elif scenario == 'font-faces':
+    # Two pinned faces: --only limits which face is written, but the group is assembled over every FONT_SPECS row:
+    # a local file matching the pinned bytes is kept and listed even when its source is gone, a conflicting local
+    # file is never overwritten and never listed, and no listed face means no fonts group at all.
+    DATA2 = payload(9)
+    def spec_of(name, data):
+        return {'name': name, 'file': name + '.ttf', 'ext': 'ttf', 'family': name, 'weight': 400,
+                'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()}
+    ONE = spec_of('FakeFont-One', DATA)
+    TWO = spec_of('FakeFont-Two', DATA2)
+    fonts.FONT_SPECS = (ONE, TWO)
+    fonts.locate_game_data = lambda raw: game
+    def run(name, only, sources, local=None):
+        sub = work / name
+        sub.mkdir(parents=True, exist_ok=True)
+        m, lg = {}, []
+        for fname, data in (local or {}).items():
+            target = sub / 'fonts' / fname
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+        fonts._read_fonts = lambda gd: dict(sources)
+        n = fonts.export_fonts(str(game), str(sub), m, lg.append, only=only)
+        hashes = {}
+        if (sub / 'fonts').is_dir():
+            for p in sorted((sub / 'fonts').iterdir()):
+                hashes[p.name] = hashlib.sha256(p.read_bytes()).hexdigest()
+        return {'written': n, 'group': sorted(m.get('fonts') or {}), 'hashes': hashes, 'logs': lg}
+    result = {
+        'one_only': run('one', ['FakeFont-One'], {'FakeFont-One': (DATA, 'Arknights_Data/sharedassets1.assets', 1)}),
+        'local_two': run('two', ['FakeFont-One'], {}, {'FakeFont-Two.ttf': DATA2}),
+        'conflict_two': run('three', ['FakeFont-One'], {}, {'FakeFont-Two.ttf': payload(3)}),
+        'nothing': run('four', ['FakeFont-One'], {}, None),
+        'all': run('five', None, {'FakeFont-One': (DATA, 'x', 1), 'FakeFont-Two': (DATA2, 'x', 2)}, None),
+        'conflict_sha': hashlib.sha256(payload(3)).hexdigest(),
+        'two_sha': TWO['sha256'],
+    }
+elif scenario == 'font-face-exit':
+    # --only font/<face> and fonts/<face> (the alias) select that face only, and an unknown face is exit 2 with
+    # the pinned names in the message instead of silently running every face.
+    import argparse, contextlib, importlib.util, io
+    spec = importlib.util.spec_from_file_location('extract', str(tool / 'extract.py'))
+    extract = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(extract)
+    TWO = {'name': 'FakeFont-Two', 'file': 'FakeFont-Two.ttf', 'ext': 'ttf', 'family': 'FakeFont-Two',
+           'weight': 400, 'bytes': 64, 'sha256': 'unused'}
+    extract.fonts.FONT_SPECS = (SPEC, TWO)
+    game2 = work / 'client' / 'Arknights_Data'
+    game2.mkdir(parents=True)
+    extract.fonts.locate_game_data = lambda raw: game2
+    extract.fonts._read_fonts = lambda gd: {'FakeFont-One': (DATA, 'x', 1)}
+    def make_args(only):
+        return argparse.Namespace(only=only, themes=[], out=str(work / 'out'), manifest=str(work / 'manifest.json'),
+                                  plugin_root='.', plugin_art=False, scenes=[], fx_set='sample', fx_keys='',
+                                  fx_jobs=0, fx_add_only=False, fx_texture_format='webp', game=None)
+    def run(only):
+        err, out = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stderr(err), contextlib.redirect_stdout(out):
+            code = extract.extract(make_args(only), str(work / 'fake-ab'), None, game2)
+        return code, err.getvalue(), out.getvalue()
+    results = {'faces': {
+        'alias_font': extract.font_faces(['font/FakeFont-One']),
+        'alias_fonts': extract.font_faces(['fonts/FakeFont-Two']),
+        'job_only': extract.font_faces(['font']),
+        'other': extract.font_faces(['common']),
+        'unknown': extract.unknown_font_faces(['NoSuchFace']),
+    }}
+    for key, only in (('one', ['font/FakeFont-One']), ('unknown', ['font/NoSuchFace']), ('alias', ['fonts/FakeFont-One'])):
+        code, err, out = run(only)
+        results[key] = {'code': code, 'stderr': err, 'stdout': out}
+    manifest = json.loads((work / 'manifest.json').read_text(encoding='utf-8')) if (work / 'manifest.json').exists() else {}
+    results['manifest_fonts'] = sorted(manifest.get('groups', {}).get('fonts') or {})
+    result = results
 else:
     manifest = {}
     written = fonts.export_fonts(str(game), str(out), manifest, log)
@@ -447,6 +519,43 @@ test('--only font exits non-zero only when nothing was written or listed', { ski
   assert.match(result.errs.no_game, /skip fonts: no Arknights_Data directory/);
   assert.match(result.errs.nothing, /warn fonts: none of the pinned official faces was listed/);
   assert.match(result.errs.nothing, /nothing was extracted/);
+});
+
+test('fonts: --only font/<face> writes that face only; the group keeps every locally verified face', { skip: !PY && 'no python' }, () => {
+  const result = runDriver('font-faces');
+  assert.deepEqual(result.one_only.group, ['FakeFont-One'], 'only the named face is listed');
+  assert.equal(result.one_only.written, 1);
+  assert.deepEqual(Object.keys(result.one_only.hashes), ['FakeFont-One.ttf']);
+  // A local file whose bytes match the pinned record is kept and listed even though its source is gone and this
+  // run named another face: the group is assembled over every pinned face, not rebuilt from `only`.
+  assert.equal(result.local_two.written, 0);
+  assert.deepEqual(result.local_two.group, ['FakeFont-Two']);
+  assert.equal(result.local_two.hashes['FakeFont-Two.ttf'], result.two_sha);
+  // A local file that differs is never overwritten and never listed as the pinned face.
+  assert.deepEqual(result.conflict_two.group, []);
+  assert.equal(result.conflict_two.written, 0);
+  assert.equal(result.conflict_two.hashes['FakeFont-Two.ttf'], result.conflict_sha, 'the conflicting bytes stay on disk');
+  assert.ok(result.conflict_two.logs.some((line) => line.startsWith('conflict font FakeFont-Two:') && line.includes('not overwritten')));
+  // No face listed at all: no empty `fonts` group (the caller keeps the local font fallback).
+  assert.deepEqual(result.nothing.group, []);
+  assert.ok(result.nothing.logs.some((line) => line === 'skip font FakeFont-One: source not found; no write, caller falls back'));
+  // Without `only`, every pinned face with a source is written and listed.
+  assert.equal(result.all.written, 2);
+  assert.deepEqual(result.all.group, ['FakeFont-One', 'FakeFont-Two']);
+});
+
+test('--only font/<face> selects that face; an unknown face exits 2 naming the pinned faces', { skip: !PY && 'no python' }, () => {
+  const result = runDriver('font-face-exit');
+  assert.deepEqual(result.faces.alias_font, ['FakeFont-One'], 'font/<face> normalises to the fonts group');
+  assert.deepEqual(result.faces.alias_fonts, ['FakeFont-Two']);
+  assert.deepEqual(result.faces.job_only, [], 'the job alone selects every face');
+  assert.deepEqual(result.faces.other, [], 'an unrelated --only names no face');
+  assert.deepEqual(result.faces.unknown, ['NoSuchFace']);
+  assert.equal(result.one.code, 0);
+  assert.equal(result.alias.code, 0, 'the fonts/<face> alias works the same');
+  assert.equal(result.unknown.code, 2);
+  assert.match(result.unknown.stderr, /--only font: no pinned face named NoSuchFace \(pinned: FakeFont-One, FakeFont-Two\)/);
+  assert.deepEqual(result.manifest_fonts, ['FakeFont-One'], 'the run lists the face it extracted');
 });
 
 test('a plain extract treats fonts as optional: a missing install, face or pinned bytes warns and exits 0', { skip: !PY && 'no python' }, () => {

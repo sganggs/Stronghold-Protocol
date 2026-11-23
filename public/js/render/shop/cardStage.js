@@ -153,27 +153,43 @@ export function fontMetrics(family, fontPx, measure) {
   return { ascent, descent: -descent, lineHeight: ascent + descent, padding: 0 };
 }
 
-export function sliceQuads(slice, x, y, w, h, unitPx) {
+// Nine-slice borders -> one quad per non-degenerate cell. `out` is optional and reused when given: the stage
+// draws a sliced node on every paint (3 per card), so the quad objects and the cell arrays are reused instead
+// of re-allocated. Every call is synchronous and the caller consumes the array before the next call.
+const SLICE_US = [0, 0, 0, 0];
+const SLICE_VS = [0, 0, 0, 0];
+const SLICE_XS = [0, 0, 0, 0];
+const SLICE_YS = [0, 0, 0, 0];
+
+export function sliceQuads(slice, x, y, w, h, unitPx, out = null) {
   const sw = Number(slice && slice.spriteW);
   const sh = Number(slice && slice.spriteH);
   if (!(sw > 0) || !(sh > 0)) return null;
-  const src = { top: Number(slice.top) || 0, right: Number(slice.right) || 0, bottom: Number(slice.bottom) || 0, left: Number(slice.left) || 0 };
-  if (!(src.top || src.right || src.bottom || src.left)) return null;
+  const srcTop = Number(slice.top) || 0;
+  const srcRight = Number(slice.right) || 0;
+  const srcBottom = Number(slice.bottom) || 0;
+  const srcLeft = Number(slice.left) || 0;
+  if (!(srcTop || srcRight || srcBottom || srcLeft)) return null;
 
-  let top = src.top * unitPx;
-  let bottom = src.bottom * unitPx;
-  let left = src.left * unitPx;
-  let right = src.right * unitPx;
+  let top = srcTop * unitPx;
+  let bottom = srcBottom * unitPx;
+  let left = srcLeft * unitPx;
+  let right = srcRight * unitPx;
   if (top + bottom > h) { const k = h / (top + bottom); top *= k; bottom *= k; }
   if (left + right > w) { const k = w / (left + right); left *= k; right *= k; }
-  const us = [0, src.left / sw, 1 - src.right / sw, 1];
-  const vs = [0, src.top / sh, 1 - src.bottom / sh, 1];
-  const xs = [x, x + left, x + w - right, x + w];
-  const ys = [y, y + top, y + h - bottom, y + h];
-  const out = [];
+  const us = SLICE_US;
+  const vs = SLICE_VS;
+  const xs = SLICE_XS;
+  const ys = SLICE_YS;
+  us[0] = 0; us[1] = srcLeft / sw; us[2] = 1 - srcRight / sw; us[3] = 1;
+  vs[0] = 0; vs[1] = srcTop / sh; vs[2] = 1 - srcBottom / sh; vs[3] = 1;
+  xs[0] = x; xs[1] = x + left; xs[2] = x + w - right; xs[3] = x + w;
+  ys[0] = y; ys[1] = y + top; ys[2] = y + h - bottom; ys[3] = y + h;
+  const quads = out || [];
+  let count = 0;
 
-  const zeroCenter = Math.abs(sw - src.left - src.right) <= 1e-6
-    || Math.abs(sh - src.top - src.bottom) <= 1e-6;
+  const zeroCenter = Math.abs(sw - srcLeft - srcRight) <= 1e-6
+    || Math.abs(sh - srcTop - srcBottom) <= 1e-6;
   for (let j = 0; j < 3; j += 1) {
     const sw2 = xs[j + 1] - xs[j];
     const duRaw = us[j + 1] - us[j];
@@ -186,10 +202,20 @@ export function sliceQuads(slice, x, y, w, h, unitPx) {
       if (!(sh2 > 1e-4) || (!fillV && !(dvRaw > 1e-6))) continue;
       const u0 = fillU ? us[1] : us[j];
       const v0 = fillV ? vs[1] : vs[i];
-      out.push({ x: xs[j], y: ys[i], w: sw2, h: sh2, u0, v0, du: fillU ? 0 : duRaw, dv: fillV ? 0 : dvRaw });
+      const quad = quads[count] || (quads[count] = { x: 0, y: 0, w: 0, h: 0, u0: 0, v0: 0, du: 0, dv: 0 });
+      quad.x = xs[j];
+      quad.y = ys[i];
+      quad.w = sw2;
+      quad.h = sh2;
+      quad.u0 = u0;
+      quad.v0 = v0;
+      quad.du = fillU ? 0 : duRaw;
+      quad.dv = fillV ? 0 : dvRaw;
+      count += 1;
     }
   }
-  return out;
+  quads.length = count;
+  return quads;
 }
 
 const rgba = (hex, fallback = [1, 1, 1, 1]) => {
@@ -225,9 +251,19 @@ export function create(canvas, card, view, options = {}) {
   // nothing (-3.4 %, inside the noise), and the per-frame PWebGL::Msg_ReadPixels in that profile comes from the
   // spine canvas uploaded as a texture (drawExternalQuad), not from this flag. high-performance matches the 3D
   // board's context.
+  //
+  // premultipliedAlpha stays at the default `true`, because that is what the blends actually produce: the
+  // fragment shader writes straight alpha (`outColor = vec4(rgb, alpha)`) and every blend in this file is
+  // SRC_ALPHA/ONE_MINUS_SRC_ALPHA (or SRC_ALPHA/ONE for the additive materials, and ONE/ONE_MINUS_SRC_ALPHA for
+  // the premultiplied spine canvas), so a cleared buffer accumulates premultiplied colour. Declaring `false`
+  // would tell the compositor to multiply RGB by alpha a second time, so every 0 < alpha < 1 pixel (glyph
+  // antialiasing, dissolve, glows) would composite as rgb * alpha^2. The pixel delta of that has not been
+  // measured - the shop suite asserts geometry and state, never pixel diffs - so the flag follows the blend
+  // equations rather than a comparison.
   const gl = canvas.getContext('webgl2', {
-    premultipliedAlpha: false, alpha: true, stencil: true, powerPreference: 'high-performance',
+    premultipliedAlpha: true, alpha: true, stencil: true, powerPreference: 'high-performance',
   });
+  // No context object exists here, so there is nothing to release and no listener was registered yet.
   if (!gl) { reportError('no webgl2'); return null; }
   // The stage owns every GL object it creates, so it has to survive both a failed compile/link and a lost
   // context: a half-linked program must be deleted before returning null, and every later call runs on a
@@ -246,7 +282,10 @@ export function create(canvas, card, view, options = {}) {
   let externalSkipped = 0;
   const forgetExternalUpload = () => { externalUploaded = null; };
   const onContextLost = () => { lost = true; forgetExternalUpload(); };
-  if (canvas && typeof canvas.addEventListener === 'function') canvas.addEventListener('webglcontextlost', onContextLost);
+  // Both ends of the listener are required for the release below to be able to drop it again.
+  const listensForLoss = !!(canvas && typeof canvas.addEventListener === 'function'
+    && typeof canvas.removeEventListener === 'function');
+  if (listensForLoss) canvas.addEventListener('webglcontextlost', onContextLost);
   let program = null;
   const shaders = [];
   const discardProgram = () => {
@@ -256,6 +295,25 @@ export function create(canvas, card, view, options = {}) {
     }
     shaders.length = 0;
     if (program) { gl.deleteProgram(program); program = null; }
+  };
+  // The single tail of every give-up path: drop the program, drop the listener, hand the context back. A
+  // failed create() used to return null with both still in place - the canvas kept a live context and a
+  // listener on an abandoned closure, and the host builds a fresh canvas per mount, so those contexts piled up
+  // against the browser's per-page limit. Idempotent, and destroy() runs this same tail after its deletes.
+  let released = false;
+  const release = () => {
+    if (released) return;
+    released = true;
+    discardProgram();
+    if (listensForLoss) canvas.removeEventListener('webglcontextlost', onContextLost);
+    if (loseContextExt && typeof loseContextExt.loseContext === 'function') {
+      try { loseContextExt.loseContext(); } catch { /* the context is already gone */ }
+    }
+  };
+  const fail = (message) => {
+    if (message) reportError(message);
+    release();
+    return null;
   };
   try {
     const vs = compile(gl, gl.VERTEX_SHADER, VERT);
@@ -267,14 +325,10 @@ export function create(canvas, card, view, options = {}) {
     gl.attachShader(program, fs);
     gl.linkProgram(program);
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-      reportError(gl.getProgramInfoLog(program) || 'link failed');
-      discardProgram();
-      return null;
+      return fail(gl.getProgramInfoLog(program) || 'link failed');
     }
   } catch (err) {
-    discardProgram();
-    reportError(String(err && err.message ? err.message : err));
-    return null;
+    return fail(String(err && err.message ? err.message : err));
   }
   // A linked program keeps working after its shader objects are detached and deleted.
   for (const sh of shaders) { gl.detachShader(program, sh); gl.deleteShader(sh); }
@@ -315,10 +369,11 @@ export function create(canvas, card, view, options = {}) {
 
   // Sampling state of one texture record. The theme documents carry Unity's TextureSettings on every texture
   // record -- `wrapU`/`wrapV` (0=Repeat, 1=Clamp, 2=Mirror, 3=MirrorOnce) and `filter` (m_FilterMode: 0=Point,
-  // 1=Bilinear, 2=Trilinear) -- and the official shaders only ever declare `dcl_sampler sN, mode_default`, so the
-  // wrap is the texture's alone (docs/TEXTURE-WRAP-EXTRACT.md §7). A record without the fields (a plain URL from
-  // the particle renderer, an image the content filler injected, a soft mask) keeps the fixed CLAMP_TO_EDGE/LINEAR
-  // this stage used before the data existed: a missing field means "not read", not Clamp and not Repeat.
+  // 1=Bilinear, 2=Trilinear). The official shader bytecode only ever declares `dcl_sampler sN, mode_default`,
+  // i.e. the sampler state comes from the Texture2D and not from the shader, so the wrap is the texture's
+  // alone. A record without the fields (a plain URL from the particle renderer, an image the content filler
+  // injected, a soft mask) keeps the fixed CLAMP_TO_EDGE/LINEAR this stage used before the data existed: a
+  // missing field means "not read", not Clamp and not Repeat.
   const wrapParam = (value) => {
     if (value == null) return gl.CLAMP_TO_EDGE;
     const mode = Number(value);
@@ -344,11 +399,12 @@ export function create(canvas, card, view, options = {}) {
     };
   };
   // The cache key used to be the resolved URL alone, which stops being enough once wrap/filter are per record:
-  // the same file can be named by two records with different sampling (two Texture2D objects extracted to one
-  // .webp -- TEXTURE-WRAP-EXTRACT.md §3; or one sprite used both as an Image and as a material slot), and the
-  // first upload would then fix the state for every later user of that URL. The sampling is folded into the key
-  // only when it leaves the fixed default, so a record without the data keeps the bare URL as its key and
-  // `textures.get(url)` (cardWebgl.texture, the pending-texture report, the particle callers) still resolves.
+  // the same file can be named by two records with different sampling (two Texture2D objects with different
+  // TextureSettings can be extracted to one .webp; or one sprite is used both as an Image and as a material
+  // slot), and the first upload would then fix the state for every later user of that URL. The sampling is
+  // folded into the key only when it leaves the fixed default, so a record without the data keeps the bare URL
+  // as its key and `textures.get(url)` (cardWebgl.texture, the pending-texture report, the particle callers)
+  // still resolves.
   const cacheKey = (resolved, sampling) => {
     const parts = [];
     if (sampling.wrapS !== gl.CLAMP_TO_EDGE) parts.push(`ws${sampling.wrapS}`);
@@ -358,6 +414,9 @@ export function create(canvas, card, view, options = {}) {
     return parts.length ? `${resolved}|${parts.join(',')}` : resolved;
   };
 
+  // The largest texture the driver accepts: textTexture truncates glyph canvases to it, and loadTexture refuses
+  // a larger image instead of letting texImage2D fail with INVALID_VALUE and keeping a 1x1 placeholder.
+  const maxTextureSize = Math.max(1, Number(gl.getParameter(gl.MAX_TEXTURE_SIZE)) || 4096);
   const resolveUrl = typeof options.resolveUrl === 'function' ? options.resolveUrl : (file) => file;
   // `record` is the texture record the caller drew from (a material's `textures[*]` slot, a node's `image`); it
   // is optional so the particle renderer and the plain-URL callers keep working unchanged.
@@ -370,7 +429,7 @@ export function create(canvas, card, view, options = {}) {
     if (textures.has(key)) return textures.get(key);
     const tex = gl.createTexture();
     const entry = {
-      tex, ready: false, url: resolved, wrapS: sampling.wrapS, wrapT: sampling.wrapT, minFilter: sampling.min, magFilter: sampling.mag,
+      tex, ready: false, failed: false, url: resolved, wrapS: sampling.wrapS, wrapT: sampling.wrapT, minFilter: sampling.min, magFilter: sampling.mag,
     };
     textures.set(key, entry);
     gl.bindTexture(gl.TEXTURE_2D, tex);
@@ -383,9 +442,30 @@ export function create(canvas, card, view, options = {}) {
     image.onload = () => {
       // The stage may have been destroyed (or lost its context) while the image was in flight.
       if (destroyed || lost) return;
-      gl.bindTexture(gl.TEXTURE_2D, tex);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-      entry.ready = true;
+      // A texture above GL_MAX_TEXTURE_SIZE would fail with INVALID_VALUE and leave the transparent
+      // placeholder, so report it instead of claiming the entry is ready (e.g. a 4k portrait at 4096).
+      // naturalWidth/Height are the source pixels; `width`/`height` fall back for an SVG-less fake image.
+      const imgW = image.naturalWidth || image.width || 0;
+      const imgH = image.naturalHeight || image.height || 0;
+      if (imgW > maxTextureSize || imgH > maxTextureSize) {
+        entry.failed = true;
+        reportError(`texture ${resolved}: ${imgW}x${imgH} exceeds ${maxTextureSize}`);
+        return;
+      }
+      try {
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+        entry.ready = true;
+      } catch (err) {
+        // A cross-origin or zero-sized image makes texImage2D throw; keep the placeholder, report it.
+        entry.failed = true;
+        reportError(String(err && err.message ? err.message : err));
+      }
+    };
+    image.onerror = () => {
+      if (destroyed || lost) return;
+      entry.failed = true;
+      reportError(`texture ${resolved}: load failed`);
     };
     image.src = resolved;
     return entry;
@@ -411,7 +491,6 @@ export function create(canvas, card, view, options = {}) {
   // The limit covers the full glyph set of 5 cards + the panel + the money item (~60-70 steady-state
   // strings) and leaves headroom for the old names a purchase/refresh transition keeps on screen; a
   // limit near the working set would evict and rebuild glyph textures every frame.
-  const maxTextureSize = Math.max(1, Number(gl.getParameter(gl.MAX_TEXTURE_SIZE)) || 4096);
   const TEXT_CACHE_LIMIT = 256;
   const textCache = new Map();
   const touchText = (key) => {
@@ -422,7 +501,17 @@ export function create(canvas, card, view, options = {}) {
   const textTexture = (text, rectW = Infinity, rectH = Infinity) => {
 
     const bestFit = !!text.bestFit;
-    const key = `${text.font}|${text.size}|${text.color}|${text.value}|${text.align}|${bestFit ? rectW + 'x' + rectH : ''}`;
+    // Quantise the device-pixel size and the bestFit rectangle before they reach the key. `text.size` is
+    // fontSize * unitPx (so it changes with every container resize) and the rect is a device-pixel box: an
+    // unrounded key made one resize step, or a sub-pixel rect change, miss the whole ~60-70 entry working set
+    // and rebuild every glyph canvas and texture. The rounded value is the rasterised size too, so the cache
+    // and the bitmap agree.
+    const sizePx = Math.max(1, Math.round(Number(text.size) || 1));
+    const fitMin = Math.max(1, Number(text.minSize) || 1);
+    const fitMax = Math.max(fitMin, Number(text.maxSize) || Number(text.size) || 1);
+    const fitRect = bestFit ? `${Math.round(Math.min(rectW, 1e6))}x${Math.round(Math.min(rectH, 1e6))}` : '';
+    const fitKey = bestFit ? `${fitRect}x${Math.round(fitMin)}x${Math.round(fitMax)}` : '';
+    const key = `${text.font}|${sizePx}|${text.color}|${text.value}|${text.align}|${fitKey}`;
     const cached = touchText(key);
     if (cached) return cached;
     const measure = document.createElement('canvas').getContext('2d');
@@ -437,10 +526,10 @@ export function create(canvas, card, view, options = {}) {
       return 400;
     };
     const fontOf = (px) => `${weightOf(text.font)} ${px}px "${text.font}", "Noto Sans SC", sans-serif`;
-    let fontPx = Math.max(1, text.size);
+    let fontPx = sizePx;
     if (bestFit) {
-      let low = Math.max(1, Number(text.minSize) || 1);
-      let high = Math.max(low, Number(text.maxSize) || text.size);
+      let low = fitMin;
+      let high = fitMax;
       for (let i = 0; i < 18; i += 1) {
         const mid = (low + high) / 2;
         measure.font = fontOf(mid);
@@ -531,6 +620,11 @@ export function create(canvas, card, view, options = {}) {
   // data nothing reads. The arrays are reused, and the objects are only built for `?stats` /
   // options.debugStats; the counters the host does read (external, quads, materials, sprites, texts) stay.
   const stats = { quads: 0, texts: 0, materials: 0, sprites: 0, scissored: 0, particles: 0, last: [], external: null, externalError: null, rects: [] };
+
+  // Draw-loop scratch: the per-record box and the nine-slice quad list are both rebuilt on every paint, so
+  // they are owned by the stage and reused per record instead of allocating ~600 objects and 15 arrays a frame.
+  const drawBox = { x: 0, y: 0, w: 0, h: 0 };
+  const sliceScratch = [];
 
   let externalQuad = typeof options.externalQuad === 'function' ? options.externalQuad : null;
   let externalTex = null;
@@ -800,13 +894,17 @@ export function create(canvas, card, view, options = {}) {
 
       const base = rec.abs;
       const shift = rec.delta;
-      const box = shift ? { x: base.x + shift.x, y: base.y + shift.y, w: base.w, h: base.h } : base;
-      const w = box.w * unitPx;
-      const h = box.h * unitPx;
+      // One scratch box for the whole pass instead of one object per record (~600 a paint at the full shop).
+      drawBox.x = base.x + (shift ? shift.x : 0);
+      drawBox.y = base.y + (shift ? shift.y : 0);
+      drawBox.w = base.w;
+      drawBox.h = base.h;
+      const w = drawBox.w * unitPx;
+      const h = drawBox.h * unitPx;
       if (w < 0.5 || h < 0.5) continue;
 
-      const x = box.x * unitPx + padPx.left;
-      const y = box.y * unitPx + padPx.top;
+      const x = drawBox.x * unitPx + padPx.left;
+      const y = drawBox.y * unitPx + padPx.top;
       if (x + w < 0 || y + h < 0 || x > canvas.width || y > canvas.height) continue;
 
       const clip = rec.clipRect;
@@ -879,6 +977,10 @@ export function create(canvas, card, view, options = {}) {
       gl.uniform1f(U.uFlipDiss, 0);
       gl.uniform1f(U.uRawUv, rec.rawUv ? 1 : 0);
       gl.uniform1f(U.uMaskFlipV, rec.maskFlipV ? 1 : 0);
+      // uRawFlipV is part of the same per-record reset: only the material branch and the external quad set it,
+      // so a raw-UV record drawn through the image branch would otherwise inherit the previous record's flip
+      // (it selects `1.0 - v` for the sampled V, so a stale 1 turns the sprite upside down).
+      gl.uniform1f(U.uRawFlipV, 0);
       gl.uniform1f(U.uBaseChannel, 0);
       gl.uniform1f(U.uHasBase, 0);
       gl.uniform1f(U.uHasMask, 0);
@@ -902,20 +1004,27 @@ export function create(canvas, card, view, options = {}) {
       else if (image && (image.mat || (image.material && image.material.name))) materialKey = image.mat || image.material.name;
       const material = materialKey ? mat(materialKey) : null;
 
-      let tint = rgba((image && image.color) || (raw && raw.color) || '#FFFFFF');
+      // One array per drawn record, mutated in place by every tint step below instead of reassigned: the
+      // previous version allocated a fresh 4-element array for each of rgbCtrl / pose.colour / tintMul /
+      // AlphaBlend / intensity (~600 records a paint).
+      const tint = rgba((image && image.color) || (raw && raw.color) || '#FFFFFF');
 
       const rgbCtrl = !!(material && material.draw && material.draw.rgbCtrl);
       if (rgbCtrl) {
         const mt = rgba((material.draw && material.draw.tint) || '#FFFFFF');
-        tint = [mt[0], mt[1], mt[2], tint[3]];
+        tint[0] = mt[0];
+        tint[1] = mt[1];
+        tint[2] = mt[2];
       }
       if (pose.colour) {
-        tint = [
-          pose.colour.r != null && !rgbCtrl ? pose.colour.r : tint[0],
-          pose.colour.g != null && !rgbCtrl ? pose.colour.g : tint[1],
-          pose.colour.b != null && !rgbCtrl ? pose.colour.b : tint[2],
-          (pose.colour.a != null ? pose.colour.a : tint[3]) * (pose.alpha != null ? pose.alpha : 1),
-        ];
+        const r = pose.colour.r != null && !rgbCtrl ? pose.colour.r : tint[0];
+        const g = pose.colour.g != null && !rgbCtrl ? pose.colour.g : tint[1];
+        const b = pose.colour.b != null && !rgbCtrl ? pose.colour.b : tint[2];
+        const a = (pose.colour.a != null ? pose.colour.a : tint[3]) * (pose.alpha != null ? pose.alpha : 1);
+        tint[0] = r;
+        tint[1] = g;
+        tint[2] = b;
+        tint[3] = a;
         if (rgbCtrl && pose.colour.g != null) tint[3] *= pose.colour.g;
       } else if (pose.alpha != null) {
         tint[3] *= pose.alpha;
@@ -932,7 +1041,10 @@ export function create(canvas, card, view, options = {}) {
       if (rec.inheritAlpha != null && rec.inheritAlpha !== 1) tint[3] *= rec.inheritAlpha;
 
       if (node.tintMul) {
-        tint = [tint[0] * node.tintMul[0], tint[1] * node.tintMul[1], tint[2] * node.tintMul[2], tint[3] * (node.tintMul[3] == null ? 1 : node.tintMul[3])];
+        tint[0] *= node.tintMul[0];
+        tint[1] *= node.tintMul[1];
+        tint[2] *= node.tintMul[2];
+        tint[3] *= (node.tintMul[3] == null ? 1 : node.tintMul[3]);
       }
 
       if (node.text) {
@@ -1036,13 +1148,14 @@ export function create(canvas, card, view, options = {}) {
         const dst = drawRec.dst == null ? null : Number(drawRec.dst);
         additive = dst != null ? dst === 1 : (!!drawRec.additive || drawRec.blend === 'add');
 
-        // Torappu/UI/AlphaBlend composition (docs/SHADER-ALPHABLEND.md §6, bytecode): the VS multiplies the vertex
-        // colour by the material's _TintColor (`mul o1, v7, cb0[2]`), the PS multiplies the sample by it and adds the
-        // product to itself (`add o0.xyz, r0, r0`) while alpha only saturates (`mov_sat o0.w, r0.w`). So the frame is
-        // 2 x tex x vColor x _TintColor.rgb in RGB and tex.a x vColor.a x _TintColor.a in alpha; our shader only ever
-        // saw vColor. Both factors were missing and multiply out to exactly 1 on this theme (every AlphaBlend
-        // material is _TintColor = 0.5,0.5,0.5,1), which is why the frame does not move. Other shader families have
-        // their own composition (e.g. UI-Fx-Common has no _TintColor factor), so they keep factor 1.
+        // Torappu/UI/AlphaBlend composition (from the bytecode of Torappu/UI/AlphaBlend, whose extract sits
+        // next to the theme: the VS multiplies the vertex colour by the material's _TintColor (`mul o1, v7,
+        // cb0[2]`), the PS multiplies the sample by it and adds the product to itself (`add o0.xyz, r0, r0`)
+        // while alpha only saturates (`mov_sat o0.w, r0.w`). So the frame is 2 x tex x vColor x _TintColor.rgb
+        // in RGB and tex.a x vColor.a x _TintColor.a in alpha; our shader only ever saw vColor. Both factors
+        // were missing and multiply out to exactly 1 on this theme (every AlphaBlend material is
+        // _TintColor = 0.5,0.5,0.5,1), which is why the frame does not move. Other shader families have their
+        // own composition (e.g. UI-Fx-Common has no _TintColor factor), so they keep factor 1.
         if (/^Torappu\/UI\/AlphaBlend/.test(String(material.shader || ''))) {
           const tintColor = (material.colors && Array.isArray(material.colors._TintColor))
             ? material.colors._TintColor
@@ -1051,12 +1164,10 @@ export function create(canvas, card, view, options = {}) {
           const t1 = Number(tintColor[1]);
           const t2 = Number(tintColor[2]);
           const t3 = Number(tintColor[3]);
-          tint = [
-            tint[0] * 2 * (Number.isFinite(t0) ? t0 : 0.5),
-            tint[1] * 2 * (Number.isFinite(t1) ? t1 : 0.5),
-            tint[2] * 2 * (Number.isFinite(t2) ? t2 : 0.5),
-            tint[3] * (Number.isFinite(t3) ? t3 : 1),
-          ];
+          tint[0] *= 2 * (Number.isFinite(t0) ? t0 : 0.5);
+          tint[1] *= 2 * (Number.isFinite(t1) ? t1 : 0.5);
+          tint[2] *= 2 * (Number.isFinite(t2) ? t2 : 0.5);
+          tint[3] *= (Number.isFinite(t3) ? t3 : 1);
         }
 
         // The official blend is `blend{src:5(SrcAlpha), dst:property _DstBlend, srcAlpha:5, dstAlpha:_DstBlend}`: one
@@ -1068,7 +1179,9 @@ export function create(canvas, card, view, options = {}) {
         const colIntensity = drawRec.colIntensity != null ? Number(drawRec.colIntensity) : 1;
         materialIntensity = (Number.isFinite(intensity) ? intensity : 1) * (Number.isFinite(colIntensity) ? colIntensity : 1);
         if (materialIntensity !== 1) {
-          tint = [tint[0] * materialIntensity, tint[1] * materialIntensity, tint[2] * materialIntensity, tint[3]];
+          tint[0] *= materialIntensity;
+          tint[1] *= materialIntensity;
+          tint[2] *= materialIntensity;
         }
         stats.materials += 1;
       } else if (image && (image.file || image.color)) {
@@ -1080,7 +1193,7 @@ export function create(canvas, card, view, options = {}) {
         gl.uniform1f(U.uHasBase, tex ? 1 : 0);
         gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 
-        if (rec.slice && image.file) sliced = sliceQuads(rec.slice, x, y, w, h, unitPx);
+        if (rec.slice && image.file) sliced = sliceQuads(rec.slice, x, y, w, h, unitPx, sliceScratch);
         stats.sprites += 1;
       } else {
         continue;
@@ -1121,10 +1234,10 @@ export function create(canvas, card, view, options = {}) {
           name: rec.node.name,
           path: rec.node.path || null,
           material: materialKey,
-          x: box.x,
-          y: box.y,
-          w: box.w,
-          h: box.h,
+          x: drawBox.x,
+          y: drawBox.y,
+          w: drawBox.w,
+          h: drawBox.h,
           alpha: tint[3],
 
           colourWrite,
@@ -1168,12 +1281,10 @@ export function create(canvas, card, view, options = {}) {
     gl.deleteBuffer(quad);
     if (program) gl.deleteProgram(program);
     program = null;
-    if (canvas && typeof canvas.removeEventListener === 'function') canvas.removeEventListener('webglcontextlost', onContextLost);
-    // After the deletes, never before: delete* on a lost context is a no-op, so losing first would leave every
-    // texture/buffer/program to the browser's collection - which is exactly the leak this release fixes.
-    if (loseContextExt && typeof loseContextExt.loseContext === 'function') {
-      try { loseContextExt.loseContext(); } catch { /* the context is already gone */ }
-    }
+    // The same tail a failed create() runs: drop the listener, then hand the context back. After the deletes,
+    // never before: delete* on a lost context is a no-op, so losing first would leave every texture/buffer to
+    // the browser's collection - which is exactly the leak this release fixes.
+    release();
   };
 
   return {

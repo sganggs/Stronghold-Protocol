@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { shopDocsCapability, themeShopDocs, themeFonts } from '../../public/js/ui/prefab/shopDocs.js';
 import { packJson } from '../../public/js/ui/prefab/view.js';
 import { createThemeLibrary } from '../../public/js/uiTheme.js';
+import { stubFetch as fetchStub } from '../helpers/fetchStub.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..');
 const GROUP = 'themes/ac_s_closur';
@@ -41,16 +42,7 @@ function groupsFor(names = DOCS, tag = 'fixture') {
 }
 
 /** Stub the global fetch: `read(url)` returns the JSON body, or null for a missing document (404). */
-function stubFetch(read = (url) => FIXTURES[String(url).split('/').pop()] ?? null) {
-  const calls = [];
-  const real = globalThis.fetch;
-  globalThis.fetch = async (url) => {
-    calls.push(String(url));
-    const body = await read(String(url));
-    return body == null ? { ok: false, status: 404, json: async () => null } : { ok: true, status: 200, json: async () => body };
-  };
-  return { calls, restore: () => { globalThis.fetch = real; } };
-}
+const stubFetch = (read = (url) => FIXTURES[String(url).split('/').pop()] ?? null) => fetchStub(read);
 
 function memoryOpen() {
   const rows = new Map();

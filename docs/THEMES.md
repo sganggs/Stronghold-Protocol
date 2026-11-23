@@ -82,9 +82,10 @@ including the lobby. They do not recolor anyone else's screen.
 
 ## Colours
 
-Official names from `skinColorDataDict`. A key with no element is accepted and reported unused
-(`garrisonIconColor2`, `garrisonIconColor3`). A colour is painted only while that key is present, and only inside
-the match (`.gm`).
+Official names from `skinColorDataDict`. Every accepted key is kept in the pack. `garrisonIconColor2` /
+`garrisonIconColor3` paint no CSS variable but are not reported as unused: the canvas shop tints a 5- / 6-tier
+garrison icon with them (`ui/shop/adapter/model.js` `garrisonTintFor`). A colour is painted only while that key is
+present, and only inside the match (`.gm`).
 
 | Key | Custom property | Where |
 |---|---|---|
@@ -168,7 +169,9 @@ shows the ac_n_initial one when that pack is installed, else the same layout in 
 and `skinDesc`. It is not deletable and it is not one of the 8 imported packs. A lite zip with no group shows
 nothing extra. Choosing one fetches `theme.json` and the files it names, turns pictures and voice into blob
 URLs, and plays a Spine from the served URL. The choice is still `settings.uiTheme`. A saved official id whose
-group is missing returns to the built-in look with no “主题已损坏” notice. A fetch that fails does show that notice.
+group is missing falls back to the built-in look: the boot does that quietly, and the re-check that runs when
+设置 → 界面主题 opens (`uiTheme.js` `revalidateActiveTheme`) clears the stored id and shows the 「这个主题已损坏」 notice.
+A fetch that fails does show that notice.
 
 | id | Card | Character on `.funds` (目前资金) |
 |---|---|---|
@@ -180,7 +183,7 @@ group is missing returns to the built-in look with no “主题已损坏” noti
 
 The maintainer's decision of 2026-11-15 (「可露希尔主题可以支持单独导入吗，不想直接内置」): the full, update and asset zips leave out `themes/ac_s_closur` and its sprites in `ui/outer` (the skin preview, its background, the card thumbnail and nine stickers, which the client never draws), with their entries in the shipped `data/local-assets.json` (`tools/package.mjs` `HELD_THEME_GROUPS` / `HELD_THEME_ENTRIES`). A server of the packages therefore lists no 可露希尔 card. `node tools/package.mjs --theme-packs` writes the extracted group as `Stronghold-Protocol-v<version>-theme-ac_s_closur.zip` (every file the importer keeps, `layout.json` left out, and a Chinese / English `README.txt`); the maintainer offers it for download beside the asset pack, not as a release asset. A server that extracted the group from its own client still serves it as before.
 
-The shop-documents job is opt-in (§37.240): a plain extraction writes no theme group at all — the theme documents come from `--only theme`, which writes the theme pack alone (`theme.json`, `layout.json`, sprites, voice, spine, `prefabs.json`), and the shop documents from `--only shopdocs`, which adds `card.json` / `shop.json` with its warn-only `pathId` / particle / mask enrichment (`tools/local-extract/SHOPDOCS.md` is the producer's provenance). A group extracted without the shop-documents job therefore has no `card.json` / `shop.json` and the theme gets the DOM shop. A maintainer building the 可露希尔 pack — or a server that extracted the group itself — runs `tools/local-extract/extract.py --only shopdocs` (with `--themes` pointing at the client's AssetBundle roots) into the local extraction (`--out public/assets/local --manifest data/local-assets.json`) **before** `node tools/package.mjs --theme-packs`, because the pack copies the files the manifest lists under that group. A pack built before that job has `prefabs.json` but no `card.json` / `shop.json`: run the job, rebuild the zip and import it again — the same `id` replaces the stored pack — or delete it and import the new zip.
+The shop-documents job is opt-in (§37.240): a plain extraction writes no theme group at all — the theme documents come from `--only theme`, which writes the theme pack alone (`theme.json`, `layout.json`, sprites, voice, spine, `prefabs.json`), and the shop documents from `--only shopdocs`, which adds `card.json` / `shop.json` with its warn-only `pathId` / particle enrichment (the `mask` node fields come with the base documents; `tools/local-extract/SHOPDOCS.md` is the producer's provenance). A later `--only theme` run leaves `card.json` / `shop.json` out of the group again, even when the files are still on disk. A group extracted without the shop-documents job therefore has no `card.json` / `shop.json` and the theme gets the DOM shop. A maintainer building the 可露希尔 pack — or a server that extracted the group itself — runs `tools/local-extract/extract.py --only shopdocs` (with `--themes` pointing at the client's AssetBundle roots and `--game` at the install, which the enrichment reads for `Arknights_Data`; without it the enrichment only warns and the base documents stay) into the local extraction (`--out public/assets/local --manifest data/local-assets.json`) **before** `node tools/package.mjs --theme-packs`, because the pack copies the files the manifest lists under that group. A pack built before that job has `prefabs.json` but no `card.json` / `shop.json`: run the job, rebuild the zip and import it again — the same `id` replaces the stored pack — or delete it and import the new zip.
 
 设置 → 界面主题 → 导入主题包 (or 导入文件夹) takes that zip. A `theme.json` whose `id` is an official one is an official pack: `theme.json` is checked as an installed pack's is (only the files it names); every other file of type png, jpg, webp, ogg, mp3, json, atlas or skel is kept as well, because the prefabs name their sprites; anything else (the README) is listed as ignored. [ASSUMED] Limits: 1000 files, 64 MB, 8 MB for one JSON / atlas / skeleton, images and audio as above (`OFFICIAL_PACK_LIMITS`). A `prefabs.json` that is not `spPrefabs` 1 is refused and the pack keeps the hand-made HUD. The import is refused (「这台服务器已经带有这个官方主题」) when this server lists the group itself.
 
@@ -205,13 +208,16 @@ stored, because the page cannot fetch a `blob:` (the CSP's `connect-src` is `'se
 DOM bar, and dropping a `shop.json` into a custom pack mounts nothing (the importer keeps only the files `theme.json`
 names, and the gate resolves only the three official ids).
 A pack that wants to approach the official shop look writes the same slots and colours as the sections above.
+A seat that may not buy still draws the canvas: its cards take the prefab's `disable_matte` and `aria-disabled`, and
+a tap opens the detail (the panel is not folded into `state_disable`).
 
 Fonts are not part of a theme pack at all. The canvas declares `@font-face` from the host's `data/local-assets.json`
 `fonts` group, which comes from the local-client extraction (`tools/local-extract/fonts.py`) into
 `public/assets/local/fonts/`. That group is optional like `ui/cursor` (§37.240): a full extraction attempts the font job,
 and a missing install's `Arknights_Data`, a face whose bytes fail the pinned SHA-256 or no listed face only logs a
-skip / warning and still exits 0, so an absent group is not a stale extraction; `--only font` (also `fonts`, and
-`font/<face>`) runs that job alone. Those faces are not distributed: the directory is git-ignored and in no package — the
+skip / warning and still exits 0, so an absent group is not a stale extraction; `--only font` / `fonts` runs that job alone
+over every pinned face, `--only font/<face>` / `fonts/<face>` writes that one face (an unknown face name exits 2), and the
+group is rebuilt from every pinned face whose local bytes match the pinned size and SHA-256. Those faces are not distributed: the directory is git-ignored and in no package — the
 full, update and asset packages hold the folder and its files back (`tools/package.mjs` `FONT_ART_PREFIX`,
 `withoutHeldFonts`) and the staged `data/local-assets.json` drops the group (`dropStagedFonts`), so a host built from a
 package serves no local face but is not reported as an incomplete extraction, and the canvas falls back to the system

@@ -209,12 +209,13 @@ export class PlayerState {
      * loadout these are PUBLIC (a teammate sees your skin), so they travel in Match.publicView().players[]. */
     this.skins = Object.freeze({});
     if (!this.isBot && seat.skins) this.setSkins(seat.skins);
-    // `specialRefreshArmed` = a special refresh is waiting for its roll (佩佩 arms it on level-up, a garrison
-    // through shop.bondRefresh): the refresh button shows its special state at once, while `specialRefresh`
-    // is only the roll that spent it (C# ctrl _specToggle vs slots panel isSpecialRecruit).
+    // `specialRefreshCharges` = special refreshes armed but not rolled yet (佩佩 arms one per 2/4/6 upgrade;
+    // a garrison's charge is the separate shop.bondRefresh queue): the refresh button shows its special state
+    // for as long as either is pending, while `specialRefresh` is only the roll that spent one
+    // (C# ctrl _specToggle vs slots panel isSpecialRecruit).
     this.shop = {
       level: 1, upgradePrice: this.gd.upgradeBase(1) ?? 0, slots: [], frozen: false, freeRefreshes: 0,
-      refreshSeq: 0, specialRefresh: false, specialRefreshArmed: false,
+      refreshSeq: 0, specialRefresh: false, specialRefreshCharges: 0,
     };
     /**
      * reward offers queue (merge rewards, special refreshes, item offers): { tier, source, label, slots: [{ kind, id,

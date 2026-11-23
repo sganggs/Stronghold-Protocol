@@ -35,9 +35,11 @@ export function cardPortraitFile(m, record, skin = null) {
  * @param {any} priv m.private
  * @param {{ armedSlotId?: number|null, armedAt?: number, cardFlags?: any,
  *   colors?: Record<string, string>, urlOf?: (file: string) => string|null,
- *   ownerSkin?: (charId: string) => string|null }} [opts]
+ *   ownerSkin?: (charId: string) => string|null, locked?: boolean }} [opts]
  *   `ownerSkin` is the shop owner's outfit choice (§37.273): the DOM card's `OperatorImage` follows the same
- *   selection; without the resolver a card keeps the operator's own portrait.
+ *   selection; without the resolver a card keeps the operator's own portrait. `locked` = the seat may not buy
+ *   (the view publishes it): the card draws its unbuyable matte and reports aria-disabled, like the DOM bar's
+ *   `.is-locked` row.
  */
 export function cardModelFromSlot(slot, index, priv, opts = {}) {
   const shop = (priv && priv.shop) || {};
@@ -95,6 +97,9 @@ export function cardModelFromSlot(slot, index, priv, opts = {}) {
     // 猎头顾问 copy stays frozen while the toggle is off.
     isFrozen: !!(slot && (slot.frozen || shop.frozen)),
     isHandFull: !!(flags && flags.isHandFull),
+    // The seat may not buy at all (not editable): the card draws the prefab's unbuyable matte, and host.js folds it
+    // into aria-disabled — without changing the panel state (avalid stays true; see ShopCanvas.viewOf).
+    isLocked: !!opts.locked,
     hasSame: !!(flags && flags.hasSame),
     hasFusePartner: !!(flags && flags.hasFusePartner),
     canComb: !!(flags && flags.canComb),
@@ -123,7 +128,7 @@ export function cardModelFromSlot(slot, index, priv, opts = {}) {
 /**
  * m.private → AutoChessBattleShopViewModel.
  * @param {any} priv m.private push (`funds`, `deployCap`, `deployCount`, `shop`)
- * @param {{ selectSlot?: any, refreshSeq?: number, unfold?: boolean, avalid?: boolean,
+ * @param {{ selectSlot?: any, refreshSeq?: number, unfold?: boolean, avalid?: boolean, locked?: boolean,
  *   show?: boolean, armedSlotId?: number|null, armedAt?: number, maxLevel?: number,
  *   colors?: Record<string, string>, urlOf?: (file: string) => string|null, cardFlags?: any,
  *   ownerSkin?: (charId: string) => string|null,
@@ -157,7 +162,7 @@ export function shopModelFromPrivate(priv, opts = {}) {
     if (slot == null && layout && index >= layout.chess + layout.item) return;
     cards.push(cardModelFromSlot(slot, index, priv, {
       armedSlotId: opts.armedSlotId, armedAt: opts.armedAt, cardFlags: opts.cardFlags,
-      colors: opts.colors, urlOf: opts.urlOf, ownerSkin: opts.ownerSkin,
+      colors: opts.colors, urlOf: opts.urlOf, ownerSkin: opts.ownerSkin, locked: !!opts.locked,
     }));
   });
   const selectSlot = opts.selectSlot instanceof AutoChessBattleShopSlot
@@ -172,6 +177,7 @@ export function shopModelFromPrivate(priv, opts = {}) {
     show: opts.show ?? true,
     avalid: opts.avalid ?? true,
     unfold: opts.unfold ?? true,
+    locked: !!opts.locked,
     level,
     maxLevel,
     coinCount,
@@ -202,9 +208,11 @@ export function shopModelFromPrivate(priv, opts = {}) {
 
 /**
  * The row's identity, which is what the refresh clip reacts to: `shopSignature` covers the slot layout and
- * every slot's (kind, id), and nothing else. m.private carries no refresh sequence, so the host bumps one
- * when this changes — a purchase (sold), a freeze, a price shift or a level-up must NOT replay the refresh
- * animation: only a replaced row does. Those other changes still repaint through the card model/mainView.
+ * every slot's (kind, id), and nothing else. The server owns the row clock (`shop.refreshSeq`, sent by
+ * ShopData.refreshSeq); only a push without that field falls back to a counter the host bumps when this
+ * signature changes (refreshSeqFor below) — a purchase (sold), a freeze, a price shift or a level-up must NOT
+ * replay the refresh animation: only a replaced row does. Those other changes still repaint through the card
+ * model/mainView.
  * @param {any} priv
  * @returns {string}
  */
@@ -217,4 +225,41 @@ export function shopSignature(priv) {
     .map((slot) => (slot ? `${slot.kind === 'item' ? 'item' : 'chess'}:${slot.id || ''}` : '-'))
     .join('|');
   return `${layout}|${row}`;
+}
+
+/**
+ * The fallback row clock: a counter that only moves when the row's identity (shopSignature) changes. Used when
+ * the push carries no `shop.refreshSeq` — a new client against an older server, which then still replays the
+ * slots panel's refresh clip on a replaced row and still does not on a purchase/freeze/price/level change.
+ * The previous result is threaded back in; the same signature returns the same number, so calling it twice for
+ * one push is safe.
+ * @param {{ sig: string|null, seq: number }|null|undefined} prev the previous result (null on a mount)
+ * @param {string} signature `shopSignature(priv)`
+ * @returns {{ sig: string, seq: number }}
+ */
+export function bumpRefreshSeq(prev, signature) {
+  const sig = String(signature);
+  if (!prev || prev.sig == null) return { sig, seq: 0 };
+  if (prev.sig === sig) return { sig, seq: prev.seq };
+  return { sig, seq: prev.seq + 1 };
+}
+
+/**
+ * The refresh sequence one push draws from: the view's forwarded number when it has one, else the server's
+ * `shop.refreshSeq`, else the client fallback above. A push that carries the server field clears the fallback,
+ * so a server that starts sending it again owns the sequence back.
+ * @param {any} priv m.private
+ * @param {{ viewSeq?: number|null, fallback?: { sig: string, seq: number }|null }} [o]
+ *   `viewSeq`: `view.refreshSeq` (null when the caller had no number to forward)
+ * @returns {{ refreshSeq: number, fallback: { sig: string, seq: number }|null }}
+ */
+export function refreshSeqFor(priv, o = {}) {
+  const viewSeq = o.viewSeq;
+  const shop = (priv && priv.shop) || {};
+  const server = viewSeq != null && viewSeq !== '' ? viewSeq : (shop.refreshSeq != null ? shop.refreshSeq : null);
+  if (server != null && server !== '' && Number.isFinite(Number(server))) {
+    return { refreshSeq: Number(server) || 0, fallback: null };
+  }
+  const next = bumpRefreshSeq(o.fallback || null, shopSignature(priv));
+  return { refreshSeq: next.seq, fallback: next };
 }

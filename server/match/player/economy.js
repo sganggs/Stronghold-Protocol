@@ -115,12 +115,10 @@ export class PlayerEconomy {
     for (const s of slots) if (s) s.frozen = this.shop.frozen;
     // Every real roll is a new shop row: the client's slots panel plays its refresh animation only when
     // this sequence changes (C# AutoChessStylizedShopSlotsPanel.Render). `specialRefresh` is this roll's
-    // one-shot marker; the charge is consumed by `_applyBondRefresh` (佩佩盟约 / special-refresh bond).
+    // one-shot marker; the charge it spends is the bondRefresh queue (`_applyBondRefresh`), never 佩佩's
+    // separate armed count (`specialRefreshCharges`, spent by its own manual refresh in markSpecialRefresh).
     this.shop.refreshSeq = (Number(this.shop.refreshSeq) || 0) + 1;
     this.shop.specialRefresh = !!special;
-    // The roll that spent the armed charge is now the special refresh itself: the button's "waiting" state
-    // ends, and the roll marker carries the special state for this row.
-    if (special) this.shop.specialRefreshArmed = false;
     this.dirty();
   }
 

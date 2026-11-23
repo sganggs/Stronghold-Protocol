@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { tripleLoopEntry, tripleLoopLength } from '../../public/js/ui/shop/cardView.js';
+import { clipPhase } from '../../public/js/ui/shop/scene.js';
 import { applyClip } from '../../public/js/render/shop/cardTimeline.js';
 import {
   spawn, stepOne, tintOf, systemsOf, prepare, advanceEmitter,
@@ -57,11 +58,18 @@ test('loop_triple uses the clip stopTime; still pins the same end', () => {
 
 test('the effective loop wraps at 1.0: t=0 / 0.5 / 1.0 / 1.5 have no hold', () => {
   const len = tripleLoopLength(CLIP);
-  const wrap = (t) => ((t % len) + len) % len;
-  assert.equal(wrap(0), 0);
-  assert.equal(wrap(0.5), 0.5);
-  assert.equal(wrap(1.0), 0);
-  assert.equal(wrap(1.5), 0.5);
+  // scene.js samples the free-running card clock through clipPhase (the same call the paint path makes), so
+  // this is the production wrap: t = 0 / 0.5 / 1.0 / 1.5 land at 0 / 0.5 / 0 / 0.5 with no hold at stop time.
+  assert.equal(clipPhase(0, 0, len), 0);
+  assert.equal(clipPhase(0.5, 0, len), 0.5);
+  assert.equal(clipPhase(1.0, 0, len), 0);
+  assert.equal(clipPhase(1.5, 0, len), 0.5);
+  // The old qa hold: 2.5 s is past the 1 s stop time but inside the 2.5 s key-frame end.
+  assert.equal(clipPhase(2.5, 0, len), 0.5);
+  assert.equal(clipPhase(-0.25, 0, len), 0.75, 'a negative clock still lands in [0, len)');
+  assert.equal(clipPhase(0.5, 0.25, len), 0.25, 'the origin is subtracted (an auto-clip restart)');
+  const odd = clipPhase(0.5, 0, 0);
+  assert.ok(odd >= 0 && odd < 0.001, 'a zero length is 0.001, so the phase stays finite');
 });
 
 test('t=0 / 1 / 2.5 advance the UV; alpha fades in and holds', () => {

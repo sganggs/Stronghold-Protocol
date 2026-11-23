@@ -1,9 +1,9 @@
 """Official 卫戍协议 in-match UI themes (AUTOCHESS_SKIN) → spTheme 1 packs.
 
 Opt-in, like the battle effects: a plain extract.py run does not touch them, and themes/ is not in
-expected_local_groups. Run:
+expected_local_groups. Run (the packaging flow installs into the local extraction; a scratch root is for review):
 
-  extract.py --only theme --themes <backup-or-ab-root> --out <scratch> --manifest <scratch>/local-assets.json
+  extract.py --only theme --themes <backup-or-ab-root> --out public/assets/local --manifest data/local-assets.json
   extract.py --only theme/<id>     one of ac_n_initial, ac_n_iron, ac_s_closur
 
 Reads the theme bundles, the outer thumbnails and the voice packs from --themes. --game is only for a
@@ -2149,7 +2149,8 @@ def _export_one(theme_id, loaded, books, outer_env, index, out_root, manifest, l
                     log(f'  warn {theme_id} shop.json: {err}')
                 else:
                     # shop.json exists once export_shop returns, so register it first. The enrichments only add the
-                    # pathId / particle / mask fields and each warns on failure: a broken enrichment keeps the base file.
+                    # pathId / particle fields (the mask is part of the base document), and each warns on failure: a
+                    # broken enrichment keeps the base file.
                     _list_file(manifest, group, 'shop.json', kind='TextAsset')
                     # The enrichment modules are flat beside this one, so these are normal imports. Each raises when
                     # its game root has no readable theme / battle bundles (PersistentData first, then

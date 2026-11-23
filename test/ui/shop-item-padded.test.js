@@ -10,9 +10,9 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { data } from '../../public/js/data.js';
 import { localItemIconUrl, itemIconUrl } from '../../public/js/ui/assetUrls.js';
 import { cardModelFromSlot } from '../../public/js/ui/shop/adapter/model.js';
+import { withContent as withContentSet } from '../helpers/contentSet.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const ITEMS = JSON.parse(readFileSync(path.join(ROOT, 'data', 'items.json'), 'utf8'));
@@ -26,14 +26,9 @@ const ENTRY = { path: PADDED, w: 160, h: 160, kind: 'Sprite' };
 const localManifest = (entries) => ({ groups: entries ? { item: entries } : {} });
 
 /** Runs `fn` with the store holding an assets/items/local content set, then gives the server's files back. */
-function withContent(local, fn) {
-  data.setContent({ id: 'padded-item', values: { items: ITEMS, assets: { items: { [TRAP]: TRIMMED } }, local } });
-  try {
-    return fn();
-  } finally {
-    data.setContent(null);
-  }
-}
+const withContent = (local, fn) => withContentSet(
+  { items: ITEMS, assets: { items: { [TRAP]: TRIMMED } }, local }, fn, 'padded-item',
+);
 
 const itemModel = () => cardModelFromSlot({ kind: 'item', id: ITEM_ID, price: 1, basePrice: 1 }, 0, { funds: 10 });
 

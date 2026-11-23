@@ -399,14 +399,17 @@ history and the open points: DESIGN §32.14.25.
 A regulation shop may be painted on a canvas instead of the DOM shop bar (`public/js/ui/shop/` + `public/js/render/shop/`).
 The gate is a capability, not a flag: `ui/shop/gate.js shopCapability` requires an `OFFICIAL_THEMES` id whose installed
 local group carries `prefabs.json`, `card.json` and `shop.json`, and `shopWebglGate` then requires a ready preload only: a spectator seat has no `m.private` and gets no shop at all, while a stand-in or
-DIY row renders like any other card (the model composes its record); a promotion or special reward keeps the canvas and
+DIY row renders like any other card (the model composes its record); a seat that may not buy (`ROUND_START`, 已准备, `SP_DRAFT`,
+a pending personal choice or plugin offer) still mounts the canvas, but `ShopCanvas` publishes `locked: !editable`: the cards take the prefab's
+`disable_matte` and `aria-disabled`, and a tap opens the detail instead of arming (the panel is not folded into `state_disable`);
+a promotion or special reward keeps the canvas and
 draws every `offer.slots` card at price 0 in the same row instead (a 6-slot offer grows the row, a 2/3-slot offer keeps
 the last positions, the item slot is hidden; 稍后 returns to the normal row, and the in-canvas control then names the
 pending offer — 选择{title} (选择晋升奖励 / 选择定向投放 / 选择见者有份 / 选择寻呼模块 / 选择松果 / 选择特殊招募 /
 选择装备补给): the seven known names are six glyphs at most in zh, while any other title (a plugin's or a custom
 strategy's) still names the offer, and the prefab's `bestFit` shrinks the face to the pill exactly as the other
 languages' templates (en drops the verb) already do. The hotspot's aria-label carries the offer's title in both states
-(including 稍后); no separate header strip is drawn on the canvas). Card marks (skill badge,
+(including 稍后), and no separate header strip is drawn on the canvas. Card marks (skill badge,
 替补 / 自选, owned-copy pips, 可晋升) are a DOM overlay inside the card hotspot, in the DOM shop's own wording and
 colours: they follow the card box every frame, keep their `title` tooltips, enter the card's accessible name, and
 grow to the right so the four languages fit. Positions are the owner's PSD percentages of the visible card box
@@ -419,14 +422,19 @@ unfolds and shows the reward row.
 No config value takes part; choosing a theme without the documents is the rollback, and `ShopBar` renders
 as before. `ui/prefab/shopDocs.js` reads the three documents from that group (an imported
 official pack's documents come from its stored bytes — the page's `connect-src 'self'` forbids fetching a blob) and
-`ui/shop/adapter/model.js` turns `m.private` into the render model; the canvas only paints it. A failed mount, update or
-WebGL context falls back to `ShopBar` once: `ShopCanvas` reports the failure and stops pushing. The operator cards'
+`ui/shop/adapter/model.js` turns `m.private` into the render model; the canvas only paints it. The row clock is the server's
+`shop.refreshSeq`: the slots clip plays when it changes (not on the first frame, nor on a purchase, freeze, price or level
+change); a push without the field (an older server) falls back to a client counter over `shopSignature`. A failed mount, update or
+WebGL context falls back to `ShopBar` once: `ShopCanvas` reports the failure and stops pushing. The runtime and the theme's
+`@font-face` sheet are preloaded only for a seat that can own a shop (`seatHasShop = !!priv && alive`): a spectator seat and an
+eliminated seat install nothing, and the sheet is removed when the seat or the match ends (a later mount installs it again);
+the canvas itself still mounts by `showShop`'s phase condition. The operator cards'
 portraits follow the shop owner's outfit through the model's `ownerSkin` resolver, the same selection the DOM card's
 `OperatorImage` reads (§37.240). Fonts come from the manifest's `fonts` group — an optional local-extract group like
 `ui/cursor` since §37.240 (a full extraction attempts it; a missing install or a pinned-byte mismatch only warns, and an
 absent key is not stale) — only the families the documents draw are awaited, and a missing face falls back like the old
-text (a packaged host drops the group and draws with the system stack). [ASSUMED] Mobile / touch have no dedicated support
-promise; desktop Firefox is outside this round's acceptance.
+text (a packaged host drops the group and draws with the system stack). Mobile / touch and desktop Firefox have no dedicated
+check and are not a support promise this round.
 
 ---
 

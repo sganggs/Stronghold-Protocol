@@ -10,11 +10,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const HOST_SOURCE = readFileSync(new URL('../../public/js/ui/shop/host.js', import.meta.url), 'utf8');
-
 import { GEO } from '../../shared/constants.js';
-import { shopSignature, cardModelFromSlot, shopModelFromPrivate } from '../../public/js/ui/shop/adapter/model.js';
-import { shopCardFlags, shopCardFlagsWithHand } from '../../public/js/ui/shop/ShopCanvas.js';
+import { shopSignature, cardModelFromSlot, shopModelFromPrivate, refreshSeqFor } from '../../public/js/ui/shop/adapter/model.js';
+import { shopCardFlags, shopCardFlagsWithHand, shopControlReasons } from '../../public/js/ui/shop/ShopCanvas.js';
+import { controlGuardFor } from '../../public/js/ui/shop/host.js';
+import { AutoChessBattleShopMainView, ctrlKey } from '../../public/js/ui/shop/mainView.js';
 import { shopBlockReason } from '../../public/js/ui/gameLogic.js';
 import { canRefreshOf } from '../../public/js/ui/shop/ctrl.js';
 import { CtrlViewData } from '../../public/js/ui/shop/viewData.js';
@@ -186,9 +186,21 @@ test('slots panel: the panel clip goes through scene.motion on the panel doc (mo
 });
 
 test('the host takes the server refreshSeq instead of bumping one from the row signature', () => {
-  assert.doesNotMatch(HOST_SOURCE, /autoRefreshSeq/);
-  assert.doesNotMatch(HOST_SOURCE, /refreshSeq \+= 1/);
-  assert.match(HOST_SOURCE, /nextPriv && nextPriv\.shop && nextPriv\.shop\.refreshSeq/);
+  // The server's own field wins and clears the client fallback.
+  assert.deepEqual(refreshSeqFor({ shop: { refreshSeq: 7, slots: [] } }), { refreshSeq: 7, fallback: null });
+  // The view's forwarded number wins over the private field (ShopCanvas forwards shop.refreshSeq).
+  assert.equal(refreshSeqFor({ shop: { refreshSeq: 7, slots: [] } }, { viewSeq: 9 }).refreshSeq, 9);
+  assert.equal(refreshSeqFor({ shop: { refreshSeq: 7, slots: [] } }, { viewSeq: null }).refreshSeq, 7,
+    'a null forwarded number falls back to the private field');
+  // Neither field (an older server): the signature fallback starts at 0 and only moves on a replaced row.
+  const first = refreshSeqFor({ shop: { slots: [] } });
+  assert.equal(first.refreshSeq, 0);
+  assert.deepEqual(refreshSeqFor({ shop: { slots: [] } }, { fallback: first.fallback }), first,
+    'the same row does not replay');
+  const changed = refreshSeqFor({ shop: { slots: [{ kind: 'chess', id: 'x' }] } }, { fallback: first.fallback });
+  assert.equal(changed.refreshSeq, 1, 'a replaced row replays once');
+  assert.equal(refreshSeqFor({ shop: { slots: [{ kind: 'chess', id: 'x' }] } }, { fallback: changed.fallback }).refreshSeq,
+    1, 'and does not replay again on the next push');
 });
 
 // ---- UIButton: C# ClickGuardModule (cooldown bool + seconds) -------------------------------------------
@@ -218,9 +230,23 @@ test('UIButton: a non-interactable button never presses', () => {
 });
 
 test('the host reads each control guard from the prefab UIButton, not hardcoded seconds', () => {
-  assert.match(HOST_SOURCE, /clickGuardFor\(spec\.paths\)/);
-  assert.doesNotMatch(HOST_SOURCE, /guardSeconds: 0\.5/);
-  assert.doesNotMatch(HOST_SOURCE, /cooldown: 1/);
+  const guard = { cooldown: 1, seconds: 0.3 };
+  const panel = {
+    path: 'panel_shop_main',
+    children: [
+      {
+        path: 'panel_shop_main/state_unfold/panel_ctrl_btn/btn_refresh/hotspot',
+        components: [{ class: 'UIButton', fields: { _clickGuard: guard } }],
+      },
+      { path: 'panel_shop_main/state_unfold/panel_ctrl_btn/btn_frozen/hotspot' },
+    ],
+  };
+  assert.equal(controlGuardFor(panel, ['btn_refresh/hotspot']), guard, 'the prefab guard, by path suffix');
+  assert.equal(controlGuardFor(panel, ['btn_frozen/hotspot']), null, 'a hotspot with no UIButton guard');
+  assert.equal(controlGuardFor(panel, ['no_such_hotspot']), null);
+  assert.equal(controlGuardFor(null, ['btn_refresh/hotspot']), null, 'a mount without a panel is harmless');
+  assert.equal(controlGuardFor({ path: 'p', children: [{ path: 'p/x', components: [] }] }, ['x']), null,
+    'a UIButton component without fields is not a guard');
 });
 
 // ---- refresh affordability: the ctrl hotspot and the DOM control use shopBlockReason's one rule -------------
@@ -240,9 +266,20 @@ test('refresh: the server turns a free refresh into refreshPrice 0, and a specia
 });
 
 test('the canvas control reasons use shopBlockReason for refresh with editable (not a funds-only helper)', () => {
+  const priv = { funds: 0, shop: { refreshPrice: 3, slots: [] } };
+  // The painted face must not be locked by the in-flight busy flag: shopControlReasons does not read it.
+  const idle = shopControlReasons({ priv, editable: true, refreshBusy: false });
+  const busy = shopControlReasons({ priv, editable: true, refreshBusy: true });
+  assert.deepEqual(busy, idle, 'the busy flag is not a reason');
+  assert.equal(idle.refresh, shopBlockReason('refresh', { priv, editable: true }),
+    'the refresh gate is shopBlockReason, not a funds-only copy');
+  // A seat that may not act is refused with the phase wording, not a fund reason.
+  assert.equal(shopControlReasons({ priv: { funds: 9, shop: { refreshPrice: 1, slots: [] } }, editable: false }).refresh,
+    shopBlockReason('refresh', { priv: { funds: 9, shop: { refreshPrice: 1, slots: [] } }, editable: false }));
+  // The action itself drops a second refresh while one is in flight. That closure is inside the Preact
+  // component (no DOM renderer in this suite), so this one line is a source guard; the painted gate above is
+  // behaviour.
   const canvas = readFileSync(new URL('../../public/js/ui/shop/ShopCanvas.js', import.meta.url), 'utf8');
-  assert.match(canvas, /refresh: chooseFirst \|\| shopBlockReason\('refresh', \{ config: p\.config, priv: p\.priv, editable: p\.editable \}\)/,
-    'the painted refresh face is not locked by the in-flight busy flag');
   assert.match(canvas, /if \(propsRef\.current\.refreshBusy\) return;/, 'the action itself still drops a second refresh');
   assert.doesNotMatch(canvas, /shopCanRefresh/, 'the old funds-only shortcut is gone');
 });
@@ -272,25 +309,33 @@ test('the ctrl view data carries the caller\'s refresh block from the model', ()
   const open = shopModelFromPrivate({ funds: 9, shop: { level: 1, slots: [] } }, { controls: { refresh: null } });
   assert.equal(open.refreshBlocked, false);
   assert.equal(shopModelFromPrivate({ funds: 9, shop: { level: 1, slots: [] } }).refreshBlocked, null, 'no gate published');
-  // wiring: host passes view.controls, mainView hands refreshBlocked to the ctrl, ctrl paints from canRefreshOf
-  assert.match(HOST_SOURCE, /controls: nextView\.controls \|\| null/);
-  const main = readFileSync(new URL('../../public/js/ui/shop/mainView.js', import.meta.url), 'utf8');
-  assert.match(main, /refreshBlocked: model\.refreshBlocked/);
-  assert.match(main, /function ctrlKey\(model\) \{/);
-  assert.match(main, /model\.refreshBlocked \? 1 : 0/);
-  assert.match(main, /model\.freezeBlocked \? 1 : 0/);
-  assert.match(main, /model\.reward \|\| null/);
-  assert.match(main, /this\.scene\.ctrl\.Render\(this\._BuildCtrlViewData\(model\)\)/,
-    'a gate-only change repaints the ctrl');
+  // mainView hands the model's fields to the ctrl, and ctrlKey re-renders when one of them flips.
+  const view = Object.create(AutoChessBattleShopMainView.prototype);
+  const data = view._BuildCtrlViewData({
+    isSpecialRecruit: false, isSpecRefresh: false, isFrozen: false, coinCount: 9, refreshCost: 3, freeRefreshCnt: 0,
+    refreshBlocked: true, freezeBlocked: '资金不足', reward: { count: 1 }, foldReward: true,
+  });
+  assert.equal(data.refreshBlocked, true);
+  assert.equal(data.freezeBlocked, '资金不足');
+  assert.deepEqual(data.reward, { count: 1 });
+  assert.equal(data.foldReward, true);
+  assert.notEqual(ctrlKey({ refreshBlocked: true }), ctrlKey({ refreshBlocked: false }));
+  assert.notEqual(ctrlKey({ freezeBlocked: 'x' }), ctrlKey({}));
+  assert.notEqual(ctrlKey({ foldReward: true }), ctrlKey({}), 'a folded-pill toggle re-renders the ctrl');
+  assert.notEqual(ctrlKey({ reward: { count: 1 } }), ctrlKey({}));
+  assert.equal(ctrlKey({}), ctrlKey({}), 'an unchanged model is the same key');
+  // The panel paints from the shared helper and re-applies the toggle (a skipped set_selected left the old
+  // face on the button): the ctrl's constructor wiring has no Node-level seam.
   const ctrl = readFileSync(new URL('../../public/js/ui/shop/ctrl.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(ctrl, /isSpecialRecruit \|\| data\.freeRefreshCnt/);
   assert.match(ctrl, /const canRefresh = canRefreshOf\(data\);/);
-  assert.match(ctrl, /this\.enableToggle\.set_selected\(canRefresh, true\)/, 'the toggle is re-applied, not skipped as unchanged');
+  assert.match(ctrl, /this\.enableToggle\.set_selected\(canRefresh, true\)/);
 });
 
 // ---- the middle deploy level shrinks the canvas shop exactly like the DOM bar ------------------------------
 
 test('the canvas shop takes the #692 70% deploy-partial scale the DOM bar takes', () => {
+  // CSS rule text: these two rules are matched as text because there is no browser (no computed style) in this
+  // suite; the assertion is the rule's declaration, not its formatting around the selector.
   const bar = readFileSync(new URL('../../public/css/screens/game-shop.css', import.meta.url), 'utf8');
   const canvas = readFileSync(new URL('../../public/css/screens/game-shop-canvas.css', import.meta.url), 'utf8');
   assert.match(bar, /\.gm\.is-deploy-partial \.shopbar \{ transform: scale\(\.7\); animation: none; \}/,

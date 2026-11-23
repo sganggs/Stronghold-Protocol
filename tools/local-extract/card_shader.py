@@ -20,8 +20,9 @@ inputs and its pipeline state:
 * the keyword list and the keyword set of every compiled variant;
 * the program blobs' platform, stage count, compressed/decompressed size and hash.
 
-`docs_markdown()` renders that as a page a person ports from, with the derived meaning of each card property
-(`PROPERTY_NOTES`) marked `[ASSUMED]` where the official description does not settle it.
+`PROPERTY_NOTES` keeps the derived meaning of each card property, marked `[ASSUMED]` where the official description
+does not settle it. The porting page an earlier producer wrote from a record is gone: nothing reads it, and the card
+carries the record itself.
 """
 import hashlib
 import re
@@ -302,90 +303,3 @@ def _variants(passage, keywords):
             out[stage] = sets
     return out
 
-
-def docs_markdown(record):
-    """A page to port from: what the shader is, what it cannot tell us, its properties and its pipeline state."""
-    lines = []
-    name = record.get('name') or '?'
-    lines.append(f'# {name}')
-    lines.append('')
-    lines.append('Extracted by `tools/local-extract/` from the official bundle; do not edit, re-run the extractor.')
-    lines.append('')
-    lines.append('| | |')
-    lines.append('|---|---|')
-    lines.append(f'| CAB | `{record.get("cab") or "in this bundle"}` |')
-    lines.append(f'| ShaderLab source | {"not available" if record.get("compiled") else "available"} |')
-    lines.append(f'| Custom editor / fallback | `{record.get("customEditor") or "-"}` / `{record.get("fallback") or "-"}` |')
-    lines.append(f'| Compiled platforms | {record.get("platforms")} (stages per platform: {record.get("stages")}) |')
-    lines.append(f'| Program blob | {record.get("programBytes")} bytes decompressed, sha256 `{record.get("programSha256")}` |')
-    lines.append(f'| Keywords | {", ".join(f"`{word}`" for word in record.get("keywords") or []) or "-"} |')
-    lines.append('')
-    lines.append('## Limitation: compiled only')
-    lines.append('')
-    if record.get('compiled'):
-        lines.append('This build ships the shader baked: `m_ShaderIsBaked` is true and the `m_Script` field that would')
-        lines.append('hold the ShaderLab source is absent. What is left is the compiled program (D3D11 bytecode on the')
-        lines.append('Windows install), so the HLSL maths cannot be read out of the asset. Everything below is exact')
-        lines.append('input and pipeline state; the body of the shader has to be reimplemented from the property names,')
-        lines.append('the official descriptions and the blend/test state.')
-    else:
-        lines.append('The asset carries its ShaderLab source; see `source`.')
-    lines.append('')
-    lines.append('## Properties')
-    lines.append('')
-    lines.append('| Name | Type | Default | Range | Official description | Attribute | Notes |')
-    lines.append('|---|---|---|---|---|---|---|')
-    for prop in record.get('properties') or []:
-        default = prop.get('defaultTexture') or prop.get('default')
-        if isinstance(default, list):
-            default = ', '.join(str(value) for value in default)
-        attributes = ', '.join(f'`{text}`' for text in prop.get('attributes') or [])
-        lines.append(f'| `{prop["name"]}` | {prop["type"]} | {default if default is not None else "-"} '
-                     f'| {prop.get("range") or "-"} | {prop.get("description") or "-"} | {attributes or "-"} '
-                     f'| {prop.get("note") or "-"} |')
-    lines.append('')
-    for sub_index, sub in enumerate(record.get('subShaders') or []):
-        tags = ', '.join(f'{key}={value}' for key, value in (sub.get('tags') or {}).items()) or '-'
-        lines.append(f'## SubShader {sub_index} (LOD {sub.get("lod")})')
-        lines.append('')
-        lines.append(f'Tags: {tags}')
-        lines.append('')
-        for pass_index, passage in enumerate(sub.get('passes') or []):
-            lines.append(f'### Pass {pass_index}' + (f' — {passage["name"]}' if passage.get('name') else ''))
-            lines.append('')
-            blend = passage.get('blend') or {}
-            for key in ('src', 'dst', 'srcAlpha', 'dstAlpha', 'op', 'opAlpha'):
-                factor = blend.get(key) or {}
-                bound = f' (bound to `{factor.get("property")}`)' if factor.get('property') else ''
-                engine = f' (engine: `{factor.get("engine")}`)' if factor.get('engine') else ''
-                lines.append(f'- blend `{key}`: {factor.get("value")}{bound}{engine}')
-            for key in ('zTest', 'zWrite', 'culling'):
-                factor = passage.get(key) or {}
-                if not factor:
-                    continue
-                bound = f' (bound to `{factor.get("property")}`)' if factor.get('property') else ''
-                engine = f' (engine: `{factor.get("engine")}`)' if factor.get('engine') else ''
-                lines.append(f'- {key}: {factor.get("value")}{bound}{engine}')
-            stencil = passage.get('stencil') or {}
-            if stencil:
-                lines.append('- stencil: ' + ', '.join(f'{key}={value.get("value")}' for key, value in stencil.items()))
-            lines.append('')
-            lines.append('Uniforms: ' + ', '.join(f'`{word}`' for word in passage.get('uniforms') or []))
-            lines.append('')
-            variants = passage.get('variants') or {}
-            if variants:
-                for stage, sets in variants.items():
-                    lines.append(f'Compiled {stage} variants: {len(sets)}')
-                    for words in sets:
-                        lines.append(f'- {stage}: {", ".join(words) if words else "(no keywords)"}')
-                lines.append('')
-    lines.append('## Porting notes')
-    lines.append('')
-    lines.append('- A property with `note` above is the extractor\'s reading of its official description; a note that')
-    lines.append('  the description does not settle is marked `[ASSUMED]` there or in the property list.')
-    lines.append('- The blend factors bound to a property (`_Dst`, `_DstBlend`) mean the material float is the source')
-    lines.append('  of truth: `_Dst = 1` is additive (src × SrcAlpha + dst), `_Dst = 10` is alpha blending.')
-    lines.append('- `_UseUIAlphaClip` switches the `UNITY_UI_ALPHACLIP` keyword: `clip(alpha - 0.001)`.')
-    lines.append('- `*_ST` uniforms are the texture tiling/offset of the matching TexEnv (see the material record).')
-    lines.append('')
-    return '\n'.join(lines) + '\n'

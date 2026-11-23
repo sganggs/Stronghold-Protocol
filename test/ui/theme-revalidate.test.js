@@ -10,6 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { bindThemeSettings, bootUiThemes, selectTheme, themePack, themeStatus } from '../../public/js/uiTheme.js';
+import { stubFetch } from '../helpers/fetchStub.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const read = (rel) => readFileSync(path.join(ROOT, rel), 'utf8');
@@ -35,9 +36,8 @@ function fakeFetch(state) {
 }
 
 test('bootUiThemes re-checks the served group every time the theme settings open, and a valid selection clears broken', async () => {
-  const realFetch = globalThis.fetch;
   const state = { served: true };
-  globalThis.fetch = fakeFetch(state);
+  const stub = stubFetch(fakeFetch(state));
   let settings = { uiTheme: 'ac_n_iron', voice: 0.8, muted: false };
   const patches = [];
   bindThemeSettings({
@@ -63,11 +63,14 @@ test('bootUiThemes re-checks the served group every time the theme settings open
     selectTheme('');
     assert.equal(themeStatus().notice, null, 'a valid selection clears the broken notice');
   } finally {
-    globalThis.fetch = realFetch;
+    stub.restore();
   }
 });
 
-test('the theme settings call bootUiThemes on every mount and show its broken notice', () => {
+// Wiring guards: the Preact mount effect and the module's boot-once flag have no Node-level seam (this suite has
+// no DOM renderer), so the two checks below read the source. The re-validation *behaviour* they wire up is the
+// test above (bootUiThemes called twice: served → kept, gone → fallback + broken notice, select → cleared).
+test('the theme settings mount calls bootUiThemes and shows its broken notice (wiring guard)', () => {
   const section = read('public/js/ui/themeSettings.js');
   assert.match(section, /bootUiThemes\(\)\.then\(\(\) => \{/, 'ThemeSection mounts through bootUiThemes');
   assert.match(section, /if \(status\.notice === 'broken'\) setNotice\('broken'\);/,
@@ -78,7 +81,7 @@ test('the theme settings call bootUiThemes on every mount and show its broken no
     'the notice text is the existing broken-theme copy');
 });
 
-test('bootUiThemes keeps booting once and only re-validates on later calls', () => {
+test('bootUiThemes keeps booting once and only re-validates on later calls (wiring guard)', () => {
   const source = read('public/js/uiTheme.js');
   assert.match(source, /async function revalidateActiveTheme\(\)/, 'the re-check has its own function');
   assert.match(source, /if \(!themeBootStarted\) \{/, 'the boot itself still runs once');

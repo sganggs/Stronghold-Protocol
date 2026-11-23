@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 
 import { data } from '../../public/js/data.js';
 import { cardModelFromSlot } from '../../public/js/ui/shop/adapter/model.js';
+import { withContent as withContentSet } from '../helpers/contentSet.js';
 
 const read = (name) => JSON.parse(readFileSync(new URL(`../../data/${name}`, import.meta.url), 'utf8'));
 const CHESS = read('chess.json');
@@ -17,15 +18,8 @@ const ASSETS = read('assets.json');
 const SLOT_ID = 'chess_char_6_diy1_a';
 const PICK_ID = 'char_003_kalts';
 
-/** The client's content set with chess/backups/assets, then the previous one back. */
-function withContent(fn) {
-  data.setContent({ id: 'shop-diy', values: { chess: CHESS, backups: BACKUPS, assets: ASSETS } });
-  try {
-    return fn();
-  } finally {
-    data.setContent(null);
-  }
-}
+/** The client's content set with chess/backups/assets, then the server's files back. */
+const withContent = (fn) => withContentSet({ chess: CHESS, backups: BACKUPS, assets: ASSETS }, fn, 'shop-diy');
 
 test('a filled DIY slot draws the picked operator while keeping the slot tier and price', () => {
   withContent(() => {
