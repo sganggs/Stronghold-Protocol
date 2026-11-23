@@ -40,11 +40,32 @@ export function pieceBonds(gd, piece, rules = null) {
   const c = gd.chess(piece.id);
   const out = c && Array.isArray(c.bonds) ? c.bonds.slice() : [];
   const items = Array.isArray(piece.items) ? piece.items : [];
+  if (items.length === 0) return out; // perf: nothing to pair (grantedBondsByMorph of an empty list yields nothing)
   const mode = ruleOption(rules, 'morphPairing');
   for (const b of grantedBondsByMorph(items, (id) => gd.item(id), { mode, bondOk: (id) => !!gd.bond(id) })) {
     if (!out.includes(b)) out.push(b);
   }
   return out;
+}
+
+/**
+ * perf: base id / golden flag / bonds of a piece. A piece without items has no morph-granted bonds, so all three depend on its chess id
+ * alone (static data): cached per GameData instance (a DIY view's records can differ, so views are not cached). The cached bond list is
+ * frozen (callers only read it); a piece with items is computed afresh as before.
+ */
+const PIECE_INFO = new WeakMap();
+function pieceInfo(gd, p, rules) {
+  if (!(Array.isArray(p.items) && p.items.length)) {
+    const rec = gd.chess(p.id);
+    if (rec) { // a cached entry is valid while the id still resolves to the same record (a DIY view can resolve an id differently)
+      let m = PIECE_INFO.get(gd);
+      if (!m) PIECE_INFO.set(gd, (m = new Map()));
+      let r = m.get(p.id);
+      if (!r || r.rec !== rec) m.set(p.id, (r = { rec, base: gd.baseIdOf(p.id), golden: gd.isGolden(p.id), bonds: Object.freeze(pieceBonds(gd, p, rules)) }));
+      return r;
+    }
+  }
+  return { base: gd.baseIdOf(p.id), golden: gd.isGolden(p.id), bonds: pieceBonds(gd, p, rules) };
 }
 
 /**
@@ -59,16 +80,17 @@ function membership(gd, ps) {
   const onBoardVariant = new Map();
   const inHand = new Map();
   const add = (m, bond, key) => { let s = m.get(bond); if (!s) m.set(bond, (s = new Set())); s.add(key); };
+  let goldenOnBoard = 0;
   for (const p of boardChess) {
-    const base = gd.baseIdOf(p.id);
-    const golden = gd.isGolden(p.id);
-    for (const b of pieceBonds(gd, p, ps.m?.rules)) { add(onBoard, b, base); add(onBoardVariant, b, `${base}|${golden ? 1 : 0}`); }
+    const { base, golden, bonds } = pieceInfo(gd, p, ps.m?.rules);
+    if (golden) goldenOnBoard++;
+    for (const b of bonds) { add(onBoard, b, base); add(onBoardVariant, b, `${base}|${golden ? 1 : 0}`); }
   }
   for (const p of handChess) {
-    const base = gd.baseIdOf(p.id);
-    for (const b of pieceBonds(gd, p, ps.m?.rules)) add(inHand, b, base);
+    const { base, bonds } = pieceInfo(gd, p, ps.m?.rules);
+    for (const b of bonds) add(inHand, b, base);
   }
-  return { onBoard, onBoardVariant, inHand, goldenOnBoard: boardChess.filter((p) => gd.isGolden(p.id)).length };
+  return { onBoard, onBoardVariant, inHand, goldenOnBoard };
 }
 
 /** A bond's member count by its counting mode (before 调和's +1), with the effects' per-bond count bonus. */
@@ -159,10 +181,15 @@ export function offBondCounts(gd, ps) {
 }
 
 /** Ascending member-count thresholds of a bond (fallback: activeCount). */
+const THRESHOLDS_CACHE = new WeakMap(); // perf: bond records are static data; callers only read the returned list
 export function thresholdsOf(bond) {
-  if (Array.isArray(bond.thresholds) && bond.thresholds.length) return bond.thresholds.filter((n) => Number.isFinite(n)).sort((a, b) => a - b);
-  if (Number.isFinite(bond.activeCount)) return [bond.activeCount];
-  return [2];
+  let r = THRESHOLDS_CACHE.get(bond);
+  if (r !== undefined) return r;
+  if (Array.isArray(bond.thresholds) && bond.thresholds.length) r = bond.thresholds.filter((n) => Number.isFinite(n)).sort((a, b) => a - b);
+  else if (Number.isFinite(bond.activeCount)) r = [bond.activeCount];
+  else r = [2];
+  THRESHOLDS_CACHE.set(bond, r);
+  return r;
 }
 
 /** Tier for a member count (downward bonds: 1 while 1 ≤ count ≤ maxCount). */

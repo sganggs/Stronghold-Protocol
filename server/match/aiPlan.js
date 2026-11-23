@@ -69,9 +69,21 @@ export function planMain(m, ps) {
       && (!gd.regulationBondDraw || m.bondPlayable(id))) ?? null;
 }
 
+/**
+ * perf: `ps.allChess().some(pred)` without building the reading-order list (boardOrder parses and sorts every tile key): the answer of
+ * a `some` over the board, hand and temp chess does not depend on the order.
+ */
+const someChess = (ps, pred) => {
+  if (typeof ps.allChess !== 'function' || !ps.board || !ps.hand || !ps.temp) return ps.allChess().some(pred);
+  for (const p of ps.board.values()) if (p.kind === 'chess' && pred(p)) return true;
+  for (const p of ps.hand) if (p && p.kind === 'chess' && pred(p)) return true;
+  for (const p of ps.temp) if (p && p.kind === 'chess' && pred(p)) return true;
+  return false;
+};
+
 export function ownsElite(m, ps, id) {
   const gd = ps.gd || m.gd, base = gd.baseIdOf(id);
-  return ps.allChess().some(p => gd.baseIdOf(p.id) === base && gd.isGolden(p.id));
+  return someChess(ps, p => gd.baseIdOf(p.id) === base && gd.isGolden(p.id));
 }
 
 // [ASSUMED] A first normal copy starts merge progress; an owned elite ends procurement for that base.
@@ -79,9 +91,10 @@ export function ownsElite(m, ps, id) {
 export function planCopyUseful(m, ps, id) {
   const gd = ps.gd || m.gd;
   if (!gd.chess(id) || gd.isGolden(id) || ownsElite(m, ps, id)) return false;
-  return gd.mergeCount(gd.baseIdOf(id)) > 1 || (!!advisorPlan(m, ps)?.bonds?.some(b =>
+  const base = gd.baseIdOf(id); // perf: hoisted out of the per-piece test (a pure lookup of `id`)
+  return gd.mergeCount(base) > 1 || (!!advisorPlan(m, ps)?.bonds?.some(b =>
     !gd.modeInactiveBonds.has(b.id) && gd.chess(id).bonds?.includes(b.id))
-    && !ps.allChess().some(p => gd.baseIdOf(p.id) === gd.baseIdOf(id)));
+    && !someChess(ps, p => gd.baseIdOf(p.id) === base));
 }
 
 export function planBuyTarget(m, ps, id) {
