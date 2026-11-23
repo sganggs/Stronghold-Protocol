@@ -162,9 +162,33 @@ def _name_of(ctx):
     return resolve
 
 
-def _sprite(pointer, ctx, export=True):
-    """A Sprite pointer → {name, w, h, slice, file, external}; None when it names no Sprite.
+def _texture_sampling(sprite_object, ctx):
+    """The sampler state of the Texture2D a Sprite draws, read without recording an `unresolved` entry.
 
+    The sprite's `m_RD.texture` pointer is relative to the sprite's own file, which is not the theme bundle when
+    the sprite is external (`spriteExternal`), so the pointer is bound to that file.
+
+    Sampling is optional data: a picture whose atlas cannot be reached leaves the five keys None rather than
+    adding a pointer the document never had to its `unresolved` list.
+    """
+    tree = _typetree(sprite_object) or {}
+    file_id, path_id = themes._pptr((tree.get('m_RD') or {}).get('texture'))
+    if not path_id:
+        return dict.fromkeys(themes.SAMPLING_KEYS)
+    from UnityPy.classes import PPtr
+    serialized = getattr(sprite_object, 'assets_file', None) or ctx['serialized']
+    try:
+        obj = PPtr(m_FileID=file_id, m_PathID=path_id, assetsfile=serialized).deref()
+    except Exception:  # noqa: BLE001  an unreachable atlas leaves the fields unset
+        return dict.fromkeys(themes.SAMPLING_KEYS)
+    return themes.texture_sampling(obj)
+
+
+def _sprite(pointer, ctx, export=True):
+    """A Sprite pointer → {name, w, h, slice, file, external, wrapU, wrapV, filter, texW, texH}; None when it
+    names no Sprite.
+
+    `w`/`h` are the sprite's `m_Rect` (the visible crop); `texW`/`texH` are the atlas texture's own size.
     `export=False` stops at the name and the pack's own file: a caller that resolves the picture another way (a
     SoftMask, SOFT_MASK_PICTURES) must not leave a second copy of it in the pack.
     """
@@ -186,6 +210,7 @@ def _sprite(pointer, ctx, export=True):
     width = _round(rect.width) if rect is not None else None
     height = _round(rect.height) if rect is not None else None
     out = {'name': name, 'w': width, 'h': height}
+    out.update(_texture_sampling(sprite_object, ctx))
     sliced = themes.border_slice((border.x, border.y, border.z, border.w)) if border is not None else None
     if sliced:
         out['slice'] = sliced
@@ -288,7 +313,12 @@ def _mask_picture(pointer, rel, ctx):
 
 
 def _texture(pointer, ctx):
-    """A Texture2D pointer → {texture, w, h, file}; None when it names no texture (an empty `_MainTex`)."""
+    """A Texture2D pointer → {texture, w, h, file, wrapU, wrapV, filter, texW, texH}; None when it names no
+    texture (an empty `_MainTex`).
+
+    `w`/`h` stay the texture's own size (`m_Width`/`m_Height`) as before; `texW`/`texH` repeat it so a reader
+    can tell a texture record from a sprite record, whose `w`/`h` are the sprite rect.
+    """
     if not pointer:
         return None
     texture_object = _deref(pointer, ctx)
@@ -301,12 +331,14 @@ def _texture(pointer, ctx):
     name = getattr(texture, 'm_Name', None)
     if not name:
         return None
-    return {
+    out = {
         'texture': name,
         'w': _round(getattr(texture, 'm_Width', None)),
         'h': _round(getattr(texture, 'm_Height', None)),
         'file': _texture_file(texture_object, name, ctx),
     }
+    out.update(themes.texture_sampling(texture_object))
+    return out
 
 
 def _texture_file(texture_object, name, ctx):
@@ -417,6 +449,9 @@ def _material(pointer, ctx):
         if texture:
             record.update({'texture': texture['texture'], 'file': texture.get('file'),
                            'w': texture.get('w'), 'h': texture.get('h')})
+            # The slot's texture wrap/filter: the slot's own sampling mode, which the shader leaves to the
+            # texture (`dcl_sampler mode_default` declares no wrap).
+            record.update({key: texture.get(key) for key in themes.SAMPLING_KEYS})
         scale = [_round((env.get('m_Scale') or {}).get('x', 1)), _round((env.get('m_Scale') or {}).get('y', 1))]
         offset = [_round((env.get('m_Offset') or {}).get('x', 0)), _round((env.get('m_Offset') or {}).get('y', 0))]
         record['scale'] = scale
@@ -621,6 +656,8 @@ def _image(tree, ctx):
         for key in ('slice', 'file'):
             if sprite.get(key):
                 out[key] = sprite[key]
+        # the atlas texture's wrap/filter/own size: `w`/`h` above are the sprite rect
+        out.update({key: sprite.get(key) for key in themes.SAMPLING_KEYS})
         if sprite.get('external'):
             out['spriteExternal'] = True
             out['spriteCab'] = sprite.get('cab')
@@ -642,6 +679,9 @@ def _raw(tree, ctx):
     out['tex'] = (texture or {}).get('texture')
     if texture and texture.get('file'):
         out['file'] = texture['file']
+    if texture:
+        # a RawImage's own UV window is the place a tiled read needs the texture's wrap
+        out.update({key: texture.get(key) for key in themes.SAMPLING_KEYS})
     key = _material(tree.get('m_Material'), ctx)
     if key:
         out['mat'] = key

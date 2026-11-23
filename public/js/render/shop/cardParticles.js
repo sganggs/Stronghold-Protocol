@@ -63,7 +63,8 @@ const QUAD_FRAG = `#version 300 es
   void main() {
 
     vec2 buv = vec2(vUV.x * uBaseST.x + uBaseST.z, vUV.y * uBaseST.y + uBaseST.w + uBaseScroll);
-    vec4 base = texture(uBase, vec2(fract(buv.x), 1.0 - fract(buv.y)));
+    // Official UI-Fx-Common samples uv * ST.xy + ST.zw with no frc; out-of-range UV is the texture's wrap.
+    vec4 base = texture(uBase, vec2(buv.x, 1.0 - buv.y));
     vec3 rgb;
     float alpha;
     if (uChannel > 0.5) {
@@ -75,7 +76,7 @@ const QUAD_FRAG = `#version 300 es
     }
     if (uHasMask > 0.5) {
       vec2 muv = vec2(vMaskUV.x * uMaskST.x + uMaskST.z, vMaskUV.y * uMaskST.y + uMaskST.w);
-      float mask = texture(uMask, vec2(fract(muv.x), 1.0 - fract(muv.y))).a;
+      float mask = texture(uMask, vec2(muv.x, 1.0 - muv.y)).a;
       alpha *= uMaskInvert > 0.5 ? (1.0 - mask) : mask;
     }
     outColor = vec4(rgb * uTint.rgb * vColor.rgb, alpha * uTint.a * vColor.a);

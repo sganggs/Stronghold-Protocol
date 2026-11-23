@@ -29,6 +29,9 @@ export function buildRecords(card, pack, opts = {}) {
     const alpha = (rec.inheritAlpha == null ? 1 : rec.inheritAlpha) * (rec.pose && rec.pose.alpha != null ? rec.pose.alpha : 1);
     rec.box = box;
     rec.alpha = alpha;
+    // The mask V flip belongs to the card effects (reference/card/stage.js: the _Mask_Invert=1 sweep reads
+    // mask = s and the outline's frame lands on the card's edge), not to the shop panel's own masks.
+    rec.maskFlipV = opts.maskFlip ? 1 : 0;
     boxes.set(rec.node.path || rec.node.name, { ...box, alpha, shown: rec.active });
   }
 

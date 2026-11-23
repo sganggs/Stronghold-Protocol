@@ -51,6 +51,7 @@ const FRAG = `#version 300 es
   uniform float uFlipV;
   uniform float uFlipDiss;
   uniform float uRawUv;
+  uniform float uMaskFlipV;
   uniform float uRawFlipV;
   uniform float uBaseChannel;
 
@@ -60,14 +61,17 @@ const FRAG = `#version 300 es
 
       float sweepS = vUV.y * uBaseTile.y + (uRawFlipV > 0.5 ? -uBaseOffset.y : uBaseOffset.y);
 
-      if (uRawFlipV > 0.5) sweepS = clamp(sweepS, 0.0, 1.0); else sweepS = fract(sweepS);
-      vec2 uv = vec2(fract(vUV.x * uBaseTile.x + uBaseOffset.x), 1.0 - sweepS);
+      // Official UI-Fx-Common: uv = v * ST.xy + ST.zw then sample; the 16 pixel programs carry no frc and the
+      // sampler is mode_default, so sampling outside 0..1 is the texture's wrap (Clamp slides out and vanishes,
+      // Repeat folds). No UV wrap here.
+      if (uRawFlipV > 0.5) sweepS = clamp(sweepS, 0.0, 1.0);
+      vec2 uv = vec2(vUV.x * uBaseTile.x + uBaseOffset.x, 1.0 - sweepS);
       base = uHasBase > 0.5 ? texture(uBase, uv) : vec4(1.0);
     } else {
 
       vec2 baseUV = vUV;
       if (uFlipV > 0.5) baseUV.y = 1.0 - baseUV.y;
-      base = uHasBase > 0.5 ? texture(uBase, fract(baseUV * uBaseTile + uBaseOffset)) : vec4(1.0);
+      base = uHasBase > 0.5 ? texture(uBase, baseUV * uBaseTile + uBaseOffset) : vec4(1.0);
     }
 
     vec3 rgb;
@@ -82,9 +86,9 @@ const FRAG = `#version 300 es
     }
     if (uHasMask > 0.5) {
 
-      vec2 maskUV = uRawUv > 0.5
-        ? vec2(fract(vUV.x * uMaskTile.x + uMaskOffset.x), 1.0 - fract(vUV.y * uMaskTile.y + uMaskOffset.y))
-        : fract(vUV * uMaskTile + uMaskOffset);
+      vec2 maskUV = (uRawUv > 0.5 && uMaskFlipV > 0.5)
+        ? vec2(vUV.x * uMaskTile.x + uMaskOffset.x, 1.0 - (vUV.y * uMaskTile.y + uMaskOffset.y))
+        : vUV * uMaskTile + uMaskOffset;
       float m = texture(uMask, maskUV).a;
       if (uMaskInvert > 0.5) m = 1.0 - m;
       alpha *= m;
@@ -93,8 +97,8 @@ const FRAG = `#version 300 es
       vec2 dissUV = vUV;
       if (uFlipDiss > 0.5) dissUV.y = 1.0 - dissUV.y;
       vec2 duv = uRawUv > 0.5
-        ? vec2(fract(vUV.x * uDissTile.x + uDissOffset.x), 1.0 - fract(vUV.y * uDissTile.y + uDissOffset.y))
-        : fract(dissUV * uDissTile + uDissOffset);
+        ? vec2(vUV.x * uDissTile.x + uDissOffset.x, 1.0 - (vUV.y * uDissTile.y + uDissOffset.y))
+        : dissUV * uDissTile + uDissOffset;
       float d = texture(uDiss, duv).r;
       if (uDissInvert > 0.5) d = 1.0 - d;
       float x = clamp((d - uProgress) / max(uSmooth, 0.0001), 0.0, 1.0);
@@ -197,6 +201,18 @@ const rgba = (hex, fallback = [1, 1, 1, 1]) => {
 
 const tileOf = (t) => (Array.isArray(t) && t[0] > 0 && t[1] > 0 ? [t[0], t[1]] : [1, 1]);
 
+// A material's `draw` block names its textures by file ("sprites/fx_refresh.webp") while the sampling lives on the
+// matching `textures[*]` slot, which the extractor fills with the same five fields as the texture record itself.
+// The expected slot name wins over a bare file match: one material can list the same file in two slots (two
+// `_Dissolve*_Tex` slots share `tex_img_uifx_basicmask_01`), and the state belongs to the slot that is drawn.
+const materialSlot = (material, file, slotNames) => {
+  const list = material && Array.isArray(material.textures) ? material.textures : null;
+  if (!list || !file) return null;
+  const same = list.filter((slot) => slot && slot.file === file);
+  if (!same.length) return null;
+  return same.find((slot) => slotNames.includes(slot.slot)) || same[0];
+};
+
 export function create(canvas, card, view, options = {}) {
   const search = String(options.search || '');
   const debugStats = !!options.debugStats || search.includes('stats');
@@ -273,7 +289,7 @@ export function create(canvas, card, view, options = {}) {
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
 
   const U = {};
-  for (const name of ['uRect', 'uView', 'uBase', 'uMask', 'uDiss', 'uSoft', 'uSoftWeights', 'uSoftRect', 'uSoftMix', 'uAngle', 'uPivot', 'uScale', 'uFlipV', 'uFlipDiss', 'uRawUv', 'uRawFlipV', 'uBaseChannel',
+  for (const name of ['uRect', 'uView', 'uBase', 'uMask', 'uDiss', 'uSoft', 'uSoftWeights', 'uSoftRect', 'uSoftMix', 'uAngle', 'uPivot', 'uScale', 'uFlipV', 'uFlipDiss', 'uRawUv', 'uMaskFlipV', 'uRawFlipV', 'uBaseChannel',
     'uBaseTile', 'uBaseOffset', 'uMaskTile', 'uMaskOffset', 'uDissTile', 'uDissOffset', 'uHasBase', 'uHasMask',
     'uHasDiss', 'uMaskInvert', 'uDissInvert', 'uProgress', 'uSmooth', 'uAlphaClip', 'uTint']) {
     U[name] = gl.getUniformLocation(program, name);
@@ -297,21 +313,72 @@ export function create(canvas, card, view, options = {}) {
 
   const textures = new Map();
 
+  // Sampling state of one texture record. The theme documents carry Unity's TextureSettings on every texture
+  // record -- `wrapU`/`wrapV` (0=Repeat, 1=Clamp, 2=Mirror, 3=MirrorOnce) and `filter` (m_FilterMode: 0=Point,
+  // 1=Bilinear, 2=Trilinear) -- and the official shaders only ever declare `dcl_sampler sN, mode_default`, so the
+  // wrap is the texture's alone (docs/TEXTURE-WRAP-EXTRACT.md §7). A record without the fields (a plain URL from
+  // the particle renderer, an image the content filler injected, a soft mask) keeps the fixed CLAMP_TO_EDGE/LINEAR
+  // this stage used before the data existed: a missing field means "not read", not Clamp and not Repeat.
+  const wrapParam = (value) => {
+    if (value == null) return gl.CLAMP_TO_EDGE;
+    const mode = Number(value);
+    if (mode === 0) return gl.REPEAT;
+    if (mode === 2) return gl.MIRRORED_REPEAT;
+    // 1 = Clamp and 3 = MirrorOnce both land on CLAMP_TO_EDGE: WebGL has no mirror-once wrap mode.
+    return gl.CLAMP_TO_EDGE;
+  };
+  const filterParam = (value) => {
+    if (value == null) return gl.LINEAR;
+    // Point is the only mode this stage can honour on MIN_FILTER: it builds no mip chain (no generateMipmap), so
+    // Trilinear (2) is Linear here; MIN and MAG get the same value.
+    return Number(value) === 0 ? gl.NEAREST : gl.LINEAR;
+  };
+  const samplingOf = (record) => {
+    const fields = record && typeof record === 'object' ? record : null;
+    const filter = filterParam(fields ? fields.filter : null);
+    return {
+      wrapS: wrapParam(fields ? fields.wrapU : null),
+      wrapT: wrapParam(fields ? fields.wrapV : null),
+      min: filter,
+      mag: filter,
+    };
+  };
+  // The cache key used to be the resolved URL alone, which stops being enough once wrap/filter are per record:
+  // the same file can be named by two records with different sampling (two Texture2D objects extracted to one
+  // .webp -- TEXTURE-WRAP-EXTRACT.md §3; or one sprite used both as an Image and as a material slot), and the
+  // first upload would then fix the state for every later user of that URL. The sampling is folded into the key
+  // only when it leaves the fixed default, so a record without the data keeps the bare URL as its key and
+  // `textures.get(url)` (cardWebgl.texture, the pending-texture report, the particle callers) still resolves.
+  const cacheKey = (resolved, sampling) => {
+    const parts = [];
+    if (sampling.wrapS !== gl.CLAMP_TO_EDGE) parts.push(`ws${sampling.wrapS}`);
+    if (sampling.wrapT !== gl.CLAMP_TO_EDGE) parts.push(`wt${sampling.wrapT}`);
+    if (sampling.min !== gl.LINEAR) parts.push(`min${sampling.min}`);
+    if (sampling.mag !== gl.LINEAR) parts.push(`mag${sampling.mag}`);
+    return parts.length ? `${resolved}|${parts.join(',')}` : resolved;
+  };
+
   const resolveUrl = typeof options.resolveUrl === 'function' ? options.resolveUrl : (file) => file;
-  const loadTexture = (url) => {
+  // `record` is the texture record the caller drew from (a material's `textures[*]` slot, a node's `image`); it
+  // is optional so the particle renderer and the plain-URL callers keep working unchanged.
+  const loadTexture = (url, record = null) => {
     if (!url) return null;
     const resolved = resolveUrl(url);
     if (!resolved) return null;
-    if (textures.has(resolved)) return textures.get(resolved);
+    const sampling = samplingOf(record);
+    const key = cacheKey(resolved, sampling);
+    if (textures.has(key)) return textures.get(key);
     const tex = gl.createTexture();
-    const entry = { tex, ready: false, url: resolved };
-    textures.set(resolved, entry);
+    const entry = {
+      tex, ready: false, url: resolved, wrapS: sampling.wrapS, wrapT: sampling.wrapT, minFilter: sampling.min, magFilter: sampling.mag,
+    };
+    textures.set(key, entry);
     gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 0]));
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, sampling.wrapS);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, sampling.wrapT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, sampling.min);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, sampling.mag);
     const image = new Image();
     image.onload = () => {
       // The stage may have been destroyed (or lost its context) while the image was in flight.
@@ -785,9 +852,22 @@ export function create(canvas, card, view, options = {}) {
       gl.uniform4f(U.uRect, x, y, w, h);
       const pivot = (rec.node.rect && rec.node.rect.pivot) || [0.5, 0.5];
 
-      const poseRot = rec.pose && rec.pose.rot != null ? Number(rec.pose.rot) : 0;
-      gl.uniform1f(U.uAngle, ((-((Number(rec.node.rot) || 0) + poseRot)) * Math.PI) / 180);
-      gl.uniform2f(U.uPivot, x + pivot[0] * w, y + pivot[1] * h);
+      // rec.rotTotal folds the node's own rotation, the posed angle and every rotated ancestor
+      // (propagateTransforms); records that never went through it keep the old node+pose reading.
+      const poseRot = rec.rotTotal != null
+        ? rec.rotTotal
+        : (Number(rec.node.rot) || 0) + (rec.pose && rec.pose.rot != null ? Number(rec.pose.rot) : 0);
+      gl.uniform1f(U.uAngle, ((-poseRot) * Math.PI) / 180);
+      // A rotating auto-clip target turns around its sprite's ring centre (centerRot, normalized);
+      // descendants of such a node use that point too. rotOrigin is DESIGN px, uPivot is canvas px.
+      const cr = rec.node && rec.node.centerRot;
+      const pivotX = rec.rotOrigin
+        ? rec.rotOrigin[0] * unitPx + padPx.left
+        : (cr ? x + (Array.isArray(cr) ? cr[0] : 0.5) * w : x + pivot[0] * w);
+      const pivotY = rec.rotOrigin
+        ? rec.rotOrigin[1] * unitPx + padPx.top
+        : (cr ? y + (Array.isArray(cr) ? cr[1] : 0.5) * h : y + pivot[1] * h);
+      gl.uniform2f(U.uPivot, pivotX, pivotY);
 
       const nodeScale = rec.node.scale || [1, 1, 1];
       const poseScale = rec.pose && rec.pose.scale;
@@ -798,6 +878,7 @@ export function create(canvas, card, view, options = {}) {
       gl.uniform1f(U.uFlipV, 0);
       gl.uniform1f(U.uFlipDiss, 0);
       gl.uniform1f(U.uRawUv, rec.rawUv ? 1 : 0);
+      gl.uniform1f(U.uMaskFlipV, rec.maskFlipV ? 1 : 0);
       gl.uniform1f(U.uBaseChannel, 0);
       gl.uniform1f(U.uHasBase, 0);
       gl.uniform1f(U.uHasMask, 0);
@@ -895,9 +976,13 @@ export function create(canvas, card, view, options = {}) {
       if (material) {
         const drawRec = material.draw || {};
         const baseUrl = drawRec.baseFile || (image && image.file) || null;
-        const base = loadTexture(baseUrl);
-        const mask = loadTexture(drawRec.maskFile);
-        const diss = loadTexture(drawRec.dissolve && drawRec.dissolve.file);
+        // The record that carries the sampling: the material's own slot when the base comes from the material,
+        // otherwise the node's Image (an identity-ST draw samples the Image's sprite directly).
+        const baseRecord = drawRec.baseFile ? materialSlot(material, drawRec.baseFile, ['_BaseTex', '_MainTex']) : image;
+        const dissFile = (drawRec.dissolve && drawRec.dissolve.file) || null;
+        const base = loadTexture(baseUrl, baseRecord);
+        const mask = loadTexture(drawRec.maskFile, materialSlot(material, drawRec.maskFile, ['_Mask_Tex']));
+        const diss = loadTexture(dissFile, materialSlot(material, dissFile, ['_Dissolve1_Tex', '_DissolveTex1']));
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, (base || mask || diss) ? (base || mask || diss).tex : null);
         gl.uniform1i(U.uBase, 0);
@@ -951,7 +1036,32 @@ export function create(canvas, card, view, options = {}) {
         const dst = drawRec.dst == null ? null : Number(drawRec.dst);
         additive = dst != null ? dst === 1 : (!!drawRec.additive || drawRec.blend === 'add');
 
-        if (additive) gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+        // Torappu/UI/AlphaBlend composition (docs/SHADER-ALPHABLEND.md §6, bytecode): the VS multiplies the vertex
+        // colour by the material's _TintColor (`mul o1, v7, cb0[2]`), the PS multiplies the sample by it and adds the
+        // product to itself (`add o0.xyz, r0, r0`) while alpha only saturates (`mov_sat o0.w, r0.w`). So the frame is
+        // 2 x tex x vColor x _TintColor.rgb in RGB and tex.a x vColor.a x _TintColor.a in alpha; our shader only ever
+        // saw vColor. Both factors were missing and multiply out to exactly 1 on this theme (every AlphaBlend
+        // material is _TintColor = 0.5,0.5,0.5,1), which is why the frame does not move. Other shader families have
+        // their own composition (e.g. UI-Fx-Common has no _TintColor factor), so they keep factor 1.
+        if (/^Torappu\/UI\/AlphaBlend/.test(String(material.shader || ''))) {
+          const tintColor = (material.colors && Array.isArray(material.colors._TintColor))
+            ? material.colors._TintColor
+            : [0.5, 0.5, 0.5, 1];
+          const t0 = Number(tintColor[0]);
+          const t1 = Number(tintColor[1]);
+          const t2 = Number(tintColor[2]);
+          const t3 = Number(tintColor[3]);
+          tint = [
+            tint[0] * 2 * (Number.isFinite(t0) ? t0 : 0.5),
+            tint[1] * 2 * (Number.isFinite(t1) ? t1 : 0.5),
+            tint[2] * 2 * (Number.isFinite(t2) ? t2 : 0.5),
+            tint[3] * (Number.isFinite(t3) ? t3 : 1),
+          ];
+        }
+
+        // The official blend is `blend{src:5(SrcAlpha), dst:property _DstBlend, srcAlpha:5, dstAlpha:_DstBlend}`: one
+        // dst factor for both halves. Additive materials (dst = One) therefore write alpha with ONE as well.
+        if (additive) gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE, gl.ONE, gl.ONE);
         else gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 
         const intensity = drawRec.intensity != null ? Number(drawRec.intensity) : 1;
@@ -963,7 +1073,7 @@ export function create(canvas, card, view, options = {}) {
         stats.materials += 1;
       } else if (image && (image.file || image.color)) {
 
-        const tex = image.file ? loadTexture(image.file) : whiteTexture();
+        const tex = image.file ? loadTexture(image.file, image) : whiteTexture();
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, tex ? tex.tex : null);
         gl.uniform1i(U.uBase, 0);
@@ -977,7 +1087,7 @@ export function create(canvas, card, view, options = {}) {
       }
 
       if (rec.softMask) {
-        const soft = loadTexture(rec.softMask.file);
+        const soft = loadTexture(rec.softMask.file, rec.softMask);
         gl.activeTexture(gl.TEXTURE3);
         gl.bindTexture(gl.TEXTURE_2D, soft ? soft.tex : null);
         gl.uniform1i(U.uSoft, 3);

@@ -151,6 +151,67 @@ def safe_stem(name):
     return SAFE.sub('_', str(name)).strip('._')[:120] or 'unnamed'
 
 
+# The sampler fields every texture record carries (TEXTURE-WRAP-EXTRACT.md): the texture's own
+# `m_TextureSettings` wrap/filter plus its own pixel size, which is not the sprite rect a record's `w`/`h` hold.
+SAMPLING_KEYS = ('wrapU', 'wrapV', 'filter', 'texW', 'texH')
+
+
+def _int_or_none(value):
+    """A serialized int/float → int; None when the field is absent or not a number."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    try:
+        return int(round(float(value)))
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+def texture_sampling(texture_object):
+    """A Texture2D's WrapU/WrapV/FilterMode and own size, every key None when the object is unreadable.
+
+    The official effect shaders declare `dcl_sampler sN, mode_default` and no wrap clause, so the texture's
+    `m_TextureSettings` alone decides how UV outside [0,1] samples: 0 Repeat, 1 Clamp, 2 Mirror, 3 MirrorOnce.
+    `texW`/`texH` are `m_Width`/`m_Height` (the whole texture); a record's `w`/`h` are the sprite's `m_Rect`,
+    which is the visible crop and can be smaller (inner_flow: rect 187×58, texture 192×60).
+    """
+    out = dict.fromkeys(SAMPLING_KEYS)
+    if texture_object is None:
+        return out
+    try:
+        tree = texture_object.read_typetree()
+    except Exception:
+        return out
+    if not isinstance(tree, dict):
+        return out
+    settings = tree.get('m_TextureSettings')
+    if isinstance(settings, dict):
+        out['wrapU'] = _int_or_none(settings.get('m_WrapU'))
+        out['wrapV'] = _int_or_none(settings.get('m_WrapV'))
+        out['filter'] = _int_or_none(settings.get('m_FilterMode'))
+    out['texW'] = _int_or_none(tree.get('m_Width'))
+    out['texH'] = _int_or_none(tree.get('m_Height'))
+    return out
+
+
+def texture_of(pointer, objects):
+    """The Texture2D object a same-bundle PPtr names (a Sprite's `m_RD.texture`), else None."""
+    file_id, path_id = _pptr(pointer)
+    if file_id or not path_id or not objects:
+        return None
+    obj = objects.get(path_id)
+    return obj if obj is not None and obj.type.name == 'Texture2D' else None
+
+
+def _sprite_sampling(sprite_object, objects):
+    """Sampling fields of the Texture2D a Sprite draws; all None when the sprite or its texture is unreadable."""
+    try:
+        tree = sprite_object.read_typetree()
+    except Exception:
+        return dict.fromkeys(SAMPLING_KEYS)
+    rd = tree.get('m_RD') if isinstance(tree, dict) else None
+    return texture_sampling(texture_of((rd or {}).get('texture'), objects))
+
+
 def _tokens(text):
     return set(re.split(r'[^a-z0-9]+', (text or '').lower())) - {''}
 
@@ -850,6 +911,9 @@ def _image_info(tree, objects):
         info.update(_sprite_fields(obj))
     except Exception:
         info['sprite'] = None
+    # The picture's own sampler state, so a reader that has to sample outside the quad's UV range (tiled sweep
+    # masks) reads the texture's wrap instead of assuming `fract`.
+    info.update(_sprite_sampling(obj, objects))
     return info
 
 
@@ -983,8 +1047,9 @@ def _export_material_textures(env, objects, dest_dir, book):
             if not name or name in out:
                 continue
             info = book.resolve(name) if book is not None else None
+            sampling = texture_sampling(tex)
             if info and info.get('file'):
-                out[name] = {'file': info['file'], 'w': info.get('w'), 'h': info.get('h')}
+                out[name] = {'file': info['file'], 'w': info.get('w'), 'h': info.get('h'), **sampling}
                 continue
             try:
                 image = data.image
@@ -995,7 +1060,7 @@ def _export_material_textures(env, objects, dest_dir, book):
             rel = f'sprites/tex_{safe_stem(name)}.webp'
             dest_dir.mkdir(parents=True, exist_ok=True)
             _save_raster(image, dest_dir / f'tex_{safe_stem(name)}.webp')
-            out[name] = {'file': rel, 'w': image.size[0], 'h': image.size[1]}
+            out[name] = {'file': rel, 'w': image.size[0], 'h': image.size[1], **sampling}
     return out
 
 

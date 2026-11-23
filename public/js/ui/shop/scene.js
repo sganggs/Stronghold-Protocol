@@ -17,6 +17,17 @@ const CARD_ROW = 'state_unfold/panel_unfold/root_layout/group_slots';
 
 const MONEY_HOLDER = 'root_main_money';
 
+// Ring centre of the sprite files, marked by the reviewer on the 10x grid export: the fully filled cell is
+// sprite pixel (23, 20), so its centre is (23.5, 20.5) of 48 -> (0.4896, 0.4271). The alpha bbox centre
+// (23.5, 23.5) is lower because the arrow's tail sits under the ring; an edge-circle fit got y right but
+// x wrong (22.65, 20.64).
+const RING_CENTER_UV = { refresh_icon: [0.4896, 0.4271] };
+
+// The properties a uGUI clip addresses (cardTimeline applies these). A Spine clip addresses bones instead
+// (`img.r/g/b/a` on paths like `2`), which no panel node can sample — loop_spine_deco must not be treated as a
+// node loop, or the deco bone would keep the shop painting every frame while nothing on it changes.
+const AUTO_CLIP_PROPS = new Set(['ax', 'ay', 'h', 'w', 'alpha', 'scale', 'rot', 'rz', 'colour', 'color', 'tex', 'active']);
+
 function repath(node, basePath, name = node.name) {
   node.name = name;
   node.path = basePath ? `${basePath}/${name}` : name;
@@ -202,6 +213,13 @@ export class ShopScene {
     this.cardParticlesEnabled = opts.cardParticles !== false;
     this.cardClock = 0;
     this.cardClockLast = null;
+    // Panel auto-clips (C# AnimationWrapper autoClip) loop for as long as their node is shown, so they are not
+    // motion tracks: the phase comes from a paint clock. `loop_btn_refresh_sweep_closure` is the only uGUI one
+    // in panel_shop_main (btn_refresh/group_normal); it sweeps root_special, the button's special state.
+    this.autoClips = new Map();
+    this.autoClipParent = new Map();
+    this.autoClipClock = 0;
+    this.autoClipLast = null;
     const cardMountedView = {
       // The card documents carry both frame_lv2_obj and frame_lv3_obj, each with a tv_particle. Only the
       // mounted tier sub-prefabs may emit; CardParticles reads this.
@@ -526,7 +544,7 @@ export class ShopScene {
       const card = buildWebgl(
         { root: cardRoot, materials: this.cardDoc.materials, sub: this.cardDoc.sub, clips: this.cardDoc.clips },
         this.cardDoc,
-        { size: [157, 207], unit: 1, pad: [0, 0] },
+        { size: [157, 207], unit: 1, pad: [0, 0], maskFlip: true },
       );
       const cardRootRec = card.order[0];
       if (cardRootRec && rowRecord) cardRootRec.parent = rowRecord;
@@ -599,11 +617,111 @@ export class ShopScene {
       },
     };
     this.base.stats = { panel: panelBuilt.order.length, cards: cardCount, money: moneyCount };
+    this.collectAutoClips();
     this.dirty = false;
     this.layoutDirty = false;
 
     this.staticActives = null;
     if (this.motion.busy) this.animBase = this.captureActives();
+  }
+
+  /**
+   * C# AnimationWrapper plays a node's script clip on a loop while the node is shown. The clip is authored
+   * against its owner (`loop_btn_refresh_sweep_closure` on btn_refresh/group_normal carries root_special/…
+   * curves, and root_special is a child of group_normal), so the base path is the autoClip node itself. The
+   * Spine deco clip (loop_spine_deco) drops out by itself: its curves address bones (`2`, `1` + img.*) and no
+   * such node path resolves.
+   */
+  collectAutoClips() {
+    this.autoClips.clear();
+    this.autoClipParent = new Map();
+    const doc = this.panelDoc;
+    if (!doc || !this.panel) return;
+    const visit = (node, parent) => {
+      if (!node) return;
+      this.autoClipParent.set(node, parent || null);
+      const name = node.autoClip;
+      // Only the refresh button's own group runs this loop. btn_reward carries the same autoClip and its
+      // root_special is active by default in the prefab, so registering it painted two more spinning arrows at
+      // the reward buttons' fixed positions - the "icons flying at the left / sliding on the right" report.
+      if (name && node.path && node.path.includes('/btn_refresh/group_normal') && !this.autoClips.has(node.path)) {
+        const clip = (doc.clips || {})[name];
+        // Targets are the clip's own nodes, so "is this loop visible" is the node's inherited active state:
+        // the refresh button's root_special is toggled by ctrl and nothing paints until it is on.
+        const curves = clip
+          ? (clip.curves || []).filter((curve) => curve[0] && AUTO_CLIP_PROPS.has(String(curve[1]).split('.')[0]))
+          : [];
+        const targets = curves.map((curve) => this.autoClipNode(`${node.path}/${curve[0]}`)).filter(Boolean);
+        if (clip && Number(clip.len) > 0 && targets.length) {
+          // Rotation centre is the SPRITE's ring centre, not the assumed rect centre: the 48x48 refresh_icon
+          // webp has its alpha bbox at x 1..45 / y 2..45, i.e. centre (23.50, 24.00) => (0.4896, 0.5000)
+          // normalized. Measured from the file, see docs/SHADER-ALPHABLEND.md provenance note.
+          for (const target of targets) {
+            const sprite = target.image && target.image.sprite;
+            target.centerRot = (sprite && RING_CENTER_UV[sprite]) || null;
+          }
+          this.autoClips.set(node.path, { clipName: name, clip, basePath: node.path, targets: [...new Set(targets)] });
+        }
+      }
+      for (const child of node.children || []) visit(child, node);
+    };
+    visit(this.panel, null);
+  }
+
+  /** The node at a full path, walking the panel tree once (records are rebuilt per state, nodes are not). */
+  autoClipNode(path) {
+    const root = this.panel;
+    if (!root) return null;
+    const prefix = root.path ? `${root.path}/` : '';
+    const full = String(path);
+    if (prefix && !full.startsWith(prefix)) return null;
+    let node = root;
+    for (const part of full.slice(prefix.length).split('/').filter(Boolean)) {
+      node = (node.children || []).find((child) => child.name === part) || null;
+      if (!node) return null;
+    }
+    return node;
+  }
+
+  /** A node is drawn when it and every ancestor are active (uGUI activeInHierarchy). */
+  autoClipShown(node) {
+    for (let n = node; n; n = this.autoClipParent.get(n) || null) {
+      if (n.active === false) return false;
+    }
+    return !!node;
+  }
+
+  /** True when an auto-clip's targets are drawn, so the host has to keep painting (these are not motion tracks). */
+  autoClipAnimating() {
+    for (const entry of this.autoClips.values()) {
+      if (entry.targets.some((node) => this.autoClipShown(node))) return true;
+    }
+    return false;
+  }
+
+  /** The auto-clips' current frames. Nothing plays while their nodes are hidden, so a normal shop stays idle. */
+  sampleAutoClips() {
+    if (!this.autoClips.size) return [];
+    const now = performance.now();
+    const dt = this.autoClipLast == null ? 0 : Math.min(0.05, (now - this.autoClipLast) / 1000);
+    this.autoClipLast = now;
+    this.autoClipClock += dt;
+    const entries = [];
+    for (const entry of this.autoClips.values()) {
+      const live = entry.targets.some((node) => this.autoClipShown(node));
+      if (!live) { entry.live = false; continue; }
+      // A legacy Animation restarts at t=0 when its node becomes active again (C# m_PlayAutomatically), so a
+      // free-running clock would drop the first sweep in mid-clip whenever the button turns special.
+      if (!entry.live) { entry.live = true; entry.start = this.autoClipClock; }
+      const len = Math.max(0.001, Number(entry.clip.len) || 0.001);
+      entries.push({
+        clip: entry.clip,
+        clipName: entry.clipName,
+        t: ((this.autoClipClock - (entry.start || 0)) % len + len) % len,
+        basePath: entry.basePath,
+      });
+    }
+    return entries;
   }
 
   paint(options = {}) {
@@ -718,6 +836,11 @@ export class ShopScene {
         });
       }
     }
+
+    // Panel auto-clips ride the same sampler as clips and settle entries; they are sampled here because their
+    // phase comes from the paint clock, not from a track that finishes.
+    const autoClips = this.sampleAutoClips();
+    if (autoClips.length) clipEntries.push(...autoClips);
 
     if (clipEntries.length) {
       for (const entry of clipEntries) {

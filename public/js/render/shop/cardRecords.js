@@ -199,6 +199,34 @@ export function propagateTransforms(records) {
       parentScale[0] * (Number.isFinite(sx) ? sx : 1),
       parentScale[1] * (Number.isFinite(sy) ? sy : 1),
     ];
+    // A rotated node rotates its whole subtree (uGUI localRotation): the refresh button's additive arrow
+    // (root_special/icon/icon_add) must turn with root_special/icon it sits in, not stay behind it.
+    const ownRot = (Number(rec.node.rot) || 0) + (pose.rot != null ? Number(pose.rot) : 0);
+    const parentRot = parent ? Number(parent.rotTotal) || 0 : 0;
+    rec.rotTotal = parentRot + ownRot;
+    // ...and it turns AROUND THE PARENT'S PIVOT, not its own: icon_add sits 2.94 px off the icon's pivot, so
+    // orbiting its own centre instead leaves it up to 5.89 px off at half a turn. `rotOrigin` is that pivot in
+    // canvas units (node pivot of the outermost rotated ancestor, after its own delta).
+    if (parent && parentRot !== 0) {
+      if (parent.rotOrigin) rec.rotOrigin = parent.rotOrigin;
+      else {
+        const pp = (parent.node.rect && parent.node.rect.pivot) || [0.5, 0.5];
+        // An auto-clip target turns around its sprite's ring centre (centerRot, normalized), so its children
+        // orbit that point instead of the rect centre.
+        const cr = parent.node && parent.node.centerRot;
+        rec.rotOrigin = cr
+          ? [
+            parent.abs.x + pDelta.x + (Array.isArray(cr) ? cr[0] : 0.5) * parent.abs.w,
+            parent.abs.y + pDelta.y + (Array.isArray(cr) ? cr[1] : 0.5) * parent.abs.h,
+          ]
+          : [
+            parent.abs.x + pDelta.x + pp[0] * parent.abs.w,
+            parent.abs.y + pDelta.y + pp[1] * parent.abs.h,
+          ];
+      }
+    } else {
+      rec.rotOrigin = null;
+    }
   }
 }
 
