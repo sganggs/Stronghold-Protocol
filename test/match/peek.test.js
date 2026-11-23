@@ -116,6 +116,22 @@ test('g.peek: a round / phase change ends the subscription on the next flush', (
   h.m.dispose();
 });
 
+test('g.peek: a re-open in the same round and phase is silent, but a new round / phase always answers', () => {
+  const h = makeMatch({ mode: 'coop', humans: 2, seed: 9315, fake: true }).start();
+  h.toPrep(1);
+  h.m.handle('p_0', { t: 'g.peek', open: true });
+  const n = h.allTo('p_0', 'm.peek').length;
+  assert.equal(n, 1, 'the snapshot');
+  // 同一回合、同一阶段的第二次 open 只是重新渲染：第一个应答仍然有效（虚拟钟没有走动）
+  h.m.handle('p_0', { t: 'g.peek', open: true });
+  assert.equal(h.allTo('p_0', 'm.peek').length, n, 'a re-render inside the window stays silent');
+  // 回合变了：订阅的 known 已重置为空，快照若被去抖吞掉，浮窗会一直空着
+  h.m.round += 1;
+  h.m.handle('p_0', { t: 'g.peek', open: true });
+  assert.equal(h.allTo('p_0', 'm.peek').length, n + 1, 'a new round answers again');
+  h.m.dispose();
+});
+
 test('g.peek: a disconnect drops the subscription, and a spectator seat is refused like any intent', () => {
   const h = makeMatch({ mode: 'coop', humans: 2, spectators: ['spec'], seed: 9305, fake: true }).start();
   h.toPrep(1);

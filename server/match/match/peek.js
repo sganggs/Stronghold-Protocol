@@ -47,8 +47,10 @@ export class MatchPeek {
     if (!this._peekOpenAt) this._peekOpenAt = new Map();
     const last = this._peekOpenAt.get(ps.playerId) || 0;
     this._peekOpenAt.set(ps.playerId, now);
-    // 重新渲染会再 open 一次：第一个应答仍然有效。订阅已在上面刷新。
-    if (now - last < PEEK_OPEN_DEBOUNCE_MS) return OK;
+    // 重新渲染会再 open 一次：同一回合、同一阶段的第一个应答仍然有效，订阅已在上面刷新，此时才去抖。
+    // 回合 / 阶段变了就不是重新渲染而是新窗口：known 已重置为空，必须回一份快照——去抖吞掉它的话，
+    // 下一次 flush 里没有变化可推（没有 m.public 变化时 flush 也可能不走到这里），浮窗会一直空着。
+    if (same && now - last < PEEK_OPEN_DEBOUNCE_MS) return OK;
     this._sendPeek(ps.playerId, { ops: this._peekSnapshot(ps, sub) });
     return OK;
   }

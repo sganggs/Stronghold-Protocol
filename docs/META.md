@@ -1182,8 +1182,10 @@ spawn tile `start`, where the boss-field prep shows it —, + its bounties).
 Board only: the hand, the temp area, equipment, summons (tokens), coordinates and `standInFor` are not copied; `[]` once
 the seat is eliminated. It is per-viewer on purpose: `m.public players[]` has NO `boardOps` — that view is one
 broadcast for every seat and the spectator bench, so the field there would bypass `g.watch` (§4). A teammate's
-operators reach the flyout as they are watched — through the scout / battle field already on screen (`m.field` prep
-scout, `b.start`) or, while the flyout is open, through `g.peek` / `m.peek` (below). That is the status channel: a read-only
+operators reach the flyout through `g.peek` / `m.peek` (below) while the flyout is open — the standing roster channel —
+and, where one of their fields is on screen (`m.field` prep scout, `b.start`), the client prefers that field's own
+board over the snapshot (game.js `mergeFlyOps`; the screen fills the live seats, peek answers the rest). That is the
+status channel: a read-only
 roster channel separate from the battlefield channel (`g.watch` → `m.field` / `b.*`), which carries no battle state
 and never writes `MatchWatch.watchers`. `MatchPeek._peekVisible` is its own policy and is always on: the official
 flyout shows every teammate's operators at all times, so it answers in prep, inside a battle window and across a
@@ -1192,7 +1194,9 @@ visible in prep).
 
 `g.peek { open }` / `m.peek` — the flyout's operator table. `open: true` subscribes the asking seat for the current
 round and phase and answers `m.peek { seq, ops: { [pid]: [{ id, golden? }] } }` with the lean lists of every other
-seat (the own seat never: that one is `m.private boardOps`); a later layout change (add / remove / elite only, never a
+seat (the own seat never: that one is `m.private boardOps`); a repeat `open: true` in the same round and phase within
+a second is a re-render and keeps the earlier answer, but a round / phase change always answers again (the new
+subscription's `known` is empty — a skipped answer would leave the flyout blank). A later layout change (add / remove / elite only, never a
 move) pushes `m.peek { seq, seat, ops }` to every open subscriber that may see that seat. `open: false`, a
 disconnect, a leave, and a round / phase change drop the subscription (the client collapses the flyout on the same
 boundaries, and after a reconnect closes it again); `ops: []` clears a seat. Nothing here goes into `m.public`, nothing

@@ -167,9 +167,14 @@ export function flyOpChessId(u, lookup = (id) => data.lookup('chess', id), chess
 }
 
 /**
- * Per-viewer on-field operators for the flyout (PR #922 review). The own seat reads m.private.boardOps; a teammate
- * only when their field is the one on screen (a prep scout, or a battle the viewer may watch — g.watch already
- * refused every other field), and always board-only, chess-only. The result is `{ [playerId]: [{ id, golden? }] }`.
+ * 屏上战场能给的干员（PR #922 评审）：自己的座位读 m.private.boardOps，队友只取「当前屏上那张战场」——准备期
+ * 侦察（`n:<pid>`）或自己可观看的战斗（g.watch 已拒绝其余战场）——且只含场上棋子。结果形如
+ * `{ [playerId]: [{ id, golden? }] }`。
+ *
+ * 这不是浮窗的完整数据源，只是它的**优先层**：队友的名册本来常开（g.peek → m.peek，server/match/match/peek.js），
+ * 屏上这张战场只是能给出更实时的布局；调用方用 mergeFlyOps 把两层合起来（屏上优先，peek 补其余座位）。
+ * 因此「队友的干员要前往查看才看得到」已不成立：不访问也能看到，只是名册为 peek 的快照。
+ *
  * A prep scout (`prep: true`, fieldId `n:<pid>`) carries its board in the meta itself: no battle runs yet, so the
  * runner has nothing for it (client-combat matches still have `cc` true in prep — reading the runner there would empty
  * the row while that board is plainly on screen). A battle reads the runner's board in client combat, else the meta's.
