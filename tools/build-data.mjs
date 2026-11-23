@@ -1412,6 +1412,16 @@ function buildBonds(ctx, chess, effects) {
         layerMilestones.push({ layer: lb.layer2, mode: 'first', effect: x.key });
       }
       if (x.key === 'bond_layer_char_garrison_bonus' && lb.layer > 0) layerMilestones.push({ layer: lb.layer, mode: 'reach', effect: x.key });
+      // first-reach powers of the other versions (§37.343): 远见's all-chess −1 (第一期 100 layers, 第二期上半 150) and
+      // 远见-only −1 (第二期上半 80), 规程 远见's per-tier −1 (layer_list "80,150", a string in bbStr) and 奇迹's same-tier
+      // shop slot (规程 100). Data only: the sim reads the buffs (bonds/addon/meta.js), not these rows.
+      if ((x.key === 'bond_layer_char_goods_price_discount' || x.key === 'bond_layer_char_goods_price_bond_discount' || x.key === 'bond_layer_shop_same_tier') && lb.layer > 0) {
+        layerMilestones.push({ layer: lb.layer, mode: 'first', effect: x.key });
+      }
+      if (x.key === 'bond_goods_disc_tier2') {
+        const tiers = String(x.bbStr.layer_list ?? lb.layer_list ?? '').split(',').map((s) => Number(s.trim())).filter((v) => Number.isFinite(v) && v > 0);
+        for (const layer of tiers.sort((a, b) => a - b)) layerMilestones.push({ layer, mode: 'first', effect: x.key });
+      }
     }
 
     const members = (b.chessIdList || []).filter((id) => chess[id] && !chess[id].isGolden).sort(naturalCmp);
