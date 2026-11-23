@@ -595,11 +595,11 @@
 .team__bonds-toggle {
   position: absolute; left: 0; top: 0; bottom: 0; width: var(--fly-bar); pointer-events: auto;
   display: flex; align-items: center; justify-content: center; padding: 0;
-  color: var(--fg-2); background: linear-gradient(90deg, rgba(8, 11, 10, .92), rgba(8, 11, 10, .62));
+  color: var(--text-md); background: linear-gradient(90deg, rgba(8, 11, 10, .92), rgba(8, 11, 10, .62));
   border: 1px solid var(--line-2); border-left: 0; border-radius: 0 3px 3px 0; cursor: pointer;
   transition: background var(--t-fast), color var(--t-fast);
 }
-.team__bonds-toggle:hover, .team__bonds-toggle.is-open { color: var(--mint-300); background: rgba(13, 44, 36, .92); }
+.team__bonds-toggle:hover, .team__bonds-toggle.is-open { color: var(--mint-400); background: rgba(13, 44, 36, .92); }
 .team__bonds-toggle .icon { width: .16rem; height: .16rem; }
 .team__fly-window {
   position: absolute; left: var(--fly-bar); top: 0; bottom: 0; pointer-events: auto;

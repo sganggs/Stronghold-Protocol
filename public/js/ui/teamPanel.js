@@ -180,7 +180,7 @@ export function flyOpChessId(u, lookup = (id) => data.lookup('chess', id), chess
  * the row while that board is plainly on screen). A battle reads the runner's board in client combat, else the meta's.
  * Exported for the tests.
  */
-export function flyOpsFor({ myId, priv = null, field = null, players = null, cc = false, runner = null }) {
+export function flyOpsFor({ myId, priv = null, field = null, players = null, cc = false, runner = null, lookup = (id) => data.lookup('chess', id) }) {
   const out = {};
   const own = priv?.boardOps;
   if (Array.isArray(own) && own.length) out[myId] = own;
@@ -200,7 +200,11 @@ export function flyOpsFor({ myId, priv = null, field = null, players = null, cc 
       if (!u || u.kind !== 'op' || (u.ownerId && u.ownerId !== pid)) continue;
       if (u.area && u.area !== 'board') continue;
       const id = u.avatar || u.diy?.charId || u.defId || u.id;
-      if (id) ops.push({ id, ...(u.golden ? { golden: 1 } : {}) });
+      // the runner's entries (battle/simHost.js ownerOps: { kind, ownerId, defId, items?, standInFor?, diy? }) carry no
+      // `golden`: the elite bit is the chess record's, as UnitThumb reads it — without it this on-screen row would win
+      // over m.peek's `golden: 1` (mergeFlyOps) and drop the elite frame (PR #922 review)
+      const golden = !!u.golden || (typeof u.defId === 'string' && !!lookup(u.defId)?.isGolden);
+      if (id) ops.push({ id, ...(golden ? { golden: 1 } : {}) });
     }
     if (ops.length) out[pid] = ops;
   }
@@ -220,13 +224,38 @@ export function mergeFlyOps(base, peek) {
   return out;
 }
 
+/**
+ * A seat's bonds as its flyout row shows them: sorted like the top strip, without the mode-off bonds (`off`, the
+ * strip's grey 本局禁用 discs — a mode can disable half the core bonds, which would double a row this narrow).
+ * Exported for the bond popup's ‹ › (bondPopupNav) and the UI tests.
+ */
+export function flyBondList(bonds, lookup = (id) => data.lookup('bonds', id)) {
+  return sortBonds(Array.isArray(bonds) ? bonds : [], lookup).filter((b) => !b.off);
+}
+
+/**
+ * The bond popup's ‹ › list: the bonds of the place it was opened from, and whose they are. A disc of the top strip
+ * (`from: 'strip'`) walks the strip's bonds; a disc of this flyout (`from: 'fly'`) walks that seat's row only — the
+ * strip's list names another player's bonds, so ‹ › used to jump to the viewer's own strip (PR #922 review). Every
+ * other popup (a card's chip, 本局信息) has no arrows.
+ * @param {{ id?: string, ownerId?: string|null, from?: string }|null} open the open popup (game.js bondOpen)
+ * @param {{ stripBonds?: any[]|null, stripOwnerId?: string|null, players?: any[]|null, lookup?: (id:string)=>any }} [o]
+ * @returns {{ ids: string[], ownerId: string|null }}
+ */
+export function bondPopupNav(open, { stripBonds = null, stripOwnerId = null, players = null, lookup = (id) => data.lookup('bonds', id) } = {}) {
+  if (open?.from === 'strip') return { ids: sortBonds(Array.isArray(stripBonds) ? stripBonds : [], lookup).map((b) => b.bondId), ownerId: stripOwnerId ?? null };
+  if (open?.from === 'fly') {
+    const seat = (Array.isArray(players) ? players : []).find((p) => p?.playerId === open.ownerId);
+    return { ids: flyBondList(seat?.bonds, lookup).map((b) => b.bondId), ownerId: open.ownerId ?? null };
+  }
+  return { ids: [], ownerId: null };
+}
+
 /** The seat's bonds, icon only — no names, no empty-state copy (the reviewer's point against reusing BondStrip).
- * `layersDisabled` (联防 / boss: layers no longer stack) freezes the pips as the top strip does. The mode-off bonds
- * (`off`, the strip's grey 本局禁用 discs) stay out: a mode can disable half the core bonds, which would double a
- * row this narrow. */
+ * `layersDisabled` (联防 / boss: layers no longer stack) freezes the pips as the top strip does. */
 function FlyBonds({ bonds, ownerId, onBond = null, layersDisabled = false }) {
   const m = data.get('assets');
-  const list = sortBonds(Array.isArray(bonds) ? bonds : []).filter((b) => !b.off);
+  const list = flyBondList(bonds);
   return list.map((b) => {
     const rec = data.lookup('bonds', b.bondId);
     const th = Array.isArray(b.thresholds) && b.thresholds.length ? b.thresholds : rec?.thresholds || [];
@@ -399,10 +428,11 @@ function BondsFlyout({ players, myId, open, onToggle, onBond = null, flyOps = nu
  *   uniteLocal: the local 联防 replica's per-leaker counts while it is on screen (battle runner state().uniteLeft), else null
  *   badges: how the 完美连胜 / 领袖伤害 badges are drawn (ui/avatarBadges.js); null draws the CSS stand-ins
  *   flyOps: the per-viewer on-field operators (game.js flyOpsFor + mergeFlyOps); a seat missing here gets no operator column
- *   onBond: opens the bond detail popup for that seat (game.js openBond)
+ *   onBond: opens the bond detail popup for that seat (game.js openBond, `from: 'fly'`: its ‹ › walk that row, bondPopupNav)
  *   onOp: opens a flyout operator's card, called `(u, player)` (game.js setDetail, the bench operator's panel)
  *   layersDisabled: 联防 / boss — layers no longer stack, so the flyout discs freeze their pips like the top strip
- *   onFlyToggle: 浮窗展开 / 收起（game.js actions.peek → g.peek），服务端据此订阅 / 解除
+ *   onFlyToggle: 浮窗展开 / 收起（game.js actions.peek → g.peek），服务端据此订阅 / 解除；观战席不传（服务端拒绝其 g.peek，
+ *     它的干员列只显示屏上的战场）
  *   online: 连接是否在线 —— false → true 的边沿会收起浮窗（服务端此时已丢弃订阅）
  */
 export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = false, observe = null, self: selfLive = null, cap = 10, uniteLocal = null, spMarks = null, flyOps = null, onBond = null, onOp = null, layersDisabled = false, onFlyToggle = null, online = null, badges = null }) {
@@ -414,8 +444,14 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
   const askedAt = useRef(/** @type {{ id: string|null, at: number }} */ ({ id: null, at: 0 }));
   const phaseKey = `${pub?.phase}:${pub?.round}`;
   useEffect(() => { setOpenPid(null); }, [phaseKey, watching, observe?.observing]);
-  // 同盟盟约速查（g.peek）：浮窗展开 / 收起时告知服务端，由它回各座位的干员名单
-  useEffect(() => { if (onFlyToggle) onFlyToggle(bondsOpen); }, [bondsOpen]);
+  // 同盟盟约速查（g.peek）：浮窗展开 / 收起时告知服务端，由它回各座位的干员名单。挂载时（以及从未展开过时）
+  // 不发 `open: false`：那时没有订阅可解除，每次进入对局画面都会白发一个请求
+  const flyAsked = useRef(false);
+  useEffect(() => {
+    if (!onFlyToggle || (!bondsOpen && !flyAsked.current)) return;
+    flyAsked.current = true;
+    onFlyToggle(bondsOpen);
+  }, [bondsOpen]);
   // 进入新的阶段 / 回合即结束这次速查：浮窗在此收起，服务端也在同一回合 / 阶段边界丢弃订阅
   // （MatchPeek._flushPeek）——服务端这半是冗余保险，覆盖从未发送 close 的客户端
   const phaseRef = useRef(phaseKey);
@@ -470,7 +506,15 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
       el.style.setProperty('--fly-left', `${left}px`);
       el.style.setProperty('--fly-square', `${square}px`);
       // the strategy square is a column of the window's row, so only the bar and the reserved gutter come off the width
-      el.style.setProperty('--fly-w', `${Math.max(220, Math.round(vw - box.left - left - bar - reserve))}px`);
+      let width = Math.round(vw - box.left - left - bar - reserve);
+      // a short viewport (640×360) lifts the shop's 剩余可放置角色 / 冻结 / 刷新 into the roster's height: the window ends
+      // left of them, so a tap there still reaches the button (and closes the flyout) instead of landing in `.team`
+      const start = box.left + left + bar;
+      for (const tool of document.querySelectorAll('.shopbar__tools .toolbtn, .shopbar__tools .shopbar__remain')) {
+        const r = tool.getBoundingClientRect();
+        if (r.width > 0 && r.top < box.bottom && r.bottom > box.top && r.right > start) width = Math.min(width, Math.round(r.left - start - 8));
+      }
+      el.style.setProperty('--fly-w', `${Math.max(220, width)}px`);
     };
     const measure = () => {
       frame = null;
@@ -503,7 +547,8 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
     if (!bondsOpen) return undefined;
     const onDown = (e) => {
       const target = e.target;
-      if (target instanceof Element && target.closest('.team, .bpop, .dpanel')) return;
+      // `.bpop-nav`: the popup's ‹ › arrows sit beside the `.bpop` card, not inside it
+      if (target instanceof Element && target.closest('.team, .bpop, .bpop-nav, .dpanel')) return;
       setBondsOpen(false);
     };
     document.addEventListener('pointerdown', onDown, true);

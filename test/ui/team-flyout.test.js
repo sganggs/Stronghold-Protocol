@@ -2,7 +2,8 @@
 // The server side (no boardOps in m.public, board-only in m.private) is test/match/teammate-flyout.test.js.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { flyOpRec, flyOpsFor, flyOpChessId, mergeFlyOps } from '../../public/js/ui/teamPanel.js';
+import { readFileSync } from 'node:fs';
+import { flyOpRec, flyOpsFor, flyOpChessId, mergeFlyOps, flyBondList, bondPopupNav } from '../../public/js/ui/teamPanel.js';
 
 const players = [
   { playerId: 'p_0', alive: true, fieldId: 'n:p_0' },
@@ -45,17 +46,26 @@ test('flyOpsFor: a teammate only while their field is on screen, board area only
 
 test('flyOpsFor: a running battle reads ownerOps, and the other group / a dead seat never gets a list', () => {
   const field = { fieldId: 'b2', players: ['p_2'] };
+  // the runner's real entry shape (battle/simHost.js LocalSimHost.ownerOps): no golden flag, no uid / coordinates
   const runner = {
     ownerOps: (pid) => (pid === 'p_2'
-      ? [
-        { uid: 'u1', kind: 'op', defId: 'chess_char_7_1', golden: true, items: ['i1'], standInFor: 'char_7', x: 1, y: 2 },
-        { uid: 's1', kind: 'token', defId: 'token_1' },
-      ]
-      : [{ uid: 'u2', kind: 'op', defId: 'chess_char_8_1' }]),
+      ? [{ kind: 'op', ownerId: 'p_2', defId: 'chess_char_7_2', items: ['i1'], standInFor: 'char_7' }]
+      : [{ kind: 'op', ownerId: pid, defId: 'chess_char_8_1' }]),
   };
-  const ops = flyOpsFor({ myId: 'p_0', field, players, cc: true, runner });
-  assert.deepEqual(ops, { p_2: [{ id: 'chess_char_7_1', golden: 1 }] }, 'p_1 is not on this field; p_3 is eliminated');
+  const recs = { chess_char_7_2: { charId: 'char_7', isGolden: true }, chess_char_8_1: { charId: 'char_8', isGolden: false } };
+  const ops = flyOpsFor({ myId: 'p_0', field, players, cc: true, runner, lookup: (id) => recs[id] || null });
+  assert.deepEqual(ops, { p_2: [{ id: 'chess_char_7_2', golden: 1 }] }, 'p_1 is not on this field; p_3 is eliminated');
   assert.equal(ops.p_3, undefined);
+});
+
+test('flyOpsFor: the runner\'s elite operator keeps its elite frame over the peek row (client combat, PR #922 review)', () => {
+  const field = { fieldId: 'n:p_1', players: ['p_1'] };
+  const runner = { ownerOps: () => [{ kind: 'op', ownerId: 'p_1', defId: 'chess_char_1001_b' }, { kind: 'op', ownerId: 'p_1', defId: 'chess_char_1002_a' }] };
+  const recs = { chess_char_1001_b: { charId: 'char_1001', isGolden: true }, chess_char_1002_a: { charId: 'char_1002', isGolden: false } };
+  const base = flyOpsFor({ myId: 'p_0', field, players, cc: true, runner, lookup: (id) => recs[id] || null });
+  const merged = mergeFlyOps(base, { p_1: [{ id: 'char_1001', golden: 1 }, { id: 'char_1002' }] });
+  assert.deepEqual(merged.p_1, [{ id: 'chess_char_1001_b', golden: 1 }, { id: 'chess_char_1002_a' }],
+    'the on-screen row wins, and still says which operator is elite');
 });
 
 test('flyOpsFor: a prep scout reads the meta even in a client-combat match (no battle runs yet)', () => {
@@ -115,4 +125,47 @@ test('flyOpChessId: a chess id is the card id; a char id resolves to its chess r
   assert.equal(flyOpChessId({ id: 'char_2002', golden: 1 }, byChess, () => chess), 'chess_char_2002_1', 'no golden record: the plain one');
   assert.equal(flyOpChessId({ id: 'char_404' }, byChess, () => chess), null, 'an unknown operator opens no card');
   assert.equal(flyOpChessId(null, byChess, () => chess), null);
+});
+
+// the bond popup's ‹ ›: a teammate's bond opened from the flyout walks that teammate's row, never the strip's list
+// (PR #922 review: › used to jump to the viewer's own strip bond and close the flyout)
+const bondRecs = { b_core: { isCore: true }, b_x: {}, b_y: {}, b_z: {} };
+const lookupBond = (id) => bondRecs[id] || null;
+const seats = [
+  { playerId: 'p_0', bonds: [{ bondId: 'b_x', active: true, layers: 3, count: 2 }, { bondId: 'b_y', active: false, count: 1 }] },
+  { playerId: 'p_1', bonds: [
+    { bondId: 'b_z', active: true, layers: 1, count: 2 },
+    { bondId: 'b_off', off: true, count: 3 },
+    { bondId: 'b_core', active: true, layers: 1, count: 2 },
+    { bondId: 'b_y', active: true, layers: 9, count: 2 },
+  ] },
+];
+
+test('flyBondList: the row is sorted like the strip (core breaks a tie) and drops the mode-off bonds', () => {
+  assert.deepEqual(flyBondList(seats[1].bonds, lookupBond).map((b) => b.bondId), ['b_y', 'b_core', 'b_z']);
+  assert.deepEqual(flyBondList(null, lookupBond), []);
+});
+
+test('bondPopupNav: a flyout disc walks its own seat\'s row; the strip walks the strip; other popups have no arrows', () => {
+  const stripBonds = seats[0].bonds;
+  const o = { stripBonds, stripOwnerId: 'p_0', players: seats, lookup: lookupBond };
+  assert.deepEqual(bondPopupNav({ id: 'b_core', ownerId: 'p_1', from: 'fly' }, o), { ids: ['b_y', 'b_core', 'b_z'], ownerId: 'p_1' },
+    'the teammate\'s own bonds, and the teammate stays the owner');
+  assert.deepEqual(bondPopupNav({ id: 'b_x', ownerId: 'p_0', from: 'fly' }, o), { ids: ['b_x', 'b_y'], ownerId: 'p_0' });
+  assert.deepEqual(bondPopupNav({ id: 'b_x', ownerId: 'p_0', from: 'strip' }, o), { ids: ['b_x', 'b_y'], ownerId: 'p_0' });
+  assert.deepEqual(bondPopupNav({ id: 'b_x', ownerId: 'p_0', from: 'strip' }, { ...o, stripOwnerId: 'p_1', stripBonds: seats[1].bonds }).ownerId, 'p_1',
+    'the strip keeps following its owner (a scouted teammate)');
+  assert.deepEqual(bondPopupNav({ id: 'b_x', ownerId: 'p_0', from: 'detail' }, o), { ids: [], ownerId: null });
+  assert.deepEqual(bondPopupNav({ id: 'b_x', ownerId: 'p_0', from: 'info' }, o), { ids: [], ownerId: null });
+  assert.deepEqual(bondPopupNav(null, o), { ids: [], ownerId: null });
+  assert.deepEqual(bondPopupNav({ id: 'b_x', ownerId: 'p_9', from: 'fly' }, o), { ids: [], ownerId: 'p_9' }, 'a seat that left the list: no arrows');
+});
+
+test('wiring: a flyout disc opens its popup as `from: \'fly\'`, a spectator seat sends no g.peek, the arrows keep the flyout', () => {
+  const game = readFileSync(new URL('../../public/js/screens/game.js', import.meta.url), 'utf8');
+  assert.match(game, /onBond=\$\{\(id, ownerId\) => openBond\(id, ownerId, 'fly'\)\}/);
+  assert.match(game, /onFlyToggle=\$\{spectator \? null : actions\.peek\}/, 'the server refuses a spectator\'s g.peek anyway');
+  assert.match(game, /bondPopupNav\(bondOpen, /);
+  const panel = readFileSync(new URL('../../public/js/ui/teamPanel.js', import.meta.url), 'utf8');
+  assert.match(panel, /closest\('\.team, \.bpop, \.bpop-nav, \.dpanel'\)/, 'the ‹ › arrows sit outside .bpop');
 });

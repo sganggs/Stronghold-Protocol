@@ -218,9 +218,10 @@ function buildState() {
   // a teammate eliminated: their flyout row stays empty while the others still show bonds / operators
   if (VARIANTS.has('teammatedead')) { players[1].alive = false; players[1].status = 'dead'; players[1].lp = 0; }
   // 「同盟盟约速查」 (PR #922): every seat's activated bonds + the drafted strategy, and the own board as
-  // m.private.boardOps (a teammate's list appears only while their field is on screen, as in the real client).
-  // The data is always present, so opening the toggle by hand matches `?variant=flyout`; `flyout,teammatedead`
-  // (or `flyout,dead`) leaves the eliminated seat's row empty, as the server does with `boardOps: []`.
+  // m.private.boardOps. The teammates' operators come from the mock's g.peek answer (mockRequest, like
+  // server/match/match/peek.js: a snapshot of every other seat when the flyout opens). The data is always present, so
+  // opening the toggle by hand matches `?variant=flyout`; `flyout,teammatedead` (or `flyout,dead`) leaves the eliminated
+  // seat's row empty, as the server does with `boardOps: []`.
   const shown = data.list('bonds').filter((b) => b.weight > 0 && !disabled.has(b.bondId)).slice(0, 14);
   players.forEach((p, i) => {
     p.bonds = shown.map((b, k) => {
@@ -773,6 +774,20 @@ async function mockRequest(t, f = {}) {
           const theirs = S.priv.nextEnemies.filter((e) => e.source !== 'bounty').slice(0, 3).map((e) => ({ ...e, gate: 'upper', count: e.count + 1 }));
           store.patch('match', { field: { fieldId: f.fieldId, kind: 'normal', rect: { ...GEO.NORMAL_RECT }, stageId: pub.stageId, units, prep: true, nextEnemies: theirs } });
         }
+      }
+      return {};
+    }
+    // 「同盟盟约速查」: like server/match/match/peek.js, an open answers m.peek's snapshot — every other seat's on-field
+    // operators as { id: charId, golden? } ([] for an eliminated seat); a close only drops the subscription
+    case 'g.peek': {
+      if (f.open) {
+        const ops = {};
+        pub.players.forEach((x, i) => {
+          if (x.playerId === ME) return;
+          ops[x.playerId] = x.alive === false ? [] : S.pool.slice(i * 6, i * 6 + 3 + (i % 3))
+            .map((c, k) => ({ id: c.charId, ...(k === 1 ? { golden: 1 } : {}) }));
+        });
+        store.patch('match', { peek: ops });
       }
       return {};
     }
