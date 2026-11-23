@@ -28,6 +28,9 @@ export function lethaniaSummon(id, raw) {
     // Enemy data does not provide this selector field; the ranged record has no stated anti-air restriction.
     canHitFly: ranged,
     rangeGrid: [[0, 0]],
+    // PRTS “一个小节” / “一个乐部”: both 莱塔尼亚 summons hold 禁疗 (HEAL_FREE) — cannot be targeted by
+    // healing abilities and direct healing received becomes 0, while HP regeneration (生命回复速度) still works.
+    abnormal: ['healFree'],
   };
   return {
     def,
@@ -51,6 +54,9 @@ function summonKit({ ranged, radius }) {
       unit.mem.lethaniaPursuit = true;
       battle._lethaniaPursuers = true; // blocking.js scans pursuers only in battles that have had one
       unit.motion = 'GROUND';
+      // Upgrade players.js's `trait:abnormal` (which sets noHeal for abnormal: ['healFree']) to also carry
+      // healFree so non-regen self heals are blocked as well, while HP regeneration (regen: true) still applies.
+      battle.addBuff(unit, { key: 'trait:abnormal', flags: { noHeal: true, healFree: true }, persist: true, allowDead: true, refresh: 'replace' });
       battle.on('tick', ({ dt }) => moveTowardTarget(battle, unit, dt), { owner: unit });
     },
   };
