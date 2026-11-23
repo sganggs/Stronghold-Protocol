@@ -181,7 +181,7 @@ const stageNumeral = (stage) => ['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ'][stage
  * `stage`: the numeral over the disc and the popup's 阶段 tag (gameLogic bondStage: in 规程 the official phase level of
  * the active effect, from the live layers the entry carries in battle — ui/watchBonds.js withLiveLayers /
  * withTemporaryLayers — so it flips mid-battle; §37.341; always 0 in a 盟约 period, §37.342); `phased`: the version
- * draws the bond phase (gameLogic bondPhased: 规程) — the numeral, the unbroken ring, the popup's next-threshold count.
+ * draws the bond phase (gameLogic bondPhased: 规程) — the numeral, the unbroken ring, the popup's 阶段 tag.
  */
 export function bondDisplay(bondId, entry) {
   const base = data.lookup('bonds', bondId);
@@ -234,7 +234,7 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
         </div>`;
       }
       // the tooltip's count: the popup's denominator (gameLogic bondCountCap)
-      const cap = bondCountCap(count, th, phased);
+      const cap = bondCountCap(th);
       return html`<div key=${b.bondId} role="listitem" data-bond=${b.bondId} data-harmony=${b.harmony > 0 ? b.harmony : null}
           class=${cx('bslot', b.active && 'is-active', tempLayers > 0 && 'has-temp-layers', full && 'is-full', openId === b.bondId && 'is-open')} style=${frameStyle}>
         <${BondDisc} name=${rec?.name || b.bondId} icon=${bondIconUrl(m, b.bondId)} layers=${rec?.noStack ? undefined : total}
@@ -287,9 +287,9 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
   const rawChess = (id) => data.lookup('chess', id);
   const siOf = (mb) => (mb.diy || mb.rec ? null : memberStandIn(priv, rawChess(mb.id), data.get('backups'), rawChess));
   const countsHand = entry?.countsHand ?? b.countsHand;
-  // the 在场 count's denominator (gameLogic bondCountCap): 规程 the next threshold (the top one when maxed); a 盟约 period
-  // the FIRST threshold, as the official popup draws it (§37.342: 维多利亚 7/3 ✓ at 7 members, BV1yyC9BPEXV 1600 s)
-  const cap = bondCountCap(count, th, phased) ?? '-';
+  // the 在场 count's denominator (gameLogic bondCountCap): the FIRST threshold, as the official popup draws it in both
+  // families (§37.342: 盟约 维多利亚 7/3 ✓, BV1yyC9BPEXV 1600 s; 规程 不屈 3/2 ✓ 阶段Ⅱ, PR #923's round-11 screenshot)
+  const cap = bondCountCap(th) ?? '-';
   const at = place || (beside === 'left' ? 'beside' : 'left');
   // 调和's +1 in this count (the server's word), and the 调和 operators on that board who give it
   const harmony = !modeOff && Number.isInteger(entry?.harmony) && entry.harmony > 0 ? entry.harmony : 0;

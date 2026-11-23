@@ -66,19 +66,16 @@ export function bondPhased(config) {
 }
 
 /**
- * The denominator of a bond's 在场 count. The popup's 「👥 n/cap」, the strip disc's tooltip and the detail chip all use
- * it, so the three never disagree. A 盟约 period: the FIRST threshold, as the official popup draws it (§37.342: 维多利亚
- * 7/3 ✓ at 7 members, BV1yyC9BPEXV 1600 s; 投资人 4/3, 调和 1/1). 规程: the next threshold, the top one when maxed.
- * The tooltip and the chip have no official reference; they follow the popup.
- * @param {number} count
+ * The denominator of a bond's 在场 count: the FIRST threshold, in every version. The popup's 「👥 n/cap」, the strip
+ * disc's tooltip and the detail chip all use it, so the three never disagree. The official popup draws it so in both
+ * families (§37.342): 盟约 维多利亚 7/3 ✓ at 7 members (BV1yyC9BPEXV 1600 s; 投资人 4/3, 调和 1/1), and 规程 不屈
+ * 3/2 ✓ 阶段Ⅱ at 3 members with thresholds [2,3] (the official 规程 screenshot in PR #923, round 11) — not the next
+ * threshold or the top one. The tooltip and the chip have no official reference; they follow the popup.
  * @param {number[]} thresholds
- * @param {boolean} [phased] the version draws the bond phase (bondPhased; default true)
  * @returns {number|null} null without thresholds
  */
-export function bondCountCap(count, thresholds, phased = true) {
-  const th = Array.isArray(thresholds) ? thresholds : [];
-  if (!phased) return th[0] ?? null;
-  return nextThreshold(count, th) ?? th[th.length - 1] ?? null;
+export function bondCountCap(thresholds) {
+  return Array.isArray(thresholds) && Number.isFinite(thresholds[0]) ? thresholds[0] : null;
 }
 
 /**
