@@ -137,20 +137,26 @@ const seats = [
     { bondId: 'b_z', active: true, layers: 1, count: 2 },
     { bondId: 'b_off', off: true, count: 3 },
     { bondId: 'b_core', active: true, layers: 1, count: 2 },
+    // a strategy's effect replacement maps this bond for the popup: count 0, no member (BondStrip hides it too)
+    { bondId: 'b_mapped', count: 0, active: false, tier: 0, layers: 0, effectId: 'e_mapped' },
     { bondId: 'b_y', active: true, layers: 9, count: 2 },
+    { bondId: 'b_w', count: 0, active: false, layers: 2 },
   ] },
 ];
 
-test('flyBondList: the row is sorted like the strip (core breaks a tie) and drops the mode-off bonds', () => {
-  assert.deepEqual(flyBondList(seats[1].bonds, lookupBond).map((b) => b.bondId), ['b_y', 'b_core', 'b_z']);
+test('flyBondList: the row is sorted like the strip (core breaks a tie), drops the mode-off bonds and the zero-count mapped rows', () => {
+  assert.deepEqual(flyBondList(seats[1].bonds, lookupBond).map((b) => b.bondId), ['b_y', 'b_core', 'b_z', 'b_w'],
+    'a row with layers but no member stays, as on the strip');
+  assert.deepEqual(flyBondList([{ bondId: 'b_mapped', count: 0, active: false, tier: 0, layers: 0, effectId: 'e_mapped' }], lookupBond), [],
+    'a seat whose only row is a mapped zero-count bond has an empty row, as the strip has no disc');
   assert.deepEqual(flyBondList(null, lookupBond), []);
 });
 
 test('bondPopupNav: a flyout disc walks its own seat\'s row; the strip walks the strip; other popups have no arrows', () => {
   const stripBonds = seats[0].bonds;
   const o = { stripBonds, stripOwnerId: 'p_0', players: seats, lookup: lookupBond };
-  assert.deepEqual(bondPopupNav({ id: 'b_core', ownerId: 'p_1', from: 'fly' }, o), { ids: ['b_y', 'b_core', 'b_z'], ownerId: 'p_1' },
-    'the teammate\'s own bonds, and the teammate stays the owner');
+  assert.deepEqual(bondPopupNav({ id: 'b_core', ownerId: 'p_1', from: 'fly' }, o), { ids: ['b_y', 'b_core', 'b_z', 'b_w'], ownerId: 'p_1' },
+    'the teammate\'s own bonds (the discs of its row, no mapped zero-count row), and the teammate stays the owner');
   assert.deepEqual(bondPopupNav({ id: 'b_x', ownerId: 'p_0', from: 'fly' }, o), { ids: ['b_x', 'b_y'], ownerId: 'p_0' });
   assert.deepEqual(bondPopupNav({ id: 'b_x', ownerId: 'p_0', from: 'strip' }, o), { ids: ['b_x', 'b_y'], ownerId: 'p_0' });
   assert.deepEqual(bondPopupNav({ id: 'b_x', ownerId: 'p_0', from: 'strip' }, { ...o, stripOwnerId: 'p_1', stripBonds: seats[1].bonds }).ownerId, 'p_1',

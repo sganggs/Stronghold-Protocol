@@ -226,11 +226,14 @@ export function mergeFlyOps(base, peek) {
 
 /**
  * A seat's bonds as its flyout row shows them: sorted like the top strip, without the mode-off bonds (`off`, the
- * strip's grey 本局禁用 discs — a mode can disable half the core bonds, which would double a row this narrow).
+ * strip's grey 本局禁用 discs — a mode can disable half the core bonds, which would double a row this narrow) and,
+ * like the strip (BondStrip), without the zero-count mapped rows: a strategy that replaces a bond's effect adds that
+ * bond with count 0 so the popup can resolve it, also for a seat with no member of it — not a disc.
  * Exported for the bond popup's ‹ › (bondPopupNav) and the UI tests.
  */
 export function flyBondList(bonds, lookup = (id) => data.lookup('bonds', id)) {
-  return sortBonds(Array.isArray(bonds) ? bonds : [], lookup).filter((b) => !b.off);
+  return sortBonds(Array.isArray(bonds) ? bonds : [], lookup)
+    .filter((b) => !b.off && (b.active || b.count > 0 || b.layers > 0));
 }
 
 /**

@@ -39,8 +39,12 @@ describe('同盟盟约速查 flyout (PR #922)', { skip: !ENABLED && 'set SP_E2E=
       const peeks = await page.evaluate(() => globalThis.__MOCK__.S().requests.filter(([t]) => t === 'g.peek'));
       assert.deepEqual(peeks, [['g.peek', { open: true }]], 'one open, no mount-time { open: false }');
       assert.ok(await page.$('.team__fly-row:nth-child(2) .team__fly-ops .uthumb.is-golden'), 'the teammate\'s elite operator keeps its frame');
-      assert.equal(await page.$eval('.team__bonds-toggle', (el) => getComputedStyle(el).color), 'rgb(89, 244, 202)',
-        'the open toggle is --mint-400 (the undefined --mint-300 left it the inherited white)');
+      // the toggle's colour has a 150 ms transition from --text-md: finish it, or a fast load reads a colour mid-way
+      const toggleColor = await page.$eval('.team__bonds-toggle', (el) => {
+        for (const a of el.getAnimations()) a.finish();
+        return getComputedStyle(el).color;
+      });
+      assert.equal(toggleColor, 'rgb(89, 244, 202)', 'the open toggle is --mint-400 (the undefined --mint-300 left it the inherited white)');
 
       const row = 2;
       const mate = await page.$eval(`.team__row:nth-child(${row}) .team__name`, (el) => el.textContent.trim());
