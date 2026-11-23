@@ -406,6 +406,7 @@ export function ShopCanvas(props) {
       selectSlot,
       armedSlotId: a ? a.index + 1 : null,
       armedAt: a ? armedAtRef.current : 0,
+      refreshSeq: Number(displayPriv && displayPriv.shop && displayPriv.shop.refreshSeq) || 0,
       cardFlags: shopCardFlagsWithHand(displayPriv, (kind, id) => data.lookup(kind, id), p.config),
       // The project's own marks (替补 / 自选 / owned pips / skill / 可晋升) as a DOM overlay on the card
       // hotspots; the 卡面标记 switches drop them one by one.

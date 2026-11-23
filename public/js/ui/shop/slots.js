@@ -255,10 +255,21 @@ export class AutoChessStylizedShopSlotsPanel {
     this.adapter.skinContext = data.skinContext || null;
 
     // refreshSeq starts at null: the first Render only records the sequence (a mount is not a refresh), and
-    // every later change of the row identity replays the clip.
-    const refresh = this.refreshSeq !== null && this.refreshSeq !== data.refreshSeq;
-    this.refreshSeq = data.refreshSeq;
-    if (refresh) this.lastRefresh = this.playRefreshClip(!!data.isSpecialRecruit);
+    // every later change plays the panel's own script clip (normal/special) before/with the card clips.
+    // C# AutoChessStylizedShopSlotsPanel.Render: Kill old m_refreshAnim → PlayWithTween(clip) → TraverseCards
+    // PlayRefreshAnim. The clip name comes from the panel's script anims, never from rewardOffer.
+    const seq = Number(data.refreshSeq) || 0;
+    const refresh = this.refreshSeq !== null && this.refreshSeq !== seq;
+    this.refreshSeq = seq;
+    if (refresh) {
+      this.lastRefresh = this.playRefreshClip(!!data.isSpecialRecruit);
+      if (this.lastRefresh && this.scene && this.scene.motion) {
+        this.scene.motion.play('slots-refresh', this.lastRefresh, {
+          doc: this.scene.panelDoc,
+          basePath: this.root.path,
+        });
+      }
+    }
     this.reconcile(this.adapter.slotList, data, refresh);
     return this;
   }

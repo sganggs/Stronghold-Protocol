@@ -138,6 +138,12 @@ export class PlayerViews {
         refreshPrice: free ? 0 : this.gd.refreshPrice,
         freeRefreshes: this.shop.freeRefreshes,
         frozen: this.shop.frozen,
+        refreshSeq: Number(this.shop.refreshSeq) || 0,
+        specialRefresh: !!this.shop.specialRefresh,
+        // A charge that is waiting for its roll, from either source: 佩佩's level-up arm, or a garrison's
+        // queued bondRefresh. It is what draws the refresh button's special state immediately.
+        specialRefreshArmed: !!this.shop.specialRefreshArmed
+          || (Array.isArray(this.shop.bondRefresh) && this.shop.bondRefresh.length > 0),
         layout: { ...(this.shop.layout || this.gd.shopSlots(this.shop.level)) },
         slots,
         // `source` 'merge' = the promotion reward (晋升奖励); any other offer (a strategy, an item, a 特质) carries the

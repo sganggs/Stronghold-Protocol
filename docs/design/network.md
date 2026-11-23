@@ -62,6 +62,8 @@ bump; clients without these controls keep their existing messages.
 { playerId, seat, alive, lp, funds, bandId, ready, canReady /* false while a personal choice or temp overflow is pending */,
   personalChoice: null | { id, round, sourceItemId, cards: [ { kind: 'bounty', id, name, desc, descRaw, ... } ] }, // recipient only, including reconnect; absent from public / scout views
   shop: { level, maxLevel: 6, upgradePrice, refreshPrice /* effective (0 when a free refresh is available) */, freeRefreshes,
+          refreshSeq, // server roll sequence: the slots panel plays whole_card_refresh_normal/special only when it changes
+          specialRefresh, // this roll consumed a special-refresh charge (佩佩盟约 etc); one-shot, set by rollShop
           layout: { chess, item }, // actual slot counts, including empty slots; old saved frames may omit this (§36.1)
           frozen, slots: [ { kind: 'chess'|'item', id, price, basePrice, sold, frozen } | null ],  // slot.frozen: the 冻结 toggle copies onto every unsold slot, and 梓兰's 猎头顾问 freezes ONE card of an active refresh with the toggle off — every card draws its own flag (GitHub #354)
           rewardOffer: null | { tier, source: 'merge'|'special', label, queued, slots: [ { kind: 'chess'|'item', id, price: 0, sold } ] } },  // §21.2

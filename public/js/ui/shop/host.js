@@ -352,15 +352,16 @@ export async function createShopHost(opts = {}) {
   /** A lost context or a thrown frame: the next `update()` rethrows it so the caller's guard falls back. */
   let fatalError = null;
   let needsPaint = true;
-  let refreshSeq = Number(view.refreshSeq) || 0;
-  let lastSignature = shopSignature(priv);
-  /** m.private has no refresh sequence: bump one when the row's identity changes (see shopSignature). */
-  const autoRefreshSeq = options.autoRefreshSeq !== false;
+  let refreshSeq = Number(view.refreshSeq) || Number(priv && priv.shop && priv.shop.refreshSeq) || 0;
 
   function modelOf(nextView = view, nextPriv = priv) {
     const state = nextView.state || 'unfold';
     const unfold = nextView.unfold != null ? !!nextView.unfold : !(state === 'fold' || state === 'disable');
     const avalid = nextView.avalid != null ? !!nextView.avalid : state !== 'disable';
+    // The server owns the refresh sequence (ShopData.refreshSeq); the view may forward it, otherwise the
+    // private shop carries it. A mount/reconnect has the same sequence as the server, so it never plays.
+    const seq = Number(nextView.refreshSeq != null ? nextView.refreshSeq
+      : (nextPriv && nextPriv.shop && nextPriv.shop.refreshSeq)) || 0;
     return shopModelFromPrivate(nextPriv, {
       colors: (pack && pack.colors) || {},
       urlOf: docs.url,
@@ -369,7 +370,7 @@ export async function createShopHost(opts = {}) {
       selectSlot: nextView.selectSlot || null,
       armedSlotId: nextView.armedSlotId != null ? Number(nextView.armedSlotId) : null,
       armedAt: nextView.armedAt,
-      refreshSeq,
+      refreshSeq: seq,
       cardFlags: nextView.cardFlags || null,
       controls: nextView.controls || null,
       reward: nextView.reward || null,
@@ -741,16 +742,10 @@ export async function createShopHost(opts = {}) {
     // A lost context or a thrown frame cannot be painted any more: the caller's next push is what carries the
     // failure back, so its try/catch can run once (setFailed + onFail) and the gate keeps the DOM shop bar.
     if (fatalError) throw fatalError;
-    if (nextPriv) {
-      priv = nextPriv;
-      const signature = shopSignature(priv);
-      if (signature !== lastSignature) {
-        const changed = autoRefreshSeq;
-        lastSignature = signature;
-        if (changed) refreshSeq += 1;
-      }
-    }
+    if (nextPriv) priv = nextPriv;
     view = { ...view, ...nextView };
+    refreshSeq = Number(view.refreshSeq != null ? view.refreshSeq
+      : (priv && priv.shop && priv.shop.refreshSeq)) || 0;
     if (view.state && view.state !== lastState) applyState(view.state);
     else if (view.state) scene.state = view.state;
     // A private push mostly carries state the shop does not draw (ready flags, timers, other players).
@@ -860,7 +855,10 @@ export async function createShopHost(opts = {}) {
     // Interaction, clips and model changes paint immediately; the ambient loops (spine idle, card FX,
     // particles) only need to keep moving and are capped, so an idle shop stops eating the frame budget
     // (the in-game ping is measured on this same main thread).
-    const urgent = !!(scene.dirty || clips.length || cardAnim || texChanged || tintChanged || needsPaint);
+    // A panel auto-clip (the refresh button's special sweep) is not a motion track, so `clips` does not carry
+    // it; without this the loop would only advance on whoever else asked for a paint.
+    const autoClipAnim = scene.autoClipAnimating();
+    const urgent = !!(scene.dirty || clips.length || autoClipAnim || cardAnim || texChanged || tintChanged || needsPaint);
     // The spine compose canvas changes on every tick (its envelope follows the idle animation), so it is
     // an ambient repaint, not an urgent one; otherwise it would defeat the ambient cap below.
     const ambient = ambientPaintNeeded({ particleAnim, cardFxAnim, spineAnim, spinePaint });

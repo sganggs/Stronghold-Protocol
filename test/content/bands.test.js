@@ -234,8 +234,15 @@ test('佩佩 博学多通: upgrading to 2 / 4 / 6 makes the next refresh special
   assert.deepEqual(m.handle('p_0', { t: 'g.levelUp' }), OK);
   assert.equal(ps.shop.level, 2);
   assert.equal(ps.shop.freeRefreshes, 0, 'no free refresh comes with it (community report of 2026-10-06)');
+  // The upgrade grants the charge AND the shop shows it at once: the refresh button's special state is the
+  // waiting charge, not the roll (the roll only happens on the next refresh).
+  assert.equal(ps.shop.specialRefreshArmed, true, 'the button is special from the upgrade itself');
+  assert.equal(ps.privateView().shop.specialRefreshArmed, true, 'and the private push carries it');
+  assert.equal(ps.shop.specialRefresh, false, 'no roll has happened yet');
   const f0 = ps.funds;
   assert.deepEqual(m.handle('p_0', { t: 'g.refresh' }), OK);
+  assert.equal(ps.shop.specialRefreshArmed, false, 'the roll spent the charge');
+  assert.equal(ps.shop.specialRefresh, true, 'and that roll carries the special marker');
   assert.equal(ps.funds, f0 - m.gd.refreshPrice, 'the usual refresh price');
   const chess = ps.shop.slots.filter((sl) => sl && sl.kind === 'chess');
   assert.ok(chess.length >= 3 && chess.every((sl) => DATA.chess[sl.id].bonds.includes('sargonShip')), 'all 萨尔贡');

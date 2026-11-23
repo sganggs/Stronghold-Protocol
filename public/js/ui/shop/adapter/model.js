@@ -142,6 +142,16 @@ export function shopModelFromPrivate(priv, opts = {}) {
   const slots = Array.isArray(shop.slots) ? shop.slots : [];
   const layout = shop.layout && Number.isInteger(shop.layout.chess) ? shop.layout : null;
   const controls = opts.controls && typeof opts.controls === 'object' ? opts.controls : null;
+  // The slots panel selects its refresh clip from the server's shop fields, not from a queued rewardOffer:
+  // C# isSpecialRecruit = goodsType != 0, and the roll marker is one-shot. `specialRefresh` is this roll's
+  // marker (server rollShop); `goodsType` is kept for callers that send the official enum value.
+  const goodsType = Number(shop.goodsType) || 0;
+  const specialRefresh = !!shop.specialRefresh;
+  // `specialRefreshArmed` is the charge that has not rolled yet (佩佩 arms it on the level-up itself), and it is
+  // the only source of the button state: C# `isSpecRefresh ← ShopData.specialRefresh`, the pending charge, while
+  // `isSpecialRecruit` comes from `goodsType != 0` (this row). The roll marker below is product's stand-in for
+  // that goodsType, so it feeds the slots clip and never the button.
+  const specialRefreshArmed = !!shop.specialRefreshArmed;
   const cards = [];
   slots.forEach((slot, index) => {
     if (slot == null && layout && index >= layout.chess + layout.item) return;
@@ -174,14 +184,14 @@ export function shopModelFromPrivate(priv, opts = {}) {
     isFrozen: !!shop.frozen,
     // A queued rewardOffer is a pick-one reward, not a shop refresh; the view collapses its source to
     // 'merge'|'special' for the header, so it must not light the refresh button's root_special fx.
-    isSpecRefresh: false,
-    isSpecialRecruit: !!(shop.rewardOffer && shop.rewardOffer.source === 'special'),
-    goodsType: 0,
+    isSpecRefresh: specialRefreshArmed,
+    isSpecialRecruit: goodsType !== 0 || specialRefresh,
+    goodsType,
     remainCharCnt,
     selectSlot,
     currUIFunc: 0,
     dragCharSellPrice: 0,
-    refreshSeq: Number(opts.refreshSeq) || 0,
+    refreshSeq: Number(opts.refreshSeq ?? shop.refreshSeq) || 0,
     refreshBlocked: controls ? !!(controls.refresh) : null,
     freezeBlocked: controls ? !!(controls.freeze) : null,
     reward: opts.reward || null,

@@ -220,10 +220,18 @@ K.up_shop_next_refresh_must_present_bond_char = (ps) => ({
     const p = ps[0];
     if (!list(p.lvlist).map(Number).includes(ev.level)) return;
     ctx.incCounter('band:pepe:special', 1);
+    // The official text grants the special refresh at the upgrade ("至2、4和6级后，获得1次特殊刷新") and the
+    // shop shows it at once; only the roll itself waits for the next manual refresh. Without this arm the
+    // button stayed normal until the refresh had already spent the charge.
+    if (typeof ctx.armSpecialRefresh === 'function') ctx.armSpecialRefresh();
   },
   onRefresh(ctx) {
     if (ctx.counter('band:pepe:special') <= 0) return;
     ctx.incCounter('band:pepe:special', -1);
+    // The slot rewrite below is this roll's special refresh. rollShop already advanced refreshSeq, so
+    // mark it after the normal reroll and the client picks whole_card_refresh_special (do not re-roll
+    // or charge again here).
+    if (typeof ctx.markSpecialRefresh === 'function') ctx.markSpecialRefresh();
     const bond = ps[0].bond;
     const slots = ctx.shopSlots();
     for (const i of chessSlots(ctx)) {

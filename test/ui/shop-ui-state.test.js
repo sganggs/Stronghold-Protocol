@@ -144,6 +144,11 @@ function fakeSlotsPanel() {
     index: { byId: new Map([['94', SLOT_LIST_NODE]]) },
     cardViews: [],
     buildCard: () => { throw new Error('no card is built for an empty row'); },
+    panelDoc: { clips: {} },
+    motion: {
+      calls: [],
+      play(key, clipName, opts) { this.calls.push({ key, clipName, basePath: opts && opts.basePath }); return {}; },
+    },
   };
   return new AutoChessStylizedShopSlotsPanel({ scene, root });
 }
@@ -164,6 +169,26 @@ test('slots panel: a changed refreshSeq plays the script anims clip (special var
   assert.equal(panel.lastRefresh, 'whole_card_refresh_normal');
   panel.Render({ refreshSeq: 2, slots: [], isSpecialRecruit: true });
   assert.equal(panel.lastRefresh, 'whole_card_refresh_special');
+});
+
+test('slots panel: the panel clip goes through scene.motion on the panel doc (mount and repeat included)', () => {
+  const panel = fakeSlotsPanel();
+  const motion = panel.scene.motion;
+  panel.Render({ refreshSeq: 0, slots: [] });
+  assert.deepEqual(motion.calls, [], 'a mount records the sequence without playing');
+  panel.Render({ refreshSeq: 0, slots: [] });
+  assert.deepEqual(motion.calls, [], 'the same sequence does not replay');
+  panel.Render({ refreshSeq: 1, slots: [] });
+  assert.deepEqual(motion.calls, [{ key: 'slots-refresh', clipName: 'whole_card_refresh_normal', basePath: undefined }]);
+  motion.calls.length = 0;
+  panel.Render({ refreshSeq: 2, slots: [], isSpecialRecruit: true });
+  assert.deepEqual(motion.calls, [{ key: 'slots-refresh', clipName: 'whole_card_refresh_special', basePath: undefined }]);
+});
+
+test('the host takes the server refreshSeq instead of bumping one from the row signature', () => {
+  assert.doesNotMatch(HOST_SOURCE, /autoRefreshSeq/);
+  assert.doesNotMatch(HOST_SOURCE, /refreshSeq \+= 1/);
+  assert.match(HOST_SOURCE, /nextPriv && nextPriv\.shop && nextPriv\.shop\.refreshSeq/);
 });
 
 // ---- UIButton: C# ClickGuardModule (cooldown bool + seconds) -------------------------------------------

@@ -601,6 +601,19 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
       ps.shop.bondRefresh.push({ bond, count: n });
       return n;
     },
+    /**
+     * This roll is a special refresh (the slots panel plays whole_card_refresh_special). Used by a band's
+     * onRefresh path that rewrites the row itself (佩佩: the charge is armed on level-up and spent by
+     * the next manual refresh); the bondRefresh path marks it in rollShop instead.
+     */
+    markSpecialRefresh: () => { ps.shop.specialRefresh = true; ps.shop.specialRefreshArmed = false; ps.dirty(); return true; },
+    /**
+     * Arm one special refresh WITHOUT rolling: the charge waits for the next roll, but the shop draws the
+     * refresh button's special state right away (C# ctrl `_specToggle`; the roll marker `isSpecialRecruit`
+     * only exists once that roll happens). 佩佩's 博学多通 uses this so 「至2、4和6级后，获得1次特殊刷新」
+     * lights the button on the upgrade itself, not on the next manual refresh.
+     */
+    armSpecialRefresh: () => { ps.shop.specialRefreshArmed = true; ps.dirty(); return true; },
     /** Resolved sell price of an owned piece (an effect override, else the table). */
     sellPrice: (uid) => {
       const loc = ps.find(uid);
