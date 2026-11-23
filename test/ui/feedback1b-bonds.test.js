@@ -125,7 +125,8 @@ test('the game screen hands the mode-disabled set to the shop bar, the detail ca
 test('the bond popup closes on outside presses, while its own region and toggle triggers handle themselves', () => {
   const src = read('public/js/screens/game.js');
   assert.match(src, /const screen = hudElRef\.current\?\.parentElement/);
-  assert.match(src, /if \(!live\.current\.bondOpen \|\| e\.target\?\.closest\?\.\('\.bpop, \.bpop-nav__arrow, \.bslot, \.dbond, \.ibond'\)\) return;\s+setBondOpen\(null\)/);
+  // `.team__fly-bonds .bond`: the 「同盟盟约速查」 flyout's discs toggle the popup themselves (PR #922, §37.347)
+  assert.match(src, /if \(!live\.current\.bondOpen \|\| e\.target\?\.closest\?\.\('\.bpop, \.bpop-nav__arrow, \.bslot, \.dbond, \.ibond, \.team__fly-bonds \.bond'\)\) return;\s+setBondOpen\(null\)/);
   assert.match(src, /screen\.addEventListener\('pointerdown', onDown, true\)/);
   assert.match(src, /screen\.removeEventListener\('pointerdown', onDown, true\)/);
 });
