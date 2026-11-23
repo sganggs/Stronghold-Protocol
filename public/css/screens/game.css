@@ -620,7 +620,9 @@
 }
 .team__fly-cell::-webkit-scrollbar { width: 0; height: 0; }
 .team__fly-cell.is-dragging { cursor: grabbing; user-select: none; }
-.team__fly-cell.is-empty { padding: 0; background: none; }
+/* An empty cell keeps the same backing: the three columns must still read as three boxes, so a seat with nothing in
+   this column cannot lose its cell edge (fork/main fix, owner request 2026-11-13). */
+.team__fly-cell.is-empty { padding: 0; }
 .team__fly-track { display: flex; align-items: center; gap: .1rem; width: max-content; }
 .team__fly-bonds .bond { --disc: var(--fly-ico); }
 .team__fly-ops .team__fly-track { gap: 6px; }
@@ -642,7 +644,6 @@
 }
 .team__fly-band .bandicon { --bi: calc(var(--fly-square, .86rem) - max(8px, .1rem)); background: transparent; }
 .team__fly-band .bandicon img { object-fit: contain; }
-.team__fly-band:empty { background: none; }
 /* a picked strategy is a button: it opens the band card beside the flyout */
 .team__fly-band.is-clickable { appearance: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; }
 .team__fly-band.is-clickable:hover { outline: 2px solid var(--mint-400); outline-offset: -2px; }
