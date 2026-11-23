@@ -3,8 +3,10 @@
 // 1600 s; 迅捷 crossing 40 bare, BV1gLUGBrEv2 p1 728 → 729 s); an active disc wears the full lit ring split by the bond's
 // FIRST threshold (bondBoardIcon N_N: 维多利亚 3_3, 迅捷 2_2, 调和 1_1) at every tier; the popup reads members / first
 // threshold with the check (7/3 ✓, 4/3, 1/1) and 层数, no 阶段 tag; the no-stack bonds draw no layer count. 规程 keeps its
-// phase numerals and the unbroken 1_1 (test/ui/bond-stage.test.js, test/ui/bond-ring.test.js); its popup count is the first
-// threshold too, as the official 规程 screenshot in PR #923 (round 11) shows: 不屈 3/2 ✓ 阶段Ⅱ at 3 members, thresholds [2,3].
+// phase numerals and the unbroken 1_1 on the strip (test/ui/bond-stage.test.js, test/ui/bond-ring.test.js); its popup is
+// like 盟约's, as the official 规程 screenshot in PR #923 (round 11) shows: the open 不屈 card (3 members, thresholds [2,3])
+// reads 3/2 ✓ 阶段Ⅱ and its header disc wears 2_2, while the strip's 不屈 disc is unbroken. Both families' popups draw the
+// active count as one bold string, the members in the accent and 「/第一档」 light grey (the official 7/3 and 3/2).
 // Node tests on the real data files: the default data (第二期下半), the 第一期 and 第二期上半 version files, and 规程·序列Ⅰ.
 // On screen: test/ui/bond-display.e2e.test.js.
 import { test } from 'node:test';
@@ -212,21 +214,28 @@ test('盟约 briefing: an enabled disc wears the first-threshold ring like an ac
   assert.ok(discs.every((d) => d.props.tier === undefined), 'no tier before the match');
 });
 
-test('规程: 迅捷 85 still Ⅱ on the unbroken 1_1, the briefing\'s discs 1_1; the popup count is the first threshold (不屈 3/2 ✓ 阶段Ⅱ, PR #923)', () => withVersion('V3_1', () => {
+test('规程: 迅捷 85 still Ⅱ on the unbroken 1_1, the briefing\'s discs 1_1; the popup reads the first threshold and its header disc wears N_N (不屈 3/2 ✓ 阶段Ⅱ on 2_2, PR #923)', () => withVersion('V3_1', () => {
   const swift = slotOf([SWIFT], 'swiftShip');
   assert.deepEqual([swift.stage, swift.key, swift.disc.phased], [2, '1_1', true]);
   const vic = slotOf([{ ...VIC, count: 3, tier: 1, layers: 8 }], 'victoriaShip');
   assert.deepEqual([vic.stage, vic.key], [1, '1_1']);
   // the official 规程 card (PR #923's round-11 screenshot): 不屈 at 3 members, thresholds [2,3], reads 3/2 ✓ 阶段Ⅱ — the
-  // first threshold, not the top one it has reached (3/3) as before
+  // first threshold, not the top one it has reached (3/3) as before — and its header disc wears the 2_2 ring (two segments,
+  // gaps at the top and the bottom) while the strip's 不屈 disc stays unbroken
   const indom = { bondId: 'indomShip', count: 3, tier: 2, active: true, layers: 26, thresholds: [2, 3] };
   assert.deepEqual(data.lookup('bonds', 'indomShip').thresholds, [2, 3]);
-  assert.deepEqual(popupOf('indomShip', indom), { population: '在场3/2', check: true, stages: ['阶段 Ⅱ'], inactive: false, layers: '层数26', ring: '1_1' });
-  assert.deepEqual(popupOf('victoriaShip', { ...VIC, count: 3, tier: 1, layers: 8 }), { population: '在场3/3', check: true, stages: ['阶段 Ⅰ'], inactive: false, layers: '层数8', ring: '1_1' });
-  assert.deepEqual(popupOf('swiftShip', SWIFT), { population: '在场2/2', check: true, stages: ['阶段 Ⅱ'], inactive: false, layers: '层数85', ring: '1_1' });
-  assert.deepEqual(popupOf('ursusShip', { bondId: 'ursusShip', count: 7, tier: 2, active: true, layers: 129, thresholds: [3, 6] }).population, '在场7/3');
-  // inactive: the first threshold is the next one, as before
-  assert.equal(popupOf('arcaneShip', { bondId: 'arcaneShip', count: 1, tier: 0, active: false, layers: 0, thresholds: [2, 3] }).population, '在场1/2尚未激活');
+  assert.deepEqual(popupOf('indomShip', indom), { population: '在场3/2', check: true, stages: ['阶段 Ⅱ'], inactive: false, layers: '层数26', ring: '2_2' });
+  assert.deepEqual([slotOf([indom], 'indomShip').key, slotOf([indom], 'indomShip').stage], ['1_1', 2]);
+  // the popup disc: N_N by the first threshold at every tier (clamped to 1..4), as in a 盟约 period
+  assert.deepEqual(popupOf('victoriaShip', { ...VIC, count: 3, tier: 1, layers: 8 }), { population: '在场3/3', check: true, stages: ['阶段 Ⅰ'], inactive: false, layers: '层数8', ring: '3_3' });
+  assert.deepEqual(popupOf('swiftShip', SWIFT), { population: '在场2/2', check: true, stages: ['阶段 Ⅱ'], inactive: false, layers: '层数85', ring: '2_2' });
+  const ursus = popupOf('ursusShip', { bondId: 'ursusShip', count: 7, tier: 2, active: true, layers: 129, thresholds: [3, 6] });
+  assert.deepEqual([ursus.population, ursus.ring], ['在场7/3', '3_3']);
+  assert.equal(popupOf('maniShip', MANI).ring, '1_1', '调和 [1]: the unbroken ring there too');
+  // inactive: the first threshold is the next one, and the member progress ring, as before; 本局禁用 the grey 1_0
+  const arcane = popupOf('arcaneShip', { bondId: 'arcaneShip', count: 1, tier: 0, active: false, layers: 0, thresholds: [2, 3] });
+  assert.deepEqual([arcane.population, arcane.ring], ['在场1/2尚未激活', '2_1']);
+  assert.equal(popupOf('arcaneShip', { bondId: 'arcaneShip', count: 2, tier: 0, active: false, layers: 0, thresholds: [2, 3] }, { off: true }).ring, '1_0');
   // the tooltip and the chip follow the popup (gameLogic bondCountCap)
   assert.equal(slotOf([indom], 'indomShip').disc.title, '不屈 3/2');
   const chip = [...walk(BondChips({ bondIds: ['indomShip'], bonds: [indom] }))].find((v) => v.props?.['data-bond'] === 'indomShip');
@@ -239,10 +248,45 @@ test('规程: 迅捷 85 still Ⅱ on the unbroken 1_1, the briefing\'s discs 1_1
   assert.equal(bondFrame({ active: true, members: 7, minCount: 3, phased: true }).key, 'bondBoardIcon/1_1');
 }));
 
+test('the popup count, both families: one string 「n/第一档」, active members in the accent and the threshold light grey, one size and weight; inactive unchanged', () => {
+  const tallyOf = (bondId, entry) => {
+    const nodes = [...walk(BondPopup({ bondId, entry, priv: { board: [], hand: [], temp: [] }, onClose() {} }))];
+    const tally = nodes.find((v) => hasClass(v, 'bpop__tally'));
+    const kids = [...walk(tally)].filter((v) => v !== tally && typeof v.type === 'string');
+    return { tally: textOf(tally), parts: kids.map((v) => [v.type, v.props.class, textOf(v)]) };
+  };
+  const want = (n, cap) => ({ tally: `${n}/${cap}`, parts: [['b', 'num bpop__count', String(n)], ['span', 'num bpop__cap', `/${cap}`]] });
+  eachCovenant((v) => assert.deepEqual(tallyOf('victoriaShip', VIC), want(7, 3), v));
+  withVersion('V3_1', () => {
+    assert.deepEqual(tallyOf('indomShip', { bondId: 'indomShip', count: 3, tier: 2, active: true, layers: 26, thresholds: [2, 3] }), want(3, 2));
+    assert.deepEqual(tallyOf('arcaneShip', { bondId: 'arcaneShip', count: 1, tier: 0, active: false, layers: 0, thresholds: [2, 3] }), want(1, 2));
+  });
+  const css = readFileSync(path.join(ROOT, 'public/css/screens/bond.css'), 'utf8');
+  const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // a rule's declarations, by its exact selector at the start of a line
+  const rule = (sel) => (css.match(new RegExp(`(?:^|\\n)${esc(sel)} \\{([^}]*)\\}`)) || [])[1] ?? null;
+  // the accent of the icon and the check, a theme token (the cosmetic plugins' THEME_TOKENS recolor it); the threshold the
+  // light text token; both one size and one bold weight — scoped to the active count, the red inactive plate keeps its look
+  assert.match(rule('.bpop__population:not(.is-inactive) .bpop__count'), /^\s*color: var\(--mint-400\);\s*$/);
+  // the members are a <b> at .18 (`.bpop__facts b`, bold by default); 「/第一档」 takes that size and weight, and the same
+  // floor in the match-info dialog
+  assert.match(rule('.bpop__facts b'), /font-size: calc\(\.18 \* var\(--t\)\)/);
+  assert.doesNotMatch(rule('.bpop__facts b'), /font-weight/);
+  assert.match(rule('.bpop__population:not(.is-inactive) .bpop__cap'), /^\s*color: var\(--text-md\); font-size: calc\(\.18 \* var\(--t\)\); font-weight: 700;\s*$/);
+  assert.match(rule('.match-bond-dialog .bpop__facts b, .match-bond-dialog .bpop__population:not(.is-inactive) .bpop__cap'), /font-size: max\(calc\(\.18 \* var\(--t\)\), 14px\)/);
+  assert.match(rule('.bpop__population > .icon'), /color: var\(--mint-400\)/);
+  assert.match(rule('.bpop__check'), /color: var\(--mint-400\)/);
+  assert.doesNotMatch(css, /\.bpop__population\.is-inactive[^{]*\.bpop__(?:count|cap|tally)/);
+});
+
 test('BondDisc reads the version from the loaded config when no `phased` is passed; an explicit one wins', () => {
   const props = { name: '维多利亚', active: true, tier: 2, members: 7, minCount: 3 };
   assert.equal(drawn(props).key, '3_3');
   assert.equal(withVersion('V3_1', () => drawn(props).key), '1_1');
   assert.equal(drawn({ ...props, phased: true }).key, '1_1');
   assert.equal(withVersion('V3_1', () => drawn({ ...props, phased: false }).key), '3_3');
+  // `split` (the popup's header disc) picks N_N whatever the version; split false the unbroken 1_1
+  assert.equal(withVersion('V3_1', () => drawn({ ...props, split: true }).key), '3_3');
+  assert.equal(drawn({ ...props, split: false }).key, '1_1');
+  assert.equal(withVersion('V3_1', () => drawn({ ...props, active: false, members: 2, split: true }).key), '3_2', 'progress unchanged');
 });

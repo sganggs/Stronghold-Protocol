@@ -2,7 +2,9 @@
 // official 规程 screenshot), a 盟约 period N_N by the bond's first threshold (§37.342: the official 盟约 recordings) —, the
 // segmented rings count members before activation, the 规程 stage numeral sits on the ring's rim and the 盟约 strip has
 // none (and no gap where it was), a missing ring sprite keeps a readable lit disc, and the briefing's 阵容不完整 corner
-// never displaces the glyph.
+// never displaces the glyph. The popup's header disc wears N_N in both families (§37.342 review: the official 规程
+// screenshot's open 不屈 card draws 2_2), and its active count is one bold string, the members in the accent and
+// 「/第一档」 light grey (the official 7/3 and 3/2).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync } from 'node:fs';
@@ -142,6 +144,36 @@ test('active bonds draw a full ring at every tier (规程 1_1 with the numeral, 
         clipped: box.y + box.height / 2 - parseFloat(ring.height) / 2 < clip.y - .5,
       };
     }));
+    // open a strip disc's popup: its header disc's ring and the count's computed look; Escape closes it again
+    const readPopup = async (pg, id) => {
+      await pg.click(`.bslot[data-bond="${id}"] .bond`);
+      await pg.waitForSelector('.bpop', { visible: true });
+      await pg.waitForFunction(() => [...document.querySelectorAll('.bpop__head img')].every((img) => img.complete));
+      const pop = await pg.$eval('.bpop', (el) => {
+        const look = (n) => { const st = getComputedStyle(n); return { color: st.color, weight: st.fontWeight, size: st.fontSize }; };
+        const count = el.querySelector('.bpop__count');
+        const cap = el.querySelector('.bpop__cap');
+        return {
+          ring: (getComputedStyle(el.querySelector('.bpop__disc .bond__disc'), '::before').backgroundImage.match(/bondBoardIcon\/(\w+)\.png/) || [])[1] || null,
+          tally: el.querySelector('.bpop__tally').textContent, count: look(count), cap: look(cap),
+          gap: cap.getBoundingClientRect().left - count.getBoundingClientRect().right,
+          icon: getComputedStyle(el.querySelector('.bpop__population > .icon')).color,
+          check: el.querySelector('.bpop__check') ? getComputedStyle(el.querySelector('.bpop__check')).color : null,
+        };
+      });
+      await pg.keyboard.press('Escape');
+      await pg.waitForSelector('.bpop', { hidden: true });
+      return pop;
+    };
+    const MINT = 'rgb(89, 244, 202)';
+    const assertActiveCount = (pop, tally, label) => {
+      assert.equal(pop.tally, tally, label);
+      assert.deepEqual([pop.count.color, pop.icon, pop.check], [MINT, MINT, MINT], `${label}: the members in the accent`);
+      assert.equal(pop.cap.color, 'rgb(195, 203, 199)', `${label}: 「/第一档」 light grey (--text-md)`);
+      assert.deepEqual([pop.count.size, pop.count.weight], [pop.cap.size, pop.cap.weight], `${label}: one size and weight`);
+      assert.equal(pop.count.weight, '700', label);
+      assert.ok(Math.abs(pop.gap) < .5, `${label}: no gap inside the count (${pop.gap})`);
+    };
     const strip = await browser.newPage();
     strip.on('pageerror', (e) => errors.push(e.message));
     await strip.setViewport({ width: 1600, height: 900 });
@@ -162,6 +194,14 @@ test('active bonds draw a full ring at every tier (规程 1_1 with the numeral, 
     // every disc on one line: no offset between the lit and the progress discs
     assert.ok(slots.every((x) => Math.abs(x.centre - slots[0].centre) < .5), JSON.stringify(slots.map((x) => x.centre)));
     await strip.screenshot({ path: `${OUT}/bond-strip-full-rings.png` });
+    // the 盟约 popup: the header disc's ring is the strip's (卡西米尔 at 6 members, first threshold 3: 3_3; 迅捷 2_2); the count
+    const covKaz = await readPopup(strip, 'kazimierzShip');
+    assert.equal(covKaz.ring, '3_3');
+    assertActiveCount(covKaz, '6/3', '盟约 kazimierzShip');
+    assert.equal((await readPopup(strip, 'swiftShip')).ring, '2_2');
+    // inactive: the member progress ring and the red plate's white count, unchanged
+    const covIdle = await readPopup(strip, 'sargonShip');
+    assert.deepEqual([covIdle.ring, covIdle.tally, covIdle.count.color, covIdle.cap.color], ['3_2', '2/3', 'rgb(255, 255, 255)', 'rgb(242, 242, 242)']);
 
     // the top bar in 规程 (unchanged): the unbroken 1_1 on every active disc, the numeral above it on the ring's rim
     const reg = await browser.newPage();
@@ -182,6 +222,20 @@ test('active bonds draw a full ring at every tier (规程 1_1 with the numeral, 
     assert.match(regBy.sargonShip.ring, /bondBoardIcon\/3_2\.png/);
     assert.equal(regBy.sargonShip.stage, null);
     await reg.screenshot({ path: `${OUT}/bond-strip-regulation.png` });
+    // the 规程 popup: the header disc wears N_N by the first threshold while the strip keeps 1_1 (the official 规程
+    // screenshot: the open 不屈 card draws 2_2 over its unbroken strip disc); the count as in 盟约
+    const regKaz = await readPopup(reg, 'kazimierzShip');
+    assert.equal(regKaz.ring, '3_3');
+    assertActiveCount(regKaz, '6/3', '规程 kazimierzShip');
+    const regSwift = await readPopup(reg, 'swiftShip');
+    assert.equal(regSwift.ring, '2_2');
+    assertActiveCount(regSwift, '2/2', '规程 swiftShip');
+    assert.equal((await readPopup(reg, 'sargonShip')).ring, '3_2');
+    assert.match((await readSlots(reg)).find((x) => x.bond === 'kazimierzShip').ring, /bondBoardIcon\/1_1\.png/, 'the strip disc stays unbroken');
+    await reg.click('.bslot[data-bond="swiftShip"] .bond');
+    await reg.waitForSelector('.bpop', { visible: true });
+    await reg.screenshot({ path: `${OUT}/bond-popup-regulation.png` });
+    await reg.keyboard.press('Escape');
 
     // a ring sprite that fails to load: the active disc is the CSS fallback, lit, no guessed URL
     const bare = await browser.newPage();

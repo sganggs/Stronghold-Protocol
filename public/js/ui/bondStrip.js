@@ -181,7 +181,8 @@ const stageNumeral = (stage) => ['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ'][stage
  * `stage`: the numeral over the disc and the popup's 阶段 tag (gameLogic bondStage: in 规程 the official phase level of
  * the active effect, from the live layers the entry carries in battle — ui/watchBonds.js withLiveLayers /
  * withTemporaryLayers — so it flips mid-battle; §37.341; always 0 in a 盟约 period, §37.342); `phased`: the version
- * draws the bond phase (gameLogic bondPhased: 规程) — the numeral, the unbroken ring, the popup's 阶段 tag.
+ * draws the bond phase (gameLogic bondPhased: 规程) — the numeral, the strip's unbroken ring (the popup's header disc is
+ * split by the first threshold in both families), the popup's 阶段 tag.
  */
 export function bondDisplay(bondId, entry) {
   const base = data.lookup('bonds', bondId);
@@ -291,6 +292,9 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
   // families (§37.342: 盟约 维多利亚 7/3 ✓, BV1yyC9BPEXV 1600 s; 规程 不屈 3/2 ✓ 阶段Ⅱ, PR #923's round-11 screenshot)
   const cap = bondCountCap(th) ?? '-';
   const at = place || (beside === 'left' ? 'beside' : 'left');
+  // the header disc (split): once active, the lit ring split by the first threshold (N_N) in both families — 盟约 as on
+  // its strip (§37.342), 规程 unlike its strip's unbroken 1_1: in PR #923's round-11 screenshot the open 不屈 card
+  // ([2,3], 3 members) draws 2_2 while the strip's 不屈 disc is unbroken. Before activation the member progress, as before.
   // 调和's +1 in this count (the server's word), and the 调和 operators on that board who give it
   const harmony = !modeOff && Number.isInteger(entry?.harmony) && entry.harmony > 0 ? entry.harmony : 0;
   const harmonyBy = harmony ? harmonyMembers(priv, getChess).map((x) => {
@@ -307,7 +311,7 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
   <header class=${cx('bpop__head', active && 'is-active')}>
     <div class="bpop__disc">
       <${BondDisc} name=${b.name} icon=${bondIconUrl(data.get('assets'), bondId)} tier=${tier}
-        members=${count} minCount=${th[0] ?? 0} active=${active} disabled=${modeOff || coreAbsent} phased=${phased} showName=${false} />
+        members=${count} minCount=${th[0] ?? 0} active=${active} disabled=${modeOff || coreAbsent} phased=${phased} split=${true} showName=${false} />
     </div>
     <div class="bpop__titles">
       ${owner ? html`<span class="bpop__owner"><${GIcon} name="eye" />${tParts('{owner} 的盟约', { owner: html`<b>${owner}</b>` })}</span>` : null}
@@ -315,7 +319,7 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
       <div class="bpop__facts">
         ${modeOff ? null : html`<span class=${cx('bpop__population', !active && 'is-inactive')} style=${!active ? `--bpop-inactive-bg: ${uiBackground('bondDetail/bond_inactive_bg')}` : null}>
           <${Icon} name="users" /><span class="sr-only">${t('在场')}</span>
-          <b class="num">${count}</b><span class="num">/${cap}</span>
+          <span class="bpop__tally"><b class="num bpop__count">${count}</b><span class="num bpop__cap">/${cap}</span></span>
           ${active ? html`<span class="bpop__check" aria-label=${t('已激活')}><${Icon} name="check" /></span>` : html`<span class="bpop__stage bpop__inactive">${t('尚未激活')}</span>`}
         </span>`}
         ${countsHand && !modeOff ? html`<small>${t('（含整备区）')}</small>` : null}

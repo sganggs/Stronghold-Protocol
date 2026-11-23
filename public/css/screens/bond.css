@@ -278,6 +278,14 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 
 .bpop__population { display: inline-flex; align-items: center; gap: .04rem; white-space: nowrap; }
 .bpop__population > .icon { width: .22rem; height: .22rem; color: var(--mint-400); }
+/* the count reads as one string, 「n/第一档」 with no gap in it. Active, as the official cards draw it in both families:
+   the members in the accent (the icon's and the check's colour), 「/第一档」 light grey, one size and one bold weight (盟约
+   维多利亚 7/3, BV1yyC9BPEXV 1600 s; 规程 不屈 3/2, PR #923's round-11 screenshot; §37.342): the 「/第一档」 takes the
+   members' size and weight (`.bpop__facts b`, and its floor in the match-info dialog below). The inactive red plate keeps
+   its bold white members and small 「/n」 (no official inactive card found). */
+.bpop__tally { white-space: nowrap; }
+.bpop__population:not(.is-inactive) .bpop__count { color: var(--mint-400); }
+.bpop__population:not(.is-inactive) .bpop__cap { color: var(--text-md); font-size: calc(.18 * var(--t)); font-weight: 700; }
 .bpop__check { display: inline-grid; place-items: center; border: 2px solid var(--mint-400); border-radius: .02rem; color: var(--mint-400); }
 .bpop__check .icon { width: .14rem; height: .14rem; }
 .bpop__stage { padding: .01rem .1rem; font-size: calc(.13 * var(--t)); background: rgba(255, 255, 255, .08); color: var(--text-lo); white-space: nowrap; }
@@ -315,8 +323,8 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .bpop__body > * { flex-shrink: 0; }
 
 /* Original bond board sprites supply both the disc and its ring. Once active, the full lit ring around the lit centre at
-   every tier: the unbroken 1_1 in 规程, N_N split by the first threshold in a 盟约 period (§37.342). Before activation,
-   the segmented member progress (components.js bondFrame). */
+   every tier: the unbroken 1_1 in 规程, N_N split by the first threshold in a 盟约 period and on the bond popup's header
+   disc in both families (§37.342). Before activation, the segmented member progress (components.js bondFrame). */
 .bond.is-sprite .bond__disc::before {
   content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
   width: var(--bond-frame-size); height: var(--bond-frame-size);
@@ -360,7 +368,7 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .match-bond-dialog .bpop__head { padding-right: var(--match-bond-close); }
 .match-bond-dialog .bpop__name { font-size: max(calc(.28 * var(--t)), 20px); }
 .match-bond-dialog .bpop__facts { flex-wrap: wrap; }
-.match-bond-dialog .bpop__facts b { font-size: max(calc(.18 * var(--t)), 14px); }
+.match-bond-dialog .bpop__facts b, .match-bond-dialog .bpop__population:not(.is-inactive) .bpop__cap { font-size: max(calc(.18 * var(--t)), 14px); }
 .match-bond-dialog .bpop__sec h4 { font-size: max(calc(.16 * var(--t)), 13px); }
 .match-bond-dialog .bpop__desc { font-size: max(calc(.16 * var(--t)), 12px); }
 .match-bond-dialog .bpop__facts, .match-bond-dialog .bpop__off { font-size: max(calc(.15 * var(--t)), 12px); }

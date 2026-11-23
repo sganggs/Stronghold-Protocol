@@ -1,8 +1,9 @@
 // §37.340 (the owner, 2026-11-22): an active bond disc draws a full, lit official ring at every tier. 规程 draws the unbroken
 // 1_1, as in the official screenshot (PR #923 comment: 灵巧 Ⅱ, 精准 Ⅰ, 不屈 Ⅱ, 绝技 Ⅰ share one centre and one full ring; the
 // numeral above the disc is the phase level). §37.342: the 盟约 periods draw N_N, N = the bond's first threshold, at every
-// tier, and no numeral (recordings of all four periods). The segmented N_k rings stay for the member count before
-// activation. Node test of the sprite choice (components.js bondFrame) and the bond strip's slot (in 规程 the numeral sits
+// tier, and no numeral (recordings of all four periods). The bond popup's header disc wears N_N in 规程 too (`split`: the
+// same 规程 screenshot's open 不屈 card, [2,3] at 3 members, draws 2_2 while its strip disc is unbroken). The segmented N_k
+// rings stay for the member count before activation. Node test of the sprite choice (components.js bondFrame) and the bond strip's slot (in 规程 the numeral sits
 // on the full ring's rim); on screen: test/ui/bond-display.e2e.test.js.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -44,7 +45,7 @@ function* walk(v) {
 }
 const hasClass = (v, c) => typeof v?.props?.class === 'string' && v.props.class.split(/\s+/).includes(c);
 
-test('an active bond draws a full lit ring at every tier (规程 1_1, 盟约 N_N by the first threshold); member progress keeps the segmented rings', () => {
+test('an active bond draws a full lit ring at every tier (规程 1_1, 盟约 and the popup disc N_N by the first threshold); member progress keeps the segmented rings', () => {
   // 规程 (phased): every active tier, whatever the thresholds: one sprite, the 77-unit unbroken ring
   for (const [members, minCount] of [[2, 2], [3, 2], [3, 3], [6, 3], [9, 3], [5, 2], [1, 1], [0, 0], [12, 4]]) {
     assert.deepEqual(bondFrame({ active: true, members, minCount, phased: true }), { key: 'bondBoardIcon/1_1', lit: true, progress: false, filled: 0, full: true },
@@ -72,6 +73,15 @@ test('an active bond draws a full lit ring at every tier (规程 1_1, 盟约 N_N
   }
   // the progress rings do not depend on the version
   assert.equal(bondFrame({ members: 2, minCount: 3, phased: true }).key, 'bondBoardIcon/3_2');
+  // split (the popup's header disc): N_N by the first threshold whatever the version, clamped to 1..4 (不屈 [2,3] at 3
+  // members → 2_2, 调和 [1] → 1_1); split false the unbroken 1_1; progress and disabled keep their rings
+  for (const [members, minCount, key] of [[3, 2, '2_2'], [7, 3, '3_3'], [1, 1, '1_1'], [0, 0, '1_1'], [6, 6, '4_4']]) {
+    assert.deepEqual(bondFrame({ active: true, members, minCount, phased: true, split: true }), { key: `bondBoardIcon/${key}`, lit: true, progress: false, filled: 0, full: true },
+      `${members}/${minCount}`);
+  }
+  assert.equal(bondFrame({ active: true, members: 7, minCount: 3, split: false }).key, 'bondBoardIcon/1_1');
+  assert.equal(bondFrame({ members: 1, minCount: 2, phased: true, split: true }).key, 'bondBoardIcon/2_1');
+  assert.equal(bondFrame({ active: true, disabled: true, members: 3, minCount: 2, phased: true, split: true }).key, 'bondBoardIcon/1_0');
 });
 
 test('BondDisc reads one sprite for the ring and the centre plate (no separate lit plate)', () => {
@@ -112,10 +122,10 @@ test('the bond strip (盟约): every active slot has the full ring\'s size and n
   // the detail card's header disc: the tier and the member count, no tier count
   const popup = [...walk(BondPopup({ bondId: 'yanShip', entry: bonds[0], priv: { board: [], hand: [], temp: [] }, onClose() {} }))];
   const head = popup.find((v) => v.type?.name === 'BondDisc');
-  assert.deepEqual([head.props.active, head.props.tier, head.props.members, head.props.minCount, head.props.maxTier, head.props.phased], [true, 1, 3, 3, undefined, false]);
+  assert.deepEqual([head.props.active, head.props.tier, head.props.members, head.props.minCount, head.props.maxTier, head.props.phased, head.props.split], [true, 1, 3, 3, undefined, false, true]);
 });
 
-test('the bond strip (规程): every active slot sits its stage numeral on the unbroken ring\'s rim, unchanged by §37.342', () => withRegulation(() => {
+test('the bond strip (规程): every active slot sits its stage numeral on the unbroken ring\'s rim; the popup\'s header disc wears N_N (不屈 2_2)', () => withRegulation(() => {
   const bonds = [
     { bondId: 'ursusShip', count: 6, tier: 2, active: true, layers: 129, thresholds: [3, 6] },
     { bondId: 'swiftShip', count: 2, tier: 1, active: true, layers: 85, thresholds: [2] },
@@ -133,4 +143,11 @@ test('the bond strip (规程): every active slot sits its stage numeral on the u
   }
   assert.equal(slot('raidShip').props.style, `--bond-frame-size: .688rem; --bond-rim-top: ${8 / 65}`);
   assert.equal(inSlot('raidShip', 'BondStage').props.stage, 0);
+  // the strip's discs keep the version's ring (no split); the popup's header disc passes split, so it wears N_N
+  assert.ok(['ursusShip', 'swiftShip', 'arcaneShip', 'raidShip'].every((id) => inSlot(id, 'BondDisc').props.split === undefined));
+  const head = (entry) => [...walk(BondPopup({ bondId: entry.bondId, entry, priv: { board: [], hand: [], temp: [] }, onClose() {} }))].find((v) => v.type?.name === 'BondDisc');
+  const indom = head({ bondId: 'indomShip', count: 3, tier: 2, active: true, layers: 26, thresholds: [2, 3] });
+  assert.deepEqual([indom.props.phased, indom.props.split, indom.props.minCount], [true, true, 2]);
+  assert.equal(bondFrame(indom.props).key, 'bondBoardIcon/2_2');
+  assert.equal(bondFrame(head(bonds[3]).props).key, 'bondBoardIcon/2_1', 'inactive: the member progress');
 }));
