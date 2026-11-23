@@ -167,7 +167,7 @@ describe('变形同构体 — what the popup and the card show', () => {
     assert.deepEqual(chips.map((x) => x.props['data-bond']), ['lateranoShip', 'swiftShip', 'victoriaShip']);
     const vic = chips[2];
     assert.ok(hasClass(vic, 'is-granted') && hasClass(vic, 'is-active'));
-    assert.match(vic.props.title, /维多利亚（变形同构体）：在场 3\/6/);
+    assert.match(vic.props.title, /维多利亚（变形同构体）：在场 3\/3/);
     assert.ok(!hasClass(chips[0], 'is-granted'));
     const d = resolveDetail({ kind: 'unit', unit: { id: 7, side: 'ally', ownerId: 'p2', defId: WEARER, items: [ISO, HAMMER] } }, new Map());
     assert.deepEqual(d.unitItems, [ISO, HAMMER]);

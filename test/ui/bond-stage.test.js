@@ -3,8 +3,9 @@
 // bonds.json `phaseType` + `phaseCounts`) the count reaches: layers for STACK_COUNT, members for PEOPLE_COUNT, nothing for
 // NONE, nothing while inactive. Recordings: BV12ZWP6pE7m p1 340 s (乌萨斯 Ⅱ 129, 迅捷 Ⅱ 85, 奥术 Ⅰ 69, 绝技 Ⅰ), the flips at
 // BV12ZWP6pE7m p1 233.5 s (迅捷 39 → 41) and BV1Cjs46CE4k 9 s (灵巧 37 → 41), 远见 lit with no numeral below 80. The 盟约
-// periods have no phase table: the member tier as before [ASSUMED]. Node tests of gameLogic bondStage, the strip and the
-// popup on the real 规程 data, the live-layer path (ui/watchBonds.js) and the detail card's chip label.
+// periods draw no numeral at all (§37.342, test/ui/bond-covenant.test.js). Node tests of gameLogic bondStage, the strip
+// and the popup on the real 规程 data (its config too: the version family is the signal, gameLogic bondPhased), the
+// live-layer path (ui/watchBonds.js) and the detail card's chip label.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -33,8 +34,8 @@ const { data } = await import('../../public/js/data.js');
 await data.loadAll('bonds', 'effects', 'chess', 'assets', 'config');
 
 const V31 = 'data/versions/act3autochess-v3_1';
-const V31_FILES = { bonds: readJson(`${V31}/bonds.json`), effects: readJson(`${V31}/effects.json`) };
-/** Run `fn` with the 规程·序列Ⅰ bonds and effects in the data store, then the default files again. */
+const V31_FILES = { bonds: readJson(`${V31}/bonds.json`), effects: readJson(`${V31}/effects.json`), config: readJson(`${V31}/config.json`) };
+/** Run `fn` with the 规程·序列Ⅰ bonds, effects and config in the data store, then the default files again. */
 function withRegulation(fn) {
   data.setContent({ id: 'bond-stage-test-v3_1', values: V31_FILES });
   try { return fn(); } finally { data.setContent(null); }
@@ -77,10 +78,15 @@ test('bondStage: STACK_COUNT counts the layers (temporary ones too), PEOPLE_COUN
   assert.equal(bondStage({ active: true, tier: 2, count: 6, layers: 129 }, core), 2);
   assert.equal(bondStage({ active: true, tier: 1, count: 6, layers: 999 }, core), 1, 'the tier wins over the count and ignores layers');
   assert.equal(bondStage({ active: true, count: 9 }, { phaseType: 'PEOPLE_COUNT', phaseCounts: [3, 6, 9] }), 3);
-  // no phase table (盟约, a plugin bond): the member tier while active [ASSUMED]
+  // no phase table in 规程 (a plugin bond): the member tier while active [ASSUMED]
   for (const phase of [null, undefined, {}, { phaseType: null, phaseCounts: null }]) {
     assert.equal(bondStage({ active: true, tier: 1, count: 2, layers: 85 }, phase), 1);
+    assert.equal(bondStage({ active: true, tier: 1, count: 2, layers: 85 }, phase, true), 1);
     assert.equal(bondStage({ active: false, tier: 0, count: 1, layers: 85 }, phase), 0);
+  }
+  // a 盟约 period (phased false, §37.342): nothing, whatever the bond carries
+  for (const phase of [null, {}, swift, visi, core, { phaseType: 'NONE', phaseCounts: [] }]) {
+    assert.equal(bondStage({ active: true, tier: 2, count: 7, layers: 155 }, phase, false), 0);
   }
   assert.equal(bondStage(null, swift), 0);
 });
@@ -172,7 +178,7 @@ test('规程 live layers: the numeral flips mid-battle as the runner\'s layers c
   assert.equal(stripStages(temp.bonds).swiftShip, 2);
 }));
 
-test('the detail card\'s chip names the strip\'s stage in 规程; the 盟约 label is unchanged', () => {
+test('the detail card\'s chip names the strip\'s stage in 规程; in 盟约 it says just 已激活 (§37.342)', () => {
   const label = (bonds, id) => [...walk(BondChips({ bondIds: [id], bonds }))].find((v) => v.props?.['data-bond'] === id).props.title;
   withRegulation(() => {
     assert.match(label([{ bondId: 'swiftShip', count: 2, tier: 1, active: true, layers: 85, thresholds: [2] }], 'swiftShip'), /：在场 2\/2，已激活 2 阶$/);
@@ -180,7 +186,7 @@ test('the detail card\'s chip names the strip\'s stage in 规程; the 盟约 lab
     assert.match(label([{ bondId: 'visiShip', count: 2, tier: 1, active: true, layers: 30, thresholds: [2] }], 'visiShip'), /，已激活$/);
     assert.match(label([{ bondId: 'swiftShip', count: 1, tier: 0, active: false, layers: 201, thresholds: [2] }], 'swiftShip'), /，未激活$/);
   });
-  assert.match(label([{ bondId: 'swiftShip', count: 2, tier: 1, active: true, layers: 85, thresholds: [2] }], 'swiftShip'), /：在场 2\/2，已激活 1 阶$/);
+  assert.match(label([{ bondId: 'swiftShip', count: 2, tier: 1, active: true, layers: 85, thresholds: [2] }], 'swiftShip'), /：在场 2\/2，已激活$/);
 });
 
 test('a teammate\'s unit on a shared field: the chip and the popup it opens name the same stage (temporary layers on both)', () => withRegulation(() => {
@@ -197,10 +203,10 @@ test('a teammate\'s unit on a shared field: the chip and the popup it opens name
   assert.match(label(playerBonds({ pub, myId: 'a', ownerId: 'b', live }), 'visiShip'), /，已激活$/);
 }));
 
-test('盟约 (default data, no phase table): 迅捷 at 85 layers keeps Ⅰ, the member tier as before [ASSUMED]', () => {
+test('盟约 (default data, no phase table): no numeral and no 阶段 tag at any tier (§37.342)', () => {
   const entry = { bondId: 'swiftShip', count: 2, tier: 1, active: true, layers: 85, thresholds: [2] };
   assert.equal(data.lookup('bonds', 'swiftShip').phaseType, undefined);
-  assert.deepEqual(stripStages([entry]), { swiftShip: 1 });
-  assert.deepEqual(popupStages('swiftShip', entry), [{ text: '阶段 Ⅰ', title: '已激活 · 1 阶', active: true }]);
-  assert.deepEqual(stripStages([{ bondId: 'kazimierzShip', count: 6, tier: 2, active: true, layers: 3, thresholds: [3, 6, 9] }]), { kazimierzShip: 2 });
+  assert.deepEqual(stripStages([entry]), { swiftShip: 0 });
+  assert.deepEqual(popupStages('swiftShip', entry), []);
+  assert.deepEqual(stripStages([{ bondId: 'kazimierzShip', count: 6, tier: 2, active: true, layers: 3, thresholds: [3, 6, 9] }]), { kazimierzShip: 0 });
 });

@@ -70,9 +70,10 @@ test('a real 标准 match: 奥术 operators are buyable, three on the board neve
   assert.ok(arc && arc.off === true && arc.active === false && arc.tier === 0 && arc.count === 3, 'the view lists the members as a grey 本局禁用 disc');
   assert.ok(priv.bonds.slice(priv.bonds.findIndex((b) => b.off)).every((b) => b.off), 'off entries come last');
   const off = modeOffBonds(getMode(m.modeId));
-  // without the mode's off set the chip would read the new entry as an ordinary inactive bond (在场 3/3，未激活)
+  // without the mode's off set the chip would read the new entry as an ordinary inactive bond (在场 3/2，未激活: the
+  // first threshold in a 盟约 period, §37.342)
   const bare = chipOf(BondChips({ bondIds: DATA.chess[members[0]].bonds, bonds: priv.bonds }), 'arcaneShip');
-  assert.match(bare.props.title, /在场 3\/3，未激活/);
+  assert.match(bare.props.title, /在场 3\/2，未激活/);
   const chip = chipOf(BondChips({ bondIds: DATA.chess[members[0]].bonds, bonds: priv.bonds, off }), 'arcaneShip');
   assert.ok(hasClass(chip, 'is-off') && !hasClass(chip, 'is-active'));
   assert.equal(chip.props.title, '奥术：本局禁用（该盟约不会激活）');
@@ -164,14 +165,15 @@ test('bond navigation keeps the card and invokes only the requested direction', 
 });
 
 
-// §37.341: the default (盟约) data has no phase table, so the stage is the member tier whatever the layers — like a
-// PEOPLE_COUNT bond in 规程; 规程's STACK_COUNT bonds count layers (test/ui/bond-stage.test.js)
-test('bond header stage (盟约 data: no phase table) follows the member tier, independently of stack count', () => {
+// §37.342: the 盟约 popup has no 阶段 tag at any tier or layer count (the official shows the disc, the name, members /
+// first threshold with the check, and 层数; 规程's phase levels: test/ui/bond-stage.test.js)
+test('bond header (盟约 data) draws no 阶段 tag at any tier, only the check; 尚未激活 / 本局禁用 unchanged', () => {
   const props = { bondId: 'arcaneShip', priv: { board: [], hand: [] } };
-  for (const [tier, numeral] of [[1, 'Ⅰ'], [2, 'Ⅱ'], [3, 'Ⅲ']]) {
+  for (const tier of [1, 2, 3]) {
     const popup = BondPopup({ ...props, entry: { active: true, tier, count: 6, layers: 99 } });
     const nodes = [...walk(popup)];
-    assert.equal(textOf(nodes.find(v => hasClass(v, 'bpop__stage'))), `阶段 ${numeral}`);
+    assert.equal(nodes.filter(v => hasClass(v, 'bpop__stage')).length, 0, `tier ${tier}`);
+    assert.ok(nodes.some(v => hasClass(v, 'bpop__check')), `tier ${tier}`);
     assert.ok(!nodes.some(v => hasClass(v, 'bpop__close') || hasClass(v, 'bpop__sec--now')));
   }
   for (const [off, label] of [[false, '尚未激活'], [true, '本局禁用']]) {

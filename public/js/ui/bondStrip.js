@@ -1,5 +1,5 @@
 // Bond strip (active-bond discs under the top bar) and the bond detail popup: the key facts first (user playtest #2
-// item 9: name, members in play / next threshold, layers and reached tier), then the full description and the member list with owned / on-board state — operators that
+// item 9: name, members in play / threshold (gameLogic bondCountCap), layers and reached tier), then the full description and the member list with owned / on-board state — operators that
 // are members through 变形同构体 included (tagged 同构, gameLogic bondMembers; such a row opens the wearer's card with its
 // items: the pair and the granted chip), so the list's count agrees with 在场 (a bond the mode never activates says
 // 本局禁用 — gameLogic modeOffBonds). A core bond whose count holds 调和's +1 (the view entry's `harmony`, sent by the
@@ -33,7 +33,7 @@ import { cloneElement } from '../../vendor/preact.module.js';
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, BondDisc, bondFrame, Icon, MicroLabel, Tooltip } from './components.js';
 import { RichText, BondGlyph, GIcon, Sprite, Img, SquareOperatorThumb } from './gameComponents.js';
-import { sortBonds, bondMembers, nextThreshold, bondTier, bondStage, harmonyMembers, HARMONY_BOND, briefingBondTip, diyGetter, diyRecordFor, memberStandIn, standInForText } from './gameLogic.js';
+import { sortBonds, bondMembers, bondCountCap, bondTier, bondStage, bondPhased, harmonyMembers, HARMONY_BOND, briefingBondTip, diyGetter, diyRecordFor, memberStandIn, standInForText } from './gameLogic.js';
 import { bondIconUrl, uiUrl } from './assetUrls.js';
 import { formatBondEffect } from './richText.js';
 import { bondEffectRecord } from './bondEffect.js';
@@ -180,7 +180,9 @@ const stageNumeral = (stage) => ['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ'][stage
  * What a strip slot and the popup show of an entry. `tier`: the member tier (the disc, the 在场 count's threshold);
  * `stage`: the numeral over the disc and the popup's 阶段 tag (gameLogic bondStage: in 规程 the official phase level of
  * the active effect, from the live layers the entry carries in battle — ui/watchBonds.js withLiveLayers /
- * withTemporaryLayers — so it flips mid-battle; §37.341).
+ * withTemporaryLayers — so it flips mid-battle; §37.341; always 0 in a 盟约 period, §37.342); `phased`: the version
+ * draws the bond phase (gameLogic bondPhased: 规程) — the numeral, the strip's unbroken ring (the popup's header disc is
+ * split by the first threshold in both families), the popup's 阶段 tag.
  */
 export function bondDisplay(bondId, entry) {
   const base = data.lookup('bonds', bondId);
@@ -194,8 +196,9 @@ export function bondDisplay(bondId, entry) {
     ? entry.thresholds : record?.thresholds || [];
   const tier = !effectId && entry?.tier != null ? entry.tier : bondTier(count, thresholds, record?.maxCount);
   // the record is the active effect's (bondEffectRecord): a strategy's replacement brings its own phase table
-  const stage = bondStage({ active: entry ? !!entry.active : tier > 0, tier, count, layers, tempLayers }, record);
-  return { record, count, thresholds, tier, stage, layers, tempLayers, total };
+  const phased = bondPhased(data.get('config'));
+  const stage = bondStage({ active: entry ? !!entry.active : tier > 0, tier, count, layers, tempLayers }, record, phased);
+  return { record, count, thresholds, tier, stage, phased, layers, tempLayers, total };
 }
 
 /**
@@ -216,9 +219,9 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
       aria-label=${owner ? t('{owner} 的盟约', { owner }) : t('我的盟约')} data-owner=${owner || null}>
     ${owner ? html`<${OwnerTag} owner=${owner} />` : null}
     ${shown.map((b) => {
-      const { record: rec, thresholds: th, count, tier, stage, tempLayers, total } = bondDisplay(b.bondId, b);
-      // the disc's sprite (the full ring once active, at every tier): the stage numeral sits on its rim
-      const { full } = bondFrame(b.off ? { disabled: true } : { active: !!b.active, members: count, minCount: th[0] ?? 0 });
+      const { record: rec, thresholds: th, count, tier, stage, phased, tempLayers, total } = bondDisplay(b.bondId, b);
+      // the disc's sprite (the full ring once active, at every tier): the stage numeral sits on its rim (规程 only)
+      const { full } = bondFrame(b.off ? { disabled: true } : { active: !!b.active, members: count, minCount: th[0] ?? 0, phased });
       const frameStyle = `--bond-frame-size: ${full ? '.815' : '.688'}rem; --bond-rim-top: ${full ? 13 / 77 : 8 / 65}`;
       if (b.off) {
         // a bond the mode never activates, with members: the briefing's grey ✕ disc, no stack count, 本局禁用 under it
@@ -231,13 +234,14 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
           <span class="bslot__count bslot__off">${t('本局禁用')}</span>
         </div>`;
       }
-      const next = nextThreshold(count, th);
+      // the tooltip's count: the popup's denominator (gameLogic bondCountCap)
+      const cap = bondCountCap(th);
       return html`<div key=${b.bondId} role="listitem" data-bond=${b.bondId} data-harmony=${b.harmony > 0 ? b.harmony : null}
           class=${cx('bslot', b.active && 'is-active', tempLayers > 0 && 'has-temp-layers', full && 'is-full', openId === b.bondId && 'is-open')} style=${frameStyle}>
         <${BondDisc} name=${rec?.name || b.bondId} icon=${bondIconUrl(m, b.bondId)} layers=${rec?.noStack ? undefined : total}
-          tier=${tier} members=${count} minCount=${th[0] ?? 0} active=${!!b.active} size="sm" showName=${true}
+          tier=${tier} members=${count} minCount=${th[0] ?? 0} active=${!!b.active} phased=${phased} size="sm" showName=${true}
           layersDisabled=${layersDisabled} onClick=${() => onOpen(b.bondId)}
-          title=${`${rec?.name || b.bondId} ${count}/${next ?? th[th.length - 1] ?? '-'}${b.harmony > 0 ? t('（含调和 +{harmony}）', { harmony: b.harmony }) : ''}`} />
+          title=${`${rec?.name || b.bondId} ${count}/${cap ?? '-'}${b.harmony > 0 ? t('（含调和 +{harmony}）', { harmony: b.harmony }) : ''}`} />
     <${BondStage} stage=${stage} />
       </div>`;
     })}
@@ -266,13 +270,14 @@ export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null
  *   `entry.harmony` (the server's bond views: the +1 调和 added to `count`): 在场 n（含调和 +1） and the 调和 row
  */
 export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember, place = null, over = false, beside = null, owner = null, ownerId, off = false, coreAbsent = false, morphMode = 'official', modal = false, onPrevious = null, onNext = null }) {
-  const { record: b, count, thresholds: th, tier: reachedTier, stage: reachedStage, layers, tempLayers, total } = bondDisplay(bondId, entry);
+  const { record: b, count, thresholds: th, tier: reachedTier, stage: reachedStage, phased, layers, tempLayers, total } = bondDisplay(bondId, entry);
   if (!b) return null;
   // A greyed regulation core has its own explanation, distinct from a mode-disabled bond.
   const modeOff = !!off && !coreAbsent;
   const tier = modeOff ? 0 : reachedTier;
   const active = !modeOff && (entry ? !!entry.active : tier > 0);
-  // the 阶段 tag shows the strip's numeral (§37.341): none while it is 0 (调和, 远见 below 80 layers in 规程)
+  // the 阶段 tag shows the strip's numeral (§37.341): none while it is 0 (调和, 远见 below 80 layers in 规程; every bond in
+  // a 盟约 period, whose popup has no tier tag: §37.342)
   const stage = active ? reachedStage : 0;
   // (自选 pieces are their operators: the own ones by m.private.diy, a watched teammate's by the pick its unit carries)
   const dd = { chess: data.get('chess'), backups: data.get('backups') };
@@ -283,8 +288,13 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
   const rawChess = (id) => data.lookup('chess', id);
   const siOf = (mb) => (mb.diy || mb.rec ? null : memberStandIn(priv, rawChess(mb.id), data.get('backups'), rawChess));
   const countsHand = entry?.countsHand ?? b.countsHand;
-  const next = nextThreshold(count, th);
+  // the 在场 count's denominator (gameLogic bondCountCap): the FIRST threshold, as the official popup draws it in both
+  // families (§37.342: 盟约 维多利亚 7/3 ✓, BV1yyC9BPEXV 1600 s; 规程 不屈 3/2 ✓ 阶段Ⅱ, PR #923's round-11 screenshot)
+  const cap = bondCountCap(th) ?? '-';
   const at = place || (beside === 'left' ? 'beside' : 'left');
+  // the header disc (split): once active, the lit ring split by the first threshold (N_N) in both families — 盟约 as on
+  // its strip (§37.342), 规程 unlike its strip's unbroken 1_1: in PR #923's round-11 screenshot the open 不屈 card
+  // ([2,3], 3 members) draws 2_2 while the strip's 不屈 disc is unbroken. Before activation the member progress, as before.
   // 调和's +1 in this count (the server's word), and the 调和 operators on that board who give it
   const harmony = !modeOff && Number.isInteger(entry?.harmony) && entry.harmony > 0 ? entry.harmony : 0;
   const harmonyBy = harmony ? harmonyMembers(priv, getChess).map((x) => {
@@ -301,7 +311,7 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
   <header class=${cx('bpop__head', active && 'is-active')}>
     <div class="bpop__disc">
       <${BondDisc} name=${b.name} icon=${bondIconUrl(data.get('assets'), bondId)} tier=${tier}
-        members=${count} minCount=${th[0] ?? 0} active=${active} disabled=${modeOff || coreAbsent} showName=${false} />
+        members=${count} minCount=${th[0] ?? 0} active=${active} disabled=${modeOff || coreAbsent} phased=${phased} split=${true} showName=${false} />
     </div>
     <div class="bpop__titles">
       ${owner ? html`<span class="bpop__owner"><${GIcon} name="eye" />${tParts('{owner} 的盟约', { owner: html`<b>${owner}</b>` })}</span>` : null}
@@ -309,7 +319,7 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
       <div class="bpop__facts">
         ${modeOff ? null : html`<span class=${cx('bpop__population', !active && 'is-inactive')} style=${!active ? `--bpop-inactive-bg: ${uiBackground('bondDetail/bond_inactive_bg')}` : null}>
           <${Icon} name="users" /><span class="sr-only">${t('在场')}</span>
-          <b class="num">${count}</b><span class="num">/${next ?? th[th.length - 1] ?? '-'}</span>
+          <span class="bpop__tally"><b class="num bpop__count">${count}</b><span class="num bpop__cap">/${cap}</span></span>
           ${active ? html`<span class="bpop__check" aria-label=${t('已激活')}><${Icon} name="check" /></span>` : html`<span class="bpop__stage bpop__inactive">${t('尚未激活')}</span>`}
         </span>`}
         ${countsHand && !modeOff ? html`<small>${t('（含整备区）')}</small>` : null}
