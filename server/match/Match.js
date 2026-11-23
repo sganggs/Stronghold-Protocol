@@ -204,6 +204,8 @@
 //   views.js         m.public (statuses, field progress, pendingLp / uniteLeft), the nextEnemies preview, the prep
 //                    scout's m.field
 //   watch.js         spectator seats, g.watch, who is shown which field, resend on reconnect, prep-scout pushes
+//   peek.js          g.peek / m.peek: the 「同盟盟约速查」 flyout's roster channel (every other seat's on-field operator
+//                    ids + elite flags while the flyout is open; per-seat deltas on flush)
 //   intents.js       the g.* / b.* router, emotes, AI 托管, g.unitStats
 //   pause.js         the solo pause
 //   phases.js        INFO_CHECK, BAND_DRAFT (the strategy draft), CUSTOM_CHECK (选择自编, when diyBringLimits is set), BATTLE_CHECK, ROUND_START
@@ -241,6 +243,7 @@ import { MatchInfra } from './match/infra.js';
 import { MatchMessaging } from './match/messaging.js';
 import { MatchViews } from './match/views.js';
 import { MatchWatch } from './match/watch.js';
+import { MatchPeek } from './match/peek.js';
 import { MatchIntents } from './match/intents.js';
 import { MatchPause } from './match/pause.js';
 import { MatchPhases } from './match/phases.js';
@@ -561,7 +564,7 @@ export class Match {
 }
 
 // the method modules, in this order (a name defined twice is an error, never a silent override)
-for (const part of [MatchPlatform, MatchInfra, MatchMessaging, MatchViews, MatchWatch, MatchIntents, MatchPause, MatchPhases, MatchSetupVote, MatchSpDraft, MatchPrep, MatchCombat, MatchClientCombat, MatchRehearsal, MatchReports, MatchUnite, MatchBoss, MatchSettle, MatchTestCommands, MatchOffers]) {
+for (const part of [MatchPlatform, MatchInfra, MatchMessaging, MatchViews, MatchWatch, MatchPeek, MatchIntents, MatchPause, MatchPhases, MatchSetupVote, MatchSpDraft, MatchPrep, MatchCombat, MatchClientCombat, MatchRehearsal, MatchReports, MatchUnite, MatchBoss, MatchSettle, MatchTestCommands, MatchOffers]) {
   for (const key of Reflect.ownKeys(part.prototype)) {
     if (key === 'constructor') continue;
     if (Object.prototype.hasOwnProperty.call(Match.prototype, key)) throw new Error(`Match.${String(key)} is defined twice`);

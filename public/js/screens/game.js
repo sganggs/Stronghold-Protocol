@@ -90,7 +90,7 @@ import { useGameData, GIcon } from '../ui/gameComponents.js';
 import { useFieldView } from '../ui/fieldHost.js';
 import { TopBar, liveLp, ownLeaks, uniteRemaining, tempInfo, tempReadyReason } from '../ui/hud.js';
 import { BondStrip, BondPopup } from '../ui/bondStrip.js';
-import { TeamPanel } from '../ui/teamPanel.js';
+import { TeamPanel, flyOpsFor, flyOpChessId, mergeFlyOps, bondPopupNav } from '../ui/teamPanel.js';
 import { ShopBar } from '../ui/shopBar.js';
 import { regLook } from '../ui/regHud.js';
 import { selectedBondTimers } from '../ui/bondTimers.js';
@@ -133,7 +133,7 @@ import {
   terrainInfo, deviceInfo, deviceTipAt, noteDeviceUnits, deviceUnitsForEntry,
   countdownState, shopBlockReason, stageOverrides, effectiveStage, watchTarget, dropFailureReason,
   previewEnemyKey, prepCamera, prepCameraFor, deployFoldsShop, deployZoomStep, deployZoomRemember, prepDeployCamera, deployFieldOf, fieldTile, panelSide, panelSlots, bondPopupPlace, unitLoadout, deployedRecord,
-  mergeTarget, mergeProgress, sortBonds, modeOffBonds, readyFundsPrompt, readyCommandPrompt, readyPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, roundStartReplay, heldDraftPub,
+  mergeTarget, mergeProgress, modeOffBonds, readyFundsPrompt, readyCommandPrompt, readyPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, roundStartReplay, heldDraftPub,
 } from '../ui/gameLogic.js';
 import { toast } from '../ui/toasts.js';
 import { LoadoutButton } from './loadout.js';
@@ -259,6 +259,8 @@ function MatchScreen() {
   const pub = useStore((s) => s.match.public);
   const priv = useStore((s) => s.match.private);
   const field = useStore((s) => s.match.field);
+  // 「同盟盟约速查」的干员名单：战场不在屏上的队友从 g.peek / m.peek 取
+  const peek = useStore((s) => s.match.peek);
   const myId = useStore((s) => s.me.playerId);
   const conn = useStore((s) => s.connection, shallowEqual);
   const emotes = useStore((s) => s.emotes);
@@ -1526,13 +1528,13 @@ function MatchScreen() {
     return () => host.removeEventListener('pointerdown', onDown, true);
   }, []);
 
-  // Close the bond popup on an outside press. Bond-strip discs, detail-card chips and the 本局信息
-  // chips open/toggle it themselves, so leave those interactions to openBond.
+  // Close the bond popup on an outside press. Bond-strip discs, detail-card chips, the 本局信息 chips and the
+  // 「同盟盟约速查」 flyout's discs open/toggle it themselves, so leave those interactions to openBond.
   useEffect(() => {
     const screen = hudElRef.current?.parentElement;
     if (!screen) return undefined;
     const onDown = (e) => {
-      if (!live.current.bondOpen || e.target?.closest?.('.bpop, .bpop-nav__arrow, .bslot, .dbond, .ibond')) return;
+      if (!live.current.bondOpen || e.target?.closest?.('.bpop, .bpop-nav__arrow, .bslot, .dbond, .ibond, .team__fly-bonds .bond')) return;
       setBondOpen(null);
     };
     screen.addEventListener('pointerdown', onDown, true);
@@ -1883,14 +1885,21 @@ function MatchScreen() {
   const popOps = cc && battleRunner && field?.local && bondOpen && bondOpen.ownerId !== myId ? battleRunner.ownerOps(bondOpen.ownerId, field.fieldId) : null;
   const bondPop = popupView({ open: bondOpen, pub, priv, myId, field, units: popOps, live: liveLayers, temporary: tempLayersSnapshot });
   const openBond = (id, ownerId, from) => { setBondOpen((b) => toggleBond(b, id, ownerId, from)); audio.sfx('click', { volume: 0.4 }); };
-  const popupBondIds = sortBonds(stripBonds, id => data.lookup('bonds', id)).map(b => b.bondId);
+  // ‹ › walk the list the popup was opened from: the strip's bonds, or (「同盟盟约速查」, `from: 'fly'`) that seat's flyout
+  // row — a teammate's bond never steps into the strip's list (PR #922 review; teamPanel.js bondPopupNav)
+  const popupNav = bondPopupNav(bondOpen, { stripBonds, stripOwnerId: strip.ownerId, players: pub?.players });
+  const popupBondIds = popupNav.ids;
   const switchBond = direction => {
-    if (!bondOpen || bondOpen.from !== 'strip' || popupBondIds.length < 2) return;
+    if (!bondOpen || popupBondIds.length < 2) return;
     const index = popupBondIds.indexOf(bondOpen.id);
     const id = popupBondIds[(index + direction + popupBondIds.length) % popupBondIds.length];
-    openBond(id, strip.ownerId, 'strip');
+    openBond(id, popupNav.ownerId, bondOpen.from);
   };
-  const bondNavigation = bondOpen?.from === 'strip' && popupBondIds.length > 1;
+  const bondNavigation = popupBondIds.length > 1;
+  // 「同盟盟约速查」：按观众裁剪的干员名单。m.public 不携带 boardOps（PR #922 批注）：自己的座位取 m.private，
+  // 屏上战场里的队友取该场的 units，其余来自 peek（g.peek / m.peek）——状态通道，与 g.watch 的战场流分离、
+  // 常开、除自己外所有座位。屏上的战场优先（mergeFlyOps）。
+  const flyOps = mergeFlyOps(flyOpsFor({ myId, priv, field, players: pub?.players, cc, runner: battleRunner }), peek);
   const watchingNow = combat ? (watching || field?.fieldId || home) : watching;
   const shopOpen = showShop && !barCollapsed;
   const ufShown = !!(selEntry && editable && !facing && !drag && showPrep && ufGeo);
@@ -1926,7 +1935,7 @@ function MatchScreen() {
   // the bond popup: next to the card, never over the selected unit's underframe when a place is free (bondPopupPlace)
   const bpPlace = (() => {
     if (!bondOpen) return 'left';
-    if (bondOpen.from === 'strip') return 'center';
+    if (bondOpen.from === 'strip' || bondOpen.from === 'fly') return 'center';
     const { rem, vp } = panelFrame();
     return bondPopupPlace(ufShown ? underframeRect(ufGeo, rem) : null, vp, rem, resolved ? dSide : null);
   })();
@@ -2015,6 +2024,12 @@ function MatchScreen() {
       <${TeamPanel} pub=${pub} myId=${myId} watching=${watchingNow} bubbles=${bubbles} onWatch=${watchPlayer} cap=${gd.config?.lpCapPerRound ?? 10} uniteLocal=${uniteLocal}
         spMarks=${sp ? spMarks(sp, { solo }) : null}
         self=${Number.isFinite(priv?.lp) ? { lp: priv.lp, pending: liveLpNow.pending, unite: liveLpNow.unite, left: liveLpNow.left } : null}
+        flyOps=${flyOps} onBond=${(id, ownerId) => openBond(id, ownerId, 'fly')} layersDisabled=${layersDisabled}
+        onFlyToggle=${spectator ? null : actions.peek} online=${conn.status === 'online'}
+        onOp=${(u, p) => {
+          const id = flyOpChessId(u);
+          if (id) setDetail({ kind: 'chess', id, foreign: p?.playerId !== myId, owner: p?.playerId ?? null, tap: ++cardTap.current });
+        }}
         observe=${cc ? { canObserve: (p) => observeTarget(p, pub, myId, { observing: watchingOther, ownDone: localDone, liveWatch: playerSettings.watchDuringBattle === true }), observing: watchingOther, onBack: backHome } : null}
         badges=${teamBadges} />
 

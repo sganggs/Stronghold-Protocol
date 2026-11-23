@@ -76,6 +76,12 @@ export class MatchMessaging {
       }
     }
     if (this._pubDirty || forcePublic) this._maybeSendPublic(forcePublic);
+    try {
+      //推送侧边栏的干员信息
+      this._flushPeek();
+    } catch (e) {
+      this.reportError('peek', e);
+    }
   }
 
   _sendPrivate(ps, force) {

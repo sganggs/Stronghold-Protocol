@@ -211,6 +211,28 @@ export class MatchViews {
   }
 
   /**
+   * 「同盟盟约速查」浮窗：玩家棋盘上的棋子，精简——只含缩略图要画的棋子 id（座位场上记录的 char id，
+   * 使 补位 / 自选 槽位显示它实际出战的干员）与精英位。召唤物不是干员，排除；手牌、暂存、装备、召唤物与
+   * 坐标同样排除。这份名单发给两处：自己的座位在 m.private 的 boardOps 里，其余座位经 peek 通道
+   * （MatchPeek._peekOps → m.peek）发给除本人外的每个座位（观战席除外）。完整的棋盘仍只在 m.private
+   * 与侦察 / 战场视图里。
+   */
+  _boardOps(ps) {
+    const ops = [];
+    if (!ps || ps.alive === false) return ops;
+    const gd = ps.gd || this.gd;
+    for (const { piece } of boardOrder(ps.board)) {
+      if (piece.kind !== 'chess') continue;
+      const rec = ps.fieldRecord(gd.chess(piece.id));
+      ops.push({
+        id: (rec && rec.charId) || piece.id,
+        ...(rec && rec.isGolden ? { golden: 1 } : {}),
+      });
+    }
+    return ops;
+  }
+
+  /**
    * m.public.fields[].progress: { killed, resolved, total, done } (teammates' waiting UI). `resolved` is the HUD
    * capsule's numerator — the field's own scheduled enemies knocked out or leaked (Battle.resolved / the reported
    * b.progress `resolved`); it is `null` (never 0) while unknown, so the client's `resolved ?? killed` fallback holds.
