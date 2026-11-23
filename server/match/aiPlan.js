@@ -69,9 +69,15 @@ export function planMain(m, ps) {
       && (!gd.regulationBondDraw || m.bondPlayable(id))) ?? null;
 }
 
+/**
+ * perf: `ps.allChess().some(pred)` without building the reading-order list, through PlayerState.someChess (player/pieces.js, next to
+ * allChess, the same containers). A test double that defines only allChess takes the allChess path.
+ */
+const someChess = (ps, pred) => (typeof ps.someChess === 'function' ? ps.someChess(pred) : ps.allChess().some(pred));
+
 export function ownsElite(m, ps, id) {
   const gd = ps.gd || m.gd, base = gd.baseIdOf(id);
-  return ps.allChess().some(p => gd.baseIdOf(p.id) === base && gd.isGolden(p.id));
+  return someChess(ps, p => gd.baseIdOf(p.id) === base && gd.isGolden(p.id));
 }
 
 // [ASSUMED] A first normal copy starts merge progress; an owned elite ends procurement for that base.
@@ -79,9 +85,10 @@ export function ownsElite(m, ps, id) {
 export function planCopyUseful(m, ps, id) {
   const gd = ps.gd || m.gd;
   if (!gd.chess(id) || gd.isGolden(id) || ownsElite(m, ps, id)) return false;
-  return gd.mergeCount(gd.baseIdOf(id)) > 1 || (!!advisorPlan(m, ps)?.bonds?.some(b =>
+  const base = gd.baseIdOf(id); // perf: hoisted out of the per-piece test (a pure lookup of `id`)
+  return gd.mergeCount(base) > 1 || (!!advisorPlan(m, ps)?.bonds?.some(b =>
     !gd.modeInactiveBonds.has(b.id) && gd.chess(id).bonds?.includes(b.id))
-    && !ps.allChess().some(p => gd.baseIdOf(p.id) === gd.baseIdOf(id)));
+    && !someChess(ps, p => gd.baseIdOf(p.id) === base));
 }
 
 export function planBuyTarget(m, ps, id) {

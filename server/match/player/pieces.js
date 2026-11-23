@@ -117,13 +117,28 @@ export class PlayerPieces {
     return null;
   }
 
-  /** Every owned chess piece: board (reading order, board.js boardOrder) then hand then temp. */
+  /**
+   * Every owned chess piece: board (reading order, board.js boardOrder) then hand then temp. someChess below scans the same
+   * containers with the same filter: a new container goes into both.
+   */
   allChess() {
     const out = [];
     for (const { piece } of boardOrder(this.board)) if (piece.kind === 'chess') out.push(piece);
     for (const p of this.hand) if (p && p.kind === 'chess') out.push(p);
     for (const p of this.temp) if (p && p.kind === 'chess') out.push(p);
     return out;
+  }
+
+  /**
+   * `allChess().some(pred)` without the reading-order list (boardOrder parses and sorts every tile key): a `some` does not depend
+   * on the order. The same containers and filter as allChess above (perf: aiPlan ownsElite / planCopyUseful).
+   * @param {(piece: any) => boolean} pred
+   */
+  someChess(pred) {
+    for (const p of this.board.values()) if (p.kind === 'chess' && pred(p)) return true;
+    for (const p of this.hand) if (p && p.kind === 'chess' && pred(p)) return true;
+    for (const p of this.temp) if (p && p.kind === 'chess' && pred(p)) return true;
+    return false;
   }
 
   /** Locations of owned pieces, in merge-consumption preference order: temp, hand (left→right), board (reading order). */
