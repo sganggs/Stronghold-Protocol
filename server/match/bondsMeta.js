@@ -49,15 +49,17 @@ export function pieceBonds(gd, piece, rules = null) {
 }
 
 /**
- * perf: base id / golden flag / bonds of a piece. A piece without items has no morph-granted bonds, so all three depend on its chess id
- * alone (static data): cached per GameData instance (a DIY view's records can differ, so views are not cached). The cached bond list is
- * frozen (callers only read it); a piece with items is computed afresh as before.
+ * perf: base id / golden flag / bonds of a piece. A piece without items has no morph-granted bonds, so all three depend on its chess
+ * record alone (static data): cached per GameData object, a DIY view included (diyGameData returns `Object.create(gd)`, so each view is
+ * its own WeakMap key with its own entries). The record check is a second guard: an entry is recomputed when the id resolves to another
+ * record than the one it was built from. The cached bond list is frozen (callers only read it); a piece with items is computed afresh
+ * as before.
  */
 const PIECE_INFO = new WeakMap();
 function pieceInfo(gd, p, rules) {
   if (!(Array.isArray(p.items) && p.items.length)) {
     const rec = gd.chess(p.id);
-    if (rec) { // a cached entry is valid while the id still resolves to the same record (a DIY view can resolve an id differently)
+    if (rec) { // the second guard (see above): an entry is valid while the id resolves to the record it was built from
       let m = PIECE_INFO.get(gd);
       if (!m) PIECE_INFO.set(gd, (m = new Map()));
       let r = m.get(p.id);
@@ -180,15 +182,19 @@ export function offBondCounts(gd, ps) {
   return out;
 }
 
-/** Ascending member-count thresholds of a bond (fallback: activeCount). */
-const THRESHOLDS_CACHE = new WeakMap(); // perf: bond records are static data; callers only read the returned list
+/**
+ * Ascending member-count thresholds of a bond (fallback: activeCount). perf: one list per bond record (static data), shared by every
+ * caller and every match in the process (bondList puts it on the m.private views), so it is frozen: an in-place edit throws instead of
+ * changing the bond's tiers for every later match. A caller that needs its own list copies it.
+ */
+const THRESHOLDS_CACHE = new WeakMap();
 export function thresholdsOf(bond) {
   let r = THRESHOLDS_CACHE.get(bond);
   if (r !== undefined) return r;
   if (Array.isArray(bond.thresholds) && bond.thresholds.length) r = bond.thresholds.filter((n) => Number.isFinite(n)).sort((a, b) => a - b);
   else if (Number.isFinite(bond.activeCount)) r = [bond.activeCount];
   else r = [2];
-  THRESHOLDS_CACHE.set(bond, r);
+  THRESHOLDS_CACHE.set(bond, Object.freeze(r));
   return r;
 }
 

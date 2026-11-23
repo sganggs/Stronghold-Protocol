@@ -70,16 +70,10 @@ export function planMain(m, ps) {
 }
 
 /**
- * perf: `ps.allChess().some(pred)` without building the reading-order list (boardOrder parses and sorts every tile key): the answer of
- * a `some` over the board, hand and temp chess does not depend on the order.
+ * perf: `ps.allChess().some(pred)` without building the reading-order list, through PlayerState.someChess (player/pieces.js, next to
+ * allChess, the same containers). A test double that defines only allChess takes the allChess path.
  */
-const someChess = (ps, pred) => {
-  if (typeof ps.allChess !== 'function' || !ps.board || !ps.hand || !ps.temp) return ps.allChess().some(pred);
-  for (const p of ps.board.values()) if (p.kind === 'chess' && pred(p)) return true;
-  for (const p of ps.hand) if (p && p.kind === 'chess' && pred(p)) return true;
-  for (const p of ps.temp) if (p && p.kind === 'chess' && pred(p)) return true;
-  return false;
-};
+const someChess = (ps, pred) => (typeof ps.someChess === 'function' ? ps.someChess(pred) : ps.allChess().some(pred));
 
 export function ownsElite(m, ps, id) {
   const gd = ps.gd || m.gd, base = gd.baseIdOf(id);
