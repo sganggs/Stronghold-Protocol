@@ -1888,8 +1888,8 @@ function MatchScreen() {
   // ‹ › walk the list the popup was opened from: the strip's bonds, or (「同盟盟约速查」, `from: 'fly'`) that seat's flyout
   // row — a teammate's bond never steps into the strip's list (PR #922 review; teamPanel.js bondPopupNav)
   // the flyout's rows read the entries the popup reads (popupView above: playerBonds with the same live / temporary
-  // layers), so a flyout disc draws what the card it opens shows (§37.347 review)
-  const flyBonds = Object.fromEntries((Array.isArray(pub?.players) ? pub.players : []).filter((p) => p && typeof p.playerId === 'string')
+  // layers), so a flyout disc draws what the card it opens shows (§37.347 review); an eliminated seat draws no row
+  const flyBonds = Object.fromEntries((Array.isArray(pub?.players) ? pub.players : []).filter((p) => p && typeof p.playerId === 'string' && p.alive !== false)
     .map((p) => [p.playerId, playerBonds({ pub, priv, myId, ownerId: p.playerId, live: liveLayers, temporary: tempLayersSnapshot })]));
   const popupNav = bondPopupNav(bondOpen, { stripBonds, stripOwnerId: strip.ownerId, players: pub?.players, seatBonds: flyBonds });
   const popupBondIds = popupNav.ids;

@@ -625,6 +625,8 @@
 .team__fly-cell.is-empty { padding: 0; }
 .team__fly-track { display: flex; align-items: center; gap: .1rem; width: max-content; }
 .team__fly-bonds .bond { --disc: var(--fly-ico); }
+/* a count with temporary layers reads gold, as on the strip (bond.css .bslot.has-temp-layers) */
+.team__fly-bonds .bond.has-temp-layers .bond__count { color: var(--gold-2); }
 .team__fly-ops .team__fly-track { gap: 6px; }
 .team__fly-ops .uthumb { --ut: var(--fly-ico); flex: none; }
 .team__fly-opbtn {

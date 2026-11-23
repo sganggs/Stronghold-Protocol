@@ -320,6 +320,10 @@ test('同盟盟约速查: a flyout disc draws what the strip draws — ring, sta
   const v22 = check('V2_2');
   // 维多利亚 [3,6] 4 members: the 3_3 ring, 150 + 5 temporary layers, 4/3; 迅捷 [2] 1 member: the 2_1 progress ring
   assert.deepEqual(v22.victoriaShip, { key: '3_3', count: '155', title: '维多利亚 4/3' });
+  // the temporary part reads gold, as on the strip (game.css .team__fly-bonds .bond.has-temp-layers)
+  assert.deepEqual(FlyBonds({ bonds: rows, ownerId: 'p_1' }).map((v) => [v.key, v.props.class]).filter(([, c]) => c),
+    [['victoriaShip', 'has-temp-layers']]);
+  assert.match(readFileSync(path.join(ROOT, 'public/css/screens/game.css'), 'utf8'), /\.team__fly-bonds \.bond\.has-temp-layers \.bond__count \{ color: var\(--gold-2\); \}/);
   assert.deepEqual([v22.swiftShip.key, v22.swiftShip.count], ['2_1', '0']);
   assert.deepEqual([v22.maniShip.key, v22.maniShip.count], ['1_1', null]);
   for (const id of ['V1_1', 'V1_2', 'V2_1']) withVersion(id, () => check(id));

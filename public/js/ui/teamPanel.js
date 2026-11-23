@@ -251,7 +251,8 @@ export function bondPopupNav(open, { stripBonds = null, stripOwnerId = null, pla
   if (open?.from === 'strip') return { ids: stripBondList(stripBonds, lookup).map((b) => b.bondId), ownerId: stripOwnerId ?? null };
   if (open?.from === 'fly') {
     const seat = (Array.isArray(players) ? players : []).find((p) => p?.playerId === open.ownerId);
-    const bonds = seat && Array.isArray(seatBonds?.[open.ownerId]) ? seatBonds[open.ownerId] : seat?.bonds;
+    // an eliminated seat draws no row (m.public sends it no bonds; your own m.private ones go on): no arrows either
+    const bonds = seat && seat.alive !== false && Array.isArray(seatBonds?.[open.ownerId]) ? seatBonds[open.ownerId] : seat?.bonds;
     return { ids: flyBondList(bonds, lookup).map((b) => b.bondId), ownerId: open.ownerId ?? null };
   }
   return { ids: [], ownerId: null };
@@ -260,7 +261,7 @@ export function bondPopupNav(open, { stripBonds = null, stripOwnerId = null, pla
 /** The seat's bonds, icon only — no names, no empty-state copy (the reviewer's point against reusing BondStrip).
  * Each disc is the strip's disc for the same entry (bondStrip.js bondDisplay, §37.342): the ring by the version's rule
  * (盟约: N_N of the first threshold once active; 规程: the unbroken 1_1), the k-of-N member ring while inactive, the
- * stack count with the temporary layers (`total`), the tooltip's count over the first threshold (bondCountCap, the
+ * stack count with the temporary layers (`total`, gold like the strip's: `has-temp-layers`), the tooltip's count over the first threshold (bondCountCap, the
  * popup's denominator). No stage numeral: the row is icon only. `bonds` are the entries the popup a disc opens reads
  * (game.js `flyBonds`: watchBonds.js playerBonds with the live / temporary layers), so the disc and the card agree.
  * `layersDisabled` (联防 / boss: layers no longer stack) freezes the pips as the top strip does.
@@ -269,14 +270,14 @@ export function FlyBonds({ bonds, ownerId, onBond = null, layersDisabled = false
   const m = data.get('assets');
   const list = flyBondList(bonds);
   return list.map((b) => {
-    const { record: rec, thresholds: th, count, tier, phased, total } = bondDisplay(b.bondId, b);
+    const { record: rec, thresholds: th, count, tier, phased, tempLayers, total } = bondDisplay(b.bondId, b);
     const name = rec?.name || b.bondId;
     const cap = bondCountCap(th);
     const title = `${name} ${count}/${cap ?? '-'}${b.harmony > 0 ? t('（含调和 +{harmony}）', { harmony: b.harmony }) : ''}`;
     return html`<${BondDisc} key=${b.bondId} name=${name} icon=${bondIconUrl(m, b.bondId)}
       layers=${rec?.noStack ? undefined : total} tier=${tier} members=${count} minCount=${th[0] ?? 0}
       active=${!!b.active} phased=${phased} size="sm" showName=${false} layersDisabled=${layersDisabled} title=${title}
-      onClick=${onBond ? () => onBond(b.bondId, ownerId) : undefined} />`;
+      class=${tempLayers > 0 ? 'has-temp-layers' : null} onClick=${onBond ? () => onBond(b.bondId, ownerId) : undefined} />`;
   });
 }
 
