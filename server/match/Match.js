@@ -204,6 +204,8 @@
 //   views.js         m.public (statuses, field progress, pendingLp / uniteLeft), the nextEnemies preview, the prep
 //                    scout's m.field
 //   watch.js         spectator seats, g.watch, who is shown which field, resend on reconnect, prep-scout pushes
+//   peek.js          g.peek / m.peek: the 「同盟盟约速查」 flyout's roster channel (every other seat's on-field operator
+//                    ids + elite flags while the flyout is open; per-seat deltas on flush)
 //   intents.js       the g.* / b.* router, emotes, AI 托管, g.unitStats
 //   pause.js         the solo pause
 //   phases.js        INFO_CHECK, BAND_DRAFT (the strategy draft), CUSTOM_CHECK (选择自编, when diyBringLimits is set), BATTLE_CHECK, ROUND_START

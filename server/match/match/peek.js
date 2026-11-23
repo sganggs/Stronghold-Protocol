@@ -48,8 +48,9 @@ export class MatchPeek {
     const last = this._peekOpenAt.get(ps.playerId) || 0;
     this._peekOpenAt.set(ps.playerId, now);
     // 重新渲染会再 open 一次：同一回合、同一阶段的第一个应答仍然有效，订阅已在上面刷新，此时才去抖。
-    // 回合 / 阶段变了就不是重新渲染而是新窗口：known 已重置为空，必须回一份快照——去抖吞掉它的话，
-    // 下一次 flush 里没有变化可推（没有 m.public 变化时 flush 也可能不走到这里），浮窗会一直空着。
+    // 回合 / 阶段变了就不是重新渲染而是新窗口：known 已重置为空，这里回一份整表快照。去抖若吞掉它，浮窗并不会
+    // 空着——每个座位意图之后都会 flush（_handleSeatIntent → flush → _flushPeek），known 里缺的座位各补一帧单座位
+    // 增量——但那是每座位一帧而不是一份快照；新窗口的应答应当就是快照（test/match/peek.test.js 断言它不带 seat）。
     if (same && now - last < PEEK_OPEN_DEBOUNCE_MS) return OK;
     this._sendPeek(ps.playerId, { ops: this._peekSnapshot(ps, sub) });
     return OK;

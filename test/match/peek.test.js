@@ -4,6 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PHASE, ERR } from '../../shared/constants.js';
+import { validateC2S } from '../../shared/protocol.js';
 import { tileKey } from '../../server/match/board.js';
 import { makeMatch, give, legalTileFor, chessOfTier } from './harness.js';
 
@@ -125,11 +126,24 @@ test('g.peek: a re-open in the same round and phase is silent, but a new round /
   // 同一回合、同一阶段的第二次 open 只是重新渲染：第一个应答仍然有效（虚拟钟没有走动）
   h.m.handle('p_0', { t: 'g.peek', open: true });
   assert.equal(h.allTo('p_0', 'm.peek').length, n, 'a re-render inside the window stays silent');
-  // 回合变了：订阅的 known 已重置为空，快照若被去抖吞掉，浮窗会一直空着
+  // 回合变了：订阅的 known 已重置为空，应答必须是一份整表快照（不带 seat）。去抖吞掉它时，意图之后的 flush
+  // 也会给 known 里缺的座位各补一帧单座位增量——帧数同样是 n + 1，所以这里断言应答的形状，而不只是计数
   h.m.round += 1;
   h.m.handle('p_0', { t: 'g.peek', open: true });
-  assert.equal(h.allTo('p_0', 'm.peek').length, n + 1, 'a new round answers again');
+  const frames = h.allTo('p_0', 'm.peek');
+  assert.equal(frames.length, n + 1, 'a new round answers again, once');
+  assert.equal(frames.at(-1).seat, undefined, 'the answer is a snapshot, not a per-seat delta');
+  assert.deepEqual(Object.keys(frames.at(-1).ops), ['p_1'], 'the snapshot names every other seat');
   h.m.dispose();
+});
+
+test('g.peek: the protocol takes a boolean `open` only', () => {
+  assert.equal(validateC2S({ t: 'g.peek', open: true }), null);
+  assert.equal(validateC2S({ t: 'g.peek', open: false }), null);
+  assert.equal(typeof validateC2S({ t: 'g.peek' }), 'string', 'open is required');
+  for (const open of ['yes', 1, 0, null, {}]) {
+    assert.equal(typeof validateC2S({ t: 'g.peek', open }), 'string', `open: ${JSON.stringify(open)} is refused`);
+  }
 });
 
 test('g.peek: a disconnect drops the subscription, and a spectator seat is refused like any intent', () => {
