@@ -33,7 +33,16 @@ test('a 规程 co-op room with a 规程 gameplay plugin enters the match screen 
   await host.enter('凯尔希');
   await host.createCoop();
   assert.equal(await host.page.evaluate(() => globalThis.__SP__.store.get().room?.version), REG, 'the room plays 规程');
-  await host.page.evaluate(() => globalThis.__SP__.net.request('room.setPlugins', { plugins: [{ id: 'reg-rules' }] }));
+  // room.setPlugins is a heavy message (6 at once, 2 a second). Since the lobby's plugin preselection (PR #949, §37.267)
+  // the lobby sends two plugins.preview before the room's own five (room.diy / skins / card / ownership / loadout), so a
+  // request in the same second as the new room can be answered RATE: tried again as the bucket refills
+  for (let i = 0; ; i++) {
+    const r = await host.page.evaluate(() => globalThis.__SP__.net.request('room.setPlugins', { plugins: [{ id: 'reg-rules' }] })
+      .then(() => 'ok', (e) => e?.code || String(e)));
+    if (r === 'ok') break;
+    assert.ok(r === 'RATE' && i < 10, `room.setPlugins: ${r}`);
+    await new Promise((res) => setTimeout(res, 600));
+  }
   await waitForFunctionLong(host.page, () => {
     const s = globalThis.__SP__.store.get();
     return s.room?.content?.vanilla === false && s.room.content.version === 'act3autochess@V3_1'
