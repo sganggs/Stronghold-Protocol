@@ -41,7 +41,7 @@ import { bondDisplay } from './bondStrip.js';
 import { useEffect, useMemo } from '../../vendor/hooks.module.js';
 import { html, Icon, TierChip, MicroLabel, Button, confirmDialog, useTicker } from './components.js';
 import { OperatorImage, Img, RichText, UnitThumb, BondGlyph, GIcon, diyToken, TokenAvatar } from './gameComponents.js';
-import { attackInterval, rangeGridBox, fmtNum, tileKey, chessLoadout, nextThreshold, bondTier, briefingBondTip, pieceBondIds, grantedBonds, morphPairings, ownStandIn, standInOf, standInLoadout, standInLabel, standInTip, standInForText, ownDiyRecord, ownDiyPick, diyRecordFor, pickGetter, unitPick, unitCultivation } from './gameLogic.js';
+import { attackInterval, rangeGridBox, fmtNum, tileKey, chessLoadout, nextThreshold, bondTier, bondPhased, briefingBondTip, pieceBondIds, grantedBonds, morphPairings, ownStandIn, standInOf, standInLoadout, standInLabel, standInTip, standInForText, ownDiyRecord, ownDiyPick, diyRecordFor, pickGetter, unitPick, unitCultivation } from './gameLogic.js';
 import { skillIconUrl, skillRecordIconUrl, profIconUrl, subProfIconUrl, itemIconUrl, enemyIconUrl, tokenAvatarUrl, factionIconUrl, uiUrl, moduleTypeIconUrl } from './assetUrls.js';
 import { abilityRows } from './abilityLines.js';
 import { data } from '../data.js';
@@ -291,8 +291,8 @@ export function BondChips({ bondIds, bonds = [], onBond = null, off = null, gran
       const tier = isOff ? 0 : Number.isFinite(e?.tier) ? e.tier : bondTier(count, th, rec?.maxCount ?? null);
       const active = !isOff && (e ? !!e.active : tier > 0);
       // the 阶 the label names is the strip's numeral (bondStrip bondDisplay: 规程's official phase level, which can count
-      // layers, §37.341); the pips stay the member thresholds. 盟约: the same tier as before
-      const stage = active ? (e ? bondDisplay(id, e).stage : tier) : 0;
+      // layers, §37.341); the pips stay the member thresholds. 盟约: no numeral, so just 「已激活」 (§37.342)
+      const stage = active ? (e ? bondDisplay(id, e).stage : bondPhased(data.get('config')) ? tier : 0) : 0;
       const next = nextThreshold(count, th);
       const cap = next ?? th[th.length - 1] ?? null;
       const isoTag = iso.has(id) ? t('（变形同构体）') : '';
