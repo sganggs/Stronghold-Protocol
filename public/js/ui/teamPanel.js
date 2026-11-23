@@ -26,7 +26,8 @@ import { PHASE } from '../../../shared/constants.js';
 import { html, Icon, Tooltip, BondDisc } from './components.js';
 import { PlayerAvatar, LpTower, GIcon, LocalSprite, UnitThumb, BandIcon, RichText } from './gameComponents.js';
 import { EmoteBubble } from './emotes.js';
-import { STATUS_META, sortedPlayers, teamFrameIds, sortBonds, stripBondList, nextThreshold } from './gameLogic.js';
+import { STATUS_META, sortedPlayers, teamFrameIds, sortBonds, stripBondList, bondCountCap } from './gameLogic.js';
+import { bondDisplay } from './bondStrip.js';
 import { MissTag, uniteRemaining } from './hud.js';
 import { WinStreakBadge, BossDamageBadge, avatarBadgeTips } from './avatarBadges.js';
 import { localAsset, data } from '../data.js';
@@ -242,32 +243,39 @@ export function flyBondList(bonds, lookup = (id) => data.lookup('bonds', id)) {
  * strip's list names another player's bonds, so ‹ › used to jump to the viewer's own strip (PR #922 review). Every
  * other popup (a card's chip, 本局信息) has no arrows.
  * @param {{ id?: string, ownerId?: string|null, from?: string }|null} open the open popup (game.js bondOpen)
- * @param {{ stripBonds?: any[]|null, stripOwnerId?: string|null, players?: any[]|null, lookup?: (id:string)=>any }} [o]
+ * @param {{ stripBonds?: any[]|null, stripOwnerId?: string|null, players?: any[]|null, seatBonds?: Record<string, any[]>|null,
+ *   lookup?: (id:string)=>any }} [o] — `seatBonds`: the flyout's rows (game.js flyBonds), so ‹ › walk the discs as drawn
  * @returns {{ ids: string[], ownerId: string|null }}
  */
-export function bondPopupNav(open, { stripBonds = null, stripOwnerId = null, players = null, lookup = (id) => data.lookup('bonds', id) } = {}) {
+export function bondPopupNav(open, { stripBonds = null, stripOwnerId = null, players = null, seatBonds = null, lookup = (id) => data.lookup('bonds', id) } = {}) {
   if (open?.from === 'strip') return { ids: stripBondList(stripBonds, lookup).map((b) => b.bondId), ownerId: stripOwnerId ?? null };
   if (open?.from === 'fly') {
     const seat = (Array.isArray(players) ? players : []).find((p) => p?.playerId === open.ownerId);
-    return { ids: flyBondList(seat?.bonds, lookup).map((b) => b.bondId), ownerId: open.ownerId ?? null };
+    const bonds = seat && Array.isArray(seatBonds?.[open.ownerId]) ? seatBonds[open.ownerId] : seat?.bonds;
+    return { ids: flyBondList(bonds, lookup).map((b) => b.bondId), ownerId: open.ownerId ?? null };
   }
   return { ids: [], ownerId: null };
 }
 
 /** The seat's bonds, icon only — no names, no empty-state copy (the reviewer's point against reusing BondStrip).
- * `layersDisabled` (联防 / boss: layers no longer stack) freezes the pips as the top strip does. */
-function FlyBonds({ bonds, ownerId, onBond = null, layersDisabled = false }) {
+ * Each disc is the strip's disc for the same entry (bondStrip.js bondDisplay, §37.342): the ring by the version's rule
+ * (盟约: N_N of the first threshold once active; 规程: the unbroken 1_1), the k-of-N member ring while inactive, the
+ * stack count with the temporary layers (`total`), the tooltip's count over the first threshold (bondCountCap, the
+ * popup's denominator). No stage numeral: the row is icon only. `bonds` are the entries the popup a disc opens reads
+ * (game.js `flyBonds`: watchBonds.js playerBonds with the live / temporary layers), so the disc and the card agree.
+ * `layersDisabled` (联防 / boss: layers no longer stack) freezes the pips as the top strip does.
+ * Exported for the UI tests. */
+export function FlyBonds({ bonds, ownerId, onBond = null, layersDisabled = false }) {
   const m = data.get('assets');
   const list = flyBondList(bonds);
   return list.map((b) => {
-    const rec = data.lookup('bonds', b.bondId);
-    const th = Array.isArray(b.thresholds) && b.thresholds.length ? b.thresholds : rec?.thresholds || [];
-    const next = nextThreshold(b.count ?? 0, th);
+    const { record: rec, thresholds: th, count, tier, phased, total } = bondDisplay(b.bondId, b);
     const name = rec?.name || b.bondId;
-    const title = `${name} ${b.count ?? 0}/${next ?? th[th.length - 1] ?? '-'}${b.harmony > 0 ? t('（含调和 +{harmony}）', { harmony: b.harmony }) : ''}`;
+    const cap = bondCountCap(th);
+    const title = `${name} ${count}/${cap ?? '-'}${b.harmony > 0 ? t('（含调和 +{harmony}）', { harmony: b.harmony }) : ''}`;
     return html`<${BondDisc} key=${b.bondId} name=${name} icon=${bondIconUrl(m, b.bondId)}
-      layers=${rec?.noStack ? undefined : b.layers ?? 0} tier=${b.tier ?? 0} maxTier=${Math.max(1, th.length)}
-      active=${!!b.active} size="sm" showName=${false} layersDisabled=${layersDisabled} title=${title}
+      layers=${rec?.noStack ? undefined : total} tier=${tier} members=${count} minCount=${th[0] ?? 0}
+      active=${!!b.active} phased=${phased} size="sm" showName=${false} layersDisabled=${layersDisabled} title=${title}
       onClick=${onBond ? () => onBond(b.bondId, ownerId) : undefined} />`;
   });
 }
@@ -333,7 +341,7 @@ function BondsToggle({ open, onToggle }) {
  * roster heights (`rowH`, measured by TeamPanel), so expanding a 「前往查看」 row does not shift the rest. Every cell
  * pans sideways on its own (mouse drag or native touch pan); each close/reopen starts at the leftmost bond again.
  */
-function BondsFlyout({ players, myId, open, onToggle, onBond = null, flyOps = null, onOp = null, rowH = null, layersDisabled = false }) {
+function BondsFlyout({ players, myId, open, onToggle, onBond = null, flyOps = null, seatBonds = null, onOp = null, rowH = null, layersDisabled = false }) {
   const rows = useRef(null);
   const drag = useRef(null);
   const dragged = useRef(false);
@@ -406,7 +414,7 @@ function BondsFlyout({ players, myId, open, onToggle, onBond = null, flyOps = nu
     const dead = p.alive === false;
     return html`<div key=${p.playerId} class=${cx('team__fly-row', p.playerId === myId && 'is-self')}
         style=${h ? `--fly-row-h:${h}px` : undefined}>
-      ${cell('team__fly-bonds', dead, html`<${FlyBonds} bonds=${p.bonds} ownerId=${p.playerId} onBond=${onBond} layersDisabled=${layersDisabled} />`)}
+      ${cell('team__fly-bonds', dead, html`<${FlyBonds} bonds=${seatBonds?.[p.playerId] ?? p.bonds} ownerId=${p.playerId} onBond=${onBond} layersDisabled=${layersDisabled} />`)}
       ${cell('team__fly-ops', dead, html`<${FlyOps} ops=${flyOps?.[p.playerId]} onOp=${onOp ? (u) => onOp(u, p) : null} />`)}
       <${FlyBand} bandId=${dead ? null : p.bandId} owner=${p.playerId === myId ? null : p.name} onOpen=${openBand} />
     </div>`;
@@ -425,12 +433,15 @@ function BondsFlyout({ players, myId, open, onToggle, onBond = null, flyOps = nu
  * @param {{ pub:any, myId:string, watching:string|null, bubbles: Map<string,{id:string,seq:number}>, onWatch:(p:any)=>void,
  *   compact?: boolean, teamLp?: number|null, self?: { lp?: number|null, pending: number, unite: boolean, left?: number|null } | null,
  *   cap?: number, uniteLocal?: Record<string, number> | null,
- *   flyOps?: Record<string, Array<{ id:string, golden?:number }>> | null, onBond?: ((bondId:string, ownerId:string)=>void) | null,
+ *   flyOps?: Record<string, Array<{ id:string, golden?:number }>> | null, seatBonds?: Record<string, any[]> | null,
+ *   onBond?: ((bondId:string, ownerId:string)=>void) | null,
  *   observe?: null | { canObserve: (p:any) => { fieldId?: string, reason?: string|null, back?: boolean }, observing: boolean, onBack: () => void },
  *   badges?: { pack: any, still?: boolean } | null }} props
  *   uniteLocal: the local 联防 replica's per-leaker counts while it is on screen (battle runner state().uniteLeft), else null
  *   badges: how the 完美连胜 / 领袖伤害 badges are drawn (ui/avatarBadges.js); null draws the CSS stand-ins
  *   flyOps: the per-viewer on-field operators (game.js flyOpsFor + mergeFlyOps); a seat missing here gets no operator column
+ *   seatBonds: each seat's bond entries as the popup reads them (game.js flyBonds: watchBonds.js playerBonds with the live /
+ *     temporary layers); a seat missing here uses its m.public `bonds`
  *   onBond: opens the bond detail popup for that seat (game.js openBond, `from: 'fly'`: its ‹ › walk that row, bondPopupNav)
  *   onOp: opens a flyout operator's card, called `(u, player)` (game.js setDetail, the bench operator's panel)
  *   layersDisabled: 联防 / boss — layers no longer stack, so the flyout discs freeze their pips like the top strip
@@ -438,7 +449,7 @@ function BondsFlyout({ players, myId, open, onToggle, onBond = null, flyOps = nu
  *     它的干员列只显示屏上的战场）
  *   online: 连接是否在线 —— false → true 的边沿会收起浮窗（服务端此时已丢弃订阅）
  */
-export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = false, observe = null, self: selfLive = null, cap = 10, uniteLocal = null, spMarks = null, flyOps = null, onBond = null, onOp = null, layersDisabled = false, onFlyToggle = null, online = null, badges = null }) {
+export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = false, observe = null, self: selfLive = null, cap = 10, uniteLocal = null, spMarks = null, flyOps = null, seatBonds = null, onBond = null, onOp = null, layersDisabled = false, onFlyToggle = null, online = null, badges = null }) {
   const [openPid, setOpenPid] = useState(null);
   const [bondsOpen, setBondsOpen] = useState(false);
   const [rowH, setRowH] = useState({});
@@ -641,6 +652,6 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
       </div>`;
     })}
     <${BondsFlyout} players=${players} myId=${myId} open=${bondsOpen} onToggle=${() => setBondsOpen((o) => !o)}
-      onBond=${onBond} flyOps=${flyOps} onOp=${onOp} rowH=${rowH} layersDisabled=${layersDisabled} />
+      onBond=${onBond} flyOps=${flyOps} seatBonds=${seatBonds} onOp=${onOp} rowH=${rowH} layersDisabled=${layersDisabled} />
   </aside>`;
 }

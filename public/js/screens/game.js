@@ -1887,7 +1887,11 @@ function MatchScreen() {
   const openBond = (id, ownerId, from) => { setBondOpen((b) => toggleBond(b, id, ownerId, from)); audio.sfx('click', { volume: 0.4 }); };
   // ‹ › walk the list the popup was opened from: the strip's bonds, or (「同盟盟约速查」, `from: 'fly'`) that seat's flyout
   // row — a teammate's bond never steps into the strip's list (PR #922 review; teamPanel.js bondPopupNav)
-  const popupNav = bondPopupNav(bondOpen, { stripBonds, stripOwnerId: strip.ownerId, players: pub?.players });
+  // the flyout's rows read the entries the popup reads (popupView above: playerBonds with the same live / temporary
+  // layers), so a flyout disc draws what the card it opens shows (§37.347 review)
+  const flyBonds = Object.fromEntries((Array.isArray(pub?.players) ? pub.players : []).filter((p) => p && typeof p.playerId === 'string')
+    .map((p) => [p.playerId, playerBonds({ pub, priv, myId, ownerId: p.playerId, live: liveLayers, temporary: tempLayersSnapshot })]));
+  const popupNav = bondPopupNav(bondOpen, { stripBonds, stripOwnerId: strip.ownerId, players: pub?.players, seatBonds: flyBonds });
   const popupBondIds = popupNav.ids;
   const switchBond = direction => {
     if (!bondOpen || popupBondIds.length < 2) return;
@@ -2024,7 +2028,7 @@ function MatchScreen() {
       <${TeamPanel} pub=${pub} myId=${myId} watching=${watchingNow} bubbles=${bubbles} onWatch=${watchPlayer} cap=${gd.config?.lpCapPerRound ?? 10} uniteLocal=${uniteLocal}
         spMarks=${sp ? spMarks(sp, { solo }) : null}
         self=${Number.isFinite(priv?.lp) ? { lp: priv.lp, pending: liveLpNow.pending, unite: liveLpNow.unite, left: liveLpNow.left } : null}
-        flyOps=${flyOps} onBond=${(id, ownerId) => openBond(id, ownerId, 'fly')} layersDisabled=${layersDisabled}
+        flyOps=${flyOps} seatBonds=${flyBonds} onBond=${(id, ownerId) => openBond(id, ownerId, 'fly')} layersDisabled=${layersDisabled}
         onFlyToggle=${spectator ? null : actions.peek} online=${conn.status === 'online'}
         onOp=${(u, p) => {
           const id = flyOpChessId(u);

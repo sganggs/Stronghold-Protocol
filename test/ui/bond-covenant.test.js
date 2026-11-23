@@ -35,6 +35,7 @@ const { BondDisc, bondFrame } = await import('../../public/js/ui/components.js')
 const { BondStrip, BondPopup } = await import('../../public/js/ui/bondStrip.js');
 const { BondChips } = await import('../../public/js/ui/detailPanel.js');
 const { MatchBondRow } = await import('../../public/js/ui/matchInfo.js');
+const { FlyBonds } = await import('../../public/js/ui/teamPanel.js');
 const { data } = await import('../../public/js/data.js');
 await data.loadAll('bonds', 'effects', 'chess', 'assets', 'config');
 
@@ -289,4 +290,40 @@ test('BondDisc reads the version from the loaded config when no `phased` is pass
   assert.equal(withVersion('V3_1', () => drawn({ ...props, split: true }).key), '3_3');
   assert.equal(drawn({ ...props, split: false }).key, '1_1');
   assert.equal(withVersion('V3_1', () => drawn({ ...props, active: false, members: 2, split: true }).key), '3_2', 'progress unchanged');
+});
+
+// 同盟盟约速查 (PR #922, §37.347) was written before §37.342 and merged after it: its discs passed no members / first
+// threshold, so an active 盟约 disc drew the unbroken 1_1 and an inactive one with members the empty 1_0, the stack count
+// left out the temporary layers and the tooltip read count / next threshold (round-84 integration review). Each flyout
+// disc is now the strip's disc for the same entry (m.public entries: no `thresholds`, the record's are used).
+test('同盟盟约速查: a flyout disc draws what the strip draws — ring, stack count with the temporary layers, count / first threshold — in all five versions', () => {
+  const rows = [
+    { bondId: 'victoriaShip', count: 4, tier: 1, active: true, layers: 150, tempLayers: 5 },
+    { bondId: 'yanShip', count: 7, tier: 2, active: true, layers: 40, tempLayers: 0 },
+    { bondId: 'swiftShip', count: 1, tier: 0, active: false, layers: 0 },
+    { bondId: 'maniShip', count: 1, tier: 1, active: true, layers: 0 },
+  ];
+  const check = (version) => {
+    const present = rows.filter((b) => data.lookup('bonds', b.bondId));
+    assert.ok(present.length >= 2, `${version}: at least two of the bonds exist`);
+    const fly = FlyBonds({ bonds: present, ownerId: 'p_1' });
+    assert.equal(fly.length, present.length, version);
+    for (const v of fly) {
+      const id = v.key;
+      const s = slotOf(present, id);
+      const f = drawn(v.props);
+      assert.deepEqual([f.key, f.count, v.props.title], [s.key, s.count, s.disc.title], `${version} ${id}`);
+      assert.deepEqual([v.props.members, v.props.minCount, v.props.phased], [s.disc.members, s.disc.minCount, s.disc.phased], `${version} ${id}`);
+    }
+    return Object.fromEntries(fly.map((v) => [v.key, { ...drawn(v.props), title: v.props.title }]));
+  };
+  const v22 = check('V2_2');
+  // 维多利亚 [3,6] 4 members: the 3_3 ring, 150 + 5 temporary layers, 4/3; 迅捷 [2] 1 member: the 2_1 progress ring
+  assert.deepEqual(v22.victoriaShip, { key: '3_3', count: '155', title: '维多利亚 4/3' });
+  assert.deepEqual([v22.swiftShip.key, v22.swiftShip.count], ['2_1', '0']);
+  assert.deepEqual([v22.maniShip.key, v22.maniShip.count], ['1_1', null]);
+  for (const id of ['V1_1', 'V1_2', 'V2_1']) withVersion(id, () => check(id));
+  // 规程: the strip's unbroken 1_1 (its numeral sits over the strip slot; the flyout row is icon only)
+  const v31 = withVersion('V3_1', () => check('V3_1'));
+  for (const [id, d] of Object.entries(v31)) if (id !== 'swiftShip') assert.equal(d.key, '1_1', `V3_1 ${id}`);
 });

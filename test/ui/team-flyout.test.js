@@ -170,6 +170,13 @@ test('bondPopupNav: a flyout disc walks its own seat\'s row; the strip walks the
   assert.deepEqual(bondPopupNav({ id: 'b_x', ownerId: 'p_0', from: 'info' }, o), { ids: [], ownerId: null });
   assert.deepEqual(bondPopupNav(null, o), { ids: [], ownerId: null });
   assert.deepEqual(bondPopupNav({ id: 'b_x', ownerId: 'p_9', from: 'fly' }, o), { ids: [], ownerId: 'p_9' }, 'a seat that left the list: no arrows');
+  // the flyout's rows come from game.js flyBonds (the popup's entries, live layers on): ‹ › walk those lists as drawn
+  const seatBonds = { p_1: [{ bondId: 'b_z', active: true, layers: 30, count: 2 }, { bondId: 'b_y', active: true, layers: 9, count: 2 }] };
+  assert.deepEqual(bondPopupNav({ id: 'b_z', ownerId: 'p_1', from: 'fly' }, { ...o, seatBonds }).ids, ['b_z', 'b_y'],
+    'live layers reorder the row: the arrows follow the drawn order');
+  assert.deepEqual(bondPopupNav({ id: 'b_x', ownerId: 'p_0', from: 'fly' }, { ...o, seatBonds }).ids, ['b_x', 'b_y'], 'a seat missing from seatBonds: its m.public bonds');
+  assert.deepEqual(bondPopupNav({ id: 'b_x', ownerId: 'p_9', from: 'fly' }, { ...o, seatBonds: { p_9: [{ bondId: 'b_x', active: true, count: 1 }] } }).ids, [],
+    'a seat that left the list: still no arrows');
 });
 
 test('wiring: a flyout disc opens its popup as `from: \'fly\'`, a spectator seat sends no g.peek, the arrows keep the flyout', () => {
@@ -177,6 +184,11 @@ test('wiring: a flyout disc opens its popup as `from: \'fly\'`, a spectator seat
   assert.match(game, /onBond=\$\{\(id, ownerId\) => openBond\(id, ownerId, 'fly'\)\}/);
   assert.match(game, /onFlyToggle=\$\{spectator \? null : actions\.peek\}/, 'the server refuses a spectator\'s g.peek anyway');
   assert.match(game, /bondPopupNav\(bondOpen, /);
+  // the flyout rows and their arrows read the popup's entries (playerBonds with the popup's live / temporary layers)
+  assert.match(game, /playerBonds\(\{ pub, priv, myId, ownerId: p\.playerId, live: liveLayers, temporary: tempLayersSnapshot \}\)/);
+  assert.match(game, /popupView\(\{ open: bondOpen, pub, priv, myId, field, units: popOps, live: liveLayers, temporary: tempLayersSnapshot \}\)/);
+  assert.match(game, /seatBonds: flyBonds \}\)/);
+  assert.match(game, /seatBonds=\$\{flyBonds\}/);
   const panel = readFileSync(new URL('../../public/js/ui/teamPanel.js', import.meta.url), 'utf8');
   assert.match(panel, /closest\('\.team, \.bpop, \.bpop-nav, \.dpanel'\)/, 'the ‹ › arrows sit outside .bpop');
 });
