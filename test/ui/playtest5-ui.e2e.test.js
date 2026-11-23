@@ -90,6 +90,10 @@ describe('user playtest #5 — UI items 8 / 9 (mock harness, headless Chrome)', 
     const clear = (c) => !c || c === 'transparent' || /rgba\([^)]*,\s*0\)$/.test(c);
     const paints = (el) => {
       if (!el || el.tagName === 'CANVAS' || el.closest('.gm__field')) return false;
+      // the official shop shadow (§37.238, the maintainer 2026-11-15: 「加上阴影，按官方的来」) is decorative, under every HUD
+      // control and over the field (z-index -1, pointer-events: none); on phones its top reaches the first bench pads.
+      // elementFromPoint only lands on it where no HUD control is, so it never hides one.
+      if (el.closest('.shopbg')) return false;
       const cs = getComputedStyle(el);
       if (cs.visibility === 'hidden' || Number(cs.opacity) === 0) return false;
       if (['IMG', 'svg', 'path', 'B', 'SPAN', 'KBD', 'I', 'P', 'LABEL'].includes(el.tagName)) return true;

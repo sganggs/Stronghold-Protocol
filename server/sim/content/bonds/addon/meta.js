@@ -3,7 +3,11 @@
 //   助力 deputShip  onPrepEnd: every currently active bond +`layer` (tier 2 = 3 助力 by name or elite state:
 //                  +`more_layer`) — buff bond_activated_add_layer
 //   远见 visiShip   every `layer` layers +`count` funds (bond_layer_gain_coin); first time at `layer1`: 远见 chess cost
-//                  −`discount`; first time at `layer2`: every chess costs −`discount` instead (latched, permanent)
+//                  −`discount`; first time at `layer2`: every chess costs −`discount` instead (latched, permanent; 第二期下半
+//                  bond_multi_layer_…, 「以上效果改为」). 第一期 has the all-chess key alone (100 layers). 第二期上半 has two
+//                  keys and no 「改为」: 80 layers 远见 chess −1, 150 layers every chess a further −1, so 远见 chess cost −2
+//                  (PRTS 3月27日更新#2调整 turned that into the replace rule, after V2_1 closed). 规程 bond_goods_disc_tier2:
+//                  each layer_list tier one more −`discount` on 远见 chess only
 //   奇迹 miraShip   manual refresh with no free refresh pending → p = min(1, baseprob + prob·L) the next refresh is free;
 //                  every 100 layers +20 funds (bond_layer_gain_coin). `probk` has no known meaning and is unused.
 //   投资人          ×2 / ×3 "获得时" garrisons: EffectDispatcher.investRepeat (server/match/effectsMeta.js).
@@ -97,6 +101,11 @@ function visiDiscount(ctx) {
   if (modern.layer1 != null) return modern;
   const own = buff(ctx, 'visiShip', 'bond_layer_char_goods_price_bond_discount');
   const all = buff(ctx, 'visiShip', 'bond_layer_char_goods_price_discount');
+  // 第二期上半: both keys, two clauses that stack (its text has no 「以上效果改为」; PRTS 3月27日更新#2调整 made it V2_2's
+  // replace rule after V2_1 closed) — counter 1: −own on 远见 chess, counter 2: a further −all on every chess.
+  if (own.layer != null && all.layer != null) {
+    return { mode: 'stack', layer1: own.layer, layer2: all.layer, own: own.discount, all: all.discount, bond: own.bond };
+  }
   return { layer1: own.layer, layer2: all.layer, discount: all.discount ?? own.discount, bond: own.bond };
 }
 
@@ -157,6 +166,13 @@ export function registerMeta(registry) {
       const t = ctx.counter(C_VISI_DISC);
       if (t <= 0) return;
       const p = visiDiscount(ctx);
+      if (p.mode === 'stack') {
+        const rec = ctx.chessRecord(ev.id);
+        const mine = !!rec && Array.isArray(rec.bonds) && rec.bonds.includes(p.bond || 'visiShip');
+        const cut = (mine ? n(p.own) : 0) + (t >= 2 ? n(p.all) : 0);
+        if (cut > 0) ctx.modifyPrice(-cut); // never below 0, as below
+        return;
+      }
       const disc = n(p.discount);
       if (!(disc > 0)) return;
       if (p.mode === 'tier2') {

@@ -58,12 +58,29 @@ for (const id of ids) {
   test(`${id}: 远见 old discount keys latch and affect real prices`, () => inVersion(id, (data) => {
     const h = makeMatch({ data, registry: createRegistry(), fake: true }).start().toPrep();
     const ps = h.ps('p_0');
-    ps.bonds.visiShip = bond(1, 200);
-    ps.layers.visiShip = 200;
-    h.m.dispatch(ps, 'onLayers', { bondId: 'visiShip' });
-    const ev = { kind: 'chess', id: 'chess_char_1_01_a', price: 3 };
-    h.m.dispatch(ps, 'onPrice', ev);
-    assert.equal(ev.price, 2);
+    const visi = 'chess_char_2_02_a', other = 'chess_char_1_01_a'; // 赫默 (远见), 隐现 (not 远见)
+    assert.ok(data.chess[visi].bonds.includes('visiShip') && !data.chess[other].bonds.includes('visiShip'));
+    const price = (cid) => { const ev = { kind: 'chess', id: cid, price: 3 }; h.m.dispatch(ps, 'onPrice', ev); return ev.price; };
+    const at = (layers) => {
+      ps.bonds.visiShip = bond(1, layers);
+      ps.layers.visiShip = layers;
+      h.m.dispatch(ps, 'onLayers', { bondId: 'visiShip' });
+      return [price(visi), price(other)];
+    };
+    if (id === 'act2autochess@V2_1') {
+      // two clauses that stack (no 「以上效果改为」 until PRTS 3月27日更新#2调整, §37.343): 80 → 远见 −1, 150 → every chess
+      // a further −1
+      assert.deepEqual(at(79), [3, 3]);
+      assert.deepEqual(at(80), [2, 3]);
+      assert.deepEqual(at(149), [2, 3]);
+      assert.deepEqual(at(150), [1, 2]);
+      assert.deepEqual(at(200), [1, 2]);
+    } else {
+      // 第一期: the all-chess key alone, at 100 layers
+      assert.deepEqual(at(99), [3, 3]);
+      assert.deepEqual(at(100), [2, 2]);
+      assert.deepEqual(at(200), [2, 2]);
+    }
     h.m.dispose();
   }));
 }

@@ -19,6 +19,7 @@ import { t } from '../../../shared/i18n.js';
 import { serverNow } from '../store.js';
 import { data, useData, localAsset } from '../data.js';
 import { uiUrl } from './assetUrls.js';
+import { bondPhased } from './gameLogic/bonds.js';
 
 /**
  * h() for htm with its static-subtree cache switched off. htm keeps the vnode it built for a fully static subtree in
@@ -214,22 +215,29 @@ export function TierChip({ tier, golden = false, size = 'md', class: cls, overla
 /**
  * The official bond board sprite a disc draws (`bondBoardIcon/<key>`), and whether it is one of the 77-unit sprites with
  * the glow (1_1 and the full N_N; the others are 65 units).
- * An active bond (not disabled) draws the full unbroken ring around the lit centre (1_1) at every tier, as the official
- * 规程 does: in the official screenshot (PR #923 comment, round 11) 灵巧 Ⅱ, 精准 Ⅰ, 不屈 Ⅱ and 绝技 Ⅰ have the same centre
- * and the same full ring; the disc never shows the tier. The numeral above it is the tier in the 盟约 periods and the
- * official phase level in 规程 (gameLogic bondStage, §37.341: 灵巧's Ⅱ comes from 40 layers). The owner applied it to every version
- * (2026-11-22, §37.340); the 盟约 periods have no official image of their own [ASSUMED: same as 规程].
+ * An active bond (not disabled) draws a full, lit ring at every tier; the disc never shows the tier. Which ring depends on
+ * the version (`phased`: gameLogic bondPhased):
+ * - 规程 (phased): the unbroken 1_1. In the official screenshot (PR #923 comment, round 11) the strip's 灵巧 Ⅱ, 精准 Ⅰ,
+ *   不屈 Ⅱ and 绝技 Ⅰ have the same centre and the same unbroken ring (§37.340); the numeral above it is the phase level
+ *   (§37.341).
+ * - the 盟约 periods: N_N, N = the bond's first threshold (1 → 1_1, so 调和 and 独行 too), split into N segments at every
+ *   tier — 维多利亚 [3,6] at 7 members wears 3_3, 迅捷 [2] wears 2_2 (§37.342; recordings of all four periods, e.g.
+ *   BV1yyC9BPEXV 1600 s, BV1X6wRzhEVU 840 s). No numeral there.
+ * `split` overrides that choice for one disc: the bond popup's header disc passes true, so an active 规程 bond wears N_N
+ * there too — in the same official 规程 screenshot the open 不屈 card ([2,3], 3 members) draws 2_2 while its strip disc is
+ * unbroken (§37.342 review). The strip, the briefing and the banned groups keep the version's rule.
  * The segmented N_k rings are the member count toward activation (inactive progress: k of N members); disabled
- * (本局禁用) or no count → 1_0.
- * @param {{ active?: boolean, disabled?: boolean, members?: number, minCount?: number }} [props]
+ * (本局禁用) or no count → 1_0. N is at most 4 (the sprites stop at 4_4; no official bond starts higher).
+ * @param {{ active?: boolean, disabled?: boolean, members?: number, minCount?: number, phased?: boolean, split?: boolean }} [props]
+ *   split: the lit ring is N_N by the first threshold (default: a 盟约 period, !phased)
  * @returns {{ key: string, lit: boolean, progress: boolean, filled: number, full: boolean }}
  */
-export function bondFrame({ active = false, disabled = false, members = 0, minCount = 0 } = {}) {
+export function bondFrame({ active = false, disabled = false, members = 0, minCount = 0, phased = false, split = !phased } = {}) {
   const lit = !!active && !disabled;
   const progress = !active && !disabled && minCount > 0;
   const n = Math.max(1, Math.min(4, minCount | 0 || 1));
   const filled = progress ? Math.max(0, Math.min(n, members | 0)) : 0;
-  const key = lit ? '1_1' : progress ? `${n}_${Math.max(1, filled)}` : '1_0';
+  const key = lit ? (split ? `${n}_${n}` : '1_1') : progress ? `${n}_${Math.max(1, filled)}` : '1_0';
   return { key: `bondBoardIcon/${key}`, lit, progress, filled, full: lit || (progress && filled === n) };
 }
 
@@ -238,19 +246,25 @@ export function bondFrame({ active = false, disabled = false, members = 0, minCo
  * count and name.
  * @param {{ name?: string, icon?: string, count?: number, layers?: number, members?: number, minCount?: number,
  *   tier?: number, active?: boolean, disabled?: boolean, layersDisabled?: boolean, size?: 'sm'|'md'|'lg',
- *   showName?: boolean, onClick?: Function, class?: string, title?: string, cross?: boolean, tag?: any }} props
- *   tier: the reached tier, kept on the element as data-tier (the ring does not show it; the bond strip draws the stage
- *   numeral above the disc, which in 规程 is the official phase level: bondStrip BondStage, §37.341); cross: the red ✕ corner (default: when disabled); tag: a corner mark drawn in its place,
- *   on the disc's box (the briefing's official 阵容不完整 corner, ui/matchInfo.js BondLackTag)
+ *   showName?: boolean, onClick?: Function, class?: string, title?: string, cross?: boolean, tag?: any, phased?: boolean,
+ *   split?: boolean }} props
+ *   minCount: the bond's first threshold (the progress segments, and the lit ring's in a 盟约 period); tier: the reached
+ *   tier, kept on the element as data-tier (the ring does not show it; in 规程 the bond strip draws the official phase
+ *   level above the disc: bondStrip BondStage, §37.341; the 盟约 periods draw no numeral, §37.342); cross: the red ✕
+ *   corner (default: when disabled); tag: a corner mark drawn in its place, on the disc's box (the briefing's official
+ *   阵容不完整 corner, ui/matchInfo.js BondLackTag); phased: the version's ring rule (default: the loaded config,
+ *   gameLogic bondPhased); split: the lit ring N_N by the first threshold whatever the version (bondFrame; the bond
+ *   popup's header disc)
  */
 export function BondDisc({
   name = '', icon, count, layers, members = 0, minCount = 0, tier = 0, active = false, disabled = false, layersDisabled = false,
-  size = 'md', showName = true, onClick, class: cls, title, cross = disabled, tag = null,
+  size = 'md', showName = true, onClick, class: cls, title, cross = disabled, tag = null, phased = bondPhased(data.get('config')),
+  split = !phased,
 }) {
   // Remember which URL failed (a per-URL flag can't race a reset effect).
   const [badSrc, setBadSrc] = useState(null);
   const imgOk = !!icon && badSrc !== icon;
-  const { key, lit, progress, filled, full } = bondFrame({ active, disabled, members, minCount });
+  const { key, lit, progress, filled, full } = bondFrame({ active, disabled, members, minCount, phased, split });
   const [badFrame, setBadFrame] = useState(null);
   const frameUrl = uiUrl(data.get('assets'), key);
   const frame = badFrame === frameUrl ? null : frameUrl;

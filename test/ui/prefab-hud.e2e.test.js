@@ -5,7 +5,7 @@
 // Asserted: with 可露希尔 selected in a 规程 match, the top bar band, the countdown and the ready button are the pack's
 // prefabs (the round and LP show where `_roundText` / `_playerHpText` point, the countdown is the bitmap font, the ready
 // face sits on the countdown and still toggles); 主题动画 off leaves no running prefab animation; the default theme
-// and 盟约 keep the hand-made top bar.
+// keeps the hand-made top bar, and since §37.206 (round 79) 盟约 with 可露希尔 wears the pack's prefab HUD too.
 
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -130,13 +130,16 @@ describe('规程 official prefab HUD (headless Chrome)', { skip: !ENABLED && 'se
     }
   });
 
-  test('the default theme and 盟约 keep the hand-made top bar', { timeout: 120000 }, async () => {
-    for (const [theme, version] of [['', 'regulation'], ['ac_s_closur', '']]) {
+  // §37.206 (round 79, the owner's call): a theme pack with prefabs.json (乌萨斯齐心团, 可露希尔) draws the 规程 look in
+  // every version, so 盟约 with 可露希尔 wears the prefab top bar too; the default theme keeps the hand-made one
+  test('the default theme keeps the hand-made top bar; 盟约 with 可露希尔 wears the prefab one (§37.206)', { timeout: 120000 }, async () => {
+    for (const [theme, version, prefab] of [['', 'regulation', false], ['', '', false], ['ac_s_closur', '', true]]) {
       const { page, context } = await open({ theme, version });
       try {
         await page.waitForSelector('.gtop__band', { timeout: 20000 });
+        if (prefab) await page.waitForSelector('.gtop__band--pf', { timeout: 20000 });
         const pf = await page.evaluate(() => !!document.querySelector('.gtop__band--pf, .readybtn--pf, .gtop__clock--pf'));
-        assert.equal(pf, false, `${theme || 'default'} / ${version || '盟约'}`);
+        assert.equal(pf, prefab, `${theme || 'default'} / ${version || '盟约'}`);
       } finally {
         await context.close();
       }

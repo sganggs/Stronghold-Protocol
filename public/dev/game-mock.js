@@ -215,6 +215,28 @@ function buildState() {
   // second seat on 3 (level 1); in a leader fight the leader-damage levels too (setPhase)
   if (VARIANTS.has('badges')) Object.assign(players[0], { winStreak: 6, winStreakLevel: 2 }), Object.assign(players[1], { winStreak: 3, winStreakLevel: 1 });
 
+  // a teammate eliminated: their flyout row stays empty while the others still show bonds / operators
+  if (VARIANTS.has('teammatedead')) { players[1].alive = false; players[1].status = 'dead'; players[1].lp = 0; }
+  // 「同盟盟约速查」 (PR #922): every seat's activated bonds + the drafted strategy, and the own board as
+  // m.private.boardOps. The teammates' operators come from the mock's g.peek answer (mockRequest, like
+  // server/match/match/peek.js: a snapshot of every other seat when the flyout opens). The data is always present, so
+  // opening the toggle by hand matches `?variant=flyout`; `flyout,teammatedead` (or `flyout,dead`) leaves the eliminated
+  // seat's row empty, as the server does with `boardOps: []`.
+  const shown = data.list('bonds').filter((b) => b.weight > 0 && !disabled.has(b.bondId)).slice(0, 14);
+  players.forEach((p, i) => {
+    p.bonds = shown.map((b, k) => {
+      const thresholds = b.thresholds || [2];
+      const count = thresholds[0] + ((k + i) % 2);
+      let tier = 0;
+      for (const t of thresholds) if (count >= t) tier++;
+      return { bondId: b.bondId, count, active: tier > 0, tier, layers: 12 + ((k * 7 + i * 5) % 40), thresholds };
+    });
+  });
+  priv.boardOps = priv.alive === false ? [] : board.filter((x) => x.kind === 'chess').map((x) => {
+    const rec = data.lookup('chess', x.id);
+    return { id: rec?.charId || x.id, ...(x.golden ? { golden: 1 } : {}) };
+  });
+
   const pub = {
     phase: PHASE.PREP, round: 6, lastRound: 14, bossRound: 14, hiddenRound: 15, deadline: Date.now() + 74000, serverNow: Date.now(), modeId: 'mode_multi_hard', difficulty: 'HARD',
     stageId: STAGE_ID, factions: ['FLY', 'TIMES', 'SPECIAL'], disabledBonds: [...disabled], bannedChess: banned, bossId: 'boss_5',
@@ -289,8 +311,10 @@ function mockLoadout(board, slots) {
 // ---- phases ---------------------------------------------------------------------------------------------------------
 function setPhase(phase, variant) {
   stopBattle();
-  buildState();
+  // the switcher's variants must be in place before buildState: it is what applies `dead`, `flyout`'s bonds / boardOps,
+  // `temp`, `loadout` … (adding them afterwards left those presets empty; only a URL `?variant=` did anything)
   for (const v of (variant || '').split(',').filter(Boolean)) VARIANTS.add(v);
+  buildState();
   if (VARIANTS.has('reward') && !S.priv.shop.rewardOffer) S.priv.shop.rewardOffer = { tier: 5, slots: shuffle(visibleChess(5)).slice(0, 3).map((c) => ({ kind: 'chess', id: c.chessId, price: 0, sold: false })) };
   if (VARIANTS.has('temp') && !S.priv.temp.some(Boolean)) { S.priv.temp[0] = chessPiece(pick(S.pool)); S.priv.temp[1] = itemPiece(shopItems()[2]); }
   applyGapVariants();
@@ -753,6 +777,20 @@ async function mockRequest(t, f = {}) {
       }
       return {};
     }
+    // 「同盟盟约速查」: like server/match/match/peek.js, an open answers m.peek's snapshot — every other seat's on-field
+    // operators as { id: charId, golden? } ([] for an eliminated seat); a close only drops the subscription
+    case 'g.peek': {
+      if (f.open) {
+        const ops = {};
+        pub.players.forEach((x, i) => {
+          if (x.playerId === ME) return;
+          ops[x.playerId] = x.alive === false ? [] : S.pool.slice(i * 6, i * 6 + 3 + (i % 3))
+            .map((c, k) => ({ id: c.charId, ...(k === 1 ? { golden: 1 } : {}) }));
+        });
+        store.patch('match', { peek: ops });
+      }
+      return {};
+    }
     case 'g.autoplay': case 'g.leave': case 'room.leave': return {};
     // the host frees a spectator seat (server/lobby.js removeSpectator; ?variant=spectators seats two, ?variant=notHost makes
     // another player the host)
@@ -783,6 +821,7 @@ function applyUiVariants() {
     tryPen();
   }
   if (VARIANTS.has('bond')) clickSel('.bslot .bond', 500);
+  if (VARIANTS.has('flyout')) clickSel('.team__bonds-toggle', 500);
   if (VARIANTS.has('emote')) {
     clickSel('.ewheel__btn', 400);
     setTimeout(() => {
@@ -805,7 +844,7 @@ function applyUiVariants() {
 // ---- switcher --------------------------------------------------------------------------------------------------------------
 const SWITCH = [
   ['INFO_CHECK', PHASE.INFO_CHECK, ''], ['BAND_DRAFT', PHASE.BAND_DRAFT, ''], ['BAND_DRAFT solo', PHASE.BAND_DRAFT, 'solo'],
-  ['BATTLE_CHECK', PHASE.BATTLE_CHECK, ''], ['PREP', PHASE.PREP, ''], ['PREP + reward', PHASE.PREP, 'reward'],
+  ['BATTLE_CHECK', PHASE.BATTLE_CHECK, ''], ['PREP', PHASE.PREP, ''], ['PREP + 盟约速查', PHASE.PREP, 'flyout'], ['PREP 速查 + 队友淘汰', PHASE.PREP, 'flyout,teammatedead'], ['PREP + reward', PHASE.PREP, 'reward'],
   ['PREP + temp', PHASE.PREP, 'temp'], ['PREP frozen', PHASE.PREP, 'frozen'], ['PREP dead', PHASE.PREP, 'dead'],
   ['PREP boss (L)', PHASE.PREP, 'boss'], ['PREP boss (R)', PHASE.PREP, 'bossR'], ['PREP 标准 同构体 + 调和', PHASE.PREP, 'funny,morph,harmony'],
   ['SP bounty', PHASE.SP_DRAFT, 'bounty'], ['SP supply', PHASE.SP_DRAFT, 'supply'], ['SP shop', PHASE.SP_DRAFT, 'shop'], ['SP tactic', PHASE.SP_DRAFT, 'tactic'], ['SP solo', PHASE.SP_DRAFT, 'solo'],

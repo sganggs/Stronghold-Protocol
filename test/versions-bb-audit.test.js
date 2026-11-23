@@ -134,9 +134,10 @@ const VERSION_ONLY_SHANG = Object.freeze(Object.entries({
   use_equip_add_goods_rule_with_refresh_shop: 'effects: eff_acarm075 eff_acgarm075 | items: chess_item_5_03_e_a chess_item_5_03_e_b',
   use_equip_give_char_to_player_most_bond: 'effects: eff_acarm109 eff_acgarm109 | items: chess_item_5_04_e_a chess_item_5_04_e_b',
 }).map(([key, spec]) => ({ key, records: rec(spec) })));
-// 第二期上半 V2_1's 远见 (visiShip) carries two discount keys no code reads, bond_layer_char_goods_price_bond_discount
+// 第二期上半 V2_1's 远见 (visiShip) carries two discount keys the default data lacks, bond_layer_char_goods_price_bond_discount
 // (V2_1 only) and bond_layer_char_goods_price_discount (also 上半's 100-layer key), not V2_2's
-// bond_multi_layer_char_goods_price_bond_discount: its 80 / 150-layer discounts are inert there until M2 (DESIGN §35.22.5).
+// bond_multi_layer_char_goods_price_bond_discount. Since 0.3.2's M2 port bonds/addon/meta.js reads both (they are no longer
+// inert): 80 layers 远见 chess −1, 150 layers every chess a further −1, stacking (§37.343).
 const VERSION_ONLY_V21 = Object.freeze(Object.entries({
   bond_layer_char_goods_price_bond_discount: 'bonds: visiShip | effects: bondeffect_visi',
   bond_layer_char_goods_price_discount: 'bonds: visiShip | effects: bondeffect_visi',

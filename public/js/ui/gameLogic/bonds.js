@@ -32,6 +32,20 @@ export function sortBonds(bonds, getBond = () => null) {
 }
 
 /**
+ * The top strip's discs in strip order (BondStrip): every bond with a member, layers or an active effect; a mode-off
+ * bond (`off`, grey 本局禁用 disc) only with members. A zero-count mapped row — a strategy that replaces a bond's
+ * effect adds that bond with count 0 so the popup can resolve it, also for a player with no member of it — is not a
+ * disc. The strip popup's ‹ › walk this same list (teamPanel.js bondPopupNav), so › never opens a bond with no disc.
+ * @template {{bondId:string, active?:boolean, layers?:number, count?:number, tier?:number, off?:boolean}} B
+ * @param {B[]} bonds
+ * @param {(id:string)=>any} [getBond]
+ * @returns {B[]}
+ */
+export function stripBondList(bonds, getBond = () => null) {
+  return sortBonds(bonds, getBond).filter((b) => (b.off ? b.count > 0 : b.active || b.count > 0 || b.layers > 0));
+}
+
+/**
  * Tier reached for a member count against ascending thresholds (downward bonds: active while count ≤ max).
  * @param {number} count
  * @param {number[]} thresholds
@@ -52,6 +66,33 @@ export function nextThreshold(count, thresholds) {
 }
 
 /**
+ * Whether the loaded version draws the official bond phase: the 规程 family (config.json `version.family` 'regulation',
+ * the test the HUD, the briefing and the sim already use — regHud.js regulationFamily). Its bonds carry the phase tables
+ * (tools/build-data.mjs writes `phaseType` for every bond). The four 盟约 periods (the default data and the act1 / act2
+ * version files) have none, and their recordings show no numeral above any disc, active or not, at any tier or layer
+ * count, and an active disc ringed by its first threshold (§37.342). The version is the signal, not the bond: a plugin
+ * bond follows the version it is played in.
+ * @param {any} config config.json (data.get('config'))
+ * @returns {boolean}
+ */
+export function bondPhased(config) {
+  return config?.version?.family === 'regulation';
+}
+
+/**
+ * The denominator of a bond's 在场 count: the FIRST threshold, in every version. The popup's 「👥 n/cap」, the strip
+ * disc's tooltip and the detail chip all use it, so the three never disagree. The official popup draws it so in both
+ * families (§37.342): 盟约 维多利亚 7/3 ✓ at 7 members (BV1yyC9BPEXV 1600 s; 投资人 4/3, 调和 1/1), and 规程 不屈
+ * 3/2 ✓ 阶段Ⅱ at 3 members with thresholds [2,3] (the official 规程 screenshot in PR #923, round 11) — not the next
+ * threshold or the top one. The tooltip and the chip have no official reference; they follow the popup.
+ * @param {number[]} thresholds
+ * @returns {number|null} null without thresholds
+ */
+export function bondCountCap(thresholds) {
+  return Array.isArray(thresholds) && Number.isFinite(thresholds[0]) ? thresholds[0] : null;
+}
+
+/**
  * The stage numeral over an active bond disc and the popup's 阶段 tag (0 = none drawn; §37.341). 规程 draws the
  * official bond phase level (client AutoChessBondItemModel.phaseLevel, ActAutoChessBondPhaseType): how many entries of
  * the active effect's phase table (bonds.json / effects.json `phaseCounts`, the official bondPhaseCountList) the count
@@ -60,13 +101,16 @@ export function nextThreshold(count, thresholds) {
  * tiers by operators differing in name OR elite state (server bondsMeta.js); whether the official phase level counts
  * the same way is not known [ASSUMED: no recording shows a 助力 disc]. NONE draws nothing. Reaching
  * is ≥ [ASSUMED at the exact value: 「达到N层」, and 投资人 shows Ⅰ at 0 layers]. An inactive bond draws nothing, even
- * past a milestone. Without a phase table (the 盟约 periods have none) it is the member tier, as before [ASSUMED].
+ * past a milestone. A bond without a phase table in 规程 (a plugin bond) draws the member tier [ASSUMED].
+ * `phased` false (a 盟约 period: bondPhased) draws nothing at all, whatever the bond carries (§37.342: about 200 discs
+ * in 31 recordings of the four periods, none with a numeral).
  * @param {{ active?: boolean, tier?: number, count?: number, layers?: number, tempLayers?: number }|null|undefined} entry
  * @param {{ phaseType?: string|null, phaseCounts?: number[]|null }|null|undefined} phase the active effect's record (or the bond's)
+ * @param {boolean} [phased] the version draws the bond phase (bondPhased; default true)
  * @returns {number}
  */
-export function bondStage(entry, phase) {
-  if (!isObj(entry) || !entry.active) return 0;
+export function bondStage(entry, phase, phased = true) {
+  if (!phased || !isObj(entry) || !entry.active) return 0;
   const n = (v) => (Number.isFinite(v) ? v : 0);
   const counts = Array.isArray(phase?.phaseCounts) ? phase.phaseCounts : [];
   const reached = (value) => counts.filter((c) => Number.isFinite(c) && value >= c).length;

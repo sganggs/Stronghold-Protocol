@@ -137,7 +137,9 @@ export function BondLackTag() {
  * corner, BondLackTag) or one the mode never activates (✕), a red ring on an enabled bond that lost members; the
  * tooltip says which and how many members cannot appear (briefingBondTip), and a bond with banned members lists them
  * in a second box beside it (BondBannedAside). The disc carries no count since §37.200 (the official has none; the
- * count badge sat on the ✕).
+ * count badge sat on the ✕). An enabled disc wears the version's lit ring (components.js bondFrame): 规程 the unbroken
+ * 1_1, a 盟约 period N_N by the bond's first threshold, like an active disc in the match [ASSUMED for the 盟约 briefing:
+ * no recording checked shows it; §37.342].
  * `head`: null keeps this h3; false omits it (a 规程 group panel titles itself once); a vnode replaces the h3.
  * @param {{ title: string, micro: string, bonds: any[], model: MatchInfoModel, onBond?: (id:string)=>void, head?: any }} props
  */
@@ -155,7 +157,7 @@ export function MatchBondRow({ title, micro, bonds, model, onBond, head = null }
         return html`<${Tooltip} key=${b.bondId} text=${briefingBondTip(b.name, state, bannedN, model.regulation && b.isCore)}
           aside=${bannedN > 0 ? BondBannedAside(b, model, banned) : null}>
           <div class=${cx('brief-bond', off && 'is-off', state === 'drawn' && 'is-incomplete', !off && bannedN > 0 && 'is-partial')} data-bond=${b.bondId}>
-            <${BondDisc} name=${b.name} icon=${bondIconUrl(m, b.bondId)} active=${!off} disabled=${off}
+            <${BondDisc} name=${b.name} icon=${bondIconUrl(m, b.bondId)} active=${!off} disabled=${off} minCount=${b.thresholds?.[0] ?? 0}
               size="md" onClick=${onBond ? () => onBond(b.bondId) : undefined}
               cross=${state === 'off'} tag=${state === 'drawn' ? html`<${BondLackTag} />` : null} />
           </div>
@@ -297,7 +299,7 @@ export function BannedByBond({ model, onBond }) {
         return html`<div class="reg-banned__group" key=${bond.bondId} data-bond=${bond.bondId}>
           <${Tooltip} text=${briefingBondTip(bond.name, state, bannedN, model.regulation && bond.isCore)}>
             <div class="reg-banned__disc">
-              <${BondDisc} name=${bond.name} icon=${bondIconUrl(m, bond.bondId)} active=${!off} disabled=${off}
+              <${BondDisc} name=${bond.name} icon=${bondIconUrl(m, bond.bondId)} active=${!off} disabled=${off} minCount=${bond.thresholds?.[0] ?? 0}
                 size="md" onClick=${onBond ? () => onBond(bond.bondId) : undefined}
                 cross=${state === 'off'} tag=${state === 'drawn' ? html`<${BondLackTag} />` : null} />
             </div>

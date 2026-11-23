@@ -45,7 +45,9 @@ test('settings categories/search: controls, localization, imports, keyboard owne
     const shot = async name => { await page.screenshot({path:path.join(out,`${name}.png`)}); };
     const search = async query => {
       await page.click('[data-testid="settings-search"]');
-      await page.keyboard.down('Control'); await page.keyboard.press('KeyA'); await page.keyboard.up('Control');
+      // select the old query through the DOM: Ctrl+A only selects all on Windows / Linux (on macOS it moves the caret to
+      // the line start, so the new query was typed in front of the old one)
+      await page.$eval('[data-testid="settings-search"]', (el) => el.select());
       await page.keyboard.press('Backspace');
       if(query) await page.type('[data-testid="settings-search"]',query);
       await sleep(100);

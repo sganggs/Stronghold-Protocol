@@ -78,7 +78,7 @@
       const [code, setCode] = useState('');
       const [deadline] = useState(() => Date.now() + 25000);
       const [progress, setProgress] = useState(62);
-      const bond = (id) => ({ id, name: getBond(id)?.name || id.replace('Ship', ''), icon: assets?.bonds?.[id] || null });
+      const bond = (id) => ({ id, name: getBond(id)?.name || id.replace('Ship', ''), icon: assets?.bonds?.[id] || null, minCount: getBond(id)?.thresholds?.[0] ?? 0 });
 
       return html`<div class="kit">
         <header class="kit-head">
@@ -161,13 +161,13 @@
             ${BONDS.map((id, i) => {
               const b = bond(id);
               return html`<${BondDisc} key=${id} name=${b.name} icon=${b.icon} layers=${[358, 155, 144, 34, 14, 10, 3, 0][i]}
-                tier=${[3, 2, 2, 1, 1, 1, 0, 0][i]} active=${i < 6} disabled=${i === 7} onClick=${() => toast(`${b.name}：查看盟约详情`)} />`;
+                tier=${[3, 2, 2, 1, 1, 1, 0, 0][i]} active=${i < 6} disabled=${i === 7} minCount=${i < 6 ? b.minCount : 0} onClick=${() => toast(`${b.name}：查看盟约详情`)} />`;
             })}
           </div>
           <div class="row"><span class="cap">sizes · layers disabled · glyph fallback · member progress</span>
-            <${BondDisc} name="炎" size="sm" layers=${4} tier=${1} active=${true} />
-            <${BondDisc} name="萨尔贡" size="lg" layers=${12} tier=${2} active=${true} icon=${bond('sargonShip').icon} />
-            <${BondDisc} name="助力" layers=${34} tier=${1} active=${true} layersDisabled=${true} />
+            <${BondDisc} name="炎" size="sm" layers=${4} tier=${1} active=${true} minCount=${bond('yanShip').minCount} />
+            <${BondDisc} name="萨尔贡" size="lg" layers=${12} tier=${2} active=${true} icon=${bond('sargonShip').icon} minCount=${bond('sargonShip').minCount} />
+            <${BondDisc} name="助力" layers=${34} tier=${1} active=${true} layersDisabled=${true} minCount=${bond('deputShip').minCount} />
             <${BondDisc} name="谢拉格" layers=${0} members=${1} minCount=${3} />
           </div>
         <//>

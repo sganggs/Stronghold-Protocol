@@ -143,3 +143,72 @@ test('layers persist on every bond; Σ activated layers only counts active bonds
   const f = computeBonds(funny, state({ board: [piece(a)] }));
   for (const off of DATA.config.modes.mode_multi_funny.inactiveBondIds) assert.ok(!(off in f), `${off} omitted in FUNNY`);
 });
+
+// PR #999 (§37.346): bondsMeta caches the base id / elite flag / bonds of an item-less piece per GameData object and the
+// thresholds per bond record. The caches must never change a count.
+const ISO = 'chess_item_6_09_e_a'; // 变形同构体
+const HAMMER = 'chess_item_1_01_e_a'; // with 变形同构体: the wearer counts as a 【维多利亚】 member
+const outsider = (bond) => Object.values(DATA.chess).find((c) => c.visible && !c.isGolden && c.tier <= 2 && !c.bonds.includes(bond) && !c.bonds.includes('maniShip')).chessId;
+
+test('cache: an item-less piece, then the same id with a morph pair, then without it again, on one GameData', () => {
+  const g = new GameData(DATA, 'mode_multi_normal');
+  const id = outsider('victoriaShip');
+  const own = DATA.chess[id].bonds[0];
+  const p = piece(id);
+  const st = () => state({ board: [p] });
+  let s = computeBonds(g, st());
+  assert.equal(s.victoriaShip.count, 0);
+  assert.equal(s[own].count, 1);
+  p.items = [ISO, HAMMER].map((i) => ({ uid: uid++, kind: 'item', id: i }));
+  s = computeBonds(g, st());
+  assert.equal(s.victoriaShip.count, 1, 'the granted bond counts although the item-less entry is cached');
+  assert.equal(s[own].count, 1);
+  assert.ok(computeBonds(g, state({ board: [piece(id)] })).victoriaShip.count === 0, 'another copy without items does not count it');
+  p.items = [];
+  s = computeBonds(g, st());
+  assert.equal(s.victoriaShip.count, 0, 'losing the pair loses the bond');
+  assert.equal(s[own].count, 1);
+  assert.deepEqual(g.chess(id).bonds, DATA.chess[id].bonds, 'the record keeps its own bonds');
+});
+
+test('cache: the same id under the match GameData and a 自选 view each gets its own bonds', async () => {
+  const { diyGameData } = await import('../../server/match/player/diy.js');
+  const g = new GameData(DATA, 'mode_multi_normal');
+  const id = outsider('victoriaShip');
+  const own = DATA.chess[id].bonds[0];
+  const records = new Map([[id, Object.freeze({ ...g.chess(id), bonds: ['victoriaShip'] })]]);
+  const view = diyGameData(g, records);
+  const st = () => state({ board: [piece(id)] });
+  for (let round = 0; round < 2; round++) { // the second pass reads the cached entries
+    let s = computeBonds(g, st());
+    assert.deepEqual([s[own].count, s.victoriaShip.count], [1, 0], `match data, pass ${round}`);
+    s = computeBonds(view, st());
+    assert.deepEqual([s[own].count, s.victoriaShip.count], [0, 1], `自选 view, pass ${round}`);
+  }
+  // the record check: the same view object resolving the id to another record is recomputed, not served the old entry
+  records.set(id, Object.freeze({ ...g.chess(id), bonds: ['yanShip'] }));
+  const s = computeBonds(view, st());
+  assert.deepEqual([s[own].count, s.victoriaShip.count, s.yanShip.count], [0, 0, 1]);
+});
+
+test('cache: thresholdsOf returns equal, frozen lists on repeated calls; bondList views carry them unchanged', () => {
+  const yan = DATA.bonds.yanShip;
+  const a = thresholdsOf(yan);
+  const b = thresholdsOf(yan);
+  assert.deepEqual(a, [3, 6, 9]);
+  assert.deepEqual(b, a);
+  assert.ok(Object.isFrozen(a) && Object.isFrozen(b));
+  assert.throws(() => a.push(12), TypeError);
+  assert.throws(() => a.sort((x, y) => y - x), TypeError);
+  assert.deepEqual(thresholdsOf(yan), [3, 6, 9], 'a failed edit changes nothing');
+  for (const [bond, want] of [[{ thresholds: [6, Number.NaN, 3] }, [3, 6]], [{ activeCount: 4 }, [4]], [{}, [2]]]) {
+    assert.deepEqual(thresholdsOf(bond), want);
+    assert.ok(Object.isFrozen(thresholdsOf(bond)));
+  }
+  const [x, y, z] = members('yanShip', 3);
+  const s = computeBonds(gd, state({ board: [piece(x), piece(y), piece(z)] }));
+  const e = bondList(gd, s, { full: true }).find((v) => v.bondId === 'yanShip');
+  assert.equal(JSON.stringify(e.thresholds), '[3,6,9]');
+  assert.equal(JSON.parse(JSON.stringify(e)).thresholds.length, 3);
+  assert.deepEqual(structuredClone(e).thresholds, [3, 6, 9]);
+});

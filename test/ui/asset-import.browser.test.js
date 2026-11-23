@@ -120,6 +120,13 @@ test('import has its own dialog that requests nothing on opening; imported art i
   await new Promise((resolve) => setTimeout(resolve, 500));
   const quiet = requests.length;
   await page.click('[data-testid="resource-manager-open"]');
+  // the manager opens on its voice section, which reads its manifests first (正在读取素材清单…): the list then grows the
+  // box and the centred modal moves up ~18 px, so a click at once landed below 导入素材包 (§37.344). Wait for it to settle
+  await page.waitForFunction(() => {
+    const box = document.querySelector('.modal__box.resource-manager');
+    return box && !document.querySelector('[data-testid="voice-library"] [role="status"]')
+      && !box.getAnimations().some((a) => a.playState === 'running');
+  }, { timeout: 15000 });
   await page.click('[data-testid="resource-import"]');
   await page.waitForSelector('.asset-import-dialog [data-testid="asset-import-zip"]');
   await new Promise((resolve) => setTimeout(resolve, 800));
