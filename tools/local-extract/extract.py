@@ -59,17 +59,20 @@ aklz4.py registers a decoder for it. This script pulls the art the web sources l
     panel_act3autochess_on_entry, clips autochess_entry_season_on and autochess_season_on_entry_loop) without the
     screen's own controls → ui/season/act3autochess/entry/prefabs.json + sprites/*.webp, which the title screen plays
     before a 规程 start (public/js/ui/regulationFilm.js)
-  - official outfits (时装) and the operator picture gallery (skins.py; ported from PR #776 by @xcdoge, DESIGN §37.331):
-    opt-in like fx and theme, never in a plain run and never listed in data/local-assets.json. --only skins[/<charId>]
-    → skins/local-skins/ (and local-skins-2 … past one plugin's ceilings): cosmetic plugin source folders
-    (plugin.json, skins.json with chars[<charId>].skins[<skinId>] from the official skin_table.json, --skin-table;
-    avatar, portrait, 立绘 and the Front / Back battle models of every alternative outfit, picture-only when its
-    battleSkin keeps the operator's own model), packed with `node tools/plugin.mjs pack`; the operators of the
-    installation's data/assets.json unless named. --only library[/opillust|opportrait|opavatar] → library/<kind>/ +
-    library/index.json: every 立绘, 半身像 and 头像 of the client, each kind deduplicated on its own. --limit N samples
-    N outfits (N pictures per kind). Both write under --out when given, else under out/local-extract/ (git ignores it;
-    the server does not serve it, unlike public/assets/). Copy the part folders into plugins/ to use them; official art
-    stays on this machine
+  - official outfits (时装), the summons (召唤物) their outfits dress, and the operator picture gallery (skins.py; ported
+    from PR #776 by @xcdoge, DESIGN §37.331): opt-in like fx and theme, never in a plain run and never listed in
+    data/local-assets.json. --only skins[/<charId>] → skins/local-skins/ (and local-skins-2 … past one plugin's
+    ceilings): cosmetic plugin source folders (plugin.json, skins.json with chars[<charId>].skins[<skinId>] and
+    tokens[<tokenId>].skins[<owner skinId>] from the official skin_table.json, --skin-table; avatar, portrait, 立绘 and
+    the Front / Back battle models of every alternative outfit, picture-only when its battleSkin keeps the operator's
+    own model, and the summon outfits its tokenSkinMap maps: the model of the summon's own pack
+    (skinpack/<tokenId>.ab), its 180×180 avatar, and no voice — a summon says nothing), packed with
+    `node tools/plugin.mjs pack`; the operators and summons of the installation's data/assets.json unless named.
+    --only library[/opillust|opportrait|opavatar] → library/<kind>/ + library/index.json: every 立绘, 半身像 and 头像 of
+    the client, each kind deduplicated on its own. --limit N samples N outfits (N pictures per kind), and the summons of
+    those N outfits only. Both write under --out when given, else under out/local-extract/ (git ignores it; the server
+    does not serve it, unlike public/assets/). Copy the part folders into plugins/ to use them; official art stays on
+    this machine
 
 Usage:
   python3 -m venv .venv && .venv/bin/pip install -r tools/local-extract/requirements.txt
@@ -1164,9 +1167,12 @@ def export_token_spines(ab_root, out_root, manifest, log, ids=None):
 
 
 def skin_jobs(only, table_path, plugin_root):
-    """--only skins: (the outfit jobs of skins.plan, the operators of the installation's data/assets.json), or None when
-    the official skin_table.json is not there. A plain `skins` takes the outfits of the installation's operators (their
-    plugin needs only `assets.override`); `skins/<charId>` names any operator of the table."""
+    """--only skins: (the outfit jobs of skins.plan, the operators of the installation's data/assets.json, the summon
+    outfit jobs of skins.token_plan, the summons of data/assets.json), or None when the official skin_table.json is not
+    there. A plain `skins` takes the outfits of the installation's operators and the summons those outfits dress: the
+    operators' records are `assets.override`, while a summon the installation has no `tokens` entry for is an
+    `assets.add` of the plugin (docs/PLUGINS.md §9). `skins/<charId>` names any operator of the table, and the summons
+    its outfits dress. The summons are read from data/assets.json's `tokens` too."""
     try:
         table = json.loads(Path(table_path).read_text(encoding='utf-8'))
     except (OSError, ValueError) as e:
@@ -1174,14 +1180,15 @@ def skin_jobs(only, table_path, plugin_root):
               'ArknightsGameData zh_CN gamedata/excel/skin_table.json)', file=sys.stderr)
         return None
     try:
-        installed = sorted((json.loads((Path(plugin_root) / 'data' / 'assets.json').read_text(encoding='utf-8'))
-                            .get('chars') or {}))
-    except (OSError, ValueError):
-        installed = []
+        assets = json.loads((Path(plugin_root) / 'data' / 'assets.json').read_text(encoding='utf-8'))
+        installed, installed_tokens = sorted(assets.get('chars') or {}), sorted(assets.get('tokens') or {})
+    except (OSError, ValueError, AttributeError):
+        installed, installed_tokens = [], []
     owners = skins.table_owners(table)
     named = {c for c in owners if any(p.rstrip('/') == f'{skins.SUB}/{c}' for p in only)}
     plain = set(owners) & set(installed) if names_sub(only, skins.SUB) else set()
-    return skins.plan(table, plain | named), installed
+    chosen = plain | named
+    return skins.plan(table, chosen), installed, skins.token_plan(table, chosen, print), installed_tokens
 
 
 def app_version():
@@ -1224,7 +1231,8 @@ def main():
                     help='with --only skins: the official skin_table.json (Kengxxiao/ArknightsGameData zh_CN '
                          'gamedata/excel/skin_table.json)')
     ap.add_argument('--limit', type=int, default=0, metavar='N',
-                    help='with --only skins / library: at most N outfits / N pictures per kind (a sample)')
+                    help='with --only skins / library: at most N outfits / N pictures per kind (a sample); the summons '
+                         'kept with --only skins are those of the N sampled outfits (no count of their own)')
     ap.add_argument('--themes', action='append', default=[], metavar='DIR',
                     help='AB root of the official in-match UI themes (repeatable). Used only with --only theme. '
                          'Searched before --game')
@@ -1360,7 +1368,7 @@ def extract(args, ab_root):
             args.themes, out_root, manifest, print, theme_ids, ROOT, game_root=ab_root)
     if outfits is not None:
         total += skins.export(ab_root, art_root, print, outfits[0], outfits[1], app_version(), args.limit,
-                              Path(args.plugin_root))
+                              Path(args.plugin_root), tokens=outfits[2], installed_tokens=outfits[3])
     if library_kinds:
         total += skins.export_library(ab_root, art_root, print, library_kinds, args.limit)
     if not listed:  # only skins / library ran: nothing of theirs goes into data/local-assets.json

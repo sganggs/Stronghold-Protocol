@@ -373,7 +373,7 @@ Hub rows copied into `images`: `chess_frame_hub` → `chess_frame_normal`, `ches
 
 `character` is optional. `ac_n_iron` is `{ "image": "sprites/char_2.webp" }` (the unfolded `group_bg/char` portrait, 127×157). Two sprites are named `char`; `sprites/char.webp` is the other texture, not the portrait. `ac_n_initial` is the UI Spine `trap_1096_acshopup` with `anims.idle` `Idle` and no voice map. `ac_s_closur` is `ac_s_closur_spine` with `anims.voice` from `skinVoiceAnimDict`, clip stems lowercased (`cn_001`), and only when that animation is on the skeleton. Data version 79.2.0. `ac_s_closur`'s board character is `trap_2000_acclsr`; the pack includes the UI Spine shipped in the theme bundle, and does not extract that trap when no bundle is named for it.
 
-### Official outfits and the picture gallery (§37.331)
+### Official outfits and the picture gallery (§37.331, §37.349)
 
 Two opt-in jobs of `tools/local-extract/extract.py` (`tools/local-extract/skins.py`, ported from PR #776 by @xcdoge).
 Like `fx` and `theme`, a plain extraction leaves them out and `expected_local_groups` does not list them, so no
@@ -411,6 +411,19 @@ model this client lacks is left out (logged), not worn as pictures only; a missi
 `name` / `group` are `displaySkin.skinName` / `skinGroupName` (1–64 / 0–64 characters). The outfits keep
 `displaySkin.sortId` order [ASSUMED], at most 64 per operator (docs/PLUGINS.md §9).
 
+**Summons.** The same job writes the summon (token) outfits the selected outfits bring: the official
+`charSkins[*].tokenSkinMap` of an outfit the run selected gives `tokens[<tokenId>].skins[<the owner's skin id>]` in the
+same part's `skins.json`, with the model from the `tokenSkinId` prefab of `skinpack/<tokenId>.ab` (a `token_*` pack
+whose file name is the token id; Front / Back by node name), the 180×180 avatar from `spritepack/ui_char_avatar_*.ab`
+(a client without that Sprite leaves the `avatar` out and the summon's own is the fallback), and no voice slot; the
+record's `name` / `group` are the owner outfit's. An appearance is written only for an owner outfit the run selected
+(`--only skins/<charId>` includes that operator's summons, and `--limit N` counts operator outfits only), one summon
+takes at most 64 (the first 64 in official order, warned). Two of the official appearances belong to units that have
+no model by design: `token_10039_ulpia_block_epoque#48` is the 「[从不混淆的方向](https://prts.wiki/w/%E4%BB%8E%E4%B8%8D%E6%B7%B7%E6%B7%86%E7%9A%84%E6%96%B9%E5%90%91)」 that 乌尔比安's 「必须开辟的通路」 leaves on the original tile, and `token_10055_phatm2_mndclv_sightseer#4` is 酒神's 「[迷狂牢笼](https://prts.wiki/w/%E8%BF%B7%E7%8B%82%E7%89%A2%E7%AC%BC)」 from 「空剧场」. Their prefab has no
+SkeletonData, so the run skips them by name; that is expected, not a missing extraction. 11 of the 59
+summons are not among the 60 `token_*` entries of `data/assets.json`, so the parts ask for `assets.add`; the other 48
+are `assets.override`. docs/SKINS.md "Summons follow their owner's outfit (token skins)"; DESIGN §37.349.
+
 Both jobs write under `--out` when it is given, else under `out/local-extract/`: a scratch folder git ignores, which
 the server neither serves nor hashes (everything under `public/assets/` is served to every player and hashed in the
 background by `server/http/assetIndex.js`). They stage their files in a hidden `.staging-*` folder beside the
@@ -419,9 +432,10 @@ run left is removed by the next run.
 
 The output is `<out>/skins/local-skins/`, by default `out/local-extract/skins/local-skins/`: the source folder of a
 cosmetic plugin. Its `plugin.json` (manifest 2, `scope: ["personal"]`) asks for `assets.override` when the operators
-are the installation's and `assets.add` for any other; its overlay is the file `skins.json`
-(`chars[<charId>].skins[<skinId>]`), not inline: the manifest reader takes an inline `assets` text that ends like `.ext`
-for a file path, and official outfit names do (日晒 SS.SP, the series i.t). An outfit's folder is the
+and summons are the installation's and `assets.add` for any other; its overlay is the file `skins.json`
+(`chars[<charId>].skins[<skinId>]` and `tokens[<tokenId>].skins[<owner skin id>]`), not inline: the manifest reader takes
+an inline `assets` text that ends like `.ext` for a file path, and official outfit names do (日晒 SS.SP, the series i.t).
+An outfit's folder is the
 part of its id after `@` with `@` `#` `+` turned into `_` (plugin file names, docs/PLUGINS.md §5); a second outfit of
 one name gets `_2`. A later run keeps the folder an earlier run gave each outfit (a new outfit takes a free name), so
 two outfits of one plugin-safe name (`a#1`, `a+1`) never swap folders when the official order changes. One plugin holds at most 512 MB, 5000 files and 2000 folders, so an outfit that would take a part

@@ -139,6 +139,52 @@ BUNDLES = {'spritepack/ui_char_avatar_0.ab': avatars, 'spritepack/char_portrait_
            'skinpack/char_102_texas.ab': texas, 'skinpack/char_9001_test.ab': test9001}
 `;
 
+// The client of the summon-outfit tests: one summon dressed by two owner outfits (one Front + Back prefab, one one-sided
+// Spine prefab — and their plugin-safe folder names coincide), one summon with a 180×180 avatar, one whose prefab holds
+// no Spine renderer (like the two official empty prefabs), one whose pack this client lacks, a prefab no tokenSkinMap
+// names, and an illust_ prefab beside them.
+const TOKENS = `
+TABLE = {'charSkins': {
+  'char_102_texas#1': {'charId': 'char_102_texas', 'displaySkin': {'skinGroupName': '默认服装'}},
+  'char_102_texas@epoque#7': {'charId': 'char_102_texas', 'avatarId': 'char_102_texas_epoque#7',
+    'battleSkin': {'skinOrPrefabId': 'DefaultSkin'}, 'displaySkin': {'skinName': '意志 SS.SP', 'skinGroupName': '时代/VII', 'sortId': 2},
+    'tokenSkinMap': [{'tokenId': 'token_2001_twin', 'tokenSkinId': 'token_2001_twin_epoque#7'},
+                     {'tokenId': 'token_2002_mirror', 'tokenSkinId': 'token_2002_mirror_epoque#7'}]},
+  'char_102_texas@epoque+7': {'charId': 'char_102_texas', 'avatarId': 'char_102_texas_epoque+7',
+    'battleSkin': {'skinOrPrefabId': 'DefaultSkin'}, 'displaySkin': {'skinName': '图片', 'skinGroupName': 'i.t', 'sortId': 1},
+    'tokenSkinMap': [{'tokenId': 'token_2001_twin', 'tokenSkinId': 'token_2001_twin_epoque+7'}]},
+  'char_9001_test@ghost#1': {'charId': 'char_9001_test', 'avatarId': 'char_9001_test_ghost#1',
+    'battleSkin': {'skinOrPrefabId': 'DefaultSkin'}, 'displaySkin': {'skinName': '空模型', 'skinGroupName': '测试'},
+    'tokenSkinMap': [{'tokenId': 'token_2003_ghost', 'tokenSkinId': 'token_2003_ghost_ghost#1'}]},
+  'char_9003_absent@sale#1': {'charId': 'char_9003_absent', 'avatarId': 'char_9003_absent_sale#1',
+    'battleSkin': {'skinOrPrefabId': 'DefaultSkin'}, 'displaySkin': {'skinName': '无包', 'skinGroupName': '测试'},
+    'tokenSkinMap': [{'tokenId': 'token_2004_none', 'tokenSkinId': 'token_2004_none_sale#1'}]},
+}}
+SPINE, BACK = Path(sys.argv[1]).read_bytes(), Path(sys.argv[2]).read_bytes()
+avatars, texas, twin, mirror, ghost = Bundle(), Bundle(), Bundle(), Bundle(), Bundle()
+for sid in ('char_102_texas_epoque#7', 'char_102_texas_epoque+7', 'char_9001_test_ghost#1', 'char_9003_absent_sale#1'):
+    sprite(avatars, sid, solid(4, 4, (10, 20, 30, 255)))
+sprite(avatars, 'token_2002_mirror_epoque#7', solid(180, 180, (1, 2, 3, 255)))
+name = 'token_2001_twin_epoque#7'
+battle_prefab(twin, 'dyn/skinpack/token_2001_twin/' + name + '.prefab',
+              [('Back', spine(twin, name, BACK, [(name, solid(2, 2, (5, 5, 5, 255)), None)])),
+               ('Front', spine(twin, name, SPINE, [(name, solid(2, 2, (6, 6, 6, 255)), None)]))])
+name = 'token_2001_twin_epoque+7'
+battle_prefab(twin, 'dyn/skinpack/token_2001_twin/' + name + '.prefab',
+              [('Spine', spine(twin, name, SPINE, [(name, solid(2, 2, (7, 7, 7, 255)), None)]))])
+battle_prefab(twin, 'dyn/skinpack/token_2001_twin/token_2001_twin_orphan#9.prefab',
+              [('Front', spine(twin, 'orphan', SPINE, [('orphan', solid(2, 2, (8, 8, 8, 255)), None)]))])
+illust_prefab(twin, 'dyn/skinpack/token_2001_twin/illust_token_2001_twin_epoque#7.prefab',
+              sprite(twin, 'illust_token_2001_twin', solid(2, 2, (9, 9, 9, 255))))
+battle_prefab(mirror, 'dyn/skinpack/token_2002_mirror/token_2002_mirror_epoque#7.prefab',
+              [('Front', spine(mirror, 'token_2002_mirror_epoque#7', SPINE,
+                              [('token_2002_mirror_epoque#7', solid(2, 2, (4, 4, 4, 255)), None)]))])
+ghost.container['dyn/skinpack/token_2003_ghost/token_2003_ghost_ghost#1.prefab'] = node(ghost, 'empty')[0]
+BUNDLES = {'spritepack/ui_char_avatar_0.ab': avatars, 'skinpack/char_102_texas.ab': texas,
+           'skinpack/token_2001_twin.ab': twin, 'skinpack/token_2002_mirror.ab': mirror,
+           'skinpack/token_2003_ghost.ab': ghost}
+`;
+
 /**
  * A locale whose code page Python takes for a pipe it decodes as text and that is not UTF-8 (macOS zh_CN.GBK, a Windows
  * runner's own ANSI code page), as { env, encoding }; else null and the test runs in the default one. PYTHONUTF8=0
@@ -242,6 +288,53 @@ print(json.dumps({
     assert.deepEqual(got.dir, ['c/o', null]);
   });
 
+  test('token plan: tokenSkinMap reversed by owner outfit, the owner outfit names the summon outfit, unique folders', () => {
+    const got = py(`table = {'charSkins': {
+  'char_102_texas#1': {'charId': 'char_102_texas', 'displaySkin': {'skinGroupName': '默认服装'}},
+  'char_102_texas@epoque+7': {'charId': 'char_102_texas', 'displaySkin': {'skinName': '  图片 ', 'skinGroupName': 'i.t', 'sortId': 1},
+    'tokenSkinMap': [{'tokenId': 'token_2001_twin', 'tokenSkinId': 'token_2001_twin_epoque+7'}]},
+  'char_102_texas@epoque#7': {'charId': 'char_102_texas', 'displaySkin': {'skinName': '意志 SS.SP', 'skinGroupName': 'G' * 80, 'sortId': 2},
+    'tokenSkinMap': [{'tokenId': 'token_2001_twin', 'tokenSkinId': 'token_2001_twin_epoque#7'},
+                     {'tokenId': 'token_2002_mirror', 'tokenSkinId': 'token_2002_mirror_epoque#7'}]},
+  'char_9002_none@sale#1': {'charId': 'char_9002_none', 'displaySkin': {'skinName': '无包'},
+    'tokenSkinMap': [{'tokenId': 'token_2001_twin', 'tokenSkinId': 'token_2001_twin_sale#1'},
+                     {'tokenId': 'token_9_empty', 'tokenSkinId': ''}]},
+}}
+print(json.dumps({'all': s.token_plan(table), 'texas': [j['skinId'] for j in s.token_plan(table, ['char_102_texas'])]}))`);
+    const twin = got.all.filter((j) => j.tokenId === 'token_2001_twin');
+    // official order of the OWNER outfits (displaySkin.sortId), each with its own tokenSkinMap entry
+    assert.deepEqual(twin.map((j) => j.skinId), ['char_102_texas@epoque+7', 'char_102_texas@epoque#7', 'char_9002_none@sale#1'],
+      'the record key is the owner outfit id: a summon wears what its owner wears');
+    assert.deepEqual(twin.map((j) => j.tokenSkinId),
+      ['token_2001_twin_epoque+7', 'token_2001_twin_epoque#7', 'token_2001_twin_sale#1']);
+    assert.equal(twin[0].char, 'token_2001_twin', 'char is the summon: keep_dirs and the parts place it like an outfit');
+    assert.deepEqual({ dir: twin[0].dir, name: twin[0].name, group: twin[0].group },
+      { dir: 'token_2001_twin/token_2001_twin_epoque_7', name: '图片', group: 'i.t' },
+      'the folder is <tokenId>/<plugin-safe tokenSkinId>; name and series are the OWNER outfit\'s');
+    assert.equal(twin[1].dir, 'token_2001_twin/token_2001_twin_epoque_7_2',
+      'two owner outfits of one plugin-safe name never share a folder');
+    assert.equal(twin[1].group.length, 64);
+    assert.equal(twin[1].name, '意志 SS.SP');
+    assert.deepEqual([...new Set(got.texas)], ['char_102_texas@epoque+7', 'char_102_texas@epoque#7'],
+      'only the named operator\'s summons (one of its outfits dresses two summons)');
+    assert.ok(!got.all.some((j) => j.tokenId === 'token_9_empty'), 'an entry without a tokenSkinId is no job');
+  });
+
+  test('token plan: more owner outfits than one summon record takes are capped at 64 with a warning', () => {
+    const got = py(`table = {'charSkins': {'char_x@o%d#1' % i: {'charId': 'char_x', 'displaySkin': {'skinName': 'o%d' % i, 'sortId': i},
+    'tokenSkinMap': [{'tokenId': 'token_x', 'tokenSkinId': 'token_x_o%d#1' % i}]} for i in range(70)}}
+logs = []
+jobs = s.token_plan(table, None, logs.append)
+print(json.dumps({'n': len(jobs), 'logs': logs, 'first': [j['skinId'] for j in jobs[:2]], 'last': jobs[-1]['skinId']}))`);
+    assert.equal(got.n, 64, 'one summon record takes 64 appearances (docs/PLUGINS.md §9, the overlay schema)');
+    assert.equal(got.logs.length, 1, 'one warning, never a silent truncation');
+    assert.match(got.logs[0], /token_x/);
+    assert.match(got.logs[0], /70/, 'the warning names the total');
+    assert.match(got.logs[0], /64/);
+    assert.deepEqual(got.first, ['char_x@o0#1', 'char_x@o1#1'], 'the official order keeps the first 64');
+    assert.equal(got.last, 'char_x@o63#1');
+  });
+
   test('write_spine renames to plugin-safe files and rewrites the atlas page lines; without `rename` it is unchanged', { skip: !PIL && 'no Pillow' }, (t) => {
     const f = fxFixture(t);
     const got = py(`${FAKE}${PIL_FAKE}
@@ -283,7 +376,7 @@ ex.versions.export = lambda *a, **k: 0
 ex.season_entry.export = lambda *a, **k: 0
 ex.cursor.export = lambda *a, **k: 0
 outs = []
-s.export = lambda ab, out, log, jobs, installed, version, limit, pack_root: outs.append(str(out)) or calls.append(['skins', [j['skinId'] for j in jobs], installed, limit]) or 3
+s.export = lambda ab, out, log, jobs, installed, version, limit, pack_root, tokens=(), installed_tokens=(): outs.append(str(out)) or calls.append(['skins', [j['skinId'] for j in jobs], installed, limit, [j['skinId'] for j in tokens], list(installed_tokens)]) or 3
 s.export_library = lambda ab, out, log, kinds, limit: outs.append(str(out)) or calls.append(['library', kinds, limit]) or 2
 runs = []
 for i, flags in enumerate([[], ['--only', 'skins'], ['--only', 'skins/char_9001_test'], ['--only', 'library/opavatar', '--limit', '4'],
@@ -308,10 +401,12 @@ print(json.dumps({'runs': runs, 'given': given, 'default': [code, outs, str(ex.R
     assert.deepEqual([code, outs], [0, [scratch, scratch]], 'no --out: out/local-extract (ignored by git, not served), not public/assets/local');
     assert.deepEqual(got[0].calls, [], 'a plain run extracts no outfit and no gallery');
     assert.equal(got[0].manifest, true);
-    assert.deepEqual(got[1].calls, [['skins', ['char_102_texas@a#1'], ['char_102_texas'], 0]], 'plain skins: the installation\'s operators');
+    assert.deepEqual(got[1].calls, [['skins', ['char_102_texas@a#1'], ['char_102_texas'], 0, [], []]],
+      'plain skins: the installation\'s operators, and no summons without a tokenSkinMap');
     assert.equal(got[1].manifest, false, 'outfits are not listed in data/local-assets.json');
     assert.equal(got[1].code, 0);
-    assert.deepEqual(got[2].calls, [['skins', ['char_9001_test@a#1'], ['char_102_texas'], 0]], 'a named operator outside the installation');
+    assert.deepEqual(got[2].calls, [['skins', ['char_9001_test@a#1'], ['char_102_texas'], 0, [], []]],
+      'a named operator outside the installation');
     assert.deepEqual(got[3].calls, [['library', ['opavatar'], 4]]);
     assert.equal(got[3].manifest, false);
     assert.deepEqual(got[4].calls.map((c) => c[0]), ['skins', 'library']);
@@ -340,7 +435,7 @@ index(hot, 'persistent_res_list.json', '26-11-06', [('skinpack/char_102_texas.ab
 put(base, 'skinpack/char_102_texas.ab', 'packaged'); put(base, 'ui/autochess/x.ab', 'ui')
 put(hot, 'skinpack/char_102_texas.ab', 'downloaded')
 seen = []
-s.export = lambda ab, out, log, jobs, *a: seen.append((Path(ab) / 'skinpack/char_102_texas.ab').read_text(encoding='utf-8')) or 1
+s.export = lambda ab, out, log, jobs, *a, **k: seen.append((Path(ab) / 'skinpack/char_102_texas.ab').read_text(encoding='utf-8')) or 1
 ex.cursor.client_data = lambda *a: None
 sys.argv = ['extract.py', '--game', str(base), '--only', 'skins', '--skin-table', str(root/'table.json'),
             '--out', str(root/'out'), '--manifest', str(root/'m.json')]
@@ -421,6 +516,156 @@ print(json.dumps({'code': code, 'log': log.getvalue(), 'manifest': (root/'m.json
     assert.ok(lock.files && Object.keys(lock.files).some((k) => k.endsWith('back.skel')), 'both models and their files are locked');
     const checked = spawnSync(process.execPath, [path.join(ROOT, 'tools/plugin.mjs'), 'check', pluginDir, '--strict'], { encoding: 'utf8', cwd: ROOT });
     assert.equal(checked.status, 0, checked.stdout + checked.stderr);
+  });
+
+  test('summon outfits: Front / Back by node name, one-sided Spine, the 180×180 avatar, the map skips, pack', { skip: !PIL && 'no Pillow' }, (t) => {
+    const f = clientFiles(t);
+    const out = path.join(f.root, 'out');
+    const got = py(`${FAKE}${PIL_FAKE}${TOKENS}
+import contextlib, io
+root = Path(${JSON.stringify(f.root)})
+(root/'ab'/'ui'/'autochess').mkdir(parents=True)
+install(root/'ab', BUNDLES)
+(root/'table.json').write_text(json.dumps(TABLE), encoding='utf-8')
+(root/'install'/'data').mkdir(parents=True)
+(root/'install'/'data'/'assets.json').write_text(json.dumps({'chars': {'char_102_texas': {}},
+                                                             'tokens': {'token_2001_twin': {}}}), encoding='utf-8')
+ex.cursor.client_data = lambda *a: None
+s.pack = lambda *a: None
+sys.argv = ['extract.py', '--game', str(root/'ab'), '--only', 'skins/char_102_texas', '--only', 'skins/char_9001_test',
+            '--only', 'skins/char_9003_absent', '--skin-table', str(root/'table.json'), '--plugin-root', str(root/'install'),
+            '--out', ${JSON.stringify(out)}, '--manifest', str(root/'m.json')]
+log = io.StringIO()
+with contextlib.redirect_stdout(log):
+    code = ex.main()
+d = Path(${JSON.stringify(out)}) / 'skins' / 'local-skins'
+print(json.dumps({'code': code, 'log': log.getvalue(), 'manifest': (root/'m.json').exists(),
+  'plugin': json.loads((d/'plugin.json').read_text(encoding='utf-8')),
+  'overlay': json.loads((d/'skins.json').read_text(encoding='utf-8')),
+  'avatar': list(Image.open(d/'token_2002_mirror/token_2002_mirror_epoque_7/avatar.png').size),
+  'files': sorted(p.relative_to(d).as_posix() for p in d.rglob('*') if p.is_file())}))`,
+      [path.join(f.root, 'front.skel'), path.join(f.root, 'back.skel')]);
+    assert.equal(got.code, 0, got.log);
+    assert.equal(got.manifest, false, 'summon outfits are not listed in data/local-assets.json');
+    const skins = got.overlay.chars.char_102_texas.skins;
+    assert.deepEqual(Object.keys(skins), ['char_102_texas@epoque+7', 'char_102_texas@epoque#7'],
+      'the outfits and the summons of the same run share one overlay');
+    const tokens = got.overlay.tokens;
+    assert.deepEqual(Object.keys(tokens), ['token_2001_twin', 'token_2002_mirror'], 'no record for the empty prefab or the missing pack');
+    const twin = tokens.token_2001_twin.skins;
+    assert.deepEqual(Object.keys(twin), ['char_102_texas@epoque+7', 'char_102_texas@epoque#7'], 'official order of the owner outfits');
+    const one = twin['char_102_texas@epoque+7'];
+    assert.deepEqual({ name: one.name, group: one.group }, { name: '图片', group: 'i.t' }, 'name and series are the owner outfit\'s');
+    assert.equal(one.avatar, undefined, 'no Sprite of that name: the record leaves the avatar out (the summon keeps its own)');
+    assert.deepEqual(Object.keys(one).sort(), ['group', 'name', 'spine'], 'a summon says nothing: no voice in its skin');
+    assert.deepEqual(one.spine, { front: { skel: 'token_2001_twin/token_2001_twin_epoque_7/front.skel',
+      atlas: 'token_2001_twin/token_2001_twin_epoque_7/front.atlas',
+      textures: ['token_2001_twin/token_2001_twin_epoque_7/front.png'] } }, 'one Spine renderer: front only, no back');
+    const two = twin['char_102_texas@epoque#7'];
+    assert.deepEqual({ name: two.name, group: two.group }, { name: '意志 SS.SP', group: '时代/VII' });
+    assert.deepEqual(two.spine, {
+      front: { skel: 'token_2001_twin/token_2001_twin_epoque_7_2/front.skel',
+        atlas: 'token_2001_twin/token_2001_twin_epoque_7_2/front.atlas',
+        textures: ['token_2001_twin/token_2001_twin_epoque_7_2/front.png'] },
+      back: { skel: 'token_2001_twin/token_2001_twin_epoque_7_2/back.skel',
+        atlas: 'token_2001_twin/token_2001_twin_epoque_7_2/back.atlas',
+        textures: ['token_2001_twin/token_2001_twin_epoque_7_2/back.png'] },
+    }, 'Front and Back by node name, not by skeleton name (both share one)');
+    const mirror = tokens.token_2002_mirror.skins['char_102_texas@epoque#7'];
+    assert.equal(mirror.avatar, 'token_2002_mirror/token_2002_mirror_epoque_7/avatar.png');
+    assert.deepEqual(got.avatar, [180, 180], 'the summon outfit\'s own avatar');
+    assert.deepEqual(Object.keys(mirror.spine), ['front'], 'the Front node alone: no back');
+    assert.deepEqual(got.plugin.permissions, ['assets.override', 'assets.add'],
+      'char_102_texas and token_2001_twin are in data/assets.json; token_2002_mirror is an assets.add');
+    assert.match(got.log, /skip \(not in tokenSkinMap\) token_2001_twin\.ab: token_2001_twin_orphan#9\.prefab/);
+    assert.match(got.log, /skip \(model not extracted\) token_2003_ghost_ghost#1/, 'a prefab without a Spine renderer');
+    assert.match(got.log, /skip \(not in this client\) skinpack\/token_2004_none\.ab/);
+    assert.match(got.log, /skip \(not found\) avatar token_2001_twin_epoque\+7/);
+    assert.doesNotMatch(got.log, /illust_token_2001_twin/, 'a summon outfit\'s illust_ prefab is not a model and is not reported');
+    const pluginDir = path.join(out, 'skins/local-skins');
+    for (const rel of tree(pluginDir)) assert.match(rel, /^[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)*$/, rel);
+    assert.ok(got.files.includes('token_2001_twin/token_2001_twin_epoque_7_2/back.skel'));
+    const packed = spawnSync(process.execPath, [path.join(ROOT, 'tools/plugin.mjs'), 'pack', pluginDir], { encoding: 'utf8', cwd: ROOT });
+    assert.equal(packed.status, 0, packed.stdout + packed.stderr);
+    const lock = JSON.parse(fs.readFileSync(path.join(pluginDir, 'plugin.lock.json'), 'utf8'));
+    assert.ok(Object.keys(lock.files).some((k) => k.startsWith('token_2001_twin/')), 'the summons\' models are locked too');
+    const checked = spawnSync(process.execPath, [path.join(ROOT, 'tools/plugin.mjs'), 'check', pluginDir, '--strict'], { encoding: 'utf8', cwd: ROOT });
+    assert.equal(checked.status, 0, checked.stdout + checked.stderr);
+  });
+
+  test('summon outfits share the outfits\' parts: --limit filters them by the outfits kept, and a full part sends one on', { skip: !PIL && 'no Pillow' }, (t) => {
+    const f = clientFiles(t);
+    const got = py(`${FAKE}${PIL_FAKE}
+root = Path(${JSON.stringify(f.root)})
+SPINE = Path(sys.argv[1]).read_bytes()
+TABLE = {'charSkins': {
+  'char_102_texas@a+1': {'charId': 'char_102_texas', 'avatarId': 'char_102_texas_a+1', 'battleSkin': {'skinOrPrefabId': 'DefaultSkin'},
+    'displaySkin': {'skinName': '一', 'sortId': 1}, 'tokenSkinMap': [{'tokenId': 'token_3001_a', 'tokenSkinId': 'token_3001_a_a+1'}]},
+  'char_102_texas@a#1': {'charId': 'char_102_texas', 'avatarId': 'char_102_texas_a#1', 'battleSkin': {'skinOrPrefabId': 'DefaultSkin'},
+    'displaySkin': {'skinName': '二', 'sortId': 2}, 'tokenSkinMap': [{'tokenId': 'token_3002_b', 'tokenSkinId': 'token_3002_b_a#1'}]},
+}}
+avatars, pack_a, pack_b = Bundle(), Bundle(), Bundle()
+sprite(avatars, 'char_102_texas_a+1', solid(2, 2, (1, 1, 1, 255)))
+sprite(avatars, 'char_102_texas_a#1', solid(2, 2, (2, 2, 2, 255)))
+battle_prefab(pack_a, 'dyn/skinpack/token_3001_a/token_3001_a_a+1.prefab',
+              [('Front', spine(pack_a, 'token_3001_a_a+1', SPINE, [('token_3001_a_a+1', solid(2, 2, (3, 3, 3, 255)), None)]))])
+battle_prefab(pack_b, 'dyn/skinpack/token_3002_b/token_3002_b_a#1.prefab',
+              [('Spine', spine(pack_b, 'token_3002_b_a#1', SPINE, [('token_3002_b_a#1', solid(2, 2, (4, 4, 4, 255)), None)]))])
+install(root/'ab', {'spritepack/ui_char_avatar_0.ab': avatars, 'skinpack/char_102_texas.ab': Bundle(),
+                    'skinpack/token_3001_a.ab': pack_a, 'skinpack/token_3002_b.ab': pack_b})
+jobs, tokens = s.plan(TABLE, ['char_102_texas']), s.token_plan(TABLE, ['char_102_texas'])
+logs = []
+s.export(root/'ab', root/'out1', logs.append, jobs, ['char_102_texas'], '0.4.1', 1, None, tokens=tokens)
+limited = json.loads((root/'out1'/'skins'/'local-skins'/'skins.json').read_text(encoding='utf-8'))
+# a part holds an outfit's 1 picture each and a summon outfit's 3 model files: a 6-file plugin takes both outfits and
+# the first summon (5 files), the second summon's 3 do not fit and go to the next part
+s.RESERVE = {'bytes': 0, 'files': 0, 'dirs': 0}
+s.PLUGIN_FILES = 6
+s.export(root/'ab', root/'out2', logs.append, jobs, ['char_102_texas'], '0.4.1', 0, None, tokens=tokens)
+dirs = sorted(p for p in (root/'out2'/'skins').iterdir())
+parts = {p.name: json.loads((p/'skins.json').read_text(encoding='utf-8')) for p in dirs}
+perms = {p.name: json.loads((p/'plugin.json').read_text(encoding='utf-8'))['permissions'] for p in dirs}
+# a partial run (one summon outfit) keeps the record of the other part, whose files are still there
+s.export(root/'ab', root/'out2', logs.append, [], ['char_102_texas'], '0.4.1', 0, None,
+         tokens=[t for t in tokens if t['tokenId'] == 'token_3002_b'])
+kept_part1 = sorted(json.loads((root/'out2'/'skins'/'local-skins'/'skins.json').read_text(encoding='utf-8'))['tokens'])
+print(json.dumps({'limited': limited, 'parts': parts, 'perms': perms, 'keptPart1': kept_part1,
+  'chars': s.read_parts(root/'out2'/'skins', logs.append),
+  'tokens': s.read_parts(root/'out2'/'skins', logs.append, 'tokens'),
+  'kept': [j['dir'] for j in s.keep_dirs(tokens, {1: {'token_3002_b': {'char_102_texas@a#1': {
+      'spine': {'front': {'skel': 'token_3002_b/kept/front.skel'}}}}}})]}))`, [path.join(f.root, 'front.skel')]);
+    assert.deepEqual(Object.keys(got.limited.chars), ['char_102_texas'], '--limit 1 keeps the first outfit only');
+    assert.deepEqual(Object.keys(got.limited.chars.char_102_texas.skins), ['char_102_texas@a+1']);
+    assert.deepEqual(Object.keys(got.limited.tokens), ['token_3001_a'],
+      'the summons kept are those of the outfits --limit kept (its own count would be a second sample)');
+    assert.deepEqual(got.parts['local-skins'], {
+      chars: { char_102_texas: { skins: { 'char_102_texas@a+1': { name: '一', group: '', avatar: 'char_102_texas/a_1/avatar.png' },
+        'char_102_texas@a#1': { name: '二', group: '', avatar: 'char_102_texas/a_1_2/avatar.png' } } } },
+      tokens: { token_3001_a: { skins: { 'char_102_texas@a+1': { name: '一', group: '', spine: {
+        front: { skel: 'token_3001_a/token_3001_a_a_1/front.skel', atlas: 'token_3001_a/token_3001_a_a_1/front.atlas',
+          textures: ['token_3001_a/token_3001_a_a_1/front.png'] } } } } } },
+    }, 'the outfits and the summons of one part share one overlay and one ceiling');
+    assert.deepEqual(got.parts['local-skins-2'], {
+      tokens: { token_3002_b: { skins: { 'char_102_texas@a#1': { name: '二', group: '', spine: {
+        front: { skel: 'token_3002_b/token_3002_b_a_1/front.skel', atlas: 'token_3002_b/token_3002_b_a_1/front.atlas',
+          textures: ['token_3002_b/token_3002_b_a_1/front.png'] } } } } } },
+    }, 'the part past the ceiling has no `chars`: an empty side is never written');
+    assert.deepEqual(got.perms, { 'local-skins': ['assets.override', 'assets.add'], 'local-skins-2': ['assets.add'] },
+      'a summon the installation has no entry for is an assets.add; part 2 has no operator record to override');
+    assert.deepEqual(got.chars, { 1: { char_102_texas: { 'char_102_texas@a+1': { name: '一', group: '',
+      avatar: 'char_102_texas/a_1/avatar.png' }, 'char_102_texas@a#1': { name: '二', group: '',
+      avatar: 'char_102_texas/a_1_2/avatar.png' } } }, 2: {} },
+      'read_parts reads the chars table (and an empty part stays empty)');
+    assert.deepEqual(got.tokens, { 1: { token_3001_a: { 'char_102_texas@a+1': { name: '一', group: '', spine: {
+      front: { skel: 'token_3001_a/token_3001_a_a_1/front.skel', atlas: 'token_3001_a/token_3001_a_a_1/front.atlas',
+        textures: ['token_3001_a/token_3001_a_a_1/front.png'] } } } } },
+      2: { token_3002_b: { 'char_102_texas@a#1': { name: '二', group: '', spine: {
+        front: { skel: 'token_3002_b/token_3002_b_a_1/front.skel', atlas: 'token_3002_b/token_3002_b_a_1/front.atlas',
+          textures: ['token_3002_b/token_3002_b_a_1/front.png'] } } } } } }, 'read_parts reads the tokens table');
+    assert.deepEqual(got.kept, ['token_3001_a/token_3001_a_a_1', 'token_3002_b/kept'],
+      'a summon outfit keeps the folder an earlier run gave it; the one without an earlier record keeps plan\'s');
+    assert.deepEqual(got.keptPart1, ['token_3001_a'],
+      'a partial run keeps the summon record it did not extract, and the part files it did not touch');
   });
 
   test('outfits fill parts within the cosmetic ceilings; a re-run keeps an outfit in its part', { skip: !PIL && 'no Pillow' }, (t) => {

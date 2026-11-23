@@ -417,6 +417,16 @@ each appearance (not the token's own): official `skin_table.json` `charSkins[*].
 `room.skins` entry: it wears what its owner wears (docs/SKINS.md), so the client draws
 `tokens[<tokenId>].skins[<owner skin id>]` and falls back to the summon's own model.
 
+**The local extraction writes these records too.** `tools/local-extract/extract.py --only skins` (docs/ASSETS.md
+"Official outfits and the picture gallery") reverses `charSkins[*].tokenSkinMap` and writes
+`tokens[<tokenId>].skins[<owner skin id>]` into the same plugin and `skins.json` overlay as the operator outfits: the
+avatar is the 180×180 `tokenSkinId` Sprite of `spritepack/ui_char_avatar_*.ab` (optional: without it the record has no
+`avatar` and the summon's own is the fallback), the model is the `tokenSkinId` prefab of `skinpack/<tokenId>.ab`,
+and the record carries no `voice`. An appearance is written only for an owner outfit the
+run selected — `--only skins/<charId>` includes that operator's summons, and `--limit N` counts operator outfits only —
+and one summon keeps at most 64. The plugin asks for `assets.add` because 11 of the 59 summons are not among the 60
+`token_*` entries of `data/assets.json`; the other 48 are `assets.override`.
+
 **Wearing a skin — docs/SKINS.md.** The overlay above is what a *server's owner* installs and what a player switches on
 for themself (`scope: ["personal"]`, 设置 → 外观插件); **no room and no host is involved**, and this version has no
 server-side install route at all (upstream #652 closed the one that let any client make the server download files and

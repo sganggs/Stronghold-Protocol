@@ -77,6 +77,32 @@ operator's outfits, not as a second choice:
 - **The picker does not change**: a summon has no row and no stored key; it wears what its owner wears, and clearing the
   outfit returns it to its own model. 设置「显示其他玩家的皮肤」 applies as for the owning operator.
 
+**Extracted from a local client.** A server's owner who has the official client can write these appearances with the
+job that writes the operator outfits: `tools/local-extract/extract.py --only skins` reverses the official
+`charSkins[*].tokenSkinMap` and writes every pair whose owner outfit the run selected as
+`tokens[<tokenId>].skins[<owner skin id>] = { name, group, avatar?, spine: { front, back? } }` into the same cosmetic
+plugin and the same `skins.json` overlay as those outfits (docs/ASSETS.md "Official outfits and the picture gallery";
+DESIGN §37.349). The model is the prefab named `tokenSkinId` inside `skinpack/<tokenId>.ab`, the `token_*` pack whose
+file name is the token id (its Spine is read through the prefab's SkeletonDataAsset), with Front / Back decided by the
+node names as for an operator (never the order; a one-sided model is the front). The avatar is the 180×180 Sprite
+named `tokenSkinId` in `spritepack/ui_char_avatar_*.ab`; when the client has none, the record carries no avatar and the
+summon's own is the fallback. `name` and `group` are the OWNER outfit's `displaySkin.skinName` and `skinGroupName` (a
+summon has no name of its own). A summon's record carries no voice slot ("Outfit voices" below), and the extraction
+writes no `portrait` / `illust`: the summon's own pictures are the fallback.
+
+The summon appearances are a run of the outfit job, not a roster of their own: `--only skins/<charId>` writes that
+operator's outfits and the summon appearances keyed by them, and `--limit N` counts operator outfits alone, so a
+limited run writes the summon appearances of the owner outfits it kept. They share the operator outfits'
+`local-skins-N` parts — 512 MB, 5000 files and 2000 folders per part, one budget for both kinds — instead of parts of
+their own. One summon keeps at most 64 appearances (the plugin's limit, docs/PLUGINS.md §9): the extractor writes the
+first 64 in official order and warns about the rest. Two appearances belong to units with no model by design: `token_10039_ulpia_block_epoque#48` is the 「[从不混淆的方向](https://prts.wiki/w/%E4%BB%8E%E4%B8%8D%E6%B7%B7%E6%B7%86%E7%9A%84%E6%96%B9%E5%90%91)」 that 乌尔比安's 「必须开辟的通路」 leaves on the original tile, and `token_10055_phatm2_mndclv_sightseer#4` is 酒神's 「[迷狂牢笼](https://prts.wiki/w/%E8%BF%B7%E7%8B%82%E7%89%A2%E7%AC%BC)」 from 「空剧场」. Their prefab has no SkeletonData, so the
+run skips them with their names in the log; that is expected, not a lost appearance. Of the 59
+summons the source module's client knew, 11 are not among the 60 `token_*` entries of `data/assets.json`, so the plugin
+asks for `assets.add` (docs/PLUGINS.md §9); the other 48 are overrides. That client exported 88 summon outfits over 57
+summons — the local-client scope; the 172 quoted under "Outfit voices" is the official full table's count, which no
+single client needs to carry. The art stays on that machine: `out/local-extract/` is git-ignored, and neither the
+repository nor a release package ships it (docs/ASSETS.md).
+
 [ASSUMED] The official autochess mode's own use of outfits is not established; this remake's cosmetic layer is the
 maintainer's decision, and the data model above is the official skin table's. Display only: `Unit.skin` is never read by
 a rule and `Battle.result()` is unchanged (`test/skins.test.js`).
