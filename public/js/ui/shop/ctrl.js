@@ -173,14 +173,15 @@ export class AutoChessStylizedShopCtrlPanel {
         const label = reward.label || (reward.visible ? t('稍后') : t('选择奖励'));
         setText(findPath(this.rewardButton, 'group_normal/text'), label);
         setText(findPath(this.rewardButton, 'root_cost/group_free/text_num'), `x${Math.max(1, Number(reward.count) || 1)}`);
-        if (this.foldRewardButton) {
-          // The folded copy carries the same label/count, but only while the view says to keep it.
-          this.foldRewardButton.active = !!data.foldReward;
-          setText(findPath(this.foldRewardButton, 'group_normal/text'), label);
-          setText(findPath(this.foldRewardButton, 'root_cost/group_free/text_num'), `x${Math.max(1, Number(reward.count) || 1)}`);
-        }
-      } else if (this.foldRewardButton) {
-        this.foldRewardButton.active = false;
+      }
+      if (this.foldRewardButton) {
+        // The folded copy follows the view on its own: it exists precisely for the folded shop, where the
+        // unfolded pill is hidden, so tying it to `reward` left it inactive exactly when it was needed.
+        this.foldRewardButton.active = !!data.foldReward;
+        const foldLabel = (reward && reward.label) || t('选择奖励');
+        setText(findPath(this.foldRewardButton, 'group_normal/text'), foldLabel);
+        setText(findPath(this.foldRewardButton, 'root_cost/group_free/text_num'),
+          `x${Math.max(1, Number(reward && reward.count) || 1)}`);
       }
     }
     const freezeLock = findPath(this.root, 'btn_frozen/group_lock/text');

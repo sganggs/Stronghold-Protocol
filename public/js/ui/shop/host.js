@@ -27,7 +27,10 @@ const CONTROL_HOTSPOT_SPECS = [
   { key: 'fold', paths: ['btn_close', 'fold_hot_spot'], event: 'close' },
   { key: 'refresh', paths: ['btn_refresh/hotspot'], event: 'refresh' },
   { key: 'freeze', paths: ['btn_frozen/hotspot'], event: 'freeze' },
-  { key: 'reward', paths: ['btn_reward/hotspot'], event: 'reward' },
+  // The two reward pills are told apart by their subtree: both are named `btn_reward`, and the folded copy
+  // comes first in the panel, so a bare `btn_reward/hotspot` suffix resolved to the folded node in both
+  // states — leaving the unfolded pill's hotspot unplaced (0×0) while the shop was open.
+  { key: 'reward', paths: ['state_unfold/panel_ctrl_btn/btn_reward/hotspot'], event: 'reward' },
   // The folded shop keeps a copy of the reward pill on the `state_able` tab (设置 → 操作, default off); the
   // unfolded one is hidden while folded, so the two never show together.
   { key: 'rewardFold', paths: ['state_able/btn_reward/hotspot'], event: 'reward' },
@@ -449,11 +452,15 @@ export async function createShopHost(opts = {}) {
     return typeof reason === 'string' && reason ? reason : null;
   }
 
-  /** Apply the current block reason + the reward hotspot's visibility to one control element. */
-  function syncControlState(entry) {
+  /**
+   * Apply the current block reason + the reward hotspot's visibility to one control element. Visibility needs
+   * both the view flag and a painted box: a reward the view keeps but the frame does not show (an inactive
+   * node) must leave no hidden-but-focusable 0×0 button behind.
+   */
+  function syncControlState(entry, box) {
     if (entry.spec.event === 'reward') {
-      const visible = entry.spec.key === 'rewardFold' ? (view && view.foldReward) : (view && view.reward);
-      entry.el.hidden = !visible;
+      const wanted = entry.spec.key === 'rewardFold' ? (view && view.foldReward) : (view && view.reward);
+      entry.el.hidden = !wanted || !box;
     }
     applyControlState(entry.el, entry.button, controlReason(entry.spec.event));
   }
@@ -683,7 +690,7 @@ export async function createShopHost(opts = {}) {
       let box = null;
       for (const path of entry.spec.paths) { box = boxFor(path); if (box) break; }
       place(entry.el, box);
-      syncControlState(entry);
+      syncControlState(entry, box);
     }
     stage.style.width = canvas.style.width;
     stage.style.height = canvas.style.height;
@@ -734,6 +741,9 @@ export async function createShopHost(opts = {}) {
       JSON.stringify(view.cardMarks || null),
       JSON.stringify(view.controls || null),
       JSON.stringify(view.reward || null),
+      // The folded shop's copy of the pill is painted from this flag (`state_able/btn_reward`), so a
+      // 设置 → 操作 toggle while folded must repaint even when nothing else on the shop changed.
+      view.foldReward ? 1 : 0,
     ].join('|');
   }
 

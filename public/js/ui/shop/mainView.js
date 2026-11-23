@@ -84,13 +84,20 @@ export class AutoChessBattleShopMainView {
     if (!model || !model.show) return false;
     this.scene.chrome.Render(this._BuildChromeViewData(model));
     this.lastRenderKeys.push('shop_chrome');
-    if (model.avalid && model.unfold) {
-      this.scene.slots.Render(this._BuildSlotsViewData(model));
-      this.lastRenderKeys.push('shop_slots');
+    if (model.avalid) {
+      if (model.unfold) {
+        this.scene.slots.Render(this._BuildSlotsViewData(model));
+        this.lastRenderKeys.push('shop_slots');
+      }
+      // The row panels fold away with `state_unfold`, but the ctrl does not: it also owns the folded shop's
+      // reward pill (`state_able/btn_reward`, ctrl.js Render). Gating it on `unfold` left that node at its
+      // construction-time active=false for the whole folded lifetime, so the pill and its hotspot never showed.
       this.scene.ctrl.Render(this._BuildCtrlViewData(model));
       this.lastRenderKeys.push('shop_ctrl');
-      this.scene.upgrade.Render(this._BuildUpgradeViewData(model));
-      this.lastRenderKeys.push('shop_upgrade');
+      if (model.unfold) {
+        this.scene.upgrade.Render(this._BuildUpgradeViewData(model));
+        this.lastRenderKeys.push('shop_upgrade');
+      }
     }
     return true;
   }
@@ -124,11 +131,12 @@ export class AutoChessBattleShopMainView {
       }
       void shown;
     } else if (ctrl !== this.lastCtrlKey) {
-      // Only the painted refresh gate changed. Repaint the ctrl, never slots: a full panel render here
-      // would restart the refresh animation and flash the cards (the gate flips at the start and end of
-      // every refresh).
+      // Only a ctrl input changed (the painted refresh gate, or the folded reward pill). Repaint the ctrl,
+      // never slots: a full panel render here would restart the refresh animation and flash the cards (the
+      // gate flips at the start and end of every refresh). Folded, this is what turns the reward pill on and
+      // off without unfolding.
       this.lastCtrlKey = ctrl;
-      if (model.show && model.avalid && model.unfold) {
+      if (model.show && model.avalid) {
         this.scene.ctrl.Render(this._BuildCtrlViewData(model));
         this.lastRenderKeys = ['shop_ctrl'];
       }
@@ -203,7 +211,9 @@ function round(v) {
 }
 
 function ctrlKey(model) {
-  return `${model && model.refreshBlocked ? 1 : 0}|${model && model.freezeBlocked ? 1 : 0}|${JSON.stringify(model && model.reward || null)}`;
+  // foldReward belongs to the ctrl panel too: without it a folded shop whose reminder turns on (or off)
+  // matched the previous key, so the ctrl never re-rendered and the folded pill stayed inactive.
+  return `${model && model.refreshBlocked ? 1 : 0}|${model && model.freezeBlocked ? 1 : 0}|${model && model.foldReward ? 1 : 0}|${JSON.stringify(model && model.reward || null)}`;
 }
 
 function renderKey(model) {

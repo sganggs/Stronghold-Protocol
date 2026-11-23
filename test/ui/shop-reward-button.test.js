@@ -17,10 +17,12 @@ import { applyControlState, CONTROL_HOTSPOTS, runControlClick, rewardAriaLabel }
 import { shopControlReasons, shopRewardView, rewardPickLabel, shopFoldReward } from '../../public/js/ui/shop/ShopCanvas.js';
 import { DEFAULT_SETTINGS, sanitizeSettings } from '../../public/js/ui/gameLogic/settings.js';
 import { findPath } from '../../public/js/ui/shop/prefab.js';
+import { AutoChessBattleShopMainView } from '../../public/js/ui/shop/mainView.js';
 import { PHASE } from '../../shared/constants.js';
 import { t, setLang, setMessages, setNameResolver } from '../../shared/i18n.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const HOST_SOURCE = readFileSync(new URL('../../public/js/ui/shop/host.js', import.meta.url), 'utf8');
 const PACKS = {};
 const NAMES = {};
 function packOf(lang) {
@@ -261,13 +263,59 @@ test('the host registers the reward hotspots', () => {
   const reward = CONTROL_HOTSPOTS.find((spec) => spec.key === 'reward');
   assert.equal(reward.event, 'reward');
   assert.equal(reward.paths.length, 1);
-  assert.equal(reward.paths[0], 'btn_reward/hotspot');
+  // Subtree-qualified: the folded copy is also named btn_reward and comes first in the panel, so a bare
+  // `btn_reward/hotspot` resolved to the folded node and left the unfolded pill's hotspot unplaced.
+  assert.equal(reward.paths[0], 'state_unfold/panel_ctrl_btn/btn_reward/hotspot');
   const fold = CONTROL_HOTSPOTS.find((spec) => spec.key === 'rewardFold');
   assert.equal(fold.event, 'reward', 'the folded copy reports the same event');
   assert.equal(fold.paths[0], 'state_able/btn_reward/hotspot');
+  assert.notEqual(reward.paths[0], fold.paths[0], 'each pill has its own hotspot');
   assert.equal(Object.isFrozen(reward), true, 'a caller cannot rewire the host hotspots');
   assert.equal(Object.isFrozen(reward.paths), true);
   assert.equal(Object.isFrozen(CONTROL_HOTSPOTS), true);
+});
+
+/** The main view's scene dependencies: the five panels plus the fade/scene plumbing its constructor touches. */
+function fakeMainScene() {
+  const calls = [];
+  const scene = {
+    panel: { name: 'panel', path: 'root', active: true },
+    motion: { cancel() {}, track() {}, busy: false },
+    setFade() {},
+    chrome: { Render: () => calls.push('chrome'), foldSwitchTween: { onAfterHide: null, onAfterShow: null }, playFold() {} },
+    slots: { Render: () => calls.push('slots') },
+    ctrl: { Render: (data) => { calls.push('ctrl'); scene.ctrlData = data; } },
+    upgrade: { Render: () => calls.push('upgrade') },
+  };
+  return { scene, calls };
+}
+
+test('the main view renders the ctrl while folded, so the kept pill can turn on', () => {
+  const { scene, calls } = fakeMainScene();
+  const view = new AutoChessBattleShopMainView({ scene });
+
+  const folded = { show: true, avalid: true, unfold: false, coinCount: 0, level: 1, remainCharCnt: 0, slots: [], reward: null, foldReward: true };
+  assert.equal(view._RenderShopMainPanels(folded), true);
+  assert.deepEqual(calls, ['chrome', 'ctrl'], 'folded: the row panels stay off, the ctrl paints');
+  assert.deepEqual(view.lastRenderKeys, ['shop_chrome', 'shop_ctrl']);
+  assert.equal(scene.ctrlData.foldReward, true, 'the folded pill active comes from the model, not from the offer');
+
+  calls.length = 0;
+  view._RenderShopMainPanels({ ...folded, unfold: true, foldReward: false });
+  assert.deepEqual(calls, ['chrome', 'slots', 'ctrl', 'upgrade'], 'unfolded: the render order is unchanged');
+
+  calls.length = 0;
+  view._RenderShopMainPanels({ ...folded, avalid: false });
+  assert.deepEqual(calls, ['chrome'], 'a disabled shop paints neither the row nor the ctrl');
+});
+
+test('the folded pill is repainted on a view-only change and leaves no empty hotspot', () => {
+  const main = readFileSync(new URL('../../public/js/ui/shop/mainView.js', import.meta.url), 'utf8');
+  assert.match(main, /model\.foldReward \? 1 : 0/, 'the ctrl key covers the folded pill');
+  const host = HOST_SOURCE;
+  assert.match(host, /view\.foldReward \? 1 : 0/, 'the host paint key covers the folded pill');
+  // A reward the view keeps but the frame does not show must not leave a 0x0, focusable button behind.
+  assert.match(host, /entry\.el\.hidden = !wanted \|\| !box;/);
 });
 
 test('shopFoldReward: the folded pill only with the setting, a pending offer and PREP', () => {
