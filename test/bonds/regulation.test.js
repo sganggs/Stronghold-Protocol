@@ -2136,6 +2136,119 @@ describe('规程·序列Ⅰ bonds', { concurrency: 1 }, () => {
     }
   });
 
+  test('莱塔尼亚: chorus strikes twice on every 4th attack (Sk1 spCost 3), survives overlapping flights, and note never doubles', (t) => {
+    // 1. Chorus 8-attack cadence [1, 1, 1, 2, 1, 1, 1, 2] with exact arts damage per hit
+    const h = fight(t, {
+      bonds: { lethaniaShip: bond(6, 700) },
+      pieces: [piece('reg_le_dbl_member', ['lethaniaShip'], { row: 12, col: 2, skill: null, rangeGrid: [[0, 0]] })],
+    });
+    h.step();
+    h.b.kill(tank(h, [10, 6]), null);
+    const [chorus] = lethaniaSummons(h);
+    assert.ok(chorus && chorus.defId === CHORUS, 'spawned a chorus');
+    // Sustain through 8 attacks (hpRegen offsets the 10%/s self-bleed; high ASPD speeds up the cadence)
+    h.b.addBuff(chorus, { key: 'test:sustain', persist: true, mods: { hpRegen: 2000, aspd: 400 } });
+    const target = tank(h, [10, 8.2]); // 2.2 tiles away so bolts have real flight time
+    const byAttack = new Map();
+    const order = [];
+    const hitDamages = new Map();
+    h.b.on('hit', (c) => {
+      if (c.source !== chorus || c.target !== target) return;
+      const id = c.dmg.attackId;
+      if (!byAttack.has(id)) {
+        byAttack.set(id, 0);
+        hitDamages.set(id, []);
+        order.push(id);
+      }
+      byAttack.set(id, byAttack.get(id) + 1);
+      hitDamages.get(id).push(c.dmg.amount);
+      assert.equal(c.dmg.type, 'arts');
+      assert.equal(c.dmg.isAttack, true);
+    });
+    assert.ok(h.runUntil(() => order.length >= 8 && byAttack.get(order[7]) === 2, 15),
+      `expected 8 attacks resolved; got ${order.length} (${order.map((id) => byAttack.get(id)).join(',')})`);
+    assert.deepEqual(order.slice(0, 8).map((id) => byAttack.get(id)), [1, 1, 1, 2, 1, 1, 1, 2],
+      'chorus deals 2 hits on the 4th and 8th attacks');
+    for (const id of [order[3], order[7]]) {
+      for (const amt of hitDamages.get(id)) close(amt, chorus.s.atk, 'each hit of the double strike uses full ATK');
+    }
+
+    // 2. Overlapping flights: next ordinary attack launched before the 4th attack's bolt lands must not cancel its double hit
+    const hFast = fight(t, {
+      bonds: { lethaniaShip: bond(6, 700) },
+      pieces: [piece('reg_le_dbl_fast', ['lethaniaShip'], { row: 12, col: 2, skill: null, rangeGrid: [[0, 0]] })],
+    });
+    hFast.step();
+    hFast.b.kill(tank(hFast, [10, 6]), null);
+    const [fastChorus] = lethaniaSummons(hFast);
+    assert.ok(fastChorus && fastChorus.defId === CHORUS);
+    hFast.b.addBuff(fastChorus, { key: 'test:sustain', persist: true, mods: { hpRegen: 2000 } });
+    const farTarget = tank(hFast, [10, 8.35]);
+    const fastHits = new Map();
+    const fastOrder = [];
+    hFast.b.on('hit', (c) => {
+      if (c.source !== fastChorus || c.target !== farTarget) return;
+      const id = c.dmg.attackId;
+      if (!fastHits.has(id)) { fastHits.set(id, 0); fastOrder.push(id); }
+      fastHits.set(id, fastHits.get(id) + 1);
+    });
+    // Force 5 rapid attacks on the same tick so attack #5 fires while attack #4's projectile is still in flight
+    for (let i = 0; i < 5; i++) hFast.b.forceAttack(fastChorus, [farTarget]);
+    assert.ok(hFast.runUntil(() => fastOrder.length >= 5, 3), 'all 5 overlapping projectiles land');
+    assert.deepEqual(fastOrder.slice(0, 5).map((id) => fastHits.get(id)), [1, 1, 1, 2, 1],
+      'in-flight 4th attack still double-strikes after 5th attack starts');
+
+    // 3. Fragile target killed by hit 1 of the 4th attack stops cleanly without a second hit, and SP still resets
+    const hKill = fight(t, {
+      bonds: { lethaniaShip: bond(6, 700) },
+      pieces: [piece('reg_le_dbl_kill', ['lethaniaShip'], { row: 12, col: 2, skill: null, rangeGrid: [[0, 0]] })],
+    });
+    hKill.step();
+    hKill.b.kill(tank(hKill, [10, 6]), null);
+    const [killChorus] = lethaniaSummons(hKill);
+    assert.ok(killChorus && killChorus.defId === CHORUS);
+    hKill.b.addBuff(killChorus, { key: 'test:sustain', persist: true, mods: { hpRegen: 2000 } });
+    killChorus.atkCd = 99; // isolate from autonomous ticks while projectiles are in flight
+    const dummy = tank(hKill, [10, 7]);
+    for (let i = 0; i < 3; i++) hKill.b.forceAttack(killChorus, [dummy]);
+    assert.equal(killChorus.mem.chorusAtkSp, 3, '3 ordinary attacks charge SP to 3');
+    const fragile = tank(hKill, [10, 6.5]);
+    fragile.hp = 1;
+    let fragileHits = 0;
+    hKill.b.on('hit', (c) => { if (c.source === killChorus && c.target === fragile) fragileHits++; });
+    hKill.b.forceAttack(killChorus, [fragile]);
+    assert.equal(killChorus.mem.chorusAtkSp, 0, 'SP resets as soon as the 4th attack launches');
+    assert.ok(hKill.runUntil(() => !fragile.alive, 2));
+    assert.equal(fragileHits, 1, 'second hit is skipped once the first hit kills the target');
+    assert.equal(killChorus.mem.chorusAtkSp, 0, 'SP stays at 0 after the target dies on hit 1');
+
+    // 4. NOTE has no Sk1 and never triggers a double strike
+    const hNote = fight(t, {
+      bonds: { lethaniaShip: bond(3, 0) },
+      pieces: [piece('reg_le_note_single', ['lethaniaShip'], { row: 12, col: 2, skill: null, rangeGrid: [[0, 0]] })],
+    });
+    hNote.step();
+    hNote.b.kill(tank(hNote, [10, 6]), null);
+    const [note] = lethaniaSummons(hNote);
+    assert.ok(note && note.defId === NOTE);
+    hNote.b.addBuff(note, { key: 'test:sustain', persist: true, mods: { hpRegen: 2000 } });
+    const noteTarget = tank(hNote, [10, 6.2]);
+    const noteHits = new Map();
+    const noteOrder = [];
+    hNote.b.on('hit', (c) => {
+      if (c.source !== note || c.target !== noteTarget) return;
+      const id = c.dmg.attackId;
+      if (!noteHits.has(id)) { noteHits.set(id, 0); noteOrder.push(id); }
+      noteHits.set(id, noteHits.get(id) + 1);
+    });
+    for (let i = 0; i < 5; i++) hNote.b.forceAttack(note, [noteTarget]);
+    hNote.step();
+    assert.deepEqual(noteOrder.slice(0, 5).map((id) => noteHits.get(id)), [1, 1, 1, 1, 1],
+      'note always deals single hits');
+    assert.equal(h.b.errorCount, 0, JSON.stringify(h.b.errors));
+    assertLethaniaRuntime(h);
+  });
+
   test('聚合: stacked heals, element recovery, shelter is the strongest not the sum', (t) => {
     const bb = params(v3().bonds.docShip, 'act3autochess_bond_eff_doc');
     assert.equal(bb.heal_base, 0.16);
