@@ -33,7 +33,10 @@ export function textProblems(rootSel, extraEllipsis = '') {
   // (a hyphen before a digit is part of a code such as AC-2, not a place to break: §35.18 review of the text-fit fixes)
   const breakOk = (p, c) => (/[\s\-\u2010\u2013\u2014/\u00b7\u30fb]/.test(p) && !(/[-\u2010]/.test(p) && /\d/.test(c)))
     || (hangul.test(p) || hangul.test(c) ? !(letter.test(p) && letter.test(c)) : cjk.test(p) || cjk.test(c));
-  // the word of text node `n` around index `i` is wider than `el`'s content box (measured on one line in its font)
+  // the word of text node `n` around index `i` is wider than `el`'s content box (measured on one line in its font). The
+  // box unrounded (the used width; clientWidth rounds) and no slack: since the 规程 names in English for ja (§37.338)
+  // 「Lightningbearer」 at 小 on a phone is 36.17 px in Hiragino against a 35.7 px name box — wider, so break-word rightly
+  // breaks it — while the rounded 36 px plus 0.5 px called it a fit (§37.344)
   const wordWider = (n, i, el) => {
     const t = n.textContent;
     let a = i, b = i;
@@ -41,8 +44,9 @@ export function textProblems(rootSel, extraEllipsis = '') {
     while (b < t.length && !/\s/.test(t[b])) b++;
     const cs = getComputedStyle(el), g = document.createElement('canvas').getContext('2d');
     g.font = cs.font;
-    const box = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-    return g.measureText(t.slice(a, b)).width > box + 0.5;
+    const box = parseFloat(cs.width) - (cs.boxSizing === 'border-box'
+      ? parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth) : 0);
+    return g.measureText(t.slice(a, b)).width > box;
   };
   for (const root of document.querySelectorAll(rootSel)) {
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
