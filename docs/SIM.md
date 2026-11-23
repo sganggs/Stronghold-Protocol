@@ -1327,9 +1327,10 @@ silently inert until M2 (DESIGN §35.22.5): in 上半, the traits of 煌 (`SERVE
 spells the field `give_garrion_id`; `garrisons/battle.js` reads `give_garrison_id`); the 标准模拟 band clause
 `act1autochess_band31_buff` on four bandIds 下半 also has; 灵巧's 20-layer award `bond_layer_refresh_shop_award_equip`
 and 远见's 100-layer discount; and six 上半 equipment keys (商业包装方案, 信标, 寻呼模块, `act1autochess_equip_acarm055` /
-`078` / `102_global_buff`); in V2_1, 远见's two discount keys, which the code does not read: `bond_layer_char_goods_price_bond_discount` (V2_1 only)
+`078` / `102_global_buff`); in V2_1, 远见's two discount keys, which the code did not read before M2: `bond_layer_char_goods_price_bond_discount` (V2_1 only)
 and `bond_layer_char_goods_price_discount` (also 上半's 100-layer key), not V2_2's
-`bond_multi_layer_char_goods_price_bond_discount`. No class sees a changed text under the same keys: V2_1's 陈 以己之长
+`bond_multi_layer_char_goods_price_bond_discount` (`bonds/addon/meta.js` reads both since 0.3.2's M2 port; they stack,
+80 layers 远见 −1 and 150 layers every operator a further −1, §37.343). No class sees a changed text under the same keys: V2_1's 陈 以己之长
 reaches 高台 operators only, `bands/battle.js` every operator as in V2_2 (DESIGN §35.22.5). Nor does any class report 上半's 森蚺 (`band_zumama`): it carries Touch's key `auto_chess_change_map`, which the default data has (same key, different meaning: the M2 audit), with device aliases
 (`trap_1104_aclasert#1`…`#4`, one 双眼皮 on every field). `bands/battle.js isMapCharBuff` accepts only Touch's
 map-character shape, so 森蚺 has no battle part (nor the AI's team-support class) until M2 builds its device switch. The
