@@ -672,8 +672,8 @@ export class ShopScene {
         const targets = curves.map((curve) => this.autoClipNode(`${node.path}/${curve[0]}`)).filter(Boolean);
         if (clip && Number(clip.len) > 0 && targets.length) {
           // Rotation centre is the SPRITE's ring centre, not the assumed rect centre: the 48x48 refresh_icon
-          // webp has its alpha bbox at x 1..45 / y 2..45, i.e. centre (23.50, 24.00) => (0.4896, 0.5000)
-          // normalized. Measured from the file, see docs/SHADER-ALPHABLEND.md provenance note.
+          // webp's ring sits at pixel centre (23.5, 20.5) => (0.4896, 0.4271) normalized (the alpha bbox centre
+          // is lower because the arrow's tail sits under the ring). Measured from the file.
           for (const target of targets) {
             const sprite = target.image && target.image.sprite;
             target.centerRot = (sprite && RING_CENTER_UV[sprite]) || null;

@@ -117,6 +117,9 @@ export class PlayerEconomy {
     // this sequence changes (C# AutoChessStylizedShopSlotsPanel.Render). `specialRefresh` is this roll's
     // one-shot marker; the charge it spends is the bondRefresh queue (`_applyBondRefresh`), never 佩佩's
     // separate armed count (`specialRefreshCharges`, spent by its own manual refresh in markSpecialRefresh).
+    // [ASSUMED: a fully frozen row is kept unchanged at the round start but the sequence still advances, so the
+    // client replays the refresh clip on an unchanged row; "increment only when the row changed" is the
+    // alternative and neither has an official source.]
     this.shop.refreshSeq = (Number(this.shop.refreshSeq) || 0) + 1;
     this.shop.specialRefresh = !!special;
     this.dirty();

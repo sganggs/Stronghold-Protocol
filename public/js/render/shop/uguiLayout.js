@@ -135,15 +135,10 @@ function arrange(node, w, h, opts, memo) {
 
   const out = new Map(kids.map((c) => {
     const r = rectOf(c, opts);
-    // uGUI: a LayoutGroup only writes the axes it controls (`control[axis]`). On the other axis the child keeps
-    // its own RectTransform size, and for a stretched axis that is parent * (max - min) + sizeDelta -- not
-    // sizeDelta alone, which collapses a stretched child to zero height/width.
-    return [c, {
-      x: 0,
-      y: 0,
-      w: (r.max[0] - r.min[0]) * w + r.size[0],
-      h: (r.max[1] - r.min[1]) * h + r.size[1],
-    }];
+    // uGUI: a LayoutGroup only writes the axes it controls (`control[axis]`) and collapses the child's anchor to
+    // the parent's top-left (`SetChildAlongAxis`), so on the un-controlled axis the child's size is its sizeDelta —
+    // the same value `childSizes` uses for spacing. Do not expand it by the anchor span.
+    return [c, { x: 0, y: 0, w: r.size[0], h: r.size[1] }];
   }));
   const align = num(g.align);
   const alignOn = (axis) => (axis === 0 ? (align % 3) * 0.5 : Math.floor(align / 3) * 0.5);

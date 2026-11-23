@@ -155,7 +155,9 @@ export function shopModelFromPrivate(priv, opts = {}) {
   // `specialRefreshArmed` is the charge that has not rolled yet (佩佩 arms it on the level-up itself), and it is
   // the only source of the button state: C# `isSpecRefresh ← ShopData.specialRefresh`, the pending charge, while
   // `isSpecialRecruit` comes from `goodsType != 0` (this row). The roll marker below is product's stand-in for
-  // that goodsType, so it feeds the slots clip and never the button.
+  // that goodsType, so it feeds the slots clip and never the button. The two ctrl fields are the cited source
+  // (C# `isSpecRefresh ← ShopData.specialRefresh`, `isSpecialRecruit ← goodsType != 0`); [ASSUMED: a pending
+  // reward offer sets neither, so it never lights the button or plays the special clip on its own.]
   const specialRefreshArmed = !!shop.specialRefreshArmed;
   const cards = [];
   slots.forEach((slot, index) => {

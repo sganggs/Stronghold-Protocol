@@ -10,15 +10,15 @@ Scope: the producer that writes `themes/<id>/card.json` and `themes/<id>/shop.js
 - The contributor's prototype branch `feat/autochess-card-webgl` (archived commits `0157ba29` / `b6d29a05`);
   these commits are not in this repository's history. The producer was recovered from `0157ba29`; `b6d29a05`
   is the one recorded as producing an exact `card.json`.
-- The files are the producer's; they carry the portability fixes, the shader-page removal and the review fixes
-  listed under "Known non-reproducible points".
+- The files are the producer's; the differences from the archived copy (portability and content) are listed under
+  "Known non-reproducible points".
 
 ## Where the code lives
 
 The producer modules sit flat in `tools/local-extract/`, beside the current extractor, and import each other
 normally (`import autochess_themes`, `import ui_components`, `import aklz4`). There is one
-`autochess_themes.py`; `--only theme` and `--only shopdocs` differ only by the `shopdocs` flag. The final tree has
-no `legacy/` directory; this branch's earlier commits carried one (see "Fold equivalence").
+`autochess_themes.py`; `--only theme` and `--only shopdocs` differ only by the `shopdocs` flag. There is no `legacy/`
+directory and each producer module exists once.
 
 | Output | Code |
 |---|---|
@@ -49,15 +49,14 @@ extraction: the exit code stays warn-only.
 leaves a `card.json` / `shop.json` that an earlier `--only shopdocs` run left in the same directory out of the group,
 so a theme pack written by a theme-only run does not carry a stale pair.
 
-`card_shader.py` still builds the shader records `card.json` carries (`materials` → `shaders`), but the porting page
-is gone: `card_shader.docs_markdown` was deleted with the page writer, and no `shaders/*.md` is written into the theme
-group or listed (a stale copy from an older extraction is not registered either). The records stay in `card.json` as
-provenance / diagnostic data: the client reads each material record (`public/js/ui/shop/prefab.js`
-`documentMaterials`), and no code reads `card.shaders`.
+`card_shader.py` builds the shader records `card.json` carries (`materials` → `shaders`) and writes no page:
+`card_shader.docs_markdown` is not part of the tree, and no `shaders/*.md` is written into the theme group or listed
+(a stale copy from an older extraction is not registered either). The records stay in `card.json` as provenance /
+diagnostic data: the client reads each material record (`public/js/ui/shop/prefab.js` `documentMaterials`), and no
+code reads `card.shaders`.
 
-The audit-only `shop_compat.py` (pinned schema normalizer for an archived `shop.json`) and the standalone
-`export_theme_data.py` runner were deleted with the `legacy/` folder: neither has a caller in the final tree. Their
-record and limits are kept here.
+`shop_compat.py` (a pinned schema normalizer for an archived `shop.json`) and the standalone `export_theme_data.py`
+runner are not part of the tree: neither has a caller. Their record and limits are kept here.
 
 ## Run
 
@@ -73,8 +72,8 @@ $data = "$game\Arknights_Data"
   --out '<scratch>\local' --manifest '<scratch>\local-assets.json'
 ```
 
-The run prints the documents it registered, for example (the two themes that carry only `prefabs.json` /
-`card.json` name the missing `shop.json`):
+The run prints the documents it registered, for example (the run names the missing `shop.json` for each theme that
+carries only `prefabs.json` / `card.json`; one of those two lines is shown):
 
 ```
 shopdocs: themes/ac_s_closur/prefabs.json
@@ -86,13 +85,13 @@ shopdocs: themes/ac_n_iron lacks shop.json (the canvas shop needs prefabs.json +
 `--only shopdocs` is opt-in: a plain extraction writes no theme group at all. To put the documents into a real
 local extraction, run the same command into `--out public/assets/local --manifest data/local-assets.json`, then
 rebuild a theme pack with `node tools/package.mjs --theme-packs` ([docs/THEMES.md](../../docs/THEMES.md)). A theme
-group extracted before this job — and a 可露希尔 pack built from it — has no `card.json` / `shop.json`, so the canvas
-shop does not mount.
+group extracted without the shop-documents job — and a 可露希尔 pack built from it — has no `card.json` / `shop.json`,
+so the canvas shop does not mount.
 
 ## Recorded extraction (not a product target)
 
-The local extract this working tree holds (git-ignored), measured at HEAD `20474712` (2026-11-23) under
-`public/assets/local/themes/ac_s_closur/`:
+Recorded on 2026-11-23, while the working tree was at commit `20474712`, under
+`public/assets/local/themes/ac_s_closur/` (git-ignored local setup data, not part of the repository):
 
 | File | Bytes | SHA-256 |
 |---|---:|---|
@@ -103,34 +102,12 @@ The local extract this working tree holds (git-ignored), measured at HEAD `20474
 | `theme.json` | 6,250 | `a964c0207ef562b6fa373964b5226f3821a97fdc7f2948d44af47c9856704f27` |
 
 These are one extraction's bytes on one machine, not the product's and not a target for a future run: the producer
-kept changing after the S13 comparison below (commit `1f040cb5` added the sampler fields `wrapU` / `wrapV` /
-`filter` / `texW` / `texH` to the sprite and texture records, and the review fixes in this working tree change more
-records), so a run at another commit can produce different bytes even from the same client. They are listed so a
-later run can be compared, not to be copied. The only pinned byte table in `tools/local-extract/` re-verified against
-a real client in this round is the font table in [fonts.py](fonts.py) (`FONT_SPECS`, recorded in
-[FONT-PROVENANCE.md](FONT-PROVENANCE.md)); there is no pinned target byte value for `card.json` or `shop.json`.
-
-## Fold equivalence (S13)
-
-In the S13 round the recovered producer sat in a `legacy/` directory that `extract.py` loaded by file path and
-placed on `sys.path`; this branch's earlier commits carried it, `origin/dev` never did, and the final tree has no
-such folder — the modules live flat beside the extractor and share one `autochess_themes.py`. Both trees were run on
-the same client bundles and fresh output roots (`--only shopdocs`, the two `--themes` roots, the same
-`--game <install>`): the complete 852-file output trees (the count in the comparison logs) are byte-identical, and so
-are `card.json` (`c38d27e6…`, 173,543 B), `shop.json`
-(`0481775abb0657fa6bc10766c3add1dfe2a1744c9941a7068d3716c4d6e38dd7` on a fresh output root, 357,218 B),
-`prefabs.json` (`35c58a37…`), `layout.json` (`1b3b82f7…`) and `theme.json` (`a964c020…`). Those are the S13 round's
-values, recorded before `1f040cb5` added the sampler fields, so they are not the bytes a current run produces
-(`theme.json` still hashes to the same value). `--only theme` keeps writing `prefabs.json` and no `card.json` /
-`shop.json`, as before. A root that already held `sprites/tex_fx_mask_1.webp` when the producer resolved the money
-icon records that `image.file` where a fresh root does not, so two roots can differ on the same client; that
-directory-state dependency is not a fold difference. The checkout's `shop.json` is 363,223 B (table above), so it
-cannot be compared byte-for-byte with the S13 fresh-root value: it was written by a later producer (the sampler
-fields and the review fixes change the records) from a root that held `sprites/tex_fx_mask_1.webp`, whose
-`image.file` the money icon's record names (`prefabs/autochess_main_money_item`).
-`card.json` also lost the three `shaders/*.md` assets and the `doc` / `shaderDoc` links between the pre-S13 checkout
-copy and either producer (the S7 change). The comparison logs (not committed) are line-identical; the old loader's
-hash manifest was not retained, so the tree identity rests on those logs plus the document hashes above.
+changed after they were recorded (commit `1f040cb5` added the sampler fields `wrapU` / `wrapV` / `filter` / `texW` /
+`texH` to the sprite and texture records, and later content fixes change more records), so a run at another commit
+can produce different bytes even from the same client. They are listed so a later run can be compared, not to be
+copied. The only pinned byte table in `tools/local-extract/` verified against a real client is the font table in
+[fonts.py](fonts.py) (`FONT_SPECS`, recorded in [FONT-PROVENANCE.md](FONT-PROVENANCE.md)); there is no pinned target
+byte value for `card.json` or `shop.json`.
 
 ## Known non-reproducible points
 
@@ -143,20 +120,22 @@ hash manifest was not retained, so the tree identity rests on those logs plus th
   byte-equal.
 - **Enrichment fields:** `pathID` (`path_ids.py`) and particles / emission / renderer (`theme_particles.py`) come
   from the two enrichment steps; the `mask` records come from the base producer (`card_prefab.py`,
-  `autochess_themes.py`), and the `fx_mask_1` image record was the deleted normalizer's pinned value (the current
-  steps do not write it). When the current client bundles are missing the enrichments are skipped with a warning and
-  the base document is still written. A step rewrites the JSON compactly, so a document with and without enrichment
-  differs in bytes even when the tree is otherwise identical.
+  `autochess_themes.py`), and the `fx_mask_1` image record was the pinned value of the normalizer that is not in the
+  tree (neither enrichment step writes it). When the client bundles are missing the enrichments are skipped with a
+  warning and the base document is still written. A step rewrites the JSON compactly, so a document with and without
+  enrichment differs in bytes even when the tree is otherwise identical.
 - **Client version:** the bundles are hot-updated. The hardcoded prefab path IDs in `path_ids.py` (`ROOTS`) and
   `theme_particles_impl.py` (`PREFABS`) come from the archived client version, so a different client version can
   produce a different tree or a warning.
-- **Changes since recovery (portability + content):** the archived copy's absolute client/lab paths were removed
-  (`theme_particles_impl.py` now requires the caller to set its paths; `shop_prefab.py` derives the repository root
-  two directories above its own file's directory in both `REPO_ROOT` and its standalone `main()`, like the
-  extractor's modules), and the byte-identical
-  `ui_components.py` / `aklz4.py` copies were dropped in favour of the extractor's own. Content changes:
-  `card_prefab._shaders` no longer writes the shader porting pages (`shaders/*.md`) nor the `doc` / `shaderDoc`
-  links they left in `card.json` (the page writer is deleted); a two-curves MinMaxCurve now keeps both curves
-  (`mode: "twoCurves"`, `minKeys`); an external sprite or texture that repeats another's name under a different path
-  id gets a numbered `_2` file instead of the first one's; `theme_particles` reports each document's counts
-  separately.
+- **Output root state:** a root that already held `sprites/tex_fx_mask_1.webp` when the producer resolved the money
+  icon lists that `image.file` where a fresh root does not, so two roots can differ on the same client. The recorded
+  `shop.json` above comes from such a root: the money icon's record names `sprites/tex_fx_mask_1.webp`
+  (`prefabs/autochess_main_money_item`).
+- **Differences from the archived copy (portability + content):** the archived copy's absolute client/lab paths are
+  not carried over (`theme_particles_impl.py` requires the caller to set its paths, as
+  `theme_particles.enrich_theme` does; `shop_prefab.py` derives the repository root two directories above its own
+  file in both `REPO_ROOT` and its standalone `main()`, like the extractor's modules), and `ui_components.py` /
+  `aklz4.py` are the extractor's own copies rather than duplicates. Content: `card_prefab._shaders` writes no shader
+  porting pages (`shaders/*.md`) and no `doc` / `shaderDoc` links; a two-curves MinMaxCurve keeps both curves
+  (`mode: "twoCurves"`, `minKeys`); an external sprite whose name repeats gets a numbered `_2` file instead of
+  sharing the first one's; `theme_particles` reports each document's counts separately.

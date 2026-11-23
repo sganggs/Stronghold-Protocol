@@ -198,7 +198,7 @@ so old imports keep working: `public/js/ui/gameLogic.js` (`public/js/ui/gameLogi
 | `packs/` | content packs installed as folders, `packs/<id>/pack.json` + files (PACKS.md); empty in the repository but for its readme |
 | `plugins/` | a server's plugins, `plugins/<id>/plugin.json` + files (PLUGINS.md); git-ignored but for its readme, its guide for AI agents (`plugins/AGENTS.md`) and the templates (`plugins/_template/cosmetic/`, `plugins/_template/content/`, `plugins/_template/script/`, `plugins/_template/ui/`) |
 | `schemas/` | JSON Schemas of manifests, asset overlays, compact records, DSL, UI messages and community catalogues (PLUGINS.md §15), for editors and AI agents |
-| `tools/` | `build-data.mjs`, `build-i18n.mjs`, `i18n.mjs` (UI strings, language packs), `packs.mjs` (content packs), `plugin.mjs` (plugins: list, check, pack, new, test, errors, surface, import-forge, install, catalog), `setup.mjs` / `fetch-assets.mjs` / `tools/assets/` (art and audio), `tools/local-extract/` (art from a local game client: `extract.py`; `--only theme` writes the theme pack alone, `--only shopdocs` adds the canvas shop's `card.json` / `shop.json` through the same `autochess_themes.py` (`export_themes(..., shopdocs=True)`) plus its warn-only `pathId` / particle enrichment (the `mask` node fields come with the base documents; DESIGN §37.240; `tools/local-extract/SHOPDOCS.md` is the producer's provenance), `fonts.py` + `--only font` the theme's font bytes (kept local: no package ships them)), `vendor.mjs`, `golden.mjs`, `check-imports.mjs`, `package.mjs` / `package-update.mjs` (the release zips, the update package, the example asset pack), `doctor.mjs`; sweeps: `matchrun.mjs`, `simrun.mjs`, `botbench.mjs`, `balance.mjs` |
+| `tools/` | `build-data.mjs`, `build-i18n.mjs`, `i18n.mjs` (UI strings, language packs), `packs.mjs` (content packs), `plugin.mjs` (plugins: list, check, pack, new, test, errors, surface, import-forge, install, catalog), `setup.mjs` / `fetch-assets.mjs` / `tools/assets/` (art and audio), `tools/local-extract/` (art from a local game client: `extract.py`; `--only theme` writes the theme pack alone, `--only shopdocs` adds the canvas shop's `card.json` / `shop.json` through the same `autochess_themes.py` (`export_themes(..., shopdocs=True)`) plus its warn-only enrichment (DESIGN §37.240; `tools/local-extract/SHOPDOCS.md` is the producer's provenance), `fonts.py` + `--only font` the theme's font bytes (kept local: no package ships them)), `vendor.mjs`, `golden.mjs`, `check-imports.mjs`, `package.mjs` / `package-update.mjs` (the release zips, the update package, the example asset pack), `doctor.mjs`; sweeps: `matchrun.mjs`, `simrun.mjs`, `botbench.mjs`, `balance.mjs` |
 | `test/` | `node:test` suites by area: `test/content/` (kits, enemies, bonds, items), `test/sim/` (the engine), `test/match/` (match engine, bots), `test/ui/`, `test/render/`, `test/golden/` (the stored digests), `test/plugins/` and `test/studio/` (the plugin system, the studio), `test/helpers/` (`battleHarness.js`; `designDocs.js`, the design document in § order for the doc tests), `test/e2e/` (browser and bot runs) |
 | `types/` | JSDoc typedefs of the type-checked slice (`types/README.md`) |
 | `docs/` | the documents; `docs/DESIGN.md` the index of the design document, `docs/design/` its current rules, `docs/history/` its per-release revisions; `docs/research/` the research on the official mode |
@@ -247,12 +247,11 @@ public/assets/ ─────────▶ public/js/render/, public/js/audio
   extraction writes `public/assets/local/themes/<id>/prefabs.json`, `card.json` and `shop.json` plus the manifest groups
   `themes/<id>` and `fonts` (`tools/local-extract/extract.py --only theme` / `--only shopdocs`; the optional font job runs
   in a full extract or alone with `--only font`; `public/assets/local/` and `data/local-assets.json` stay git-ignored).
-  `fonts` and `item` are optional local-extract groups like `ui/cursor` (§37.240), so `expected_local_groups` counts 84:
-  a full extract attempts them, a missing `Arknights_Data` or a pinned-bytes mismatch only warns, and an absent key is
-  not a stale extraction. The faces and `public/assets/local/fonts/` stay local and no package ships them
-  (`tools/package.mjs` `FONT_ART_PREFIX`, `withoutHeldFonts`; the staged manifest drops the group, `dropStagedFonts`), so
-  a host of a release package serves no local face and the canvas falls back to the system stack. In the browser the
-  chain is: the group entries →
+  `fonts` and `item` are optional local-extract groups like `ui/cursor` (§37.240): a full extract attempts them, a missing
+  `Arknights_Data` or a pinned-bytes mismatch only warns, and an absent key is not a stale extraction. The faces and
+  `public/assets/local/fonts/` stay local and no package ships them (`tools/package.mjs` `FONT_ART_PREFIX`,
+  `withoutHeldFonts`), so a host of a release package serves no local face and the canvas falls back to the system
+  stack. In the browser the chain is: the group entries →
   `public/js/ui/prefab/shopDocs.js` `themeShopDocs` (the three documents) and `themeFonts` (the `@font-face` sheet) →
   `public/js/ui/shop/adapter/model.js` (`m.private` → the render model; the operator card's portrait follows the shop
   owner's outfit through `ownerSkin`, §37.240) → `public/js/ui/shop/scene.js` →

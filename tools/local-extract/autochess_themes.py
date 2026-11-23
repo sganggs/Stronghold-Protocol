@@ -151,8 +151,9 @@ def safe_stem(name):
     return SAFE.sub('_', str(name)).strip('._')[:120] or 'unnamed'
 
 
-# The sampler fields every texture record carries (TEXTURE-WRAP-EXTRACT.md): the texture's own
-# `m_TextureSettings` wrap/filter plus its own pixel size, which is not the sprite rect a record's `w`/`h` hold.
+# The sampler fields every texture record carries: the texture's own `m_TextureSettings` wrap/filter plus its
+# own pixel size, which is not the sprite rect a record's `w`/`h` hold (measured from the client's Texture2D
+# records; public/js/render/shop/cardStage.js applies them).
 SAMPLING_KEYS = ('wrapU', 'wrapV', 'filter', 'texW', 'texH')
 
 

@@ -1197,6 +1197,7 @@ def list_theme_files(out_root, manifest, log, theme_ids, shopdocs=False):
         if not dest.is_dir():
             continue
         listed = manifest.setdefault(group, {})
+        left_out = []
         for path in sorted(dest.rglob('*')):
             if not path.is_file():
                 continue
@@ -1208,6 +1209,7 @@ def list_theme_files(out_root, manifest, log, theme_ids, shopdocs=False):
             if path.name in THEME_INTERMEDIATE_FILES:
                 continue
             if not shopdocs and rel in SHOPDOC_FILES:
+                left_out.append(rel)
                 continue
             # A shader porting page from an older extraction is a developer note, not theme data: never list it
             # (card_prefab no longer writes one; this keeps a stale copy out of data/local-assets.json).
@@ -1224,6 +1226,9 @@ def list_theme_files(out_root, manifest, log, theme_ids, shopdocs=False):
                     pass
             listed[rel] = entry
             log(f'themes: listed {group}/{rel} (the producer left it out)')
+        if left_out:
+            log(f'themes: {group}: {", ".join(sorted(left_out))} left out of the group (--only theme); '
+                f'run --only shopdocs to register them again')
 
 
 # Output groups a full extract attempts but does not require: a client without the install's Arknights_Data and its

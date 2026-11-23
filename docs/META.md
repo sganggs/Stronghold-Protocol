@@ -732,6 +732,8 @@ Writes (validated, never throw on bad input; funds and available stock stay non-
 | `offerItems(ids, { tier, label })` | the same for items (slots of kind `'item'`, drawn as item cards) — 凯瑟琳 定向投放 style (player report #6 after 0.1.0) |
 | `triggerGarrisons(uid, eventType, { asUid })` | run another owned chess's 特质 of that eventType now (铃兰 "触发…的获得时效果"); 投资人 still multiplies SERVER_GAIN; SERVER_PRICE cannot be triggered; depth-capped |
 | `setShopSlot(i, { kind, id, price?, frozen? } \| null)` | rewrite a shop slot (special refreshes) |
+| `armSpecialRefresh()` | arm one special refresh for the next roll — 佩佩's 2/4/6 upgrade lights the refresh button at once while the roll waits; returns the charges now pending |
+| `markSpecialRefresh()` | mark this roll as a special refresh (the slots panel plays its special clip). It also spends one 佩佩 charge — whoever calls it, a plugin's handler included — so a plugin's own special refresh clears the button while `band:pepe:special` still holds a charge and the next manual refresh is special again [ASSUMED: the spend belongs in 佩佩's own onRefresh; a caller-aware split is the alternative] |
 | `addDeployCap(n)` / `setDeployCapAtLeast(n)` | deploy cap (+effects; 人事部文档 = 9) |
 | `setBondCountBonus(bondId, n)` | extra member count for a bond |
 | `setDeviceActive(alias, on)` / `setTileOverride(r, c, 'melee'\|'ranged'\|'none')` | terrain changes of this player's board (legality + battle input `deviceOverrides`) |

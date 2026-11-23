@@ -9,7 +9,7 @@
 
 - **Git: never.** The files land under `public/assets/local/fonts/` (ignored by `/public/assets` in `.gitignore`);
   `data/local-assets.json` is ignored too. No font binary and no other extracted game file is committed.
-- **Release packages: never (the current approach, below).** `tools/package.mjs` holds the folder back:
+- **Release packages: never.** `tools/package.mjs` holds the folder back:
   - the full zip's `artPlan` collects every other file under `public/assets/local/` but never a file under
     `public/assets/local/fonts/` (`FONT_ART_PREFIX`; the summary's `held back:` line counts them as `fontHeld`), and the
     listed-file check reads the local manifest through `withoutHeldFonts`, so a face is neither shipped nor reported
@@ -29,27 +29,27 @@
   `ui/cursor`). `--only font` and `--only fonts` run the job for every pinned face; `--only font/<face>` (also
   `fonts/<face>`) writes no other face, and a face name that is not in `FONT_SPECS` is refused before any work:
   `--only font: no pinned face named <name> (pinned: …)` and exit 2. `--only font` alone exits non-zero only when it
-  neither wrote nor kept any face. A run that finds the install's `Arknights_Data` still writes
-  `public/assets/local/fonts/`, and this machine's `data/local-assets.json` `fonts` group lists every pinned face
-  whose local bytes are verified; the runtime on that machine still reads it (`themeFonts`). Only the package copies
-  are trimmed; the client runtime did not change.
+  neither wrote nor kept any face. A run that finds the install's `Arknights_Data` writes
+  `public/assets/local/fonts/`, and the `fonts` group of that machine's `data/local-assets.json` lists every pinned
+  face whose local bytes are verified; `themeFonts` reads that group on such a machine. Only the package copies are
+  trimmed.
 - The other local-client extractions under `public/assets/local/` (themes, scenes, meshes) are different: they DO ship
   when the packaging machine extracted them (可露希尔 is held to its own importable pack). This page only records the
   font part; see [DEPLOY.md](../../docs/DEPLOY.md) and [ASSETS.md](../../docs/ASSETS.md).
 
-**Consequence.** "No font binaries in git" and "the fonts are not distributed" still agree: a release zip built from a
+**Consequence.** "No font binaries in git" and "the fonts are not distributed" agree: a release zip built from a
 checkout that ran the extraction carries no font binary and no `fonts` group, and a host of such a package falls
 back to the system faces.
 
-## Current approach
+## Publication rule
 
 **Fonts are not published.** No package — full, update, asset or theme — carries `public/assets/local/fonts/` or the
 `fonts` group of the shipped `data/local-assets.json`, and `THIRD-PARTY-NOTICES.md` gets no entry for these faces: a
 package that does not ship them is not a redistribution. The faces are extracted only on the machine that runs the game
 client (a full extraction attempts them, §37.240; `--only font` does it alone, `--only font/<face>` for one), and a host
 without them falls back to the system fonts, as [THEMES.md](../../docs/THEMES.md) and
-[ARCHITECTURE.md](../../docs/ARCHITECTURE.md) record. The pinned bytes and the licence note below remain the
-provenance of that extraction; they are no longer inputs to a packaging decision.
+[ARCHITECTURE.md](../../docs/ARCHITECTURE.md) record. The pinned bytes and the licence note below are the
+provenance of that extraction; they are not inputs to a packaging decision.
 
 This document does not edit `THIRD-PARTY-NOTICES.md`. That file lists the downloaded `public/fonts/` faces and the
 Google-Fonts-loaded ones; no locally extracted face is a package input.
@@ -83,21 +83,20 @@ hint from the extension (`.ttf` → `truetype`, otherwise `opentype`), so `NotoS
 although its bytes are CFF. [ASSUMED] Every target browser parses the face by its bytes and not by that hint; this was
 not re-checked in a browser for this page.
 
-The old `SourceHanSansCN-Bold.ttf` in the same directory has the same bytes and SHA-256 as the `.otf` (`OTTO`); it is the
-legacy name of the same extraction, is left in place, is never overwritten or deleted, and the manifest lists the
-`.otf` only.
+The recorded extraction also left a legacy `SourceHanSansCN-Bold.ttf` with the same bytes and SHA-256 as the `.otf`
+(`OTTO`); the job never overwrites or deletes it, and the manifest lists the `.otf` only.
 
 ### Other font files in the same directory
 
 `public/assets/local/fonts/` also holds `Novecentowide-Normal.otf`, `Novecentowide-Medium.otf` and
-`Novecentowide-Bold.otf`. `fonts.py` does not write or pin them, and no tool in `tools/local-extract/` writes them now;
-this checkout's `data/local-assets.json` lists none of them — its `fonts` group carries only the three pinned faces
-(`FONT_SPECS`), so `themeFonts` serves no Novecento face and the documents' `Novecentowide-*` text falls back to the
-`public/fonts/` `'Novecento Wide'` / `'Bender'` stack (`public/js/ui/prefab/view.js`). [ASSUMED] Their origin is
-therefore not established by this repository. Their `name` tables refer to an EULA (nameID 13) rather than Apache-2.0.
-They are covered by the current approach above: `public/assets/local/fonts/` is in no package, so no package
-distributes them either. A run that lists the `fonts` group rebuilds it from `FONT_SPECS`, so an older entry for one of
-these files is dropped (the files themselves stay on disk).
+`Novecentowide-Bold.otf`. `fonts.py` does not write or pin them, and no tool in `tools/local-extract/` writes them. A
+`fonts` group the job writes is rebuilt from `FONT_SPECS`, so it lists only the three pinned faces; `themeFonts`
+serves no Novecento face from such a group, and the documents' `Novecentowide-*` text falls back to the
+`public/fonts/` `'Novecento Wide'` / `'Bender'` stack (`public/js/ui/prefab/view.js`). A run that lists at least one
+face rewrites the group, so an older entry for one of these files is dropped then (the files themselves stay on
+disk). [ASSUMED] Their origin is not established by this repository. Their `name` tables refer to an EULA (nameID 13)
+rather than Apache-2.0. They are covered by the publication rule above: `public/assets/local/fonts/` is in no package,
+so no package distributes them either.
 
 ## Output / what is not done
 
@@ -110,7 +109,7 @@ these files is dropped (the files themselves stay on disk).
     pinned record would claim bytes that are not on disk);
   - a face this run attempts with no verified local file and no usable source is `skip font …` and not listed; a
     source whose bytes differ from the pinned size / SHA-256, or is not sfnt, is reported and not written.
-  - When at least one face is listed, the group is written from that run's faces alone: an older entry that is not in
+  - When at least one face is listed, the group is rewritten from that run's listing alone: an older entry that is not in
     `FONT_SPECS` (the Novecento files above) is dropped. When no face is listed, no empty group is written and the
     previous `fonts` group is kept as it was (`extract.py previous_groups`), so re-running the extractor does not drop
     the faces.
@@ -173,10 +172,14 @@ A face whose new bytes cannot be verified stays unpinned: the job skips it and t
 - A host built from a release package serves no `fonts` group at all (`dropStagedFonts`), so `themeFonts` installs no
   sheet and the shop draws with the existing stack; nothing else in the consumer changes.
 
-## Verification (this checkout)
+## Verification (recorded)
 
-- The three files under `public/assets/local/fonts/` hash to the pinned size and SHA-256 above (`Get-FileHash`, SHA-256).
-- All three are sfnt with `OTTO` magic; the legacy `.ttf` of Bold has the same SHA-256 as its `.otf`.
+This section is a record: the checks below were run once against the git-ignored local extraction on the machine that
+wrote this page, so the first two points describe that disk, not the bytes another checkout holds. The rest are facts
+about the code and its tests.
+
+- The three files under `public/assets/local/fonts/` hashed to the pinned size and SHA-256 above (`Get-FileHash`, SHA-256).
+- All three were sfnt with `OTTO` magic; the legacy `.ttf` of Bold had the same SHA-256 as its `.otf`.
 - The pinned values are enforced by code, not only recorded: `fonts.export_fonts` compares size and SHA-256 before
   writing, never overwrites a conflict, lists a face only when its local file is verified, and
   `extract.py --print-jobs` marks the group `optional` with the three face names. `test/tools/local-extract-fonts.test.js`
