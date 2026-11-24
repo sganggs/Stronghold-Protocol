@@ -529,6 +529,9 @@ export class GameData {
       difficulties: Array.isArray(h.difficulties) ? h.difficulties : DEFAULTS.hiddenCore.difficulties,
     };
   }
+  /** 规程 noStack bonds have no hidden layer balance; covenant keeps its recorded rules. */
+  get regulationLayers() { return this.config.version?.family === 'regulation'; }
+
   get regulationBondDraw() { return this.config.version?.rules?.bondDraw === 'regulation'; }
 
   /** Per-tier 选择自编 caps, or null when this data has no CUSTOM_CHECK step and limit map. */

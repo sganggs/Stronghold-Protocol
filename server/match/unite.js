@@ -99,6 +99,7 @@ export function helperStats(m, ps, results) {
   for (const [id, b] of Object.entries(ps.bonds || {})) {
     if (!b || !b.active) continue;
     active = true;
+    if (m.gd.regulationLayers && m.gd.bond(id)?.noStack) continue;
     const stored = Number(ps.layers && ps.layers[id]) || Number(b.layers) || 0;
     const gain = pending && Number(pending[id]);
     const add = Number.isFinite(gain) && gain > 0 ? layerGainRoom(stored, Math.floor(gain)) : 0;

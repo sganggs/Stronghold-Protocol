@@ -2022,3 +2022,14 @@ Only a cancelled final (`*_death`) shot kills its passenger. [ASSUMED] Cancellin
 passenger hidden in the cannon until a later shot releases it. Fixed enemy-side devices do not move, count as
 wave enemies or prevent a clear. The fatal hook preserves the initial 1 HP floor; subsequent destruction uses
 a source-less kill, so operators receive no kill credit for the cannon's own InstantKill.
+
+### Bonds without layers
+
+`DataSource.rawBond(id)` resolves the active content set's bond metadata, including overlays. In 规程
+(`config.version.family === 'regulation'`), a `noStack` bond
+starts with zero layers and receives neither `addLayers` nor `addTempLayers` gains, hooks or receipts. Carried
+temporary ledgers omit it; `effectiveBondLayers` returns zero. It remains an active bond for effects that count
+activation, but is excluded from highest-layer selection. [Official recordings](research/no-hidden-bond-layers-20261125.md).
+
+Covenant versions retain hidden permanent and temporary balances, highest-layer targeting, totals and helper
+ranking as recorded by PRTS. The existing covenant 余 strategy still skips `noStack` targets.

@@ -44,7 +44,7 @@ export class PlayerEconomy {
    * under BOND_LAYER_CAP (999, shared/constants.js) — a gain at the cap adds 0 and dispatches nothing.
    */
   addLayers(bondId, n, { requireActive = false, reason = '' } = {}) {
-    if (!this.gd.bond(bondId) || !Number.isFinite(n) || n <= 0) return 0;
+    if (!this.gd.bond(bondId) || (this.gd.regulationLayers && this.gd.bond(bondId).noStack) || !Number.isFinite(n) || n <= 0) return 0;
     if (requireActive && !(this.bonds[bondId] && this.bonds[bondId].active)) return 0;
     const before = this.layers[bondId] || 0;
     const add = layerGainRoom(before, Math.floor(n));

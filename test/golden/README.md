@@ -72,3 +72,32 @@ Historical versions (0.3.2 M2): pass `--version <official-id>` to use the snapsh
 The six corpora live under `<versionSlug>/`; root JSON files remain the default. Generate a historical corpus with
 `node tools/golden.mjs --version act1autochess --update --twice`; the second pass reverses scenario order.
 `test/versions-golden.test.js` checks corpus identity, engine errors and representative worker execution.
+
+## Regulation noStack layers (2026-11-26)
+
+Based on dev `3f75ad535` (whose full Node 22 golden CI passed). The correction applies to the regulation
+family: noStack bonds receive no permanent or temporary layers, do not absorb highest-layer grants or affect
+helper layer ranking, and bot acquisition estimates use the same eligible targets. Covenant keeps hidden
+counts and its existing Yu exception.
+
+Every moved match was rerun on untouched dev `3f75ad535`; the original stored digest was reproduced in all ten cases.
+
+All 256 regulation scenarios were computed: 246 unchanged and the following 10 matches updated. Roster,
+bonds, fields, stand-ins and DIY remain unchanged. Engine/scheduler errors are zero.
+
+| Match (`act3autochess-v3_1/matches.json`) | Changed digest sections | Cause |
+| --- | --- | --- |
+| `coop2-NORMAL-3` | end, rng, rounds, players | NoStack exclusion changes highest-layer targets, acquisition estimates and downstream bot/play outcomes. |
+| `coop2-HARD-4` | rounds, players | Removal of noStack balances from prep/player records. |
+| `coop3-ABYSS-5` | end, rng, rounds, players | NoStack exclusion changes highest-layer targets, acquisition estimates and downstream bot/play outcomes. |
+| `coop4-FUNNY-6` | rounds, players | Removal of noStack balances from prep/player records. |
+| `coop4-ABYSS-7` | rounds, players | Removal of noStack balances from prep/player records. |
+| `coop2-NORMAL-8-serverrun` | players | Removal of noStack balances from prep/player records. |
+| `coop2-ABYSS-10-boosted` | end, rng, rounds, players | NoStack exclusion changes highest-layer targets, acquisition estimates and downstream bot/play outcomes. |
+| `coop2-NORMAL-1-coverage-standins` | rng, rounds, players | NoStack exclusion changes highest-layer targets, acquisition estimates and downstream bot/play outcomes. |
+| `coop2-NORMAL-5-coverage-diy` | rounds, players | Removal of noStack balances from prep/player records. |
+| `coop2-NORMAL-1-unowned-roster` | end, rng, rounds, players, standIns | NoStack exclusion changes highest-layer targets, acquisition estimates and downstream bot/play outcomes. |
+
+The full default covenant corpus (`act2autochess`, 291 scenarios) also matches unchanged. Actual-data
+regressions for all four covenant versions retain prep gains, permanent/temporary battle gains, settlement,
+pending views, helper totals and bot acquisition estimates.

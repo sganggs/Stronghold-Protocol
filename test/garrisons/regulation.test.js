@@ -70,7 +70,7 @@ function battle(units, bonds = {}, extra = {}) {
   if (extra.chess) Object.assign(chess, extra.chess);
   const h = makeBattle({
     seed: extra.seed || 1, bonds, kind: extra.kind, flags: extra.flags,
-    defs: { chess, enemies: { e_dummy: enemyRec({ key: 'e_dummy', hp: 8000, speed: 0, atk: 0 }) } },
+    data: new DataSource({ ...RAW, chess, enemies: { e_dummy: enemyRec({ key: 'e_dummy', hp: 8000, speed: 0, atk: 0 }) } }),
     units: units.map((u) => ({ chessId: u.id, row: u.row, col: u.col, uid: u.uid })),
     autoFinish: false, timeLimit: 60,
   });
@@ -1028,11 +1028,13 @@ test('ex_bond_cnt adds extra on garrison and item gains only, from the carrier w
         { id: 'op', g: ['garrison_235_a'], row: 10, col: 4 },
         { id: 'other', row: 10, col: 5 },
       ],
-      { emptyShip: B(0) },
+      { yanShip: B(0) },
     );
     const src = source === 'op' ? h.unit('op') : source === 'other' ? h.unit('other') : source;
-    return h.b.addLayers('p1', 'emptyShip', 1, reason, { source: src });
+    return h.b.addLayers('p1', 'yanShip', 1, reason, { source: src });
   };
+  const blocked = battle([{ id: 'op', g: ['garrison_235_a'], row: 10, col: 4 }], { emptyShip: B(0) });
+  assert.equal(blocked.b.addLayers('p1', 'emptyShip', 1, 'garrison', { source: blocked.unit('op') }), 0);
   assert.equal(gain('garrison', 'op'), 2);
   assert.equal(gain('item', 'op'), 2);
   assert.equal(gain('bond', 'op'), 1);
@@ -1043,9 +1045,9 @@ test('ex_bond_cnt adds extra on garrison and item gains only, from the carrier w
   const both = battle([
     { id: 'op', g: ['garrison_235_a'], row: 10, col: 4 },
     { id: 'other', g: ['garrison_235_b'], row: 10, col: 5 },
-  ], { emptyShip: B(0) });
-  assert.equal(both.b.addLayers('p1', 'emptyShip', 1, 'garrison', { source: both.unit('op') }), 2);
-  assert.equal(both.b.addLayers('p1', 'emptyShip', 1, 'garrison', { source: both.unit('other') }), 3);
+  ], { yanShip: B(0) });
+  assert.equal(both.b.addLayers('p1', 'yanShip', 1, 'garrison', { source: both.unit('op') }), 2);
+  assert.equal(both.b.addLayers('p1', 'yanShip', 1, 'garrison', { source: both.unit('other') }), 3);
 });
 
 test('garrison_124 grants 不屈 on a 傀儡 swap; a charger selfdead does not', () => {

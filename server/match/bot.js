@@ -804,7 +804,7 @@ const bondList = (s) => String(s || '').split(',').map((x) => x.trim()).filter(B
 export function acquireLayers(m, ps, c) {
   const gd = ps.gd || m.gd;
   const out = new Map();
-  const add = (b, n) => { if (b && n > 0) out.set(b, (out.get(b) || 0) + n); };
+  const add = (b, n) => { if (b && n > 0 && !(gd.regulationLayers && gd.bond(b)?.noStack)) out.set(b, (out.get(b) || 0) + n); };
   for (const gid of c.garrisonIds || []) {
     const g = gd.garrison(gid);
     if (!g || g.eventType !== 'SERVER_GAIN') continue;
@@ -816,7 +816,7 @@ export function acquireLayers(m, ps, c) {
       const counts = bondList(bs.count).map(Number);
       bondList(bs.bond).forEach((b, i) => add(b, counts[i] || 0));
     } else if (g.effectKey === 'SERVER_ADD_BOND_ACTIVATED_MOST_LAYER') {
-      const most = Object.entries(ps.bonds).filter(([, x]) => x && x.active).map(([id]) => id).sort((a, b) => (ps.layers[b] || 0) - (ps.layers[a] || 0))[0];
+      const most = Object.entries(ps.bonds).filter(([id, x]) => x && x.active && !(gd.regulationLayers && gd.bond(id)?.noStack)).map(([id]) => id).sort((a, b) => (ps.layers[b] || 0) - (ps.layers[a] || 0))[0];
       add(most, Number(bb.count) || 0);
     }
   }

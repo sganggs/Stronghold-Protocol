@@ -52,7 +52,7 @@ const bondOrder = (ctx) => (Array.isArray(ctx.gd && ctx.gd.bondIds) ? ctx.gd.bon
 export function topActiveBondMeta(ctx) {
   let best = null, bl = -1;
   for (const id of bondOrder(ctx)) {
-    if (!ctx.bondActive(id)) continue;
+    if (!ctx.bondActive(id) || (ctx.gd.regulationLayers && ctx.gd.bond(id)?.noStack)) continue;
     const l = ctx.layers(id);
     if (l > bl) { bl = l; best = id; }
   }

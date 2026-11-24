@@ -205,8 +205,8 @@ export function activeBondIds(battle, pid) {
 /** Active bond with the most layers (ties → data order); null when none is active. */
 export function topActiveBond(battle, pid) {
   let best = null, bl = -1;
-  for (const id of Object.keys(gameData().bonds || {})) {
-    if (!bondActive(battle, pid, id)) continue;
+  for (const id of battle.data.bondIds) {
+    if (!bondActive(battle, pid, id) || (battle.data.regulationLayers && battle.data.rawBond(id)?.noStack)) continue;
     const l = bondLayers(battle, pid, id);
     if (l > bl) { bl = l; best = id; }
   }
