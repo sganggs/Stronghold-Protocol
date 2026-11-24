@@ -35,7 +35,7 @@ const { BondDisc, bondFrame } = await import('../../public/js/ui/components.js')
 const { BondStrip, BondPopup } = await import('../../public/js/ui/bondStrip.js');
 const { BondChips } = await import('../../public/js/ui/detailPanel.js');
 const { MatchBondRow } = await import('../../public/js/ui/matchInfo.js');
-const { FlyBonds } = await import('../../public/js/ui/teamPanel.js');
+const { FlyBonds, bondPopupNav } = await import('../../public/js/ui/teamPanel.js');
 const { data } = await import('../../public/js/data.js');
 await data.loadAll('bonds', 'effects', 'chess', 'assets', 'config');
 
@@ -330,4 +330,28 @@ test('同盟盟约速查: a flyout disc draws what the strip draws — ring, sta
   // 规程: the strip's unbroken 1_1 (its numeral sits over the strip slot; the flyout row is icon only)
   const v31 = withVersion('V3_1', () => check('V3_1'));
   for (const [id, d] of Object.entries(v31)) if (id !== 'swiftShip') assert.equal(d.key, '1_1', `V3_1 ${id}`);
+});
+
+test('zero-member no-stack bonds with internal layers leave the strip, flyout and arrow navigation', () => {
+  const check = () => {
+    // Orange replay 34:49: 协防 has zero members and 33 internal layers, which its effect does not use or show.
+    const idle = { bondId: 'emptyShip', count: 0, active: false, tier: 0, layers: 33 };
+    const stacked = { bondId: 'preciShip', count: 0, active: false, tier: 0, layers: 33 };
+    const bonds = [idle, stacked];
+    const saved = structuredClone(bonds);
+    const nodes = [...walk(BondStrip({ bonds, onOpen() {} }))];
+    assert.equal(nodes.some((v) => v.props?.['data-bond'] === 'emptyShip'), false);
+    assert.ok(nodes.some((v) => v.props?.['data-bond'] === 'preciShip'), 'a stacking bond retains its useful internal layers');
+    assert.deepEqual(FlyBonds({ bonds: [idle], ownerId: 'p_orange' }), []);
+    assert.deepEqual(bondPopupNav({ from: 'strip' }, { stripBonds: bonds }).ids, ['preciShip']);
+    assert.deepEqual(bondPopupNav({ from: 'fly', ownerId: 'p_orange' }, {
+      players: [{ playerId: 'p_orange', alive: true, bonds }],
+    }).ids, ['preciShip']);
+    assert.equal(popupOf('emptyShip', idle).layers, null);
+    assert.deepEqual(bonds, saved, 'internal layers remain in the data');
+    assert.equal(slotOf([{ ...idle, count: 1 }], 'emptyShip').count, null, 'one real member remains visible without layer text');
+    assert.equal(slotOf([{ ...idle, count: 2, active: true, tier: 1 }], 'emptyShip').count, null);
+  };
+  check();
+  for (const id of Object.keys(VERSIONS)) withVersion(id, check);
 });

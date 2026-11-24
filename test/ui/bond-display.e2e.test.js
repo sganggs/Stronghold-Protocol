@@ -124,6 +124,7 @@ test('active bonds draw a full ring at every tier (规程 1_1 with the numeral, 
       { bondId: 'siracusaShip', count: 6, tier: 2, active: true, layers: 7, thresholds: [3, 6] },
       { bondId: 'swiftShip', count: 2, tier: 1, active: true, layers: 6, thresholds: [2] },
       { bondId: 'sargonShip', count: 2, tier: 0, active: false, layers: 0, thresholds: [3, 6] },
+      { bondId: 'emptyShip', count: 0, tier: 0, active: false, layers: 33, thresholds: [2] },
     ];
     const setBonds = (pg) => pg.evaluate((bonds) => {
       const mock = globalThis.__MOCK__;
