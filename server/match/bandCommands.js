@@ -145,6 +145,8 @@ export function commandView(ps) {
   // [ASSUMED] A queued special-recruit/reward offer is the local special-recruit state. It ends with the offer: picked,
   // or lapsed at the end of the prep it could be picked in (PlayerState.lapseOffers, §37.339) — so the lock never
   // outlasts that prep, except for an offer queued after Ready / at the prep end, which locks the next prep instead.
+  // This is the pick-one offer overlay (`ps.offers`), not the slots panel's `isSpecialRecruit` (goodsType): the lock
+  // covers a merge promotion reward too, and no official source says whether it should.
   const specialRecruit = s.unusableAtSpecialRecruit && ps.offers.length > 0;
   const reason = s.type === 'NONE' ? 'locked' : s.type !== 'ACTIVE' ? 'passive'
     : cooldown ? 'cooldown' : usesLeft === 0 ? 'exhausted' : specialRecruit ? 'specialRecruit'

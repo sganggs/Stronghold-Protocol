@@ -111,8 +111,17 @@ export class PlayerEconomy {
     for (let i = 0; i < nItem; i++) slots.push(keep(oldItems[i], 'item') ?? this._rollItemSlot());
     this.shop.slots = slots;
     this.shop.layout = { chess: nChess, item: nItem };
-    this._applyBondRefresh(fresh, nChess);
+    const special = this._applyBondRefresh(fresh, nChess);
     for (const s of slots) if (s) s.frozen = this.shop.frozen;
+    // Every real roll is a new shop row: the client's slots panel plays its refresh animation only when
+    // this sequence changes (C# AutoChessStylizedShopSlotsPanel.Render). `specialRefresh` is this roll's
+    // one-shot marker; the charge it spends is the bondRefresh queue (`_applyBondRefresh`), never 佩佩's
+    // separate armed count (`specialRefreshCharges`, spent by its own manual refresh in markSpecialRefresh).
+    // [ASSUMED: a fully frozen row is kept unchanged at the round start but the sequence still advances, so the
+    // client replays the refresh clip on an unchanged row; "increment only when the row changed" is the
+    // alternative and neither has an official source.]
+    this.shop.refreshSeq = (Number(this.shop.refreshSeq) || 0) + 1;
+    this.shop.specialRefresh = !!special;
     this.dirty();
   }
 
@@ -120,13 +129,14 @@ export class PlayerEconomy {
    * One special-refresh charge (规程 SERVER_GAIN_SPECIAL_REFRESH_BOND_CHAR): the next roll shows `count` chess of that
    * bond. The charge is consumed even when the filtered roll comes back empty. A queued test shop returns before this
    * (rollShop), so it does not spend a charge. Frozen kept slots are not replaced.
+   * @returns {boolean} true when a charge was consumed (this roll is a special refresh)
    */
   _applyBondRefresh(fresh, nChess) {
     const jobs = this.shop.bondRefresh;
-    if (!Array.isArray(jobs) || !jobs.length) return;
+    if (!Array.isArray(jobs) || !jobs.length) return false;
     const job = jobs.shift();
     if (!jobs.length) delete this.shop.bondRefresh;
-    if (!job || typeof job.bond !== 'string' || !(job.count > 0)) return;
+    if (!job || typeof job.bond !== 'string' || !(job.count > 0)) return false;
     const need = Math.floor(job.count);
     const hasBond = (s) => {
       if (!s || s.kind !== 'chess' || !s.id) return false;
@@ -135,7 +145,7 @@ export class PlayerEconomy {
     };
     let found = 0;
     for (let i = 0; i < nChess; i++) if (hasBond(this.shop.slots[i])) found++;
-    if (found >= need) return;
+    if (found >= need) return true;
     for (let i = nChess - 1; i >= 0 && found < need; i--) {
       if (!fresh.has(i)) continue;
       const cur = this.shop.slots[i];
@@ -153,6 +163,7 @@ export class PlayerEconomy {
       this.shop.slots[i] = { kind: 'chess', id, basePrice: this.gd.chessPrice(id), frozen: false, sold: false };
       found++;
     }
+    return true;
   }
 
   /**
@@ -179,6 +190,8 @@ export class PlayerEconomy {
     this.shop.slots = slots;
     this.shop.layout = { chess: nChess, item: nItem };
     for (const s of slots) if (s) s.frozen = this.shop.frozen;
+    this.shop.refreshSeq = (Number(this.shop.refreshSeq) || 0) + 1;
+    this.shop.specialRefresh = false;
     this.dirty();
     return true;
   }

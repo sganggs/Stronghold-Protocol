@@ -114,14 +114,17 @@ describe('shop bar: the merge tag and the armed card', () => {
     await data.loadAll('chess', 'garrisons', 'assets', 'bonds', 'items');
     const board = { board: [onBoard(A, 10, 4)], hand: [inHand(A, 2)] };
     const hand = { board: [], hand: [inHand(A, 1), inHand(A, 2)] };
-    assert.equal(mergeHint(board, A), '精锐干员将出现在作战区原位置');
-    assert.equal(mergeHint(hand, A), '精锐干员将进入整备区');
-    assert.equal(mergeHint({ board: [], hand: [inHand(A, 1)] }, A), null, 'no merge yet');
-    assert.equal(mergeHint(board, golden(A)), null, 'an elite card never merges');
+    assert.equal(mergeHint(board, A, getChess), '精锐干员将出现在作战区原位置');
+    assert.equal(mergeHint(hand, A, getChess), '精锐干员将进入整备区');
+    assert.equal(mergeHint({ board: [], hand: [inHand(A, 1)] }, A, getChess), null, 'no merge yet');
+    assert.equal(mergeHint(board, golden(A), getChess), null, 'an elite card never merges');
+    // 风丸 needs two copies (upgradeNum 2): only the record resolver reports the merge at one owned copy — the same
+    // resolver the pips and the canvas marks use (without it the default need of three loses the tag).
+    assert.equal(mergeHint({ board: [onBoard(KAZE, 10, 5)] }, KAZE, getChess), '精锐干员将出现在作战区原位置');
     // the first tap: ShopBar tapCard → onDetail(id, 'chess', mergeHint) → game.js setDetail({ …, hint }) → resolveDetail
-    assert.match(read('public/js/ui/shopBar.js'), /setArmed\(key\); onDetail\(slot\.id, detailKind, detailKind === 'chess' \? mergeHint\(priv, slot\.id\) : null\)/);
+    assert.match(read('public/js/ui/shopBar.js'), /setArmed\(key\); onDetail\(slot\.id, detailKind, detailKind === 'chess' \? mergeHint\(priv, slot\.id, \(id\) => data\.lookup\('chess', id\)\) : null\)/);
     assert.match(read('public/js/screens/game.js'), /onDetail=\$\{\(id, kind, hint\) => setDetail\(\{ kind: kind === 'item' \? 'item' : 'chess', id, hint: hint \|\| null(?:, tap: \+\+cardTap\.current)? \}\)\}/);
-    const r = resolveDetail({ kind: 'chess', id: A, hint: mergeHint(board, A) }, new Map());
+    const r = resolveDetail({ kind: 'chess', id: A, hint: mergeHint(board, A, getChess) }, new Map());
     assert.equal(r.hint, '精锐干员将出现在作战区原位置');
     const blocks = ChessDetail({ chess: r.chess, piece: null, editable: false, bonds: [], loadout: null, hint: r.hint });
     assert.equal(blocks[0].key, 'head');

@@ -1,0 +1,71 @@
+<!doctype html>
+<!--
+  Shop WebGL dev host (Stage A): /dev/shop-webgl.html[?state=normal|unfold|fold|disable|armed|frozen|able0|repeated]
+
+  Draws the lab shop renderer ported into js/render/shop + js/ui/shop with an m.private-shaped mock and the
+  product's local theme pack (public/assets/local/themes/ac_s_closur — gitignored setup art). This page is a
+  dev/QA harness only: it is not wired into the game screen, the shop bar or the 规程 HUD.
+
+  It loads that pack through prepareTheme() and mounts with options.themeId; it never calls selectTheme() or
+  settingsStore.set(), so opening the page changes nothing in the player's saved settings (no persisted theme).
+
+  The page owns the debug surface (window.__shopWebglDebug); the renderer modules have no URL/debug hooks.
+-->
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Shop WebGL · dev host</title>
+  <link rel="icon" href="data:," />
+  <!-- the card-mark overlay (ui/shop/marks.js → host.syncCardMarks) is styled only in the game sheet; the
+       page adds its `shop-webgl--game` scope so the marks can be checked without a match -->
+  <link rel="stylesheet" href="/css/screens/game-shop-canvas.css" />
+  <style>
+    html, body { margin: 0; height: 100%; background: #0b0e12; color: #cdd6d6; font: 13px/1.5 system-ui, sans-serif; overflow: hidden; }
+    body { display: flex; flex-direction: column; justify-content: flex-end; }
+    #host { position: relative; width: 100%; display: flex; justify-content: center; }
+    .shop-webgl { position: relative; width: 100%; }
+    .shop-webgl__stage { position: relative; margin: 0 auto; }
+    .shop-webgl__canvas { display: block; }
+    .shop-webgl__hotspots { position: absolute; inset: 0; pointer-events: none; }
+    .shop-webgl__hit, .shop-webgl__slot {
+      position: absolute; margin: 0; padding: 0; border: 0; background: transparent;
+      pointer-events: auto; cursor: pointer; color: transparent;
+    }
+    .shop-webgl__hit:focus-visible, .shop-webgl__slot:focus-visible { outline: 2px solid #9fe1ff; outline-offset: -2px; }
+    #panel {
+      position: fixed; top: 8px; left: 8px; width: min(560px, 48vw); max-height: 92vh; overflow: auto;
+      background: #10141aee; border: 1px solid #263041; border-radius: 6px; padding: 10px 12px;
+    }
+    #panel h1 { font-size: 14px; margin: 0 0 6px; color: #9fe1ff; }
+    #panel .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 4px 0; }
+    #panel select, #panel button, #panel input { background: #1b2230; color: #e6edf3; border: 1px solid #2c3a4e; border-radius: 4px; padding: 3px 7px; font: inherit; }
+    #panel button.on { border-color: #9fe1ff; color: #9fe1ff; }
+    #status { color: #ffcf7a; }
+    #report { white-space: pre-wrap; font: 11px/1.4 ui-monospace, monospace; color: #b9c6cc; margin: 6px 0 0; max-height: 46vh; overflow: auto; }
+    #errors { color: #ff8f8f; white-space: pre-wrap; font: 11px/1.4 ui-monospace, monospace; }
+  </style>
+</head>
+<body>
+  <div id="host" class="shop-webgl shop-webgl--game"></div>
+  <div id="panel">
+    <h1>Shop WebGL · dev host（Stage A）</h1>
+    <div class="row"><span id="status">loading…</span></div>
+    <div class="row">
+      <label>state <select id="state"></select></label>
+      <label>coin <input id="coin" type="number" min="0" step="1" value="30" style="width:64px" /></label>
+      <label>level <select id="level"></select></label>
+      <label>dpr <select id="dpr"><option value="1">1</option><option value="2">2</option><option value="auto">auto</option></select></label>
+    </div>
+    <div class="row">
+      <label><input id="still" type="checkbox" /> still</label>
+      <label><input id="particles" type="checkbox" /> panel particles</label>
+      <label>spine <select id="spine"><option value="compose">compose</option><option value="overlay">overlay</option><option value="off">off</option></select></label>
+      <button id="remount" type="button">dispose + remount</button>
+    </div>
+    <div class="row"><span id="errors"></span></div>
+    <pre id="report"></pre>
+  </div>
+  <script type="module" src="/dev/shop-webgl.js"></script>
+</body>
+</html>

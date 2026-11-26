@@ -82,8 +82,18 @@ const notScaled = (selector) => NOT_SCALED.some((re) => re.test(selector));
  * Whole stylesheets a later pass owns: the shop bar's fixed cards (their height feeds the prep camera's HUD band,
  * ui/fieldHost.js HUD_REM), and the 干员调配 / 统计 screens, whose text is already px-floored (`max(.15rem, 11px)`) and
  * therefore readable on a phone as it is. Scaling them is step 2/3 of the change, not a forgotten line.
+ *
+ * The canvas shop (screens/game-shop-canvas.css) is the same in-match HUD chrome: the WebGL shop is laid out on the
+ * official theme's fixed 1920×372 canvas and scaled by its own unitCss (ui/shop/scene.js resize), not by `--t`; the
+ * canvas and its hotspots sit in that same scaled space, so a 文字大小 step would have to move the prefab layout
+ * itself. Same exclusion as game-shop.css.
  */
-const NOT_SCALED_FILES = [`${CSS}/screens/game-shop.css`, `${CSS}/screens/loadout.css`, `${CSS}/screens/stats.css`];
+const NOT_SCALED_FILES = [
+  `${CSS}/screens/game-shop.css`,
+  `${CSS}/screens/game-shop-canvas.css`,
+  `${CSS}/screens/loadout.css`,
+  `${CSS}/screens/stats.css`,
+];
 
 /** A font-size value that is neither scaled nor an exclusion: a plain `rem`, or `max(<rem>, …)`. */
 function plainRem(value) {

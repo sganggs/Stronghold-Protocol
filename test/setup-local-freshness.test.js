@@ -66,6 +66,10 @@ describe('expected.mjs matches the extractor (no game client)', { skip: !PY && '
     assert.equal(j.fx.meshVersion, EXPECTED_FX.meshVersion);
     assert.equal(j.fx.optIn, true);
     assert.equal(j.scenes.version, EXPECTED_SCENE.version);
+    assert.equal(j.fonts.sub, 'fonts');
+    assert.equal(j.fonts.optional, true, 'fonts are optional like the cursor');
+    assert.ok(!j.expectedGroups.includes('fonts') && !j.expectedGroups.includes('item'));
+    assert.equal(j.cursor.optional, true);
   });
 });
 
@@ -138,6 +142,20 @@ test('the full group set is not stale, and a superset of local-assets groups is 
   assert.equal(sup.stale, false);
   assert.equal(sup.fx.state, 'skip');
   assert.equal(localGaps(sup), '');
+});
+
+test('a pre-existing 86-group extraction that still carries fonts and item is not stale', () => {
+  const keys = [...EXPECTED_LOCAL_GROUPS, 'fonts', 'item'];
+  const assessed = assessLocal(manifestOf(keys), null);
+  assert.equal(assessed.groupCount, 86);
+  assert.equal(assessed.expectedGroupCount, 84);
+  assert.deepEqual(assessed.missingGroups, []);
+  assert.equal(assessed.stale, false);
+  assert.equal(localGaps(assessed), '');
+  assert.equal(localArtState(assessed), 'ok');
+  // the two optional keys are not expected any more: an extract that lists neither stays fresh
+  assert.ok(!EXPECTED_LOCAL_GROUPS.includes('fonts'));
+  assert.ok(!EXPECTED_LOCAL_GROUPS.includes('item'));
 });
 
 test('a count field that disagrees with the listed entries is stale; a missing count is not', () => {

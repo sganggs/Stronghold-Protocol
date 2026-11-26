@@ -117,6 +117,9 @@ export function ThemeSection({ activeId = '' }) {
         return;
       }
       selectTheme(id);
+      // A broken banner from an earlier attempt no longer applies once a selection resolves (a 'session' storage
+      // warning is not a theme failure and stays).
+      setNotice((n) => (n === 'broken' ? null : n));
       refresh();
     } finally { setBusy(false); }
   };

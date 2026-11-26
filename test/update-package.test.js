@@ -321,6 +321,49 @@ test('a base folder: npm\'s files are compared like the stage\'s, per-machine an
   }
 });
 
+test('an update carries no locally extracted font face and never deletes one a base shipped', { skip: !hasZipTool && 'no zip / tar' }, () => {
+  const co = fakeCheckout('9.9.8');
+  const out = tmp('font-out');
+  const inst = tmp('font-player');
+  try {
+    // this checkout has the local extraction: one face and its fonts group (the full plan holds it back)
+    put(co.dir, 'public/assets/local/fonts/Font-One.otf', 'font-one');
+    put(co.dir, 'data/local-assets.json', JSON.stringify({ version: 1, source: 'local-client', count: 2, groups: {
+      fonts: { 'Font-One': { path: '/assets/local/fonts/Font-One.otf', family: 'Font-One', weight: 700, kind: 'Font' } },
+      g: { x: { path: '/assets/local/g/x.png' } },
+    } }));
+    put(co.dir, 'public/assets/local/g/x.png', PNG);
+    assert.equal(co.git('add', '-A').status, 0);
+    assert.equal(runTool(['--root', co.dir, '--out', out, '--no-install', '--allow-dirty']).status, 0);
+    // the base an older release left: the full zip, plus the face the release shipped (or the host extracted itself)
+    extract(path.join(out, `${FOLDER}-v9.9.8.zip`), inst);
+    const root = path.join(inst, FOLDER);
+    put(root, 'public/assets/local/fonts/Font-One.otf', 'font-one');
+    put(root, 'public/assets/local/fonts/Font-Legacy.otf', 'font-legacy');   // a base's face this machine no longer has
+    bump(co, '9.9.9');
+    assert.equal(co.git('add', '-A').status, 0);
+    const r = runTool(['--root', co.dir, '--out', out, '--no-install', '--allow-dirty', '--update', '--from', root]);
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    const zip = path.join(out, `${FOLDER}-v9.9.9-update.zip`);
+    const payload = new Map();
+    readZip(zip, (name, data) => payload.set(name.slice(FOLDER.length + 1), data));
+    const update = parseUpdate(payload.get(UPDATE_FILE).toString());
+    assert.ok(![...payload.keys()].some((f) => f.startsWith('public/assets/local/fonts/')), 'the update ships no face');
+    assert.ok(!update.removed.some((x) => x.path.startsWith('public/assets/local/fonts/')), 'nor lists one as removed');
+    assert.match(r.stdout, /^not removed \(an update never deletes these names\): public\/assets\/local\/fonts\/Font-Legacy\.otf, public\/assets\/local\/fonts\/Font-One\.otf$/m);
+    // the player's own copies survive the update, and the update is complete over that base
+    extract(zip, inst);
+    assert.equal(checkInstall(root).state, 'ok');
+    const done = applyPendingUpdate(root, { log: quiet().log });
+    assert.equal(done.state, 'applied');
+    assert.deepEqual(done.deleted, []);
+    assert.equal(read(root, 'public/assets/local/fonts/Font-One.otf'), 'font-one');
+    assert.equal(read(root, 'public/assets/local/fonts/Font-Legacy.otf'), 'font-legacy');
+  } finally {
+    for (const d of [co.dir, out, inst]) fs.rmSync(d, { recursive: true, force: true });
+  }
+});
+
 test('the zip reader: stored and deflated entries, zip64, UTF-8 names; damaged and foreign zips are refused', { skip: !hasZipTool && 'no zip / tar' }, () => {
   const dir = tmp('zip');
   try {

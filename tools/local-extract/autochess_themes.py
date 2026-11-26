@@ -1,13 +1,19 @@
 """Official 卫戍协议 in-match UI themes (AUTOCHESS_SKIN) → spTheme 1 packs.
 
 Opt-in, like the battle effects: a plain extract.py run does not touch them, and themes/ is not in
-expected_local_groups. Run:
+expected_local_groups. Run (the packaging flow installs into the local extraction; a scratch root is for review):
 
-  extract.py --only theme --themes <backup-or-ab-root> --out <scratch> --manifest <scratch>/local-assets.json
+  extract.py --only theme --themes <backup-or-ab-root> --out public/assets/local --manifest data/local-assets.json
   extract.py --only theme/<id>     one of ac_n_initial, ac_n_iron, ac_s_closur
 
 Reads the theme bundles, the outer thumbnails and the voice packs from --themes. --game is only for a
 dependency the backup does not carry. Writes <out>/themes/<id>/{theme.json,layout.json,sprites,voice,spine}.
+
+`export_themes(..., shopdocs=True)` is extract.py's --only shopdocs: beside the theme pack it also writes
+card.json and shop.json, through card_prefab.py, shop_prefab.py and the two enrichment steps, and registers
+all three documents in the manifest. A plain --only theme run keeps `shopdocs` off and writes no card / shop
+document (those need the recovered 0.4.0 card/shop producer and its CAB index). The documents may lack
+enrichment fields when a step warns (tools/local-extract/SHOPDOCS.md).
 
 theme.json is the pack the interface-theme reader loads. layout.json is the prefab tree (RectTransform,
 Image, Text, CanvasGroup, animation clip names) plus the chess-frame / level-icon / shop-level hubs, so a
@@ -15,7 +21,11 @@ later HUD pass can rebuild the shop, countdown, ready button and banners without
 Since 0.4.0 (spLayout 2) the tree also carries layout groups, fitters, layout elements, masks, sliders,
 status drivers, tweens, script references (node ids) and each Image's material and exported file
 (ui_components.py). prefabs.json is the client's copy (no indentation): those trees, the bitmap fonts' glyphs
-and the bundle's legacy AnimationClips (public/js/ui/prefab/).
+and the bundle's legacy AnimationClips (public/js/ui/prefab/). card.json is the 规程 shop card on its own
+(card_prefab.py): the `autochess_shop_card_item` tree, the materials' shader parameters, the clips the card
+animates, the particle systems, the Images that take their sprite from the theme at runtime, and the
+frame_lv*_obj / chess_level_*_obj sub-prefabs. Reading a sprite, a texture or a script class that lives in
+another bundle needs the CAB index of unity_deps.py, which caches its scan in .cache/.
 
 [ASSUMED] A prefab slot's image is the main background or frame sprite (pick_main_sprite), not every
 sprite in the prefab. [ASSUMED] ac_s_closur has no skinSoundPreviewDict; its CN clip names match
@@ -37,6 +47,7 @@ import subprocess
 from pathlib import Path
 
 import ui_components as uic
+import unity_deps
 
 THEME_IDS = ('ac_n_initial', 'ac_n_iron', 'ac_s_closur')
 DEFAULT_THEME = 'ac_n_initial'
@@ -138,6 +149,68 @@ def num(value):
 
 def safe_stem(name):
     return SAFE.sub('_', str(name)).strip('._')[:120] or 'unnamed'
+
+
+# The sampler fields every texture record carries: the texture's own `m_TextureSettings` wrap/filter plus its
+# own pixel size, which is not the sprite rect a record's `w`/`h` hold (measured from the client's Texture2D
+# records; public/js/render/shop/cardStage.js applies them).
+SAMPLING_KEYS = ('wrapU', 'wrapV', 'filter', 'texW', 'texH')
+
+
+def _int_or_none(value):
+    """A serialized int/float → int; None when the field is absent or not a number."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    try:
+        return int(round(float(value)))
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+def texture_sampling(texture_object):
+    """A Texture2D's WrapU/WrapV/FilterMode and own size, every key None when the object is unreadable.
+
+    The official effect shaders declare `dcl_sampler sN, mode_default` and no wrap clause, so the texture's
+    `m_TextureSettings` alone decides how UV outside [0,1] samples: 0 Repeat, 1 Clamp, 2 Mirror, 3 MirrorOnce.
+    `texW`/`texH` are `m_Width`/`m_Height` (the whole texture); a record's `w`/`h` are the sprite's `m_Rect`,
+    which is the visible crop and can be smaller (inner_flow: rect 187×58, texture 192×60).
+    """
+    out = dict.fromkeys(SAMPLING_KEYS)
+    if texture_object is None:
+        return out
+    try:
+        tree = texture_object.read_typetree()
+    except Exception:
+        return out
+    if not isinstance(tree, dict):
+        return out
+    settings = tree.get('m_TextureSettings')
+    if isinstance(settings, dict):
+        out['wrapU'] = _int_or_none(settings.get('m_WrapU'))
+        out['wrapV'] = _int_or_none(settings.get('m_WrapV'))
+        out['filter'] = _int_or_none(settings.get('m_FilterMode'))
+    out['texW'] = _int_or_none(tree.get('m_Width'))
+    out['texH'] = _int_or_none(tree.get('m_Height'))
+    return out
+
+
+def texture_of(pointer, objects):
+    """The Texture2D object a same-bundle PPtr names (a Sprite's `m_RD.texture`), else None."""
+    file_id, path_id = _pptr(pointer)
+    if file_id or not path_id or not objects:
+        return None
+    obj = objects.get(path_id)
+    return obj if obj is not None and obj.type.name == 'Texture2D' else None
+
+
+def _sprite_sampling(sprite_object, objects):
+    """Sampling fields of the Texture2D a Sprite draws; all None when the sprite or its texture is unreadable."""
+    try:
+        tree = sprite_object.read_typetree()
+    except Exception:
+        return dict.fromkeys(SAMPLING_KEYS)
+    rd = tree.get('m_RD') if isinstance(tree, dict) else None
+    return texture_sampling(texture_of((rd or {}).get('texture'), objects))
 
 
 def _tokens(text):
@@ -839,6 +912,9 @@ def _image_info(tree, objects):
         info.update(_sprite_fields(obj))
     except Exception:
         info['sprite'] = None
+    # The picture's own sampler state, so a reader that has to sample outside the quad's UV range (tiled sweep
+    # masks) reads the texture's wrap instead of assuming `fract`.
+    info.update(_sprite_sampling(obj, objects))
     return info
 
 
@@ -972,8 +1048,9 @@ def _export_material_textures(env, objects, dest_dir, book):
             if not name or name in out:
                 continue
             info = book.resolve(name) if book is not None else None
+            sampling = texture_sampling(tex)
             if info and info.get('file'):
-                out[name] = {'file': info['file'], 'w': info.get('w'), 'h': info.get('h')}
+                out[name] = {'file': info['file'], 'w': info.get('w'), 'h': info.get('h'), **sampling}
                 continue
             try:
                 image = data.image
@@ -984,7 +1061,7 @@ def _export_material_textures(env, objects, dest_dir, book):
             rel = f'sprites/tex_{safe_stem(name)}.webp'
             dest_dir.mkdir(parents=True, exist_ok=True)
             _save_raster(image, dest_dir / f'tex_{safe_stem(name)}.webp')
-            out[name] = {'file': rel, 'w': image.size[0], 'h': image.size[1]}
+            out[name] = {'file': rel, 'w': image.size[0], 'h': image.size[1], **sampling}
     return out
 
 
@@ -1029,7 +1106,10 @@ def _resolve_refs(root, ctx):
         return value
 
     def fix(node):
-        for key in ('slider', 'status', 'colorGroup', 'scripts'):
+        # `levelStyles` / `prefabRefs` / `events` / `components` are the card's own node references (card_prefab.py
+        # resolves a level style's `frameObjNode` to a tree id); leaving them as raw `_Ref` objects makes card.json
+        # unserializable.
+        for key in ('slider', 'status', 'colorGroup', 'scripts', 'components', 'events', 'levelStyles', 'prefabRefs'):
             if key in node:
                 node[key] = sub(node[key])
         if 'slider' in node:
@@ -1466,6 +1546,17 @@ def match_prefab(index, official_path):
     return hits[0]
 
 
+def tree_count(node):
+    """Nodes in a prefab tree; used to distinguish the full shop panel from the small theme HUD panel."""
+    if not isinstance(node, dict):
+        return 0
+    return 1 + sum(tree_count(child) for child in (node.get('children') or []))
+
+
+SHOP_PANEL_MIN_NODES = 180
+
+
+
 def read_hubs(env):
     hubs = {}
     for obj in env.objects:
@@ -1655,8 +1746,12 @@ def _ref_for(book, sprite_name, size=None):
     return image_ref(info['file'], info.get('slice')), info
 
 
-def export_themes(themes_dirs, out_root, manifest, log, ids, repo_root, game_root=None):
-    """Write the selected theme packs under out_root/themes. Returns the file count."""
+def export_themes(themes_dirs, out_root, manifest, log, ids, repo_root, game_root=None, shopdocs=False):
+    """Write the selected theme packs under out_root/themes. Returns the file count.
+
+    `shopdocs=True` (extract.py --only shopdocs) also writes card.json / shop.json and their enrichment, and
+    builds the CAB index their cross-file reads need; a plain theme run writes only the theme pack.
+    """
     roots = [Path(p) for p in (themes_dirs or [])]
     index = _index_bundles(roots)
     tables, table_err = load_autochess_data(repo_root)
@@ -1701,6 +1796,7 @@ def export_themes(themes_dirs, out_root, manifest, log, ids, repo_root, game_roo
     books = {}
     total = 0
     records = []
+    cab_index = _cab_index(roots, game_root, repo_root, log) if ids and shopdocs else None
     for theme_id in ids:
         if theme_id not in loaded:
             log(f'skip theme {theme_id}: not loaded')
@@ -1709,7 +1805,7 @@ def export_themes(themes_dirs, out_root, manifest, log, ids, repo_root, game_roo
             count, record = _export_one(
                 theme_id, loaded, books, outer_env, index, out_root, manifest, log,
                 skins.get(theme_id) or {}, colors.get(theme_id) or {}, sounds, anims.get(theme_id) or {},
-                version,
+                version, cab_index, game_root, shopdocs,
             )
         except Exception as err:
             log(f'FAIL theme {theme_id}: {err}')
@@ -1724,6 +1820,22 @@ def export_themes(themes_dirs, out_root, manifest, log, ids, repo_root, game_roo
     return total
 
 
+def _cab_index(roots, game_root, repo_root, log):
+    """CAB → bundle for card.json's cross-file reads, cached under .cache/. Empty when resolution is off."""
+    if unity_deps.deps_disabled():
+        log('theme card: dependency resolution off (SP_NO_AB_DEPS); foreign names stay unresolved')
+        return {}
+    scanned = [Path(root) for root in list(roots) + ([game_root] if game_root else [])]
+    scanned = [root for root in scanned if root.exists()]
+    if not scanned:
+        return {}
+    try:
+        return unity_deps.index_bundles(scanned, cache=unity_deps.cache_path(repo_root), log=log)
+    except Exception as err:  # noqa: BLE001  a missing index costs names, not the extraction
+        log(f'warn theme card: no CAB index ({err}); foreign names stay unresolved')
+        return {}
+
+
 def _owner_book(owner, loaded, books):
     if owner in books:
         return books[owner]
@@ -1733,7 +1845,8 @@ def _owner_book(owner, loaded, books):
     return books[owner]
 
 
-def _export_one(theme_id, loaded, books, outer_env, index, out_root, manifest, log, skin, color_row, sounds, voice_anims, version):
+def _export_one(theme_id, loaded, books, outer_env, index, out_root, manifest, log, skin, color_row, sounds, voice_anims, version,
+                cab_index=None, game_root=None, shopdocs=False):
     src = loaded[theme_id]
     env, objects, config = src['env'], src['objects'], src['config']
     group = f'{THEME_SUB}/{theme_id}'
@@ -1983,6 +2096,75 @@ def _export_one(theme_id, loaded, books, outer_env, index, out_root, manifest, l
     (dest / 'prefabs.json').write_text(json.dumps(hud, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
     _list_file(manifest, group, 'prefabs.json', kind='TextAsset')
 
+    card_summary = None
+    if shopdocs:
+        card = None
+        card_files = []
+        try:
+            import card_prefab
+            card, card_files = card_prefab.build(
+                src['bundle'], group, dest, book, index=cab_index, version=version, log=log)
+        except Exception as err:  # noqa: BLE001  a card that cannot be read leaves the pack's other files in place
+            log(f'  warn {theme_id} card.json: {err}')
+        if card is not None:
+            # Register the produced document before reading anything else back from it: a failure in the summary or
+            # the file list below must not hide a card.json that is already written.
+            _list_file(manifest, group, 'card.json', kind='TextAsset')
+            for rel in card_files:
+                # Shader porting pages (`shaders/*.md`) are developer notes, not theme data: card_prefab no longer
+                # writes them, and a stale copy from an older extraction must not be registered here either.
+                if rel in manifest.get(group, {}) or rel.endswith('.md'):
+                    continue
+                kind = 'Texture2D' if '/tex_' in rel else 'Sprite'
+                _list_file(manifest, group, rel, kind=kind)
+            card_summary = {
+                'nodes': card['nodeCount'],
+                'materials': len(card['materials']),
+                'clips': len(card['clips']),
+                'particles': len(card['particles']),
+                'shaders': {name: {'compiled': record['compiled'], 'properties': len(record['properties'])}
+                            for name, record in card['shaders'].items()},
+                'sub': {name: {'nodes': doc['nodeCount'], 'clips': len(doc['clips']), 'materials': len(doc['materials'])}
+                        for name, doc in card['sub'].items()},
+                'files': len(card_files),
+                'unresolved': len(card['unresolved']),
+            }
+
+        # shop chrome is only for themes that actually carry the full panel_shop_main prefab.
+        # Keep the base producer first, then the two field-preserving enrichments:
+        #   shop base -> particles -> pathIDs.
+        shop_slot = config.get('shop_main') or {}
+        shop_hit = match_prefab(prefabs_index, shop_slot.get('prefab') or 'panel_shop_main')
+        shop_full = shop_hit is not None and tree_count(prefab_trees.get(shop_hit[0])) >= SHOP_PANEL_MIN_NODES
+        if shop_full:
+            battle_bundle = _find_ending(index, 'ui/autochess/[uc]autochessbattle.ab')
+            if battle_bundle is None:
+                log(f'  warn {theme_id} shop.json: battle bundle not in index')
+            else:
+                try:
+                    import shop_prefab
+                    shop_prefab.export_shop(
+                        src['bundle'], battle_bundle, dest, theme=theme_id, version=version,
+                        index=cab_index, log=log)
+                except Exception as err:  # noqa: BLE001  a shop that cannot be read leaves the pack's other files in place
+                    log(f'  warn {theme_id} shop.json: {err}')
+                else:
+                    # shop.json exists once export_shop returns, so register it first. The enrichments only add the
+                    # pathId / particle fields (the mask is part of the base document), and each warns on failure: a
+                    # broken enrichment keeps the base file.
+                    _list_file(manifest, group, 'shop.json', kind='TextAsset')
+                    # The enrichment modules are flat beside this one, so these are normal imports. Each raises when
+                    # its game root has no readable theme / battle bundles (PersistentData first, then
+                    # StreamingAssets/AB/Windows), which must not abort an --only shopdocs run.
+                    import path_ids
+                    import theme_particles
+                    for step, enrich in (('theme_particles', theme_particles.enrich_theme),
+                                         ('path_ids', path_ids.enrich_theme)):
+                        try:
+                            enrich(dest, game_root, log)
+                        except (Exception, SystemExit) as err:  # noqa: BLE001  the base document stays usable
+                            log(f'  warn {theme_id} shop.json {step}: {err}')
+
     file_count = 0
     byte_count = 0
     for dirpath, _dirs, filenames in os.walk(dest):
@@ -2009,6 +2191,8 @@ def _export_one(theme_id, loaded, books, outer_env, index, out_root, manifest, l
         'hubs': {name: len(rows) for name, rows in layout['hubs'].items()},
         'hud': _hud_interest(prefab_trees),
     }
+    if card_summary is not None:
+        record['card'] = card_summary
     return file_count, record
 
 

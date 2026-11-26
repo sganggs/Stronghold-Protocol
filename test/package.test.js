@@ -12,9 +12,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  ASSET_PACK_README, AUTHOR_TEST_FILES, FOLDER, REFUSE, RUNTIME_RESEARCH, assetPackName, assetPackPlan, assetPackReadme, entryProblems,
-  importableArt, isRefused, packageOutIsUnsafe, parseArgs, plan, playerPackageJson, rewritePlayerDoc, resolveSpecifier, scanFiles,
-  selectTracked,
+  ASSET_PACK_README, AUTHOR_TEST_FILES, FOLDER, FONT_ART_PREFIX, REFUSE, RUNTIME_RESEARCH, artPlan, assetPackName, assetPackPlan,
+  assetPackReadme, dropStagedFonts, entryProblems, formatSummary, importableArt, isRefused, packageOutIsUnsafe, parseArgs, plan,
+  playerPackageJson, rewritePlayerDoc, resolveSpecifier, scanFiles, selectTracked, withoutHeldFonts,
 } from '../tools/package.mjs';
 import { hash16 } from '../server/http/assetIndex.js';
 import { rewriteManifest } from '../server/http/assetViews.js';
@@ -173,8 +173,15 @@ function fakeCheckout() {
   put('public/assets/.DS_Store', 'junk');
   put('public/fonts/fonts.css', '@font-face{}\n');
   put('public/fonts/x.woff2', PNG);
-  put('data/local-assets.json', JSON.stringify({ version: 1, groups: { g: { x: { path: '/assets/local/g/x.webp' } },
-    'spine/token/token_x': { 'token_x.skel': { path: '/assets/local/spine/token/token_x/token_x.skel' } } } }));
+  // the local extraction's official faces: in no package, held back by FONT_ART_PREFIX (faces stay on this machine)
+  put('public/assets/local/fonts/Font-One.otf', 'font-one');
+  put('public/assets/local/fonts/Font-Two.ttf', 'font-two');
+  put('data/local-assets.json', JSON.stringify({ version: 1, count: 4, groups: { g: { x: { path: '/assets/local/g/x.webp' } },
+    'spine/token/token_x': { 'token_x.skel': { path: '/assets/local/spine/token/token_x/token_x.skel' } },
+    fonts: {
+      'Font-One': { path: '/assets/local/fonts/Font-One.otf', family: 'Font-One', weight: 700, kind: 'Font' },
+      'Font-Two': { path: '/assets/local/fonts/Font-Two.ttf', family: 'Font-Two', weight: 500, kind: 'Font' },
+    } } }));
   put('.cache/assets-report.json', '{}');
   put('pv/clip.txt', 'promo');
   const git = (...args) => spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8' });
@@ -277,6 +284,46 @@ test('a --no-install build of the temporary checkout zips exactly the plan in on
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
     fs.rmSync(out, { recursive: true, force: true });
+  }
+});
+
+test('the locally extracted fonts are in no package: the full plan holds them back and the staged manifest drops their group', () => {
+  const { dir } = fakeCheckout();
+  const FONTS = ['public/assets/local/fonts/Font-One.otf', 'public/assets/local/fonts/Font-Two.ttf'];
+  try {
+    const art = artPlan(dir);
+    assert.deepEqual(art.fontHeld, FONTS);
+    assert.deepEqual(art.files.filter((f) => f.startsWith(FONT_ART_PREFIX)), [], 'the full zip plans no extracted face');
+    assert.ok(art.files.includes('public/assets/local/g/x.png'), 'the rest of the local extraction still ships');
+    assert.deepEqual(art.missing, [], 'a held face is not "listed but missing"');
+    assert.deepEqual(art.orphans, ['public/assets/char/char_1048_orchd2.png'], 'held back is not "nothing lists it"');
+    // the update zip is this full stage's diff, so it carries no face either
+    const full = plan(dir, { allowDirty: true, scan: false, measure: false });
+    assert.ok(!full.files.some((f) => f.startsWith(FONT_ART_PREFIX)));
+    assert.deepEqual(full.fontHeld, FONTS);
+    assert.match(formatSummary(full), /^held back: 2 locally extracted font files/m);
+
+    // the stage's copy of the manifest: the fonts group goes, the other groups and the entry count stay in step
+    const stage = path.join(dir, 'stage');
+    fs.mkdirSync(path.join(stage, 'data'), { recursive: true });
+    fs.copyFileSync(path.join(dir, 'data/local-assets.json'), path.join(stage, 'data/local-assets.json'));
+    assert.equal(dropStagedFonts(stage), true);
+    assert.equal(dropStagedFonts(stage), false, 'once is enough');
+    const local = JSON.parse(fs.readFileSync(path.join(dir, 'data/local-assets.json'), 'utf8'));
+    const staged = JSON.parse(fs.readFileSync(path.join(stage, 'data/local-assets.json'), 'utf8'));
+    assert.deepEqual(Object.keys(staged.groups), ['g', 'spine/token/token_x'], '`fonts` is optional, so no empty key stays');
+    assert.equal(staged.count, local.count - 2);
+    assert.equal(local.groups.fonts['Font-One'].path, '/assets/local/fonts/Font-One.otf', 'this machine keeps its group for the runtime');
+    const shipped = withoutHeldFonts(local);
+    assert.equal(withoutHeldFonts(shipped), shipped, 'nothing left to hold back: the same object');
+
+    // the asset pack: the importer's plan never sees the fonts group
+    const pack = assetPackPlan(dir, { env: ENV, scan: false, allowDirty: true });
+    assert.ok(!pack.files.some((f) => f.startsWith(FONT_ART_PREFIX)));
+    assert.deepEqual(pack.files, ['public/assets/char/a.png', 'public/assets/local/g/x.webp',
+      'public/assets/local/spine/token/token_x/token_x.skel', 'public/assets/ui/b c.png', 'public/fonts/fonts.css']);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
   }
 });
 
@@ -578,5 +625,21 @@ test('a --assets build of a development version needs --allow-dev', { skip: !has
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
     fs.rmSync(out, { recursive: true, force: true });
+  }
+});
+
+test('a staged manifest that never listed a fonts group is left untouched (fonts are optional)', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-package-nofonts-'));
+  try {
+    const stage = path.join(dir, 'stage');
+    const data = path.join(stage, 'data');
+    fs.mkdirSync(data, { recursive: true });
+    const doc = { version: 1, count: 1, groups: { g: { a: { path: '/assets/local/g/a.png' } } } };
+    const pathOf = path.join(data, 'local-assets.json');
+    fs.writeFileSync(pathOf, JSON.stringify(doc));
+    assert.equal(dropStagedFonts(stage), false, 'nothing to drop: the same manifest');
+    assert.deepEqual(JSON.parse(fs.readFileSync(pathOf, 'utf8')), doc);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
   }
 });
