@@ -26,7 +26,7 @@ import { PHASE } from '../../../shared/constants.js';
 import { html, Icon, Tooltip, BondDisc } from './components.js';
 import { PlayerAvatar, LpTower, GIcon, LocalSprite, UnitThumb, BandIcon, RichText } from './gameComponents.js';
 import { EmoteBubble } from './emotes.js';
-import { STATUS_META, sortedPlayers, teamFrameIds, sortBonds, stripBondList, bondCountCap } from './gameLogic.js';
+import { STATUS_META, sortedPlayers, teamFrameIds, stripBondList, bondCountCap } from './gameLogic.js';
 import { bondDisplay } from './bondStrip.js';
 import { MissTag, uniteRemaining } from './hud.js';
 import { WinStreakBadge, BossDamageBadge, avatarBadgeTips } from './avatarBadges.js';
@@ -233,8 +233,7 @@ export function mergeFlyOps(base, peek) {
  * Exported for the bond popup's ‹ › (bondPopupNav) and the UI tests.
  */
 export function flyBondList(bonds, lookup = (id) => data.lookup('bonds', id)) {
-  return sortBonds(Array.isArray(bonds) ? bonds : [], lookup)
-    .filter((b) => !b.off && (b.active || b.count > 0 || b.layers > 0));
+  return stripBondList(bonds, lookup).filter((b) => !b.off);
 }
 
 /**
