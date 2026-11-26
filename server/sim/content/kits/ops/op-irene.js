@@ -58,24 +58,8 @@ const keysOf = (unit, grid) => absoluteRangeKeys(grid, unit.tileR, unit.tileC, u
 /** A living 【海怪】 enemy on the field. */
 const seaMonsterOnField = (battle) => battle.enemies.some((e) => e.alive && !e.hidden && Array.isArray(e.def?.tags) && e.def.tags.includes('seamonster'));
 
-/**
- * A skill that strikes ground enemies only cannot be opened while its range holds no ground enemy: every activation path
- * (the strategy's SKILL_RANGE, content) is refused and the charge stays — the pattern of 莎草 S2 (ops/chess_char_2_06-papyrs.js,
- * non-enumerable: never serialised).
- */
-function guardActivation(battle, unit, grid) {
-  const sk = unit.skill;
-  if (!sk || Object.prototype.hasOwnProperty.call(sk, 'activate')) return;
-  const activate = sk.activate;
-  const ok = () => battle.unitsInGrid(unit, grid, { side: 'enemy' }).some((e) => !e.isFlying);
-  Object.defineProperty(sk, 'activate', {
-    configurable: true, writable: true, enumerable: false,
-    value(reason, opts) { return ok() ? activate.call(this, reason, opts) : false; },
-  });
-}
-
 export default {
-  char_4009_irene: (bb, chess) => {
+  char_4009_irene: (bb, chess, def) => {
     const t0 = talentBb(chess, 0), t1 = talentBb(chess, 1);
     const tb = traitBb(chess);
     const b1 = bbOf(chess, S1), b2 = bbOf(chess, S2), b3 = bbOf(chess, S3);
@@ -100,9 +84,8 @@ export default {
         },
         [S2]: {
           kind: num(s2?.maxChargeTime, 1) > 1 ? 'charges' : 'instant',
-          // [ASSUMED] its strike and its guard (guardActivation) take ground enemies only: 白铁's 铁钳号 alone does not open
-          // it (skills.js allyTargetsOk)
           allyTargets: false,
+          canActivate: (battle, unit) => battle.enemiesInKeys(keysOf(unit, grid2), unit, GROUND).length > 0,
           onStart({ battle, unit }) {
             const list = battle.enemiesInKeys(keysOf(unit, grid2), unit, GROUND);
             sortEnemyTargets(battle, unit, list, null);
@@ -118,6 +101,12 @@ export default {
         [S3]: {
           kind: 'duration',
           duration: S3_DURATION,
+          ...(def?.skill?.trigger?.rule === 'SP_FULL' ? { trigger: 'SEARCH' } : {}),
+          canActivate(battle, unit) {
+            const keys = keysOf(unit, grid3);
+            return battle.enemiesInKeys(keys, unit, AIR).length > 0
+              || battle.allyTargetsInKeys(keys, unit).length > 0;
+          },
           attack: { noAttack: true },
           // 白铁's 铁钳号·原型机 (a registered ally target) is struck like an enemy — the owner's rule of 2026-10-08; its kit
           // cancels the hits [ASSUMED: its strikes take it like a ground enemy of the skill range] (skills.js allyTargetsOk)
@@ -205,7 +194,6 @@ export default {
         // SWO-X “审判官口粮”: 技能造成的伤害提升10%
         const skillMul = num(tb.damage_scale, 1);
         if (skillMul !== 1) onHitBy(battle, unit, ({ dmg }) => { if (dmg.isSkill) dmg.mul *= skillMul; });
-        if (unit.skill?.id === S2) guardActivation(battle, unit, grid2);
       },
     };
   },
