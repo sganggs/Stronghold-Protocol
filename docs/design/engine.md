@@ -462,3 +462,7 @@ existing handlers. Delayed replacement callbacks explicitly hold battle completi
 punisher replacement has no artificial one-second delay. A leak does not count as a kill and silence does not
 suppress these death talents. Sources, exact ids and retained placement assumptions:
 [Regulation death-summon investigation](../research/sarkaz-death-spawns-20261113.md).
+
+### 自动施放目标判定
+
+异客 S3：雷暴充能只在选敌范围内有可选敌人时消耗。

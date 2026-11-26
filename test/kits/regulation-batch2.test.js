@@ -27,6 +27,7 @@ const CHAR = Object.freeze({
   hbound: 'char_4232_hbound',
   fang2: 'char_1036_fang2',
   acrbot: 'char_618_acrbot',
+  pasngr: 'char_472_pasngr',
 });
 
 /** Normal `_a` whose charId matches. Elite is that record's goldenId. */
@@ -909,4 +910,25 @@ test('the ten operators fight for 60s without a sim error', () => {
     assert.ok(u.hp >= 0 && u.hp <= u.s.maxHp + 1e-6, `${u.defId} hp ${u.hp}/${u.s.maxHp}`);
   }
   h.invariants();
+});
+
+test('Regulation Passenger S3 wait for a visible target within skill range', () => {
+  const cases = [[ID.pasngr, 2], [ID.pasngrE, 2]];
+  for (const [id, skillIndex] of cases) {
+    const h = battle([op(1, id, 5, skillIndex)]);
+    const enemy = foe(h.battle, 9, 14);
+    h.step();
+    const unit = h.unit(1);
+    unit.skill.gainSp(9999, 'test');
+    h.run(0.6);
+    assert.equal(unit.skill.activations, 0, id);
+    assert.equal(unit.skill.ready, true, id);
+    enemy.x = 6;
+    h.battle.addBuff(enemy, { key: 'test:stealth', flags: { stealth: true } });
+    h.run(0.4);
+    assert.equal(unit.skill.activations, 0, id);
+    h.battle.addBuff(enemy, { key: 'test:reveal', flags: { reveal: true } });
+    h.run(0.6);
+    assert.ok(unit.skill.activations > 0, id);
+  }
 });
