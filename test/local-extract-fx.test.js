@@ -420,6 +420,47 @@ print(json.dumps([fx.graph_links(state), fx.graph_links('not json'), fx.bb_abili
     assert.ok(types.includes('CreateBuff'), 'nested nodes are walked');
   });
 
+  test('graph_projectiles / template_projectiles: the shots a template fires (塔露拉 S3\'s volley) join the skill whose buff carries it (round 85)', () => {
+    const out = py(`
+N = lambda t, **kw: {'$type': 'Torappu.Battle.Action.Nodes+' + t, **kw}
+volley = json.dumps([N('CheckOxiFireRainSlot'), N('EmitDirectionalMapEdgeProjectileVolley', _projectileKey='projectile_chr_oxi_s_3_heatwave',
+  _halfWidth=2, _maxBackDistance=11.0, _forwardExtensionKey='wave_exit_distance')])
+mixed = json.dumps([N('CheckSourceProjectileKey', _projectileKey='projectile_x_checked'), N('AtkScaleUp', _filterProjectileKey='projectile_x_filtered'),
+  N('CreateProjectileFollowEffect', _projectileKey='projectile_x_followed'), N('CheckUnitCurrentMode', _succeedNodes=[N('EmitProjectile', _projectileKey='Projectile_X_Nested')]),
+  N('Act55SideEmitHorizontalFireballs', _projectileKey='projectile_x_fireball'), N('EmitProjectile', _projectileKey='projectile_x_nested'), N('EmitProjectile', _projectileKey='')])
+T = {'oxi_s_3_wave': {'effect': None, 'graph': [], 'projectiles': [['ON_BUFF_TRIGGER', 'EmitDirectionalMapEdgeProjectileVolley', 'projectile_chr_oxi_s_3_heatwave']]},
+     'a': {'effect': None, 'graph': [], 'creates': ['b', 'a'], 'projectiles': [['ON_BUFF_START', 'EmitProjectile', 'p_a']]},
+     'b': {'effect': None, 'graph': [], 'creates': ['c', 'a'], 'projectiles': [['ON_BUFF_FINISH', 'EmitProjectile', 'p_b'], ['ON_BUFF_START', 'EmitProjectile', 'p_a']]},
+     'c': {'effect': 'x_loop', 'graph': []}}
+print(json.dumps([fx.graph_projectiles(volley), fx.graph_projectiles(mixed), fx.graph_projectiles('not json'),
+  fx.template_projectiles(T, 'oxi_s_3_wave'), fx.template_projectiles(T, 'a'), fx.template_projectiles(T, 'c'), fx.template_projectiles(T, None),
+  fx.template_projectiles(T, 'unknown')]))`);
+    const [volley, mixed, none, oxi, chain, plain, nokey, unknown] = out;
+    assert.deepEqual(volley, [['EmitDirectionalMapEdgeProjectileVolley', 'projectile_chr_oxi_s_3_heatwave']]);
+    assert.deepEqual(mixed, [['EmitProjectile', 'projectile_x_nested'], ['Act55SideEmitHorizontalFireballs', 'projectile_x_fireball']],
+      'emitters only (nested ones too, lower case, once each): a key check, a filter, a follow effect fire nothing');
+    assert.deepEqual(none, []);
+    assert.deepEqual(oxi, ['projectile_chr_oxi_s_3_heatwave']);
+    assert.deepEqual(chain, ['p_a', 'p_b'], 'the templates it creates, once each (no loop)');
+    assert.deepEqual([plain, nokey, unknown], [[], [], []]);
+  });
+
+  test('merge_recrawl: a --fx-units run replaces the units, skills and skins it crawled, adds new projectiles, keeps the rest (round 85)', () => {
+    const out = py(`
+prev = {'units': {'char_a': {'refs': ['a1']}, 'char_b': {'refs': ['b1']}}, 'skills': {'sk_a': {'projectiles': []}, 'sk_b': {'projectiles': []}},
+        'projectiles': {'p_old': {'main': 'old'}}, 'skins': {'char_a': {'points': 1}, 'char_b': {'points': 2}}}
+crawled = {'units': {'char_a': {'refs': ['a1', 'a2']}}, 'skills': {'sk_a': {'projectiles': ['p_new']}},
+           'projectiles': {'p_new': {'main': 'new'}, 'p_old': {'main': 'recrawled'}}, 'skins': {'char_a': {'points': 3}}}
+u, p, s, k = fx.merge_recrawl(prev, crawled)
+print(json.dumps([u, p, s, k, fx.merge_recrawl({'units': None}, {})]))`);
+    const [units, projectiles, skills, skins, empty] = out;
+    assert.deepEqual(units, { char_a: { refs: ['a1', 'a2'] }, char_b: { refs: ['b1'] } });
+    assert.deepEqual(projectiles, { p_new: { main: 'new' }, p_old: { main: 'old' } }, 'an earlier projectile record stays (other units fly it)');
+    assert.deepEqual(skills, { sk_a: { projectiles: ['p_new'] }, sk_b: { projectiles: [] } });
+    assert.deepEqual(skins, { char_a: { points: 3 }, char_b: { points: 2 } });
+    assert.deepEqual(empty, [{}, {}, {}, {}]);
+  });
+
   test('group_select / attack_extras / config_ability: how a group picks its sub-abilities, mount points, multi-shot fields', () => {
     const out = py(`
 P = lambda i: {'m_FileID': 0, 'm_PathID': i}

@@ -316,6 +316,9 @@ TOGGLE_CHECKER = re.compile(r'ToggleChecker$')
 # buff template actions that cast / stop an ability by its name (`_abilityName`: a GameObject name or a namedAsAlias)
 TRIGGER_ACTION = re.compile(r'^Trigger\w*Abilit')
 STOP_ACTION = re.compile(r'^(Interrupt\w*Abilit|PauseAbility$)')
+# buff template actions that fire their `_projectileKey` (graph_projectiles): EmitProjectile and its variants, the
+# events' own emitters (Act55SideEmitHorizontalFireballs, …)
+EMIT_ACTION = re.compile(r'Emit\w*(Projectile|Fireball|Volley)')
 # the group abilities' choice of a sub-ability (ability_entry `select`)
 GROUP_SELECT = {'AbilityRandomGroup': 'random', 'AbilitySelectableGroup': 'trigger', 'BurstAttackGroup': 'trigger',
                 'AbilityFirstSucceedGroup': 'firstSucceed', 'AbilityParallelGroup': 'parallel', 'AbilitySequenceGroup': 'sequence'}
@@ -1965,6 +1968,37 @@ def graph_links(state):
     return abilities, switches, creates
 
 
+def graph_projectiles(state):
+    """The projectiles an action graph fires (2026-11-26): [(node type, projectile key in lower case)…], the
+    `_projectileKey` of its EMIT_ACTION nodes — EmitProjectile, EmitProjectileToTileUseSelector,
+    EmitDirectionalMapEdgeProjectileVolley (塔露拉 S3's 簇火, template oxi_s_3_wave), …; a node that only tests a shot's key
+    (CheckSourceProjectileKey, AtkScaleUp's `_filterProjectileKey`) or follows one (CreateProjectileFollowEffect) fires
+    nothing. Until then a skill whose only shots came from its buffs' templates listed no projectile."""
+    out = []
+    for typ, n in graph_nodes(state):
+        k = n.get('_projectileKey')
+        if EMIT_ACTION.search(typ) and isinstance(k, str) and k and (typ, k.lower()) not in out:
+            out.append((typ, k.lower()))
+    return out
+
+
+def template_projectiles(templates, tkey):
+    """The projectile keys a buff template's actions fire (buff_templates `projectiles`), with those of the templates its
+    CreateBuff… actions create (`creates`, followed once each), in first-seen order; [] for an unknown template."""
+    out, seen, todo = [], set(), [tkey] if isinstance(tkey, str) and tkey else []
+    while todo:
+        k = todo.pop(0)
+        if k in seen:
+            continue
+        seen.add(k)
+        t = templates.get(k) or {}
+        for _ev, _typ, key in t.get('projectiles') or []:
+            if key not in out:
+                out.append(key)
+        todo.extend(x for x in t.get('creates') or [] if x not in seen)
+    return out
+
+
 def template_uses(tkey, template, on, buff):
     """The uses of a buff template's action graph (a buff_templates() entry): its CreateEffect nodes play at their buff
     event (BUFF_EVENT_ROLES; a target's buff starts when the target is hit), the buffs it creates loop."""
@@ -2474,11 +2508,13 @@ def strings_of(v, out):
 def buff_templates(env, ek):
     """templateKey → {effect: key | None, graph: [[buff event, action node type, field, key]…], abilities?: [[buff
     event, action node type, ability name, 'cast' | 'stop']…], switches?: [[buff event, mode index | 'bb',
-    restoreDefault]…], creates?: [template keys]} for every buff template (BUFF_TEMPLATES, Torappu
-    BuffTemplateHolder._templates) that names an effect, an ability, a mode switch or another template: a buff whose
-    overrideEffectKey is empty loops its template's effectKey; the graph's CreateEffect / CreateBuff nodes play at
-    their buff event; the abilities (v3, graph_links) are the ones its TriggerAbility* / Interrupt* actions cast and
-    stop — how the client ties a common ability or a talent's ability to an event."""
+    restoreDefault]…], creates?: [template keys], projectiles?: [[buff event, action node type, projectile key]…]} for
+    every buff template (BUFF_TEMPLATES, Torappu BuffTemplateHolder._templates) that names an effect, an ability, a mode
+    switch, another template or a projectile it fires: a buff whose overrideEffectKey is empty loops its template's
+    effectKey; the graph's CreateEffect / CreateBuff nodes play at their buff event; the abilities (v3, graph_links) are
+    the ones its TriggerAbility* / Interrupt* actions cast and stop — how the client ties a common ability or a talent's
+    ability to an event; the projectiles (graph_projectiles) join the projectiles of the skill or ability whose buff
+    carries the template (node_entry)."""
     try:
         files = env.load_rel(BUFF_TEMPLATES)
     except Exception:  # noqa: BLE001 — an older client without the holder: buffs keep their override keys only
@@ -2491,7 +2527,7 @@ def buff_templates(env, ek):
             for t in (env.tt(o).get('_templates') or []):
                 if not isinstance(t, dict) or not t.get('templateKey'):
                     continue
-                graph, abilities, switches, creates = [], [], [], []
+                graph, abilities, switches, creates, projectiles = [], [], [], [], []
                 for it in ((t.get('eventToActions') or {}).get('_items') or []):
                     ev = event_name(BUFF_EVENTS, it.get('key')) or it.get('key')
                     state = (it.get('value') or {}).get('SerializedState')
@@ -2501,11 +2537,13 @@ def buff_templates(env, ek):
                     abilities += [[ev] + x for x in ab]
                     switches += [[ev] + x for x in sw]
                     creates += [x for x in cr if x not in creates]
+                    projectiles += [[ev, typ, key] for typ, key in graph_projectiles(state)]
                 effect = ek(t.get('effectKey')) if t.get('effectKey') else None
-                if effect or graph or abilities or switches or creates:
+                if effect or graph or abilities or switches or creates or projectiles:
                     out[t['templateKey']] = {'effect': effect, 'graph': graph, **({'abilities': abilities} if abilities else {}),
                                              **({'switches': switches} if switches else {}),
-                                             **({'creates': creates} if creates else {})}
+                                             **({'creates': creates} if creates else {}),
+                                             **({'projectiles': projectiles} if projectiles else {})}
     return out
 
 
@@ -2562,8 +2600,10 @@ def node_entry(env, root, ek, pk, effect_refs, templates, node_name=None, stop=N
     switches to, or null), uses (behaviour_uses of every behaviour; an emitter use of an ability that fires a projectile
     carries its `projectileKey`, v3), roles (roles_of), unclassified (keys found in the subtree that no use places),
     abilities (v3: ability_info of every GameObject, with `node`). `node_name(go, name)` gives a use's `node` (default:
-    the GameObject's name); `stop(go)` skips a child subtree that another entry exports."""
+    the GameObject's name); `stop(go)` skips a child subtree that another entry exports. The projectiles include the
+    ones its buffs' templates fire (template_projectiles: 塔露拉 S3's projectile_chr_oxi_s_3_heatwave, 2026-11-26)."""
     strings, uses, mode, stack, root_mbs, abilities, switches, named = set(), [], None, [root], [], [], [], []
+    fired = set()
     while stack:
         go = stack.pop()
         gd = env.tt(go)
@@ -2590,6 +2630,7 @@ def node_entry(env, root, ek, pk, effect_refs, templates, node_name=None, stop=N
                         idx = next((int(x['value']) for x in b.get('blackboard') or [] if isinstance(x, dict)
                                     and x.get('key') == 'mode' and isinstance(x.get('value'), (int, float))), None)
                     switches.append({'event': ev, 'mode': idx, 'restore': restore, 'buff': b.get('buffKey') or None, 'node': name})
+                fired.update(template_projectiles(templates, b.get('templateKey')))   # the shots its templates fire
             found_uses = behaviour_uses(cls, fields, ek, templates, node=name, ability=ability if 'Emitter' in cls else None)
             if info and info.get('projectileKey') and 'Emitter' in cls:
                 for u in found_uses:
@@ -2604,7 +2645,7 @@ def node_entry(env, root, ek, pk, effect_refs, templates, node_name=None, stop=N
     placed = {k for u in uses for k in list(u['keys']) + [x for x in u.get('slots') or [] if x]}
     root_class, root_ability = skill_root(root_mbs)
     return {'rootClass': root_class, 'rootAbility': root_ability,
-            'effects': sorted(found | placed), 'projectiles': sorted({pk(x) for x in strings if pk(x)}), 'mode': mode,
+            'effects': sorted(found | placed), 'projectiles': sorted({pk(x) for x in strings | fired if pk(x)}), 'mode': mode,
             **({'modeBy': 'data'} if mode is not None else {}), 'uses': uses, 'roles': roles_of(uses),
             'unclassified': sorted(found - placed), 'abilities': abilities, '_switches': switches, '_named': named}
 
@@ -3238,12 +3279,26 @@ def _read_json(path):
         return None
 
 
+def merge_recrawl(prev, crawled):
+    """index.json's units, projectiles, skills and skins after a --fx-units run (export_fx `units`): the records the run
+    crawled — its units, the skills they hold, their skins — replace the earlier set's (a unit the run could not read
+    keeps its earlier record); a projectile record joins only when the set lacks it (other units may fly an earlier one);
+    every other record of `prev` stays as it is. `crawled`: crawl_units' {units, projectiles, skills, skins}."""
+    old = lambda k: prev.get(k) if isinstance(prev.get(k), dict) else {}  # noqa: E731
+    new = lambda k: crawled.get(k) if isinstance(crawled.get(k), dict) else {}  # noqa: E731
+    return ({**old('units'), **new('units')}, {**new('projectiles'), **old('projectiles')},
+            {**old('skills'), **new('skills')}, {**old('skins'), **new('skins')})
+
+
 def export_fx(ab_root, out_root, manifest, log, selection='sample', keys=None, jobs=None, root=None, fx_manifest=None,
-              texture_format='webp', add_only=False):
+              texture_format='webp', add_only=False, units=None):
     """The fx run (extract.py --only fx): writes <out_root>/fx/** and `fx_manifest` (default <root>/data/local-fx.json:
     the groups FX_GROUPS, every file); returns the number of files written. `manifest` (the groups of
     data/local-assets.json) gets nothing: extract.py drops the fx groups an earlier run left there (ran_groups). A
-    --fx-keys run (`keys`) updates those prefabs in the earlier set's index and file list."""
+    --fx-keys run (`keys`) updates those prefabs in the earlier set's index and file list. A --fx-units run (`units`:
+    unit ids) crawls those units again into the current set (merge_recrawl: their unit, skill and skin records replace
+    the earlier ones, new projectile records join) and exports only the effect prefabs they name that the set lacks;
+    everything else stays, as in an --fx-add-only run."""
     check_texture_format(texture_format)
     t_start = time.time()
     ab_root = Path(ab_root)
@@ -3252,9 +3307,15 @@ def export_fx(ab_root, out_root, manifest, log, selection='sample', keys=None, j
     jobs = max(1, jobs or min(8, os.cpu_count() or 2))
     out = Path(out_root) / FX_SUB
     out.mkdir(parents=True, exist_ok=True)
+    units_only = [u for u in dict.fromkeys(units or []) if isinstance(u, str) and u]
+    if units_only and keys:
+        raise ValueError('--fx-keys and --fx-units do not combine (--fx-units exports what the units name)')
+    add_only = add_only or bool(units_only)
     previous = _read_json(out / 'index.json') if add_only else None
     if add_only and previous and (previous.get('format') != 'fx-index' or previous.get('version') != INDEX_VERSION):
         raise ValueError('--fx-add-only requires a current fx index')
+    if units_only and not previous:
+        raise ValueError('--fx-units requires a current fx index (it re-crawls units into that set)')
     timings = {}
 
     t0 = time.time()
@@ -3265,13 +3326,15 @@ def export_fx(ab_root, out_root, manifest, log, selection='sample', keys=None, j
 
     t0 = time.time()
     gd = game_data(root)
-    if keys:
+    if units_only:
+        unit_ids = list(units_only)
+    elif keys:
         unit_ids = [CANNON_UNIT] if set(keys) & set(CANNON_FX) else []
     elif selection == 'sample':
         unit_ids = list(FX_SAMPLE_UNITS)
     else:
         unit_ids = gd['chars'] + gd['enemies'] + gd['tokens']
-    if add_only:
+    if add_only and not units_only:
         unit_ids = [uid for uid in unit_ids if uid not in ((previous or {}).get('units') or {})]
     enemy_idx = container_index(ab_root, (ENEMY_GLOB,), root / '.cache/fx/enemies.json', jobs, log) \
         if any(u.startswith('enemy_') for u in unit_ids) else {}
@@ -3284,6 +3347,8 @@ def export_fx(ab_root, out_root, manifest, log, selection='sample', keys=None, j
     generic |= {k for k, rel in eff.items() if rel in FX_GENERIC_BUNDLES}
     if keys:
         wanted = set(keys)
+    elif units_only:              # what the re-crawled units name (the set lacks some of it: below)
+        wanted = set(referenced)
     else:                         # the used set holds the sample too (a full run never drops a key a sample has)
         wanted = set(FX_SAMPLE_KEYS) | set(FX_COVERAGE_KEYS) | referenced | generic
     missing = sorted(k for k in wanted if k not in eff)
@@ -3331,10 +3396,14 @@ def export_fx(ab_root, out_root, manifest, log, selection='sample', keys=None, j
         'fx/mesh': {k: {'path': url(v['file']), 'kind': 'FxMesh', 'verts': v['verts']} for k, v in meshes.items()},
     }
     tex_all, set_name = dict(textures), 'keys' if keys else selection
+    client, prev_generic, generic_map = client_version(ab_root), [], {g: dict(v) for g, v in FX_GENERIC.items()}
     prev = previous if add_only else _read_json(out / 'index.json') if keys else None
     if isinstance(prev, dict) and prev.get('format') == 'fx-index' and prev.get('version') == INDEX_VERSION:
         # a --fx-keys run: these prefabs replace their earlier copies; the earlier set's units, skills, prefabs stay
-        if add_only:
+        if units_only:
+            units, projectiles, skills, skins = merge_recrawl(prev, {'units': units, 'projectiles': projectiles,
+                                                                     'skills': skills, 'skins': skins})
+        elif add_only:
             units, projectiles, skills, skins = ({**v, **(prev.get(k) or {})} for k, v in
                                                zip(('units', 'projectiles', 'skills', 'skins'), (units, projectiles, skills, skins)))
         else:
@@ -3349,15 +3418,25 @@ def export_fx(ab_root, out_root, manifest, log, selection='sample', keys=None, j
         groups = {g: ({**v, **(old_groups.get(g) or {})} if add_only else {**(old_groups.get(g) or {}), **v})
                   for g, v in groups.items()}
         set_name = prev.get('set') or set_name
+        if add_only:
+            # the set's generic keys and map entries stay (a client whose buff bundle lost one still has the earlier
+            # set's prefab; FX_GENERIC entries added since join), and a tree with no version of its own (no
+            # hot_update_list.json: bundles staged by hand) keeps the set's
+            prev_generic = (prev.get('generic') or {}).get('keys') or []
+            for g, v in (prev.get('generic') or {}).items():
+                if g != 'keys' and isinstance(v, dict):
+                    generic_map[g] = {**generic_map.get(g, {}), **v}
+            client = client or (prev.get('source') or {}).get('client')
+    generic_keys = sorted({k for k in generic if k in summaries} | {k for k in prev_generic if k in summaries})
     groups = {'fx': {'index': {'path': url('index.json'), 'kind': 'FxIndex', 'version': INDEX_VERSION, 'set': set_name,
                                'prefabs': len(summaries)},
                      'textures': {'path': url('textures.json'), 'kind': 'FxTextures', 'count': len(tex_all)}},
               **{g: dict(sorted(v.items())) for g, v in groups.items()}}
     index = {
         'format': 'fx-index', 'version': INDEX_VERSION, 'set': set_name,
-        'source': {'root': ab_root.name, 'client': client_version(ab_root)},
+        'source': {'root': ab_root.name, 'client': client},
         'units': units, 'projectiles': projectiles, 'skills': skills, 'skins': skins,
-        'generic': {**FX_GENERIC, 'keys': sorted(k for k in generic if k in summaries)},
+        'generic': {**generic_map, 'keys': generic_keys},
         'prefabs': dict(sorted(summaries.items())),
     }
     write_atomic(out / 'index.json', json.dumps(index, ensure_ascii=False, separators=(',', ':')).encode('utf-8'))
@@ -3365,7 +3444,7 @@ def export_fx(ab_root, out_root, manifest, log, selection='sample', keys=None, j
                                                    'textures': dict(sorted(tex_all.items()))}, separators=(',', ':')).encode('utf-8'))
     count = sum(len(v) for v in groups.values())
     write_atomic(fx_manifest, json.dumps({'version': MANIFEST_VERSION, 'format': 'fx-manifest', 'source': 'local-client',
-                                          'client': client_version(ab_root), 'set': set_name, 'count': count,
+                                          'client': client, 'set': set_name, 'count': count,
                                           'groups': groups}, ensure_ascii=False, separators=(',', ':')).encode('utf-8'))
     total = 3 + len(entries) + len(meshes) + sum(1 + (1 if v.get('half') else 0) for v in textures.values())
     if not keys and not add_only:                             # a full set: drop files an earlier run left behind

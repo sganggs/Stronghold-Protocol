@@ -503,7 +503,12 @@ also runs this job. The six earlier-only enemy models are part of the regular lo
 contract. FX discovery reads every version's roster. `--fx-add-only` crawls units absent from the existing index,
 adds their missing effect prefabs and keeps the existing units/skills/projectiles/prefabs; it never prunes the set.
 It can retain legacy projectile records beside current records (`rolesVersion: 1` marks newly extracted projectile
-role metadata); the runtime continues to read legacy behaviours. When working in a shared asset tree, stage the FX
+role metadata); the runtime continues to read legacy behaviours. `--fx-units <id1,id2>` (round 85) crawls units the
+index already has again: their unit, skill and skin records are replaced, a projectile joins when the set lacks it,
+and only the effect prefabs the set lacks are exported — how an index extracted before an extractor change gets the
+change for a few units (`--fx-units char_4247_oxi`: 塔露拉 S3's projectile, which buff templates fire, history
+§37.354). Both additive runs keep the set's generic keys and, run on a hand-staged bundle tree without its own
+`hot_update_list.json`, the set's client label (docs/design/vfx-format.md §33.1). When working in a shared asset tree, stage the FX
 output with copies of the manifest-selected FX index, texture index and `data/local-fx.json`, then publish absent
 files. If shared indexes must also stay untouched, give the merged indexes new names (for example
 `index-<sha256-prefix>.json` and `textures-<sha256-prefix>.json`) and point the worktree's `data/local-fx.json`

@@ -49,8 +49,9 @@ aklz4.py registers a decoder for it. This script pulls the art the web sources l
     → fx/index.json, fx/textures.json, fx/prefabs/*.json, fx/tex/**.webp (or .png), fx/mesh/*.json, listed in their own
     data/local-fx.json (next to --manifest; data/local-assets.json has no fx group);
     only with an explicit --only fx (a plain run leaves them out): the Phase 1a sample by default, --fx-set used for
-    every effect the units reference, --fx-keys <k1,k2> for named prefabs; textures are WebP quality 90 by default,
-    --fx-texture-format png selects lossless PNG
+    every effect the units reference, --fx-keys <k1,k2> for named prefabs, --fx-units <id1,id2> to crawl named units
+    again into the current set (their records replace the earlier ones; only the prefabs the set lacks are exported);
+    textures are WebP quality 90 by default, --fx-texture-format png selects lossless PNG
   - the three official 卫戍协议 in-match UI themes (autochess_themes.py: ac_n_initial 卫戍协议终端, ac_n_iron 乌萨斯齐心团,
     ac_s_closur 「全能的」可露希尔) → themes/<id>/theme.json (spTheme 1), layout.json, sprites/*.webp, voice/*.mp3.
     Opt-in like fx: --only theme or --only theme/<id>, read from --themes <backup or AB root>. Not in
@@ -83,7 +84,7 @@ Usage:
                                                           copied from a release bundle; needs Pillow)
   .venv/bin/python tools/local-extract/extract.py --only scene [--scenes <dir of in-season bundles>]
   .venv/bin/python tools/local-extract/extract.py --only fx [--fx-set sample|used] [--fx-keys k1,k2] [--fx-jobs N]
-                                                        [--fx-texture-format webp|png]
+                                                        [--fx-add-only | --fx-units id1,id2] [--fx-texture-format webp|png]
   .venv/bin/python tools/local-extract/extract.py --only plugin-art [--plugin-root <installation>]
   .venv/bin/python tools/local-extract/extract.py --only theme [--themes <backup or AB root>] [--only theme/<id>]
                                                         --out <scratch> --manifest <scratch>/local-assets.json
@@ -1222,6 +1223,10 @@ def main():
     ap.add_argument('--fx-jobs', type=int, default=0, metavar='N', help='with --only fx: worker processes (default up to 8)')
     ap.add_argument('--fx-add-only', action='store_true',
                     help='extract only units/prefabs missing from the current fx index; preserve the existing set')
+    ap.add_argument('--fx-units', default='', metavar='ID1,ID2',
+                    help='with --only fx: crawl these units (operator / enemy / token ids) again into the current fx '
+                         'index: their unit, skill and skin records replace the earlier ones, new projectiles join, '
+                         'and only the effect prefabs the set lacks are exported (the rest stays, as --fx-add-only)')
     ap.add_argument('--fx-texture-format', choices=('webp', 'png'), default='webp',
                     help='with --only fx: WebP quality 90 textures (default) or lossless PNG')
     ap.add_argument('--webp', action='store_true',
@@ -1352,10 +1357,11 @@ def extract(args, ab_root):
         total += export_token_spines(ab_root, out_root, manifest, print, token_ids)
     if fx_on:
         keys = [k.strip().lower() for k in args.fx_keys.split(',') if k.strip()]
+        fx_units = [u.strip() for u in args.fx_units.split(',') if u.strip()]
         total += fx.export_fx(ab_root, out_root, manifest, print, selection=args.fx_set, keys=keys or None,
                               jobs=args.fx_jobs or None, root=ROOT,
                               fx_manifest=Path(args.manifest).with_name(fx.FX_MANIFEST), texture_format=args.fx_texture_format,
-                              add_only=args.fx_add_only)
+                              add_only=args.fx_add_only, units=fx_units or None)
     if stage_ids or reg_ids:
         roots = scene_roots(ab_root, args.scenes)
         if stage_ids:

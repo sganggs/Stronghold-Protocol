@@ -51,7 +51,12 @@ export const FX_KINDS = Object.freeze({
   // pulses
   sonic: { a: 'wave', c: 0xc9a2ff, r: 1.5 }, pulse: { a: 'wave', c: 0x9ff0dc }, sermon: { a: 'wave', c: 0xffe28a, r: 1.5 }, ripple: { a: 'wave', c: 0x5fe0ff },
   tornadoPulse: { a: 'wave', c: 0xd8e8ff }, wake: { a: 'wave', c: 0x5fe0ff }, wolfShadow: { a: 'wave', c: 0x8fa0b0 }, wolfShadowLost: { a: 'vanish', c: 0x8fa0b0 },
-  redistribute: { a: 'wave', c: 0x62f08a }, dilemma: { a: 'wave', c: 0xc9a2ff }, heatwave: { a: 'wave', c: 0xff6a2a, r: 1.5 },
+  redistribute: { a: 'wave', c: 0x62f08a }, dilemma: { a: 'wave', c: 0xc9a2ff },
+  // 塔露拉 S3 日冕重烈's 簇火 (op-oxi.js volley): one event per volley at the caster with `dir` and `n` lanes — the lanes
+  // across the field (render/vfx/lanes.js), not the shared `wave` rings: those are a cast flash an official skill start
+  // or loop stands for (skillfx.js FLASH), which swallowed the only volley cue (history §37.354). With 官方特效 the
+  // official projectile flies along each lane (skills.js FX_BINDINGS skchr_oxi_3); `pt`: the lanes start at her tile
+  heatwave: { a: 'lanes', c: 0xff6a2a, r: 1.5, pt: true },
   domain: { a: 'domain', c: 0x8a5cd0 },
   // marks
   taunt: { a: 'mark', c: 0xff9c33 }, palsy: { a: 'mark', c: 0xc77dff }, emergency: { a: 'mark', c: 0xff5a4a }, fear: { a: 'mark', c: 0x9b7bff },

@@ -1352,7 +1352,14 @@ export function chargeKeys(plan) {
  *               it now — its cast rows on the owner for its facing, `projectile`'s flying effect straight from the
  *               muzzle to the fx's point over the kit's flight time `extra.t` (SkillFx._launch)
  *   ends        the fx kind of a launch binding this fx ends: the owner's oldest shell in the air stops where it is
- *               (the kit's explosion, which may come before the end point), then this binding plays
+ *               (the kit's explosion, which may come before the end point), then this binding plays; of a `lanes`
+ *               binding: the owner's shot whose head is nearest to the fx's point (within LANE_HIT_REACH) stops there
+ * or a volley of shots the kit moves itself, one fx per volley (history §37.354):
+ *   lanes       the fx (`dir`, `n` at the caster: 塔露拉 S3's 'heatwave') flies `projectile`'s flying effect along each
+ *               lane of render/vfx/lanes.js — straight over the ground at the skill's wave_speed, from up to LANE_BACK
+ *               tiles behind her to wave_exit_distance past the field's far edge (SkillFx._lanes)
+ *   tag         only a fx whose `extra.skill` is this (the kit's skill tag): another fx of that kind and owner (an
+ *               item's or a bond's) is not the skill's
  * The R11 entries (0.3.0 official-effects audit, history §32.14.44) bind a kit area or strike to the official prefab
  * the client plays there: the areas are the skill projectiles' reached effects (the projectile stays where it lands —
  * AuraHitBehaviour — for the area's life), the strikes their hit effects.
@@ -1440,6 +1447,19 @@ export const FX_BINDINGS = Object.freeze({
   skchr_jesca2_3: Object.freeze({
     bombardShell: binding({ owner: 'id', launch: 'ExtraBomb', projectile: 'projectile_chr_jesca2_s3_bomb', during: true }),
     bombard: binding({ owner: 'id', keys: ['jesca2_skill_03_hit_02'], at: 'point', oneshot: true, ends: 'bombardShell' }),
+  }),
+  // 塔露拉 S3 日冕重烈 (kits/ops/op-oxi.js volley / explode; history §37.354, player report 「塔露拉3技能没有特效」): the kit
+  // sends one 'heatwave' per volley (id = her, at her tile, `dir`, `n` lanes) and moves the 簇火 itself. The client's
+  // buff template oxi_s_3_wave (ON_BUFF_TRIGGER of the skill's oxi_s_3_wave_normal / _overload buffs) fires them:
+  // EmitDirectionalMapEdgeProjectileVolley of projectile_chr_oxi_s_3_heatwave (SimpleProjectile, AdvancedMovement at
+  // wave_speed, main oxi_skill_03_trail_01, cleared when it reaches its end) — `lanes` flies that trail along each lane.
+  // A shot that meets an enemy explodes there ('blast', id = her, at the enemy): the projectile's ProjectileActionBehaviour
+  // CreateEffectOnProjectile oxi_skill_03_hit_01 on the collision target (index.json lists it under `effects`), and the
+  // shot stops (_stopAfterFirstHit). No `during`: the shots in flight outlive the skill and her (the kit's
+  // _useProjectileContextWhenSourceInvalid); `tag`: an item's or a bond's 'blast' of hers stays its own
+  skchr_oxi_3: Object.freeze({
+    heatwave: binding({ owner: 'id', lanes: true, projectile: 'projectile_chr_oxi_s_3_heatwave', tag: 'oxi:heatwave' }),
+    blast: binding({ owner: 'id', keys: ['oxi_skill_03_hit_01'], at: 'point', oneshot: true, ends: 'heatwave', tag: 'oxi:heatwave' }),
   }),
   // 泡泡 S2 (chess_char_2_08-bubble.js): she makes no attack; every damage instance she takes strikes back at its source
   // ('counter': id = her, target = the attacker). The client's bubble_s_2 does it at ON_TAKE_DAMAGE — DamageViaAttr and
@@ -1601,7 +1621,7 @@ export function bindingKeys(idx, skillId) {
     for (const k of bindingEffects(idx, bind)) out.add(k);
     // the tick oneshots and, when the binding flies the shot itself, the trail (preloading; neither is a reached effect)
     for (const k of bind.hits || []) if (lc(k)) out.add(lc(k));
-    if ((bind.fly || bind.launch) && bind.projectile) {
+    if ((bind.fly || bind.launch || bind.lanes) && bind.projectile) {
       const main = lc(idx?.projectiles?.[lc(bind.projectile)]?.main);
       if (main) out.add(main);
     }

@@ -69,7 +69,8 @@
 //           a mode's loops (水遁忍者's spin), an enemy's shell (帝国炮火先兆者's 'bombardShell': the crosshair and the
 //           falling missile until its 'bombard', whose explosion stands for the shell's hits; #143);
 //       (1) FX_BINDINGS (skills.js): a kit fx standing for an official effect no plan row places (克莱门莎 S3's mark,
-//           泡泡 S2's counter on her attacker, 归溟幽灵鲨 S1's hit on the ally she swaps HP with);
+//           泡泡 S2's counter on her attacker, 归溟幽灵鲨 S1's hit on the ally she swaps HP with, 塔露拉 S3's 簇火 flown
+//           along their lanes from the kit's one fx per volley: `lanes`, _lanes);
 //       (2) pulse: a fx tagged with its skill (`extra.skill`) while the skill is on, when the plan has `pulse` entries —
 //           the owner's buff ticks for a fx on the owner, the skill's other hits for a fx away from it — plays them there;
 //       (3) the start flash: a cast-flash fx (FLASH archetypes) on the owner in the frame of its official skill start;
@@ -94,6 +95,9 @@ import {
   eventNum, FX_BINDINGS, bindingEffects, bindingKeys, lifeOf, COND_BUFFS, condState, BOUND_BY_SKILL, coverOf, enemyCoverOf,
   ENEMY_FX_BINDINGS, ENEMY_FX_KINDS, OWNER_NEAR, auraTargets, enemyBindingKeys, modeLoopKeys,
 } from './skills.js';
+import { projectileParts } from './flight.js';
+import { heatwaveLanes, LANE_BACK, LANE_EXIT, LANE_SPEED } from './lanes.js';
+import { boardToUnity } from './math.js';
 import { fxSpec } from '../fx/kinds.js';
 import { UF, ANIM } from '../../../../shared/constants.js';
 
@@ -112,6 +116,14 @@ export const COVER_AFTER_S = 1;
 export const SHELL_GRACE_S = 0.5;
 /** Tiles between an enemy shell's spot and its landing's ('bombard' comes at the same x, y as its 'bombardShell'). */
 const SHELL_SPOT = 0.05;
+/**
+ * Tiles from a `lanes` shot's drawn head within which the kit's explosion is that shot's (FX_BINDINGS `ends`: 塔露拉 S3 —
+ * the explosion is at the enemy the shot's collider, projectile_range 0.5, touched; the drawn clock runs a tick or two
+ * off the sim's) [ASSUMED].
+ */
+export const LANE_HIT_REACH = 1.25;
+/** The identity rotation: the root of a projectile's flying effect (wiring.js ID_ROT). */
+const ID_ROT = Object.freeze([0, 0, 0, 1]);
 /**
  * Tiles past a landing's `r` within which a unit's drawn position counts as inside the blast (`coverHits`: the sim hits
  * by its own positions; the views are interpolated) [ASSUMED].
@@ -1036,9 +1048,10 @@ export class SkillFx {
     for (const field of ['src', 'id']) {
       const U = extra[field] != null ? this.units.get(extra[field]) : null;
       const bind = U ? FX_BINDINGS[U.skillId]?.[kind] : null;
-      if (bind && bind.owner === field && (!bind.during || this._lasts(U))) {
+      if (bind && bind.owner === field && (!bind.during || this._lasts(U)) && (!bind.tag || extra.skill === bind.tag)) {
         if (bind.launch) return this._launch(U, bind, x, y, extra);
-        if (bind.ends) this._endShell(U);
+        if (bind.lanes) return this._lanes(U, bind, x, y, extra);
+        if (bind.ends) this._ends(U, bind.ends, x, y);
         return bind.attack ? this._boundAttack(U, bind) : this._bound(U, bind, x, y, extra);
       }
     }
@@ -1100,6 +1113,82 @@ export class SkillFx {
     this.w._fly(proj, src, point, 'ranged', now, { dur, followUp: true, ref });
     (U.shells ||= []).push({ ref, until: now + dur + SHELL_GRACE_S });
     return true;
+  }
+
+  /**
+   * An FX_BINDINGS `lanes` entry (塔露拉 S3's 簇火, history §37.354): the kit's one fx per volley (`dir`, `n` lanes, at the
+   * caster) flies the projectile's flying effect along each lane of the volley (render/vfx/lanes.js heatwaveLanes: from up
+   * to LANE_BACK tiles behind her to the skill's wave_exit_distance past the field's far edge) at the skill's wave_speed,
+   * on the ground plane (the client's volley node: `_heightOverHighland` 0) — the client's
+   * EmitDirectionalMapEdgeProjectileVolley; the sim moves the shots itself and sends no event per shot. Each trail is
+   * cleared at its end (_clearMainEffectWhenReached) or where the kit's explosion meets it (`ends`: _cutLane). A
+   * random_birth_delay of the skill (0 in our data) holds back each shot by a fixed share of it [ASSUMED: the client
+   * draws its own]. False when the trail is not installed (the procedural lanes stay).
+   */
+  _lanes(U, bind, x, y, extra) {
+    const proj = bind.projectile ? this.w.idx?.projectiles?.[lc(bind.projectile)] : null;
+    const parts = proj ? projectileParts(proj) : null;
+    const main = parts?.main;
+    if (!main || !this.w.ofx.lib.has(main)) return false;
+    const bb = U.srec?.bb || {};
+    const exit = Number.isFinite(Number(bb.wave_exit_distance)) ? Number(bb.wave_exit_distance) : LANE_EXIT;
+    const lanes = heatwaveLanes({ x, y, dir: extra.dir, n: extra.n }, this.w.ofx.ctx?.fieldRect?.() ?? null, { back: LANE_BACK, exit });
+    const speed = Number(bb.wave_speed) > 0 ? Number(bb.wave_speed) : LANE_SPEED;
+    const life = parts.life > 0 ? parts.life : Infinity;
+    const delay = Number(bb.random_birth_delay) > 0 ? Number(bb.random_birth_delay) : 0;
+    U.lanes = (U.lanes || []).filter((s) => !s.done && !(s.h && s.h.alive === false));
+    let drew = false;
+    lanes.forEach((L, i) => {
+      const shot = { L, dur: Math.max(0.04, Math.min(life, L.len / speed)), x: L.x0, y: L.y0, h: null, done: false, cut: false };
+      const go = () => { shot.h = this._flyLane(main, shot); if (!shot.h) shot.done = true; };
+      const wait = delay * ((i * 0.618034) % 1);
+      if (wait > 0) later(this.w.ofx, wait, go);
+      else go();
+      if (!shot.done) { drew = true; U.lanes.push(shot); }
+    });
+    return drew;
+  }
+
+  /** One lane's flight (_lanes): the trail from its start to its end in `shot.dur` battle s, straight, facing its way. */
+  _flyLane(main, shot) {
+    const L = shot.L, dur = shot.dur;
+    const yaw = Math.atan2(L.y1 - L.y0, L.x1 - L.x0);   // the Unity frame's x / y are the board's column / row
+    const head = (k, out) => {
+      shot.x = L.x0 + (L.x1 - L.x0) * k; shot.y = L.y0 + (L.y1 - L.y0) * k;
+      return boardToUnity(shot.x, shot.y, 0, out);
+    };
+    return this.w.ofx.spawn(main, { pos: head(0, [0, 0, 0]), yaw, groundZ: 0, rootRot: ID_ROT }, {
+      important: true,
+      track: (fx) => {
+        if (shot.done) return;
+        // the kit's explosion met it: it stops where its last tick put it (_stopAfterFirstHit)
+        if (shot.cut) { shot.done = true; fx.stop({ hit: true }); return; }
+        head(Math.min(1, fx.time / dur), fx.anchor);
+        fx.yaw = yaw; fx.pitch = 0; fx.mirror = false;
+        if (fx.time >= dur) { shot.done = true; fx.stop({}); }
+      },
+    });
+  }
+
+  /** An FX_BINDINGS `ends` entry: the shot of the binding `ends` names that this fx (an explosion) ends. */
+  _ends(U, ends, x, y) {
+    if (FX_BINDINGS[U.skillId]?.[ends]?.lanes) this._cutLane(U, x, y);
+    else this._endShell(U);
+  }
+
+  /**
+   * A `lanes` shot went off (the kit's explosion at (x, y)): the owner's shot in flight whose drawn head is nearest to
+   * it, within LANE_HIT_REACH tiles, stops at the next tick.
+   */
+  _cutLane(U, x, y) {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+    let best = null, bd = LANE_HIT_REACH;
+    for (const s of U.lanes || []) {
+      if (s.done || s.cut || !s.h || s.h.alive === false) continue;
+      const d = Math.hypot(s.x - x, s.y - y);
+      if (d < bd) { bd = d; best = s; }
+    }
+    if (best) best.cut = true;
   }
 
   /** An FX_BINDINGS `ends` entry: the owner's oldest shell still in the air stops where it is (it went off). */
