@@ -462,3 +462,7 @@ existing handlers. Delayed replacement callbacks explicitly hold battle completi
 punisher replacement has no artificial one-second delay. A leak does not count as a kill and silence does not
 suppress these death talents. Sources, exact ids and retained placement assumptions:
 [Regulation death-summon investigation](../research/sarkaz-death-spawns-20261113.md).
+
+### 自动施放目标判定
+
+暴躁铁皮 S1：技力就绪后，等待攻击范围内有可选敌人；侧面阻挡不能替代范围判定。[ASSUMED] 启动采用目标所在格，技能生效后的攻击仍按原伤害规则处理。
