@@ -5,7 +5,9 @@
 //     { round, kind, shopLevel, funds,
 //       handUnits  pieces in the 整备区 (hand, 10 slots; operators, items and summon stacks),
 //       handChess  operators in the hand,
-//       handPieces [{ slot, id, bonds, position }] of those operators (slot 0 = leftmost; 规程 bench switches read it),
+//       handPieces [{ slot, id, bonds, position, uid? }] of those operators (slot 0 = leftmost; 规程 bench switches
+//         read it). uid is the inventory uid when the piece has one, shared with input.bench so a bond switch and a
+//         garrison switch cannot summon the same chess twice.
 //       roundStats { refreshes, buys, sells, spent, gainedChess, arts }   (this round's prep, ps.round),
 //       matchBands band ids of every alive player (this player first), plus a retained Touch team grant,
 //       teammates  [{ playerId, bandId }] of the other alive players }
@@ -32,15 +34,18 @@ export function registerSupportMeta(registry) {
       // Other team strategies and the teammate contexts still require a living player.
       if (ctx.teamMedicGranted?.() && !matchBands.includes('band_amedic')) matchBands.push('band_amedic');
       // Chess only. slot is the hand index (0 = leftmost). Bonds include 变形同构体 grants; position is the record's.
+      // uid is the inventory id (piece views carry it). Bench switches skip a uid already created as a unit.
       const handPieces = [];
       for (let slot = 0; slot < hand.length; slot++) {
         const p = hand[slot];
         if (!p || p.kind !== 'chess') continue;
         const rec = ctx.chessRecord(p.id);
-        handPieces.push({
+        const piece = {
           slot, id: p.id, bonds: metaBonds(ctx, p),
           position: rec && rec.position ? String(rec.position).toUpperCase() : null,
-        });
+        };
+        if (Number.isInteger(p.uid) && p.uid > 0) piece.uid = p.uid;
+        handPieces.push(piece);
       }
       ev.input.contentInfo = {
         round: ctx.round,
