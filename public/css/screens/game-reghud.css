@@ -449,3 +449,18 @@
 .gm__bonds--pf .bond.is-active .bond__core { background: var(--pf-bond-on) center / 129% 129% no-repeat; box-shadow: none; }
 .gm__bonds--pf .bond.is-active .bond__icon { filter: brightness(0) invert(1); }
 .gm__bonds--pf .bond.is-active .bond__glyph { color: #fff; }
+
+/* Reserve the trailing side of the card for the skill and module. */
+.scard.scard--reg .scard__bonds {
+  inset: auto .43rem .37rem .07rem;
+  max-height: none;
+  flex-wrap: nowrap;
+}
+.scard.scard--reg .scard__bond { max-width: 100%; }
+.scard.scard--reg .scard__bond > span:last-child { overflow: hidden; text-overflow: ellipsis; }
+.scard.scard--reg .scard__itemart {
+  inset: 21% 8% 23%;
+  display: grid;
+  place-items: center;
+}
+.scard.scard--reg .scard__itemart img { display: block; min-width: 0; min-height: 0; object-fit: contain; }

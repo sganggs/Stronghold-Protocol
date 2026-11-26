@@ -90,8 +90,8 @@ function regCardTierView(face, facePack, still, { unitRemX = 0.01, unitRemY = 0.
   };
 }
 
-function regBondLine(bonds, offBonds, style = null, maskGlyph = false) {
-  return html`<span class="scard__bonds" style=${style}>
+function regBondLine(bonds, offBonds, maskGlyph = false) {
+  return html`<span class="scard__bonds">
     ${bonds.slice(0, 3).map((b) => {
       const bondName = data.lookup('bonds', b)?.name || b;
       const off = !!(offBonds && offBonds.has(b));
@@ -198,7 +198,7 @@ export function ChessCard({ slot, idx, priv, frozen = false, reason = null, free
         <${Img} src=${profMarkUrl(m, c?.profession)} class="scard__prof" fallback=${html`<span class="scard__prof is-pending" aria-hidden="true"></span>`} />
         <span class="scard__name">${c?.name || slot.id}</span>
       </span></span>`}
-      ${face?.bonds ? regBondLine(bonds, offBonds, face.bonds, true) : regBondLine(bonds, offBonds)}
+      ${regBondLine(bonds, offBonds, !!face?.bonds)}
       ${repeatFx}
       ${willMerge ? html`<span class="scard__mergetag" title=${hint}>${t('可晋升')}</span>` : null}
       ${frozen ? html`<span class="scard__ice" aria-hidden="true"><${Icon} name="snow" /></span>` : null}
@@ -285,7 +285,7 @@ export function ItemCard({ slot, idx, frozen = false, reason = null, free = fals
       ${face?.item?.watermark ? html`<span class="scard__prefab-layer scard__prefab-layer--deco_item" style=${face.item.watermark.style} aria-hidden="true"><i style=${face.item.watermark.image}></i></span>` : null}
       ${face?.layers.map((layer, i) => html`<span key=${`${layer.node.name}:${i}`} class=${cx('scard__prefab-layer', `scard__prefab-layer--${layer.node.name}`)} style=${layer.style} aria-hidden="true"><i style=${layer.image}></i></span>`)}
       ${regCost(slot, free, reason === t('资金不足'), face?.cost?.style)}
-      <span class="scard__itemart" style=${face?.item?.icon}>
+      <span class="scard__itemart">
         <${Img} src=${itemIconUrl(m, it)} fallback=${html`<${GIcon} name="bolt" />`} />
       </span>
       ${face?.item ? html`<span class="scard__namebar" style=${face.item.namebar}>
