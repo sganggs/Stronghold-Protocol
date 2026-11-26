@@ -20,6 +20,9 @@ const STORM_FX_RADIUS = 2;
 function pasngr(bb, chess, def) {
   const t0 = tbb(def, 0), t1 = tbb(def, 1), tb = def?.traitBb || {};
   const skillGrid = def?.skill?.rangeGrid?.length ? def.skill.rangeGrid : null;
+  const stormTargets = (battle, unit) => enemiesIn(battle, unit, skillGrid
+    ? absoluteRangeKeys(skillGrid, unit.tileR, unit.tileC, unit.dir, unit.s.rangeExtend)
+    : unit.rangeKeys);
   const strike = (battle, unit, first, scale) => {
     const ch0 = unit.profile?.chain || { count: 4, falloff: 0.15, radius: CHAIN_RADIUS };
     // elite module (电磁调节器) upgrades the skill's chain too: skill@chain.atk_scale / skill@sluggish
@@ -64,14 +67,12 @@ function pasngr(bb, chess, def) {
       attack: {},
       onStart({ unit, skill }) { skill.spec.attack.chain = chainOf(unit, { count: Math.max(1, Math.floor(num(bb['attack@max_target'], 5))) }); },
     },
-  };
-  return {
-    skills,
-    skill: {
+    skchr_pasngr_3: {
       kind: 'charges',
+      ...(def?.skill?.trigger?.rule === 'SP_FULL' ? { trigger: 'SEARCH' } : {}),
+      canActivate: (battle, unit) => stormTargets(battle, unit).length > 0,
       onStart({ battle, unit }) {
-        const keys = skillGrid ? absoluteRangeKeys(skillGrid, unit.tileR, unit.tileC, unit.dir, unit.s.rangeExtend) : unit.rangeKeys;
-        const cands = enemiesIn(battle, unit, keys);
+        const cands = stormTargets(battle, unit);
         if (!cands.length) return;
         const tgt = cands.reduce((a, b) => (b.hp > a.hp ? b : a));
         // 判定中心所在格: the tile of the target's centre (the rounding of body.js posKey); fixed for the storm's 4 s
@@ -91,6 +92,10 @@ function pasngr(bb, chess, def) {
         }, { owner: unit });
       },
     },
+  };
+  return {
+    skills,
+    skill: skills.skchr_pasngr_3,
     talents: [
       { install(battle, unit) { // 机理分析
         const thr = num(t0.hp_ratio, 0.8), ds = bv(t0, 'damage_scale', 1), dur = bv(t0, 'duration', 3);
