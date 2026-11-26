@@ -4,6 +4,17 @@ Part of [DESIGN.md](../DESIGN.md) (the index; section numbers are global).
 
 **Changelog** (for runtimes reading the files; newest first)
 
+* **2026-11-26 — the projectiles a buff template fires, `--fx-units` (round 85, history §37.354)**; no version change,
+  fields added only. (1) A buff template's action graph that fires a projectile (an EmitProjectile… node's
+  `_projectileKey`: EmitProjectile, EmitProjectileToTileUseSelector, EmitDirectionalMapEdgeProjectileVolley, …; not a
+  node that only checks or follows a shot's key) adds it to the `projectiles` of the skill, talent or ability whose buff
+  carries the template (and the templates it creates) — §33.12 Skill. Until now such a skill listed none: 塔露拉 S3's
+  `skchr_oxi_3` gains `projectile_chr_oxi_s_3_heatwave` (oxi_s_3_wave's volley; main `oxi_skill_03_trail_01`, its
+  ProjectileActionBehaviour's hit `oxi_skill_03_hit_01` in `effects`), and those prefabs join the set. A full run links
+  every such template (65 in the client of 2026-11; 克莱门莎 S2, 冻河 S3, 达米农's talent, …). (2) `extract.py --only fx
+  --fx-units <id1,id2>` crawls the named units again into the current set (§33.1). (3) An additive run (`--fx-add-only`,
+  `--fx-units`) keeps the set's generic map entries and keys (FX_GENERIC entries added since join), and a bundle tree
+  with no `hot_update_list.json` of its own keeps the set's `source.client` / the file list's `client`.
 * **2026-10-16 — lingering areas: readings from the client's data and code, no format change (0.3.1, the maintainer's
   report of 2026-10-16; history 0.3.1 §34.5)**. (1) A ground-placed effect's root (`ParticleEffect._spawnLocation` 5,
   7, 17, 26, 35) sits on its point: the client's Effect._InitLocationFromEntity sets the root's localPosition to the
@@ -171,6 +182,7 @@ types, the enum constants with their values; method bodies are native code and n
 .venv/bin/python tools/local-extract/extract.py --only fx                        the Phase 1a sample (§33.13)
 .venv/bin/python tools/local-extract/extract.py --only fx --fx-set used          every effect the mode's units use
 .venv/bin/python tools/local-extract/extract.py --only fx --fx-keys k1,k2        named prefabs only (a dev aid)
+.venv/bin/python tools/local-extract/extract.py --only fx --fx-units id1,id2     named units again, into the current set
                                                  [--fx-jobs N]  worker processes (default up to 8)
 ```
 
@@ -219,7 +231,15 @@ Each JSON file starts with `format` (`fx-index`, `fx-textures`, `fx-prefab`, `fx
 1c `index.json` 2 and the meshes 2, since Phase 1d `index.json` 3 — the changelog says what changed). A full run
 (`sample` / `used`) rewrites the list and removes the files of an earlier run that are no longer listed; `--fx-keys`
 re-exports the named prefabs (and the keys they name) into the earlier set — their descriptors, index summaries and list
-entries are replaced, everything else stays (without an earlier set it writes a set of just those keys).
+entries are replaced, everything else stays (without an earlier set it writes a set of just those keys). `--fx-units`
+(round 85) crawls the named units (operator / enemy / token ids) again into the earlier set, which it needs: their
+`units`, the `skills` they hold and their `skins` records replace the earlier ones, a projectile record joins only when
+the set lacks it, and only the effect prefabs they name that the set lacks are exported (with the textures and meshes
+those use); every other unit, skill, projectile, prefab, texture, mesh and list entry stays, as in an `--fx-add-only`
+run (which crawls only the units the set lacks). Use it when an extractor change adds to units the set already has —
+round 85 linked the projectiles buff templates fire (changelog), and `--fx-units char_4247_oxi` brought 塔露拉 S3's into
+an existing set. In a shared asset tree, stage the run (`--out` / `--manifest` above) and copy only the files the live
+folder lacks (docs/ASSETS.md "Id scope").
 
 **Keys are case-insensitive.** Effect, projectile and skill keys are the bundles' container names, which are lower
 case; the client's own references mix cases (a `SwitchableBackEffect` names `chen2_skill_01_buff_02_B`). Every key the
@@ -950,7 +970,8 @@ skills come from its own prefab, below):
 
 ```
 { rootClass, rootAbility,                     the skill root's class and ability (v2, below)
-  effects: [every key it names — its buff templates' included], projectiles: [key…],
+  effects: [every key it names — its buff templates' included],
+  projectiles: [key…],                        the ones it names and the ones its buffs' templates fire (2026-11-26)
   mode: index into the owner's modes | null, modeBy?: 'data' | 'name',
   uses: [Use…], roles: { start?, loop?, range?, cast?, hit?, end?, ready?, trigger?, other?: [key…] },
   unclassified: [keys found in the prefab that no use places],
