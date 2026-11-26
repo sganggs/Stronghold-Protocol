@@ -4,6 +4,7 @@
 import { SHOT_HEIGHT, bodyZ } from './camera.js';
 import { fxSpec, tilesAround, wallTiles } from './kinds.js';
 import { clamp } from './limits.js';
+import { heatwaveLanes } from '../vfx/lanes.js';
 
 /**
  * An fx anchored on a unit (extra.id) is drawn at that unit's rendered position while the event's own (x, y) is within
@@ -47,11 +48,11 @@ export class FxSim {
   /**
    * b.ev 'fx': every kind the sim / content emits has a visual (FX_KINDS archetypes: blast, shell, zone, telegraph,
    * heal, sp, shield, shatter, summon, vanish, blink, move, wave, mark, reticle, buff, lift, sleep, crit, dodge,
-   * counter, dp, coin, crate, down, beam, bolt, strike, volley, pillar, lp, chill, element, flame, qi), except kinds whose
+   * counter, dp, coin, crate, down, beam, bolt, strike, volley, pillar, lp, chill, element, flame, qi, lanes), except kinds whose
    * archetype is 'none' (hitCap: a leader hit cancelled by 限伤 draws nothing); unknown kinds get a generic sparkle. `extra` keys used: id (anchor unit — or the shooter of a `pt` kind), r | radius, dur | duration,
    * t (shell flight, game s), src / from / to / target / targets (unit ids), fx, fy / fromX, fromY / tx, ty (positions),
    * element, n, scale, kind, tiles, hold ('lock': the reticle waits while the shooter's skill runs), dr / dc (a
-   * direction in tiles: 'qi' points its blade that way).
+   * direction in tiles: 'qi' points its blade that way), dir (a facing: 'lanes' runs its `n` lanes that way).
    */
   simFx(kind, x, y, extra) {
     const ex = extra && typeof extra === 'object' ? extra : {};
@@ -196,6 +197,26 @@ export class FxSim {
         }
         this.particle('slash', hx, hy, { tint: col, life: 0.3, s0: hs / 128 * 1.3, s1: hs / 128 * 2.0, a0: 0.9, a1: 0, rot });
         this.particle('glow', hx, hy, { tint: col, life: 0.26, s0: hs / 128 * 0.8, s1: hs / 128 * 1.5, a0: 0.55, a1: 0 });
+        break;
+      }
+      // 塔露拉 S3 簇火 without the official projectile (官方特效 off, or projectile_chr_oxi_s_3_heatwave's trail not
+      // installed): one `heatwave` per volley at her tile; a fire streak along each lane the kit's shots fly
+      // (render/vfx/lanes.js: up to 11 tiles behind her to wave_exit_distance past the far edge, the lane window shifted
+      // inside the field). [ASSUMED] a streak of the whole path stands in for the travelling shot; low quality draws one
+      // streak per lane and no core or embers
+      case 'lanes': {
+        const lanes = heatwaveLanes({ x: Number(x), y: Number(y), dir: ex.dir, n: ex.n }, this.ctx.fieldRect ? this.ctx.fieldRect() : null);
+        const z = at.z + 0.15, hot = 0xfff0c0;
+        const steps = this.quality === 'low' ? 0 : 3;
+        for (const L of lanes) {
+          this.streak(L.x0, L.y0, L.x1, L.y1, z, col, 0.7);
+          if (this.quality !== 'low') this.streak(L.x0, L.y0, L.x1, L.y1, z + 0.04, hot, 0.4);
+          for (let s = 1; s <= steps; s++) {
+            const f = 0.4 + 0.5 * (s / (steps + 1));
+            const q = cam.project(L.x0 + (L.x1 - L.x0) * f, L.y0 + (L.y1 - L.y0) * f, z, this._p);
+            this.particle('glow', q.x, q.y, { tint: col, life: 0.45, s0: q.s / 128 * 0.4, s1: q.s / 128 * 0.85, a0: 0.7, a1: 0 });
+          }
+        }
         break;
       }
       case 'wave': {

@@ -1538,6 +1538,15 @@ index.json — version 1 and the version 2 fields (§33.12, §33.15; Phase 3c) �
     flask on the road at his high ground's 0.42), and a flight whose projectile a binding of the shooter's places
     leaves its reached effects to it (SkillFx.bindsReached; before, 锡人's flask also played at the target's HitPoint
     where the drawn flight ended, for up to LOOP_TTL).
+    Since history §37.354 (round 85) a `lanes` binding flies a volley the kit moves itself from its one fx per volley:
+    塔露拉 S3's 'heatwave' (`dir`, `n` at her tile) flies `projectile_chr_oxi_s_3_heatwave`'s main
+    `oxi_skill_03_trail_01` along each lane of render/vfx/lanes.js — the client's oxi_s_3_wave
+    EmitDirectionalMapEdgeProjectileVolley: the rows across her facing (columns facing up / down), the window shifted
+    inside the field at its edge, each from up to 11 tiles behind her (`_maxBackDistance`) to wave_exit_distance past
+    the far edge, at the skill's wave_speed, on the ground plane (`_heightOverHighland` 0); its 'blast' (tag
+    `oxi:heatwave`, a binding's `tag` filter) plays the projectile's `oxi_skill_03_hit_01` where the kit's explosion is
+    and stops the shot whose drawn head is nearest (`ends` of a lanes binding, within `LANE_HIT_REACH` 1.25 tiles
+    [ASSUMED]). The sim sends no event per shot (one per tick would move the goldens' fx counts).
   - A kit fx kind the skill's own official effects stand for is skipped while the skill lasts (`FX_COVER`: on, its
     activation frame, `COVER_AFTER_S` = 1 s after its end [ASSUMED], or a binding of the owner still held) when the
     skill's plan has an installed prefab: 莫斯提马 S2's zone, 白面鸮 S2's and 流明 S1's heal fields (his: the skill's
