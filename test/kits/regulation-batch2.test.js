@@ -793,6 +793,40 @@ test('fang2 S2 opens on deploy and hits both blocked enemies', () => {
 // ---------------------------------------------------------------------------------------------------------------
 // 暴躁铁皮
 
+test('acrbot S1 requires full SP and an enemy in range, then hits enemies and allies', () => {
+  for (const id of [ID.acrbot, ID.acrbotE]) {
+    const h = battle([op(1, id, 5, 0), op(2, ID.varkis, 7, 0)]);
+    const unit = h.unit(1), ally = h.unit(2);
+    h.step();
+    unit.skill.gainSp(unit.skill.spCost, 'attack');
+    h.step();
+    assert.equal(unit.skill.active, false, 'full SP and only an ally in range');
+    const side = foe(h.battle, 9, 4, { atk: 0, hp: 20000 });
+    side.x = 4.48; // Occupies the adjacent tile, but its collider overlaps the unit's tile.
+    side.blockedBy = unit;
+    unit.blocking.push(side);
+    h.battle._buildEnemyIndex();
+    assert.equal(unit.skill.activate('test'), false, 'side block cannot open the skill');
+    h.step();
+    assert.equal(unit.skill.active, false);
+    h.battle.releaseBlocked(unit);
+    side.hidden = true;
+
+    const enemy = foe(h.battle, 9, 6, { atk: 0, hp: 20000 });
+    h.battle.addBuff(enemy, { key: 'test:stealth', flags: { stealth: true } });
+    h.run(0.3);
+    assert.equal(unit.skill.active, false, 'full SP and a stealthed enemy in range');
+    h.battle.addBuff(enemy, { key: 'test:reveal', flags: { reveal: true } });
+    unit.atkCd = 0;
+    const allyHp = ally.hp, enemyHp = enemy.hp;
+    h.run(0.3);
+    assert.equal(unit.blocking.length, 0);
+    assert.equal(unit.skill.active, true);
+    assert.ok(ally.hp < allyHp, 'the same skill hits the ally in range');
+    assert.ok(enemy.hp < enemyHp, 'the same skill hits the enemy in range');
+  }
+});
+
 test('acrbot S1 swings at an ally in the extended range', () => {
   assert.equal(rec('acrbot').skills[0].bb.base_attack_time, -0.6);
   assert.equal(rec('acrbot').skills[0].bb.atk, 1.6);
@@ -808,7 +842,10 @@ test('acrbot S1 swings at an ally in the extended range', () => {
   ]);
   let startHp = 0;
   h.battle.on('battleStart', () => {
+    const trigger = foe(h.battle, 9, 6, { atk: 0 });
+    h.battle._buildEnemyIndex();
     assert.ok(open(h.unit(1)));
+    trigger.hidden = true;
     // The garrison swing exceeds 摆渡人's HP. Half HP also keeps her under 夏栎's 70% shelter, which would cut 10%.
     const ally = h.unit(2);
     h.battle.addBuff(ally, { key: 'test:hp', mods: { hpFlat: 20000 } });
@@ -887,6 +924,8 @@ test('acrbot elite blocked damage is 85% and S1 cleanses stun', () => {
   const bot = stun.unit(1);
   assert.equal(stun.battle.applyStatus(bot, 'stun', { duration: 5 }), true);
   assert.ok(bot.findBuff('stun'));
+  foe(stun.battle, 9, 6, { atk: 0 });
+  stun.battle._buildEnemyIndex();
   assert.ok(open(bot));
   assert.equal(bot.findBuff('stun'), null);
   assert.equal(stun.battle.applyStatus(bot, 'stun', { duration: 5 }), false);
