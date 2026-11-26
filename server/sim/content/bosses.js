@@ -295,9 +295,7 @@ export function branchSpawn(b, tpl, name, phaseIdx, { fallback = null, mods = nu
 function summonMods(b, hpRatio = null) {
   const s = b.flags && b.flags.enemyScale;
   if (!s || typeof s !== 'object') return hpRatio ? { hpMul: hpRatio } : null;
-  const m = { hpMul: (Number.isFinite(s.hpMul) && s.hpMul > 0 ? s.hpMul : 1) * (hpRatio || 1), atkMul: s.atkMul, speedMul: s.speedMul };
-  if (s.supplyHpMul != null) m.supplyHpMul = s.supplyHpMul;
-  return m;
+  return { ...s, hpMul: (Number.isFinite(s.hpMul) && s.hpMul > 0 ? s.hpMul : 1) * (hpRatio || 1) };
 }
 
 // ---------------------------------------------------------------------------------------------------------------

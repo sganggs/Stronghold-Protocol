@@ -78,7 +78,7 @@ export class BattleSpawns {
   }
 
   /**
-   * Spawn an enemy now. opts: { routeIndex, route, pos:[r,c], mods:{hpMul,atkMul,defMul,resMul,speedMul}, tag,
+   * Spawn an enemy now. opts: { routeIndex, route, pos:[r,c], mods:{hpMul,atkMul,defMul,resMul,speedMul,aspdAdd,roundEnemyExcludeEffect}, tag,
    * sourcePlayerId, ownerPlayerId, bounty:{coins,ownerPlayerId}, countInTotal, inTotal }
    */
   spawnEnemy(enemyKey, opts = {}) {
@@ -111,13 +111,15 @@ export class BattleSpawns {
     // multipliers: finite and ≥ 0 (hp > 0), anything else counts as 1
     const mm = (v, pos = false) => { const n = fin(v, 1); return n < 0 || (pos && n <= 0) ? 1 : n; };
     const m0 = opts.mods || {};
-    const m = { hpMul: mm(m0.hpMul, true), atkMul: mm(m0.atkMul), defMul: mm(m0.defMul), resMul: mm(m0.resMul), speedMul: mm(m0.speedMul) };
+    const roundEffect = m0.roundEnemyExcludeEffect ? this.data.rawEffect(m0.roundEnemyExcludeEffect) : null;
+    const excluded = roundEffect?.buffs?.[0]?.bbStr?.enemy_exclude?.split('|').includes(def.key ?? enemyKey);
+    const round = excluded ? {} : m0;
     const e = new Unit({
       id: ++this._idSeq, side: 'enemy', kind: 'enemy', def, defId: def.key ?? enemyKey, name: def.name,
       x: start[1], y: start[0], motion: def.motion,
       base: {
-        maxHp: def.maxHp * (m.hpMul ?? 1), atk: def.atk * (m.atkMul ?? 1), def: def.def * (m.defMul ?? 1), res: def.res * (m.resMul ?? 1),
-        aspd: def.aspd, bat: def.bat, blockCnt: 0, moveSpeed: def.moveSpeed * (m.speedMul ?? 1), spRecovery: 0,
+        maxHp: def.maxHp * mm(round.hpMul, true), atk: def.atk * mm(round.atkMul), def: def.def * mm(m0.defMul), res: def.res * mm(m0.resMul),
+        aspd: def.aspd + fin(round.aspdAdd, 0), bat: def.bat, blockCnt: 0, moveSpeed: def.moveSpeed * mm(round.speedMul), spRecovery: 0,
         tauntLevel: def.tauntLevel, massLevel: def.massLevel, hpRecoveryPerSec: def.hpRecoveryPerSec, rangeRadius: def.rangeRadius,
       },
     });

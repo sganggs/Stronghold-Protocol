@@ -11,7 +11,7 @@ import { REGULATION_KITS } from '../../server/sim/content/enemies/regulation.js'
 import { REGULATION_BOSS_KITS } from '../../server/sim/content/regulation-bosses.js';
 import { getData, getVersionData } from '../../server/data.js';
 import { GameData } from '../../server/match/gamedata.js';
-import { setupMatchWaves, isFlyKey } from '../../server/match/waves.js';
+import { buildBossWave, buildNormalWave, setupMatchWaves, isFlyKey } from '../../server/match/waves.js';
 import { createRng } from '../../server/sim/rng.js';
 
 const V = getVersionData('act3autochess@V3_1');
@@ -663,15 +663,48 @@ test('蕴核饲育者 children keep move_speed as a multiplier', () => {
   assert.equal(h.b.errors.length, 0);
 });
 
-test('规程 round multipliers use its own 攻坚装备 / 补给线II / 急行军 values on 下半\'s stack schedule', () => {
-  const r7 = V.config.modes.mode_multi_abyss.enemyScale['7'], d7 = getData().config.modes.mode_multi_abyss.enemyScale['7'];
-  assert.deepEqual([d7.kAtk, d7.kHp], [r7.kAtk, r7.kHp], 'same stack counts');
-  assert.ok(near(r7.atk, 1.11 ** r7.kAtk, 1e-6) && near(d7.atk, 1.1 ** d7.kAtk, 1e-6));
-  assert.ok(near(r7.hp, 1.2 ** r7.kAtk * 1.3 ** (r7.kHp - r7.kAtk), 1e-6) && near(d7.hp, 1.2 ** d7.kHp, 1e-6));
-  assert.ok(near(r7.supplyHp, 1.3 ** (r7.kHp - r7.kAtk), 1e-6));
-  assert.equal(r7.speed, 1.3);
-  assert.equal(d7.speed, 1.15);
-  assert.equal(V.config.modes.mode_multi_abyss.enemyScale['2'].speed, 1, '急行军 from round 3');
+test('规程 co-op 终极 round stats match the observed R1–R15 global effects', () => {
+  const scales = V.config.modes.mode_multi_abyss.enemyScale;
+  const hp = [1.2, 1.44, 1.44, 1.728, 2.2464, 2.69568, 3.234816, 3.881779, 4.852224, 6.307891, 7.569469,
+    9.840310, 10.233923, 12.280707, 15.964919];
+  const atkStacks = [1, 2, 2, 3, 3, 4, 5, 6, 6, 6, 7, 7, 7, 8, 8];
+  const aspd = [10, 15, 15, 15, 15, 15, 15, 15, 15, 15, 25, 25, 30, 30, 30];
+  for (const [i, expectedHp] of hp.entries()) {
+    const r = scales[i + 1];
+    assert.ok(near(r.hp, expectedHp), `R${i + 1} HP: ${r.hp}`);
+    assert.ok(near(r.atk, 1.1 ** atkStacks[i]), `R${i + 1} ATK: ${r.atk}`);
+    assert.equal(r.aspdAdd, aspd[i], `R${i + 1} ASPD`);
+    assert.equal(r.speed, i < 2 ? 1 : 1.3, `R${i + 1} 移速`);
+  }
+  assert.ok(near(scales[15].supplyHp, 1.3 ** 4 * 1.25 * 1.04));
+  const covenant = getData().config.modes.mode_multi_abyss.enemyScale[7];
+  assert.ok(near(covenant.hp, 1.2 ** 7));
+  assert.equal(covenant.aspdAdd, undefined);
+});
+
+test('规程 终极 applies the round ASPD to wave enemies and leaders and respects spawn exclusions', () => {
+  const gd = new GameData(V, 'mode_multi_abyss');
+  const rng = createRng(21);
+  const setup = setupMatchWaves(gd, rng);
+  const wave = buildNormalWave(gd, rng, setup, 13);
+  const spec = wave.spawns[0];
+  const h = fight({ defs: { enemies: V.enemies, chess: CHESS, effects: V.effects } });
+  const unit = h.spawn(spec.enemyKey, { pos: [9, 8], mods: spec.mods });
+  assert.equal(unit.s.aspd, unit.def.aspd + 30);
+  assert.ok(near(unit.s.interval, (unit.s.bat * 100) / (unit.def.aspd + 30)));
+
+  const chest = h.spawn('enemy_9038_achest', { pos: [9, 8], mods: spec.mods });
+  assert.equal(chest.s.maxHp, chest.def.maxHp);
+  assert.equal(chest.s.aspd, chest.def.aspd);
+  const token = h.spawn('enemy_1196_msfyin', { pos: [9, 8], mods: spec.mods });
+  assert.equal(token.s.maxHp, Math.round(token.def.maxHp * 1.2 ** 7));
+  assert.equal(token.s.aspd, token.def.aspd + 30);
+
+  const bossWave = buildBossWave(gd, rng, setup, 15, { bossId: 'boss_8', solo: false });
+  const leader = bossWave.spawns.find((s) => s.tag === 'boss');
+  assert.ok(leader);
+  assert.equal(leader.mods.aspdAdd, 30);
+  assert.equal(leader.mods.hpMul, undefined, 'shared leader HP is set by the match');
 });
 
 // --- round 84: the companions whose abilities come from their PRTS pages (regulation.js kitGunsho … kitDsdivi) ---------
