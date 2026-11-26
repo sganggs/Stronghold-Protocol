@@ -118,7 +118,7 @@ function waveBlocked(battle, w) {
 }
 
 export default {
-  char_1050_chen3: (bb, chess) => {
+  char_1050_chen3: (bb, chess, def) => {
     const t0 = talentBb(chess, 0), t1 = talentBb(chess, 1);
     const tb = traitBb(chess);
     const b1 = bbOf(chess, S1), b2 = bbOf(chess, S2), b3 = bbOf(chess, S3);
@@ -193,6 +193,8 @@ export default {
         },
         [S2]: {
           kind: 'duration',
+          ...(def?.skill?.trigger?.rule === 'SP_FULL' ? { trigger: 'SEARCH' } : {}),
+          canActivate: (battle, unit) => battle.enemiesInKeys(keysOf(unit, grid2), unit, AIR).length > 0,
           onStart({ battle, unit, skill }) {
             const m = unit.mem.chen3S2 = { phase: 1, t: 0, n: 0, hits: slashes, target: null, at: null, lost: false };
             battle.addBuff(unit, { key: DASH_KEY, flags: { invulnerable: true, noBlock: true, noSp: true, silence: true }, tags: ['skill'] });

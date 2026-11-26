@@ -282,6 +282,9 @@ test('S2 赤霄·绝影-驰 (MANUAL, 技能范围 x-1, data SKILL_RANGE): 10 sla
     assert.deepEqual([u.skill.rule, sk.rangeId, sk.duration, sk.bb.atk_scale, sk.bb['chen3_s2[respawn_buff].atk'], sk.bb['chen3_s2[respawn_buff].prob']],
       ['SKILL_RANGE', 'x-1', 6, elite ? 4.3 : 3.9, elite ? 2.6 : 2.3, elite ? 0.5 : 0.4], `T${tier}`);
     u.skill.gainSp(999);
+    h.run(0.5);
+    assert.equal(u.skill.activations, 0, 'no target means no cast');
+    assert.equal(u.skill.ready, true);
     const near = h.spawn('enemy_dummy', { pos: [11, 6] });      // √2 away
     const far = h.spawn('enemy_dummy', { pos: [10, 7] });       // 2 away
     const shooter = h.spawn('enemy_shooter', { pos: [12, 7] });
