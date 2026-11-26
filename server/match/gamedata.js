@@ -447,20 +447,21 @@ export class GameData {
   }
 
   /**
-   * Official enemy multipliers of round r (config enemyScale: the PRTS stack table × the season's effect values, 终极 急行军
-   * from R3 — ×1.15 on 下半, ×1.30 on 规程; tools/build-data.mjs enemyStepsOf). `supplyHpMul`
-   * (only when ≠ 1: co-op 终极 R5–R15) = the share of hpMul from 补给线 / 补给线II (config `supplyHp`), effects whose
-   * `enemy_exclude` leaves out the 14 器物 hit-count keys — they take hpMul / supplyHpMul (archetypes.js `times`).
+   * Per-round enemy effects from config.enemyScale. `supplyHpMul` is the share of HP from effects that
+   * exclude hit-count 器物. Measured 规程 co-op 终极 rows also carry the additive ASPD and common exclusion list.
    */
   baseEnemyScale(r) {
     const e = this.mode.enemyScale && this.mode.enemyScale[String(r)];
     if (!e || typeof e !== 'object') return { hpMul: 1, atkMul: 1, speedMul: 1 };
     const supply = numOr(e.supplyHp, 1);
+    const aspdAdd = numOr(e.aspdAdd, 0);
     return {
       hpMul: Math.max(0.01, numOr(e.hp, 1)),
       atkMul: Math.max(0, numOr(e.atk, 1)),
       speedMul: Math.max(0.01, numOr(e.speed, 1)),
       ...(supply > 0 && supply !== 1 ? { supplyHpMul: supply } : {}),
+      ...(aspdAdd !== 0 ? { aspdAdd } : {}),
+      ...(typeof e.excludeEffect === 'string' ? { roundEnemyExcludeEffect: e.excludeEffect } : {}),
     };
   }
 

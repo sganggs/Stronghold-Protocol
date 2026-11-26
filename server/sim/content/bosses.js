@@ -295,9 +295,7 @@ export function branchSpawn(b, tpl, name, phaseIdx, { fallback = null, mods = nu
 function summonMods(b, hpRatio = null) {
   const s = b.flags && b.flags.enemyScale;
   if (!s || typeof s !== 'object') return hpRatio ? { hpMul: hpRatio } : null;
-  const m = { hpMul: (Number.isFinite(s.hpMul) && s.hpMul > 0 ? s.hpMul : 1) * (hpRatio || 1), atkMul: s.atkMul, speedMul: s.speedMul };
-  if (s.supplyHpMul != null) m.supplyHpMul = s.supplyHpMul;
-  return m;
+  return { ...s, hpMul: (Number.isFinite(s.hpMul) && s.hpMul > 0 ? s.hpMul : 1) * (hpRatio || 1) };
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -366,11 +364,19 @@ const nearestOf = (b, e, pred) => {
   for (const o of b.enemies) { if (!o.alive || o === e || !pred(o)) continue; const d = hypot(o.x - e.x, o.y - e.y); if (d < bd) { bd = d; best = o; } }
   return best;
 };
-/** Apply a floor to an enemy whose data attack speed is 0 (skill-driven leaders: 铳/管/弦). */
+/**
+ * Apply a floor to an enemy whose data attack speed is 0 (skill-driven leaders: 铳/管/弦): the floor (or the talent
+ * stacks in `extra`, whichever is higher) is the attack speed. A round's additive attack speed — 规程 co-op 终极's global
+ * effects, `aspdAdd`: spawns.js sets `base.aspd = def.aspd + aspdAdd` — stays on top of it, so the buff subtracts
+ * `def.aspd`, not the whole base (§37.353; until the merge it subtracted the base and the round bonus cancelled)
+ * [ASSUMED: the data does not say how the official client scales these skill-driven attacks under a global
+ * attack-speed effect]. Without a round bonus `base.aspd` is `def.aspd` and the result is unchanged.
+ */
 function aspdFloor(b, e, extra = 0) {
   const rawAspd = e.def.raw && e.def.raw.stats ? Number(e.def.raw.stats.aspd) : NaN;
   if (!(rawAspd === 0)) return;
-  b.addBuff(e, { key: 'boss:aspd', persist: true, mods: { aspd: Math.max(ASPD_FLOOR, rawAspd + extra) - e.base.aspd } });
+  const defAspd = Number.isFinite(e.def.aspd) ? e.def.aspd : e.base.aspd;
+  b.addBuff(e, { key: 'boss:aspd', persist: true, mods: { aspd: Math.max(ASPD_FLOOR, rawAspd + extra) - defAspd } });
 }
 /**
  * Engine target priority (blocker → taunt → latest deployed), made fair for two players on one boss field: within the top

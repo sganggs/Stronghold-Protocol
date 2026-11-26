@@ -256,11 +256,10 @@ export function scaleFor(gd, r) {
   return gd.enemyScale(r);
 }
 
-/** The spawn mods of a round's scale for a non-leader enemy: HP / ATK / speed, plus `supplyHpMul` when the round has one. */
-export function roundMods(scale) {
-  const m = { hpMul: scale.hpMul, atkMul: scale.atkMul, speedMul: scale.speedMul };
-  if (scale.supplyHpMul != null) m.supplyHpMul = scale.supplyHpMul;
-  return m;
+/** The round effects travel with a spawn. The leader's shared HP pool is set separately. */
+export function roundMods(scale, isBoss = false) {
+  const { hpMul, supplyHpMul, ...mods } = scale;
+  return isBoss ? mods : { hpMul, ...mods, ...(supplyHpMul != null ? { supplyHpMul } : {}) };
 }
 
 /** Slot class of an enemy that has no placeholder slot (literal template keys, bounty adds). */
@@ -338,7 +337,7 @@ function templateSpawns(gd, tpl, round, pick) {
       // enemy_exclude = enemy_9012_acloon): leader parts take them all; the leader takes ATK / speed but not HP — its HP
       // is the server pool, "领袖单位于服务器的生命值加成不受上述加成影响" (PRTS 下半). `supplyHpMul` (roundMods) rides along for
       // the 器物 hit-count units, which 补给线 / 补给线II leave out (archetypes.js `times`; also a 频次 enemy's death spawn)
-      mods: isBoss ? { atkMul: scale.atkMul, speedMul: scale.speedMul, slot } : { ...roundMods(scale), slot },
+      mods: { ...roundMods(scale, isBoss), slot },
       actionIndex: i,
       preview: previewInfo(gd, key, routes[routeIndex], isBoss, leader),
     };

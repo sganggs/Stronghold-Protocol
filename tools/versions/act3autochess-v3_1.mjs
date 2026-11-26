@@ -56,6 +56,11 @@ export default Object.freeze({
   // [ASSUMED] Advanced communicators and elite carriers use the same exception; the recording verifies normal on normal only.
   recruitTierExempt: Object.freeze(['chess_char_5_22_a']),
   config: Object.freeze({
+    // One new global_effect per round, in two CN co-op 终极 matches on 2026-11-25 (m06 / m11). See §37.353.
+    enemyRoundEffects: Object.freeze({
+      mode_multi_abyss: Object.freeze(['8', '6', '1', '7', '2_2', '7', '7', '9', '16', '2_2', '8', '10', '15', '7', '2_2']
+        .map((id) => 'aceffect_enemy_' + id)),
+    }),
     hiddenCore: Object.freeze({ single: 350, multi: 1200 }),
     // Bonds greyed per match, from official recordings (2026-11-12). Add-ons: co-op 终极 greys 5 of 16 in all 15 briefings
     // of BV13LWM6BEvY, 险境 and 绝境 5 of 16 and 标准 2 of 10 (BV11NW869ELq parts 3–5, 10), solo 规程等级20 5 of 16
