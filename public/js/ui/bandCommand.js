@@ -55,6 +55,39 @@ export function commandText(c) {
 }
 
 const STYLE = { color: 0x7fffc9, fill: 0.24, line: 2, group: 'command' };
+
+/**
+ * A shop card the SHOP_SLOT command target `slot` may highlight: the target's index is a priv.shop.slots index
+ * (server/match/bandCommands.js), while `[data-shop-slot]` is the DISPLAY index. The canvas marks its root
+ * `data-shop-reward-row` while it draws the synthesised reward row (ShopCanvas.shopRewardRow: display index ≠
+ * priv index), so its cards are never command targets; the DOM bar's reward cards carry no data-shop-slot at
+ * all. Everything on the normal row is priv-indexed and matches as before.
+ * @param {number|string} slot the command target's priv slot index
+ * @param {Document} [doc]
+ * @returns {Element[]}
+ */
+export function shopSlotCommandCards(slot, doc = globalThis.document) {
+  if (!doc || slot == null) return [];
+  return [...doc.querySelectorAll(`[data-shop-slot="${slot}"]`)]
+    .filter((el) => !(typeof el.closest === 'function' && el.closest('[data-shop-reward-row]')));
+}
+
+/**
+ * The priv slot index of the shop card under a client point, or null: a synthesised reward row's cards are
+ * display-indexed and must not resolve a SHOP_SLOT target (the drop would land on the wrong hidden normal slot).
+ * @param {Element|null|undefined} el the elementFromPoint result
+ * @returns {number|null}
+ */
+export function shopSlotIndexAt(el) {
+  if (!el || typeof el.closest !== 'function') return null;
+  const card = el.closest('[data-shop-slot]');
+  if (!card || card.closest('[data-shop-reward-row]')) return null;
+  const raw = card.getAttribute('data-shop-slot');
+  if (raw == null || raw === '') return null;
+  const index = Number(raw);
+  return Number.isInteger(index) && index >= 0 ? index : null;
+}
+
 /**
  * The target under the pointer while the command is dragged: its tile turns from the targets' mint to orange — the drop
  * lands there (the owner, 2026-11-14: an arrow from the strategy following the mouse, a mark on the tile under it, or the
@@ -141,7 +174,7 @@ export function BandCommand({ command: c, priv, view, editable }) {
   useEffect(() => {
     if (!drag) return;
     view?.highlightTiles(tiles, STYLE);
-    const cards = (c.targets || []).filter(t => t.slot != null).flatMap(t => [...document.querySelectorAll(`[data-shop-slot="${t.slot}"]`)]);
+    const cards = (c.targets || []).filter(t => t.slot != null).flatMap(t => shopSlotCommandCards(t.slot));
     cards.forEach(e => e.classList.add('is-command-target'));
     return () => { view?.highlightTiles([], STYLE); cards.forEach(e => e.classList.remove('is-command-target')); };
   }, [drag, c.effectId, view]);
@@ -156,8 +189,8 @@ export function BandCommand({ command: c, priv, view, editable }) {
   /** The valid target under a client point (the drop's own test). */
   const targetAt = (x, y) => {
     if (c.targetType === 'SHOP_SLOT') {
-      const slot = document.elementFromPoint(x, y)?.closest('[data-shop-slot]')?.getAttribute('data-shop-slot');
-      return slot != null ? c.targets.find(t => t.slot === Number(slot)) || null : null;
+      const slot = shopSlotIndexAt(document.elementFromPoint(x, y));
+      return slot != null ? c.targets.find(t => t.slot === slot) || null : null;
     }
     if (c.targetType === 'COMMON_CHESS') {
       const uid = view?.pieceAtClientPoint(x, y);
@@ -184,7 +217,7 @@ export function BandCommand({ command: c, priv, view, editable }) {
     const tile = tileOf(target);
     view?.highlightTiles(tile ? [tile] : [], HOVER);
     a.cards.forEach(e => e.classList.remove('is-command-hover'));
-    a.cards = target?.slot != null ? [...document.querySelectorAll(`[data-shop-slot="${target.slot}"]`)] : [];
+    a.cards = target?.slot != null ? shopSlotCommandCards(target.slot) : [];
     a.cards.forEach(e => e.classList.add('is-command-hover'));
   };
   const stopAim = () => {

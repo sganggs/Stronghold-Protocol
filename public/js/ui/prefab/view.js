@@ -14,6 +14,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../../vendor/hooks.module.js';
 import { html } from '../components.js';
 import { importedPrefabDoc, officialAssetUrl, officialThemeById, themeCharacterKey } from '../../../../shared/uiTheme.js';
+import { importedThemeDocumentBlob } from '../../uiTheme.js';
 import { layoutPrefab, applySliders } from './layout.js';
 import { createPose, applyStatuses, clipPose } from './anim.js';
 import { parseHex, mixColor } from './color.js';
@@ -85,6 +86,73 @@ export function measureText(text, node, fonts = null) {
 }
 
 const packCache = new Map();
+const jsonCache = new Map();
+/** Parsed theme documents kept: three per pack revision, so a re-import or a re-extract (new content-hash URLs,
+ * new blob URLs) evicts the oldest instead of holding every revision's card.json/shop.json for the session. */
+const JSON_CACHE_MAX = 12;
+
+/** A `blob:` / `data:` document, which this page never fetches: its connect-src is 'self' (docs/THEMES.md §37.232). */
+const INLINE_DOC = /^(?:blob|data):/i;
+
+/**
+ * JSON carried by a `data:` URL (base64 or percent-encoded), or null when it does not decode to JSON.
+ * @param {string} url
+ */
+function dataUrlJson(url) {
+  const comma = url.indexOf(',');
+  if (comma < 0) return null;
+  const meta = url.slice(5, comma);
+  const body = url.slice(comma + 1);
+  try {
+    if (!/;base64(?:;|$)/i.test(meta)) return JSON.parse(decodeURIComponent(body));
+    if (typeof atob !== 'function') return null;
+    const binary = atob(body);
+    const bytes = Uint8Array.from(binary, (ch) => ch.charCodeAt(0));
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The document a `blob:` / `data:` URL already puts in this page, without a request: an imported official pack's
+ * prefabs.json is parsed when the pack is registered (shared/uiTheme.js importedPrefabDoc), and its other documents
+ * stay in the theme library as stored Blobs (uiTheme.js importedThemeDocumentBlob). Null when this page holds no
+ * bytes for the URL — a blob the library does not know is not fetched either.
+ * @param {string} url
+ * @returns {Promise<any|null>|null}
+ */
+function inlinePackJson(url) {
+  if (!INLINE_DOC.test(url)) return null;
+  if (/^data:/i.test(url)) return Promise.resolve(dataUrlJson(url));
+  const parsed = importedPrefabDoc(url);
+  if (parsed) return Promise.resolve(parsed);
+  const blob = importedThemeDocumentBlob(url);
+  return blob ? blob.text().then((text) => JSON.parse(text)).catch(() => null) : Promise.resolve(null);
+}
+
+/**
+ * JSON of a served theme document (shop.json / card.json / prefabs.json), cached per URL. A `blob:` / `data:` URL
+ * is never fetched (connect-src 'self'): the document is read from the bytes this page already holds or from the
+ * URL itself. A failure is not cached, so a document that appears later (an imported pack completing the group)
+ * is still read.
+ * @param {string|null|undefined} url
+ * @returns {Promise<any|null>}
+ */
+export function packJson(url) {
+  if (!url) return Promise.resolve(null);
+  const cached = jsonCache.get(url);
+  if (cached) return cached;
+  const inline = inlinePackJson(url);
+  const load = inline || fetch(url).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  jsonCache.set(url, load);
+  if (jsonCache.size > JSON_CACHE_MAX) {
+    const oldest = jsonCache.keys().next().value;
+    if (oldest !== url) jsonCache.delete(oldest);
+  }
+  load.then((doc) => { if (doc == null && jsonCache.get(url) === load) jsonCache.delete(url); });
+  return load;
+}
 
 const prefabDoc = (d) => (d && d.spPrefabs === 1 && d.prefabs ? d : null);
 

@@ -30,7 +30,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, HexBadge, TierChip, Tooltip, MicroLabel, Fragment } from './components.js';
 import { OperatorImage, Img, BondGlyph, CoinGlyph, GIcon, RichText } from './gameComponents.js';
-import { priceTone, mergeProgress, mergeTarget, shopBlockReason, chessLoadout, offerHeader, briefingBondTip, ownStandIn, standInLoadout, standInLabel, standInTip, standInForText, ownDiyRecord, diyGetter } from './gameLogic.js';
+import { priceTone, mergeProgress, mergeHint, shopBlockReason, chessLoadout, offerHeader, briefingBondTip, ownStandIn, standInLoadout, standInLabel, standInTip, standInForText, ownDiyRecord, diyGetter } from './gameLogic.js';
 import { itemIconUrl, profIconUrl, profMarkUrl, uiUrl, skillIconUrl, skillRecordIconUrl, moduleTypeIconUrl } from './assetUrls.js';
 import { data, localAsset } from '../data.js';
 import { hotkeyLabelOf, useSettings } from './settings.js';
@@ -118,11 +118,8 @@ export function splitShopSlots(slots, layout = null) {
  * Where a merge-completing buy sends the elite (DESIGN §20.11), null when the card completes no merge: the 可晋升 tag's
  * title, and a line of the detail card the first tap opens — a touch screen never shows a title (QA 6b).
  */
-export function mergeHint(priv, chessId) {
-  const prog = mergeProgress(priv, chessId, LOOKUPS.getChess);
-  if (!(prog.copies > 0 && prog.copies + 1 >= prog.need)) return null;
-  return mergeTarget(priv, chessId, LOOKUPS.getChess) ? t('精锐干员将出现在作战区原位置') : t('精锐干员将进入整备区');
-}
+// mergeHint lives in ui/gameLogic/shop.js (gameLogic.js re-exports it); this alias keeps the old import path.
+export { mergeHint };
 
 /**
  * Whether a shop card shows its frost: its own slot's `frozen` (m.private shop.slots[i].frozen) — the 冻结 toggle copies onto
@@ -155,7 +152,9 @@ export function ChessCard({ slot, idx, priv, frozen = false, reason = null, free
   const m = data.get('assets');
   const tier = c?.tier ?? 1;
   const prog = mergeProgress(priv, slot.id, (id) => data.lookup('chess', id));
-  const hint = mergeHint(priv, slot.id);
+  // The same resolver as the pips: the merge need (upgradeNum) lives on the chess record, so the tag would otherwise
+  // fall back to three copies and miss an operator that merges at two (风丸, chess_char_2_11_a).
+  const hint = mergeHint(priv, slot.id, (id) => data.lookup('chess', id));
   const willMerge = !!hint;
   // §37.201: an operator the player already holds (≥ 1 copy on the board, the bench or the temp row) — the official card's
   // repeated-operator effect (autochess_shop_card_item _repeatedFxNode), in 盟约 and 规程 alike (the owner, 2026-11-14)
@@ -608,7 +607,7 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
   /** First tap arms + opens the detail; the second buys (or says why it can't). */
   const tapCard = (kind, idx, slot, detailKind, reason, buy) => {
     const key = armKey(kind, idx, slot);
-    if (armed !== key) { setArmed(key); onDetail(slot.id, detailKind, detailKind === 'chess' ? mergeHint(priv, slot.id) : null); return; }
+    if (armed !== key) { setArmed(key); onDetail(slot.id, detailKind, detailKind === 'chess' ? mergeHint(priv, slot.id, (id) => data.lookup('chess', id)) : null); return; }
     if (reason) { onRefuse?.(reason); return; }
     setArmed(null);
     onDetailClose?.();

@@ -79,6 +79,12 @@ test('m.private shape in PREP matches DESIGN §8.3 (pieces, slots, bonds, effect
     assert.ok(s.kind === 'chess' || s.kind === 'item');
   }
   assert.equal(priv.shop.rewardOffer, null);
+  // The canvas shop's server state (additive, private-only): the round-start roll advanced the sequence once at
+  // this prep, nothing consumed a special refresh, and no charge is waiting (booleans in the view, always present).
+  assert.equal(priv.shop.refreshSeq, 1);
+  assert.equal(priv.shop.specialRefresh, false);
+  assert.equal(priv.shop.specialRefreshArmed, false);
+  assert.equal(priv.shop.bondRefresh, undefined, 'the internal charge queue is not part of the view');
   assert.equal(priv.personalChoice, null);
   assert.equal(priv.deployCap, 8);
   assert.ok(priv.effects.some((e) => e.iconKind === 'band' && e.name));

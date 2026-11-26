@@ -1,0 +1,179 @@
+/* ==========================================================================================
+   screens/game-shop-canvas.css — the in-game WebGL shop host (Stage B, add-only).
+   Only `.shop-webgl*` rules (the card-mark classes `.shop-marks` / `.shop-mark*` are always nested under
+   `.shop-webgl--game`) and are the existing `.shopbar` / `.scard` / `.shopbg` styles untouched; a
+   page renders either the old bar or this host, never both (the game screen picks one with a ternary).
+   Pointer discipline mirrors game-shop.css: the host box itself never takes the pointer (it spans the
+   empty space left of the tools), only the hotspot buttons over the prefab controls do.
+   ========================================================================================== */
+
+.gm__hud > .shop-webgl.shop-webgl--game {
+  position: absolute;
+  left: var(--sa-l, 0px);
+  right: var(--sa-r, 0px);
+  bottom: calc(.04rem - var(--sa-b, 0px));
+  pointer-events: none;
+  animation: shop-up var(--t-slow) var(--ease-out);
+}
+
+.shop-webgl--game .shop-webgl__stage {
+  position: relative;
+  margin: 0 auto;
+}
+
+.shop-webgl--game .shop-webgl__canvas {
+  display: block;
+}
+
+.shop-webgl--game .shop-webgl__hotspots {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.shop-webgl--game .shop-webgl__hit,
+.shop-webgl--game .shop-webgl__slot {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  pointer-events: auto;
+  cursor: pointer;
+  color: transparent;
+}
+
+.shop-webgl--game .shop-webgl__hit:focus-visible,
+.shop-webgl--game .shop-webgl__slot:focus-visible {
+  outline: 2px solid #9fe1ff;
+  outline-offset: -2px;
+}
+
+/* A blocked control must look blocked (the old bar dims disabled buttons; the canvas cannot): the hotspot stays a
+   native button (a real `disabled` would swallow the title tooltip and the click that reports the reason), so the
+   blocked state is aria-disabled. */
+.shop-webgl--game .shop-webgl__hit[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* [ASSUMED] #692 parity with the DOM bar (game-shop.css `.gm.is-deploy-partial .shopbar`): the shop keeps
+   showing at 70% during the middle deploy level instead of filling the board, and the entry animation is off so
+   the scale needs no restart. The transform covers the canvas and its hotspots. */
+.gm.is-deploy-partial .gm__hud > .shop-webgl.shop-webgl--game {
+  transform: scale(.7);
+  animation: none;
+}
+
+/* ---- the project's own marks on a canvas card (ui/shop/marks.js → host.syncCardMarks) -----------------
+   The owner's PSD (card-base-4x.psd, 2026-11-22) measures the visible card box, 156 x 200 design units; the
+   overlay's coordinate system is the card hotspot — the card prefab's root node, 157 x 207 design units
+   (public/assets/local/themes/ac_s_closur/card.json). So every PSD percentage is converted here:
+   x' = (0.5 + x * 156) / 157, y'/sizes = y * 200 / 207, fonts = px / 207. The y conversion is why the marks
+   used to sit ~4 units low for the skill badge (the root's 7 extra units were being counted).
+     替补 / 自选  PSD 34.5%, 4.75%, 144 x 61   -> left 34.6%  top 4.59%
+     可晋升       PSD 1.44%, 26.6%, 150 x 56   -> left 1.75%  top 25.72%
+     持有进度点   PSD 1.44%, 36.6%, 150 x 56   -> left 1.75%  top 35.39%
+     技能角标     PSD 70.3%, 56.4%, 143 x 143  -> left 70.2%  top 54.47% (size back to the original 128)
+   A text mark keeps its left anchor and height and grows to the right, so the English / Japanese / Korean
+   wording stays readable; the font size follows the card height (the hotspot carries --card-w / --card-h). */
+.shop-webgl--game .shop-webgl__slot .shop-marks {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  color: #fff;
+}
+
+.shop-webgl--game .shop-mark {
+  position: absolute;
+  box-sizing: border-box;
+  white-space: nowrap;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* 替补 / 自选: one or the other (a card is never both). */
+.shop-webgl--game .shop-mark--standin,
+.shop-webgl--game .shop-mark--diy {
+  left: 34.6%;
+  top: 4.59%;
+  display: inline-block;
+  height: 7.37%;
+  max-width: calc(var(--card-w, 100px) * .6);
+  padding: 0 calc(var(--card-h, 100px) * .0195);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: calc(var(--card-h, 100px) * .0522);
+  line-height: calc(var(--card-h, 100px) * .0737);
+  letter-spacing: .08em;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .6);
+}
+
+.shop-webgl--game .shop-mark--standin { background: var(--ice); color: var(--ice-900); opacity: .9; }
+.shop-webgl--game .shop-mark--diy { background: var(--mint-500); color: var(--text-on-mint); }
+
+/* 可晋升 */
+.shop-webgl--game .shop-mark--merge {
+  left: 1.75%;
+  top: 25.72%;
+  display: inline-block;
+  height: 6.76%;
+  max-width: calc(var(--card-w, 100px) * .6);
+  padding: 0 calc(var(--card-h, 100px) * .0195);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: calc(var(--card-h, 100px) * .0495);
+  line-height: calc(var(--card-h, 100px) * .0676);
+  letter-spacing: .08em;
+  background: var(--gold);
+  color: #1d1400;
+}
+
+/* 持有进度点: a diamond per copy, the owned ones lit. */
+.shop-webgl--game .shop-mark--pips {
+  left: 1.75%;
+  top: 35.39%;
+  display: flex;
+  align-items: center;
+  gap: calc(var(--card-h, 100px) * .0157);
+  min-width: 23.9%;
+  height: 6.76%;
+  padding: 0 calc(var(--card-h, 100px) * .0157);
+  background: rgba(0, 0, 0, .6);
+}
+
+.shop-webgl--game .shop-mark--pips i {
+  flex: none;
+  width: calc(var(--card-h, 100px) * .0362);
+  height: calc(var(--card-h, 100px) * .0362);
+  border: 1px solid var(--gold);
+  transform: rotate(45deg);
+}
+
+.shop-webgl--game .shop-mark--pips i.on { background: var(--gold); }
+
+/* 技能角标: the skill sprite in the card's dark box; the slot letter when the manifest has no icon.
+   The owner restored the original 128-unit box (20.43% x 15.50% of the hotspot) after seeing the PSD's
+   enlarged 143x143 in game; the top-left anchor stays where the PSD put it (2026-11-23). */
+.shop-webgl--game .shop-mark--skill {
+  left: 70.2%;
+  top: 54.47%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20.43%;
+  height: 15.5%;
+  background: #0a0d0c;
+  border: 1px solid var(--line-3);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .8);
+}
+
+.shop-webgl--game .shop-mark--skill img { width: 100%; height: 100%; object-fit: cover; }
+.shop-webgl--game .shop-mark--skill b {
+  font-family: var(--font-display);
+  font-size: calc(var(--card-h, 100px) * .0676);
+  color: var(--mint-400);
+}
+
+.shop-webgl--game .shop-mark--skill.is-custom { border-color: var(--mint-400); }
+

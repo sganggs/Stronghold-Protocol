@@ -82,9 +82,10 @@ including the lobby. They do not recolor anyone else's screen.
 
 ## Colours
 
-Official names from `skinColorDataDict`. A key with no element is accepted and reported unused
-(`garrisonIconColor2`, `garrisonIconColor3`). A colour is painted only while that key is present, and only inside
-the match (`.gm`).
+Official names from `skinColorDataDict`. Every accepted key is kept in the pack. `garrisonIconColor2` /
+`garrisonIconColor3` paint no CSS variable but are not reported as unused: the canvas shop tints a 5- / 6-tier
+garrison icon with them (`ui/shop/adapter/model.js` `garrisonTintFor`). A colour is painted only while that key is
+present, and only inside the match (`.gm`).
 
 | Key | Custom property | Where |
 |---|---|---|
@@ -168,7 +169,9 @@ shows the ac_n_initial one when that pack is installed, else the same layout in 
 and `skinDesc`. It is not deletable and it is not one of the 8 imported packs. A lite zip with no group shows
 nothing extra. Choosing one fetches `theme.json` and the files it names, turns pictures and voice into blob
 URLs, and plays a Spine from the served URL. The choice is still `settings.uiTheme`. A saved official id whose
-group is missing returns to the built-in look with no “主题已损坏” notice. A fetch that fails does show that notice.
+group is missing falls back to the built-in look: the boot does that quietly, and the re-check that runs when
+设置 → 界面主题 opens (`uiTheme.js` `revalidateActiveTheme`) clears the stored id and shows the 「这个主题已损坏」 notice.
+A fetch that fails does show that notice.
 
 | id | Card | Character on `.funds` (目前资金) |
 |---|---|---|
@@ -180,11 +183,42 @@ group is missing returns to the built-in look with no “主题已损坏” noti
 
 The maintainer's decision of 2026-11-15 (「可露希尔主题可以支持单独导入吗，不想直接内置」): the full, update and asset zips leave out `themes/ac_s_closur` and its sprites in `ui/outer` (the skin preview, its background, the card thumbnail and nine stickers, which the client never draws), with their entries in the shipped `data/local-assets.json` (`tools/package.mjs` `HELD_THEME_GROUPS` / `HELD_THEME_ENTRIES`). A server of the packages therefore lists no 可露希尔 card. `node tools/package.mjs --theme-packs` writes the extracted group as `Stronghold-Protocol-v<version>-theme-ac_s_closur.zip` (every file the importer keeps, `layout.json` left out, and a Chinese / English `README.txt`); the maintainer offers it for download beside the asset pack, not as a release asset. A server that extracted the group from its own client still serves it as before.
 
+The shop-documents job is opt-in (§37.240): a plain extraction writes no theme group at all — the theme pack comes from `--only theme`, which writes it alone (`theme.json`, `layout.json`, sprites, voice, spine, `prefabs.json`), and the shop documents from `--only shopdocs`, which adds `card.json` / `shop.json` with its warn-only enrichment (`tools/local-extract/SHOPDOCS.md` is the producer's provenance). Each run registers its own output, so `--only theme` leaves `card.json` / `shop.json` out of the group even when the files are on disk; a group without them gets the DOM shop. A maintainer building the 可露希尔 pack — or a server that extracted the group itself — runs `tools/local-extract/extract.py --only shopdocs` (with `--themes` pointing at the client's AssetBundle roots and `--game` at the install, which the enrichment reads for `Arknights_Data`; without it the enrichment only warns and the base documents stay) into the local extraction (`--out public/assets/local --manifest data/local-assets.json`) **before** `node tools/package.mjs --theme-packs`, because the pack copies the files the manifest lists under that group. A pack whose group lacks the two documents keeps the DOM shop: run the job, rebuild the zip and import it again — the same `id` replaces the stored pack — or delete it and import the new zip.
+
 设置 → 界面主题 → 导入主题包 (or 导入文件夹) takes that zip. A `theme.json` whose `id` is an official one is an official pack: `theme.json` is checked as an installed pack's is (only the files it names); every other file of type png, jpg, webp, ogg, mp3, json, atlas or skel is kept as well, because the prefabs name their sprites; anything else (the README) is listed as ignored. [ASSUMED] Limits: 1000 files, 64 MB, 8 MB for one JSON / atlas / skeleton, images and audio as above (`OFFICIAL_PACK_LIMITS`). A `prefabs.json` that is not `spPrefabs` 1 is refused and the pack keeps the hand-made HUD. The import is refused (「这台服务器已经带有这个官方主题」) when this server lists the group itself.
 
 The pack is stored like any imported pack (IndexedDB `sp-ui-themes`) and does not count toward the 8. Its card is the official one (title, 「官方」 mark and line of the row above) with a 删除 button. Every stored file becomes a blob URL and the group is laid over the local manifest the screens read (`data.get('local')`, `ui/settings.js`; a group the server serves wins), so the prefab HUD, the 规程 card faces, the banners and the shop chrome find their sprites as they do for an installed pack. `shared/uiTheme.js` `officialAssetUrl` accepts a `blob:` URL for such a group only, and `ui/prefab/view.js` reads its `prefabs.json` already parsed (the page's connect-src is 'self': a blob is not fetched). The funds-card character and the window of the 联防 / result banners are its Spine, built from the bytes. A replaced or deleted pack's blob URLs are revoked two seconds later, once the page has moved on.
 
 No `character` leaves the 盟约 funds box as it is today. With one, the 盟约 funds column keeps the cards' height: `contain: size` keeps its content from sizing the shop row, and the portrait shrinks into the room the money and 收起 leave (about 102×50 at 1600×900; §37.233 — the row used to grow and leave an empty band under the cards). On a 规程 match with no selected character, the card uses ac_n_initial's shop-up spine `trap_1096_acshopup` (idle `Idle`) when that group is installed. The portrait does not take taps (收起 stays the button). 规程 bond discs sit under the middle of the top bar (`.gm--reg .gm__bonds`).
+
+## The canvas shop (official packs, §37.240)
+
+The regulation shop has two renderers: the DOM shop bar (every pack that is not canvas-capable) and a canvas painted
+from the theme's own prefabs. The canvas mounts only for an **official** theme whose installed group (`themes/<id>` in
+`data/local-assets.json`) carries all three documents — `prefabs.json`, `card.json` and `shop.json`. There is no flag:
+the group either has them or it does not, and a theme without them keeps the DOM bar. 可露希尔 is the pack that carries
+them; 卫戍协议终端（官方贴图）and 乌萨斯齐心团 have `prefabs.json` / `card.json` only. An imported official pack works
+the same way: the importer keeps every png / jpg / webp / ogg / mp3 / json / atlas / skel file of the zip (above), so
+one built after `--only shopdocs` carries all three documents, and they are read from the bytes the import already
+stored, because the page cannot fetch a `blob:` (the CSP's `connect-src` is `'self'`). The pack's colours
+(`theme.json`'s `colors`) feed the card model, as the DOM cards' do.
+
+`theme.json` has no field for these documents, so a third-party pack keeps the
+DOM bar, and dropping a `shop.json` into a custom pack mounts nothing (the importer keeps only the files `theme.json`
+names, and the gate resolves only the three official ids).
+A pack that wants to approach the official shop look writes the same slots and colours as the sections above.
+A seat that may not buy still draws the canvas: its cards take the prefab's `disable_matte` and `aria-disabled`, and
+a tap opens the detail (the panel is not folded into `state_disable`).
+
+Fonts are not part of a theme pack at all. The canvas declares `@font-face` from the host's `data/local-assets.json`
+`fonts` group, which comes from the local-client extraction (`tools/local-extract/fonts.py`) into
+`public/assets/local/fonts/`. That group is optional like `ui/cursor` (§37.240): a full extraction attempts the font job, a
+missing install or a face whose bytes fail the pinned SHA-256 only warns, and an absent group is not a stale extraction;
+`--only font` runs that job alone, and [ASSETS.md](ASSETS.md) has the job's rules. Those faces are not distributed: the
+directory is git-ignored and in no package (`tools/package.mjs` `FONT_ART_PREFIX` / `withoutHeldFonts`), so a host built
+from a package serves no local face but is not reported as an incomplete extraction, and the canvas falls back to the
+system stack. A face that is missing or fails to load falls back to the existing font stack; it never blocks the theme,
+the shop or the match. `tools/local-extract/FONT-PROVENANCE.md` is the provenance and records why.
 
 ## 规程 HUD from the official prefabs
 
@@ -205,7 +239,9 @@ theme or an older local pack without that prefab keeps the CSS card fallback.
 `frame_lv1_obj`, `frame_lv2_obj`, `frame_lv3_obj` and `chess_level_5/6_obj`. RectTransform values go through
 `ui/prefab/layout.js`; the card size, price anchor, tier box, name, profession mark, bonds, item watermark and item icon
 follow the prefab coordinates for that theme. The operator card shows the profession mark and name, then vertical bonds;
-it does not show the sub-profession. An item card shows its watermark, icon and name; its effect stays in the detail panel.
+it does not show the sub-profession. Its portrait is the shop owner's outfit picture when one is chosen, else the
+operator's own (§37.240: the canvas card reads the same `ownerSkin` selection as the DOM card's `OperatorImage`). An item
+card shows its watermark, icon and name; its effect stays in the detail panel.
 可露希尔's card has a `bkg` Image under the frame (155×187 centred on the 157×207 card) whose sprite the game sets at run time; [ASSUMED] it is drawn as its colour, white (`--scard-under*`, `cardBacking`, §37.235), so the frame's cut corner and side margins are light as in the official preview, not our dark green card fill. ac_n_initial's `bkg` is the sprite `bg_black` (155×187, the official dark card with fine lines), drawn as it is under its
 hollow frame (§37.237; §37.235 took only its white colour and painted the 卫戍协议终端 cards white). 乌萨斯齐心团 has no `bkg`
 and keeps the dark face. The backing belongs to the official theme's own look: it is drawn only while that theme is the

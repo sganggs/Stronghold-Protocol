@@ -45,7 +45,7 @@ export const OFFICIAL_PACK_EXT = Object.freeze(['png', 'jpg', 'jpeg', 'webp', 'o
 export const BUILTIN_ID = 'terminal';
 const ID_RE = /^[a-z0-9][a-z0-9_-]{0,39}$/;
 
-/** Official colour names (skinColorDataDict). Garrison 2 and 3 have no second chip in our UI. */
+/** Official colour names (skinColorDataDict), including the canvas renderer's garrison 2/3. */
 export const COLOR_KEYS = Object.freeze([
   'skinLightColor', 'skinDarkColor', 'bondColor', 'bondIconColor', 'chessNameColor',
   'saleColor1', 'saleColor2', 'destroyColor1', 'destroyColor2', 'countdownHintColor',
@@ -104,6 +104,14 @@ const COLOR_ATTR = Object.freeze({
   obIconColor: 'ob',
   garrisonIconColor1: 'garrison1',
 });
+
+/**
+ * Official colours the canvas shop reads although ui-theme.css has no custom property for them: the card's
+ * garrison mark takes garrisonIconColor2 at tier 5 and garrisonIconColor3 at tier 6 (ui/shop/adapter/model.js
+ * garrisonTintFor). They are accepted and kept in the pack like any other colour, but they paint no CSS
+ * variable, so the import report must not call them unused.
+ */
+const CANVAS_ONLY_COLORS = new Set(['garrisonIconColor2', 'garrisonIconColor3']);
 
 /** Slots our screens actually draw. Order is the official skin_config order, then our two panels. */
 export const WIRED_IMAGE_SLOTS = Object.freeze([
@@ -528,8 +536,13 @@ export function assessTheme(input) {
       if (!COLOR_KEYS.includes(key)) { unused.colors.push(key); continue; }
       const colour = acceptColour(value);
       if (!colour) { refused.push({ path: `colors.${key}`, code: 'bad-color' }); continue; }
-      if (!COLOR_VAR[key]) { unused.colors.push(key); continue; }
+      // Keep every accepted official colour in the pack: the canvas card renderer reads
+      // garrisonIconColor2/3 even though ui-theme.css has no custom property for them.
       colors[key] = colour;
+      if (!COLOR_VAR[key]) {
+        if (!CANVAS_ONLY_COLORS.has(key)) unused.colors.push(key);
+        continue;
+      }
       used.colors.push(key);
     }
   }
