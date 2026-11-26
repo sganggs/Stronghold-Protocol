@@ -289,6 +289,21 @@ function inRadius(u, x, y, r) {
   return dx * dx + dy * dy <= r * r + 1e-9;
 }
 
+/**
+ * Inventory uid of a hand piece, the same id summonFromBench reads on input.bench.
+ * The prep snapshot stores it on the piece. A bench row at the same hand index is that chess when the
+ * piece view has no uid (slot is the hand index, bench idx is the same index).
+ */
+function handPieceUid(battle, pid, p) {
+  if (Number.isInteger(p.uid) && p.uid > 0) return p.uid;
+  const bench = battle.getPlayer(pid)?.input?.bench;
+  if (!Array.isArray(bench)) return null;
+  const slot = num(p.slot);
+  const hit = bench.find((e) => e && e.kind === 'chess' && e.chessId === p.id && num(e.idx) === slot);
+  const uid = hit && hit.uid;
+  return Number.isInteger(uid) && uid > 0 ? uid : null;
+}
+
 function handSwitch(battle, dead, bondId, { meleeOnly = false, cap = Infinity, counter, onSwitched } = {}) {
   const st = S.battleStore(battle, 'bonds:reg:switch', () => ({ n: {}, taken: new Set() }));
   const pid = dead.ownerId;
@@ -301,9 +316,17 @@ function handSwitch(battle, dead, bondId, { meleeOnly = false, cap = Infinity, c
     const slotKey = `${pid}:${p.slot}`;
     if (st.taken.has(slotKey)) continue;
     if (meleeOnly && String(p.position || '').toUpperCase() !== 'MELEE') continue;
+    // Same predicate as summonFromBench: any ally unit with this uid, removed included (a failed
+    // spawn stays in allyUnits). Skip before dead.removed, so a later candidate that cannot stand
+    // cannot clear a carrier a garrison switch already took off the field.
+    const uid = handPieceUid(battle, pid, p);
+    if (uid != null && battle.allyUnits.some((u) => u.uid === uid)) {
+      st.taken.add(slotKey);
+      continue;
+    }
     dead.removed = true;
     const spawned = typeof battle.spawnOperator === 'function'
-      ? battle.spawnOperator(pid, p.id, r, c, {}) : null;
+      ? battle.spawnOperator(pid, p.id, r, c, uid != null ? { uid } : {}) : null;
     if (!spawned) { dead.removed = false; continue; }
     st.taken.add(slotKey);
     st.n[`${pid}|${key}`] = num(st.n[`${pid}|${key}`]) + 1;

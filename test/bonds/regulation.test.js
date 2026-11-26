@@ -250,8 +250,8 @@ describe('规程·序列Ⅰ bonds', { concurrency: 1 }, () => {
     };
     handlers.contentb_info.onBattleStart(ctx, { input, kind: 'normal' });
     assert.deepEqual(input.contentInfo.handPieces, [
-      { slot: 0, id: 'a', bonds: ['kazimierzShip'], position: 'MELEE' },
-      { slot: 2, id: 'b', bonds: ['egirShip'], position: 'RANGED' },
+      { slot: 0, id: 'a', bonds: ['kazimierzShip'], position: 'MELEE', uid: 1 },
+      { slot: 2, id: 'b', bonds: ['egirShip'], position: 'RANGED', uid: 2 },
     ]);
   });
 
@@ -845,6 +845,127 @@ describe('规程·序列Ⅰ bonds', { concurrency: 1 }, () => {
     assert.equal(next[0].findBuff('bond:egir:devour'), null, 'a 卡西米尔 switch does not copy 阿戈尔 devour stats');
   });
 
+  function ofId(h, id) {
+    return h.b.allyUnits.filter((u) => u.defId === id || u.def?.baseId === id);
+  }
+
+  test('卡西米尔_2 and 历阵锐枪芬 do not summon the same bench uid (#1005)', (t) => {
+    // Bond death listeners run before garrison listeners. Another ground 卡西米尔 falls first, so the bond
+    // fields the rightmost bench chess; 芬's garrison must not field that uid again.
+    const fang = piece('reg_fang', ['kazimierzShip'], { col: 4, skill: null, uid: 1 });
+    fang.rec.garrisonIds = ['garrison_223_a', 'garrison_224_a'];
+    const mate = piece('reg_kz_mate', ['kazimierzShip'], { col: 5, skill: null, uid: 2 });
+    const bench = piece('reg_mlynar', ['kazimierzShip'], { bench: true, skill: null });
+    const h = fight(t, {
+      bonds: { kazimierzShip: bond(6, 0) },
+      pieces: [fang, mate, bench],
+      contentInfo: {
+        handPieces: [{ slot: 8, id: 'reg_mlynar', uid: 55, bonds: ['kazimierzShip'], position: 'MELEE' }],
+      },
+    });
+    h.step();
+    h.b.getPlayer('p1').input.bench = [
+      { uid: 55, kind: 'chess', chessId: 'reg_mlynar', idx: 8, bonds: ['kazimierzShip'] },
+    ];
+    h.b.kill(h.unit('reg_kz_mate'));
+    const summoned = ofId(h, 'reg_mlynar');
+    assert.equal(summoned.length, 1);
+    assert.equal(summoned[0].uid, 55);
+    assert.equal(summoned[0].alive, true);
+    assert.equal(summoned[0].tileC, 5, 'the bond switch stands on the dead operator\'s tile');
+    h.b.kill(h.unit('reg_fang'));
+    assert.equal(ofId(h, 'reg_mlynar').length, 1, '芬 does not summon uid 55 again');
+    assert.equal(h.unit('reg_fang').removed, false, 'no candidate left: the carrier stays down');
+    assert.equal(h.b.errorCount, 0, JSON.stringify(h.b.errors));
+  });
+
+  test('历阵锐枪芬 then 卡西米尔_2 skip a bench uid already on the field (#1005)', (t) => {
+    // The carrier is not a 卡西米尔 member, so the garrison switch runs alone and keeps the inventory uid.
+    // The hand pieces omit uid; the bench row is the shared state. The later bond death takes the next piece.
+    const host = piece('reg_host', [], { col: 4, skill: null, uid: 1 });
+    host.rec.garrisonIds = ['garrison_223_a', 'garrison_224_a'];
+    const mate = piece('reg_kz_mate2', ['kazimierzShip'], { col: 6, skill: null, uid: 2 });
+    const right = piece('reg_mlynar2', ['kazimierzShip'], { bench: true, skill: null });
+    const left = piece('reg_left', ['kazimierzShip'], { bench: true, skill: null });
+    const h = fight(t, {
+      bonds: { kazimierzShip: bond(6, 0) },
+      pieces: [host, mate, right, left],
+      contentInfo: {
+        handPieces: [
+          { slot: 1, id: 'reg_left', bonds: ['kazimierzShip'], position: 'MELEE' },
+          { slot: 8, id: 'reg_mlynar2', bonds: ['kazimierzShip'], position: 'MELEE' },
+        ],
+      },
+    });
+    h.step();
+    h.b.getPlayer('p1').input.bench = [
+      { uid: 11, kind: 'chess', chessId: 'reg_left', idx: 1, bonds: ['kazimierzShip'] },
+      { uid: 55, kind: 'chess', chessId: 'reg_mlynar2', idx: 8, bonds: ['kazimierzShip'] },
+    ];
+    h.b.kill(h.unit('reg_host'));
+    const first = ofId(h, 'reg_mlynar2');
+    assert.equal(first.length, 1);
+    assert.equal(first[0].uid, 55);
+    assert.equal(first[0].alive, true);
+    assert.equal(h.unit('reg_host').removed, true);
+    h.b.kill(h.unit('reg_kz_mate2'));
+    assert.equal(ofId(h, 'reg_mlynar2').length, 1, 'the bond skips the uid the garrison already fielded');
+    const next = ofId(h, 'reg_left');
+    assert.equal(next.length, 1);
+    assert.equal(next[0].uid, 11);
+    assert.equal(next[0].alive, true);
+    assert.equal(next[0].tileC, 6);
+    assert.equal(h.b.errorCount, 0, JSON.stringify(h.b.errors));
+  });
+
+  test('耀骑士临光 and 卡西米尔_2 share the bench uid (#1005)', (t) => {
+    const nearl = piece('reg_nearl', ['kazimierzShip', 'raidShip'], { col: 4, skill: null, uid: 1 });
+    nearl.rec.garrisonIds = ['garrison_58_a'];
+    const mate = piece('reg_kz_mate3', ['kazimierzShip'], { col: 5, skill: null, uid: 2 });
+    const bench = piece('reg_both', ['kazimierzShip', 'raidShip'], { bench: true, skill: null });
+    const h = fight(t, {
+      bonds: { kazimierzShip: bond(6, 0), raidShip: bond(3, 0) },
+      pieces: [nearl, mate, bench],
+      contentInfo: {
+        handPieces: [{ slot: 7, id: 'reg_both', uid: 21, bonds: ['kazimierzShip', 'raidShip'], position: 'MELEE' }],
+      },
+    });
+    h.step();
+    h.b.getPlayer('p1').input.bench = [
+      { uid: 21, kind: 'chess', chessId: 'reg_both', idx: 7, bonds: ['kazimierzShip', 'raidShip'] },
+    ];
+    h.b.kill(h.unit('reg_kz_mate3'));
+    assert.equal(ofId(h, 'reg_both').length, 1);
+    assert.equal(ofId(h, 'reg_both')[0].uid, 21);
+    h.b.kill(h.unit('reg_nearl'));
+    assert.equal(ofId(h, 'reg_both').length, 1, '临光 does not summon uid 21 again');
+    assert.equal(h.unit('reg_nearl').removed, false);
+    assert.equal(h.b.errorCount, 0, JSON.stringify(h.b.errors));
+  });
+
+  test('two bench copies of one chess are different uids', (t) => {
+    const h = fight(t, {
+      bonds: { kazimierzShip: bond(6, 0) },
+      pieces: [
+        piece('reg_kz_a', ['kazimierzShip'], { col: 4, skill: null, uid: 1 }),
+        piece('reg_kz_b', ['kazimierzShip'], { col: 5, skill: null, uid: 2 }),
+        piece('reg_copy', ['kazimierzShip'], { bench: true, skill: null }),
+      ],
+      contentInfo: {
+        handPieces: [
+          { slot: 2, id: 'reg_copy', uid: 56, bonds: ['kazimierzShip'], position: 'MELEE' },
+          { slot: 8, id: 'reg_copy', uid: 55, bonds: ['kazimierzShip'], position: 'MELEE' },
+        ],
+      },
+    });
+    h.step();
+    h.b.kill(h.unit('reg_kz_a'));
+    h.b.kill(h.unit('reg_kz_b'));
+    const copies = ofId(h, 'reg_copy').filter((u) => u.alive);
+    assert.deepEqual(copies.map((u) => u.uid).sort((a, b) => a - b), [55, 56]);
+    assert.equal(h.b.errorCount, 0, JSON.stringify(h.b.errors));
+  });
+
   test('卡西米尔_2: a toggle still active after 30s no longer adds true damage', (t) => {
     const h = fight(t, {
       bonds: { kazimierzShip: bond(6, 0) },
@@ -1066,7 +1187,7 @@ describe('规程·序列Ⅰ bonds', { concurrency: 1 }, () => {
       bondId: 'egirShip', effectId: 'bondeffect_egir_2',
       bonds: { egirShip: bond(6, 0) },
       pieces: [piece('reg_eg2', ['egirShip']), bench],
-      contentInfo: { handPieces: [{ slot: 1, id: 'reg_eg_b', bonds: ['egirShip'], position: 'RANGED' }] },
+      contentInfo: { handPieces: [{ slot: 1, id: 'reg_eg_b', uid: 41, bonds: ['egirShip'], position: 'RANGED' }] },
     });
     h2.step();
     const c = h2.unit('reg_eg2');
@@ -1074,7 +1195,9 @@ describe('规程·序列Ⅰ bonds', { concurrency: 1 }, () => {
     h2.b.dealDamage({ source: null, target: c, amount: 1e9, type: 'true' });
     assert.equal(c.alive, false);
     assert.equal(c.removed, true);
-    assert.equal(living(h2, 'reg_eg_b').length, 1);
+    const switched = living(h2, 'reg_eg_b');
+    assert.equal(switched.length, 1);
+    assert.equal(switched[0].uid, 41, '阿戈尔_2 passes the inventory uid');
   });
 
   test('阿戈尔_2 copies devoured ATK, block and HP onto the switched-in operator', (t) => {

@@ -311,7 +311,8 @@ function tilePlaceable(battle, ps, r, c, chessId) {
  * (【卡西米尔】【突袭】 is an AND) that can stand on that tile; when none can, there is no switch and the carrier stays
  * down and redeploys. Until round 84 the carrier stayed down and the chess landed on the rightmost empty tile
  * ([ASSUMED]: the body held the tile). The match hand is not touched — the bench entry stays, and a uid already
- * created as a unit is skipped.
+ * created as a unit is skipped. The bond switch (handSwitch) passes that same inventory uid, so either order
+ * sees the chess as already called.
  */
 function summonFromBench(battle, it) {
   const fell = it.unit;
