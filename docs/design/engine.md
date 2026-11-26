@@ -462,3 +462,7 @@ existing handlers. Delayed replacement callbacks explicitly hold battle completi
 punisher replacement has no artificial one-second delay. A leak does not count as a kill and silence does not
 suppress these death talents. Sources, exact ids and retained placement assumptions:
 [Regulation death-summon investigation](../research/sarkaz-death-spawns-20261113.md).
+
+### 自动施放目标判定
+
+艾丽妮：S2 等待范围内可选的地面目标；S3 可由范围内可选的空中目标触发。
