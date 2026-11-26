@@ -1,7 +1,7 @@
 // server/sim/content/kits/ops/chess_char_6_19-blkkgt.js — 锏 (char_4116_blkkgt) kit, tier 6.
 // Conventions of the tier-6 kits: ../shared/tier6.js; kit contract and rules: ../README.md.
 
-import { sortEnemyTargets, canTargetEnemy } from '../../../targeting.js';
+import { absoluteRangeKeys, sortEnemyTargets, canTargetEnemy } from '../../../targeting.js';
 import { num, tbb, textCount, live, ANY, enemiesIn, instantKind, pullToward } from '../shared/tier6.js';
 
 // ------------------------------------------------------------------------------------------------------------------
@@ -16,10 +16,14 @@ function blkkgt(bb, chess, def) {
   // the skill range (x-1): her range while S3 runs — also for the finisher, since onEnd runs before the engine
   // removes the skill's range
   const skillKeys = (unit) => unit.rangeKeys || [];
+  const castKeys = (unit) => absoluteRangeKeys(skillGrid || unit.rangeGrid, unit.tileR, unit.tileC, unit.dir, unit.s.rangeExtend);
+  const groundSkillTargets = (battle, unit) => battle.unitsInGrid(unit, skillGrid || [[0, 0], [0, 1]], { side: 'enemy' })
+    .filter((e) => !e.isFlying && canTargetEnemy(unit, e, unit.profile));
+  const airProfile = (unit) => ({ ...unit.profile, canHitFly: true, groundOnly: false });
   // S3 hits and pulls air units too — PRTS 锏 S3 备注 "※可对空。不会拖拽自身中心半径0.6708范围内的敌人" (her attacks and S1 /
   // S2 stay ground-only: "地面敌人"); the air units of the mode are 静态刚体, so the pull leaves them in place (Battle.pull)
   const victims = (battle, unit) => {
-    const c = battle.enemiesInKeys(skillKeys(unit), unit, { ...unit.profile, canHitFly: true, groundOnly: false });
+    const c = battle.enemiesInKeys(skillKeys(unit), unit, airProfile(unit));
     sortEnemyTargets(battle, unit, c, null);
     return c.slice(0, maxT);
   };
@@ -40,6 +44,8 @@ function blkkgt(bb, chess, def) {
     // (her trait) at atk_scale_s1 × ATK
     skchr_blkkgt_1: {
       kind: 'instant',
+      trigger: 'SEARCH',
+      canActivate: (battle, unit) => battle.enemiesInKeys(castKeys(unit), unit, unit.profile).length > 0,
       attack: { atkScale: num(bb.atk_scale_s1, 1) },
       targeting: { maxTargets: Math.max(1, Math.floor(num(bb.max_target, 5))), ...(skillGrid ? { rangeGrid: skillGrid } : {}) },
     },
@@ -47,9 +53,10 @@ function blkkgt(bb, chess, def) {
     // (3 when blocked) of dot_scale × ATK; the talent procs at 100 % meanwhile (skill active + bb.prob)
     skchr_blkkgt_2: {
       kind: instantKind(def),
+      ...(def?.skill?.trigger?.rule === 'SP_FULL' ? { trigger: 'SEARCH' } : {}),
+      canActivate: (battle, unit) => groundSkillTargets(battle, unit).length > 0,
       onStart({ battle, unit }) {
-        const grid = skillGrid || [[0, 0], [0, 1]];
-        const c = battle.unitsInGrid(unit, grid, { side: 'enemy' }).filter((e) => !e.isFlying && canTargetEnemy(unit, e, unit.profile));
+        const c = groundSkillTargets(battle, unit);
         sortEnemyTargets(battle, unit, c, null);
         const v = c.slice(0, Math.max(1, Math.floor(num(bb.max_target, 5))));
         const nFree = Math.floor(num(bb['blkkgt_s_2[not_blocked].trig_cnt'], 2)), nBlocked = Math.floor(num(bb['blkkgt_s_2[blocked].trig_cnt'], 3));
@@ -85,6 +92,8 @@ function blkkgt(bb, chess, def) {
     },
     skill: {
       kind: 'duration',
+      ...(def?.skill?.trigger?.rule === 'SP_FULL' ? { trigger: 'SEARCH' } : {}),
+      canActivate: (battle, unit) => battle.enemiesInKeys(castKeys(unit), unit, airProfile(unit)).length > 0,
       duration: slashes * iv,
       ...(skillGrid ? { targeting: { rangeGrid: skillGrid } } : {}),
       attack: { noAttack: true },

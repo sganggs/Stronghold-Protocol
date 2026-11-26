@@ -27,6 +27,7 @@ const CHAR = Object.freeze({
   hbound: 'char_4232_hbound',
   fang2: 'char_1036_fang2',
   acrbot: 'char_618_acrbot',
+  blkkgt: 'char_4116_blkkgt',
 });
 
 /** Normal `_a` whose charId matches. Elite is that record's goldenId. */
@@ -909,4 +910,22 @@ test('the ten operators fight for 60s without a sim error', () => {
     assert.ok(u.hp >= 0 && u.hp <= u.s.maxHp + 1e-6, `${u.defId} hp ${u.hp}/${u.s.maxHp}`);
   }
   h.invariants();
+});
+
+test('Regulation Degenbrecher waits at full SP until an enemy enters each equipped skill range', () => {
+  for (const id of [ID.blkkgt, ID.blkkgtE]) {
+    for (const skillIndex of [0, 1, 2]) {
+      const h = battle([op(1, id, 5, skillIndex)]);
+      const outside = foe(h.battle, 9, 9);
+      h.step();
+      const unit = h.unit(1);
+      unit.skill.gainSp(9999, 'test');
+      h.run(0.6);
+      assert.equal(unit.skill.activations, 0, `${id} skill ${skillIndex + 1}: outside range`);
+      assert.equal(unit.skill.ready, true);
+      outside.x = 6;
+      h.run(0.6);
+      assert.ok(unit.skill.activations > 0, `${id} skill ${skillIndex + 1}: enemy entered range`);
+    }
+  }
 });
