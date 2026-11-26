@@ -462,3 +462,7 @@ existing handlers. Delayed replacement callbacks explicitly hold battle completi
 punisher replacement has no artificial one-second delay. A leak does not count as a kill and silence does not
 suppress these death talents. Sources, exact ids and retained placement assumptions:
 [Regulation death-summon investigation](../research/sarkaz-death-spawns-20261113.md).
+
+### 纯烬艾雅法拉「无声润物」
+
+提案：技力满后等待治疗范围内出现可治疗的友方，缺失生命或已有元素损伤均可触发。此提案调整原先满技力直接开启的约定；开启后的持续治疗效果不变。

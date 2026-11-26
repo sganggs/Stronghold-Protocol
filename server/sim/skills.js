@@ -548,6 +548,7 @@ export class SkillRuntime {
     if (this.active && this.isTimed) return false;
     const u = this.unit;
     if (!u.alive || !u.deployed) return false;
+    if (this.spec.canActivate && !this.spec.canActivate(this.battle, u)) return false;
     if (!free) {
       const wasFull = this.charges >= this.maxCharges;
       this.charges--;
