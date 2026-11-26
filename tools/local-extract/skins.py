@@ -13,7 +13,9 @@ destination (one volume: the finished files are renamed into place, never copied
   docs/SKINS.md), and local-skins-2 … when one plugin cannot hold them all (512 MB / 5000 files / 2000 folders: the
   outfits of this installation's operators are about 0.7 GB): plugin.json, its overlay skins.json with
   chars[<charId>].skins[<skinId>] = { name, group, avatar, portrait, illust, spine? } from the official skin_table.json
-  charSkins (--skin-table), and the files under <charId>/<outfit>/:
+  charSkins (--skin-table), tokens[<tokenId>].skins[<owner skinId>] = { name, group, avatar?, spine? } for the summons
+  their owners' outfits dress (the same table's charSkins[*].tokenSkinMap; a summon says nothing, so its skins carry no
+  voice), and the files under <charId>/<outfit>/ and <tokenId>/<summon outfit>/:
     avatar.png, portrait.png   the spritepack Sprites named by avatarId / portraitId (ui_char_avatar_*, char_portrait_*)
     illust.webp                the Sprite of the outfit's 立绘 prefab (arts/characters/<charId>/<illustId>.prefab of
                                skinpack/<charId>.ab), padded back to its rect; WebP quality 90 (PNG without WebP)
@@ -21,10 +23,17 @@ destination (one volume: the finished files are renamed into place, never copied
                                renderers named Front / Back (one named Spine is the front of a one-sided model), written
                                by extract.write_spine: straight pages (merge_alpha), atlas without `pma` (#668), and
                                plugin-safe file names with the atlas's page lines rewritten to them
+  A summon's outfit is the prefab of the summon's own pack, skinpack/<tokenId>.ab, named by tokenSkinMap
+  `tokenSkinId` (its models are taken by SkeletonDataAsset, never by skeleton name, and its `illust_` prefabs are
+  skipped), its avatar.png the 180×180 Sprite of ui_char_avatar_* named `tokenSkinId` when the client has one —
+  otherwise the record has no avatar and the client falls back to the summon's own (docs/SKINS.md). Its name and series
+  are the owner outfit's displaySkin.
   An outfit whose battleSkin keeps the operator's own model (DefaultSkin) gets pictures only: the picker's
   「仅更换头像与立绘」 (SKINS.md B6). A plain `--only skins` takes the operators of the installation's data/assets.json
-  (`--only skins/<charId>` names any operator); then `node tools/plugin.mjs pack` writes each part's lock. Copy the part
-  folders into plugins/ to use them; the files are official art and never belong in git or a release.
+  and their summons (`--only skins/<charId>` names any operator, and the summons its outfits dress); then
+  `node tools/plugin.mjs pack` writes each part's lock. --limit N samples the outfits only: the summons kept are those
+  of the N sampled outfits. Copy the part folders into plugins/ to use them; the files are official art and never belong
+  in git or a release.
 --only library[/<kind>] → <out>/library/<kind>/ and library/index.json: every 立绘 (opillust: the illust_* prefabs of
   chararts/ and skinpack/), 半身像 (opportrait: char_portrait_*) and 头像 (opavatar: ui_char_avatar_*) of the client,
   each kind deduplicated by its own official names.
@@ -46,7 +55,8 @@ FORMAT = 1
 AVATARS = 'spritepack/ui_char_avatar_*.ab'
 PORTRAITS = 'spritepack/char_portrait_*.ab'
 ILLUST_PACKS = ('chararts/*.ab', 'skinpack/*.ab')
-SKIN_PACK = 'skinpack/{}.ab'
+SKIN_PACK = 'skinpack/{}.ab'  # an outfit's or a summon's pack: a token id already starts with `token_`
+PREFAB_EXT = '.prefab'
 DEFAULT_MODEL = 'DefaultSkin'
 PLUGIN_FILE = 'plugin.json'
 # The overlay is a file of the plugin, not inline in plugin.json: the manifest reader takes every inline `assets` text
@@ -149,6 +159,52 @@ def plan(table, owners=None):
     return jobs
 
 
+def token_plan(table, owners=None, log=None):
+    """skin_table.json → the summon (token) outfit jobs: every `charSkins[*].tokenSkinMap` entry ([{tokenId,
+    tokenSkinId}]) of the outfits of the operators in `owners` (all with None), indexed by its owner outfit. A job is
+    {tokenId, char (= tokenId), skinId (= the owner outfit's id), tokenSkinId, dir, name, group}: `dir` is
+    <tokenId>/<plugin-safe tokenSkinId>, unique per summon; `name` / `group` are the OWNER outfit's displaySkin (a
+    summon has no name of its own), and one summon takes at most SKINS_PER_RECORD outfits in the official order — more
+    are dropped with a warning naming the summon and its total (`log`), never silently (docs/PLUGINS.md §9).
+    `char` / `skinId` are the fields plan gives its jobs, so keep_dirs, record_dir and the part placement treat a summon
+    outfit like an operator outfit; `tokenSkinId` is what the bundle's prefab and the 180×180 avatar are named."""
+    wanted = None if owners is None else set(owners)
+    by_token = {}
+    for sid, rec in ((table or {}).get('charSkins') or {}).items():
+        if not isinstance(rec, dict):
+            continue
+        cid = owner_of(rec)
+        if wanted is not None and (not cid or cid not in wanted):
+            continue
+        ds = rec.get('displaySkin') or {}
+        for entry in rec.get('tokenSkinMap') or []:
+            if not isinstance(entry, dict):
+                continue
+            token_id, token_skin = entry.get('tokenId'), entry.get('tokenSkinId')
+            if not token_id or not token_skin:
+                continue
+            by_token.setdefault(token_id, []).append({
+                'tokenId': token_id, 'tokenSkinId': token_skin, 'ownerSkinId': sid,
+                'sort': _sort_key({**rec, 'skinId': sid}),
+                # [ASSUMED] an owner outfit without a skinName is named by its id, as an outfit without one is (plan)
+                'name': _text(ds.get('skinName'), sid), 'group': _text(ds.get('skinGroupName'))})
+    jobs = []
+    for token_id in sorted(by_token):
+        entries = sorted(by_token[token_id], key=lambda e: e['sort'])
+        if len(entries) > SKINS_PER_RECORD:
+            if log is not None:
+                log(f'warn: {token_id} is dressed by {len(entries)} owner outfits; one summon record takes '
+                    f'{SKINS_PER_RECORD} (docs/PLUGINS.md §9) — the official order keeps the first {SKINS_PER_RECORD}')
+            entries = entries[:SKINS_PER_RECORD]
+        taken = set()
+        for entry in entries:
+            jobs.append({'tokenId': token_id, 'char': token_id, 'skinId': entry['ownerSkinId'],
+                         'tokenSkinId': entry['tokenSkinId'],
+                         'dir': f'{token_id}/{unique(plugin_safe(entry["tokenSkinId"]), taken)}',
+                         'name': entry['name'], 'group': entry['group']})
+    return jobs
+
+
 def record(job, files):
     """The plugin's skin record of a job from the files it wrote (paths inside the plugin folder): name and group, the
     pictures that exist, and the model when its front exists. None when nothing wearable was written."""
@@ -182,19 +238,29 @@ def part_number(name):
     return int(m.group(1) or 1) if m else None
 
 
-def overlay(chars):
-    """The asset overlay of a part (ASSETS_FILE): chars[<charId>].skins[<skinId>] = record."""
-    return {'chars': {cid: {'skins': chars[cid]} for cid in sorted(chars)}}
+def overlay(chars, tokens=None):
+    """The asset overlay of a part (ASSETS_FILE): chars[<charId>].skins[<skinId>] = record, and
+    tokens[<tokenId>].skins[<owner skin id>] = record; a side a part has nothing for is left out."""
+    doc = {}
+    if chars:
+        doc['chars'] = {cid: {'skins': chars[cid]} for cid in sorted(chars)}
+    if tokens:
+        doc['tokens'] = {tid: {'skins': tokens[tid]} for tid in sorted(tokens)}
+    return doc
 
 
-def manifest(chars, installed, version, part=1):
+def manifest(chars, installed, version, part=1, tokens=None, installed_tokens=()):
     """plugin.json of a part: a personal cosmetic plugin whose overlay is ASSETS_FILE, `assets.override` for operators
-    the installation's data/assets.json has and `assets.add` for the others (docs/PLUGINS.md §9)."""
+    and summons the installation's data/assets.json has and `assets.add` for the others (docs/PLUGINS.md §9). `tokens`
+    are the part's summon records (<tokenId> → {<owner skin id>: record}), `installed_tokens` the summons of
+    data/assets.json."""
     have = set(installed or ())
+    have_tokens = set(installed_tokens or ())
+    tokens = tokens or {}
     perms = []
-    if any(cid in have for cid in chars):
+    if any(cid in have for cid in chars) or any(tid in have_tokens for tid in tokens):
         perms.append('assets.override')
-    if any(cid not in have for cid in chars):
+    if any(cid not in have for cid in chars) or any(tid not in have_tokens for tid in tokens):
         perms.append('assets.add')
     return {
         'manifest': 2,
@@ -376,25 +442,23 @@ def _face_namer(face):
     return rename
 
 
-def _model(env, objects, job, stage, log):
-    """The outfit's Front / Back into <stage>/<dir>/: {front: Spine, back?: Spine} (paths relative to the plugin)."""
-    from extract import pick_spine_node, prefab_spine_nodes, write_spine
-    want = '/' + job['model'].lower() + '.prefab'
-    ref = next((v for k, v in sorted(env.container.items())
-                if 'battle/prefabs/skins/' in k.lower() and k.lower().endswith(want)), None)
-    if ref is None:
-        log(f'skip (no battle prefab {job["model"]}) {job["skinId"]}')
-        return {}
-    nodes = prefab_spine_nodes(ref.read_typetree(), objects)
+def _faces(objects, nodes, job, stage, log):
+    """The Front / Back models of a prefab's Spine renderers (prefab_spine_nodes) into <stage>/<dir>/: {front: Spine,
+    back?: Spine} (paths relative to the plugin). The front is the renderer named Front, else one named Spine (a
+    one-sided model), else the first active one (pick_spine_node); a Back is written only beside a Front, as an operator's
+    own model draws one facing up. The files are _face_namer's: front.skel / front.atlas / front.png (front_2.png …),
+    the same for back. The log name is a summon outfit's tokenSkinId, else the outfit's skin id."""
+    from extract import pick_spine_node, write_spine
     front = pick_spine_node([n for n in nodes if n[0] in ('Front', 'Spine')])
     back = next((n for n in nodes if n[0] == 'Back' and n[1]), None) or next((n for n in nodes if n[0] == 'Back'), None)
+    name = job.get('tokenSkinId') or job['skinId']
     out = {}
     for face, node in (('front', front), ('back', back if front and front[0] == 'Front' else None)):
         sda = _local(objects, node[2]) if node else None
         if sda is None:
             continue
         files = {}
-        n = write_spine(objects, sda.read_typetree(), job['dir'], job['skinId'], stage, files, log, rename=_face_namer(face))
+        n = write_spine(objects, sda.read_typetree(), job['dir'], name, stage, files, log, rename=_face_namer(face))
         if not n:
             continue
         got = files.get(job['dir'], {})
@@ -403,8 +467,20 @@ def _model(env, objects, job, stage, log):
     return out
 
 
+def _model(env, objects, job, stage, log):
+    """The outfit's Front / Back into <stage>/<dir>/: {front: Spine, back?: Spine} (paths relative to the plugin)."""
+    from extract import prefab_spine_nodes
+    want = '/' + job['model'].lower() + PREFAB_EXT
+    ref = next((v for k, v in sorted(env.container.items())
+                if 'battle/prefabs/skins/' in k.lower() and k.lower().endswith(want)), None)
+    if ref is None:
+        log(f'skip (no battle prefab {job["model"]}) {job["skinId"]}')
+        return {}
+    return _faces(objects, prefab_spine_nodes(ref.read_typetree(), objects), job, stage, log)
+
+
 def _illust(env, objects, job, stage, log):
-    want = '/' + job['illust'].lower() + '.prefab'
+    want = '/' + job['illust'].lower() + PREFAB_EXT
     ref = next((v for k, v in sorted(env.container.items())
                 if 'arts/characters/' in k.lower() and k.lower().endswith(want)), None)
     if ref is None:
@@ -416,8 +492,10 @@ def _illust(env, objects, job, stage, log):
     return f'{job["dir"]}/{name}'
 
 
-def read_parts(dest, log):
-    """{part number: {charId: {skinId: record}}} of the plugin parts an earlier run left in <dest> (skins/)."""
+def read_parts(dest, log, key='chars'):
+    """{part number: {<id>: {<record key>: record}}} of the plugin parts an earlier run left in <dest> (skins/), one
+    overlay table: `chars` (<charId> → skins) by default, or `tokens` (<tokenId> → skins); the two key spaces are read
+    apart because an owner skin id may be an operator outfit's id too."""
     parts = {}
     if not Path(dest).is_dir():
         return parts
@@ -430,7 +508,7 @@ def read_parts(dest, log):
             if isinstance(doc, str):
                 doc = json.loads((d / doc).read_text(encoding='utf-8'))
             parts[n] = {cid: dict(rec.get('skins') or {})
-                        for cid, rec in ((doc or {}).get('chars') or {}).items() if isinstance(rec, dict)}
+                        for cid, rec in ((doc or {}).get(key) or {}).items() if isinstance(rec, dict)}
         except (OSError, ValueError, AttributeError) as err:
             log(f'warn {d / PLUGIN_FILE}: unreadable ({err}); its outfits are extracted again when asked')
             parts[n] = {}
@@ -438,7 +516,8 @@ def read_parts(dest, log):
 
 
 def record_dir(rec):
-    """The outfit folder a record's files are in (<charId>/<outfit>, plugin-safe names), or None."""
+    """The folder a record's files are in (<charId>/<outfit>, or <tokenId>/<summon outfit>: two plugin-safe parts), or
+    None."""
     paths = [rec.get(s) for s in ('avatar', 'portrait', 'illust')]
     paths += [m.get('skel') for m in (rec.get('spine') or {}).values() if isinstance(m, dict)]
     dirs = {p.rsplit('/', 1)[0] for p in paths if isinstance(p, str) and '/' in p}
@@ -447,22 +526,25 @@ def record_dir(rec):
 
 
 def keep_dirs(jobs, parts):
-    """The jobs with the outfit folders of an earlier run kept: an outfit whose record (in any part) has its files in
-    one folder of its operator keeps that folder, so a re-run never renames one. Two outfits of one plugin-safe name
+    """The jobs with the folders of an earlier run kept: an outfit whose record (in any part) has its files in one
+    folder of its operator keeps that folder, so a re-run never renames one. Two outfits of one plugin-safe name
     (`a#1`, `a+1`) would otherwise swap `a_1` / `a_1_2` when the official order changes or a new outfit of the name
     comes first, and the second move would delete the folder the first had just filled. Every other job keeps plan's
-    folder, or `_2` … of it while an earlier run's outfit (also one this run leaves alone) or another job holds it."""
+    folder, or `_2` … of it while an earlier run's outfit (also one this run leaves alone) or another job holds it.
+    A summon outfit is a job of the same shape (char = its tokenId, skinId = the owner outfit's id) against the
+    `tokens` table of read_parts: its own key space, since an owner skin id may be an operator outfit's id too, and two
+    summons may be dressed by one owner outfit — an earlier run's folder is looked up by (owner, skin id)."""
     old = {}
-    for chars in parts.values():
-        for recs in chars.values():
+    for table in parts.values():
+        for owner, recs in table.items():  # the owner is the folder's first part: <charId> or <tokenId>
             for sid, rec in recs.items():
                 d = record_dir(rec) if isinstance(rec, dict) else None
                 if d:
-                    old.setdefault(sid, d)
+                    old.setdefault((owner, sid), d)
     held = {d.lower() for d in old.values()}
     taken, out = set(), []
     for job in jobs:
-        d = old.get(job['skinId'])
+        d = old.get((job['char'], job['skinId']))
         if d and d.split('/', 1)[0] == job['char'] and d.lower() not in taken:
             taken.add(d.lower())
             out.append(dict(job, dir=d))
@@ -506,7 +588,7 @@ def _alive(folder):
 
 
 def _remove(folder, rel):
-    """Delete an outfit folder of a part, and its operator folder when that is left empty."""
+    """Delete an outfit's (or a summon outfit's) folder of a part, and its owner folder when that is left empty."""
     if not rel:
         return
     shutil.rmtree(Path(folder) / rel, ignore_errors=True)
@@ -516,34 +598,56 @@ def _remove(folder, rel):
         pass
 
 
-def export(ab_root, out_root, log, jobs, installed=(), version='', limit=0, pack_root=None):
-    """The outfit jobs (plan) → the plugin parts in <out_root>/skins/, merged into what an earlier run left there;
-    returns the number of files written. An outfit stays in its part while that part keeps inside the cosmetic
-    ceilings, else it goes to the first part with room, else to a new part (local-skins-2 …): 345 outfits of this
-    installation's operators are about 0.7 GB, more than one cosmetic plugin holds. An outfit keeps the folder an earlier
-    run gave it (keep_dirs). Files are staged in <out_root>/skins/.staging-skins-* and renamed into their parts once
-    every outfit is extracted. `installed` are the operators of the
-    installation's data/assets.json (the permissions), `pack_root` the installation `node tools/plugin.mjs pack` checks
-    a written part against (None: no pack)."""
+def export(ab_root, out_root, log, jobs, installed=(), version='', limit=0, pack_root=None,
+           tokens=(), installed_tokens=()):
+    """The outfit jobs (plan) and the summon outfit jobs (token_plan) → the plugin parts in <out_root>/skins/, merged
+    into what an earlier run left there; returns the number of files written. An outfit or a summon outfit stays in its
+    part while that part keeps inside the cosmetic ceilings, else it goes to the first part with room, else to a new part
+    (local-skins-2 …): 345 outfits of this installation's operators are about 0.7 GB, more than one cosmetic plugin
+    holds, and the summons' outfits are ~10 % of that again — the operators' outfits take the parts first, a summon
+    outfit fills what is left. A record keeps the folder an earlier run gave it (keep_dirs), in its own key space
+    (`chars` / `tokens`: an owner skin id may be an operator outfit's id too). Files are staged in
+    <out_root>/skins/.staging-skins-* and renamed into their parts once every picture and model is extracted.
+    `installed` / `installed_tokens` are the operators and summons of the installation's data/assets.json (the
+    permissions), `pack_root` the installation `node tools/plugin.mjs pack` checks a written part against (None: no
+    pack). `limit` keeps the first N outfit jobs and the summon outfits of those outfits only — a summon wears what its
+    owner wears, so a sample of outfits needs no count of its own (docs/SKINS.md)."""
     import aklz4  # noqa: F401 (the LZ4AK decoder for the one flag it registers, as every other job)
     import UnityPy
+    from extract import prefab_spine_nodes
 
     dest = Path(out_root) / SUB
-    jobs = list(jobs)[:limit] if limit else list(jobs)
-    if not jobs:
+    jobs = list(jobs)
+    tokens = list(tokens)
+    # every summon outfit this run was handed: one --limit leaves out is no "not in tokenSkinMap" below
+    known = {job['tokenSkinId'].casefold() for job in tokens}
+    if limit:
+        jobs = jobs[:limit]
+        chosen = {job['skinId'] for job in jobs}
+        tokens = [job for job in tokens if job['skinId'] in chosen]
+    if not jobs and not tokens:
         log('skins: no outfit to extract')
         return 0
-    parts = read_parts(dest, log)
-    jobs = keep_dirs(jobs, parts)
+    parts = {'chars': read_parts(dest, log), 'tokens': read_parts(dest, log, 'tokens')}
+    jobs = keep_dirs(jobs, parts['chars'])
+    tokens = keep_dirs(tokens, parts['tokens'])
     stage = _stage(dest, SUB)
-    written, new, placed, gone = {}, {}, {}, {}
+    written, new = {}, {'chars': {}, 'tokens': {}}
+    placed, gone = {'chars': {}, 'tokens': {}}, {'chars': {}, 'tokens': {}}
     try:
-        files = {job['skinId']: {} for job in jobs}
+        files = {}
+        for job in jobs:
+            files[('chars', job['char'], job['skinId'])] = {}
+        for job in tokens:  # one token's job per owner outfit, and two summons may share that outfit
+            files[('tokens', job['char'], job['skinId'])] = {}
         for slot, glob in (('avatar', AVATARS), ('portrait', PORTRAITS)):
             wanted = {}
-            for job in jobs:
-                if job[slot]:
-                    wanted.setdefault(job[slot], []).append(job)
+            for container, group in (('chars', jobs), ('tokens', tokens)):
+                for job in group:
+                    # a summon outfit's avatar is the Sprite named after its tokenSkinId; it has no portrait of ours
+                    name = job['tokenSkinId'] if slot == 'avatar' and container == 'tokens' else job.get(slot)
+                    if name:
+                        wanted.setdefault(name, []).append((container, job))
             for bundle, obj in _sprites(ab_root, glob, log):
                 if not wanted:
                     break
@@ -552,9 +656,9 @@ def export(ab_root, out_root, log, jobs, installed=(), version='', limit=0, pack
                     if name not in wanted:
                         continue
                     img = obj.read().image
-                    for job in wanted.pop(name):
+                    for container, job in wanted.pop(name):
                         fname = save_picture(img, stage / job['dir'], slot, False)
-                        files[job['skinId']][slot] = f'{job["dir"]}/{fname}'
+                        files[(container, job['char'], job['skinId'])][slot] = f'{job["dir"]}/{fname}'
                 except Exception as err:  # one unreadable sprite must not hide the later ones of the bundle
                     log(f'warn {bundle} sprite: {err}')
             for name in sorted(wanted):
@@ -574,7 +678,7 @@ def export(ab_root, out_root, log, jobs, installed=(), version='', limit=0, pack
             else:
                 log(f'skip (not in this client) {SKIN_PACK.format(cid)}')
             for job in by_owner[cid]:
-                got = files[job['skinId']]
+                got = files[('chars', job['char'], job['skinId'])]
                 if env is not None:
                     try:
                         if job['illust']:
@@ -591,44 +695,102 @@ def export(ab_root, out_root, log, jobs, installed=(), version='', limit=0, pack
                 if rec is None:
                     log(f'skip (nothing found) {job["skinId"]}')
                     continue
-                new[job['skinId']] = rec
-        # move each finished outfit into a part that stays inside the cosmetic ceilings
-        budgets = {n: Budget(dest / part_folder(n)) for n in parts}
-        home = {sid: (n, rec) for n, chars in parts.items() for recs in chars.values() for sid, rec in recs.items()}
-        for job in jobs:
-            sid = job['skinId']
-            rec = new.get(sid)
-            if rec is None:
+                new['chars'][(job['char'], job['skinId'])] = rec
+        # a summon's own pack, skinpack/<tokenId>.ab: its container prefabs are named by tokenSkinMap `tokenSkinId`
+        by_token = {}
+        for job in tokens:
+            by_token.setdefault(job['tokenId'], []).append(job)
+        for tid in sorted(by_token):
+            bundle = Path(ab_root) / SKIN_PACK.format(tid)
+            if not bundle.is_file():
+                log(f'skip (not in this client) {SKIN_PACK.format(tid)}')
                 continue
-            size = folder_size(stage / job['dir'])
-            was, old_rec = home.get(sid, (None, None))
-            old_dir = record_dir(old_rec) if old_rec else None
-            spare = max(list(budgets) + [0]) + 1
-            target = None
-            for n in ([was] if was else []) + [k for k in sorted(budgets) if k != was] + [spare]:
-                folder = dest / part_folder(n)
-                budget = budgets.get(n) or Budget(folder)
-                dst = folder / job['dir']
-                need = (size[0], size[1], size[2] + (0 if dst.parent.is_dir() else 1))
-                if budget.take(need, folder_size(folder / old_dir) if n == was and old_dir else (0, 0, 0)):
-                    budgets[n], target = budget, n
-                    break
-            if target is None:
-                log(f'skip (larger than a cosmetic plugin: {PLUGIN_BYTES >> 20} MB / {PLUGIN_FILES} files) {sid}')
+            try:
+                env = UnityPy.load(str(bundle))
+                objects = {o.path_id: o for o in env.objects}
+                prefabs = [(k, v, k.rsplit('/', 1)[1][:-len(PREFAB_EXT)]) for k, v in sorted(env.container.items())
+                           if k.lower().endswith(PREFAB_EXT)]
+            except Exception as err:
+                log(f'warn {bundle.name}: {err}')
                 continue
-            folder = dest / part_folder(target)
-            if was:
-                gone.setdefault(was, set()).add(sid)
-                if was != target:
-                    budgets[was].take((0, 0, 0), folder_size(dest / part_folder(was) / old_dir) if old_dir else (0, 0, 0))
-                _remove(dest / part_folder(was), old_dir)
-            _remove(folder, job['dir'])
-            (folder / job['dir']).parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(str(stage / job['dir']), str(folder / job['dir']))
-            placed.setdefault(target, {}).setdefault(job['char'], {})[sid] = rec
-            written[sid] = size[1]
-            log(f'{sid} {job["name"]} -> {SUB}/{part_folder(target)}/{job["dir"]} ({size[1]} files'
-                f'{", pictures only" if "spine" not in rec else ""})')
+            by_skin = {}
+            for job in by_token[tid]:
+                by_skin.setdefault(job['tokenSkinId'].casefold(), []).append(job)
+            for key, ref, stem in prefabs:
+                if stem.casefold().startswith('illust_'):
+                    continue  # a summon outfit's 立绘 prefab, not a model
+                group = by_skin.get(stem.casefold())
+                if not group:
+                    # a prefab the official tokenSkinMap gives no owner outfit of this summon in this run; one this run
+                    # leaves out (--limit) is not a map miss
+                    if stem.casefold() not in known:
+                        log(f'skip (not in tokenSkinMap) {bundle.name}: {key.rsplit("/", 1)[-1]}')
+                    continue
+                try:
+                    nodes = prefab_spine_nodes(ref.read_typetree(), objects)
+                except Exception as err:
+                    log(f'warn {bundle.name}: {err}')
+                    continue
+                for job in group:
+                    try:
+                        files[('tokens', job['char'], job['skinId'])].update(_faces(objects, nodes, job, stage, log))
+                    except Exception as err:
+                        log(f'warn {job["tokenSkinId"]}: {err}')
+            for job in by_token[tid]:
+                got = files[('tokens', job['char'], job['skinId'])]
+                if not got.get('front'):
+                    # Two official tokens are marker units with no model by design: one pins an enemy to a tile, the
+                    # other is the marker a skill leaves on the original tile after moving and jumping back. Their
+                    # prefab has no SkeletonData, so the skip is expected rather than a missing extraction.
+                    log(f'skip (model not extracted) {job["tokenSkinId"]}')
+                    continue
+                rec = record(job, got)
+                if rec is None:
+                    log(f'skip (nothing found) {job["tokenSkinId"]}')
+                    continue
+                new['tokens'][(job['char'], job['skinId'])] = rec
+        # move each finished outfit into a part that stays inside the cosmetic ceilings; the operators' outfits first,
+        # then the summons' into what room their parts have left (one Budget per part for both)
+        budgets = {n: Budget(dest / part_folder(n)) for n in set(parts['chars']) | set(parts['tokens'])}
+        home = {c: {(owner, sid): (n, rec) for n, table in parts[c].items() for owner, recs in table.items()
+                    for sid, rec in recs.items()} for c in ('chars', 'tokens')}
+        for container, group in (('chars', jobs), ('tokens', tokens)):
+            for job in group:
+                sid = job['skinId']
+                rec = new[container].get((job['char'], sid))
+                if rec is None:
+                    continue
+                size = folder_size(stage / job['dir'])
+                was, old_rec = home[container].get((job['char'], sid), (None, None))
+                old_dir = record_dir(old_rec) if old_rec else None
+                spare = max(list(budgets) + [0]) + 1
+                target = None
+                for n in ([was] if was else []) + [k for k in sorted(budgets) if k != was] + [spare]:
+                    folder = dest / part_folder(n)
+                    budget = budgets.get(n) or Budget(folder)
+                    dst = folder / job['dir']
+                    need = (size[0], size[1], size[2] + (0 if dst.parent.is_dir() else 1))
+                    if budget.take(need, folder_size(folder / old_dir) if n == was and old_dir else (0, 0, 0)):
+                        budgets[n], target = budget, n
+                        break
+                if target is None:
+                    log(f'skip (larger than a cosmetic plugin: {PLUGIN_BYTES >> 20} MB / {PLUGIN_FILES} files) {sid}')
+                    continue
+                folder = dest / part_folder(target)
+                if was:
+                    gone[container].setdefault(was, set()).add((job['char'], sid))
+                    if was != target:
+                        budgets[was].take((0, 0, 0), folder_size(dest / part_folder(was) / old_dir) if old_dir else (0, 0, 0))
+                    _remove(dest / part_folder(was), old_dir)
+                _remove(folder, job['dir'])
+                (folder / job['dir']).parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(stage / job['dir']), str(folder / job['dir']))
+                placed[container].setdefault(target, {}).setdefault(job['char'], {})[sid] = rec
+                written[(container, job['char'], sid)] = size[1]
+                # a summon outfit is logged by its tokenSkinId, as _faces and the skip lines name it; an outfit by its
+                # skin id
+                log(f'{job.get("tokenSkinId") or sid} {job["name"]} -> {SUB}/{part_folder(target)}/{job["dir"]} '
+                    f'({size[1]} files{", pictures only" if "spine" not in rec else ""})')
     finally:
         shutil.rmtree(stage, ignore_errors=True)
         _drop_if_empty(dest)
@@ -637,26 +799,32 @@ def export(ab_root, out_root, log, jobs, installed=(), version='', limit=0, pack
         return 0
     count = sum(written.values())
     finished = []
-    for n in sorted(set(placed) | set(gone)):
+    for n in sorted({k for c in ('chars', 'tokens') for k in set(placed[c]) | set(gone[c])}):
         folder = dest / part_folder(n)
-        kept = {cid: {sid: r for sid, r in recs.items() if sid not in gone.get(n, ())}
-                for cid, recs in parts.get(n, {}).items()}
-        chars = merge(kept, placed.get(n, {}), _alive(folder))
-        if not chars:  # every outfit of this part moved to another one
+        tables = {}
+        for container in ('chars', 'tokens'):
+            kept = {cid: {sid: r for sid, r in recs.items() if (cid, sid) not in gone[container].get(n, ())}
+                    for cid, recs in parts[container].get(n, {}).items()}
+            tables[container] = merge(kept, placed[container].get(n, {}), _alive(folder))
+        if not tables['chars'] and not tables['tokens']:  # every record of this part moved to another one
             shutil.rmtree(folder, ignore_errors=True)
             log(f'skins: {part_folder(n)} emptied and removed')
             continue
-        (folder / ASSETS_FILE).write_text(json.dumps(overlay(chars), ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
-        (folder / PLUGIN_FILE).write_text(json.dumps(manifest(chars, installed, version, n), ensure_ascii=False,
+        (folder / ASSETS_FILE).write_text(json.dumps(overlay(tables['chars'], tables['tokens']), ensure_ascii=False,
                                                      indent=1) + '\n', encoding='utf-8')
+        (folder / PLUGIN_FILE).write_text(json.dumps(manifest(tables['chars'], installed, version, n, tables['tokens'],
+                                                             installed_tokens), ensure_ascii=False, indent=1) + '\n',
+                                          encoding='utf-8')
         count += 2
         finished.append(folder)
-        log(f'skins: {part_folder(n)} holds {sum(len(v) for v in chars.values())} outfits')
+        log(f'skins: {part_folder(n)} holds {sum(len(v) for v in tables["chars"].values())} outfits and '
+            f'{sum(len(v) for v in tables["tokens"].values())} summon outfits')
     # every part's plugin.json and skins.json are written before the first pack: a pack that fails leaves no part
     # without its manifest
     for folder in finished if pack_root is not None else ():
         pack(folder, pack_root, log)
-    log(f'skins: {len(written)} outfits extracted -> {dest}; copy its part folders into plugins/ to use them')
+    log(f'skins: {len(written)} outfits and summon outfits extracted -> {dest}; copy its part folders into plugins/ to '
+        'use them')
     return count
 
 
