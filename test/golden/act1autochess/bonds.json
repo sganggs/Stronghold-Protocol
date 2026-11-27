@@ -592,8 +592,8 @@
       ],
       "enemies": {"enemy_1195_sfyin":[11,11,0,247,16500],"enemy_1196_msfyin":[22,22,0,0,44],"enemy_1197_sfshu":[5,5,0,261,9375],"enemy_1198_msfshu":[15,15,0,0,30]},
       "hooks": [1,66,1363,106,106,137,137,45,53,53,8,3,0,7310,20,4,53,0,1,53,0,0,0],
-      "events": {"atk":115,"deploy":10,"die":53,"dmg":137,"engage":7,"fx":41,"rate":14,"skill":11,"spawn":66,"status":22},
-      "fx": {"copy":1,"dp":1,"drone":18,"split":1,"strike":2,"summon":16,"volley":2},
+      "events": {"atk":115,"deploy":10,"die":53,"dmg":137,"engage":7,"fx":43,"rate":14,"skill":11,"spawn":66,"status":22},
+      "fx": {"copy":1,"dp":1,"drone":18,"fxHit":2,"split":1,"strike":2,"summon":16,"volley":2},
       "snaps": "24eb53e4 b946b8e6 7a3b1a4e f01f9f67 cc2dc679"
     },
     "bond-maniShip-high": {
@@ -641,8 +641,8 @@
         "enemy_1208_msfji": [5,5,0,0,95]
       },
       "hooks": [1,84,2242,154,154,339,339,1137,70,72,8,6,0,9356,996,7,69,0,1,70,0,0,0],
-      "events": {"atk":196,"deploy":12,"die":72,"dmg":339,"engage":11,"fx":62,"rate":36,"skill":14,"spawn":84,"status":202},
-      "fx": {"aoe":10,"copy":1,"dp":1,"healAoe":1,"hpShare":15,"shield":10,"split":3,"summon":21},
+      "events": {"atk":196,"deploy":12,"die":72,"dmg":339,"engage":11,"fx":64,"rate":36,"skill":14,"spawn":84,"status":202},
+      "fx": {"aoe":10,"copy":1,"dp":1,"fxHit":2,"healAoe":1,"hpShare":15,"shield":10,"split":3,"summon":21},
       "snaps": "83c2859e d4d6e53f 93a57544 6fb5e796 61c1c15b e8a0a39b 635ab2ad a5b2ec36"
     },
     "bond-miraShip-low": {

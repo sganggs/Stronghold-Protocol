@@ -747,8 +747,8 @@
       ],
       "enemies": {"enemy_1195_sfyin":[11,11,0,0,19800],"enemy_1196_msfyin":[22,22,0,0,44],"enemy_1197_sfshu":[5,5,0,0,11250],"enemy_1198_msfshu":[15,15,0,0,45]},
       "hooks": [1,64,1382,111,111,174,174,0,53,53,13,10,0,8010,28,0,53,0,1,53,0,0,0],
-      "events": {"atk":143,"deploy":9,"die":53,"dmg":174,"engage":7,"fx":25,"rate":46,"skill":23,"spawn":64,"status":43},
-      "fx": {"copy":1,"dp":1,"sleep":3,"strike":2,"summon":16,"volley":2},
+      "events": {"atk":143,"deploy":9,"die":53,"dmg":174,"engage":7,"fx":26,"rate":46,"skill":23,"spawn":64,"status":43},
+      "fx": {"copy":1,"dp":1,"fxHit":1,"sleep":3,"strike":2,"summon":16,"volley":2},
       "snaps": "7280066a 8b61d06d d5fa73f6 d95fd037 5663a416"
     },
     "bond-maniShip-high": {
@@ -788,8 +788,8 @@
       ],
       "enemies": {"enemy_1288_duskls":[11,11,0,0,63415],"enemy_1288_duskls_2":[7,7,0,0,48419],"enemy_1292_duskld":[5,5,0,490,57650]},
       "hooks": [1,37,2434,256,285,485,485,117,23,25,18,15,0,11279,199,28,23,0,1,46,0,0,0],
-      "events": {"atk":308,"deploy":11,"die":25,"dmg":485,"engage":11,"fx":203,"rate":126,"skill":33,"spawn":37,"status":399},
-      "fx": {"aoe":2,"copy":1,"crit":6,"dp":2,"ember":23,"iceSpike":61,"palsy":2,"sleep":3,"split":2,"weightless":2,"zone":99},
+      "events": {"atk":308,"deploy":11,"die":25,"dmg":485,"engage":11,"fx":206,"rate":126,"skill":33,"spawn":37,"status":399},
+      "fx": {"aoe":2,"copy":1,"crit":6,"dp":2,"ember":23,"fxHit":3,"iceSpike":61,"palsy":2,"sleep":3,"split":2,"weightless":2,"zone":99},
       "snaps": "2170e1b3 4d513dc6 756b0e36 176ff624 4c4d3e32 1d596804 83f9c4f3 12350b4e d7cd936b"
     },
     "bond-miraShip-low": {

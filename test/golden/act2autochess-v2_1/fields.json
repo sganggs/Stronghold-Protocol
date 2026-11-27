@@ -83,8 +83,8 @@
         "enemy_9016_acstmr": [6,6,0,0,204]
       },
       "hooks": [1,71,5089,1251,1245,3168,3489,2491,27,41,113,109,274,41506,1238,6,27,0,1,26,0,18,0],
-      "events": {"atk":1475,"cast":10,"deploy":38,"die":41,"dmg":3239,"engage":17,"fx":773,"heal":325,"rate":58,"skill":222,"spawn":69,"status":586},
-      "fx": {"airstrike":84,"beam":41,"blink":2,"bombard":47,"bombardShell":47,"burst":18,"copy":1,"dp":4,"drone":214,"droneLock":8,"drones":2,"finale":2,"garrisonGrant":3,"lightning":163,"link":1,"lock":47,"phase":1,"radiantSword":3,"shell":6,"shockBlast":23,"slash":2,"snow":5,"sp":6,"split":8,"steal":6,"storm":11,"summon":7,"sunBurst":1,"talent":4,"tide":4,"wanted":2},
+      "events": {"atk":1475,"cast":10,"deploy":38,"die":41,"dmg":3239,"engage":17,"fx":780,"heal":325,"rate":58,"skill":222,"spawn":69,"status":586},
+      "fx": {"airstrike":84,"beam":41,"blink":2,"bombard":47,"bombardShell":47,"burst":18,"copy":1,"dp":4,"drone":214,"droneLock":8,"drones":2,"finale":2,"fxHit":7,"garrisonGrant":3,"lightning":163,"link":1,"lock":47,"phase":1,"radiantSword":3,"shell":6,"shockBlast":23,"slash":2,"snow":5,"sp":6,"split":8,"steal":6,"storm":11,"summon":7,"sunBurst":1,"talent":4,"tide":4,"wanted":2},
       "snaps": "0519905a 0f0126ed 86637965 1ec4302e 5305d346 5948c54a 5b80df9e 641e555e e950390a c60a080c 7130ed51 f9bbd57a d21d5971 56260d93 3bf10f2b 80a02ce3 7e848edc"
     },
     "boss-boss_1-solo": {
@@ -296,7 +296,7 @@
         "enemy_9023_acdums": [8,5,0,78400,259]
       },
       "hooks": [1,63,4613,1462,1462,4487,5019,4785,22,37,123,116,237,39014,1958,2,21,0,1,21,0,46,139],
-      "events": {"atk":1570,"cast":61,"deploy":38,"die":37,"dmg":4751,"engage":28,"fx":1247,"heal":172,"rate":237,"skill":239,"spawn":61,"status":874},
+      "events": {"atk":1570,"cast":61,"deploy":38,"die":37,"dmg":4751,"engage":28,"fx":1254,"heal":172,"rate":237,"skill":239,"spawn":61,"status":874},
       "fx": {
         "airstrike": 84,
         "beam": 7,
@@ -316,6 +316,7 @@
         "featherArrow": 4,
         "finale": 1,
         "firewall": 1,
+        "fxHit": 7,
         "garrisonGrant": 3,
         "lightning": 59,
         "link": 4,
@@ -800,8 +801,8 @@
       ],
       "enemies": {"enemy_1067_snslime":[8,8,0,12503,111795],"enemy_1081_sotisd":[4,4,0,0,257989],"enemy_1249_lysdb_2":[4,4,0,0,103196],"enemy_9033_acdeer":[1,1,0,29928,4000000]},
       "hooks": [1,47,4371,1124,1124,2365,2588,1853,22,29,84,78,320,34662,1009,0,17,0,1,21,0,10,1],
-      "events": {"atk":1144,"cast":2,"deploy":30,"die":29,"dmg":2399,"engage":17,"fx":438,"heal":170,"rate":85,"skill":162,"spawn":44,"status":549},
-      "fx": {"airstrike":100,"beam":3,"blink":2,"bombard":47,"bombardShell":47,"burst":10,"cleanse":6,"column":37,"copy":1,"dodge":1,"dp":2,"emergency":4,"explode":8,"featherArrow":5,"garrisonGrant":2,"lightning":75,"link":1,"lock":47,"lure":2,"phase":1,"shieldBreak":6,"snow":6,"split":4,"steal":4,"storm":7,"sunBurst":4,"talent":1,"tide":2,"wanted":3},
+      "events": {"atk":1144,"cast":2,"deploy":30,"die":29,"dmg":2399,"engage":17,"fx":441,"heal":170,"rate":85,"skill":162,"spawn":44,"status":549},
+      "fx": {"airstrike":100,"beam":3,"blink":2,"bombard":47,"bombardShell":47,"burst":10,"cleanse":6,"column":37,"copy":1,"dodge":1,"dp":2,"emergency":4,"explode":8,"featherArrow":5,"fxHit":3,"garrisonGrant":2,"lightning":75,"link":1,"lock":47,"lure":2,"phase":1,"shieldBreak":6,"snow":6,"split":4,"steal":4,"storm":7,"sunBurst":4,"talent":1,"tide":2,"wanted":3},
       "snaps": "57053c2b 50c7c239 3fd16b19 7873e370 07345e59 e0c17a54 632c0b3e 4e455e9b 311aa93b 86d92af3 cea91015 b7fe7f7e 868cd4ad 47c7a754 f6586b20"
     },
     "boss-boss_7-solo": {
@@ -1038,7 +1039,7 @@
         "enemy_9020_actrpc": [1,0,0,19985,1193189]
       },
       "hooks": [1,68,6000,1274,1274,4217,8101,2343,36,40,85,79,286,30682,948,1,13,0,1,43,0,12,0],
-      "events": {"atk":1372,"cast":12,"deploy":49,"die":40,"dmg":7767,"engage":26,"fx":1613,"heal":121,"rate":192,"skill":167,"spawn":53,"status":723},
+      "events": {"atk":1372,"cast":12,"deploy":49,"die":40,"dmg":7767,"engage":26,"fx":1616,"heal":121,"rate":192,"skill":167,"spawn":53,"status":723},
       "fx": {
         "airstrike": 78,
         "beam": 13,
@@ -1053,6 +1054,7 @@
         "dp": 4,
         "featherArrow": 5,
         "firewall": 3,
+        "fxHit": 3,
         "garrisonGrant": 1,
         "lightning": 40,
         "link": 1140,

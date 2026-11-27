@@ -94,8 +94,8 @@
         "enemy_9016_acstmr": [5,5,0,0,40]
       },
       "hooks": [1,79,4804,1377,1372,1973,2233,1914,26,48,80,76,316,51616,476,5,26,0,1,25,0,0,0],
-      "events": {"atk":1479,"cast":9,"deploy":45,"die":48,"dmg":2012,"engage":33,"fx":680,"heal":191,"rate":37,"skill":156,"spawn":79,"status":477},
-      "fx": {"airstrike":87,"aoe":106,"beam":39,"bombard":33,"bombardShell":33,"copy":1,"dp":3,"drone":144,"droneLock":18,"drones":2,"explode":12,"expose":8,"grow":14,"lightning":35,"lock":33,"phase":1,"shell":5,"sp":3,"splash":63,"split":5,"steal":4,"storm":4,"summon":20,"talent":1,"tide":3,"turretOnline":2,"wanted":1},
+      "events": {"atk":1479,"cast":9,"deploy":45,"die":48,"dmg":2012,"engage":33,"fx":684,"heal":191,"rate":37,"skill":156,"spawn":79,"status":477},
+      "fx": {"airstrike":87,"aoe":106,"beam":39,"bombard":33,"bombardShell":33,"copy":1,"dp":3,"drone":144,"droneLock":18,"drones":2,"explode":12,"expose":8,"fxHit":4,"grow":14,"lightning":35,"lock":33,"phase":1,"shell":5,"sp":3,"splash":63,"split":5,"steal":4,"storm":4,"summon":20,"talent":1,"tide":3,"turretOnline":2,"wanted":1},
       "snaps": "ad6f3b8a 43cee5d1 d27074ac 54bc8748 e3ba1cd5 47cdaa49 f4f23a7a ba8841b0 20e133ea fd6aef6f 447ceb4e beef2cbf ba530e15 ad57d403 9f3cfc10 17a37441"
     },
     "boss-boss_1-solo": {
@@ -318,8 +318,8 @@
         "enemy_9023_acdums": [9,8,0,10548,86]
       },
       "hooks": [1,71,5878,1341,1341,2088,3025,6770,21,37,101,92,277,57041,1864,8,22,0,1,65,0,11,81],
-      "events": {"atk":1539,"cast":34,"deploy":49,"die":37,"dmg":2168,"engage":24,"fx":790,"heal":305,"rate":451,"skill":193,"spawn":60,"status":615},
-      "fx": {"airstrike":82,"anchor":4,"aoe":104,"appear":4,"beam":7,"burst":11,"copy":1,"disappear":4,"dodge":81,"dp":4,"ember":1,"explode":138,"extraAttack":2,"grow":3,"healAoe":10,"hpShare":35,"lightning":54,"meltdown":9,"mote":80,"phase":17,"rockslide":2,"shield":4,"shieldBreak":5,"splash":21,"split":7,"steal":5,"storm":5,"strike":62,"summon":16,"telegraph":4,"teleport":8},
+      "events": {"atk":1539,"cast":34,"deploy":49,"die":37,"dmg":2168,"engage":24,"fx":797,"heal":305,"rate":451,"skill":193,"spawn":60,"status":615},
+      "fx": {"airstrike":82,"anchor":4,"aoe":104,"appear":4,"beam":7,"burst":11,"copy":1,"disappear":4,"dodge":81,"dp":4,"ember":1,"explode":138,"extraAttack":2,"fxHit":7,"grow":3,"healAoe":10,"hpShare":35,"lightning":54,"meltdown":9,"mote":80,"phase":17,"rockslide":2,"shield":4,"shieldBreak":5,"splash":21,"split":7,"steal":5,"storm":5,"strike":62,"summon":16,"telegraph":4,"teleport":8},
       "snaps": "53504c60 332a6603 4221d02e 603f1f85 e3b2a386 3c09eb4d c19f2066 1aea2ef1 6c34b2e7 45be0a9b 85e5c2e8 95a885e7 ce3981cb 66e84bda 5c3df5e9 06c8b518 a77c26e3 5a382538 e21eb550 d79fd39d"
     },
     "boss-boss_3-solo": {
@@ -468,8 +468,8 @@
       ],
       "enemies": {"enemy_1119_vofsd":[2,2,0,19,16500],"enemy_1438_dspred":[5,5,0,54,49500],"enemy_1521_dslily":[1,0,0,12295,1662363]},
       "hooks": [1,33,6000,1289,1273,1737,2101,517,7,13,35,33,204,29195,368,6,8,0,1,7,0,4,0],
-      "events": {"atk":1407,"cast":16,"deploy":19,"die":13,"dmg":1867,"engage":13,"fx":552,"heal":225,"rate":91,"skill":68,"spawn":33,"status":363},
-      "fx": {"airstrike":77,"aoe":90,"burst":4,"cleanse":4,"copy":1,"dp":4,"drone":234,"droneLock":34,"drones":3,"emergency":5,"explode":21,"grow":8,"rockfall":18,"shieldBreak":23,"split":5,"steal":5,"summon":3,"tentacle":6,"tide":7},
+      "events": {"atk":1407,"cast":16,"deploy":19,"die":13,"dmg":1867,"engage":13,"fx":558,"heal":225,"rate":91,"skill":68,"spawn":33,"status":363},
+      "fx": {"airstrike":77,"aoe":90,"burst":4,"cleanse":4,"copy":1,"dp":4,"drone":234,"droneLock":34,"drones":3,"emergency":5,"explode":21,"fxHit":6,"grow":8,"rockfall":18,"shieldBreak":23,"split":5,"steal":5,"summon":3,"tentacle":6,"tide":7},
       "snaps": "470a02ea 81686268 e6b22b2c f522eb75 9b4eaf0d 2b4fb0dc fcf61d5c abc19668 9b5427d4 70e69125 f425800a f57f89a1 06375c79 446575cb c3d1b6b5 00c08f52 252a4de8 da0e1089 17952f56 213ed56b"
     },
     "boss-boss_6-pair": {

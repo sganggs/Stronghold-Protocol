@@ -93,8 +93,8 @@
       ],
       "enemies": {"enemy_1006_shield_3":[3,3,0,4891,298598],"enemy_1043_zomsbr":[23,23,0,0,147897],"enemy_1402_tgshd_2":[4,4,0,2991,129393]},
       "hooks": [1,55,2611,137,137,685,737,2759,31,44,22,22,0,12290,573,8,30,0,1,34,2,0,5],
-      "events": {"atk":164,"deploy":22,"die":44,"dmg":737,"engage":6,"fx":137,"heal":36,"layer":2,"rate":230,"skill":44,"spawn":51,"status":90},
-      "fx": {"aoe":8,"blink":3,"displace":11,"dodge":5,"drone":2,"expose":88,"firewall":1,"frostNova":4,"garrison":2,"pull":1,"summon":9,"volley":3},
+      "events": {"atk":164,"deploy":22,"die":44,"dmg":737,"engage":6,"fx":138,"heal":36,"layer":2,"rate":230,"skill":44,"spawn":51,"status":90},
+      "fx": {"aoe":8,"blink":3,"displace":11,"dodge":5,"drone":2,"expose":88,"firewall":1,"frostNova":4,"garrison":2,"pull":1,"summon":9,"volley":3,"zone":1},
       "snaps": "9ceb9a8b b3df8d80 308a3cbb 2599af7b 4d905e26 601d5eac d38669de 9cd76660 bc707afd"
     },
     "bond-deputShip-low": {
@@ -327,7 +327,7 @@
       "snaps": "7bf97986 544904a1 477fadb4 1d86699c b69710c6 6f6c3d57 5367cc4e dde50458 036c1526"
     },
     "bond-emptyShip-low": {
-      "about": "协防干员 low: tier 1 layers 1; chess_char_3_26_a chess_char_3_27_a chess_char_4_03_a chess_char_3_09_a chess_char_4_22_a chess_char_3_25_a chess_char_4_01_a chess_char_4_02_a token_10003_cgbird_bird token_10003_cgbird_bird",
+      "about": "协防干员 low: tier 1 layers 0; chess_char_3_26_a chess_char_3_27_a chess_char_4_03_a chess_char_3_09_a chess_char_4_22_a chess_char_3_25_a chess_char_4_01_a chess_char_4_02_a token_10003_cgbird_bird token_10003_cgbird_bird",
       "fast": false,
       "kind": "normal",
       "stageId": "act3autochess_m05",
@@ -367,7 +367,7 @@
       "snaps": "e7973289 60c2dcd7 a7b21bb1 31feae38 3ccf5152"
     },
     "bond-emptyShip-high": {
-      "about": "协防干员 high: tier 1 layers 999; chess_char_4_21_b chess_char_4_23_b chess_char_4_19_b chess_char_3_09_b chess_char_4_22_b chess_char_4_18_b chess_char_4_20_b chess_char_4_24_b token_10003_cgbird_bird token_10003_cgbird_bird",
+      "about": "协防干员 high: tier 1 layers 0; chess_char_4_21_b chess_char_4_23_b chess_char_4_19_b chess_char_3_09_b chess_char_4_22_b chess_char_4_18_b chess_char_4_20_b chess_char_4_24_b token_10003_cgbird_bird token_10003_cgbird_bird",
       "fast": true,
       "kind": "normal",
       "stageId": "act3autochess_m10",
@@ -990,7 +990,7 @@
       "snaps": "5a894e8b 49c270b9 b23f0bd2 79617c29 cea1b569 a36e355d ee2210f6"
     },
     "bond-maniShip-low": {
-      "about": "调和 low: tier 1 layers 1; chess_char_1_14_a chess_char_3_12_a chess_char_3_13_a chess_char_6_12_a chess_char_2_18_a chess_char_3_14_a chess_char_3_15_a chess_char_3_16_a token_10028_vigil_wolf",
+      "about": "调和 low: tier 1 layers 0; chess_char_1_14_a chess_char_3_12_a chess_char_3_13_a chess_char_6_12_a chess_char_2_18_a chess_char_3_14_a chess_char_3_15_a chess_char_3_16_a token_10028_vigil_wolf",
       "fast": false,
       "kind": "normal",
       "stageId": "act3autochess_m09",
@@ -1028,7 +1028,7 @@
       "snaps": "5b2098e4 dabc5b69 eb9937a2 ead382ef 2d8bb97d d9a27a62 84b32cf2 2d8abfd0 07d14180 47217631 ed46996d"
     },
     "bond-maniShip-high": {
-      "about": "调和 high: tier 1 layers 999; chess_char_1_14_a chess_char_5_19_b chess_char_6_12_b chess_char_2_18_a chess_char_5_18_b chess_char_5_20_b chess_char_5_21_b chess_char_5_23_b token_10050_monstr_prosts token_10066_closur_ourbase token_10026_bgsnow_subbow",
+      "about": "调和 high: tier 1 layers 0; chess_char_1_14_a chess_char_5_19_b chess_char_6_12_b chess_char_2_18_a chess_char_5_18_b chess_char_5_20_b chess_char_5_21_b chess_char_5_23_b token_10050_monstr_prosts token_10066_closur_ourbase token_10026_bgsnow_subbow",
       "fast": true,
       "kind": "normal",
       "stageId": "act3autochess_m12",
@@ -1061,8 +1061,8 @@
       ],
       "enemies": {"enemy_1251_lysyta_2":[19,18,1,237,66355],"enemy_1252_lysytb_2":[7,7,0,3898,72576],"enemy_1329_cbshld_2":[4,4,0,4993,59904]},
       "hooks": [1,46,2242,282,282,351,1078,509,31,36,20,18,0,7543,311,12,30,1,1,32,0,0,0],
-      "events": {"atk":385,"deploy":16,"die":35,"dmg":1078,"engage":7,"fx":44,"heal":29,"leak":1,"rate":111,"skill":39,"spawn":41,"status":88},
-      "fx": {"disappear":1,"dp":1,"dying":1,"explode":1,"link":5,"mark":1,"mote":13,"redistribute":15,"reweave":1,"shield":1,"summon":1,"teleport":3},
+      "events": {"atk":385,"deploy":16,"die":35,"dmg":1078,"engage":7,"fx":51,"heal":29,"leak":1,"rate":111,"skill":39,"spawn":41,"status":88},
+      "fx": {"disappear":1,"dp":1,"dying":1,"explode":1,"fxHit":7,"link":5,"mark":1,"mote":13,"redistribute":15,"reweave":1,"shield":1,"summon":1,"teleport":3},
       "snaps": "a249fa93 19c9089b 8b2e6947 971c6e10 3fbadd47 d465872e c7c2676c 5f186a76"
     },
     "bond-miraShip-low": {
@@ -1636,7 +1636,7 @@
       "snaps": "437ffba2 d95731d1 d8cc22fe b7aa9efe 722df255 58f87549 53a92ab2"
     },
     "bond-soloShip-low": {
-      "about": "独行 low: tier 1 layers 1; chess_char_1_02_a chess_char_3_04_a chess_char_3_07_a chess_char_3_03_a chess_char_3_05_a chess_char_3_06_a chess_char_3_08_a chess_char_3_09_a",
+      "about": "独行 low: tier 1 layers 0; chess_char_1_02_a chess_char_3_04_a chess_char_3_07_a chess_char_3_03_a chess_char_3_05_a chess_char_3_06_a chess_char_3_08_a chess_char_3_09_a",
       "fast": false,
       "kind": "normal",
       "stageId": "act3autochess_m11",
@@ -1666,12 +1666,12 @@
       ],
       "enemies": {"enemy_1158_divman":[15,15,0,5215,57024],"enemy_1160_hvyslr":[2,2,0,3644,23040],"enemy_1161_tidmag":[1,1,0,5285,6912]},
       "hooks": [1,26,2179,282,282,480,503,1723,19,19,11,10,6,8425,17,16,18,0,1,19,0,1,0],
-      "events": {"atk":358,"cast":2,"deploy":8,"die":19,"dmg":503,"engage":6,"fx":38,"heal":65,"rate":15,"skill":21,"spawn":26,"status":35},
-      "fx": {"burst":1,"drone":35,"takeoff":1,"zone":1},
+      "events": {"atk":358,"cast":2,"deploy":8,"die":19,"dmg":503,"engage":6,"fx":71,"heal":65,"rate":15,"skill":21,"spawn":26,"status":35},
+      "fx": {"burst":1,"drone":35,"takeoff":1,"turdusCamou":3,"turdusHot":30,"zone":1},
       "snaps": "13dc07c2 d375d283 fb790c3d 5465a1b0 0b47596f 2701e9b9 7d7b43b0 d9a0549a"
     },
     "bond-soloShip-high": {
-      "about": "独行 high: tier 1 layers 999; chess_char_1_02_b chess_char_5_05_b chess_char_5_02_b chess_char_5_03_b chess_char_5_04_b chess_char_5_06_b chess_char_5_01_b chess_char_5_07_b",
+      "about": "独行 high: tier 1 layers 0; chess_char_1_02_b chess_char_5_05_b chess_char_5_02_b chess_char_5_03_b chess_char_5_04_b chess_char_5_06_b chess_char_5_01_b chess_char_5_07_b",
       "fast": true,
       "kind": "normal",
       "stageId": "act3autochess_m02",
@@ -1778,7 +1778,7 @@
       "snaps": "3c82c67c 3fca2910 d5126105 aa8d6ef8 c83e6112 b2ca964d 9e449160 55619b72 5d26b127 b760c963"
     },
     "bond-suntShip-low": {
-      "about": "绝技 low: tier 1 layers 1; chess_char_1_01_b chess_char_1_02_b chess_char_3_19_a chess_char_3_22_a chess_char_3_20_a chess_char_3_21_a chess_char_3_18_a chess_char_3_17_a token_10018_robrta_mach token_10018_robrta_mach token_10041_cathy_catsld token_10041_cathy_catsld",
+      "about": "绝技 low: tier 1 layers 0; chess_char_1_01_b chess_char_1_02_b chess_char_3_19_a chess_char_3_22_a chess_char_3_20_a chess_char_3_21_a chess_char_3_18_a chess_char_3_17_a token_10018_robrta_mach token_10018_robrta_mach token_10041_cathy_catsld token_10041_cathy_catsld",
       "fast": false,
       "kind": "normal",
       "stageId": "act3autochess_m01",
@@ -1820,7 +1820,7 @@
       "snaps": "9769b61d 971fb94c 525f8e25 924e0965 30f049e3 1cfea014 850a2510 f703b483 55d20eb8 ec562c60"
     },
     "bond-suntShip-high": {
-      "about": "绝技 high: tier 2 layers 999; chess_char_1_01_b chess_char_1_02_b chess_char_1_03_b chess_char_3_24_a chess_char_3_26_a chess_char_1_04_b chess_char_1_05_b chess_char_3_25_a",
+      "about": "绝技 high: tier 2 layers 0; chess_char_1_01_b chess_char_1_02_b chess_char_1_03_b chess_char_3_24_a chess_char_3_26_a chess_char_1_04_b chess_char_1_05_b chess_char_3_25_a",
       "fast": true,
       "kind": "normal",
       "stageId": "act3autochess_m04",
@@ -2027,8 +2027,8 @@
         "enemy_1208_msfji": [5,0,5,0,87]
       },
       "hooks": [1,84,2332,323,323,395,1155,262,59,72,19,17,0,9013,97,15,69,11,1,59,0,0,0],
-      "events": {"atk":485,"deploy":13,"die":61,"dmg":1155,"engage":7,"fx":41,"heal":71,"leak":11,"rate":160,"skill":36,"spawn":80,"status":86},
-      "fx": {"explode":8,"mark":8,"shield":1,"summon":21,"teleport":3},
+      "events": {"atk":485,"deploy":13,"die":61,"dmg":1155,"engage":7,"fx":142,"heal":71,"leak":11,"rate":160,"skill":36,"spawn":80,"status":86},
+      "fx": {"explode":8,"fxHit":23,"mark":8,"shield":1,"summon":21,"teleport":3,"turdusCamou":6,"turdusHot":72},
       "snaps": "7864574b a2d4085a 5ce1f47f bedcafa2 392769bc cc9d5b68 4f8f1c9b 54653630"
     },
     "bond-victoriaShip-low": {
@@ -2129,8 +2129,8 @@
       ],
       "enemies": {"enemy_1116_liprr_2":[10,10,0,0,86400],"enemy_1119_vofsd":[5,5,0,0,63360],"enemy_1121_lifbos_2":[4,4,0,0,115200]},
       "hooks": [1,33,2084,81,81,100,100,0,19,21,15,13,0,5030,0,1,19,0,1,19,0,0,0],
-      "events": {"atk":81,"deploy":14,"die":21,"dmg":100,"engage":4,"fx":2,"rate":58,"skill":30,"spawn":32,"status":19},
-      "fx": {"dp":1,"summon":1},
+      "events": {"atk":81,"deploy":14,"die":21,"dmg":100,"engage":4,"fx":4,"rate":58,"skill":30,"spawn":32,"status":19},
+      "fx": {"dp":1,"summon":1,"zone":2},
       "snaps": "f03f56dd 9d849015 facddca6 248a6a6f a2936a05 106665dc 7ae160c1"
     },
     "bond-visiShip-low": {

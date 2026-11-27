@@ -3174,8 +3174,8 @@
       ],
       "enemies": {"enemy_1006_shield_3":[21,1,19,66142,457586],"enemy_1043_zomsbr":[66,49,17,6955,282564],"enemy_1402_tgshd_2":[36,16,17,53795,636099]},
       "hooks": [1,177,6900,1206,1206,1729,1729,17771,97,168,48,47,0,33584,15,108,123,53,1,97,0,0,0],
-      "events": {"atk":1221,"deploy":54,"die":115,"dmg":1721,"engage":38,"fx":732,"heal":18,"leak":53,"skill":95,"spawn":165,"status":183},
-      "fx": {"aoe":64,"expose":552,"grow":47,"shield":24,"sleep":15,"summon":30},
+      "events": {"atk":1221,"deploy":54,"die":115,"dmg":1721,"engage":38,"fx":966,"heal":18,"leak":53,"skill":95,"spawn":165,"status":183},
+      "fx": {"aoe":64,"expose":552,"fxHit":234,"grow":47,"shield":24,"sleep":15,"summon":30},
       "snaps": "abe56967 777c3382 e433db25 09bf14ed a8967e52 e34ac70b b593fa8c 69a5c0de a4b18ba0 53194ccd 7623f66a 64676931 573cdc0b e5b60494 e5a7cdba cb3e2416 56cac06a 1015bcb4 9235c049 0edb937d 0a3eeadd 2688d26f 0f7b6e8d"
     },
     "diy-076": {
@@ -3225,8 +3225,8 @@
       ],
       "enemies": {"enemy_1116_liprr_2":[27,0,27,8613,241938],"enemy_1119_vofsd":[48,0,47,23054,626566],"enemy_1121_lifbos_2":[39,0,39,10640,508694]},
       "hooks": [1,150,6900,781,781,1510,1510,1074,23,136,63,63,0,43568,25,25,114,113,1,23,0,0,0],
-      "events": {"atk":781,"deploy":34,"die":23,"dmg":1510,"engage":22,"fx":89,"leak":113,"rate":326,"skill":126,"spawn":138,"status":172},
-      "fx": {"aoe":42,"liberate":4,"phase":8,"sleep":25,"summon":10},
+      "events": {"atk":781,"deploy":34,"die":23,"dmg":1510,"engage":22,"fx":689,"leak":113,"rate":326,"skill":126,"spawn":138,"status":172},
+      "fx": {"aoe":42,"fxHit":600,"liberate":4,"phase":8,"sleep":25,"summon":10},
       "snaps": "27eea59f a95bfadf 24d8b926 9424259a a1609561 8ce3156b 754c0aae ee46a00a 4f267669 22086d70 956691d1 21939f87 260e5656 e9581db4 af78aa01 69847b7f fca57431 5e6817d2 368c2eba c4969f25 3bb0583f dcb8c6b4 3e9a15d2"
     },
     "diy-077": {
