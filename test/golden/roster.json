@@ -2468,9 +2468,9 @@
       "errors": {"count":0,"kinds":[]},
       "players": {"p1":{"killed":34,"total":65,"perfect":false,"leaks":31,"leaksUncounted":0,"coins":6,"dmg":569750,"bossDmg":0,"heal":2689,"deaths":28,"layerGains":{}}},
       "units": [
-        ["p1",1,"op","chess_char_4_01_a",1,null,0,0,3,0,9415,2902,0,50,1],
-        ["p1",2,"op","chess_char_4_17_a",2,null,2083.42,1,103,1,12885,4184,0,18,1],
-        ["p1",3,"op","chess_char_4_18_a",2,null,0,0,8,1,23274,5092,1939,25,1],
+        ["p1",1,"op","chess_char_4_01_a",1,null,0,0,3,0,9593,2902,0,51,1],
+        ["p1",2,"op","chess_char_4_17_a",2,null,2083.42,1,103,2,11544,4184,0,6,1],
+        ["p1",3,"op","chess_char_4_18_a",2,null,0,0,8,0,24437,5092,1939,25,1],
         ["p1",4,"op","chess_char_4_04_a",2,null,488.24,1,101,8,61698,9192,0,52,5],
         ["p1",5,"op","chess_char_4_07_a",2,null,0,0,87,0,1575,9559,0,16,0],
         ["p1",6,"op","chess_char_4_16_a",1,null,1361.7,1,102,3,83340,7355,493,36,8],
@@ -2498,10 +2498,10 @@
         "enemy_1517_xi": [1,0,1,9332,19295],
         "enemy_9016_acstmr": [1,0,1,0,27]
       },
-      "hooks": [1,102,5100,739,736,1038,1063,173,65,94,28,28,47,11049,306,12,65,29,1,69,0,1,16],
-      "events": {"atk":808,"bounty":3,"cast":3,"deploy":35,"die":65,"dmg":1047,"engage":12,"fx":119,"heal":4,"leak":29,"rate":105,"skill":56,"spawn":81,"status":277},
-      "fx": {"beam":5,"block":12,"buff":2,"burst":1,"coldWind":1,"dodge":16,"dp":2,"fxHit":7,"iceSpike":1,"overclock":1,"overload":1,"revive":4,"rockfall":1,"sentry":6,"shadowWeave":18,"shield":7,"shieldBreak":10,"stone":1,"summon":1,"swordStorm":8,"telegraph":3,"volley":7,"wake":1,"wolfShadow":1,"wolfShadowLost":1,"zone":1},
-      "snaps": "a609c4e1 561d1288 627af495 52f84bca 58286e36 cec2de69 166de51d 8963d26f b9a055cf 7b31ab03 30b4728f 1d53370d d9d29842 bd08c7b0 e1304e89 136ab52c 08f4683d"
+      "hooks": [1,102,5100,728,725,1039,1064,173,65,94,28,28,48,11049,306,12,65,29,1,69,0,1,16],
+      "events": {"atk":795,"bounty":3,"cast":3,"deploy":35,"die":65,"dmg":1048,"engage":12,"fx":133,"heal":4,"leak":29,"rate":105,"skill":56,"spawn":81,"status":277},
+      "fx": {"beam":5,"block":12,"buff":2,"burst":1,"coldWind":1,"dodge":16,"dp":2,"fxHit":21,"iceSpike":1,"overclock":1,"overload":1,"revive":4,"rockfall":1,"sentry":6,"shadowWeave":18,"shield":7,"shieldBreak":10,"stone":1,"summon":1,"swordStorm":8,"telegraph":3,"volley":7,"wake":1,"wolfShadow":1,"wolfShadowLost":1,"zone":1},
+      "snaps": "a609c4e1 561d1288 627af495 52f84bca 58286e36 a9654221 d9b02597 f6e0ee12 235cf679 a0a2fbad 53e8c23f 2b7538bd 03da7352 e3f035e0 e9ea9499 74f1411c 43294c2d"
     },
     "roster-041": {
       "about": "pass 2 band 5: chess_char_4_23_a chess_char_4_01_b chess_char_4_19_a chess_char_4_22_a chess_char_4_04_b chess_char_4_07_b chess_char_4_09_b chess_char_4_20_a chess_char_4_24_a chess_char_4_25_a chess_char_4_02_b chess_char_4_12_b",
