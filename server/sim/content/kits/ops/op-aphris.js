@@ -138,10 +138,29 @@ function refreshPath(battle, unit) {
   const p = aphrisPath(battle, unit, beam);
   const sig = p.tiles.map(([r, c]) => r * COLS + c).join(',');
   unit.mem.aphrisPath = p;
-  if (unit.mem.aphrisSig === sig) return;
-  unit.mem.aphrisSig = sig;
-  unit.rangeGrid = p.tiles.map(([r, c]) => toLocal(r - unit.tileR, c - unit.tileC, unit.dir));
-  battle.refreshRange(unit);
+  if (unit.mem.aphrisSig !== sig) {
+    unit.mem.aphrisSig = sig;
+    unit.rangeGrid = p.tiles.map(([r, c]) => toLocal(r - unit.tileR, c - unit.tileC, unit.dir));
+    battle.refreshRange(unit);
+  }
+  noteAphrisLine(battle, unit, beam, p, sig);
+}
+
+/**
+ * The beam's tiles, when S2 is on and the path changed after the cast. The cast itself emits `beam` (onStart sets
+ * aphrisFxSig first, so this skillStart does not emit a second line). Not a per-enemy beam. Display only.
+ */
+function noteAphrisLine(battle, unit, beam, p, sig) {
+  if (!beam) {
+    if (unit.mem.aphrisFxSig != null) unit.mem.aphrisFxSig = null;
+    return;
+  }
+  if (unit.mem.aphrisFxSig === sig) return;
+  unit.mem.aphrisFxSig = sig;
+  const path = [];
+  for (const [r, c] of p.tiles) { path.push(r); path.push(c); }
+  // cosmetic fx (round 88)
+  battle.fx('aphrisPath', { x: unit.x, y: unit.y, id: unit.id, skill: 'aphris:beam', path, relays: p.relays.slice() });
 }
 
 /** How many 中继器 her path passed before `e`'s tile (S3 aphris_sk3 "extendTimes"). */
@@ -213,7 +232,13 @@ export default {
           onStart({ battle, unit }) {
             unit.mem.beamAt = 0;
             unit.mem.beamNext = BEAM_FIRST;
-            battle.fx('beam', { x: unit.x, y: unit.y, id: unit.id, skill: 'aphris:beam' });
+            // skillStart's refreshPath runs after this and would emit a second line; remember the beam path first.
+            const p = aphrisPath(battle, unit, true);
+            const path = [];
+            for (const [r, c] of p.tiles) { path.push(r); path.push(c); }
+            unit.mem.aphrisFxSig = p.tiles.map(([r, c]) => r * COLS + c).join(',');
+            // cosmetic fx (round 88): the tiles, so the client can draw the line. The procedural strike still uses this event.
+            battle.fx('beam', { x: unit.x, y: unit.y, id: unit.id, skill: 'aphris:beam', path, relays: p.relays.slice() });
           },
           onTick({ battle, unit, skill, dt }) {
             const iv = stepOf('interval', num(b2.interval, 0.5), 0.5);
@@ -223,7 +248,10 @@ export default {
             while (t >= unit.mem.beamNext - 1e-6 && skill.active && unit.alive && guard++ < STEP_PER_TICK) { // loop-cap: stepOf interval
               unit.mem.beamNext += iv;
               for (const e of battle.enemiesInKeys(unit.rangeKeys, unit, unit.profile)) {
-                battle.dealDamage(unit, e, { amount: unit.s.atk * num(b2.atk_scale), type: 'arts', isSkill: true, tags: ['skill', 'aphris:beam'] });
+                const dealt = battle.dealDamage(unit, e, { amount: unit.s.atk * num(b2.atk_scale), type: 'arts', isSkill: true, tags: ['skill', 'aphris:beam'] });
+                if (!(dealt > 0)) continue;
+                // cosmetic fx (round 88): one channel hit per enemy this tick actually damaged.
+                battle.fx('aphrisHit', { x: e.x, y: e.y, id: unit.id, target: e.id, skill: 'aphris:beam' });
               }
             }
           },

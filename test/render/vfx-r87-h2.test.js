@@ -2,7 +2,7 @@
 //
 // Miss.Christine S2: christ_skill_02_range waits for projectile_chr_christ_s2 to land. The trail still
 // flies at the throw, the hit still plays at landing, and the range's hold ends at throw-time plus the
-// spirit window. A fly binding with no `arrive` list (承曦格雷伊 S2) still places its range at the throw.
+// spirit window. 承曦格雷伊 S2's range is the same landing (round 88): the ball's onReached, not the throw.
 // 菲莱 S2's element-hit pair and 阿米娅（医疗） S1's heal pulse play their prefabs, and nothing with 官方特效 off.
 // The art pack is absent on CI: the index assertions skip when public/assets/local/fx/index.json is missing.
 
@@ -120,7 +120,7 @@ describe('round 87 lane h2 bindings', () => {
     assert.equal(c.tag, 'christ:spirit');
     assert.equal(c.projectile, C_PROJ);
     assert.deepEqual([...(c.cover || [])], ['zone']);
-    assert.equal(FX_BINDINGS.skchr_greyy2_2.zone.arrive, undefined);
+    assert.deepEqual([...FX_BINDINGS.skchr_greyy2_2.zone.arrive], [G_RANGE]);
     assert.equal(FX_BINDINGS.skchr_blkkgt_2.slash.claim, true);
     assert.equal(FX_BINDINGS.skchr_tinman_2.zone.claim, true);
     assert.equal(FX_BINDINGS.skchr_ascln_2.aoe.claim, true);
@@ -188,13 +188,25 @@ describe('round 87 lane h2 bindings', () => {
     assert.equal(bare.keys().includes(C_TRAIL), false, 'no range prefab, so the throw is not claimed');
   });
 
-  test('承曦格雷伊 S2 still places her range at the throw', async () => {
-    const { w, view, keys } = await setup();
+  test('承曦格雷伊 S2 starts the range when the ball lands, and the hold is measured from the throw', async () => {
+    const { w, ofx, view, frame, keys } = await setup();
     const her = view('char_1027_greyy2', 4, 9, { info: { skillIndex: 1 } });
     w.skill(her, true);
+    const t0 = ofx.time;
     assert.equal(w.simFx('zone', 6, 9, { id: her.id, radius: 1, dur: 8 }), true);
-    assert.ok(keys().includes(G_RANGE) && keys().includes(G_TRAIL));
+    assert.ok(keys().includes(G_TRAIL));
+    assert.equal(keys().includes(G_RANGE), false);
     assert.equal(keys().includes(G_HIT), false);
+    for (let i = 0; i < 7; i++) frame();
+    assert.equal(keys().includes(G_RANGE), false, 'still in the air at 7/30 s (flight is 2/8 s)');
+    frame();
+    assert.equal(keys().filter((k) => k === G_RANGE).length, 1);
+    assert.equal(keys().filter((k) => k === G_HIT).length, 1);
+    assert.equal(keys().filter((k) => k === G_TRAIL).length, 1);
+    assert.equal(ofx.timers.length, 1);
+    assert.ok(Math.abs(ofx.timers[0].at - (t0 + 8)) < 1e-6, 'the range stops at throw + window');
+    assert.equal(w.simFx('zone', 6, 9, { id: her.id, radius: 1, dur: 8 }), true, 'a re-sent zone is covered');
+    assert.equal(keys().filter((k) => k === G_TRAIL).length, 1, 'the covered tile does not fly a second ball');
   });
 
   test('菲莱 S2 plays the rage oneshot and the loop on the tagged pair, and stops the loop with the skill', async () => {
@@ -253,6 +265,12 @@ describe('round 87 lane h2 against the extracted index', { skip: !fs.existsSync(
       ['skchr_blkkgt_2', 'blkkgt_skill_02_hit_1'],
       ['skchr_tinman_2', 'tinman_skill_02_hit_01'],
       ['skchr_ascln_2', 'ascln_skill_02_death_01'],
+      ['skchr_ascln_2', 'ascln_buff_01'],
+      ['skchr_aphris_2', 'aphris_skill_02_hit_01'],
+      ['skchr_aphris_2', 'aphris_skill_02_line_01'],
+      ['skchr_aphris_2', 'aphris_skill_02_line_point_01'],
+      ['skchr_aphris_2', 'aphris_skill_02_start_01'],
+      ['skchr_aphris_2', 'token_aphris_pc_skill_02_buff_01'],
     ]) {
       const got = reasons(skill, key);
       assert.ok(got.length > 0 && got.every((r) => r === 'bound'), `${skill} ${key} ${got.join(',')}`);
@@ -269,14 +287,8 @@ describe('round 87 lane h2 against the extracted index', { skip: !fs.existsSync(
       ['skchr_nearl2_3', 'nearl2_buff_01_start', 'conditional'],
       ['skchr_malist_2', 'malist_skill_2_buff', 'conditional'],
       ['skchr_malist_2', 'malist_skill_2_buff_weapon', 'conditional'],
-      ['skchr_aphris_2', 'aphris_skill_02_hit_01', 'channel-hit'],
-      ['skchr_aphris_2', 'aphris_skill_02_line_01', 'path'],
-      ['skchr_aphris_2', 'aphris_skill_02_line_point_01', 'path'],
-      ['skchr_aphris_2', 'aphris_skill_02_start_01', 'path'],
-      ['skchr_aphris_2', 'token_aphris_pc_skill_02_buff_01', 'path'],
       ['skchr_demetr_1', 'demetr_buff_01', 'conditional'],
       ['skchr_caper_1', 'caper_skill_01_buff', 'conditional'],
-      ['skchr_ascln_2', 'ascln_buff_01', 'conditional'],
       ['skchr_cetsyr_2', 'cetsyr_skill_02_tie', 'conditional'],
       ['skchr_shwaz_1', 'buff_defdown', 'conditional'],
     ]) {

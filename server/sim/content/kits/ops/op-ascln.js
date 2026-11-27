@@ -69,10 +69,30 @@ const bbOf = (chess, id) => skillRec(chess, id)?.bb ?? {};
 export const dreadKey = (src) => `ascln:dread#${src.id}`;
 
 /**
+ * The S2 kill circle's visual (ascln_buff_01). `data.fx` is display only: nothing in the damage reads it.
+ * A later refresh of that same buff, including a talent hit, extends the one copy. Talent-only dread does not start it.
+ */
+function noteDread(battle, src, e, buff, dur) {
+  buff.data.fx = true;
+  // cosmetic fx (round 88)
+  battle.fx('asclnDread', { x: e.x, y: e.y, id: src.id, target: e.id, duration: dur, skill: 'ascln:dread' });
+  if (buff.data.fxHook) return;
+  buff.data.fxHook = true;
+  const prev = buff.onRemove;
+  buff.onRemove = (ctx) => {
+    if (typeof prev === 'function') prev(ctx);
+    const t = ctx.unit;
+    // cosmetic fx (round 88)
+    ctx.battle.fx('asclnDreadEnd', { x: t.x, y: t.y, id: src.id, target: t.id, skill: 'ascln:dread' });
+  };
+}
+
+/**
  * One layer of 死亡拘审 from `src` on enemy `e` (talent blackboard `tb`): ≤ max_stack_cnt layers, the duration reset,
  * move ×(1 − ms × layers), layers × atk_ratio × src's current ATK arts every interval s while src is on the field.
+ * `visual` is the S2 kill circle (ascln_s_2[enemy]). The talent's own apply leaves it false.
  */
-export function addDread(battle, src, e, tb) {
+export function addDread(battle, src, e, tb, visual = false) {
   if (!e || !e.alive || e.side !== 'enemy' || !hasHp(e)) return null;
   const key = dreadKey(src);
   const max = Math.max(1, Math.floor(num(tb.max_stack_cnt, 3)));
@@ -87,9 +107,10 @@ export function addDread(battle, src, e, tb) {
     old.timeLeft = dur;
     old.duration = dur;
     e.markDirty();
+    if (visual || old.data.fx) noteDread(battle, src, e, old, dur);
     return old;
   }
-  return battle.addBuff(e, {
+  const buff = battle.addBuff(e, {
     key, duration: dur, mods, source: src, interval: iv > 0 ? iv : 1, data: { n }, tags: ['talent', 'dot'],
     onTick: ({ battle: b, unit: t, buff }) => {
       if (!up(src)) { b.removeBuff(t, buff); return; }
@@ -98,6 +119,8 @@ export function addDread(battle, src, e, tb) {
         attackType: 'BUFF', applyWay: 'MELEE', dodgeMode: 'ignore', tags: ['talent', 'dot', DREAD_TAG] });
     },
   });
+  if (visual && buff) noteDread(battle, src, e, buff, dur);
+  return buff;
 }
 
 // ---- S3 命中率: one battle-wide handler over every 阿斯卡纶 of the battle ---------------------------------------------------
@@ -241,7 +264,7 @@ export default {
             if (ctx.reason !== 'killed' || !v || v.side !== 'enemy' || v.isFlying || !up(unit) || !unit.skill?.active || !unit.rangeKeySet || !bodyInRange(v, unit.rangeKeySet)) return;
             battle.fx('aoe', { x: v.x, y: v.y, radius, id: unit.id, skill: 'ascln:endowment' });
             for (const e of battle.foesInRadius(v.x, v.y, radius, true)) {
-              if (e !== v && !e.isFlying && canTargetEnemy(unit, e, ANY)) addDread(battle, unit, e, t0);
+              if (e !== v && !e.isFlying && canTargetEnemy(unit, e, ANY)) addDread(battle, unit, e, t0, true);
             }
           }, { owner: unit });
         }

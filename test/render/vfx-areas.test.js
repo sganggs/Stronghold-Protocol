@@ -504,13 +504,16 @@ describe('旅骨\'s alchemy unit and 承曦格雷伊\'s ball (history §37.202)'
     frame();
     w.skill(t, true);
     assert.equal(w.simFx('zone', 6, 9, { radius: 1.5, dur: 8, id: 1, skill: 'skchr_hbound_1' }), true);
-    assert.equal(hitCount(spawned, 'hbound_skill1_range_01'), 1);
-    assert.equal(handles.find((h) => h.key === 'hbound_skill1_range_01').opts.loop, true);
+    assert.equal(hitCount(spawned, 'hbound_skill1_range_01'), 0, 'the range is onReached: it waits for the landing');
     assert.equal(hitCount(spawned, 'hbound_trail_01'), 1, 'the kit emits no atk: the binding flies the trail');
-    assert.equal(hitCount(spawned, 'hbound_skill1_hit_01'), 1, 'the first pulse, at the tile');
+    assert.equal(hitCount(spawned, 'hbound_skill1_hit_01'), 1, 'the tick hit still starts at the throw');
     assert.deepEqual(bindingEffects(index, FX_BINDINGS.skchr_hbound_1.zone), ['hbound_skill1_range_01']);
     assert.deepEqual(bindingKeys(index, 'skchr_hbound_1').sort(), ['hbound_skill1_hit_01', 'hbound_skill1_range_01', 'hbound_trail_01']);
     assert.equal(w.skills.bindsReached(t, index.projectiles.projectile_chr_hbound_s1), true);
+    const trail = handles.find((h) => h.key === 'hbound_trail_01');
+    trail.opts.track({ time: 10, anchor: [0, 0, 0], stop() {}, kill() { this.stopped = true; } });
+    assert.equal(hitCount(spawned, 'hbound_skill1_range_01'), 1, 'the range starts when the throw lands');
+    assert.equal(handles.find((h) => h.key === 'hbound_skill1_range_01').opts.loop, true);
     for (let i = 1; i < 8; i++) { ofx.time += 1; w.tick(); }
     assert.equal(hitCount(spawned, 'hbound_skill1_hit_01'), 8, 'round(8 / 1) pulses, the first at once');
     assert.equal(live(handles, 'hbound_skill1_range_01').length, 1);
@@ -525,7 +528,10 @@ describe('旅骨\'s alchemy unit and 承曦格雷伊\'s ball (history §37.202)'
     frame();
     w.skill(t, true);
     assert.equal(w.simFx('zone', 6, 9, { radius: 2, dur: 31, id: 2, skill: 'skchr_hbound_2' }), true);
-    assert.ok(spawned.includes('hbound_skill2_range_01') && spawned.includes('hbound_trail_01') && spawned.includes('hbound_skill2_hit_01'));
+    assert.ok(spawned.includes('hbound_trail_01') && spawned.includes('hbound_skill2_hit_01'));
+    assert.equal(spawned.includes('hbound_skill2_range_01'), false, 'S2\'s range is onReached too');
+    handles.find((h) => h.key === 'hbound_trail_01').opts.track({ time: 10, anchor: [0, 0, 0], stop() {}, kill() { this.stopped = true; } });
+    assert.ok(spawned.includes('hbound_skill2_range_01'));
     assert.equal(live(handles, 'hbound_skill2_range_01')[0].opts.loop, true);
     assert.ok(!spawned.includes('hbound_skill1_range_01'));
   });
@@ -545,10 +551,10 @@ describe('旅骨\'s alchemy unit and 承曦格雷伊\'s ball (history §37.202)'
     frame();
     w.skill(g, true);
     assert.equal(w.simFx('zone', 6, 9, { radius: 1, dur: 8, id: 3, skill: 'skchr_greyy2_2' }), true);
-    assert.equal(hitCount(spawned, 'greyy2_skill_02_range'), 1);
+    assert.equal(hitCount(spawned, 'greyy2_skill_02_range'), 0, 'the range waits for the ball');
     assert.equal(hitCount(spawned, 'greyy2_skill_02_trail'), 1);
     assert.equal(w.simFx('zone', 6, 9, { radius: 1, dur: 8, id: 3, skill: 'skchr_greyy2_2' }), true, 'the kit re-sends the zone every pulse');
-    assert.equal(hitCount(spawned, 'greyy2_skill_02_range'), 1, 'the first mark covers the tile');
+    assert.equal(hitCount(spawned, 'greyy2_skill_02_range'), 0, 'the throw already covered the tile');
     assert.equal(hitCount(spawned, 'greyy2_skill_02_trail'), 1);
     const trail = handles.find((h) => h.key === 'greyy2_skill_02_trail');
     trail.opts.track({ time: 10, anchor: [0, 0, 0], stop() {}, kill() { this.stopped = true; } });

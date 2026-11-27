@@ -5,14 +5,14 @@
 // 锏 S2: AnimatedActionToTargetAbility is not an attack, so blkkgt_skill_02_hit_1 never rode a plan attack.
 // `strike` plays it on each later unclaimed HP hit of the slash's frame.
 // 阿斯卡纶 S2: the death 'aoe' (skill ascln:endowment) is ascln_skill_02_death_01 at the corpse. The circle
-// debuff ascln_buff_01 has no per-target event and is not played.
+// debuff ascln_buff_01 plays from 'asclnDread' (round 88), not from that aoe.
 // 乌尔比安 S3: 'anchor' flies projectile_chr_ulpia_s3; the landing plays ulpia_skill_03_range_01. S1's anchor
 // does not. A `flight` binding does not hold the reached effect early, and bindsReached does not swallow it.
 // 信仰搅拌机 S2: the fatal 'shield' tagged rmixer:s2 follows her with rmixer_skill_02_start_02 until the skill
 // ends. The talent's untagged 'shield' does not.
 // Miss.Christine S2: the cosmetic 'zone' (skill christ:spirit) flies projectile_chr_christ_s2 at the throw.
 // christ_skill_02_range waits for the landing (`arrive`, round 87); christ_skill_02_hit_02 still plays then.
-// 锡人 S2's tick, 锏 S2's hit and 阿斯卡纶's death burst are claimed (reason 'bound'). The dread loop is not.
+// 锡人 S2's tick, 锏 S2's hit, 阿斯卡纶's death burst and her dread loop are claimed (reason 'bound').
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
@@ -287,7 +287,7 @@ describe('round 86 lane f4 against the extracted index', { skip: !fs.existsSync(
     assert.ok(cb.has(C_TRAIL) && cb.has(C_RANGE));
   });
 
-  test('claimed rows are bound; 阿斯卡纶\'s dread loop stays conditional', () => {
+  test('claimed rows are bound, including 阿斯卡纶\'s dread loop', () => {
     const tin = skillPlan(idx, 'char_4151_tinman', 'skchr_tinman_2', { rec: { skillId: 'skchr_tinman_2', duration: -1 } });
     const tinHit = tin.unmapped.filter((u) => u.key === 'tinman_skill_02_hit_01');
     assert.ok(tinHit.length > 0 && tinHit.every((u) => u.reason === 'bound'));
@@ -299,6 +299,7 @@ describe('round 86 lane f4 against the extracted index', { skip: !fs.existsSync(
     const asc = skillPlan(idx, 'char_4132_ascln', 'skchr_ascln_2', { rec: { skillId: 'skchr_ascln_2', duration: 20 } });
     const death = asc.unmapped.filter((u) => u.key === DEATH);
     assert.ok(death.length > 0 && death.every((u) => u.reason === 'bound'));
-    assert.ok(asc.unmapped.some((u) => u.key === DREAD && u.reason === 'conditional'));
+    const dread = asc.unmapped.filter((u) => u.key === DREAD);
+    assert.ok(dread.length > 0 && dread.every((u) => u.reason === 'bound'));
   });
 });

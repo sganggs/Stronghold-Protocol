@@ -157,6 +157,7 @@ test('S1 连续映射 (AUTO, 持续时间无限 — the kit\'s SP_FULL: no enemy
     h.run(sk.spCost - 1);
     assert.equal(u.skill.activations, 0, `T${tier}: not before full SP`);
     assert.ok(h.runUntil(() => u.skill.active, 2), `T${tier}: cast at full SP, no enemy on the field`);
+    assert.equal(h.eventsOf('fx').some((e) => e[1] === 'beam' || e[1] === 'aphrisPath' || e[1] === 'aphrisHit'), false, `T${tier}: S1 is not the beam`);
     approx(u.s.atk, u.base.atk * (1 + sk.bb.atk), `T${tier}: ATK (no 中继器 bonus: it withdrew at its time)`);
     // the piece back (cooldown), then its time runs out while 连续映射 runs: it stays
     h.runUntil(() => r.alive, 40);
@@ -197,6 +198,19 @@ test('S2 临界瞬爆 (MANUAL, data DEFAULT, 8 s): no normal attack; from 0.167 
     assert.ok(!beam.some((c) => c.target === pastOp || c.target === straight), `T${tier}: nothing off the beam`);
     assert.equal(atkHits(h, u).filter((c) => c.t < endT).length, n0, `T${tier}: no normal attack meanwhile`);
     assert.deepEqual(sortN(u.rangeKeys), sortN(BENT.map(([a, b]) => K(a, b))), `T${tier}: the bent 5-1 path again`);
+    const fx = h.eventsOf('fx');
+    const beams = fx.filter((e) => e[1] === 'beam');
+    assert.equal(beams.length, 1, `T${tier}: one line at the cast`);
+    assert.equal(beams[0][4].skill, 'aphris:beam');
+    assert.deepEqual(beams[0][4].relays, [2], `T${tier}: the waypoint is the 中继器, not the ally bend`);
+    assert.deepEqual(beams[0][4].path.slice(0, 6), [9, 2, 9, 3, 9, 4], `T${tier}: owner, then the relay tile`);
+    const tiles = [];
+    for (let i = 0; i < beams[0][4].path.length; i += 2) tiles.push([beams[0][4].path[i], beams[0][4].path[i + 1]]);
+    assert.ok(tiles.some(([r, c]) => r === 11 && c === 4), `T${tier}: the ally bend is a corner of the same line`);
+    assert.equal(fx.filter((e) => e[1] === 'aphrisPath').length, 0, `T${tier}: a stable path does not emit a second line`);
+    const hits = fx.filter((e) => e[1] === 'aphrisHit');
+    assert.equal(hits.length, 32, `T${tier}: one channel hit per damage that landed`);
+    assert.ok(hits.every((e) => e[4].skill === 'aphris:beam' && (e[4].target === inPath.id || e[4].target === afterOp.id)));
     done(h);
   }
 });
@@ -211,6 +225,7 @@ test('S3 混沌的本质 (MANUAL, data DEFAULT, 20 bullets): 3 s 强制缴械 fr
     const before = h.spawn('enemy_dummy', { pos: [9, 3] }), past = h.spawn('enemy_dummy', { pos: [11, 4] }), off = h.spawn('enemy_dummy', { pos: [9, 6] });
     u.skill.gainSp(999);
     assert.ok(h.runUntil(() => u.skill.active, 4), `T${tier}: cast`);
+    assert.equal(h.eventsOf('fx').some((e) => e[1] === 'beam' || e[1] === 'aphrisPath'), false, `T${tier}: S3 is not the beam`);
     const t0 = h.hooksOf('skillStart').at(-1).t, n0 = atkHits(h, u).length;
     assert.ok(h.hooksOf('death').some((c) => c.unit === r && Math.abs(c.t - t0) < 1e-9), `T${tier}: the 中继器 withdrawn at the cast`);
     assert.ok(h.runUntil(() => r.alive, 0.5), `T${tier}: and back at once (redeploy time cleared)`);

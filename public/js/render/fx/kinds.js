@@ -123,6 +123,12 @@ export const FX_KINDS = Object.freeze({
   philaeRageLoop: { a: 'none' },
   // 阿米娅（医疗） S1's extra-heal pulse is amiya3_skill_01_range. `none`: the name matches /heal/ and would otherwise draw a heal.
   amiyaHeal: { a: 'none' },
+  // 谬因 S2's line updates and channel hits, 阿斯卡纶 S2's dread loop (skills.js round 88 g3). `none`: 官方特效 off
+  // adds no marker. aphrisHit would otherwise fall through to a sparkle; asclnDread matches /buff/.
+  aphrisPath: { a: 'none' },
+  aphrisHit: { a: 'none' },
+  asclnDread: { a: 'none' },
+  asclnDreadEnd: { a: 'none' },
   // summon arrival bursts (content/tokens.js burst(): 沙之碑 default, 迷迭香 gear stun, 耀阳 sword, 纸偶)
   summonBurst: { a: 'blast', c: 0xe8c878, smoke: 0x4a3f33 }, summonStun: { a: 'blast', c: 0xcfe0ff, smoke: 0x2a2e36 },
   radiantSword: { a: 'pillar', c: 0xffe8a0 }, paperDoll: { a: 'blast', c: 0xc9a2ff, smoke: 0x2c2436 },

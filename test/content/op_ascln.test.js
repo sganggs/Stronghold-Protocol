@@ -183,6 +183,8 @@ test('S1 追袭 (AUTO, 2 / 3 charges, data DEFAULT): the next attack strikes eve
     assert.equal(hits.length, 4, `T${tier}: 2 enemies × 2 strikes`);
     for (const c of hits) approx(c.amount, u.s.atk * sk.bb.atk_scale, `T${tier}: ×${sk.bb.atk_scale}`);
     assert.deepEqual([a.findBuff(dreadKey(u)).data.n, b.findBuff(dreadKey(u)).data.n], [2, 2], `T${tier}: two layers each`);
+    assert.notEqual(a.findBuff(dreadKey(u)).data.fx, true, `T${tier}: talent dread does not start the S2 visual`);
+    assert.equal(h.eventsOf('fx').some((e) => e[1] === 'asclnDread' || e[1] === 'asclnDreadEnd'), false);
     assert.equal(u.skill.charges, u.skill.maxCharges - 1, 'one charge spent');
     done(h);
   }
@@ -207,12 +209,16 @@ test('S2 恩赐 (MANUAL, 35 s, data DEFAULT): ATK +50 % / +90 %; every enemy of 
     h.run(0.3);
     for (const e of [weak, near, fly]) approx(e.findBuff('ascln:s2slow')?.mods.moveMul ?? 1, 1 + sk.bb.move_speed, `T${tier}: ${e.defId} slowed`);
     assert.equal(out.findBuff('ascln:s2slow'), null, 'not outside her range');
+    assert.equal(h.eventsOf('fx').filter((e) => e[1] === 'asclnDread').length, 0, `T${tier}: talent dread draws nothing`);
     // the knock-out: one layer on the ground enemy next to it; the flyer and the far one get none
     h.b.removeBuff(weak, 'test:dodge');
     assert.ok(h.runUntil(() => !weak.alive, 10), 'knocked out');
     assert.equal(near.findBuff(dreadKey(u))?.data.n, 1, `T${tier}: a layer on the ground enemy within 1.3`);
+    assert.equal(near.findBuff(dreadKey(u)).data.fx, true, `T${tier}: the kill's layer carries the visual`);
     assert.equal(fly.findBuff(dreadKey(u)), null, 'never a flyer');
     assert.equal(out.findBuff(dreadKey(u)), null, 'not beyond 1.3');
+    const dreadFx = h.eventsOf('fx').filter((e) => e[1] === 'asclnDread');
+    assert.ok(dreadFx.length >= 1 && dreadFx.every((e) => e[4].target === near.id && e[4].skill === 'ascln:dread' && e[4].duration === near.findBuff(dreadKey(u)).duration), `T${tier}: one visual per kill-circle enemy`);
     u.skill.extend(-999);
     h.step(2);
     h.run(0.5);

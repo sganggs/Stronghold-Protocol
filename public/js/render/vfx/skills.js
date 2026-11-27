@@ -1368,7 +1368,15 @@ export function chargeKeys(plan) {
  *               the throw). The trail still flies at the throw; onHit still plays at landing; bindsReached still
  *               swallows a second onReached. The withheld keys start at arrival and stop at throw-time plus the
  *               hold (the spirit window), not a fresh hold from the landing. A flight that outlasts the hold plays
- *               them not at all. A fly binding with no `arrive` list is unchanged
+ *               them not at all. The tile is covered from the throw, so a re-sent zone does not fly a second trail.
+ *               A fly binding with no `arrive` list is unchanged
+ *   path        the official line through ordered tiles (谬因 S2): { start, line, end, waypoint } prefab keys.
+ *               One line follows extra.path (flat [row, col, …] or pairs); extra.relays are indexes of the 中继器
+ *               tiles, and only those get the waypoint prefab. The same tiles keep that one line; a different path
+ *               replaces it. The line loops until the skill ends. Not a per-enemy beam
+ *   refresh     one looping copy on the named target; a later fx of the same kind and target extends that copy's
+ *               deadline instead of stacking another (阿斯卡纶 S2's dread). The duration is the fx's own
+ *   stopRefresh this fx drops the `refresh` hold stored for that kind on extra's target. It plays no prefab
  *   flight      the fx is the throw itself, not a lasting area (乌尔比安 S3's anchor): fly the projectile from the
  *               caster to the fx's point (SkillFx._flight). The landing plays the projectile's own onHit and onReached
  *               (_arrive); bindsReached does not swallow them. Not set when an attack of the skill already flies it
@@ -1445,6 +1453,7 @@ const binding = (o) => Object.freeze({
   ...(o.keys ? { keys: Object.freeze(o.keys) } : {}),
   ...(o.hits ? { hits: Object.freeze(o.hits) } : {}),
   ...(o.arrive ? { arrive: Object.freeze(o.arrive) } : {}),
+  ...(o.path && typeof o.path === 'object' ? { path: Object.freeze({ ...o.path }) } : {}),
   ...(Array.isArray(o.cases) ? { cases: Object.freeze(o.cases.map((c) => Object.freeze({
     ...c,
     ...(c.keys ? { keys: Object.freeze(c.keys) } : {}),
@@ -1483,16 +1492,19 @@ export const FX_BINDINGS = Object.freeze({
   // projectile_chr_hbound_s1 / _s2 (ParacurveMovement, speed 10): the trail hbound_trail_01, and on the tile the looping
   // range hbound_skill1_range_01 / hbound_skill2_range_01 (spawn GROUND) for the projectile's life. The tick hit
   // hbound_skill1_hit_01 / hbound_skill2_hit_01 is ON_BUFF_TRIGGER of hbound_s_1[dot] / hbound_s_2[buff], not an onHit
-  // (index.json). `fly` draws the trail; `hits` the tick, once per makeZone pulse, at the tile [ASSUMED] (history §37.202).
-  // `claim` (round 87): those tick rows are this zone, so the sweep marks them bound.
-  skchr_hbound_1: Object.freeze({ zone: binding({ owner: 'id', projectile: 'projectile_chr_hbound_s1', at: 'point', hold: 'fx', holdS: 8, during: true, cover: ['zone'], fly: true, hits: ['hbound_skill1_hit_01'], claim: true }) }),
-  skchr_hbound_2: Object.freeze({ zone: binding({ owner: 'id', projectile: 'projectile_chr_hbound_s2', at: 'point', hold: 'fx', holdS: 31, during: true, cover: ['zone'], fly: true, hits: ['hbound_skill2_hit_01'], claim: true }) }),
+  // (index.json). `fly` draws the trail at the throw. `arrive` holds the range until that flight lands: the
+  // projectile's _effectsWhenReached is hbound_skillN_range_01 and _effectsWhenStart is empty (the same landing as
+  // Miss.Christine S2). `hits` stay the tick, from the throw, once per makeZone pulse, at the tile [ASSUMED]
+  // (history §37.202). `claim` (round 87): those tick rows are this zone, so the sweep marks them bound.
+  skchr_hbound_1: Object.freeze({ zone: binding({ owner: 'id', projectile: 'projectile_chr_hbound_s1', at: 'point', hold: 'fx', holdS: 8, during: true, cover: ['zone'], fly: true, hits: ['hbound_skill1_hit_01'], claim: true, arrive: ['hbound_skill1_range_01'] }) }),
+  skchr_hbound_2: Object.freeze({ zone: binding({ owner: 'id', projectile: 'projectile_chr_hbound_s2', at: 'point', hold: 'fx', holdS: 31, during: true, cover: ['zone'], fly: true, hits: ['hbound_skill2_hit_01'], claim: true, arrive: ['hbound_skill2_range_01'] }) }),
   // 承曦格雷伊 S2 (ver-greyy2.js: the ball's 'zone' on the aimed tile, re-sent every interval with the full
   // projectile_delay_time, id = her, skill = skchr_greyy2_2). projectile_chr_greyy2_s2 (AdvancedMovement, speed 8):
   // trail greyy2_skill_02_trail, onReached the looping greyy2_skill_02_range, onHit greyy2_skill_02_hit_02 once as it
-  // lands. The ball does not move, so the first mark's cover swallows the later zones (unlike 引星棘刺 S2). Her cast
-  // row greyy2_skill_02_start already plays on her; it is not this area (history §37.202)
-  skchr_greyy2_2: Object.freeze({ zone: binding({ owner: 'id', projectile: 'projectile_chr_greyy2_s2', at: 'point', hold: 'fx', holdS: 8, during: true, cover: ['zone'], fly: true }) }),
+  // lands. _effectsWhenStart is empty, so `arrive` holds the range until the ball lands (the hit stays onHit).
+  // The ball does not move, so the throw covers the tile and a re-sent zone does not fly a second trail (unlike
+  // 引星棘刺 S2). Her cast row greyy2_skill_02_start already plays on her; it is not this area (history §37.202)
+  skchr_greyy2_2: Object.freeze({ zone: binding({ owner: 'id', projectile: 'projectile_chr_greyy2_s2', at: 'point', hold: 'fx', holdS: 8, during: true, cover: ['zone'], fly: true, arrive: ['greyy2_skill_02_range'] }) }),
   // 波登可 S2 ('zone' of her spores, id = her, dur): projectile_chr_podego_s2's reached podego_skill_02_range
   skchr_podego_2: Object.freeze({ zone: binding({ owner: 'id', projectile: 'projectile_chr_podego_s2', at: 'point', hold: 'fx', holdS: 5, during: true, cover: ['zone'] }) }),
   // 歌蕾蒂娅 S3 ('tornado', id = her, duration): projectile_chr_glady_s3_2's reached glady_skill_03_range / _02
@@ -1596,10 +1608,17 @@ export const FX_BINDINGS = Object.freeze({
   }),
   // 阿斯卡纶 S2 恩赐 (op-ascln.js death: 'aoe' at the knocked-out ground enemy, id = her, skill 'ascln:endowment').
   // index.json skchr_ascln_2 Aura template ascln_s_2[enemy], ON_OWNER_KILLED CreateEffect ascln_skill_02_death_01
-  // (oneshot, spawn GROUND_CENTER, duration 6.5). The circle debuff ascln_buff_01 is CreateBuffInCircleRange on the
-  // living targets; this aoe names no target list, so that looping buff is not played here.
+  // (oneshot, spawn GROUND_CENTER, duration 6.5). The circle debuff ascln_buff_01 is CreateBuffInCircleRange
+  // (loop, spawn FOOT, _holdByOwner; the created buff's life is the kit's debuff_duration, not the listener's
+  // INFINITY). The kill names each enemy: 'asclnDread' holds one copy for that long and a later one extends it;
+  // 'asclnDreadEnd' drops it. The talent's 死亡拘审 is a different apply and does not start this prefab.
   skchr_ascln_2: Object.freeze({
     aoe: binding({ owner: 'id', keys: ['ascln_skill_02_death_01'], at: 'point', oneshot: true, during: true, tag: 'ascln:endowment', claim: true }),
+    asclnDread: binding({
+      owner: 'id', keys: ['ascln_buff_01'], at: 'target', target: 'target',
+      refresh: true, hold: 'fx', tag: 'ascln:dread', claim: true,
+    }),
+    asclnDreadEnd: binding({ owner: 'id', stopRefresh: 'asclnDread', target: 'target', tag: 'ascln:dread' }),
   }),
   // 乌尔比安 S3 必须开辟的通路 (chess_char_5_05-ulpia.js onStart: 'anchor' at the landing tile, id = him). index.json
   // skchr_ulpia_3 ability AOEAttack is ProjectileToTileWithExtraActionsAbility, not an attack, so
@@ -1981,6 +2000,40 @@ export const FX_BINDINGS = Object.freeze({
     mantraBounce: binding({ owner: 'id', projectiles: Object.freeze(['projectile_chr_mantra_s3_2']) }),
   }),
   // ---- round 88 g2 end ----
+  // ---- round 88 g3 begin ----
+  // 谬因 S2 临界瞬爆 (op-aphris.js: 'beam' at the cast with path + relays, 'aphrisPath' when those tiles change,
+  // 'aphrisHit' on each enemy a tick's dealDamage actually lands on). index.json skchr_aphris_2 is a
+  // ChannelingMeleeAttack with no projectile. The line keys are the skill's own AphrisEffectEmitter fields, not the
+  // attack mode's (Sk2's attack is empty; Default / Sk1 / Sk3 carry startMountType 2 and waypointFixedHeight 0.65,
+  // which this skill does not). start_01 follows her (spawn NONE, _holdByOwner, loop). line_01 is one world-space
+  // polyline through the path tiles. line_point_01 is the end tile. token_aphris_pc_skill_02_buff_01 sits on each
+  // 中继器 tile (relays[]), not on an allied bend and not on each enemy. hit_01 is _hitEffects (oneshot, spawn HIT).
+  // One line, not one per enemy. With 官方特效 off, or with the line prefab missing, 'beam' stays the procedural strike.
+  skchr_aphris_2: Object.freeze({
+    beam: binding({
+      owner: 'id', during: true, tag: 'aphris:beam', claim: true,
+      path: {
+        start: 'aphris_skill_02_start_01',
+        line: 'aphris_skill_02_line_01',
+        end: 'aphris_skill_02_line_point_01',
+        waypoint: 'token_aphris_pc_skill_02_buff_01',
+      },
+    }),
+    aphrisPath: binding({
+      owner: 'id', during: true, tag: 'aphris:beam',
+      path: {
+        start: 'aphris_skill_02_start_01',
+        line: 'aphris_skill_02_line_01',
+        end: 'aphris_skill_02_line_point_01',
+        waypoint: 'token_aphris_pc_skill_02_buff_01',
+      },
+    }),
+    aphrisHit: binding({
+      owner: 'id', keys: ['aphris_skill_02_hit_01'], at: 'target', target: 'target',
+      oneshot: true, during: true, tag: 'aphris:beam', claim: true,
+    }),
+  }),
+  // ---- round 88 g3 end ----
 });
 
 /**
@@ -2122,6 +2175,8 @@ function claimedKeys(skillId) {
       for (const k of bind.keys || []) if (lc(k)) out.add(lc(k));
       for (const k of bind.hits || []) if (lc(k)) out.add(lc(k));
       for (const k of bind.slots || []) if (lc(k)) out.add(lc(k));
+      const p = bind.path;
+      if (p && typeof p === 'object') for (const k of [p.start, p.line, p.end, p.waypoint]) if (lc(k)) out.add(lc(k));
     }
   }
   return out;
@@ -2136,6 +2191,8 @@ export function bindingKeys(idx, skillId) {
       // the tick oneshots and, when the binding flies the shot itself, the trail (preloading; neither is a reached effect)
       for (const k of bind.hits || []) if (lc(k)) out.add(lc(k));
       for (const k of bind.slots || []) if (lc(k)) out.add(lc(k));
+      const path = bind.path;
+      if (path && typeof path === 'object') for (const k of [path.start, path.line, path.end, path.waypoint]) if (lc(k)) out.add(lc(k));
       // `keys` win in bindingEffects, so a binding that also names its projectile still preloads that id (a skill with
       // no attack is not an idle shot: 菲亚梅塔 S2, 琴柳 S3's s3_2, 流形). A binding without `keys` is unchanged.
       if (Array.isArray(bind.keys) && lc(bind.projectile)) out.add(lc(bind.projectile));

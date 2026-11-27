@@ -214,6 +214,31 @@ export function later(ofx, s, fn) {
   ofx.timers.push({ at: ofx.time + Math.max(0, s), fn });
 }
 
+/**
+ * 谬因 S2's ordered tiles (FX_BINDINGS `path`): flat [row, col, …] or [[row, col], …]. Null when it is not a tile list.
+ * One tile is a list of length 1; the line needs two.
+ */
+function pathTiles(raw) {
+  if (!Array.isArray(raw) || raw.length < 2) return null;
+  const tiles = [];
+  if (Array.isArray(raw[0])) {
+    for (const p of raw) {
+      if (!Array.isArray(p) || p.length < 2) return null;
+      const r = Number(p[0]), c = Number(p[1]);
+      if (!Number.isFinite(r) || !Number.isFinite(c)) return null;
+      tiles.push([r, c]);
+    }
+  } else {
+    if (raw.length % 2) return null;
+    for (let i = 0; i + 1 < raw.length; i += 2) {
+      const r = Number(raw[i]), c = Number(raw[i + 1]);
+      if (!Number.isFinite(r) || !Number.isFinite(c)) return null;
+      tiles.push([r, c]);
+    }
+  }
+  return tiles;
+}
+
 /** Whether an attack ability's class is the kind of attack the sim made (a heal, a shot, a blow). */
 export function fitsAttack(ability, { heal = false, ranged = false } = {}) {
   if (typeof ability !== 'string') return false;
@@ -787,6 +812,7 @@ export class SkillFx {
     this._stopCond(U);
     this._stopLoops(U);
     this._stopOpen(U);
+    this._stopPath(U);
     this._stopTokenLoops(U);
     this._stopReady(U);
     for (const hs of U.slotLoops) for (const h of hs || []) h.stop();
@@ -973,6 +999,7 @@ export class SkillFx {
         if (!U) continue;
         for (const h of [...U.loops, ...U.ready, ...U.slotLoops.flat().filter(Boolean), ...(U.ewin ? U.ewin.loops : []), ...(U.f5loops || [])]) h.stop();
         this._stopOpen(U);
+        this._stopPath(U, true);
         this._stopCond(U);
         U.loops = []; U.ready = []; U.slotLoops = []; U.f5loops = []; U.loopsOn = false; U.readyOn = false; U.passiveOn = false; U.energy = 0; U.quiet = true;
         U.ewin = null;
@@ -981,6 +1008,10 @@ export class SkillFx {
       this._dropCovers();
       for (const t of this.tloops.values()) t.h.stop();
       this.tloops.clear();
+      if (this.f6Hold) {
+        for (const t of this.f6Hold.values()) { t.gen += 1; if (t.h && t.h.alive !== false) t.h.stop(); }
+        this.f6Hold.clear();
+      }
       for (const t of this.aloops.values()) t.h.stop();
       this.aloops.clear();
       // the held crosshairs too (PR #862 review): their handles died with the effects, a later lock starts afresh
@@ -1010,7 +1041,7 @@ export class SkillFx {
       if (!U) continue;
       U.seen = sweep;
       const up = v.alive !== false && !v.destroyed && !v.down;
-      if (!up) { if (U.loopsOn || U.readyOn || U.passiveOn || U.energy || U.ewin || U.openOn) this._releaseU(U); continue; }
+      if (!up) { if (U.loopsOn || U.readyOn || U.passiveOn || U.energy || U.ewin || U.openOn || U.pathHold || U.pathSnap) this._releaseU(U); continue; }
       if (U.enemy.length) {
         // an enemy's skill window: the snapshot's anim SKILL (the sim's 0.5 s after an ability fires); with no 'cast'
         // slot event, an enemy whose data record has a single skill opens that skill's window on it [ASSUMED]
@@ -1048,10 +1079,12 @@ export class SkillFx {
       if (U.f5loops?.length) this._pruneTokenLoops(U);
       if (U.charge) this._charge(U, v, Array.isArray(v.energy) ? Math.max(0, Math.floor(Number(v.energy[0]) || 0)) : 0);
       if (U.plan?.cond?.length) this._cond(U, v);
+      this._restoreBarrier(U, v);
+      this._restorePath(U, v);
       U.quiet = false;
     }
     for (const U of this.units.values()) {
-      if (U && U.seen !== sweep && (U.loopsOn || U.readyOn || U.passiveOn || U.energy || U.ewin || U.openOn)) this._releaseU(U);
+      if (U && U.seen !== sweep && (U.loopsOn || U.readyOn || U.passiveOn || U.energy || U.ewin || U.openOn || U.pathHold || U.pathSnap)) this._releaseU(U);
     }
     for (const [slot, t] of this.tloops) {
       const tv = t.tgt;
@@ -1068,6 +1101,7 @@ export class SkillFx {
     if (this.marks.length) this.marks = this.marks.filter((m) => m.until > now);
     if (this.shells.length) this.shells = this.shells.filter((s) => s.until > now);
     if (this.locks.length) this._syncLocks(now);
+    this._pruneHeld();
   }
 
   /**
@@ -1125,6 +1159,11 @@ export class SkillFx {
       if (bind && bind.owner === field && (!bind.during || this._lasts(U)) && (!bind.tag || extra.skill === bind.tag)) {
         // hold 'open' (摆渡人 S2): the loop stays until the fx named by stopOpen. The stop plays nothing.
         if (bind.stopOpen) { this._stopOpen(U, bind.stopOpen); return true; }
+        if (bind.stopRefresh) { this._dropHeld(U, bind, extra); return true; }
+        if (bind.path) {
+          const drew = this._pathLine(U, bind, extra);
+          if (drew || !bind.pass) return drew;
+        }
         if (bind.hold === 'open') {
           const drew = this._openHold(U, kind, bind, extra);
           if (drew || !bind.pass) return drew;
@@ -1391,7 +1430,17 @@ export class SkillFx {
       // once on the unit the fx names (泡泡's attacker, 归溟幽灵鲨 S1's ally), else where it happens; turned by the owner's side.
       // A held one (乌啾 S2's 迷彩, hold 'fx') follows that unit for the fx's duration. An explicit 0 stays 0
       // (the point path below still treats a non-positive duration as holdS). No hold: still a oneshot.
+      // `refresh` (阿斯卡纶 S2's dread): one looping copy; a later fx of this kind on the same target extends it.
       const named = extra[bind.target || 'target'];
+      if (bind.refresh) {
+        const who = this.w.view(named);
+        if (!who || who.alive === false) return false;
+        const fxS = Number(extra.duration ?? extra.dur ?? extra.hold);
+        const holdS = fxS > 0 ? fxS : (bind.holdS || SKILL_CAST_S);
+        let drew = false;
+        for (const k of keys) if (this._heldOn(k, who, holdS)) drew = true;
+        return drew;
+      }
       const tv = this.w.view(named) || { id: 'fx:point', x, y, z: 0 };
       const held = !!(bind.hold && !bind.oneshot);
       if (!held) {
@@ -1597,11 +1646,127 @@ export class SkillFx {
   }
 
   /**
-   * Stop what this skill owns besides its plan loops: a `track` trail, and looping marks marked `untilSkill`
-   * (赤刃明霄陈 S2's respawn buffs — their hold is only a cap). A bleed that starts as the skill ends is not one of these.
+   * 谬因 S2 (FX_BINDINGS `path`). One official line through extra.path. The start follows her. The end sits on the
+   * last tile. extra.relays are indexes of the 中继器 tiles, and only those get the waypoint prefab (an allied bend
+   * is a corner of the line, not a waypoint). The same tiles keep the copy; a different path replaces it. False when
+   * the line prefab is missing or the path has fewer than two tiles, so the procedural beam stays.
+   */
+  _pathLine(U, bind, extra) {
+    const spec = bind?.path;
+    const lineKey = lc(spec?.line);
+    if (!spec || !lineKey || !this.w.ofx.lib.has(lineKey) || !U?.v) return false;
+    const tiles = pathTiles(extra?.path);
+    if (!tiles || tiles.length < 2) {
+      if (U.pathHold) this._stopPath(U);
+      return false;
+    }
+    const relays = [];
+    if (Array.isArray(extra.relays)) {
+      const seen = new Set();
+      for (const n of extra.relays) {
+        const i = Number(n);
+        if (!Number.isInteger(i) || i <= 0 || i >= tiles.length || seen.has(i)) continue;
+        seen.add(i);
+        relays.push(i);
+      }
+    }
+    const sig = `${tiles.map(([r, c]) => `${r},${c}`).join(';')}#${relays.join(',')}`;
+    const live = U.pathHold && !U.pathHold.done && U.pathHold.line && U.pathHold.line.alive !== false;
+    if (live && U.pathHold.sig === sig) return true;
+    this._stopPath(U, true);
+    const pts = [];
+    for (const [r, c] of tiles) {
+      const g = this._ground(c, r, null);
+      pts.push(boardToUnity(c, r, g.z || 0));
+    }
+    const hold = { sig, line: null, handles: [], pts, done: false };
+    const paint = (fx) => { if (fx && typeof fx.setLinePath === 'function') fx.setLinePath(pts); };
+    hold.line = this.w.ofx.spawn(lineKey, { pos: pts[0].slice(), yaw: 0, groundZ: pts[0][2], rootRot: ID_ROT }, {
+      important: true, loop: true,
+      track: (fx) => { if (hold.done || hold.pts !== pts) return; paint(fx); },
+    });
+    paint(hold.line);
+    paint(hold.line && hold.line.effect);
+    if (!hold.line) return false;
+    const keep = (h) => { if (h) hold.handles.push(h); };
+    const startKey = lc(spec.start);
+    if (startKey && this.w.ofx.lib.has(startKey)) keep(this.w.playOn(startKey, U.v, { follow: true, loop: true, important: true }));
+    const endKey = lc(spec.end);
+    const last = tiles[tiles.length - 1];
+    if (endKey && this.w.ofx.lib.has(endKey)) {
+      const g = this._ground(last[1], last[0], null);
+      keep(this.w.playOn(endKey, { x: last[1], y: last[0], z: g.z || 0 }, { loop: true, important: true }));
+    }
+    const wpKey = lc(spec.waypoint);
+    if (wpKey && this.w.ofx.lib.has(wpKey)) {
+      for (const i of relays) {
+        const [r, c] = tiles[i];
+        const g = this._ground(c, r, null);
+        keep(this.w.playOn(wpKey, { x: c, y: r, z: g.z || 0 }, { loop: true, important: true }));
+      }
+    }
+    U.pathHold = hold;
+    U.pathSnap = {
+      path: Array.isArray(extra.path) ? extra.path.slice() : extra.path,
+      relays: Array.isArray(extra.relays) ? extra.relays.slice() : [],
+    };
+    return true;
+  }
+
+  /** Stop 谬因's line. `keepSnap` leaves the tiles so a tier switch can draw them again; a skill end or a death does not. */
+  _stopPath(U, keepSnap = false) {
+    const hold = U?.pathHold;
+    if (hold) {
+      hold.done = true;
+      if (hold.line && hold.line.alive !== false) hold.line.stop({});
+      for (const h of hold.handles || []) if (h && h.alive !== false) h.stop({});
+      U.pathHold = null;
+    }
+    if (!keepSnap) U.pathSnap = null;
+  }
+
+  /**
+   * A client that already received the beam (a tier switch cleared the handles) draws the line again from the tiles
+   * it stored. A reconnect has no path in the snapshot, so this does not invent one.
+   */
+  _restorePath(U, v) {
+    const snap = U?.pathSnap;
+    if (!snap) return;
+    const on = U.on !== null ? U.on : !!((v.flags | 0) & UF.SKILL);
+    if (!on) return;
+    const live = U.pathHold && !U.pathHold.done && U.pathHold.line && U.pathHold.line.alive !== false;
+    if (live) return;
+    const raw = FX_BINDINGS[U.skillId];
+    if (!raw) return;
+    let bind = null;
+    for (const b of Object.values(raw)) if (b.path) { bind = b; break; }
+    if (bind) this._pathLine(U, bind, snap);
+  }
+
+  /**
+   * 摆渡人 S2's dome after a join or a reconnect. The snapshot has no buff key; UF.SHIELD is the barrier flag
+   * (snapshot.js flagsOf: u.s.shield or a buff's shieldHits). [ASSUMED] on an S2 摆渡人 that flag is his barrier.
+   * His kit's only shield is varkis:barrier. An item or a bond shield on him would show this dome too.
+   * The skill ending does not clear the flag: the dome stays until the flag drops or varkisShieldEnd arrives.
+   */
+  _restoreBarrier(U, v) {
+    if (U.skillId !== 'skchr_varkis_2') return;
+    const shielded = !!((v.flags | 0) & UF.SHIELD);
+    const playing = !!(U.open && (U.open.get('varkisShield') || []).some((h) => h && h.alive !== false));
+    if (shielded && !playing) {
+      const bind = FX_BINDINGS.skchr_varkis_2?.varkisShield;
+      if (bind) this._openHold(U, 'varkisShield', bind, { id: idOf(v) });
+    } else if (!shielded && playing) this._stopOpen(U, 'varkisShield');
+  }
+
+  /**
+   * Stop what this skill owns besides its plan loops: a `track` trail, 谬因's line, and looping marks marked
+   * `untilSkill` (赤刃明霄陈 S2's respawn buffs — their hold is only a cap). A bleed that starts as the skill ends
+   * is not one of these.
    */
   _stopOwned(U) {
     if (!U) return;
+    this._stopPath(U);
     for (const s of U.tracks || []) {
       s.done = true;
       if (s.h && s.h.alive !== false) s.h.stop({});
@@ -1811,9 +1976,16 @@ export class SkillFx {
     const proj = bind.projectile ? this.w.idx?.projectiles?.[lc(bind.projectile)] : null;
     if (!proj || !U?.v || !keys.length || !(holdS > 0)) return false;
     const now = this.w.ofx.time;
+    const until = now + holdS;
     (U.arrivals ||= []).push({
-      proj, keys, at, until: now + holdS,
+      proj, keys, at, until,
       r: Math.round(y), c: Math.round(x), cover: bind.cover || [], untilSkill: !!bind.untilSkill,
+    });
+    // Covered from the throw, before the range exists: 承曦格雷伊 re-sends the zone while the ball is still in the air.
+    // h is null, so a later stop of owned marks does not stop a handle this mark does not have.
+    this.marks.push({
+      owner: U.id, r: Math.round(y), c: Math.round(x), until, h: null,
+      cover: bind.cover || [], untilSkill: !!bind.untilSkill,
     });
     return true;
   }
@@ -2208,18 +2380,52 @@ export class SkillFx {
     const id = `${idOf(v)}|${key}`;
     if (!this.f6Hold) this.f6Hold = new Map();
     const prev = this.f6Hold.get(id);
-    if (prev && prev.h.alive) {
+    if (prev) {
+      if (prev.h && prev.h.alive) {
+        prev.gen += 1;
+        prev.vid = idOf(v);
+        const gen = prev.gen;
+        later(this.w.ofx, holdS, () => { if (prev.gen === gen) { prev.h.stop(); this.f6Hold.delete(id); } });
+        return prev.h;
+      }
       prev.gen += 1;
-      const gen = prev.gen;
-      later(this.w.ofx, holdS, () => { if (prev.gen === gen) { prev.h.stop(); this.f6Hold.delete(id); } });
-      return prev.h;
     }
     const h = this.w.playOn(key, v, { follow: true, loop: true, important: true });
     if (!h) return null;
-    const rec = { h, gen: 1 };
+    const rec = { h, gen: 1, vid: idOf(v) };
     this.f6Hold.set(id, rec);
     later(this.w.ofx, holdS, () => { if (rec.gen === 1) { h.stop(); this.f6Hold.delete(id); } });
     return h;
+  }
+
+  /** Drop the `refresh` hold a `stopRefresh` fx names (阿斯卡纶 S2: the dread ended, or was cleansed). */
+  _dropHeld(U, bind, extra) {
+    if (!this.f6Hold) return;
+    const start = FX_BINDINGS[U.skillId]?.[bind.stopRefresh];
+    const keys = (start?.keys || []).map(lc).filter(Boolean);
+    const named = extra[bind.target || start?.target || 'target'];
+    if (named == null) return;
+    for (const k of keys) {
+      const id = `${named}|${k}`;
+      const t = this.f6Hold.get(id);
+      if (!t) continue;
+      t.gen += 1;
+      if (t.h && t.h.alive !== false) t.h.stop();
+      this.f6Hold.delete(id);
+    }
+  }
+
+  /** A held target loop whose view is gone (death, cleanse already stopped the handle) does not keep the slot. */
+  _pruneHeld() {
+    if (!this.f6Hold) return;
+    for (const [id, t] of this.f6Hold) {
+      const v = this.w.view(t.vid);
+      if (!v || v.destroyed || v.alive === false || !t.h || t.h.alive === false) {
+        t.gen += 1;
+        if (t.h && t.h.alive !== false) t.h.stop();
+        this.f6Hold.delete(id);
+      }
+    }
   }
 
   // ---- round 86 f5: 迷彩 cover, token loops, 机械师 S3 charge ----------------------------------------------

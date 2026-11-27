@@ -18,6 +18,7 @@
 //                                                       renderer sorting before them, behindUnits)
 //   fx.linkLines(from, to)                              the game's end points of its LineRenderers (a chain, a rope);
 //                                                       a world-space line draws nothing before (placeholders)
+//   fx.setLinePath(points)                              the same lines as one polyline (谬因 S2); the same array is applied once
 //   fx.done                                             finished and its linger (`_delayToFinish`) over: recycle it
 //
 // Lifecycle (ParticleEffect / ProjectileEffect): the content starts after `_delayToPlay`; a system plays when its node
@@ -387,6 +388,26 @@ export class Effect {
       p[0][0] = from[0]; p[0][1] = from[1]; p[0][2] = from[2];
       p[1][0] = to[0]; p[1][1] = to[1]; p[1][2] = to[2];
     }
+    this._linePath = null;
+    return this;
+  }
+
+  /**
+   * Replace every LineRenderer's points with one polyline (world space, Unity frame). A two-point rope stays on
+   * linkLines. The same `points` array is applied once; a later call with a new array replaces it. Fewer than two
+   * points leaves the line as it was.
+   */
+  setLinePath(points) {
+    if (!Array.isArray(points) || points.length < 2 || this._linePath === points) return this;
+    const copy = [];
+    for (let k = 0; k < points.length; k++) {
+      const q = points[k];
+      if (!q) return this;
+      copy.push([Number(q[0]) || 0, Number(q[1]) || 0, Number(q[2]) || 0]);
+    }
+    this._linePath = points;
+    const def = this.def;
+    for (let i = 0; i < def.n; i++) if (def.line[i]) this.linePts.set(i, copy);
     return this;
   }
 
