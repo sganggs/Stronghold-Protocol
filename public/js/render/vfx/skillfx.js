@@ -93,7 +93,7 @@
 import {
   planFor, skillPlan, attackFx as planAttack, slotKey, planKeys, chargeKeys, chargeStep, skillProjectile, targetsOf, buffDuration,
   eventNum, FX_BINDINGS, bindingEffects, bindingKeys, lifeOf, COND_BUFFS, condState, BOUND_BY_SKILL, coverOf, enemyCoverOf,
-  ENEMY_FX_BINDINGS, ENEMY_FX_KINDS, OWNER_NEAR, auraTargets, enemyBindingKeys, modeLoopKeys,
+  ENEMY_FX_BINDINGS, ENEMY_FX_KINDS, ENEMY_CAST_SHOTS, OWNER_NEAR, auraTargets, enemyBindingKeys, modeLoopKeys,
 } from './skills.js';
 import { projectileParts } from './flight.js';
 import { heatwaveLanes, LANE_BACK, LANE_EXIT, LANE_SPEED } from './lanes.js';
@@ -707,6 +707,13 @@ export class SkillFx {
       if (!h) continue;
       win.draws = true;
       if (e.hold === 'skill') win.loops.push(h); else this._keep(U, e, h);
+    }
+    // round 86 f6: a one-shot the skill's plan cannot place (no attack, or a buff trigger the cast stands for)
+    const shots = ENEMY_CAST_SHOTS[U.key]?.[lc(entry.prefabKey)];
+    if (shots) for (const k of shots) {
+      if (!this.w.ofx.lib.has(k)) continue;
+      const h = this._play({ key: k, loop: false }, v, { important: true });
+      if (h) win.draws = true;
     }
     return win.draws;
   }
@@ -1452,7 +1459,7 @@ export class SkillFx {
     const rows = [];
     for (const key of cands) {
       const bind = ENEMY_FX_BINDINGS[key][kind];
-      if (bind.xkind && extra.kind !== bind.xkind) continue;
+      if (!xkindOk(bind, extra)) continue;
       const owner = this._enemyOwner(key, bind, x, y, extra);
       if (!owner) continue;
       rows.push({ key, bind, owner, rank: this._fxRank(bind, owner, extra) });
@@ -1460,9 +1467,18 @@ export class SkillFx {
     rows.sort((a, b) => a.rank - b.rank);
     for (const { key, bind, owner } of rows) {
       if (bind.endMode) { this._modeEnd(owner); return false; }   // (its procedural cue stays)
+      // keysByKind: one fx kind, several official clips (裂管之音's 合奏 and its on-damage pulse). A kind with no
+      // list does not claim the fx.
+      let byKind = null;
+      if (bind.keysByKind) {
+        byKind = bind.keysByKind[lc(extra.kind)] || null;
+        if (!byKind || !byKind.length) continue;
+      }
       const drew = bind.modeLoops ? this._modeWin(owner, key, bind)
         : bind.talent ? this._aura(owner, key, bind, x, y, extra)
-        : this._zone(bind, x, y, extra, bind.owner === 'shell' ? owner : null);
+        : bind.fly ? this._enemyFly(bind, x, y, extra)
+        : bind.at === 'target' ? this._onTarget(bind, extra)
+        : this._zone(bind, x, y, extra, bind.owner === 'shell' ? owner : null, byKind);
       if (!drew) continue;
       // the kit's own moment stood for an attack-rooted skill of a window: that was its one attack — the enemy's next
       // attacks in the window are its own (0.3.1: the 'cast' of 鼠王's 【沙狱】 holds the window for the debuff's 15 s, and
@@ -1534,8 +1550,8 @@ export class SkillFx {
    * stay until its landing, at most SHELL_GRACE_S past the hold; `shell` here: the entry the landing's 'shell' owner
    * found (_shellLanded).
    */
-  _zone(bind, x, y, extra, shell = null) {
-    const keys = bindingEffects(this.w.idx, bind).filter((k) => this.w.ofx.lib.has(k));
+  _zone(bind, x, y, extra, shell = null, only = null) {
+    const keys = (only || bindingEffects(this.w.idx, bind)).filter((k) => this.w.ofx.lib.has(k));
     if (!keys.length) return false;
     const at = this._ground(x, y);
     const fxS = Number(bind.holdKey ? extra[bind.holdKey] : extra.duration ?? extra.dur ?? extra.hold);
@@ -1703,5 +1719,78 @@ export class SkillFx {
     this.modeWins.clear();
     for (const s of this.shells) for (const h of s.hs) h.stop();
     this.shells = [];
+    if (this.f6Hold) { for (const t of this.f6Hold.values()) t.h.stop(); this.f6Hold.clear(); }
   }
+
+  /**
+   * Round 86 f6. A binding with `fly: 'fromTo'` (阿利斯泰尔's store sword): the projectile flies from `extra.from`
+   * (else the fx's point — the sword is removed in the same tick) to `extra.to`. A sword that names `extra.id` and no
+   * from/to is someone else's (仇白) and is not claimed. False when the trail is not installed or the target is gone,
+   * so the procedural fx stays. The arrival plays the projectile's onHit (_fly → _arrive); the trail is not also
+   * stuck at the sword.
+   */
+  _enemyFly(bind, x, y, extra) {
+    if (extra.id != null || extra.from == null || extra.to == null) return false;
+    const proj = bind.projectile ? this.w.idx?.projectiles?.[lc(bind.projectile)] : null;
+    const main = proj ? projectileParts(proj).main : null;
+    if (!proj || !main || !this.w.ofx.lib.has(main)) return false;
+    const tgt = this.w.view(extra.to);
+    if (!tgt || !Number.isFinite(tgt.x) || !Number.isFinite(tgt.y)) return false;
+    const from = this.w.view(extra.from);
+    const src = from && from.alive !== false ? from : { id: extra.from, x, y, z: 0, alive: true };
+    const speed = Number(proj.movement?.speed);
+    const dist = Math.hypot(tgt.x - src.x, tgt.y - src.y);
+    const dur = Math.min(3, Math.max(0.04, speed > 0 && dist > 0 ? dist / speed : 0.35));
+    this.w._fly(proj, src, tgt, 'ranged', this.w.ofx.time, { dur });
+    return true;
+  }
+
+  /**
+   * Round 86 f6. A binding with `at: 'target'` (炎佑's burn): the prefabs follow `extra.target` for the fx's `dur`
+   * (else `holdS`). A looping one already on that unit is kept and its stop is pushed out, so the 1 s ticks join.
+   * False when the target is not on the field or none of the prefabs is installed.
+   */
+  _onTarget(bind, extra) {
+    const tv = this.w.view(extra.target ?? extra.to);
+    if (!tv || tv.alive === false) return false;
+    const keys = bindingEffects(this.w.idx, bind).filter((k) => this.w.ofx.lib.has(k));
+    if (!keys.length) return false;
+    const fxS = Number(extra.duration ?? extra.dur ?? extra.hold);
+    const holdS = bind.hold === 'fx' && fxS > 0 ? fxS : bind.holdS || 1;
+    let drew = false;
+    for (const k of keys) {
+      const loop = !bind.once && this.w.idx?.prefabs?.[k]?.looping !== false;
+      const h = loop ? this._heldOn(k, tv, holdS) : this.w.playOn(k, tv, { follow: true, important: true });
+      if (h) drew = true;
+    }
+    return drew;
+  }
+
+  /** A looping on-target effect, one per unit and key; a later tick extends it instead of stacking another. */
+  _heldOn(key, v, holdS) {
+    const id = `${idOf(v)}|${key}`;
+    if (!this.f6Hold) this.f6Hold = new Map();
+    const prev = this.f6Hold.get(id);
+    if (prev && prev.h.alive) {
+      prev.gen += 1;
+      const gen = prev.gen;
+      later(this.w.ofx, holdS, () => { if (prev.gen === gen) { prev.h.stop(); this.f6Hold.delete(id); } });
+      return prev.h;
+    }
+    const h = this.w.playOn(key, v, { follow: true, loop: true, important: true });
+    if (!h) return null;
+    const rec = { h, gen: 1 };
+    this.f6Hold.set(id, rec);
+    later(this.w.ofx, holdS, () => { if (rec.gen === 1) { h.stop(); this.f6Hold.delete(id); } });
+    return h;
+  }
+}
+
+/** Whether `extra.kind` is a binding's `xkind` (one string, or a list — round 86 f6's 余音 clips). */
+function xkindOk(bind, extra) {
+  if (!bind.xkind) return true;
+  const k = lc(extra?.kind);
+  if (!k) return false;
+  const list = Array.isArray(bind.xkind) ? bind.xkind : [bind.xkind];
+  return list.some((x) => lc(x) === k);
 }

@@ -676,6 +676,10 @@ export function skillPlan(idx, unitKey, skillId, opts = {}) {
       plan[role] = plan[role].filter((e) => !bound.has(e.key) || (plan.unmapped.push({ key: e.key, role: e.role, reason: 'bound', from: e.from }), false));
     }
   }
+  // an enemy binding or cast shot that plays this unit+skill's unmapped key (round 86 f6: keyed by unit, so another
+  // unit's copy of the same prefabKey is left alone). The row stays in `unmapped` with reason 'bound'.
+  const played = enemyPlayedKeys(unitKey, id);
+  if (played.size) for (const u of plan.unmapped) if (played.has(lc(u.key)) && u.reason !== 'no-prefab') u.reason = 'bound';
   if (isObj(opts.rec)) tagCasts(plan, skill);
   return plan;
 }
@@ -1666,7 +1670,19 @@ export const OWNER_NEAR = 1;
  *              (a buff it creates at its tick: a condition talents.js cannot read, here the mode's own) — for its record's
  *              blackboard value `bbKey` (talents.bb), else `holdS` s; `endMode`: the fx ends it early
  */
-const ebind = (o) => Object.freeze({ ...o, ...(o.keys ? { keys: Object.freeze(o.keys) } : {}), ...(o.parts ? { parts: Object.freeze(o.parts) } : {}) });
+const ebind = (o) => {
+  const extra = {};
+  if (o.keys) extra.keys = Object.freeze(o.keys);
+  if (o.parts) extra.parts = Object.freeze(o.parts);
+  if (Array.isArray(o.mark)) extra.mark = Object.freeze(o.mark.slice());
+  if (Array.isArray(o.xkind)) extra.xkind = Object.freeze(o.xkind.slice());
+  if (o.keysByKind && typeof o.keysByKind === 'object') {
+    const kb = {};
+    for (const [k, v] of Object.entries(o.keysByKind)) kb[k] = Object.freeze([].concat(v));
+    extra.keysByKind = Object.freeze(kb);
+  }
+  return Object.freeze({ ...o, ...extra });
+};
 const POLLUTED_DIE = Object.freeze({
   // the client's PollutedDie talent (Talent/BslimeTalent_1) fires projectile_enemy_nhpbr_polluted where the unit falls: an
   // EffectBehaviour that plays enemy_nhpbr_attack_range on its target as it starts (_effectsToTargetWhenStart, looping)
@@ -1744,6 +1760,85 @@ export const ENEMY_FX_BINDINGS = Object.freeze({
     telegraph: ebind({ xkind: 'spin', owner: 'id', modeLoops: 'RotateEffect', bbKey: 'EndRotate.rotate_duration', holdS: 60 }),
     phase: ebind({ xkind: 'spinStop', owner: 'id', endMode: true }),
   }),
+  // ---- round 86 f6 begin ----
+  // 萨卡兹悖谬暴虐兵长 AOEAttack (index units.enemy_1320_wdrrl_2.skills.aoeattack): the buff enemy_wdrrl[AOE_attack]
+  // (ON_OUTPUT_MODIFIER) plays enemy_wdrrl_skill_hit_01 (one-shot, HIT) and enemy_wdrrl_skill_hit_rangre_01 (one-shot,
+  // GROUND) on that hit. special.js kitFirstAoe emits 'explode' kind 'aoeAttack' at the struck tile, with no id, and the
+  // 'dealt' hook is not the 'cast' frame. [ASSUMED] both play once at that tile: the kit's moment is the splash, and the
+  // range prefab is a ground effect; the hit prefab's HIT anchor has no target id on the fx.
+  enemy_1320_wdrrl_2: Object.freeze({
+    explode: ebind({ xkind: 'aoeAttack', owner: 'any', keys: ['enemy_wdrrl_skill_hit_01', 'enemy_wdrrl_skill_hit_rangre_01'], once: true, mark: 'aoeattack' }),
+  }),
+  // 凋零骑士 TripleAttack (units.enemy_1513_dekght_2.skills.tripleattack): the buff enemy_dekght_2[aoe] creates
+  // dekght_2_skill_01_range (one-shot, GROUND) on its targets at ON_BUFF_TRIGGER. leaders.js kitLeaderMisc emits
+  // 'explode' kind 'blastArrow' at the tile when the arrow lands (the 'telegraph' of the same kind is the wait).
+  enemy_1513_dekght_2: Object.freeze({
+    explode: ebind({ xkind: 'blastArrow', owner: 'any', keys: ['dekght_2_skill_01_range'], once: true, mark: 'tripleattack' }),
+  }),
+  // 乌顶巨角卢鲁 skill (units.enemy_10144_xdelk_2.skills.skill): _castTargetEffects holds enemy_xdelk_buff_03 (loop, HEAD)
+  // on the charge's target from ON_CAST_START to ON_CAST_END, and _hitEffects plays enemy_xdelk_skill_hit_01 (one-shot,
+  // HIT) at ON_CAST_END. leaders.js kitElk: 'telegraph' kind 'elkCharge' at the blocker's tile for the charge (id = the
+  // elk), then 'explode' kind 'elkClash' there. The telegraph names the elk, not the blocker, so the head loop sits at
+  // the blocker's tile. [ASSUMED] that tile is the head buff's place.
+  enemy_10144_xdelk_2: Object.freeze({
+    telegraph: ebind({ xkind: 'elkCharge', owner: 'id', keys: ['enemy_xdelk_buff_03'], hold: 'fx', holdS: 5, mark: 'skill' }),
+    explode: ebind({ xkind: 'elkClash', owner: 'any', keys: ['enemy_xdelk_skill_hit_01'], once: true, mark: 'skill' }),
+  }),
+  // 盐风主教昆图斯 Doom (units.enemy_1521_dslily.skills.doom): dslily_doom[effect] creates enemy_dslily_skill_04_range
+  // (one-shot, GROUND, 8 s) on the owner at ON_BUFF_TRIGGER, life 3.2 s tick 1. bosses.js kitQuintus emits 'telegraph'
+  // kind 'speciesBurst' at the cast (id = the bishop, dur = DOOM_DELAY 4). [ASSUMED] one play of the 8 s one-shot stands
+  // for those retriggers; the skill's start rows already play from the cast window.
+  enemy_1521_dslily: Object.freeze({
+    telegraph: ebind({ xkind: 'speciesBurst', owner: 'id', keys: ['enemy_dslily_skill_04_range'], once: true, mark: 'doom' }),
+  }),
+  // “炎佑” Skill_2 (units.enemy_9012_acloon.skills.skill_2): acloon_s_2 deals AOEDamage and plays enemy_acloon_skill_hit
+  // (loop, HIT) on the targets at ON_BUFF_TRIGGER, tick 1. tokens.js yanyouKit emits 'yanyouFlame' each second with
+  // id = the dragon and target = the lock, dur 1. The hit follows that lock; the procedural jet stays when this misses.
+  enemy_9012_acloon: Object.freeze({
+    yanyouFlame: ebind({ owner: 'id', at: 'target', keys: ['enemy_acloon_skill_hit'], hold: 'fx', holdS: 1, mark: 'skill_2' }),
+  }),
+  // 阿利斯泰尔 store / storeA (units.enemy_9032_aclionk.skills.store and .storea): the skill lists
+  // projectile_enemy_vtlionk_s2 and no ability names a projectileKey. The projectile is AdvancedMovement speed 6, main
+  // enemy_vtlionk_skill_02_trail_01 (loop), onHit enemy_vtlionk_skill_02_hit_01 (one-shot, HIT). bosses.js kitLion
+  // animate emits 'sword' { from: the 王庭剑, to: the target } with no id (仇白's 'sword' carries id and is not this).
+  enemy_9032_aclionk: Object.freeze({
+    sword: ebind({
+      owner: 'any', projectile: 'projectile_enemy_vtlionk_s2', fly: 'fromTo',
+      keys: ['enemy_vtlionk_skill_02_trail_01', 'enemy_vtlionk_skill_02_hit_01'], mark: ['store', 'storea'],
+    }),
+  }),
+  // “裂管之音” / “断弦之音” (units.enemy_9023_acdums has no skills map). The missing Skill's art is the common abilities:
+  // PassionSkill's cast enemy_acdums_a_skill_start, DepassionSkill's enemy_acdums_b_skill_start, and the AOE ability's
+  // enemy_acdums_a_skill_start_2 (all one-shot, GROUND). Both form talents play enemy_acdums_switch (one-shot, FOOT) on
+  // ON_TAKE_DAMAGE. bosses.js kitEcho: 'explode' ensembleGold / ensembleDark is 合奏; echoHit's 'explode' echoPulse is
+  // the on-damage pulse. [ASSUMED] the switch prefab plays on that same hit, because both talents create it on
+  // ON_TAKE_DAMAGE and not on the form-change 'phase'.
+  enemy_9023_acdums: Object.freeze({
+    explode: ebind({
+      owner: 'near', xkind: ['ensembleGold', 'ensembleDark', 'echoPulse'], once: true,
+      keys: ['enemy_acdums_a_skill_start', 'enemy_acdums_b_skill_start', 'enemy_acdums_a_skill_start_2', 'enemy_acdums_switch'],
+      keysByKind: {
+        ensemblegold: ['enemy_acdums_a_skill_start'],
+        ensembledark: ['enemy_acdums_b_skill_start'],
+        echopulse: ['enemy_acdums_a_skill_start_2', 'enemy_acdums_switch'],
+      },
+    }),
+  }),
+  // ---- round 86 f6 end ----
+});
+
+/**
+ * One-shots an enemy skill plays on its owner when its cast window opens (round 86 f6), by unit key → prefabKey →
+ * prefab keys. Opt-in: _enemyCast reads only this table. The skill's start / range / loop rows are unchanged.
+ *   拥霜羽兽 switch — _hitEffects enemy_xdpeng_die_01 (one-shot, GROUND) at ON_CAST_END. leaders.js casts `switch`
+ *     when the egg is lost; the kit sends no fx.
+ *   矩兽 CombatAoe — enemy_dyjsfg_t[combat_damage] creates enemy_dyjsfg_skill_01 (one-shot, GROUND) on the owner at
+ *     ON_BUFF_TRIGGER (life 0.6 s, tick 0.5). regulation-bosses.js kitBeast's timed cast is that trigger and sends no
+ *     fx. [ASSUMED] one play per cast stands for the short retrigger; the prefab's own life is the clip.
+ */
+export const ENEMY_CAST_SHOTS = Object.freeze({
+  enemy_10141_xdpeng_2: Object.freeze({ switch: Object.freeze(['enemy_xdpeng_die_01']) }),
+  enemy_2124_dyjsfg: Object.freeze({ combataoe: Object.freeze(['enemy_dyjsfg_skill_01']) }),
 });
 
 /**
@@ -1785,8 +1880,37 @@ export function enemyBindingKeys(idx, unitKey) {
     if (bind.talent) { const a = auraTargets(idx, unitKey, bind.talent); for (const k of [...a.shots, ...a.loops]) out.add(k); }
     else if (bind.modeLoops) for (const k of modeLoopKeys(idx, unitKey, bind.modeLoops)) out.add(k);
     else for (const k of bindingEffects(idx, bind)) out.add(k);
+    // a flown shot's trail (bindingEffects keeps `keys` / the reached field; the trail is `main`, as bindingKeys does)
+    if (bind.fly && bind.projectile) {
+      const main = lc(idx?.projectiles?.[lc(bind.projectile)]?.main);
+      if (main) out.add(main);
+    }
+    if (bind.keysByKind) for (const list of Object.values(bind.keysByKind)) for (const k of list) if (lc(k)) out.add(lc(k));
   }
+  const shots = ENEMY_CAST_SHOTS[unitKey];
+  if (shots) for (const list of Object.values(shots)) for (const k of list) if (lc(k)) out.add(lc(k));
   return [...out];
+}
+
+/**
+ * Prefab keys a round-86 enemy binding or cast shot plays for this unit and skill (lower-case prefabKey). skillPlan
+ * marks those unmapped rows 'bound'. A binding's `mark` is one prefabKey or a list; cast shots are keyed the same way.
+ * Empty for every other unit, including one that shares the prefabKey.
+ */
+export function enemyPlayedKeys(unitKey, skillId) {
+  const id = lc(skillId);
+  const out = new Set();
+  if (!unitKey || !id) return out;
+  const shots = ENEMY_CAST_SHOTS[unitKey]?.[id];
+  if (shots) for (const k of shots) if (lc(k)) out.add(lc(k));
+  for (const bind of Object.values(ENEMY_FX_BINDINGS[unitKey] || {})) {
+    const m = bind.mark;
+    const hit = m === id || (Array.isArray(m) && m.some((x) => lc(x) === id));
+    if (!hit) continue;
+    for (const k of bindingEffects(null, bind)) if (k) out.add(k);
+    if (bind.keysByKind) for (const list of Object.values(bind.keysByKind)) for (const k of list) if (lc(k)) out.add(lc(k));
+  }
+  return out;
 }
 
 /** The loop effects of a unit's talent (its uses with role 'loop', lower case): a binding's `modeLoops`. */
