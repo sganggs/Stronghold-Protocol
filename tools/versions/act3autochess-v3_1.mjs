@@ -11,7 +11,7 @@
 //   adapters  none: the bond and shop schemas are 下半's
 //   research  docs/research/versions/act3autochess-v3_1/ — not written yet: every research file falls back to
 //             docs/research/ (第二期下半) [ASSUMED] with a warning
-//   tables    stock left out [ASSUMED] (no 规程 stock recording). shopDraft, tacticDraft and bountyDrafts are
+//   tables    stock: six per-item equipment caps from the pool test BV1QV1czHE9o, no operator exceptions (§37.357). shopDraft, tacticDraft and bountyDrafts are
 //             tools/versions/tables/act3autochess-v3_1.mjs, measured on BV13LWM6BEvY (15 co-op 终极 matches,
 //             2026-11-10/11). Each inference is marked [ASSUMED] in that module.
 //   config    hiddenCore 350 / 1200 [ASSUMED] (下半's; PRTS 卫戍协议 says only 「满足特定条件」); bondDraw: solo chooses one of two core groups,
@@ -32,7 +32,13 @@ export default Object.freeze({
   adapters: Object.freeze([]),
   research: 'docs/research/versions/act3autochess-v3_1/',
   tables: Object.freeze({
-    stock: null,
+    // Per-item equipment caps from the community pool test BV1QV1czHE9o (1:20–1:34, 2026-11-24, 规程等级5; §37.357):
+    // 简易通讯机 5; 蜂鸣器, 动能单手弩, 汲取者之喙, 驱逐者警棍 6; 寻呼模块 7; every other item keeps its tier's copies
+    // (伪装服 8 in 规程, not 下半's 7). No operator exceptions (0:45–0:55: every operator has its tier's copies).
+    stock: Object.freeze({
+      chess: Object.freeze({}),
+      items: Object.freeze({ 简易通讯机: 5, 蜂鸣器: 6, 动能单手弩: 6, 汲取者之喙: 6, 驱逐者警棍: 6, 寻呼模块: 7 }),
+    }),
     shopDraft: 'act3autochess-v3_1',
     tacticDraft: 'act3autochess-v3_1',
     bountyDrafts: 'act3autochess-v3_1',

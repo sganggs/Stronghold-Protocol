@@ -960,7 +960,9 @@ every file system and URL).
   V2_1 runs all four (`'default'`) [ASSUMED]: its 机变 events and shop rows are byte-identical to today's, its bounty
   cards have today's ids and draft data (one text differs, 悬赏·折射II `enemyeffect_15_7`: 卫队 / 卫士, 04-14), and the
   stock (2026-03-29) and the official drafts (the end of March 2026) name only operators and items V2_1 has.
-  规程 (`act3autochess@V3_1`) leaves `stock` null and names the module `act3autochess-v3_1` for the three draft tables
+  规程 (`act3autochess@V3_1`) gives its own `stock` object — six per-item equipment caps read off the community pool
+  test BV1QV1czHE9o (1:20–1:34: 简易通讯机 5; 蜂鸣器, 动能单手弩, 汲取者之喙, 驱逐者警棍 6; 寻呼模块 7) and no operator
+  exceptions (0:45–0:55), §37.357 — and names the module `act3autochess-v3_1` for the three draft tables
   (`tools/versions/tables/act3autochess-v3_1.mjs`; the readings are `test/fixtures/official-regulation-drafts.json`,
   15 co-op 终极 matches in BV13LWM6BEvY). A boss card is offered only when that version's own R9 groups name it.
   The bounty cards' own `draft` / `draftPool` classification still runs for 上半 [ASSUMED]: `HIDDEN_BOUNTY_IDS` and the
