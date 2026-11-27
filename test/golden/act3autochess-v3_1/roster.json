@@ -1645,8 +1645,8 @@
         "enemy_9027_acfnca": [1,1,0,0,134369]
       },
       "hooks": [1,157,5782,338,338,1976,2664,7451,131,141,43,40,0,38921,764,13,131,0,1,199,12,34,0],
-      "events": {"atk":456,"bounty":7,"cast":3,"deploy":23,"die":141,"dmg":2072,"engage":9,"fx":814,"heal":785,"layer":12,"rate":34,"skill":83,"spawn":156,"status":649},
-      "fx": {"anchor":5,"aoe":65,"bulletClear":1,"burst":34,"drone":261,"droneLock":81,"drones":3,"ember":1,"finale":5,"garrisonGrant":2,"heal":80,"logosLexicon":1,"mantraArc":6,"mantraGate":1,"mantraGrant":2,"mote":66,"palsy":7,"redistribute":30,"reweave":2,"shield":84,"shockBlast":13,"summon":7,"sunBurst":2,"talent":3,"tide":8,"zone":44},
+      "events": {"atk":456,"bounty":7,"cast":3,"deploy":23,"die":141,"dmg":2072,"engage":9,"fx":818,"heal":785,"layer":12,"rate":34,"skill":83,"spawn":156,"status":649},
+      "fx": {"anchor":5,"aoe":65,"bulletClear":1,"burst":34,"drone":261,"droneLock":81,"drones":3,"ember":1,"finale":5,"garrisonGrant":2,"heal":80,"logosLexicon":1,"mantraArc":6,"mantraGate":1,"mantraGrant":2,"mantraHop":4,"mote":66,"palsy":7,"redistribute":30,"reweave":2,"shield":84,"shockBlast":13,"summon":7,"sunBurst":2,"talent":3,"tide":8,"zone":44},
       "snaps": "f12495a5 357f541a 84d4d31b ea032785 701860a9 34c68ca7 291a9eab 07f10147 53535531 a1cde9f4 223d9995 9d444bd8 c12b6070 d13d4c0f 93dc4937 cde7ebe7 085b8dc0 3779ae69 1e884959 1503fca4"
     },
     "roster-024": {

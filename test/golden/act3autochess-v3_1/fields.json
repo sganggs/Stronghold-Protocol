@@ -437,8 +437,8 @@
         "enemy_9023_acdums": [6,6,0,3352,102]
       },
       "hooks": [1,41,3450,301,301,1944,2613,3581,29,32,35,32,33,16693,2,3,29,0,1,82,0,28,66],
-      "events": {"atk":336,"cast":12,"deploy":12,"die":32,"dmg":2327,"engage":7,"fx":730,"heal":60,"rate":30,"skill":67,"spawn":40,"status":234},
-      "fx": {"aoe":54,"beam":4,"blast":94,"bombard":33,"bombardShell":33,"burst":28,"dodge":66,"ember":1,"explode":124,"finale":5,"heal":33,"heatwave":32,"lock":33,"mantraArc":2,"mantraGrant":3,"mote":40,"overload":2,"phase":13,"redistribute":30,"reweave":2,"shield":39,"shockBlast":13,"summon":6,"talent":1,"zone":39},
+      "events": {"atk":336,"cast":12,"deploy":12,"die":32,"dmg":2327,"engage":7,"fx":732,"heal":60,"rate":30,"skill":67,"spawn":40,"status":234},
+      "fx": {"aoe":54,"beam":4,"blast":94,"bombard":33,"bombardShell":33,"burst":28,"dodge":66,"ember":1,"explode":124,"finale":5,"heal":33,"heatwave":32,"lock":33,"mantraArc":2,"mantraGrant":3,"mantraHop":2,"mote":40,"overload":2,"phase":13,"redistribute":30,"reweave":2,"shield":39,"shockBlast":13,"summon":6,"talent":1,"zone":39},
       "snaps": "943e0c3e dabee248 40585432 1a1e55db dee3311c c1f6ba77 1aabbe47 f93bbc9f a15de93a 34264448 75025c4c e355552d"
     },
     "boss-boss_4-pair": {
@@ -1123,7 +1123,7 @@
         "enemy_9020_actrpc": [1,0,0,19319,859435]
       },
       "hooks": [1,88,6000,1745,1771,7138,11031,16923,43,58,94,85,105,35035,743,23,29,0,1,190,4,39,3],
-      "events": {"atk":2285,"cast":15,"deploy":53,"die":58,"dmg":9853,"engage":17,"fx":4953,"heal":382,"layer":4,"rate":332,"skill":179,"spawn":68,"status":1409},
+      "events": {"atk":2285,"cast":15,"deploy":53,"die":58,"dmg":9853,"engage":17,"fx":4957,"heal":382,"layer":4,"rate":332,"skill":179,"spawn":68,"status":1409},
       "fx": {
         "achuntHit": 1743,
         "anchor": 6,
@@ -1153,6 +1153,7 @@
         "logosLexicon": 127,
         "mantraArc": 4,
         "mantraGrant": 3,
+        "mantraHop": 4,
         "mote": 10,
         "palsy": 24,
         "phase": 11,

@@ -1036,8 +1036,8 @@
       ],
       "enemies": {"enemy_1267_nhpbr_2":[36,35,1,13170,156121],"enemy_1270_nhstlk_2":[27,23,4,1616,316161],"enemy_9006_actoxi":[30,29,1,0,356878]},
       "hooks": [1,118,5897,450,450,1467,1710,0,107,113,42,42,0,14011,318,32,93,6,1,107,0,8,0],
-      "events": {"atk":452,"deploy":22,"die":107,"dmg":1710,"engage":12,"fx":177,"leak":6,"rate":40,"skill":84,"spawn":108,"status":107},
-      "fx": {"burst":8,"mantraArc":71,"mantraGate":22,"mantraGrant":4,"palsy":8,"zone":64},
+      "events": {"atk":452,"deploy":22,"die":107,"dmg":1710,"engage":12,"fx":213,"leak":6,"rate":40,"skill":84,"spawn":108,"status":107},
+      "fx": {"burst":8,"mantraArc":71,"mantraGate":22,"mantraGrant":4,"mantraHop":36,"palsy":8,"zone":64},
       "snaps": "7b6db1c5 3def118d 4c938998 332cba8d 4ca871b6 e179dbcf 36540ec2 7a730ac5 32cf289a 495acb8d e30d97b6 3ce2e2ba 31689345 d6337e7c 13d4f790 77eec2b3 cec413e9 ca42b5c8 6e06ea65 17695cac"
     },
     "diy-026": {
@@ -1075,8 +1075,8 @@
       ],
       "enemies": {"enemy_1249_lysdb":[60,60,0,0,270000],"enemy_1251_lysyta":[51,51,0,0,140250],"enemy_1329_cbshld":[36,36,0,0,360000]},
       "hooks": [1,159,5779,438,438,973,1041,0,147,147,62,62,0,13374,522,45,147,0,1,147,0,2,0],
-      "events": {"atk":445,"deploy":12,"die":147,"dmg":1041,"engage":7,"fx":111,"rate":31,"skill":124,"spawn":159,"status":146},
-      "fx": {"aoe":13,"buff":1,"burst":2,"mantraArc":70,"mantraGate":6,"mantraGrant":6,"palsy":13},
+      "events": {"atk":445,"deploy":12,"die":147,"dmg":1041,"engage":7,"fx":150,"rate":31,"skill":124,"spawn":159,"status":146},
+      "fx": {"aoe":13,"buff":1,"burst":2,"mantraArc":70,"mantraGate":6,"mantraGrant":6,"mantraHop":39,"palsy":13},
       "snaps": "0c307d41 27b34a2b fabde18f 8a8fc852 5527ca55 cd06a4bc 7dd4f3da 3fc15847 068a14bb 9d5b2b0c 9482bd8f 012d89d0 2938b2b6 2addcbd9 f0356dff 139b61ac 31315508 5f557ce1 98433aaa 70d43993"
     },
     "diy-027": {
@@ -2430,8 +2430,8 @@
       ],
       "enemies": {"enemy_1166_dusbr_2":[39,39,0,0,128700],"enemy_1169_duphlx_2":[57,57,0,0,256500],"enemy_1170_dushld_2":[48,48,0,0,324000]},
       "hooks": [1,159,5933,396,396,1474,1474,0,144,144,55,55,0,27475,32,0,144,0,1,144,0,0,0],
-      "events": {"atk":653,"deploy":12,"die":144,"dmg":1474,"engage":7,"fx":74,"rate":4,"skill":110,"spawn":159,"status":181},
-      "fx": {"aoe":74},
+      "events": {"atk":653,"deploy":12,"die":144,"dmg":1474,"engage":7,"fx":320,"rate":4,"skill":110,"spawn":159,"status":181},
+      "fx": {"aoe":74,"asclnDread":246},
       "snaps": "0d21f8a6 2874eae2 c359217d 59332683 6a2c657d da195352 154d9317 2ba83937 3b218d08 2297bb35 999e1e17 5c4be9ab f754de0a 535e3113 c1f583cd 3fe1fea3 b10d9dfd 8ff4d6e1 02e37436 543138bc"
     },
     "diy-058": {
@@ -2471,8 +2471,8 @@
       ],
       "enemies": {"enemy_1158_divman":[51,51,0,784,168300],"enemy_1160_hvyslr_2":[21,21,0,0,294000],"enemy_1161_tidmag_2":[27,27,0,32813,216000]},
       "hooks": [1,124,6457,521,521,2597,2472,24,116,116,37,36,0,15197,0,0,99,0,1,116,0,19,231],
-      "events": {"atk":1091,"deploy":23,"die":116,"dmg":2472,"engage":11,"fx":312,"heal":20,"rate":5,"skill":73,"spawn":113,"status":73},
-      "fx": {"aoe":48,"burst":19,"dodge":245},
+      "events": {"atk":1091,"deploy":23,"die":116,"dmg":2472,"engage":11,"fx":596,"heal":20,"rate":5,"skill":73,"spawn":113,"status":73},
+      "fx": {"aoe":48,"asclnDread":263,"asclnDreadEnd":21,"burst":19,"dodge":245},
       "snaps": "e0831de4 1d1410a2 99f0004d 65a0766b 578b3c2f 5c4b1e69 bd4e42f5 ec93f1ce 55cef093 cad7ce76 4613ae1a 1a5ab161 578f69c2 c78f1dc9 c070cc1b b52ccb89 6a975711 2339ba48 1c4c9dac 7742796c 9fb8e9a0 a6cf796b"
     },
     "diy-059": {
@@ -2513,8 +2513,8 @@
       ],
       "enemies": {"enemy_1229_darmy":[27,27,0,0,90720],"enemy_1229_darmy_2":[57,57,0,912,250800],"enemy_9007_acelem":[12,12,0,0,345600]},
       "hooks": [1,111,5881,252,252,1408,1411,200,96,96,33,33,0,17332,0,5,96,0,1,96,0,0,0],
-      "events": {"atk":511,"deploy":12,"die":96,"dmg":1411,"engage":4,"fx":56,"heal":3,"rate":8,"skill":66,"spawn":111},
-      "fx": {"aoe":56},
+      "events": {"atk":511,"deploy":12,"die":96,"dmg":1411,"engage":4,"fx":140,"heal":3,"rate":8,"skill":66,"spawn":111},
+      "fx": {"aoe":56,"asclnDread":84},
       "snaps": "838ffd26 1da3228f 3cc1d542 017d612e 5b0bac26 93d2ac7f 1eb5e72f 2739164c 224820a3 cda409cf 8e694338 1311f917 8c858387 6a41089a 3bdba348 380ca095 61a0af64 ddc53a51 c4734f09 0e2dcbe9"
     },
     "diy-060": {
