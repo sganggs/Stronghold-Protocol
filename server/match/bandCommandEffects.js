@@ -102,10 +102,11 @@ export function commandPlan(ps, skill, target, ctx) {
         for (let i = 0; i < count; i++) { const id = ctx.rollChess(opts); if (id) ids.push(id); }
         if (b.key === 'skill_refresh_shop_high_tier' && ids.length < count) return null;
         return { apply: () => {
-          ps.rollShop();
+          // [ASSUMED] Not a manual refresh (no onRefresh, so 佩佩's markSpecialRefresh does not run) and not a
+          // bondRefresh spend. The row shown is this command's picks; see rollShop skipBondRefresh.
+          ps.rollShop({ skipBondRefresh: true });
           const slots = slotsOf(ps);
           ids.forEach((id, i) => { if (slots[i] !== undefined) replace(ps, ctx, slots[i], id); });
-          // [ASSUMED] A command refresh is not a manual-refresh event (no extra refresh payment or trait triggers).
         } };
       }
       case 'skill_change_shop_equip': {

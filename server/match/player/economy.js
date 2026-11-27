@@ -91,8 +91,16 @@ export class PlayerEconomy {
   /**
    * Reroll the shop. keepFrozen → frozen unsold slots survive (round start); otherwise everything is rerolled
    * (manual refresh). Slot counts follow the current level.
+   *
+   * skipBondRefresh → do not spend a queued `shop.bondRefresh` job and do not mark this roll special.
+   * [ASSUMED] A 指挥 refresh (`skill_refresh_shop_high_tier` / `skill_refresh_shop_bond_char` /
+   * `skill_refresh_shop_board_char`) passes this. No official source says whether that refresh counts as the
+   * next garrison `SERVER_GAIN_SPECIAL_REFRESH_BOND_CHAR` roll. The row the player sees is the command's own
+   * picks, so spending the charge on it and marking that row special cannot be right. `refreshSeq` still
+   * advances, because the row is new. 佩佩's `specialRefreshCharges` is a different counter and is not read
+   * here (`markSpecialRefresh` runs only from that band's own manual-refresh hook).
    */
-  rollShop({ keepFrozen = false } = {}) {
+  rollShop({ keepFrozen = false, skipBondRefresh = false } = {}) {
     if (this._consumeTestShop()) return;
     const { chess: nChess, item: nItem } = this.gd.shopSlots(this.shop.level);
     const old = this.shop.slots;
@@ -111,12 +119,13 @@ export class PlayerEconomy {
     for (let i = 0; i < nItem; i++) slots.push(keep(oldItems[i], 'item') ?? this._rollItemSlot());
     this.shop.slots = slots;
     this.shop.layout = { chess: nChess, item: nItem };
-    const special = this._applyBondRefresh(fresh, nChess);
+    const special = skipBondRefresh ? false : this._applyBondRefresh(fresh, nChess);
     for (const s of slots) if (s) s.frozen = this.shop.frozen;
     // Every real roll is a new shop row: the client's slots panel plays its refresh animation only when
     // this sequence changes (C# AutoChessStylizedShopSlotsPanel.Render). `specialRefresh` is this roll's
     // one-shot marker; the charge it spends is the bondRefresh queue (`_applyBondRefresh`), never 佩佩's
     // separate armed count (`specialRefreshCharges`, spent by its own manual refresh in markSpecialRefresh).
+    // skipBondRefresh forces the marker off, including a true left by the previous roll.
     // [ASSUMED: a fully frozen row is kept unchanged at the round start but the sequence still advances, so the
     // client replays the refresh clip on an unchanged row; "increment only when the row changed" is the
     // alternative and neither has an official source.]
@@ -128,7 +137,8 @@ export class PlayerEconomy {
   /**
    * One special-refresh charge (规程 SERVER_GAIN_SPECIAL_REFRESH_BOND_CHAR): the next roll shows `count` chess of that
    * bond. The charge is consumed even when the filtered roll comes back empty. A queued test shop returns before this
-   * (rollShop), so it does not spend a charge. Frozen kept slots are not replaced.
+   * (rollShop), so it does not spend a charge. `rollShop({ skipBondRefresh: true })` does not call this either
+   * (a 指挥 refresh [ASSUMED]: the shown row is the command's picks). Frozen kept slots are not replaced.
    * @returns {boolean} true when a charge was consumed (this roll is a special refresh)
    */
   _applyBondRefresh(fresh, nChess) {

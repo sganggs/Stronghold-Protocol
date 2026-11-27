@@ -69,10 +69,11 @@ bump; clients without these controls keep their existing messages.
   personalChoice: null | { id, round, sourceItemId, cards: [ { kind: 'bounty', id, name, desc, descRaw, ... } ] }, // recipient only, including reconnect; absent from public / scout views
   shop: { level, maxLevel: 6, upgradePrice, refreshPrice /* effective (0 when a free refresh is available) */, freeRefreshes,
           refreshSeq, // server roll sequence: the slots panel plays whole_card_refresh_normal/special only when it changes
-          specialRefresh, // this roll consumed a special-refresh charge (佩佩盟约 etc); one-shot, set by rollShop / markSpecialRefresh
+          specialRefresh, // this roll consumed a special-refresh charge (佩佩's manual refresh, or a garrison bondRefresh); one-shot, set by rollShop / markSpecialRefresh. A 指挥 shop refresh does not set it and does not spend bondRefresh [ASSUMED] (rollShop skipBondRefresh: the row shown is the command's own picks)
           specialRefreshArmed, // a charge is waiting for its roll: 佩佩's 2/4/6 level-up arms or a queued garrison
                                // bondRefresh; boolean, true while at least one is pending — drives the refresh button's
-                               // special state (isSpecRefresh), while specialRefresh only marks the row that spent one
+                               // special state (isSpecRefresh), while specialRefresh only marks the row that spent one.
+                               // A 指挥 refresh leaves a queued bondRefresh armed.
           layout: { chess, item }, // actual slot counts, including empty slots; old saved frames may omit this (§36.1)
           frozen, slots: [ { kind: 'chess'|'item', id, price, basePrice, sold, frozen } | null ],  // slot.frozen: the 冻结 toggle copies onto every unsold slot, and 梓兰's 猎头顾问 freezes ONE card of an active refresh with the toggle off — every card draws its own flag (GitHub #354)
           rewardOffer: null | { tier, source: 'merge'|'special', label, queued, slots: [ { kind: 'chess'|'item', id, price: 0, sold } ] } },  // §21.2

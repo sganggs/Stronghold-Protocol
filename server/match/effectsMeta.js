@@ -593,7 +593,11 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
     addPendingFunds: (n) => { const v = finiteInt(n); if (v > 0) { ps.pendingFunds += v; ps.dirty(); } return v > 0 ? v : 0; },
     spendFunds: (n) => { const v = finiteInt(n); if (!ps.spend(v)) return false; ps._afterSpend(v, 'effect'); return true; },
     grantFreeRefresh: (n = 1) => { const v = finiteInt(n); if (v > 0) { ps.shop.freeRefreshes += v; ps.dirty(); } return ps.shop.freeRefreshes; },
-    /** One special-refresh charge: the next rollShop shows `count` chess of `bond`. Absent until a garrison grants it. */
+    /**
+     * One special-refresh charge: the next rollShop shows `count` chess of `bond`. A 指挥 refresh passes
+     * `skipBondRefresh` and does not spend it [ASSUMED] (the shown row is the command's own picks). Absent until a
+     * garrison grants it.
+     */
     grantBondRefresh: (bond, count) => {
       const n = finiteInt(count);
       if (!(n > 0) || typeof bond !== 'string' || !gd.bond(bond)) return 0;
