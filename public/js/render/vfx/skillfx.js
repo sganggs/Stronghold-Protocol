@@ -1936,14 +1936,16 @@ export class SkillFx {
 
   /**
    * The enemy of index unit `key` a binding's fx belongs to (ENEMY_FX_BINDINGS `owner`): its view (or its record for
-   * 'died' / 'cast', `true` for 'any'), else null — the fx is another unit's.
+   * 'died' / 'cast', `true` for 'any'), else null — the fx is another unit's. 'id' also takes the view whose own enemy
+   * id is `key`: a hidden form drawn with its base form's art (index `aliasOf`) resolves to the base unit — the 隐秘
+   * 假想敌：铳 spawns with spine enemy_9017_achunt, so unitKeyOf gives the base key and its achuntHit never matched.
    */
   _enemyOwner(key, bind, x, y, extra) {
     const near = (p) => Number.isFinite(x) && Number.isFinite(y) && Math.hypot(p.x - x, p.y - y) <= OWNER_NEAR;
     switch (bind.owner) {
       case 'id': {
         const v = this.w.view(extra.id);
-        return v && this.w.unitKeyOf(v) === key ? v : null;
+        return v && (this.w.unitKeyOf(v) === key || v.info?.defId === key) ? v : null;
       }
       case 'died':
         for (const [id, g] of this.gone) if (g.frame === this.frame && g.key === key && near(g)) return this.w.view(id) || { id, x: g.x, y: g.y };
@@ -2100,8 +2102,12 @@ export class SkillFx {
     const out = new Set();
     const proj = (pk) => { const p = pk && idx.projectiles?.[pk]; if (p) for (const k of p.effects || []) out.add(String(k).toLowerCase()); };
     for (const v of views) {
-      // an enemy's areas (ENEMY_FX_BINDINGS: its zones' prefabs, its aura's buff effects on the units in it)
-      for (const k of enemyBindingKeys(idx, this.w.unitKeyOf(v))) out.add(k);
+      // an enemy's areas (ENEMY_FX_BINDINGS: its zones' prefabs, its aura's buff effects on the units in it); a hidden
+      // form drawn with its base form's art also has the bindings of its own enemy id (_enemyOwner 'id')
+      const uk = this.w.unitKeyOf(v);
+      for (const k of enemyBindingKeys(idx, uk)) out.add(k);
+      const dk = v.info?.defId;
+      if (dk && dk !== uk) for (const k of enemyBindingKeys(idx, dk)) out.add(k);
       const U = this.of(v);
       if (!U) continue;
       if (U.plan) {
