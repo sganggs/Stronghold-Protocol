@@ -1,4 +1,5 @@
 {
+  "当前仍处于临时整备区的干员和装备，将在进入战斗后自动销毁（召唤物仍会在下个休整期出现）。": "Operators and equipment still in temporary storage will be destroyed when combat starts. Summons will return during the next preparation phase.",
   "离线导入（不下载官方数据表）": "Import offline (do not download official data tables)",
   "_meta": {
     "type": "lang",

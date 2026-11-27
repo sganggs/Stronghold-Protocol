@@ -65,7 +65,7 @@ bump; clients without these controls keep their existing messages.
 
 `m.private`:
 ```js
-{ playerId, seat, alive, lp, funds, bandId, ready, canReady /* false while a personal choice or temp overflow is pending */,
+{ playerId, seat, alive, lp, funds, bandId, ready, canReady /* false during pending personal/command choices; temp overflow blocks Covenant only */,
   personalChoice: null | { id, round, sourceItemId, cards: [ { kind: 'bounty', id, name, desc, descRaw, ... } ] }, // recipient only, including reconnect; absent from public / scout views
   shop: { level, maxLevel: 6, upgradePrice, refreshPrice /* effective (0 when a free refresh is available) */, freeRefreshes,
           refreshSeq, // server roll sequence: the slots panel plays whole_card_refresh_normal/special only when it changes

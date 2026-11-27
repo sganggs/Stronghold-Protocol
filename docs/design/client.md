@@ -1422,3 +1422,10 @@ quality/mode changes and view teardown cancel outstanding handles. No extra dash
 Fresh pieces export `tileDepthHeights` per group from MapSettings.highlandHeight for wall and bench occlusion.
 Re-extract scenes to get that optional metadata; older packs keep the existing board-height approximation. This is
 not an exact reconstruction of decorative meshes and does not change unit positions, simulation or battle ownership.
+
+### Regulation Ready with overflow
+
+The button and shortcut permit Ready with pending overflow after a confirmation that temporary operators/equipment
+will be destroyed on battle entry; summons return next prep. Funds and unused-command reminders share the same
+dialog. Muting the command reminder never suppresses the overflow warning. Source: official multiplayer Ultimate
+screenshots supplied 2026-11-27.

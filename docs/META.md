@@ -110,8 +110,10 @@ summon slots; `temp[0..4]` has 5 permanent item slots. The equipment row does no
 `_fillHandFromTemp` refills each row in arrival order when recompute frees space, clearing the deadline on arrival.
 
 [ASSUMED] Owner decision 2026-11-09: equipment fills right-to-left; normal buys/reward picks and voluntary unequip
-require a free slot in their own row. Forced overflow goes to `temp[5..]`, blocks Ready and uses the existing temp
-prep deadline. Expiry returns stock/pool copies and dispatches item `onDestroy` (`reason: 'temp'`). Each stash entry
+require a free slot in their own row. Forced overflow goes to `temp[5..]` and uses the existing temp prep deadline.
+
+Regulation permits Ready after an overflow confirmation (official screenshots, 2026-11-27). Expiry returns
+stock/pool copies without dispatching item `onDestroy`. Each stash entry
 sends its owner a private notice. `m.private.temp` contains only the five equipment slots and `stashCount` reveals
 only the hidden count. The client labels the row 装备区 and shows the stash count/rule separately from its slots.
 `g.move` accepts `{ area: 'temp', idx: 0..4 }` for items only with this switch. Boss benches retain the row −7 mapping.

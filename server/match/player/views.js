@@ -124,7 +124,7 @@ export class PlayerViews {
       bandId: this.bandId,
       ...(this.command ? { command: commandView(this), commandDraft: commandDraftView(this) } : {}),
       ready: this.ready,
-      canReady: this.alive && this.tempEmpty && !this.personalChoice && !this.commandDrafts.length && this.m.phase === PHASE.PREP,
+      canReady: this.alive && !this.tempBlocksReady && !this.personalChoice && !this.commandDrafts.length && this.m.phase === PHASE.PREP,
       personalChoice: this.personalChoice ? {
         id: this.personalChoice.id,
         round: this.personalChoice.round,

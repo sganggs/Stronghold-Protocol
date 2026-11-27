@@ -20,7 +20,8 @@ export class PlayerPieces {
   itemCards() { return [...this.hand, ...this.temp].filter((p) => p?.kind === 'item'); }
 
   _noticeStash(piece) {
-    // [ASSUMED] Owner's 2026-11-09 overflow policy: forced gains wait invisibly, block Ready, and keep temp's deadline.
+    // [ASSUMED] Owner's 2026-11-09 overflow layout: forced gains wait invisibly and keep temp's deadline.
+    // Regulation permits Ready with overflow (official confirmation screenshot, 2026-11-27).
     const rec = piece.kind === 'item' ? this.gd.item(piece.id) : piece.kind === 'token' ? this.gd.token(piece.id) : this.fieldRecord(this.gd.chess(piece.id));
     this.m.toast(this, 'warn', msg(piece.kind === 'item'
       ? N_('装备区已满，{name}进入暂存') : N_('手牌已满，{name}进入暂存'), { name: dn(rec?.name || piece.id) }));

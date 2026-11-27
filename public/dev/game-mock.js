@@ -109,7 +109,8 @@ function refreshPrivate() {
   const p = S.priv;
   p.deployCount = p.board.filter((x) => x.kind === 'chess').length;
   p.bonds = computeBonds(p);
-  p.canReady = !p.personalChoice && !p.temp.some(Boolean);
+  p.canReady = p.alive !== false && !p.personalChoice && !p.commandDraft && S.pub.phase === PHASE.PREP
+    && (data.get('config')?.version?.family === 'regulation' || !p.temp.some(Boolean));
   const upg = [5, 8, 11, 12, 13];
   p.shop.maxLevel = 6;
   if (p.shop.upgradePrice == null) p.shop.upgradePrice = upg[p.shop.level - 1] ?? 0;
