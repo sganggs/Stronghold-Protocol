@@ -1610,8 +1610,9 @@ export const FX_BINDINGS = Object.freeze({
   // index.json skchr_ascln_2 Aura template ascln_s_2[enemy], ON_OWNER_KILLED CreateEffect ascln_skill_02_death_01
   // (oneshot, spawn GROUND_CENTER, duration 6.5). The circle debuff ascln_buff_01 is CreateBuffInCircleRange
   // (loop, spawn FOOT, _holdByOwner; the created buff's life is the kit's debuff_duration, not the listener's
-  // INFINITY). The kill names each enemy: 'asclnDread' holds one copy for that long and a later one extends it;
-  // 'asclnDreadEnd' drops it. The talent's 死亡拘审 is a different apply and does not start this prefab.
+  // INFINITY). The kill names each enemy: 'asclnDread' holds one copy for that long and a later S2 kill on the same
+  // enemy restarts it; 'asclnDreadEnd' drops it. The talent's 死亡拘审 is a different apply: it neither starts nor
+  // extends this prefab (op-ascln.js sends no fx for a talent refresh).
   skchr_ascln_2: Object.freeze({
     aoe: binding({ owner: 'id', keys: ['ascln_skill_02_death_01'], at: 'point', oneshot: true, during: true, tag: 'ascln:endowment', claim: true }),
     asclnDread: binding({

@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs';
 import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 import { KITTED_CHARS, OPERATOR_KITS, KITS } from '../../server/sim/content/kits/index.js';
 import { diyPool, validateDiyPicks } from '../../shared/diy.js';
-import { dreadKey, DREAD_TAG } from '../../server/sim/content/kits/ops/op-ascln.js';
+import { dreadKey, DREAD_TAG, addDread } from '../../server/sim/content/kits/ops/op-ascln.js';
 
 const load = (f) => JSON.parse(readFileSync(new URL(`../../data/${f}.json`, import.meta.url), 'utf8'));
 const CHESS = load('chess');
@@ -219,6 +219,11 @@ test('S2 恩赐 (MANUAL, 35 s, data DEFAULT): ATK +50 % / +90 %; every enemy of 
     assert.equal(out.findBuff(dreadKey(u)), null, 'not beyond 1.3');
     const dreadFx = h.eventsOf('fx').filter((e) => e[1] === 'asclnDread');
     assert.ok(dreadFx.length >= 1 && dreadFx.every((e) => e[4].target === near.id && e[4].skill === 'ascln:dread' && e[4].duration === near.findBuff(dreadKey(u)).duration), `T${tier}: one visual per kill-circle enemy`);
+    // a talent refresh of that same dread neither restarts nor re-sends the visual (one event per kill application)
+    const tb = (elite ? formOf(tier, true) : formOf(tier, elite)).talents.find((t) => t.index === 0).bb;
+    addDread(h.b, u, near, tb);
+    addDread(h.b, u, near, tb);
+    assert.equal(h.eventsOf('fx').filter((e) => e[1] === 'asclnDread').length, dreadFx.length, `T${tier}: a talent refresh sends no visual`);
     u.skill.extend(-999);
     h.step(2);
     h.run(0.5);

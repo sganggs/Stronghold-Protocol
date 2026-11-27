@@ -115,7 +115,7 @@ async function setup({ installed = ALL, active = true } = {}) {
     seq = Math.max(seq, id + 1);
     const v = {
       id, x, y, z: extra.z || 0, visFacing: 1, isEnemy: !!extra.isEnemy, alive: extra.alive !== false,
-      flags: extra.flags || 0, sp: 0, spMax: 30, dir: 'RIGHT',
+      flags: extra.flags || 0, sp: 0, spMax: 30, dir: 'RIGHT', gameT: extra.gameT ?? 0,
       info: { id, spine: defId, defId, side: extra.isEnemy ? 'enemy' : 'ally', kind: extra.isEnemy ? 'enemy' : 'op', skillIndex: extra.skillIndex ?? 0 },
     };
     views.set(id, v);
@@ -330,9 +330,10 @@ describe('round 88 lane g3', () => {
     assert.ok(Math.abs(grey.ofx.timers.at(-1).at - (g0 + 8)) < 1e-6);
   });
 
-  test('摆渡人 S2\'s dome comes back from the snapshot\'s shield flag, and a live pour does not stack', async () => {
-    const { w, view, frame, live } = await setup();
-    const him = view('char_4166_varkis', 5, 9, { flags: UF.SHIELD });
+  test('摆渡人 S2\'s dome comes back from the snapshot\'s shield flag for a late joiner, and a live pour does not stack', async () => {
+    // a client that first sees him mid-battle (gameT past LATE_JOIN_S) trusts the shield flag
+    const { view, frame, live } = await setup();
+    const him = view('char_4166_varkis', 5, 9, { flags: UF.SHIELD, gameT: 30 });
     frame();
     assert.equal(live(DOME).length, 1, 'a client that joins mid-barrier draws the dome');
     assert.equal(live(DOME)[0].opts.loop, true);
@@ -345,32 +346,39 @@ describe('round 88 lane g3', () => {
     frame();
     assert.equal(live(DOME).length, 1);
 
+    // a client that watched from the start: an item or bond shield before the pour is not the dome
     const livePour = await setup();
-    const v = livePour.view('char_4166_varkis', 5, 9, { flags: UF.SHIELD });
+    const v = livePour.view('char_4166_varkis', 5, 9, { flags: UF.SHIELD, gameT: 0 });
+    livePour.frame();
+    assert.equal(livePour.live(DOME).length, 0, 'another shield before any pour draws no dome');
     livePour.w.skill(v, true);
     assert.equal(livePour.w.simFx('varkisShield', v.x, v.y, { id: v.id, skill: 'varkis:shield' }), true);
     assert.equal(livePour.live(DOME).length, 1);
     livePour.frame();
     assert.equal(livePour.live(DOME).length, 1, 'sync does not pour a second dome');
+    livePour.ofx.tier = 'lite';
+    livePour.frame();
+    assert.equal(livePour.live(DOME).length, 1, 'a tier switch that cleared the handles draws the poured dome again');
     livePour.w.skill(v, false);
     assert.equal(livePour.live(DOME).length, 1, 'the skill ending leaves the barrier');
     assert.equal(livePour.w.simFx('varkisShieldEnd', v.x, v.y, { id: v.id, skill: 'varkis:shield' }), true);
     assert.equal(livePour.live(DOME).length, 0);
     livePour.frame();
-    assert.equal(livePour.live(DOME).length, 1, 'the snapshot still carries the shield, so the next frame draws it again');
+    assert.equal(livePour.live(DOME).length, 0, 'the live end came: a shield left on him is not the dome');
     v.flags = 0;
     livePour.frame();
     assert.equal(livePour.live(DOME).length, 0);
 
     const off = await setup({ active: false });
-    off.view('char_4166_varkis', 5, 9, { flags: UF.SHIELD });
+    off.view('char_4166_varkis', 5, 9, { flags: UF.SHIELD, gameT: 30 });
     off.frame();
     assert.equal(off.keys().length, 0);
     const other = await setup();
-    other.view('char_4132_ascln', 5, 9, { flags: UF.SHIELD });
+    other.view('char_4132_ascln', 5, 9, { flags: UF.SHIELD, gameT: 30 });
     other.frame();
     assert.equal(other.keys().includes(DOME), false, 'another operator\'s shield is not his dome');
   });
+
 });
 
 describe('setLinePath', () => {

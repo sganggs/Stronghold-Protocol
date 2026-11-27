@@ -120,6 +120,8 @@ function pickBind(raw, extra) {
 
 /** Battle seconds a held (non-oneshot) row of a skill's single cast lasts (FxWiring's CAST_LOOP_S for attacks). */
 export const SKILL_CAST_S = 0.6;
+/** A unit first seen this many battle seconds in was joined mid-battle (a reconnect, a watched field): _restoreBarrier. */
+export const LATE_JOIN_S = 1;
 /**
  * Battle seconds after a skill's end in which a kit fx still belongs to it (FX_COVER, FX_BINDINGS `during`): an instant
  * skill's kit lands its blast or shells a moment after the 0 (蕾缪安 S3's last shells 0.3–0.7 s, 溯光星源 S2's link
@@ -316,6 +318,8 @@ export class SkillFx {
         const rec = this._recordOf(info);
         const r = unitKey ? planFor(this.w.idx, { info, rec, unitKey }) : null;
         if (r && (r.plan || r.charge || r.enemy.length)) U = this._record(id, r, rec);
+        // the battle time this client first saw the unit (a field joined mid-battle: > 0; _restoreBarrier)
+        if (U) U.bornT = Number.isFinite(v.gameT) ? v.gameT : 0;
       }
       this.units.set(id, U);
     }
@@ -1158,13 +1162,18 @@ export class SkillFx {
       const bind = pickBind(U ? FX_BINDINGS[U.skillId]?.[kind] : null, extra);
       if (bind && bind.owner === field && (!bind.during || this._lasts(U)) && (!bind.tag || extra.skill === bind.tag)) {
         // hold 'open' (摆渡人 S2): the loop stays until the fx named by stopOpen. The stop plays nothing.
-        if (bind.stopOpen) { this._stopOpen(U, bind.stopOpen); return true; }
+        if (bind.stopOpen) {
+          (U.openSeen ||= new Map()).set(bind.stopOpen, false);   // the live end (_restoreBarrier)
+          this._stopOpen(U, bind.stopOpen);
+          return true;
+        }
         if (bind.stopRefresh) { this._dropHeld(U, bind, extra); return true; }
         if (bind.path) {
           const drew = this._pathLine(U, bind, extra);
           if (drew || !bind.pass) return drew;
         }
         if (bind.hold === 'open') {
+          (U.openSeen ||= new Map()).set(kind, true);             // the live start (_restoreBarrier)
           const drew = this._openHold(U, kind, bind, extra);
           if (drew || !bind.pass) return drew;
         }
@@ -1744,20 +1753,36 @@ export class SkillFx {
   }
 
   /**
-   * 摆渡人 S2's dome after a join or a reconnect. The snapshot has no buff key; UF.SHIELD is the barrier flag
-   * (snapshot.js flagsOf: u.s.shield or a buff's shieldHits). [ASSUMED] on an S2 摆渡人 that flag is his barrier.
-   * His kit's only shield is varkis:barrier. An item or a bond shield on him would show this dome too.
-   * The skill ending does not clear the flag: the dome stays until the flag drops or varkisShieldEnd arrives.
+   * 摆渡人 S2's dome when its handle is missing: a field joined mid-battle, or a tier switch that cleared the effects.
+   * The snapshot has no buff key; UF.SHIELD (snapshot.js flagsOf: u.s.shield or a buff's shieldHits) is any shield,
+   * and an item or a bond shield on him sets it too. So the flag is trusted only where no live event says otherwise:
+   * - no shield at all: no barrier (a dome still playing stops);
+   * - the live pour came (openSeen true) and the handle is gone: the dome comes back (a tier switch);
+   * - the live end came (openSeen false): another shield left on him is not the dome;
+   * - no event for him yet: only a unit this client first saw mid-battle (bornT past LATE_JOIN_S) follows the flag
+   *   (until the flag drops or a live event comes). A client that watched from the start gets the pour as an event.
+   * The skill ending does not clear the barrier: the dome stays until the flag drops or varkisShieldEnd arrives.
    */
   _restoreBarrier(U, v) {
     if (U.skillId !== 'skchr_varkis_2') return;
     const shielded = !!((v.flags | 0) & UF.SHIELD);
     const playing = !!(U.open && (U.open.get('varkisShield') || []).some((h) => h && h.alive !== false));
-    if (shielded && !playing) {
-      const bind = FX_BINDINGS.skchr_varkis_2?.varkisShield;
-      if (bind) this._openHold(U, 'varkisShield', bind, { id: idOf(v) });
-    } else if (!shielded && playing) this._stopOpen(U, 'varkisShield');
+    const seen = U.openSeen ? U.openSeen.get('varkisShield') : undefined;
+    if (!shielded) {
+      if (playing) this._stopOpen(U, 'varkisShield');
+      if (seen === true) U.openSeen.set('varkisShield', false);
+      U.barrierSnap = false;
+      return;
+    }
+    if (playing || seen === false) return;
+    if (seen !== true && !U.barrierSnap) {
+      if (!(U.bornT > LATE_JOIN_S)) return;
+      U.barrierSnap = true;
+    }
+    const bind = FX_BINDINGS.skchr_varkis_2?.varkisShield;
+    if (bind) this._openHold(U, 'varkisShield', bind, { id: idOf(v) });
   }
+
 
   /**
    * Stop what this skill owns besides its plan loops: a `track` trail, 谬因's line, and looping marks marked

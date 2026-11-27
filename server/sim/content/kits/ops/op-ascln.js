@@ -70,7 +70,9 @@ export const dreadKey = (src) => `ascln:dread#${src.id}`;
 
 /**
  * The S2 kill circle's visual (ascln_buff_01). `data.fx` is display only: nothing in the damage reads it.
- * A later refresh of that same buff, including a talent hit, extends the one copy. Talent-only dread does not start it.
+ * Only an S2 kill application emits (and restarts the copy's time): the official loop belongs to the S2 buff
+ * ascln_s_2[enemy], not to the talent's dread, so a talent hit that refreshes the dread neither starts nor extends it
+ * (and does not flood the event stream: a refresh per talent hit was thousands of events in one battle).
  */
 function noteDread(battle, src, e, buff, dur) {
   buff.data.fx = true;
@@ -107,7 +109,7 @@ export function addDread(battle, src, e, tb, visual = false) {
     old.timeLeft = dur;
     old.duration = dur;
     e.markDirty();
-    if (visual || old.data.fx) noteDread(battle, src, e, old, dur);
+    if (visual) noteDread(battle, src, e, old, dur);
     return old;
   }
   const buff = battle.addBuff(e, {
