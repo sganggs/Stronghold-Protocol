@@ -532,8 +532,11 @@ function tacticScore(m, ps, card) {
     const count = Number.isFinite(bb.count) ? bb.count : 1;
     switch (b.key) {
       case 'global_special_choice_bond_addlayer': {
+        const ids = String(bs.bond_list || '').split(',').map((x) => x.trim()).filter(Boolean);
+        // an empty list is worth the flat 4 in every version. 规程 gives nothing when every named bond is noStack.
+        if (m.gd.regulationLayers && ids.length && ids.every((id) => !layerCredit(m.gd, id))) { s = 0; break; }
         let r = 0;
-        for (const id of String(bs.bond_list || '').split(',').map((x) => x.trim()).filter(Boolean)) r = Math.max(r, rel(id));
+        for (const id of ids) if (layerCredit(m.gd, id)) r = Math.max(r, rel(id));
         s = 4 + r * count * 1.2;
         break;
       }
@@ -796,6 +799,36 @@ const TRADE_FROM = 4;
 const bondList = (s) => String(s || '').split(',').map((x) => x.trim()).filter(Boolean);
 
 /**
+ * A bond can receive layers. 规程 (`regulationLayers`) gives `noStack` bonds none, from every source; the 盟约
+ * periods keep their hidden layers. The same gate as player and battle `addLayers` (§37.355).
+ */
+function layerCredit(gd, bondId) {
+  return !(gd?.regulationLayers && gd.bond(bondId)?.noStack);
+}
+
+/**
+ * 规程 has at least one active bond and none of them can take a layer. A most-layer or same-row pick then lands
+ * on nothing. No active bond keeps the old positive estimate: both families used it when the board had not
+ * activated anything yet.
+ */
+function onlyHiddenActive(gd, bonds) {
+  if (!gd?.regulationLayers) return false;
+  let active = false;
+  for (const [id, x] of Object.entries(bonds || {})) {
+    if (!x?.active) continue;
+    active = true;
+    if (layerCredit(gd, id)) return false;
+  }
+  return active;
+}
+
+/** Focus-equivalent weight of one layer on `bondId`. 0 when inactive, and in 规程 when the bond is noStack. */
+export function bondLayerWeight(gd, bonds, bondId, focus) {
+  if (!bonds[bondId]?.active || !layerCredit(gd, bondId)) return 0;
+  return bondId === focus ? 1 : gd.bond(bondId)?.isCore ? 0.5 : 0.3;
+}
+
+/**
  * §37.35 [ASSUMED]: the layers one acquisition of `c` adds, per bond — every SERVER_GAIN layer trait: SERVER_ADD_BOND_CHESS_ALL
  * (野鬃 / 角峰 / 艾丝黛尔 / 深靛 +2, 雪猎 / 灵知 +5, 忍冬 +6, 星熊 / 锏 +8 on each of its bonds), 惊蛰's SERVER_ADD_BOND_METHOD
  * shoplv (the shop level), 烛煌's SERVER_ADD_BOND, 录武官's SERVER_ADD_MULTIPLE_BOND and 灰毫's
@@ -804,7 +837,7 @@ const bondList = (s) => String(s || '').split(',').map((x) => x.trim()).filter(B
 export function acquireLayers(m, ps, c) {
   const gd = ps.gd || m.gd;
   const out = new Map();
-  const add = (b, n) => { if (b && n > 0 && !(gd.regulationLayers && gd.bond(b)?.noStack)) out.set(b, (out.get(b) || 0) + n); };
+  const add = (b, n) => { if (b && n > 0 && layerCredit(gd, b)) out.set(b, (out.get(b) || 0) + n); };
   for (const gid of c.garrisonIds || []) {
     const g = gd.garrison(gid);
     if (!g || g.eventType !== 'SERVER_GAIN') continue;
@@ -816,7 +849,7 @@ export function acquireLayers(m, ps, c) {
       const counts = bondList(bs.count).map(Number);
       bondList(bs.bond).forEach((b, i) => add(b, counts[i] || 0));
     } else if (g.effectKey === 'SERVER_ADD_BOND_ACTIVATED_MOST_LAYER') {
-      const most = Object.entries(ps.bonds).filter(([id, x]) => x && x.active && !(gd.regulationLayers && gd.bond(id)?.noStack)).map(([id]) => id).sort((a, b) => (ps.layers[b] || 0) - (ps.layers[a] || 0))[0];
+      const most = Object.entries(ps.bonds).filter(([id, x]) => x && x.active && layerCredit(gd, id)).map(([id]) => id).sort((a, b) => (ps.layers[b] || 0) - (ps.layers[a] || 0))[0];
       add(most, Number(bb.count) || 0);
     }
   }
@@ -832,7 +865,7 @@ export function gainCountLayers(m, ps) {
     for (const gid of chessRec(m, p.id, ps)?.garrisonIds || []) {
       const g = gd.garrison(gid);
       if (g?.eventType !== 'SERVER_PREP_FIN' || g.effectKey !== 'SERVER_ADD_BOND_METHOD' || g.bbStr?.add_method !== 'round_gain_char') continue;
-      for (const b of bondList(g.bbStr.bond)) if (ps.bonds[b]?.active) n += Number(g.bb?.multi) || 1;
+      for (const b of bondList(g.bbStr.bond)) if (ps.bonds[b]?.active && layerCredit(gd, b)) n += Number(g.bb?.multi) || 1;
     }
   }
   return n;
@@ -852,7 +885,7 @@ export function refreshLayers(m, ps) {
     for (const gid of chessRec(m, p.id, ps)?.garrisonIds || []) {
       const g = gd.garrison(gid);
       if (!g) continue;
-      const k = bondList(g.bbStr?.bond).filter((b) => ps.bonds[b]?.active).length;
+      const k = bondList(g.bbStr?.bond).filter((b) => ps.bonds[b]?.active && layerCredit(gd, b)).length;
       if (!k) continue;
       if (onBoard && g.eventType === 'SERVER_PREP_FIN' && g.effectKey === 'SERVER_ADD_REFRESH_CNT_MULTIPLIER_BOND_LAYER') {
         const mul = Number(g.bb?.multiplier) || 0;
@@ -1054,7 +1087,7 @@ function traitsOf(m, c) {
  */
 const ENGINE_BONUS = 10;
 export function engineFor(m, c, bond) {
-  if (!c || !bond) return false;
+  if (!c || !bond || !layerCredit(m.gd, bond)) return false;
   const cache = m._botEngines || (m._botEngines = new Map());
   const key = `${c.chessId}|${bond}`;
   if (cache.has(key)) return cache.get(key);
@@ -3289,15 +3322,20 @@ const rowChess = (view, key) => { const r = parseKey(key)[0]; let n = 0; for (co
  * facing `dir`) adds — the value of a 白面鸮 / 塞雷娅 copy. Numbers the text leaves open are estimates: 3 operators
  * gained and 3 refreshes a round, 15 funds spent.
  */
-function prepTraitValue(m, ps, view, W, self, key, dir, g, copied = false) {
+export function prepTraitValue(m, ps, view, W, self, key, dir, g, copied = false) {
+  const gd = ps.gd || m.gd;
   const bb = g.bb || {}, bs = g.bbStr || {};
-  const sum = (bonds, n) => bonds.reduce((s, b) => s + n * W(b), 0);
+  const credit = (b) => layerCredit(gd, b);
+  const sum = (bonds, n) => bonds.reduce((s, b) => s + (credit(b) ? n * W(b) : 0), 0);
   const own = chessRec(m, self.id, ps)?.bonds || [];
   const hand = ps.hand.filter((p) => p && p.kind === 'chess').length;
   switch (g.effectKey) {
     case 'SERVER_ADD_BOND_CHESS_ALL': return sum(own, numOr(bb.count));
     case 'SERVER_ADD_BOND': return sum(bondList(bs.bond), numOr(bb.count));
-    case 'SERVER_ADD_MULTIPLE_BOND': { const counts = bondList(bs.count).map(Number); return bondList(bs.bond).reduce((s, b, i) => s + (counts[i] ?? counts[counts.length - 1] ?? 0) * W(b), 0); }
+    case 'SERVER_ADD_MULTIPLE_BOND': {
+      const counts = bondList(bs.count).map(Number);
+      return bondList(bs.bond).reduce((s, b, i) => s + (credit(b) ? (counts[i] ?? counts[counts.length - 1] ?? 0) * W(b) : 0), 0);
+    }
     case 'SERVER_ADD_BOND_METHOD': {
       const per = { shoplv: ps.shop.level, round_gain_char: 3, hand_count: hand, same_row: rowChess(view, key), same_bond_diff_lv: 3 }[bs.add_method] ?? 0;
       return sum(bondList(bs.bond), per * numOr(bb.multi, 1));
@@ -3306,14 +3344,27 @@ function prepTraitValue(m, ps, view, W, self, key, dir, g, copied = false) {
       const other = chessAhead(view, key, dir, bs.dir === 'behind' ? -1 : 1);
       return sum(own, numOr(bb.count)) + (other ? sum(chessRec(m, other.id, ps)?.bonds || [], numOr(bb.count)) : 0);
     }
-    case 'SERVER_ADD_BOND_ACTIVATED_MOST_LAYER': return numOr(bb.count);
-    case 'SERVER_ADD_ACT_BOND_DIFF_LV_MOST_LAYER': return 3 * numOr(bb.multi, 1);
+    case 'SERVER_ADD_BOND_ACTIVATED_MOST_LAYER': return onlyHiddenActive(gd, ps.bonds) ? 0 : numOr(bb.count);
+    case 'SERVER_ADD_ACT_BOND_DIFF_LV_MOST_LAYER': return onlyHiddenActive(gd, ps.bonds) ? 0 : 3 * numOr(bb.multi, 1);
     case 'SERVER_ADD_REFRESH_CNT_MULTIPLIER_BOND_LAYER': return sum(bondList(bs.bond), Math.min(numOr(bb.max_layer, Infinity), 3 * numOr(bb.multiplier)));
-    case 'SERVER_ADD_BOND_IN_HAND': return hand * numOr(bb.count) * 0.5;
+    case 'SERVER_ADD_BOND_IN_HAND': {
+      const per = numOr(bb.count) * 0.5;
+      if (!gd.regulationLayers) return hand * per;
+      // the engine adds the layers to each active bond of each hand chess. A chess whose active bonds are all
+      // noStack adds nothing; one with no active bond keeps the old per-chess estimate; a mixed chess still counts.
+      let n = 0;
+      for (const p of ps.hand) {
+        if (!p || p.kind !== 'chess') continue;
+        const active = (chessRec(m, p.id, ps)?.bonds || []).filter((b) => ps.bonds[b]?.active);
+        if (active.length && active.every((b) => !credit(b))) continue;
+        n++;
+      }
+      return n * per;
+    }
     case 'SERVER_ADD_BOND_ROUND_COIN_COST': return sum(bondList(bs.bond), Math.floor(15 / Math.max(1, numOr(bb.count, 1))) * numOr(bb.layer));
     // a 白面鸮 copy of 歌蕾蒂娅 / 余 skips the row gate (garrisons/meta.js rowCondition, #473)
     case 'SERVER_POOL_CHAR': case 'SERVER_MOST_BOND': return copied || bs.conditionkey !== 'character_same_row' || rowChess(view, key) >= numOr(bb.check_count, 3) ? GIFT_VALUE : 0;
-    case 'SERVER_TRIGGER_ANOTHER': { const q = chessAhead(view, key, dir); return q ? [...acquireLayers(m, ps, chessRec(m, q.id, ps)).entries()].reduce((s, [b, n]) => s + n * W(b), 0) : 0; }
+    case 'SERVER_TRIGGER_ANOTHER': { const q = chessAhead(view, key, dir); return q ? [...acquireLayers(m, ps, chessRec(m, q.id, ps)).entries()].reduce((s, [b, n]) => s + (credit(b) ? n * W(b) : 0), 0) : 0; }
     case 'SERVER_GAIN_RANDOM_EQUIP_CHESS_IN_POOL': case 'SERVER_POOL_EQUIP': return 4;
     case 'SERVER_GAIN_FREE_REFRESH_COUNT': case 'SERVER_ONCE_GOLD_WITH_BOND_CONDITION': return 2;
     default: return 0;
@@ -3321,14 +3372,15 @@ function prepTraitValue(m, ps, view, W, self, key, dir, g, copied = false) {
 }
 
 /** §37.37 [ASSUMED] Layers a position-dependent trait of `p` (on `key`, facing `dir`) adds per round, in focus-bond equivalents. */
-function positionTraitValue(m, ps, view, W, p, key, dir, t, final) {
+export function positionTraitValue(m, ps, view, W, p, key, dir, t, final) {
   // SERVER_PREP_START pays at the next prep. The Final Assault prep has none after it.
   // IN_BATTLE pays during the fight only when this version's boss fields keep layer gains.
   if (final && t.on === 'SERVER_PREP_START') return 0;
   if (final && t.on === 'IN_BATTLE' && !bossLayerGainsEnabled(m.gd)) return 0;
+  const gd = ps.gd || m.gd;
   const front = () => chessAhead(view, key, dir, 1);
   const bondsOf = (q) => chessRec(m, q.id, ps)?.bonds || [];
-  const sum = (bonds, n) => bonds.reduce((s, b) => s + n * W(b), 0);
+  const sum = (bonds, n) => bonds.reduce((s, b) => s + (layerCredit(gd, b) ? n * W(b) : 0), 0);
   switch (t.kind) {
     case 'pos': { const q = chessAhead(view, key, dir, t.off); return q ? sum(bondsOf(q), t.n) : 0; }
     case 'row': return sum(t.bonds, t.n * rowChess(view, key));
@@ -3338,7 +3390,7 @@ function positionTraitValue(m, ps, view, W, p, key, dir, t, final) {
       const bs = t.g.bbStr || {};
       return sum(bondList(bs.bond_id), 3 * numOr(t.g.bb?.bond_add_count, 1));
     }
-    case 'rowSkill': return Math.min(t.cap, 2 * t.n * rowChess(view, key));
+    case 'rowSkill': return onlyHiddenActive(gd, ps.bonds) ? 0 : Math.min(t.cap, 2 * t.n * rowChess(view, key));
     case 'grant': {
       const q = front();
       if (!q || (t.need && !bondsOf(q).includes(t.need))) return 0;
@@ -3352,19 +3404,20 @@ function positionTraitValue(m, ps, view, W, p, key, dir, t, final) {
       let q = null, qc = -Infinity;
       for (const [k, x] of view.at) { const [rr, cc] = parseKey(k); if (x.kind === 'chess' && rr === r && cc > qc) { q = x; qc = cc; } }
       if (!q) return 0;
-      const gd = ps.gd || m.gd;
       const stacker = (chessRec(m, q.id, ps)?.garrisonIds || []).some((gid) => /gar_event_(selfdead|onstart)$/.test(gd.garrison(gid)?.bbStr?.key || ''));
       const bb = t.g2.bb || {};
       return sum(bondList(t.g2.bbStr?.bond_id), Math.min(numOr(bb.max_add_count_per_battle, 24), numOr(bb.bond_add_count, 4) * (stacker ? 4 : 1)));
     }
-    case 'extra': { const q = front(); return q ? bondsOf(q).filter((b) => engineFor(m, chessRec(m, q.id, ps), b)).reduce((s, b) => s + 4 * t.n * W(b), 0) : 0; }
-    case 'trigger': { const q = front(); return q ? [...acquireLayers(m, ps, chessRec(m, q.id, ps)).entries()].reduce((s, [b, n]) => s + n * W(b), 0) : 0; }
+    case 'extra': {
+      const q = front();
+      return q ? bondsOf(q).filter((b) => layerCredit(gd, b) && engineFor(m, chessRec(m, q.id, ps), b)).reduce((s, b) => s + 4 * t.n * W(b), 0) : 0;
+    }
+    case 'trigger': { const q = front(); return q ? [...acquireLayers(m, ps, chessRec(m, q.id, ps)).entries()].reduce((s, [b, n]) => s + (layerCredit(gd, b) ? n * W(b) : 0), 0) : 0; }
     case 'copy': {
       // 进入休整期时 pays at the next prep: nothing after the Final Assault prep
       if (final && t.event === 'SERVER_PREP_START') return 0;
       const q = front();
       if (!q) return 0;
-      const gd = ps.gd || m.gd;
       let v = 0;
       for (const gid of chessRec(m, q.id, ps)?.garrisonIds || []) {
         const g = gd.garrison(gid);
@@ -3606,11 +3659,12 @@ export function* positionPlanSteps(m, ps, chosen, base, ctx, { devourOnly = fals
   const pgd = ps.gd || m.gd;
   const chess = chosen.filter((p) => p.kind === 'chess' && base.has(p.uid));
   const final = !m.wave && m.round === m.gd.bossRound;
-  // the lineup's bonds (as lineupScore reads them): a layer counts on an active bond, the focus most
+  // the lineup's bonds (as lineupScore reads them): a layer counts on an active bond, the focus most.
+  // 规程 gives noStack bonds no layers; 盟约 still weights their hidden layers (bondLayerWeight).
   const board = new Map(chess.map((p, i) => [`x${i}`, p]));
   const inSet = new Set(chess.map((p) => p.uid));
   const bonds = computeBonds(pgd, { board, hand: ps.hand.filter((p) => p && !inSet.has(p.uid)), layers: ps.layers, bondCountBonus: ps.bondCountBonus });
-  const W = (b) => (!bonds[b]?.active ? 0 : b === ctx.focus ? 1 : pgd.bond(b)?.isCore ? 0.5 : 0.3);
+  const W = (b) => bondLayerWeight(pgd, bonds, b, ctx.focus);
   // the devour where it brings layers (a normal round). The boss-prep candidate generator still skips that layer
   // model when there is no wave, except feeding candidates. The rehearsal battle itself follows
   // bossLayerGainsEnabled, so this estimate can miss 阿戈尔 layers on a 规程 Final Assault. What the devour hands
@@ -4347,7 +4401,7 @@ export function itemTarget(m, ps, item, ctx = context(m, ps), usePlan = true) {
         const add = Number(g.bb?.bond_add_count) || Number(g.bb?.bond_add_count_multi) || 1;
         const cap = Number(g.bb?.max_add_count_per_battle) || Infinity;
         const bonds = g.bbStr.bond_type === 'bond_by_id' ? bondList(g.bbStr.bond_id) : [ctx.focus];
-        for (const b of bonds) if (b && ps.bonds[b]?.active) v += add * (b === ctx.focus ? 2 : 1) * (cap <= add ? 0.5 : 1);
+        for (const b of bonds) if (b && ps.bonds[b]?.active && layerCredit(gd, b)) v += add * (b === ctx.focus ? 2 : 1) * (cap <= add ? 0.5 : 1);
       }
       return v;
     };
