@@ -313,15 +313,13 @@ test('the ctrl view data carries the caller\'s refresh block from the model', ()
   const view = Object.create(AutoChessBattleShopMainView.prototype);
   const data = view._BuildCtrlViewData({
     isSpecialRecruit: false, isSpecRefresh: false, isFrozen: false, coinCount: 9, refreshCost: 3, freeRefreshCnt: 0,
-    refreshBlocked: true, freezeBlocked: '资金不足', reward: { count: 1 }, foldReward: true,
+    refreshBlocked: true, freezeBlocked: '资金不足', reward: { count: 1 },
   });
   assert.equal(data.refreshBlocked, true);
   assert.equal(data.freezeBlocked, '资金不足');
   assert.deepEqual(data.reward, { count: 1 });
-  assert.equal(data.foldReward, true);
   assert.notEqual(ctrlKey({ refreshBlocked: true }), ctrlKey({ refreshBlocked: false }));
   assert.notEqual(ctrlKey({ freezeBlocked: 'x' }), ctrlKey({}));
-  assert.notEqual(ctrlKey({ foldReward: true }), ctrlKey({}), 'a folded-pill toggle re-renders the ctrl');
   assert.notEqual(ctrlKey({ reward: { count: 1 } }), ctrlKey({}));
   assert.equal(ctrlKey({}), ctrlKey({}), 'an unchanged model is the same key');
   // The panel paints from the shared helper and re-applies the toggle (a skipped set_selected left the old

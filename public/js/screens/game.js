@@ -2139,7 +2139,14 @@ function MatchScreen() {
           onDetailClose=${() => setDetail((d) => (d?.kind === 'chess' || d?.kind === 'item' ? null : d))}
           onRefuse=${(reason) => { toast(reason, 'warn'); audio.sfx('error', { volume: 0.5 }); }}
           onArm=${setArmedCard}
-          onFail=${() => setWebglShop({ status: 'failed', runtime: null })} />`
+          onFail=${() => {
+            // The preload installs the theme's @font-face sheet before a host exists (ui/shop/host.js
+            // preloadShopRuntime), so a mount that fails after it — the stage rejects, a render throws — has no
+            // dispose to remove the sheet, and the DOM bar that takes over draws no theme text. An idempotent
+            // no-op when the host already disposed (context loss), and the next mount installs it again.
+            uninstallThemeFontFaces();
+            setWebglShop({ status: 'failed', runtime: null });
+          }} />`
         : html`<${ShopBar} priv=${priv} editable=${editable} collapsed=${barCollapsed} refreshBusy=${refreshBusy} onCollapse=${setCollapsed}
           barRef=${barRef} offBonds=${offBonds}
           onBuy=${buy} onLevel=${() => actions.levelUp()} onRefresh=${() => actions.refresh()} onFreeze=${() => actions.freeze()}

@@ -236,6 +236,42 @@ def _sprite_key(sprite_object, name):
     return name, path_id if path_id is not None else id(sprite_object)
 
 
+def _same_raster(image, path):
+    """Whether `path` already holds exactly this picture, pixel for pixel.
+
+    A client hot-update changes a picture without changing its name, so an output root from an earlier run used to
+    keep the old bytes when the producer only checked that the file existed. Decoding the file is format-agnostic
+    (the writer uses lossless WebP, or PNG when WebP fails); an unreadable or other-sized file counts as different,
+    and a same-sized file is compared after converting to the extracted image's mode.
+
+    The comparison is the decoded bytes of every band: a channel box from `getbbox()` would look only at the
+    premultiplied difference (an opaque WebP is read back as RGB and the alpha band of the diff is 0), and a
+    colour-only change would compare equal.
+    """
+    try:
+        from PIL import Image
+        with Image.open(path) as old:
+            old.load()
+            if old.size != image.size:
+                return False
+            same = old if old.mode == image.mode else old.convert(image.mode)
+            return same.tobytes() == image.tobytes()
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _existing_picture(dest, image):
+    """The file under `dest` — or its `.png` sibling — that already holds `image`, else None.
+
+    The sibling is the writer's fallback (`_save_raster` writes PNG where Pillow has no WebP): comparing only the
+    `.webp` name would rewrite that PNG on every re-run of the same client.
+    """
+    for path in (dest, dest.with_suffix('.png')):
+        if path.exists() and _same_raster(image, path):
+            return path
+    return None
+
+
 def _export_sprite(sprite_object, name, ctx):
     """Write a sprite that lives in another bundle into this theme's sprites/, under a name of its own.
 
@@ -260,10 +296,17 @@ def _export_sprite(sprite_object, name, ctx):
     while rel in ctx['ext_used']:
         rel = f'{prefix}{stem}_{number}.webp'
         number += 1
-    if not (Path(ctx['dest']) / rel).exists():
-        written = themes._save_raster(image, Path(ctx['dest']) / rel)
+    dest = Path(ctx['dest']) / rel
+    # Compare, not `exists`: a client hot-update keeps the name and changes the pixels, so a second run must
+    # rewrite a changed picture while an unchanged one keeps its file (and its mtime).
+    kept = _existing_picture(dest, image)
+    if kept is None:
+        written = themes._save_raster(image, dest)
         # `_save_raster` returns the file name it wrote (the prefix's stem included); every prefix lives under sprites/
         rel = f'sprites/{written}'
+    else:
+        # A PNG left by the writer's fallback: the record must name the file that exists.
+        rel = f'sprites/{kept.name}'
     ctx['ext_used'].add(rel)
     ctx['files'].add(rel)
     ctx['ext_sprites'][key] = rel
@@ -370,10 +413,6 @@ def _texture_file(texture_object, name, ctx):
         rel = f'{TEXTURE_PREFIX}{stem}_{number}.webp'
         number += 1
     used.add(rel)
-    if (Path(ctx['dest']) / rel).exists():
-        ctx['tex_files'][key] = rel
-        ctx['files'].add(rel)
-        return rel
     try:
         image = texture_object.read().image
     except Exception:  # noqa: BLE001
@@ -381,8 +420,15 @@ def _texture_file(texture_object, name, ctx):
     if image is None:
         ctx['tex_files'][key] = None
         return None
-    written = themes._save_raster(image, Path(ctx['dest']) / rel)
-    rel = f'sprites/{written}'
+    dest = Path(ctx['dest']) / rel
+    # The same compare as `_export_sprite`: an existing `tex_*` file (either format) must not hide a hot-updated
+    # texture.
+    kept = _existing_picture(dest, image)
+    if kept is None:
+        written = themes._save_raster(image, dest)
+        rel = f'sprites/{written}'
+    else:
+        rel = f'sprites/{kept.name}'
     ctx['files'].add(rel)
     ctx['tex_files'][key] = rel
     return rel

@@ -90,6 +90,8 @@ export function cardModelFromSlot(slot, index, priv, opts = {}) {
     level: tier,
     price,
     srcPrice,
+    // The confirm strip says 确认购买 for every card, a free reward pick included: that is what the official
+    // client's first tap says (docs/research/09-ux-official.md "Buy"), so there is no free/price branch here.
     currCoin: Number(priv && priv.funds) || 0,
     isChar: kind !== 'item',
     isEmpty: !slot || !!slot.sold,
@@ -134,7 +136,7 @@ export function cardModelFromSlot(slot, index, priv, opts = {}) {
  *   ownerSkin?: (charId: string) => string|null,
  *   controls?: { refresh?: string|null, freeze?: string|null, levelUp?: string|null }|null,
  *   reward?: { count?: number, visible?: boolean, label?: string, title?: string, micro?: string,
- *     sub?: string, more?: string|null }|null, foldReward?: boolean }} [opts]
+ *     sub?: string, more?: string|null }|null }} [opts]
  *   `controls`: the caller's per-control block reasons (host `view.controls`): a non-empty `refresh` reason
  *   blocks the painted refresh button, so the ctrl panel and the hotspot agree; absent → no gate published.
  */
@@ -203,7 +205,6 @@ export function shopModelFromPrivate(priv, opts = {}) {
     refreshBlocked: controls ? !!(controls.refresh) : null,
     freezeBlocked: controls ? !!(controls.freeze) : null,
     reward: opts.reward || null,
-    foldReward: !!opts.foldReward,
     slots: cards,
   });
 }

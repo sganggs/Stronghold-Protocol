@@ -52,11 +52,8 @@ export const TEXT_SIZES = Object.freeze(['sm', 'md', 'lg', 'xl']);
  *  overlay): the skill badge, 替补 / 自选, and the 可晋升 + owned-copy pips together. All on by default; only an
  *  explicit false hides a group. The DOM shop bar keeps its own marks: these switches belong to the canvas
  *  overlay (2026-11-22).
- *  shopFoldRewardHint: 设置 → 操作「折叠商店时保留奖励按钮」 — the canvas shop keeps its reward pill on the folded
- *  tab while an offer is pending (the DOM bar's reminder pill has no canvas counterpart). Off by default: folding
- *  means "show me the board", so refresh/freeze and the reward pill all fold away unless the player asks otherwise.
  */
-export const DEFAULT_SETTINGS = Object.freeze({ bgm: 0.6, sfx: 0.8, voice: 0.8, voiceLang: 'cn', voiceNative: false, voiceOverrides: Object.freeze({}), muted: false, damageNumbers: true, officialDamageNumbers: false, ammoEnergyCount: false, fullscreenWakeLock: false, bondTimers: false, combatMetrics: false, watchDuringBattle: false, prepDeployFold: true, quality: 'high', officialFx: 'auto', otherSkins: true, textSize: 'sm', uiTheme: '', themeMotion: true, arknightsCursor: false, keys: DEFAULT_HOTKEYS, shopMarkSkill: true, shopMarkStandIn: true, shopMarkProgress: true, shopFoldRewardHint: false });
+export const DEFAULT_SETTINGS = Object.freeze({ bgm: 0.6, sfx: 0.8, voice: 0.8, voiceLang: 'cn', voiceNative: false, voiceOverrides: Object.freeze({}), muted: false, damageNumbers: true, officialDamageNumbers: false, ammoEnergyCount: false, fullscreenWakeLock: false, bondTimers: false, combatMetrics: false, watchDuringBattle: false, prepDeployFold: true, quality: 'high', officialFx: 'auto', otherSkins: true, textSize: 'sm', uiTheme: '', themeMotion: true, arknightsCursor: false, keys: DEFAULT_HOTKEYS, shopMarkSkill: true, shopMarkStandIn: true, shopMarkProgress: true });
 const QUALITIES = ['high', 'medium', 'low'];
 /** The values of 设置「官方特效」 (render/vfx/tier.js OFFICIAL_FX). Display order in the dialog is low / medium / high. */
 export const OFFICIAL_FX_MODES = Object.freeze(['auto', 'off', 'lite', 'full']);
@@ -117,8 +114,6 @@ export function sanitizeSettings(raw) {
     shopMarkSkill: r.shopMarkSkill !== false,
     shopMarkStandIn: r.shopMarkStandIn !== false,
     shopMarkProgress: r.shopMarkProgress !== false,
-    // 折叠商店时保留奖励按钮: off unless explicitly asked for (folding hides the whole shop by default)
-    shopFoldRewardHint: r.shopFoldRewardHint === true,
     keys: sanitizeHotkeys(r.keys),
   };
 }

@@ -11,12 +11,17 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { cardAriaLabel, cardBlocked, createShopHost, preloadShopRuntime } from '../../public/js/ui/shop/host.js';
 import { cardMarkSwitches } from '../../public/js/ui/shop/ShopCanvas.js';
 import { filterCardMarks } from '../../public/js/ui/shop/marks.js';
-import { t } from '../../shared/i18n.js';
+import { addMessages, setLang, t } from '../../shared/i18n.js';
 import { stubFetch } from '../helpers/fetchStub.js';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 /** One DOM node: the host only needs append/remove/listeners/style/classList on these. */
 function fakeElement(tag) {
@@ -45,15 +50,19 @@ function fakeElement(tag) {
       if (type === '2d') {
         return { font: '', measureText: () => ({ width: 10, fontBoundingBoxAscent: 8, fontBoundingBoxDescent: 2 }) };
       }
-      return null; // no WebGL2
+      // `webgl2` only when the test asks for it: the mount case below must have none, and the font-gate case
+      // needs the probe to answer true. No browser: the probe's own lose_context is a no-op.
+      if (type === 'webgl2' && fakeElement.webgl2) return { getExtension: () => null };
+      return null;
     },
     _listeners: listeners,
   };
   return el;
 }
 
-/** Install the minimal browser globals a host mount touches; returns the restore. */
-function installFakeDom() {
+/** Install the minimal browser globals a host mount touches; returns the restore. `webgl2` makes the fake canvas
+ * answer the capability probe (the font-gate case); the mount case below leaves it off. */
+function installFakeDom({ webgl2 = false } = {}) {
   const real = {
     document: globalThis.document,
     window: globalThis.window,
@@ -62,6 +71,8 @@ function installFakeDom() {
     cancelAnimationFrame: globalThis.cancelAnimationFrame,
     devicePixelRatio: globalThis.devicePixelRatio,
   };
+  const hadWebgl2 = fakeElement.webgl2;
+  fakeElement.webgl2 = webgl2;
   globalThis.window = globalThis;
   globalThis.document = {
     hidden: false,
@@ -75,7 +86,10 @@ function installFakeDom() {
   globalThis.requestAnimationFrame = () => 1;
   globalThis.cancelAnimationFrame = () => {};
   globalThis.devicePixelRatio = 1;
-  return () => { Object.assign(globalThis, real); };
+  return () => {
+    fakeElement.webgl2 = hadWebgl2;
+    Object.assign(globalThis, real);
+  };
 }
 
 const runtime = () => ({
@@ -151,6 +165,62 @@ test('preloadShopRuntime retries after a failed load instead of replaying the re
   assert.equal(reused, ready, 'the ready entry is cached per theme id');
 });
 
+/** The three documents and an optional fonts group, by theme group. */
+function shopGroups(group, fonts = null) {
+  const groups = {
+    [group]: {
+      'prefabs.json': { path: `/assets/local/${group}/prefabs.json` },
+      'card.json': { path: `/assets/local/${group}/card.json` },
+      'shop.json': { path: `/assets/local/${group}/shop.json` },
+    },
+  };
+  if (fonts) groups.fonts = fonts;
+  return groups;
+}
+
+const FONT_GROUP = { FakeFace: { path: '/assets/local/fonts/FakeFace.otf', family: 'FakeFace', weight: 500, kind: 'Font' } };
+
+test('preloadShopRuntime installs no theme face without a WebGL2 canvas', async (t) => {
+  const bodies = {
+    'prefabs.json': { spPrefabs: 1, prefabs: {}, textures: {} },
+    'card.json': { root: { name: 'root', children: [] }, materials: {}, sub: {} },
+    'shop.json': { prefabs: {}, materials: {}, textures: {} },
+  };
+  const stub = stubFetch((url) => bodies[String(url).split('/').pop()] ?? null);
+  t.after(() => stub.restore());
+  // A separate theme id: the cache above is per id and this runtime must be a fresh load.
+  const restore = installFakeDom();
+  try {
+    const runtime = await preloadShopRuntime({ themeId: 'ac_n_iron', groups: shopGroups('themes/ac_n_iron', FONT_GROUP) });
+    assert.equal(runtime.fonts, null, 'no face is fetched, installed or awaited');
+    assert.equal(runtime.faceList.length, 1,
+      'the faces stay known so a host that does mount (a probe that failed transiently) installs them itself');
+    assert.equal(globalThis.document.head.children.length, 0,
+      'the DOM bar that takes over draws no theme text, so no @font-face sheet is left behind');
+  } finally {
+    restore();
+  }
+});
+
+test('preloadShopRuntime installs the theme faces when the canvas can mount', async (t) => {
+  const bodies = {
+    'prefabs.json': { spPrefabs: 1, prefabs: {}, textures: {} },
+    'card.json': { root: { name: 'root', children: [] }, materials: {}, sub: {} },
+    'shop.json': { prefabs: {}, materials: {}, textures: {} },
+  };
+  const stub = stubFetch((url) => bodies[String(url).split('/').pop()] ?? null);
+  t.after(() => stub.restore());
+  const restore = installFakeDom({ webgl2: true });
+  try {
+    const runtime = await preloadShopRuntime({ themeId: 'ac_n_initial', groups: shopGroups('themes/ac_n_initial', FONT_GROUP) });
+    assert.deepEqual(runtime.fonts, { faces: 1, families: [] });
+    assert.equal(globalThis.document.head.children.length, 1, 'the @font-face sheet is installed');
+    assert.match(String(globalThis.document.head.children[0].textContent), /@font-face \{ font-family: 'FakeFace'/);
+  } finally {
+    restore();
+  }
+});
+
 test('cardBlocked: empty, disabled, locked and unaffordable cards are unbuyable', () => {
   assert.equal(cardBlocked(null, {}), true);
   assert.equal(cardBlocked({ isEmpty: true }, {}), true);
@@ -174,6 +244,21 @@ test('cardAriaLabel: the price, every mark aria and the two-tap state', () => {
   assert.equal(cardAriaLabel({ ...card, armed: true }, { coinCount: 10 }), `${price}${t('，再次点击确认')}`);
   assert.equal(cardAriaLabel({ ...card, armed: true }, { coinCount: 1 }), `${price}${t('，无法购买')}`,
     'the armed state names the block instead of asking for a confirm');
+});
+
+test('cardAriaLabel: the mark separator is the pack\'s, not a literal 「，」', () => {
+  addMessages('en', JSON.parse(readFileSync(path.join(ROOT, 'public/i18n/en.json'), 'utf8')));
+  setLang('en');
+  try {
+    const card = { id: 'chess_char_1_02_a', name: 'Bubble', price: 0, armed: false };
+    const label = cardAriaLabel(card, { coinCount: 10 }, { skill: { aria: 'Skill: E2' } });
+    // The regression: the price label was English but the two separators joined with a raw 「，」, so a screen
+    // reader said "Bubble, price 0，Skill: E2".
+    assert.doesNotMatch(label, /，/, 'no full-width comma in an English accessible name');
+    assert.match(label, /, Skill: E2$/);
+  } finally {
+    setLang('zh');
+  }
 });
 
 test('the 卡面标记 settings map to the filter switches and drop the matching marks', () => {

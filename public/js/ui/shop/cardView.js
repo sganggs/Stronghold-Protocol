@@ -217,6 +217,12 @@ export class AutoChessBattleShopCardView {
     if (deco) deco.image = { ...(deco.image || {}), color: level.decoColor || '#FFFFFF' };
   }
 
+  /**
+   * The two confirm strips' text. Every card reads 确认购买 — a free reward pick included, as the official client's
+   * first tap says for any shop card (docs/research/09-ux-official.md "Buy") — so neither card render path branches
+   * on the price or on a reward flag; the blocked face alone says 无法购买.
+   * @param {any} tree the card prefab tree
+   */
   applyStripText(tree) {
     for (const [group, value] of [['group_able', t('确认购买')], ['group_disable', t('无法购买')]]) {
       const holder = findNode(tree, group);

@@ -63,7 +63,6 @@ export class AutoChessBattleShopMainView {
       refreshBlocked: model.refreshBlocked,
       freezeBlocked: model.freezeBlocked,
       reward: model.reward,
-      foldReward: !!model.foldReward,
     });
   }
 
@@ -89,9 +88,8 @@ export class AutoChessBattleShopMainView {
         this.scene.slots.Render(this._BuildSlotsViewData(model));
         this.lastRenderKeys.push('shop_slots');
       }
-      // The row panels fold away with `state_unfold`, but the ctrl does not: it also owns the folded shop's
-      // reward pill (`state_able/btn_reward`, ctrl.js Render). Gating it on `unfold` left that node at its
-      // construction-time active=false for the whole folded lifetime, so the pill and its hotspot never showed.
+      // The ctrl sits inside `state_unfold`, so it is painted (and re-keyed) even while the shop is folded; the
+      // folded state paints `state_able`, so nothing of it shows until the shop unfolds again.
       this.scene.ctrl.Render(this._BuildCtrlViewData(model));
       this.lastRenderKeys.push('shop_ctrl');
       if (model.unfold) {
@@ -211,9 +209,9 @@ function round(v) {
 }
 
 export function ctrlKey(model) {
-  // foldReward belongs to the ctrl panel too: without it a folded shop whose reminder turns on (or off)
-  // matched the previous key, so the ctrl never re-rendered and the folded pill stayed inactive.
-  return `${model && model.refreshBlocked ? 1 : 0}|${model && model.freezeBlocked ? 1 : 0}|${model && model.foldReward ? 1 : 0}|${JSON.stringify(model && model.reward || null)}`;
+  // The reward pill belongs to the ctrl panel too: a pending offer's label/count must re-render the ctrl even
+  // when refresh/freeze did not move.
+  return `${model && model.refreshBlocked ? 1 : 0}|${model && model.freezeBlocked ? 1 : 0}|${JSON.stringify(model && model.reward || null)}`;
 }
 
 function renderKey(model) {

@@ -132,13 +132,9 @@ function viewFor(stateName) {
     null,
   ];
   if (stateName === 'fold') {
-    // A folded shop with a pending offer and 设置 → 操作「折叠商店时保留奖励按钮」: the reward pill stays on the tab.
-    return {
-      state: 'fold',
-      cardMarks,
-      foldReward: true,
-      reward: { count: 2, visible: false, label: '选择晋升奖励', title: '晋升奖励', micro: 'PROMOTION', sub: '免费选择 1 名', more: null },
-    };
+    // The official folded shop: the whole panel folds away to its 展开 tab, so a pending offer is reachable only
+    // after unfolding (there is no folded reward control).
+    return { state: 'fold', cardMarks };
   }
   if (stateName === 'disable') return { state: 'disable', avalid: false, cardMarks };
   if (stateName === 'armed') {

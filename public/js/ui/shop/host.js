@@ -7,6 +7,9 @@
 // Stage B maps those to the product's actions.* intents.
 
 import { data as productData } from '../../data.js';
+// The one WebGL2 probe this project has (board3d's, also used by ui/stagePreview.js): the preload reads it to
+// keep the theme's faces off a browser that can never mount the canvas.
+import { webgl2Available } from '../../render/board3d/load.js';
 import { settingsStore } from '../settings.js';
 import { themePack, themesReady } from '../../uiTheme.js';
 // Namespace import: `uninstallThemeFontFaces` is an optional export (a missing one must not break this module),
@@ -28,14 +31,13 @@ const CONTROL_HOTSPOT_SPECS = [
   { key: 'fold', paths: ['btn_close', 'fold_hot_spot'], event: 'close' },
   { key: 'refresh', paths: ['btn_refresh/hotspot'], event: 'refresh' },
   { key: 'freeze', paths: ['btn_frozen/hotspot'], event: 'freeze' },
-  // The two reward pills are told apart by their subtree: both are named `btn_reward`, and the folded copy
-  // comes first in the panel, so a bare `btn_reward/hotspot` suffix resolved to the folded node in both
-  // states — leaving the unfolded pill's hotspot unplaced (0×0) while the shop was open.
+  // The reward control lives in the unfolded panel only (folding hides the whole shop, like the official tab).
   { key: 'reward', paths: ['state_unfold/panel_ctrl_btn/btn_reward/hotspot'], event: 'reward' },
-  // The folded shop keeps a copy of the reward pill on the `state_able` tab (设置 → 操作, default off); the
-  // unfolded one is hidden while folded, so the two never show together.
-  { key: 'rewardFold', paths: ['state_able/btn_reward/hotspot'], event: 'reward' },
-  { key: 'levelUp', paths: ['hotspot_normal', 'upgrade'], event: 'levelUp', panel: true },
+  // The panel's three-state upgrade card paints `group_normal` (affordable), `group_disable` (funds short) and
+  // `group_max`; only the first two carry a hotspot. Without the disabled face's own hotspot a player who cannot
+  // pay had no 升级 target at all (nothing focusable, no title, nothing to tap): add it as the fallback after the
+  // able paths. The extracted prefab's disable hotspot is 112×176 and is the only one painted while funds are short.
+  { key: 'levelUp', paths: ['hotspot_normal', 'upgrade', 'panel_unfold/root_layout/group_upgrade/group_disable/hotspot'], event: 'levelUp', panel: true },
 ].map((spec) => Object.freeze({ ...spec, paths: Object.freeze([...spec.paths]) }));
 
 /** The same hotspots, deep-frozen: a caller must not rewire the host at runtime. */
@@ -57,16 +59,17 @@ const CONTROL_LABELS = Object.freeze({
 const AMBIENT_INTERVAL_MS = 1000 / 20;
 
 /**
- * The reward hotspot's accessible name. Minimized, the painted label already names the offer (选择{title}),
- * so it is used as is; while the row is shown (label 稍后) the offer's title is prepended. The DOM bar's
- * header carries the same two facts for the same offer.
+ * The reward hotspot's accessible name. Minimized or on the folded tab, the painted label already names the
+ * offer (选择{title}), so it is used as is; while the row is shown (label 稍后) the offer's title is prepended.
+ * The DOM bar's header carries the same two facts for the same offer. The `label.includes(title)` guard keeps
+ * the folded pill's name from reading 晋升奖励：选择晋升奖励 (its `visible` is still the row's flag).
  * @param {any} reward `view.reward` (ShopCanvas.shopRewardView)
  * @returns {string}
  */
 export function rewardAriaLabel(reward) {
   if (!reward) return t('选择奖励');
   const label = reward.label || t('选择奖励');
-  if (!reward.title || !reward.visible) return label;
+  if (!reward.title || !reward.visible || label.includes(reward.title)) return label;
   return t('{title}：{label}', { title: reward.title, label });
 }
 
@@ -170,13 +173,23 @@ export async function preloadShopRuntime(opts = {}) {
       const docs = await shopDocs.themeShopDocs(local, themeId);
       if (!docs) throw new Error(`theme ${themeId || '(none)'} has no shop documents`);
       let fonts = null;
+      // A browser without the canvas never shows this shop (createShopHost rejects at the stage's
+      // getContext('webgl2')), so it must not fetch, install or await the theme's faces: the sheet used to stay in
+      // document.fonts behind the DOM fallback after the mount failed (NotoSansHans-Medium alone is ~8.4 MB). The
+      // probe drops the one option that changes availability (failIfMajorPerformanceCaveat); the stage's other
+      // context attributes do not affect whether a context exists. `faceList` is kept either way: a host that does
+      // mount (a probe that failed transiently) installs the sheet itself, so the cached runtime cannot pin a
+      // session to the fallback font.
       if (opts.fonts !== false) {
         const faces = shopDocs.themeFonts(local);
-        if (faces.length) shopDocs.installThemeFontFaces(faces);
+        const canMount = webgl2Available(true);
+        if (canMount && faces.length) shopDocs.installThemeFontFaces(faces);
         const families = shopDocs.documentFontFamilies(docs.shop, docs.card, docs.prefabs);
-        await shopDocs.loadDocumentFonts(families, opts.fontTimeoutMs, faces);
-        fonts = { faces: faces.length, families };
-        entry.faceList = faces;
+        if (canMount) {
+          await shopDocs.loadDocumentFonts(families, opts.fontTimeoutMs, faces);
+          fonts = { faces: faces.length, families };
+        }
+        entry.faceList = faces.length ? faces : null;
       }
       entry.docs = docs;
       entry.pack = pack;
@@ -258,9 +271,6 @@ export function viewPaintKey(view) {
     JSON.stringify(view.cardMarks || null),
     JSON.stringify(view.controls || null),
     JSON.stringify(view.reward || null),
-    // The folded shop's copy of the pill is painted from this flag (`state_able/btn_reward`), so a
-    // 设置 → 操作 toggle while folded must repaint even when nothing else on the shop changed.
-    view.foldReward ? 1 : 0,
   ].join('|');
 }
 
@@ -299,9 +309,34 @@ export function cardAriaLabel(card, model, marks) {
       if (marks[key] && marks[key].aria) extra.push(marks[key].aria);
     }
   }
-  const named = extra.length ? `${label}，${extra.join('，')}` : label;
+  // The separator is part of the translated template, not a literal: a full-width 「，」 between the price and
+  // the marks reads as "Bubble, price 0，Skill: …" in an English screen reader. Folding the marks one at a time
+  // through one msgid keeps the order, and a pack that punctuates differently (ja 「、」, en ", ") needs no
+  // punctuation-only entry of its own.
+  const named = extra.reduce((acc, aria) => t('{name}，{marks}', { name: acc, marks: aria }), label);
   if (!card.armed) return named;
   return `${named}${cardBlocked(card, model) ? t('，无法购买') : t('，再次点击确认')}`;
+}
+
+/**
+ * The card hotspot a newly created one must precede so the DOM stays in display order. The map is keyed by the
+ * 0-based display index, and only a card that gains a hotspot is created (a kept card keeps its element), so
+ * insertion is the one reorder path — appending instead put a rebuilt slot 0 after 1..N and Tab walked 1,2,0.
+ * Returns the element of the smallest index above `index` (the map's insertion order is not the display order),
+ * or null to append. Pure, so the ordering is testable without a DOM.
+ * @param {Map<number, any>} cardEls the live hotspot elements by display index
+ * @param {number} index the index being inserted
+ * @returns {any|null} the element to insert before, or null for "append"
+ */
+export function cardHotspotInsertBefore(cardEls, index) {
+  let best = null;
+  let bestIndex = Infinity;
+  for (const [key, el] of cardEls) {
+    if (!(key > index) || key >= bestIndex) continue;
+    best = el;
+    bestIndex = key;
+  }
+  return best;
 }
 
 /**
@@ -341,8 +376,7 @@ export function controlGuardFor(panel, paths) {
  */
 export function controlHotspotVisible(spec, view, hasBox) {
   if (!spec || spec.event !== 'reward') return true;
-  const wanted = spec.key === 'rewardFold' ? !!(view && view.foldReward) : !!(view && view.reward);
-  return wanted && !!hasBox;
+  return !!(view && view.reward) && !!hasBox;
 }
 
 /**
@@ -479,7 +513,6 @@ export async function createShopHost(opts = {}) {
       cardFlags: nextView.cardFlags || null,
       controls: nextView.controls || null,
       reward: nextView.reward || null,
-      foldReward: !!nextView.foldReward,
       ownerSkin: nextView.ownerSkin || null,
     });
   }
@@ -499,8 +532,6 @@ export async function createShopHost(opts = {}) {
     if (freeze) freeze.el.setAttribute('aria-label', t(model && model.isFrozen ? N_('解冻') : N_('冻结')));
     const reward = controlEls.get('reward');
     if (reward) reward.el.setAttribute('aria-label', rewardAriaLabel(model && model.reward));
-    const rewardFold = controlEls.get('rewardFold');
-    if (rewardFold) rewardFold.el.setAttribute('aria-label', rewardAriaLabel(model && model.reward));
     const cards = (model && Array.isArray(model.slots)) ? model.slots : [];
     const marks = (view && Array.isArray(view.cardMarks)) ? view.cardMarks : [];
     for (const [index, el] of cardEls) {
@@ -586,7 +617,10 @@ export async function createShopHost(opts = {}) {
     el.className = 'shop-webgl__slot';
     el.dataset.shopSlot = String(index);
     el.hidden = true;
-    hotspots.append(el);
+    // Insert by display index instead of append: a slot rebuilt after the reward row's empty fronts (稍后, then
+    // 选择) must not move behind the cards that kept their elements, or Tab and the DOM order stop matching the
+    // row. `insertBefore(el, null)` still appends.
+    hotspots.insertBefore(el, cardHotspotInsertBefore(cardEls, index));
     bindHit(el, 'card');
     return el;
   }

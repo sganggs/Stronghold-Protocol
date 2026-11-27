@@ -1209,6 +1209,7 @@
   "这不是干员持有的数据": "This is not Operator Roster data",
   "里面没有干员持有的数据": "It holds no Operator Roster data",
   "{name}，价格 {price}": "{name}, price {price}",
+"{name}，{marks}": "{name}, {marks}",
   "技能 {slot}：{name}": "Skill {slot}: {name}",
   "技能：{name}": "Skill: {name}",
   "目标生命值 {lp}，联防中：漏过的敌人还剩 {left} 个，按现在结算扣除 {pending} 点（每回合至多 {cap} 点）": "LP {lp}, Unite in progress: {left} {left|enemy|enemies} that got through still standing; settling now would cost {pending} LP (max {cap} per round)",
@@ -2615,7 +2616,5 @@
   "{title}：{label}": "{title}: {label}",
   "卡面技能图标展示": "Show skill icon",
   "替补自选标记展示": "Show stand-in / DIY mark",
-  "晋升和持有进度展示": "Show merge and owned progress",
-  "折叠商店时保留奖励按钮": "Keep the reward button on the folded shop",
-  "折叠商店后，如果还有待选奖励，在展开按钮旁保留奖励按钮（显示奖励名和数量）；默认关闭，折叠时和刷新/冻结一起收起。": "While the shop is folded and a reward is pending, keep the reward button next to the unfold button (with the offer's name and count). Off by default: folding hides it together with refresh/freeze."
+  "晋升和持有进度展示": "Show merge and owned progress"
 }

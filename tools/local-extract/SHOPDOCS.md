@@ -131,6 +131,11 @@ byte value for `card.json` or `shop.json`.
   icon lists that `image.file` where a fresh root does not, so two roots can differ on the same client. The recorded
   `shop.json` above comes from such a root: the money icon's record names `sprites/tex_fx_mask_1.webp`
   (`prefabs/autochess_main_money_item`).
+- **Re-extraction into an existing root:** a picture the root already holds is decoded and compared pixel for pixel
+  with the newly extracted one, and rewritten when it differs (`card_prefab._same_raster`). A client hot-update
+  changes a picture without changing its name, so the old bytes must not win by name alone; an unchanged picture
+  keeps its file and its mtime. Re-extracting the same client therefore writes no new picture, and re-extracting
+  an updated one replaces the stale `ext_*` / `tex_*` file instead of keeping it.
 - **Differences from the archived copy (portability + content):** the archived copy's absolute client/lab paths are
   not carried over (`theme_particles_impl.py` requires the caller to set its paths, as
   `theme_particles.enrich_theme` does; `shop_prefab.py` derives the repository root two directories above its own
@@ -138,4 +143,5 @@ byte value for `card.json` or `shop.json`.
   `aklz4.py` are the extractor's own copies rather than duplicates. Content: `card_prefab._shaders` writes no shader
   porting pages (`shaders/*.md`) and no `doc` / `shaderDoc` links; a two-curves MinMaxCurve keeps both curves
   (`mode: "twoCurves"`, `minKeys`); an external sprite whose name repeats gets a numbered `_2` file instead of
-  sharing the first one's; `theme_particles` reports each document's counts separately.
+  sharing the first one's (a texture's `tex_*` file follows the same rule); `theme_particles` reports each
+  document's counts separately.

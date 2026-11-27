@@ -94,7 +94,6 @@ export class AutoChessStylizedShopCtrlPanel {
 
     this.freezeToggle = threeStateToggleOf(this.refs._freezeToggle, this.index);
     this.rewardButton = this.buildRewardButton();
-    this.foldRewardButton = this.buildFoldedRewardButton();
     this.costView = null;
   }
 
@@ -105,26 +104,6 @@ export class AutoChessStylizedShopCtrlPanel {
     if (!template) return null;
     const node = buildRewardButtonNode(template, this.root.path);
     this.root.children = [...(this.root.children || []), node];
-    return node;
-  }
-
-  /**
-   * The folded shop's copy of the reward pill (设置 → 操作, default off): the same prefab button on the
-   * `state_able` root (the tab the shop folds into), left of its 展开 hotspot. It is inactive until the view
-   * publishes `foldReward` (a pending offer, the setting on, and the shop folded), so a folded shop with no
-   * reminder looks exactly as before.
-   */
-  buildFoldedRewardButton() {
-    if (this.foldRewardButton) return this.foldRewardButton;
-    if (!this.rewardButton) return null;
-    const foldRoot = findPath(this.scene.panel, 'state_able');
-    if (!foldRoot) return null;
-    const node = cloneNode(this.rewardButton);
-    repath(node, foldRoot.path, 'btn_reward');
-    // btn_open is 210 wide and centred; sit the 168-wide pill 8 units to its left, on the same baseline.
-    node.rect = { ...(node.rect || {}), sizeDelta: [168, 76], anchoredPosition: [-197, 0] };
-    node.active = false;
-    foldRoot.children = [...(foldRoot.children || []), node];
     return node;
   }
 
@@ -173,15 +152,6 @@ export class AutoChessStylizedShopCtrlPanel {
         const label = reward.label || (reward.visible ? t('稍后') : t('选择奖励'));
         setText(findPath(this.rewardButton, 'group_normal/text'), label);
         setText(findPath(this.rewardButton, 'root_cost/group_free/text_num'), `x${Math.max(1, Number(reward.count) || 1)}`);
-      }
-      if (this.foldRewardButton) {
-        // The folded copy follows the view on its own: it exists precisely for the folded shop, where the
-        // unfolded pill is hidden, so tying it to `reward` left it inactive exactly when it was needed.
-        this.foldRewardButton.active = !!data.foldReward;
-        const foldLabel = (reward && reward.label) || t('选择奖励');
-        setText(findPath(this.foldRewardButton, 'group_normal/text'), foldLabel);
-        setText(findPath(this.foldRewardButton, 'root_cost/group_free/text_num'),
-          `x${Math.max(1, Number(reward && reward.count) || 1)}`);
       }
     }
     const freezeLock = findPath(this.root, 'btn_frozen/group_lock/text');

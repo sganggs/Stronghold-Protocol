@@ -29,6 +29,9 @@ const PY = [process.env.PYTHON, 'python', 'python3', 'py']
       return false;
     }
   });
+// The picture-refresh scenario decodes the written files through the real card_prefab path, so it needs Pillow;
+// the test shards do not install it (the local-extract workflow does), like test/local-extract/skins.test.js.
+const PIL = PY ? spawnSync(PY, ['-c', 'from PIL import Image'], { encoding: 'utf8' }).status === 0 : false;
 const ENV = { ...process.env, PYTHONDONTWRITEBYTECODE: '1' };
 
 // Runs one scenario of fonts.export_fonts (or previous_groups for 'full-run') against a temporary out root.
@@ -78,7 +81,7 @@ elif scenario == 'conflict':
     fonts._read_fonts = source(DATA)
 elif scenario == 'missing':
     fonts._read_fonts = lambda game_data: {}
-elif scenario not in ('full-run', 'full-fonts', 'font-exit', 'hot-update', 'shopdocs', 'theme-files', 'card-shaders', 'bundles', 'font-faces', 'font-face-exit'):
+elif scenario not in ('full-run', 'full-fonts', 'font-exit', 'hot-update', 'shopdocs', 'theme-files', 'card-shaders', 'bundles', 'font-faces', 'font-face-exit', 'picture-refresh'):
     raise SystemExit('unknown scenario ' + scenario)
 
 if scenario == 'full-run':
@@ -439,6 +442,78 @@ elif scenario == 'font-face-exit':
     manifest = json.loads((work / 'manifest.json').read_text(encoding='utf-8')) if (work / 'manifest.json').exists() else {}
     results['manifest_fonts'] = sorted(manifest.get('groups', {}).get('fonts') or {})
     result = results
+elif scenario == 'picture-refresh':
+    # A re-run into a root that already holds the picture (card_prefab._same_raster): unchanged pixels keep the
+    # file and write nothing, a client hot-update's changed pixels are rewritten under the same name — for both an
+    # external sprite (_export_sprite) and a texture (both the extracted and the texture file itself).
+    import autochess_themes
+    import card_prefab
+    from PIL import Image
+
+    out = work / 'theme'
+    real_save = autochess_themes._save_raster
+    saves = []
+
+    def counting_save(image, dest):
+        saves.append(dest.name)
+        return real_save(image, dest)
+
+    autochess_themes._save_raster = counting_save
+    colour = {'v': (10, 0, 0, 255)}
+    autochess_themes._sprite_raster = lambda spr: Image.new('RGBA', (2, 2), colour['v'])
+
+    class Sprite:
+        path_id = 7
+
+        def read(self):
+            return object()
+
+    class Texture:
+        path_id = 8
+
+        def read(self):
+            return type('T', (), {'image': Image.new('RGBA', (2, 2), colour['v'])})
+
+    def export():
+        ctx = {'dest': str(out), 'book': None, 'ext_sprites': {}, 'ext_used': set(), 'files': set(),
+               'tex_files': {}}
+        rel = card_prefab._export_sprite(Sprite(), 'Cost Free', ctx)
+        tex = card_prefab._texture_file(Texture(), 'fx_mask_1', ctx)
+        return {'sprite': rel, 'texture': tex, 'files': sorted(ctx['files'])}
+
+    def digest():
+        return {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted((out / 'sprites').iterdir())}
+
+    runs = [export()]
+    shas = [digest()]
+    runs.append(export())
+    shas.append(digest())
+    colour['v'] = (200, 0, 0, 255)
+    runs.append(export())
+    shas.append(digest())
+
+    # A Pillow without WebP writes x.png where the producer would look for x.webp: the sibling compare must find
+    # that file, keep it and return its .png name instead of rewriting it on every run.
+    png_out = work / 'theme-png'
+    png_saves = []
+
+    def png_save(image, dest):
+        png = dest.with_suffix('.png')
+        png.parent.mkdir(parents=True, exist_ok=True)
+        png_saves.append(png.name)
+        image.save(png, 'PNG')
+        return png.name
+
+    autochess_themes._save_raster = png_save
+
+    def png_export():
+        ctx = {'dest': str(png_out), 'book': None, 'ext_sprites': {}, 'ext_used': set(), 'files': set(),
+               'tex_files': {}}
+        return {'sprite': card_prefab._export_sprite(Sprite(), 'Cost Free', ctx),
+                'texture': card_prefab._texture_file(Texture(), 'fx_mask_1', ctx)}
+
+    result = {'runs': runs, 'shas': shas, 'saves': saves,
+              'pngRuns': [png_export(), png_export()], 'pngSaves': png_saves}
 else:
     manifest = {}
     written = fonts.export_fonts(str(game), str(out), manifest, log)
@@ -629,6 +704,25 @@ test('list_theme_files lists the files a theme producer left out, keeping the li
   assert.deepEqual(result.merged, ['sprites/ext_cost_free.webp', 'sprites/listed.webp', 'theme.json'],
     'the re-run group replaces an old list that still named shaders/x.md');
   assert.ok(!result.logs.some((line) => line.includes('.md')), 'a skipped page is not even logged as listed');
+});
+
+test('a picture already in the output root is kept when unchanged and rewritten when its pixels changed', { skip: (!PY || !PIL) && 'no python with Pillow' }, () => {
+  const result = runDriver('picture-refresh');
+  const sprite = result.runs[0].sprite.split('/').pop();
+  const texture = result.runs[0].texture.split('/').pop();
+  assert.deepEqual(result.runs[0], result.runs[1], 'the same client re-run resolves the same files');
+  assert.deepEqual(result.shas[0], result.shas[1], 'unchanged pixels keep the file bytes (and its mtime)');
+  assert.deepEqual(result.runs[2].files, result.runs[0].files, 'a changed picture keeps its name');
+  assert.notEqual(result.shas[2][sprite], result.shas[0][sprite], 'a hot-updated external sprite replaces the old file');
+  assert.notEqual(result.shas[2][texture], result.shas[0][texture], 'a hot-updated texture replaces the old file');
+  assert.deepEqual(result.saves, [sprite, texture, sprite, texture],
+    'the unchanged re-run writes nothing; both changed pictures are written once each');
+  // A writer without WebP names its files .png: the sibling compare must find them too.
+  assert.match(result.pngRuns[0].sprite, /\.png$/, 'the fallback writer names its PNG');
+  assert.match(result.pngRuns[0].texture, /\.png$/);
+  assert.deepEqual(result.pngRuns[0], result.pngRuns[1], 'the PNG sibling is found on the re-run');
+  assert.deepEqual(result.pngSaves, [result.pngRuns[0].sprite.split('/').pop(), result.pngRuns[0].texture.split('/').pop()],
+    'the fallback run writes each picture once; the re-run writes nothing');
 });
 
 test('the card producer writes no shader pages and card records carry no doc / shaderDoc (S7)', { skip: !PY && 'no python' }, () => {
