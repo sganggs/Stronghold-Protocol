@@ -17,8 +17,9 @@ export const FX_KINDS = Object.freeze({
   frostNova: { a: 'blast', c: 0x9fe6ff, smoke: 0x1c2630 }, sunBurst: { a: 'blast', c: 0xffe28a }, meltdown: { a: 'blast', c: 0xff5a2a, r: 1.5, heavy: true },
   iceSpike: { a: 'blast', c: 0xbfeeff, smoke: 0x1c2630 }, rockfall: { a: 'blast', c: 0xc8a878, smoke: 0x4a3f33 }, rockslide: { a: 'blast', c: 0xc8a878, smoke: 0x4a3f33 },
   finale: { a: 'blast', c: 0xffd45a, r: 1.5 }, swordStorm: { a: 'blast', c: 0xdfe8ff }, swordRain: { a: 'blast', c: 0xdfe8ff }, liberate: { a: 'blast', c: 0xffffff },
-  // 赤刃明霄陈 S3 赤霄·天喟 的龙剑气: a travelling blade, drawn from the sim's per-interval `chen3Wave` events (its own
-  // position + the previous point + direction); `pt` because it is not at the caster (it roams and passes by her tile)
+  // 赤刃明霄陈 S3 赤霄·天喟 的龙剑气: the sim's per-interval `chen3Wave` events (position, previous point, direction).
+  // With 官方特效 the binding (skills.js skchr_chen3_3 `track`) follows them with projectile_chr_chen3_s3's trail and
+  // this archetype is skipped. `pt` / `qi` are the procedural blade when that trail is not installed.
   chen3Wave: { a: 'qi', c: 0xdfe8ff, pt: true },
   quadShot: { a: 'volley', c: 0xfff2d0 }, featherArrow: { a: 'counter', c: 0xfff2d0 },
   burst: { a: 'element', c: 0xd0a0ff },
@@ -94,6 +95,11 @@ export const FX_KINDS = Object.freeze({
   strike: { a: 'strike', c: 0xffe6a8 }, volley: { a: 'volley', c: 0xfff2d0 }, column: { a: 'pillar', c: 0x9ff0dc }, obelisk: { a: 'pillar', c: 0xc9a2ff },
   duskDragon: { a: 'blast', c: 0x9dff6a, r: 1.5 }, shadowWeave: { a: 'vanish', c: 0x8f7bff }, reweave: { a: 'summon', c: 0x8f7bff },
   slash: { a: 'counter', c: 0xfff0d0 }, devour: { a: 'vanish', c: 0xff4b3e }, undying: { a: 'shield', c: 0xffd45a },
+  // 浊心斯卡蒂 S1's transfer flash is the official pair (skills.js skchr_skadi2_1). Explicit `none`: the name matches
+  // the /ward/ guess and would otherwise draw a shield when 官方特效 is off.
+  skadiWard: { a: 'none' },
+  // 百炼嘉维尔 S3's deferred HP-loss loop is the official bleed (skills.js skchr_gvial2_3). `none`: 官方特效 off adds no marker.
+  gvialBleed: { a: 'none' },
   // summon arrival bursts (content/tokens.js burst(): 沙之碑 default, 迷迭香 gear stun, 耀阳 sword, 纸偶)
   summonBurst: { a: 'blast', c: 0xe8c878, smoke: 0x4a3f33 }, summonStun: { a: 'blast', c: 0xcfe0ff, smoke: 0x2a2e36 },
   radiantSword: { a: 'pillar', c: 0xffe8a0 }, paperDoll: { a: 'blast', c: 0xc9a2ff, smoke: 0x2c2436 },

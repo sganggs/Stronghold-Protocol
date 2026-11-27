@@ -57,7 +57,7 @@ export class FxSim {
   simFx(kind, x, y, extra) {
     const ex = extra && typeof extra === 'object' ? extra : {};
     const spec = fxSpec(kind, ex);
-    if (spec.a === 'none') return; // an event the screen does not show (hitCap)
+    if (spec.a === 'none') return; // an event the screen does not show (hitCap, skadiWard, gvialBleed — official layer only)
     const at = spec.pt ? this._point(Number(x), Number(y)) : this._where(Number(x), Number(y), ex);
     if (!Number.isFinite(at.x) || !Number.isFinite(at.y)) return;
     // 蕾缪安 S2: the aimed snipe ('crit' on the locked enemy, from her) ends that aim lock
@@ -178,11 +178,12 @@ export class FxSim {
         }
         break;
       }
-      // a travelling blade (赤刃明霄陈 S3's 龙剑气): a short trail from where it was to where it is, plus a crescent head
-      // turned the way it moves — the sim sends one of these every 0.12 s, and the trail outlives that gap so the
-      // events join into one sweeping wave. A procedural stand-in (the official effect is a particle prefab this client
-      // does not extract). Trail, head and heading share one height; the head is projected after streak(), which
-      // reuses this._p / this._q (projected before it, the head was drawn at the trail's start, one event behind)
+      // a travelling blade (赤刃明霄陈 S3's 龙剑气) when the official trail is not playing (官方特效 off, or
+      // chen3_skill_03_trail_01 not installed — skillfx returns true and skips this case when the trail is drawn):
+      // a short trail from where it was to where it is, plus a crescent head turned the way it moves. The sim sends
+      // one of these every 0.12 s, and the trail outlives that gap so the events join into one sweeping wave.
+      // Trail, head and heading share one height; the head is projected after streak(), which reuses this._p /
+      // this._q (projected before it, the head was drawn at the trail's start, one event behind)
       case 'qi': {
         const z = at.z + 0.35;
         const fx0 = num(ex.fromX, NaN), fy0 = num(ex.fromY, NaN);

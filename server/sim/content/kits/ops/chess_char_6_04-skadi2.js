@@ -142,10 +142,12 @@ function skadi2(bb, chess, def) {
             && inCover(battle, u, t))) return;
           if (ctx.skadiTransferred) return;
           ctx.skadiTransferred = true;
-          reserveTransfer(ctx, share, 'transfer', (amount, tags) => {
+          const moved = reserveTransfer(ctx, share, 'transfer', (amount, tags) => {
             battle.dealHPLose({ source: ctx.source, credit: ctx.credit, target: unit, amount,
               type: 'true', origin: ctx.dmg, tags });
           });
+          // cosmetic fx (round 86): both ON_TAKE_DAMAGE hits of skadi2_s_1[protect], on the ally. No HP change.
+          if (moved > 0) battle.fx('skadiWard', { x: t.x, y: t.y, id: unit.id, target: t.id, skill: 'skadi2:transfer' });
         }, { owner: unit, priority: -2000 });
       }
       // PRTS 伤害减免: per-type strongest flat reduction, at the aura buff's acquisition position.

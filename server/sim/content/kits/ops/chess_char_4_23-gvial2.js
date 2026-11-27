@@ -42,6 +42,8 @@ export default withDefaults({
           const per = debt * iv / fin;
           battle.addBuff(unit, { key: 'gvial:bleed', refresh: 'independent', maxStacks: 10, duration: fin + 1e-6, interval: iv, visible: true,
             onTick: ({ unit: u }) => battle.loseHp(u, per) });
+          // cosmetic fx (round 86): the bleed buff's loop. Index life key is "duration"; our bb's loss window is final_duration.
+          battle.fx('gvialBleed', { x: unit.x, y: unit.y, id: unit.id, duration: fin, skill: 'gvial2:bleed' });
         },
       },
       talents: [

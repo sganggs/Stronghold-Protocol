@@ -1287,7 +1287,8 @@ export class FxWiring {
     const go = () => {
       const now = this.ofx.time;
       if (tgt && !tgt.destroyed) {
-        for (const k of proj.onHit || []) this.playOn(k, tgt, {});
+        // a binding that plays this onHit from the kit's own fx (claimHit: 斩业星熊 S2) does not play it again here
+        for (const k of proj.onHit || []) if (!this.skills.ownsHit(src, k)) this.playOn(k, tgt, {});
         if (rows) {
           const own = new Set((proj.onHit || []).map(lc));
           for (const h of rows) if (!own.has(lc(h.k))) this.playOn(h.k, tgt, { flipFrom: src || undefined, toward: h.along && src ? beyond(src, tgt) : undefined });

@@ -48,8 +48,9 @@
 //   (air too) is hit once per straight run for the larger of hp_ratio × its current HP (the unit's own HP, PRTS) and
 //   projectile_min_atk_scale × her ATK at the hit, arts (RES applies — PRTS "非伤害保底或无视法术抗性"; 普通伤害).
 //   The wave is a kit-managed probe, not a snapshot projectile, so it is shown with `fx('chen3Wave')` events every
-//   WAVE_FX_EVERY s (its position, the previous point and its direction — render/fx 'qi': a procedural blade trail with
-//   a crescent head, not the official particle prefab); before that the 龙剑气 had no visual at all (PR #382). Her
+//   WAVE_FX_EVERY s (its position, the previous point and its direction). The client snaps one copy of
+//   projectile_chr_chen3_s3's trail to those samples when the prefab is installed, and falls back to render/fx 'qi'
+//   (a procedural blade) when it is not; before the events the 龙剑气 had no visual at all (PR #382). Her
 //   begin clips (S1 0.2 s, S3 0.433 s) are not modelled [ASSUMED: the engine starts skills at once].
 
 import { num, talentBb, traitBb, skillRec, statBuff, toggleBuff, up } from '../shared/tier1.js';
@@ -75,8 +76,8 @@ const WAVE_HIT_RADIUS = 1.3;
  * How often the wave's position is sent to the client as an `fx` (`chen3Wave`, carrying the previous point and its
  * direction). The wave is a kit-managed probe (it turns corners and lives as long as the skill), so it is not in the
  * snapshot's projectile list: without these events the client has nothing to draw and the 龙剑气 is invisible (the cast
- * emitted one `dash` puff and each hit a `slash` spark). The rate is the renderer's: each event draws a short blade
- * trail whose life outlasts the gap, so the events join into one continuous wave.
+ * emitted one `dash` puff and each hit a `slash` spark). The client keeps one official trail on the latest sample;
+ * the procedural 'qi' blade still joins the samples when that trail is not installed.
  */
 const WAVE_FX_EVERY = 0.12;
 /** S1's early end: a silence of hers that ends within this of the skill's planned end ended with it. */

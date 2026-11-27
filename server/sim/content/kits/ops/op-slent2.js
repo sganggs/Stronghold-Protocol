@@ -252,7 +252,8 @@ export default {
           c.prevented = true;
           unit.mem.slent2Grave = false;
           battle.addBuff(a, { key: GRAVE_KEY, duration: graveDur, flags: { undying: true }, source: unit, visible: true, tags: ['skill'] });
-          battle.fx('undying', { x: a.x, y: a.y, id: a.id, duration: graveDur });
+          // cosmetic fx (round 86): `src` is her, so the client can play slent2_skill_03_buff_02 on the ally. Kind stays undying.
+          battle.fx('undying', { x: a.x, y: a.y, id: a.id, duration: graveDur, src: unit.id, skill: 'slent2:grave' });
         }, { owner: unit, priority: PRIO_GRAVE });
         // the 不死 window, held whoever opened it (one battle-wide hook, like 坚固维式重锤's running windows)
         once(battle, 'slent2:grave', () => {
