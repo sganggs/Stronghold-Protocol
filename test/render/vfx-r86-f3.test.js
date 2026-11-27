@@ -105,7 +105,7 @@ function nearPoint(actual, expected) {
 
 describe('round 86 f3 bindings', () => {
   test('owners stay id / src / skill, and only the f3 rows claim a sweep key', () => {
-    for (const kinds of Object.values(FX_BINDINGS)) for (const b of Object.values(kinds)) assert.ok(['id', 'src', 'skill'].includes(b.owner));
+    for (const kinds of Object.values(FX_BINDINGS)) for (const b of Object.values(kinds)) assert.ok(['id', 'src', 'skill', 'token'].includes(b.owner), b.owner); // 'token': 机械师 S3's charge (round 86 f5)
     const claimed = ['skchr_yu_2', 'skchr_horn_2', 'skchr_horn_3', 'skchr_lumen_1', 'skchr_judge_2', 'skchr_ines_3', 'skchr_wang_3', 'skchr_wang_2', 'sktok_wang_2'];
     for (const sid of claimed) for (const b of Object.values(FX_BINDINGS[sid])) assert.equal(b.claim, true, sid);
     assert.equal(FX_BINDINGS.skchr_tinman_1.zone.claim, undefined);

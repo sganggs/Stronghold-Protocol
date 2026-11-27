@@ -151,7 +151,7 @@ const keysOf = (handles, from) => handles.slice(from).map((h) => h.key);
 describe('round 86 lane f1 bindings', () => {
   test('fxHit draws nothing, cases keep an owner, and projectile ids are preloaded only when the binding names keys', () => {
     assert.equal(fxSpec('fxHit').a, 'none');
-    for (const kinds of Object.values(FX_BINDINGS)) for (const b of Object.values(kinds)) assert.ok(['id', 'src', 'skill'].includes(b.owner));
+    for (const kinds of Object.values(FX_BINDINGS)) for (const b of Object.values(kinds)) assert.ok(['id', 'src', 'skill', 'token'].includes(b.owner), b.owner); // 'token': 机械师 S3's charge (round 86 f5)
     const aoe = FX_BINDINGS.skchr_phenxi_2.aoe;
     assert.equal(bindList(aoe).length, 2);
     assert.deepEqual(bindList(aoe).map((b) => b.tag), ['phenxi:s2', 'phenxi:mark']);

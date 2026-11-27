@@ -310,7 +310,9 @@ describe('R11: FX_BINDINGS — the official prefab the client plays at the kit f
     assert.deepEqual(BOUND_BY_SKILL.strike, ['skchr_reed2_2']);
     // + the area's tick hit (`hits`, history §37.207): preloaded with the binding
     assert.deepEqual(bindingKeys(idx, 'skchr_tinman_1').sort(), ['tinman_skill_01_hit_01', 'tinman_skill_01_range_01', 'tinman_skill_01_start_01', 'tinman_skill_01_token_01']);
-    for (const kinds of Object.values(FX_BINDINGS)) for (const b of Object.values(kinds)) assert.ok(['id', 'src', 'skill'].includes(b.owner));
+    // 'token' (round 86 f5): skchr_mcnist_3.charge is emitted by the 结构性原理, so the owner
+    // loop cannot look the skill up by id. SkillFx._mcnistCharge reads that binding itself.
+    for (const kinds of Object.values(FX_BINDINGS)) for (const b of Object.values(kinds)) assert.ok(['id', 'src', 'skill', 'token'].includes(b.owner), b.owner);
   });
 });
 

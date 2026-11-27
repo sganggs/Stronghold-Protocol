@@ -91,6 +91,7 @@ import { skillAttackMode } from './skillAttack.js';
 import { MANIFOLD, isManifold, manifoldCopyForm, manifoldAttackForm } from './manifold.js';
 import { diamondTexture, shadowTexture, fxAtlas, tierChip, statusTexture, itemTexture, itemIconTexture, ITEM_ICON, hudRings, ringArc, downLabel, HUD_DISC, ELEMENT_RING } from './textures.js';
 import { COLORS, TIER_COLORS, ENEMY_FRAME, UNIT, PROJ, BENCH_UNIT, BENCH_ITEM, statusIconKey, statusIconSuppressed } from './style.js';
+import { stealthIconCovered } from './vfx/stealthcover.js';
 import { drawCrate, rowDepthKey, ROW_KEY, deviceBoxOf, DEVICE_BOX } from './tiles.js';
 import { startAtkInterval, nextAtkInterval, clampAtkInterval } from './attackRate.js';
 import { FacingState, faceModeFlags, faceModeFor, faceAction } from './facing.js';
@@ -2830,7 +2831,8 @@ export class UnitView {
     if (f & UF.SLEEP) push('sleep');
     if (f & UF.COLD && !(f & UF.FROZEN)) push('cold');
     if (f & UF.INVULN) push('invuln');
-    if (f & UF.STEALTH) push('stealth');
+    // an own camouflage effect (乌啾 S2's 迷彩) hides the shared 隐匿 icon only while it is playing
+    if (f & UF.STEALTH && !stealthIconCovered(this)) push('stealth');
     for (const k of this.statuses) {
       if (out.length >= 4) break;
       if (k === 'skill') continue;

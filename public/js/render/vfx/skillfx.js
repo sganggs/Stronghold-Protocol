@@ -104,6 +104,7 @@ import { projectileParts } from './flight.js';
 import { heatwaveLanes, LANE_BACK, LANE_EXIT, LANE_SPEED } from './lanes.js';
 import { boardToUnity } from './math.js';
 import { fxSpec } from '../fx/kinds.js';
+import { coverStealth, uncoverStealth } from './stealthcover.js';
 import { UF, ANIM } from '../../../../shared/constants.js';
 
 /**
@@ -372,11 +373,26 @@ export class SkillFx {
     else if (e.hold === 'cast' || e.loop) later(this.w.ofx, castS, () => h.stop());
   }
 
-  _stopLoops(U) {
-    for (const h of U.loops) h.stop();
-    U.loops = [];
-    U.loopsOn = false;
+  _stopLoops(U, linger = false) {
+    // 娜斯提 S1: the during-skill loop is also the ON_BUFF_FINISH buff (FX_BINDINGS `linger`). Skill end keeps
+    // that handle; a recast, a death or a release does not pass linger.
+    const keep = linger ? this._lingerKeys(U) : null;
+    const left = [];
+    for (const h of U.loops) {
+      if (keep && h && h.alive !== false && keep.has(lc(h.key))) { left.push(h); continue; }
+      h.stop();
+    }
+    U.loops = left;
+    U.loopsOn = left.length > 0;
     U.byFlag = false;
+  }
+
+  _lingerKeys(U) {
+    const keys = FX_BINDINGS[U?.skillId]?.linger?.keys;
+    if (!Array.isArray(keys)) return null;
+    const out = new Set();
+    for (const k of keys) { const kk = lc(k); if (kk) out.add(kk); }
+    return out.size ? out : null;
   }
 
   _startReady(U, v) {
@@ -457,6 +473,7 @@ export class SkillFx {
       this._stopReady(U);
       this._stopLoops(U);          // a cast while on (onEnd re-cast) starts afresh
       this._stopOwned(U);
+      this._stopTokenLoops(U);
       let drew = false;
       for (const e of uniq([...U.plan.start, ...U.plan.range, ...U.plan.loop])) {
         if (e.birth) continue;     // the deploy's (birthOf: FxWiring.deploy plays it)
@@ -468,6 +485,7 @@ export class SkillFx {
       // an instant skill: what its kit hits in this frame without an attack are its attack's hits (kit hits)
       if (U.plan.kind === 'instant' && perAttack(U.plan).attacks.length) this._open(U, null, true);
       U.loopsOn = true;
+      this._startTokenLoops(U);
       return drew || U.drawsStart || this._noBurst(U);
     }
     const was = U.on === true;
@@ -483,8 +501,9 @@ export class SkillFx {
     }
     // the skill's final attack (tagCasts 'end'): its rows, its hits on this frame's damage (the kit deals it before the 0)
     if (was) this._endCast(U, v);
-    this._stopLoops(U);
+    this._stopLoops(U, true);
     this._stopOwned(U);
+    this._stopTokenLoops(U);
     for (const e of uniq(U.plan.end)) this._keep(U, e, this._play(e, v));
     return U.drawsStart;
   }
@@ -766,6 +785,7 @@ export class SkillFx {
     if (U.ewin) { for (const h of U.ewin.loops) h.stop(); U.ewin = null; }
     this._stopCond(U);
     this._stopLoops(U);
+    this._stopTokenLoops(U);
     this._stopReady(U);
     for (const hs of U.slotLoops) for (const h of hs || []) h.stop();
     U.slotLoops = [];
@@ -811,6 +831,17 @@ export class SkillFx {
     if (fx.ability && !replace) { fx.cast = fx.cast.filter((e) => e.ability !== fx.ability); fx.range = []; fx.aim = []; fx.hit = st.plan.each.hit[0].length ? [st.plan.each.hit[0]] : []; }
     // the projectile its ability fires (index v3: abilities[].projectileKey, a use's projectileKey), else the naming guess
     const projectile = fits && ranged ? fx.projectile || skillProjectile(this.w.idx, st.plan) : null;
+    // 折桠 S2 (FX_BINDINGS onAttack): the blocked blow already names the enemy. The plan has no *Attack
+    // ability, so the hit is not a row. A missing prefab adds nothing — an empty group would swallow the
+    // mode's hit and the generic spark (wiring._landed `own`). A heal is not this blow.
+    const strike = FX_BINDINGS[lc(st.plan.skillId)]?.onAttack;
+    if (strike?.onAttack && !heal && Array.isArray(strike.keys) && strike.keys.length) {
+      const key = lc(strike.keys[0]);
+      if (key && this.w.ofx.lib.has(key)) {
+        const row = { key, at: 'target', role: 'hit', loop: false };
+        fx.hit = fx.hit.length ? fx.hit.map((g) => [...g, row]) : [[row]];
+      }
+    }
     if (!replace && !fx.cast.length && !fx.hit.length && !st.U.tHit.length) return null;
     return { U: st.U, fx, replace, projectile, shot: replace ? fx.shot : null, buffs: st.U.tHit, late: forced };
   }
@@ -938,11 +969,13 @@ export class SkillFx {
       // the effects were cleared (a tier switch) or not drawn: what should run starts again below, quietly
       for (const U of this.units.values()) {
         if (!U) continue;
-        for (const h of [...U.loops, ...U.ready, ...U.slotLoops.flat().filter(Boolean), ...(U.ewin ? U.ewin.loops : [])]) h.stop();
+        for (const h of [...U.loops, ...U.ready, ...U.slotLoops.flat().filter(Boolean), ...(U.ewin ? U.ewin.loops : []), ...(U.f5loops || [])]) h.stop();
         this._stopCond(U);
-        U.loops = []; U.ready = []; U.slotLoops = []; U.loopsOn = false; U.readyOn = false; U.passiveOn = false; U.energy = 0; U.quiet = true;
+        U.loops = []; U.ready = []; U.slotLoops = []; U.f5loops = []; U.loopsOn = false; U.readyOn = false; U.passiveOn = false; U.energy = 0; U.quiet = true;
         U.ewin = null;
       }
+      // the 迷彩 cover and the token loops died with the effects: the generic 隐匿 icon comes back until they restart
+      this._dropCovers();
       for (const t of this.tloops.values()) t.h.stop();
       this.tloops.clear();
       for (const t of this.aloops.values()) t.h.stop();
@@ -1001,12 +1034,15 @@ export class SkillFx {
           if (!U.passiveOn && !U.passiveDone && (!U.timed || (U.on ?? flag))) this._passive(U, v, false);
         } else {
           const on = U.on !== null ? U.on : flag;
-          if (on && !U.loopsOn) this._loopsOnly(U, v, U.on === null);
-          else if (!on && U.loopsOn && U.byFlag) this._stopLoops(U);
+          if (on && !U.loopsOn) {
+            this._loopsOnly(U, v, U.on === null);
+            this._startTokenLoops(U);
+          } else if (!on && U.loopsOn && U.byFlag) this._stopLoops(U, true);
           const ready = U.plan.ready.length > 0 && !on && !flag && v.spMax > 0 && v.sp >= v.spMax - 1e-3;
           if (ready !== U.readyOn) { if (ready) this._startReady(U, v); else this._stopReady(U); }
         }
       }
+      if (U.f5loops?.length) this._pruneTokenLoops(U);
       if (U.charge) this._charge(U, v, Array.isArray(v.energy) ? Math.max(0, Math.floor(Number(v.energy[0]) || 0)) : 0);
       if (U.plan?.cond?.length) this._cond(U, v);
       U.quiet = false;
@@ -1061,10 +1097,17 @@ export class SkillFx {
 
   /** b.ev ['fx', kind, x, y, extra]: true when the official layer stands for it (module header: bindings 1–4). */
   simFx(kind, x, y, extra) {
-    if (!this.active() || !extra || typeof extra !== 'object' || typeof kind !== 'string') return false;
+    if (!extra || typeof extra !== 'object' || typeof kind !== 'string') return false;
+    // a 指挥中心 / 结构性原理 is remembered even while 官方特效 is off: the summon or the shield already happened,
+    // and turning the layer on starts its loop (the kind is not the kit's, so the procedural cue still plays)
+    if (kind === 'summon') this._noteClosurToken(extra);
+    else if (kind === 'shield') this._mcnistTokenBuff(extra);
+    if (!this.active()) return false;
     const now = this.w.ofx.time;
     // a skill start cast with every charge stored (the kit's `charged`: 卡涅利安) — the `[eff_cond]` state (_cond)
     if (extra.charged === true && extra.id != null) { const C = this.units.get(extra.id); if (C) C.charged = true; }
+    // 机械师 S3: the charge names the 结构性原理, whose record is not skchr_mcnist_3, so the owner loop cannot see it
+    if (kind === 'charge' && this._mcnistCharge(x, y, extra)) return true;
     // (0) an enemy's area: its zone's official prefabs at the fx's point, an aura tick its talent loops stand for
     if (this._enemyFx(kind, x, y, extra)) return true;
     // a shell of a lock binding's shooter takes its lock; its landing ends it (the kit's fx, drawn as before)
@@ -1304,10 +1347,32 @@ export class SkillFx {
     if (bind.drift) return this._drift(U, bind, keys, x, y, extra);
     if (bind.track) return this._track(U, bind, keys, x, y, extra);
     if (bind.at === 'target') {
-      // once on the unit the fx names (泡泡's attacker, 归溟幽灵鲨 S1's ally), else where it happens; turned by the owner's side
-      const tv = this.w.view(extra[bind.target || 'target']) || { id: 'fx:point', x, y, z: 0 };
+      // once on the unit the fx names (泡泡's attacker, 归溟幽灵鲨 S1's ally), else where it happens; turned by the owner's side.
+      // A held one (乌啾 S2's 迷彩, hold 'fx') follows that unit for the fx's duration. An explicit 0 stays 0
+      // (the point path below still treats a non-positive duration as holdS). No hold: still a oneshot.
+      const named = extra[bind.target || 'target'];
+      const tv = this.w.view(named) || { id: 'fx:point', x, y, z: 0 };
+      const held = !!(bind.hold && !bind.oneshot);
+      if (!held) {
+        let drew = false;
+        for (const k of keys) if (this.w.playOn(k, tv, { flipFrom: U.v || undefined })) drew = true;
+        return drew;
+      }
+      const bb = U.srec?.bb || {};
+      const raw = extra.duration ?? extra.dur ?? extra.hold;
+      const fxS = Number(raw);
+      const holdS = bind.hold === 'fx'
+        ? (raw != null && Number.isFinite(fxS) && fxS >= 0 ? fxS : bind.holdS || SKILL_CAST_S)
+        : (Number(bb[bind.hold]) > 0 ? Number(bb[bind.hold]) : bind.holdS || SKILL_CAST_S);
       let drew = false;
-      for (const k of keys) if (this.w.playOn(k, tv, { flipFrom: U.v || undefined })) drew = true;
+      for (const k of keys) {
+        const h = this.w.playOn(k, tv, { follow: true, loop: true, important: true, flipFrom: U.v || undefined });
+        if (!h) continue;
+        drew = true;
+        const cover = bind.coverStealth && tv.info ? bind.coverStealth : null;
+        const mark = cover ? this._coverStealth(tv, cover, h) : null;
+        later(this.w.ofx, holdS, () => { h.stop(); if (mark) this._dropCover(mark); });
+      }
       return drew;
     }
     const tv = this.w.view(extra.id);
@@ -1971,7 +2036,11 @@ export class SkillFx {
 
   /** Battle reset: forget every unit (the effects themselves are cleared by OfficialFx.clear). */
   clear() {
-    for (const U of this.units.values()) this._stopOwned(U);
+    for (const U of this.units.values()) {
+      this._stopOwned(U);
+      for (const h of U?.f5loops || []) h.stop?.();
+    }
+    this._dropCovers();
     this.units.clear();
     this.tloops.clear();
     this.marks = [];
@@ -2054,6 +2123,152 @@ export class SkillFx {
     this.f6Hold.set(id, rec);
     later(this.w.ofx, holdS, () => { if (rec.gen === 1) { h.stop(); this.f6Hold.delete(id); } });
     return h;
+  }
+
+  // ---- round 86 f5: 迷彩 cover, token loops, 机械师 S3 charge ----------------------------------------------
+
+  /** Hide the generic 隐匿 icon while `h` plays on `view` for status `key` (stealthcover.js). */
+  _coverStealth(view, key, h) {
+    const mark = { view, key, h, live: true };
+    coverStealth(view, key);
+    (this.stealthCovers ||= []).push(mark);
+    return mark;
+  }
+
+  _dropCover(mark) {
+    if (!mark || !mark.live) return;
+    mark.live = false;
+    uncoverStealth(mark.view, mark.key);
+  }
+
+  _dropCovers() {
+    for (const m of this.stealthCovers || []) {
+      if (m.live) { m.live = false; uncoverStealth(m.view, m.key); }
+      m.h?.stop?.();
+    }
+    this.stealthCovers = [];
+  }
+
+  /**
+   * 可露希尔's 指挥中心 (op-closur.js 'summon': id = the token, src = her, token = its defId). The binding's
+   * kind is `tokenRange`, not `summon`, so this does not swallow the procedural arrival. The range loop
+   * plays on the token while her skill of that id is on.
+   */
+  _noteClosurToken(extra) {
+    if (extra.src == null || extra.id == null) return;
+    let U = this.units.get(extra.src);
+    if (!U) {
+      const sv = this.w.view(extra.src);
+      if (sv) U = this.of(sv);
+    }
+    const b = U && FX_BINDINGS[U.skillId]?.tokenRange;
+    if (!b?.token) return;
+    const tv = this.w.view(extra.id);
+    const def = extra.token || tv?.info?.defId || tv?.info?.spine;
+    if (def !== b.token) return;
+    (U.f5tokens ||= new Set()).add(extra.id);
+    if (this.active() && this._on(U)) this._playTokenLoop(U, b, extra.id);
+  }
+
+  _pruneTokenLoops(U) {
+    const next = [];
+    for (const h of U.f5loops || []) {
+      if (!h || h.alive === false) continue;
+      const tv = this.w.view(h._f5id);
+      if (!tv || tv.alive === false) { h.stop?.(); continue; }
+      next.push(h);
+    }
+    U.f5loops = next;
+  }
+
+  _playTokenLoop(U, b, id) {
+    this._pruneTokenLoops(U);
+    const tv = this.w.view(id);
+    if (!tv || tv.alive === false) return;
+    const key = lc(b?.keys?.[0]);
+    if (!key || !this.w.ofx.lib.has(key)) return;
+    if ((U.f5loops || []).some((h) => h._f5id === id && h.key === key && h.alive !== false)) return;
+    const h = this.w.playOn(key, tv, { follow: true, loop: true, important: true });
+    if (!h) return;
+    h._f5id = id;
+    (U.f5loops ||= []).push(h);
+  }
+
+  _startTokenLoops(U) {
+    const range = FX_BINDINGS[U.skillId]?.tokenRange;
+    const buff = FX_BINDINGS[U.skillId]?.tokenBuff;
+    const b = range || buff;
+    if (!b) return;
+    for (const id of U.f5tokens || []) this._playTokenLoop(U, b, id);
+  }
+
+  _stopTokenLoops(U) {
+    for (const h of U?.f5loops || []) h.stop?.();
+    if (U) U.f5loops = [];
+  }
+
+  /**
+   * 机械师 S2: grantBarrier's 'shield' names the holder. The 结构性原理's copy of mcnist_skill_02_buff_01
+   * (CreateBuffToToken) starts while S2 is on. Kind is `tokenBuff`, not `shield`, so the procedural
+   * barrier stays. [ASSUMED] the first unit in the map whose S2 is on owns a token that just got a shield.
+   */
+  _mcnistTokenBuff(extra) {
+    if (extra.id == null) return;
+    const tv = this.w.view(extra.id);
+    const def = tv?.info?.defId || tv?.info?.spine;
+    if (def !== 'token_10069_mcnist_mcgraf') return;
+    for (const U of this.units.values()) {
+      if (!U || U.skillId !== 'skchr_mcnist_2') continue;
+      const b = FX_BINDINGS[U.skillId]?.tokenBuff;
+      if (!b || b.token !== def) continue;
+      (U.f5tokens ||= new Set()).add(extra.id);
+      if (this.active() && this._on(U)) this._playTokenLoop(U, b, extra.id);
+      break;
+    }
+  }
+
+  /**
+   * 机械师 S3 chargeGraf (op-mcnist.js): the fx id is the token, which the same call then retreats, so the
+   * flight is scheduled from a snapshot (wiring.view is null once it is destroyed). Index delayToStart is
+   * 0.25 s; the kit waits 0.2 s before the damage — the visual uses the index. Facing from the trail names
+   * [ASSUMED: no selector node in the uses]. True only when the trail prefab is installed.
+   */
+  _mcnistCharge(x, y, extra) {
+    const b = FX_BINDINGS.skchr_mcnist_3?.charge;
+    if (!b || extra.kind) return false;
+    const src = this.w.view(extra.id);
+    const def = src?.info?.defId || src?.info?.spine;
+    if (!src || def !== b.token) return false;
+    const dir = String(src.dir || '').toUpperCase();
+    const right = (src.visFacing ?? src.facing ?? 1) >= 0;
+    let pk = b.facing?.LEFT;
+    if (dir === 'RIGHT') pk = b.facing.RIGHT;
+    else if (dir === 'LEFT') pk = b.facing.LEFT;
+    else if (dir === 'UP') pk = right ? b.facing.UP_RIGHT : b.facing.UP;
+    else if (dir === 'DOWN') pk = right ? b.facing.DOWN_RIGHT : b.facing.DOWN;
+    const proj = pk ? this.w.idx?.projectiles?.[lc(pk)] : null;
+    const main = proj && lc(proj.main);
+    if (!main || !this.w.ofx.lib.has(main)) return false;
+    const tx = Number(extra.tx), ty = Number(extra.ty);
+    if (!Number.isFinite(tx) || !Number.isFinite(ty)) return false;
+    const sx = Number.isFinite(src.x) ? src.x : x;
+    const sy = Number.isFinite(src.y) ? src.y : y;
+    const speed = Number(proj.movement?.speed) || 20;
+    const delay = Number(proj.movement?.delayToStart) || 0;
+    const dist = Math.hypot(tx - sx, ty - sy);
+    const dur = Math.min(3, Math.max(0.04, speed > 0 ? dist / speed : 0.04));
+    const origin = {
+      id: src.id ?? src.info?.id, x: sx, y: sy, z: src.z || 0, alive: true,
+      visFacing: src.visFacing, facing: src.facing, dir: src.dir, info: src.info,
+    };
+    const point = { id: `mcnist:${extra.id}:${this.frame}`, x: tx, y: ty, z: 0, alive: true };
+    const go = () => {
+      if (!this.active()) return;
+      this.w._fly(proj, origin, point, 'ranged', this.w.ofx.time, { dur, followUp: true });
+    };
+    if (delay > 0) later(this.w.ofx, delay, go);
+    else go();
+    return true;
   }
 }
 

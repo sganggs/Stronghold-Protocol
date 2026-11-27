@@ -45,6 +45,10 @@ export const FX_KINDS = Object.freeze({
   // a dollkeeper knocked out as its <替身> (sim professions.js): only its model form goes back to the 本体 for the
   // redeploy — the 替身's death clip already shows the knock-out, nothing is drawn
   dollEnd: { a: 'none', c: 0xd8b0ff },
+  // 乌啾 S2 cosmetic signals (ver-turdus.js). Nothing procedural: 官方特效 off stays as it was
+  // (a new 'buff' or 'spark' kind would draw a marker the client did not draw before).
+  turdusCamou: { a: 'none' },
+  turdusHot: { a: 'none' },
   ulpiaReturn: { a: 'blink', c: 0x9ff0dc }, manifoldSplit: { a: 'blink', c: 0xd8b0ff },
   // displacement
   pull: { a: 'move', c: 0x9fd4ff }, push: { a: 'move', c: 0xffd9a0 }, displace: { a: 'move', c: 0xd0c0a0 }, lure: { a: 'move', c: 0xffb3ec },

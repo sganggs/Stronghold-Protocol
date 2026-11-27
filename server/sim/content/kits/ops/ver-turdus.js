@@ -50,7 +50,11 @@ function turdus(_bb, chess) {
             const amount = unit.s.atk * healScale;
             for (const id of ids) {
               const a = b.allyUnits.find((x) => x.id === id);
-              if (a?.alive && a.deployed) b.heal(unit, a, amount, { turdusHoT: true });
+              if (a?.alive && a.deployed) {
+                b.heal(unit, a, amount, { turdusHoT: true });
+                // cosmetic fx (round 86): heal events name only the patient
+                b.fx('turdusHot', { x: a.x, y: a.y, id: unit.id, target: a.id, skill: 'turdus:hot' });
+              }
             }
           }, { owner: unit });
         },
@@ -112,6 +116,8 @@ function turdus(_bb, chess) {
           if (burst.hit.has(a.id)) continue;
           burst.hit.add(a.id);
           battle.applyStatus(a, 'camou', { duration: burst.dur, source: unit });
+          // cosmetic fx (round 86): status events are only ['status', id, 'camou', on] and that key is shared
+          battle.fx('turdusCamou', { x: a.x, y: a.y, id: unit.id, target: a.id, skill: 'turdus:camou', duration: burst.dur });
         }
       };
       battle.on('beforeAttack', (ctx) => {

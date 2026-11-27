@@ -1331,7 +1331,8 @@ export function chargeKeys(plan) {
  * which no plan row places, by skill id → fx kind. render/vfx/skillfx.js plays the binding and the field view skips the
  * procedural fx (it is drawn when none of the binding's prefabs is installed). A binding:
  *   owner       the extra field naming the skill's owner ('id' | 'src'), or 'skill': the fx names no owner (焰影苇草's
- *               fire strikes from its carrier) — the unit whose skill of that id lasts
+ *               fire strikes from its carrier) — the unit whose skill of that id lasts. 'token': the fx's id is a
+ *               token, so the owner loop cannot see the skill; the binding is read by its handler (机械师 S3 charge)
  *   projectile  the skill projectile whose reached effects (onReached, else onHit) play where the fx happens
  *   keys        else these prefabs (an official effect our projectile records do not list as reached: a projectile's
  *               main effect, a skill row the kit's moment stands for; a one-shot of the skill's own: its `at` 'target')
@@ -1406,6 +1407,16 @@ export function chargeKeys(plan) {
  *   untilSkill  a looping effect also stops when the skill ends (the hold is only a cap)
  *   claimHit    these `keys` are also the skill projectile's onHit, and the kit plays them: wiring._arrive does
  *               not play that onHit again (SkillFx.ownsHit)
+ *   onAttack    these `keys` join each blow's hit group while the skill is on (SkillFx.attackFx). Not `attack`
+ *               (that names a plan attack node). The mode's own hits still play. A missing prefab adds nothing
+ *   linger      the skill's loop of these `keys` is the effect an ON_BUFF_FINISH buff keeps: skill end does not
+ *               stop that handle; a recast, a death or a release does (SkillFx._stopLoops)
+ *   coverStealth a status key ('camou'): while this binding's loop actually plays on its target, the generic
+ *               隐匿 icon is hidden for that status (render/vfx/stealthcover.js). Not while a 'stealth' status remains
+ *   token       a token defId this binding's loop follows (可露希尔's 指挥中心, 机械师's 结构性原理). The kind is
+ *               not a kit fx kind, so the procedural summon or shield stays
+ *   projectiles projectile ids a binding flies itself, when no plan attack does. bindingKeys preloads each main
+ *               and its onHit / onReached. `facing` maps a direction to one of them (机械师 S3)
  * The R11 entries (0.3.0 official-effects audit, history §32.14.44) bind a kit area or strike to the official prefab
  * the client plays there: the areas are the skill projectiles' reached effects (the projectile stays where it lands —
  * AuraHitBehaviour — for the area's life), the strikes their hit effects.
@@ -1768,6 +1779,80 @@ export const FX_BINDINGS = Object.freeze({
     aoe: binding({ claim: true, owner: 'id', keys: ['headb2_highground'], at: 'point', oneshot: true, during: true, tag: 'headb2:highland' }),
   }),
   // ---- round 86 f2 end ----
+  // ---- round 86 f5 begin ----
+  // 折桠 S2 (chess_char_2_17-branch.js hitAllBlocked; index UberEffectEmitter._hitEffects node SpAttack,
+  // ability AnimatedActionToTargetAbility — not *Attack, so place() leaves it hit-no-attack). The 'atk'
+  // already names the blocked enemy. SkillFx.attackFx appends this key onto each blow's hit group while
+  // the skill is on. The onStart 'resolve' aoe is the 战栗, not this hit.
+  skchr_branch_2: Object.freeze({
+    onAttack: binding({ owner: 'id', keys: ['branch_skill_02_hit_01'], onAttack: true }),
+  }),
+  // 乌啾 S2 (ver-turdus.js continueChain). Status 'camou' is shared (伪装服 / 忍冬) and heal events
+  // name only the patient, so the kit emits cosmetic fx (round 86) of kinds the procedural table draws
+  // as nothing (FX_KINDS a:'none'): turdusCamou (duration = bonus_duration) and turdusHot.
+  // Index: turdus_s2[try_camouflage] ON_BUFF_TRIGGER CreateBuff on targets, LIMITED bonus_duration —
+  // prefab turdus_skill_02_buff_01 loops, spawn HIT; turdus_s2[continues_heal] ON_BUFF_TRIGGER
+  // CreateEffect tick 1 — turdus_skill_02_hit_01 oneshot, spawn HIT. The skill is instant, so no
+  // `during`. coverStealth 'camou' hides the generic 隐匿 icon only while that loop actually plays.
+  skchr_turdus_2: Object.freeze({
+    turdusCamou: binding({ owner: 'id', keys: ['turdus_skill_02_buff_01'], at: 'target', target: 'target', hold: 'fx', holdS: 10, tag: 'turdus:camou', coverStealth: 'camou' }),
+    turdusHot: binding({ owner: 'id', keys: ['turdus_skill_02_hit_01'], at: 'target', target: 'target', oneshot: true, tag: 'turdus:hot' }),
+  }),
+  // 娜斯提 S1: PassiveBuffAbility ExtraAbility0 already loops nasti_skill_01_common_buff_01 for the skill
+  // (INFINITY, spawn FOOT). BuffDuringSkill nasti_s1[effect_manager] ON_BUFF_FINISH CreateBuff of the same
+  // key, life INFINITY. SkillFx.skill keeps that loop handle after the skill ends (`linger`) and stops it
+  // on recast or release. A second copy is not started.
+  skchr_nasti_1: Object.freeze({
+    linger: binding({ owner: 'id', keys: ['nasti_skill_01_common_buff_01'], linger: true }),
+  }),
+  // 可露希尔 S2/S3: closur_s_2[switch] / closur_s_3[switch] ON_BUFF_START CreateBuffToToken, LIMITED
+  // duration, spawn GROUND. The summon fx (op-closur.js) names the 指挥中心 (id = the token, src = her,
+  // token = token_10066_closur_ourbase) at deploy, not at skill start. Kind is `tokenRange`, not
+  // `summon`, so simFx does not swallow the procedural arrival. SkillFx starts the loop on that token
+  // while the skill lasts.
+  skchr_closur_2: Object.freeze({
+    tokenRange: binding({ owner: 'src', keys: ['token_closur_ourbase_range_02_loop'], token: 'token_10066_closur_ourbase' }),
+  }),
+  skchr_closur_3: Object.freeze({
+    tokenRange: binding({ owner: 'src', keys: ['token_closur_ourbase_range_03_loop'], token: 'token_10066_closur_ourbase' }),
+  }),
+  // 机械师 S2: CreateBuff of mcnist_skill_02_buff_01 on her is already the skill loop. CreateBuffToToken
+  // of the same key (mcnist_s_2_mode, INFINITY, spawn FOOT) is the 结构性原理. grantBarrier's shield fx
+  // names the holder (id only). Kind is `tokenBuff`, not `shield`, so the procedural barrier stays.
+  // SkillFx starts the loop on token_10069_mcnist_mcgraf while S2 is on.
+  skchr_mcnist_2: Object.freeze({
+    tokenBuff: binding({ owner: 'id', keys: ['mcnist_skill_02_buff_01'], token: 'token_10069_mcnist_mcgraf' }),
+  }),
+  // 机械师 S3: the six projectile_chr_mcnist_s3_token* are listed on the skill but no use fires them.
+  // Kit chargeGraf (op-mcnist.js) is the flight (speed 20; index delayToStart 0.25, the kit waits 0.2).
+  // The fx id is the token, so the owner loop cannot see skchr_mcnist_3. SkillFx._mcnistCharge picks
+  // the key from dir + visFacing (trail names: left / right / up_left / up_right / down_left /
+  // down_right) [ASSUMED: the selector node is not in the uses] and flies it with wiring._fly.
+  // onReached token_mcnist_mcgraf_skill_03_hit_01 plays at arrival. The 工程学十字星 aoe is a
+  // different moment and is not these projectiles.
+  skchr_mcnist_3: Object.freeze({
+    charge: binding({
+      owner: 'token',
+      token: 'token_10069_mcnist_mcgraf',
+      projectiles: Object.freeze([
+        'projectile_chr_mcnist_s3_token',
+        'projectile_chr_mcnist_s3_token_right',
+        'projectile_chr_mcnist_s3_token_up',
+        'projectile_chr_mcnist_s3_token_up_right',
+        'projectile_chr_mcnist_s3_token_down',
+        'projectile_chr_mcnist_s3_token_down_right',
+      ]),
+      facing: Object.freeze({
+        LEFT: 'projectile_chr_mcnist_s3_token',
+        RIGHT: 'projectile_chr_mcnist_s3_token_right',
+        UP: 'projectile_chr_mcnist_s3_token_up',
+        UP_RIGHT: 'projectile_chr_mcnist_s3_token_up_right',
+        DOWN: 'projectile_chr_mcnist_s3_token_down',
+        DOWN_RIGHT: 'projectile_chr_mcnist_s3_token_down_right',
+      }),
+    }),
+  }),
+  // ---- round 86 f5 end ----
 });
 
 /**
@@ -1940,6 +2025,15 @@ export function bindingKeys(idx, skillId) {
           const rope = lc(b.fields?._mainEffect);
           if (rope) out.add(rope);
         }
+      }
+      // a projectile the binding flies itself (no plan attack): its trail and the hit it plays on arrival
+      for (const pk of bind.projectiles || []) {
+        const rec = idx?.projectiles?.[lc(pk)];
+        if (!rec) continue;
+        const main = lc(rec.main);
+        if (main) out.add(main);
+        for (const k of rec.onReached || []) if (lc(k)) out.add(lc(k));
+        for (const k of rec.onHit || []) if (lc(k)) out.add(lc(k));
       }
     }
   }
