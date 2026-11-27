@@ -126,7 +126,8 @@ export default {
               setRamp(battle, unit, Math.min(1, s.k / Math.max(1e-6, skill.duration - S3_RAMP_END)));
               if (s.k >= S3_CYCLES) { finish(battle, unit, s); return; }
               const foes = cutTargets(battle, unit);
-              if (foes.length) battle.fx('aoe', { x: unit.x, y: unit.y, radius: 0.6, id: unit.id, skill: 'huang:cut' });
+              // cosmetic fx (round 86): `targets` names each enemy the cut hits, so the client plays the hit on them
+              if (foes.length) battle.fx('aoe', { x: unit.x, y: unit.y, radius: 0.6, id: unit.id, skill: 'huang:cut', targets: foes.map((e) => e.id) });
               for (const e of foes) if (e.alive) battle.dealDamage(unit, e, { amount: unit.s.atk, type: 'phys', isSkill: true, tags: ['skill'] });
             }
           },

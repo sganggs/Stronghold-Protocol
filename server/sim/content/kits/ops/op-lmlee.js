@@ -200,6 +200,8 @@ export default {
             const who = ctx.source ?? ctx.credit;
             const d = ctx.dmg;
             if (!who || who.side !== 'ally' || !d || ctx.type === 'element' || isHpLoss(d) || d.tags?.includes(BURST_TAG)) return;
+            // cosmetic fx (round 86): each counted ally hit on the paper mark, including the one that bursts
+            battle.fx('fxHit', { x: m.target.x, y: m.target.y, id: unit.id, target: m.target.id, skill: 'lmlee:paper' });
             m.n = Math.min(maxN, m.n + 1);
             if (m.n >= maxN) burstMark(battle, unit, m, b2);
           }, { owner: unit, priority: -20 });

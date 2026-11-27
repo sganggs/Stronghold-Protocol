@@ -47,6 +47,8 @@ export default withDefaults({
               L.acc -= 1;
               for (const e of enemiesOnRange(battle, unit)) {
                 battle.dealDamage(unit, e, { amount: unit.s.atk * num(bb.atk_scale, 1), type: 'arts', isSkill: true, tags: ['skill', 'timeLock'] });
+                // cosmetic fx (round 86): the channel hit on each enemy this second damages
+                battle.fx('fxHit', { x: e.x, y: e.y, id: unit.id, target: e.id, skill: 'mostma:s2' });
               }
             }
           },

@@ -92,7 +92,7 @@
 
 import {
   planFor, skillPlan, attackFx as planAttack, slotKey, planKeys, chargeKeys, chargeStep, skillProjectile, targetsOf, buffDuration,
-  eventNum, FX_BINDINGS, bindingEffects, bindingKeys, lifeOf, COND_BUFFS, condState, BOUND_BY_SKILL, coverOf, enemyCoverOf,
+  eventNum, FX_BINDINGS, bindingEffects, bindingKeys, bindList, lifeOf, COND_BUFFS, condState, BOUND_BY_SKILL, coverOf, enemyCoverOf,
   ENEMY_FX_BINDINGS, ENEMY_FX_KINDS, ENEMY_CAST_SHOTS, OWNER_NEAR, auraTargets, enemyBindingKeys, modeLoopKeys,
 } from './skills.js';
 import { projectileParts } from './flight.js';
@@ -100,6 +100,16 @@ import { heatwaveLanes, LANE_BACK, LANE_EXIT, LANE_SPEED } from './lanes.js';
 import { boardToUnity } from './math.js';
 import { fxSpec } from '../fx/kinds.js';
 import { UF, ANIM } from '../../../../shared/constants.js';
+
+/**
+ * The binding a kit fx plays. `cases` (菲亚梅塔 S2's two 'aoe' moments) merge over the entry; the case whose `tag`
+ * equals `extra.skill` plays, and none leaves the fx procedural. A binding without `cases` is itself.
+ */
+function pickBind(raw, extra) {
+  if (!raw) return null;
+  if (!Array.isArray(raw.cases)) return raw;
+  return bindList(raw).find((b) => !b.tag || extra.skill === b.tag) || null;
+}
 
 /** Battle seconds a held (non-oneshot) row of a skill's single cast lasts (FxWiring's CAST_LOOP_S for attacks). */
 export const SKILL_CAST_S = 0.6;
@@ -1058,7 +1068,7 @@ export class SkillFx {
     }
     for (const field of ['src', 'id']) {
       const U = extra[field] != null ? this.units.get(extra[field]) : null;
-      const bind = U ? FX_BINDINGS[U.skillId]?.[kind] : null;
+      const bind = pickBind(U ? FX_BINDINGS[U.skillId]?.[kind] : null, extra);
       if (bind && bind.owner === field && (!bind.during || this._lasts(U)) && (!bind.tag || extra.skill === bind.tag)) {
         if (bind.launch) return this._launch(U, bind, x, y, extra);
         if (bind.lanes) return this._lanes(U, bind, x, y, extra);
@@ -1255,6 +1265,16 @@ export class SkillFx {
   _bound(U, bind, x, y, extra) {
     const keys = bindingEffects(this.w.idx, bind).filter((k) => this.w.ofx.lib.has(k));
     if (!keys.length) return false;
+    // `each` (煌 S3's cut): one oneshot on every unit id the fx names. None of them drawn → the procedural fx stays.
+    if (typeof bind.each === 'string' && Array.isArray(extra?.[bind.each])) {
+      let drew = false;
+      for (const id of extra[bind.each]) {
+        const tv = this.w.view(id);
+        if (!tv) continue;
+        for (const k of keys) if (this.w.playOn(k, tv, { flipFrom: U.v || undefined, important: true })) drew = true;
+      }
+      return drew;
+    }
     if (bind.drift) return this._drift(U, bind, keys, x, y, extra);
     if (bind.at === 'target') {
       // once on the unit the fx names (泡泡's attacker, 归溟幽灵鲨 S1's ally), else where it happens; turned by the owner's side
@@ -1281,6 +1301,8 @@ export class SkillFx {
     if (bind.oneshot) {
       let drew = false;
       for (const k of keys) if (this.w.playOn(k, at, { important: true })) drew = true;
+      // a one-shot that also flies (流形's split: the start at the clone, then the trail from the origin)
+      if (drew && bind.fly) this._flyThrown(U, bind, x, y);
       return drew;
     }
     if (bind.hold === 'lock') return this._lockOn(U, keys, at, tv, x, y);

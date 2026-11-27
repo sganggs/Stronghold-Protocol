@@ -971,7 +971,8 @@ function manifold(bb, raw, def) {
     try { c = battle.spawnToken(unit.ownerUnit ?? unit.ownerId, TOKEN_IDS.manifold, tile[0], tile[1], { duration: splitLife }); } finally { st.spawningClone = false; }
     if (!c) return;
     cloneManifold(battle, c, unit);
-    battle.fx('manifoldSplit', { x: c.x, y: c.y, id: c.id, from: unit.id });
+    // cosmetic fx (round 86): `src` names the origin, so the trail flies from it (`from` stays the blink's owner)
+    battle.fx('manifoldSplit', { x: c.x, y: c.y, id: c.id, from: unit.id, src: unit.id });
   };
   return {
     skill: {

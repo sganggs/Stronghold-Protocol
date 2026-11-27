@@ -223,7 +223,11 @@ function mlyss(bb, chess, def) {
           if (t.mem.mlyss?.ranged) ranged = true;
         }
         if (ranged) { // 刷新所有流形: heal the living ones, respawn the destroyed ones now
-          for (const t of battle.allyUnits.filter((x) => isTok(x, tokId, unit) && live(x))) t.hp = t.s.maxHp;
+          for (const t of battle.allyUnits.filter((x) => isTok(x, tokId, unit) && live(x))) {
+            t.hp = t.s.maxHp;
+            // cosmetic fx (round 86): refresh_01 on each living 流形, only when a copy is ranged
+            battle.fx('fxHit', { x: t.x, y: t.y, id: t.id, skill: 'mlyss:refresh' });
+          }
           for (const p of (S.mlyssPending || []).splice(0)) { p.timer?.cancel?.(); p.spawn(); }
         }
         S.mlyssPulse = battle.every(pulseIv, () => { // melee copies: pull the 8 surrounding tiles + stun blocked units
