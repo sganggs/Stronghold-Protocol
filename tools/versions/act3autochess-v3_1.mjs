@@ -21,6 +21,9 @@
 
 const SPECIAL_HAMMERS = Object.freeze(['eff_acarm045', 'eff_acarm043', 'eff_acarm044', 'eff_acarm042', 'eff_acarm140']);
 
+// One entry per round. null = that round adds no global_effect (the cumulative scale carries forward).
+const roundEffects = (ids) => Object.freeze(ids.map((id) => (id == null ? null : 'aceffect_enemy_' + id)));
+
 export default Object.freeze({
   id: 'act3autochess@V3_1',
   season: 'act3autochess',
@@ -62,10 +65,19 @@ export default Object.freeze({
   // [ASSUMED] Advanced communicators and elite carriers use the same exception; the recording verifies normal on normal only.
   recruitTierExempt: Object.freeze(['chess_char_5_22_a']),
   config: Object.freeze({
-    // One new global_effect per round, in two CN co-op 终极 matches on 2026-11-25 (m06 / m11). See §37.353.
+    // Per-round added aceffect_enemy_* . 终极: one new global_effect per round in two CN co-op matches on
+    // 2026-11-25 (m06 / m11), §37.353. 绝境 / 险境 / 标准: the same public spawn preview
+    // (https://www.lubiao.wiki/tools/garrison-spawn-preview, data script https://www.lubiao.wiki/_nuxt/DQTTtovG.js,
+    // key seq1). That file's covenant-lower.mode_multi_abyss matches 下半 co-op 终极 in data/config.json (research 01
+    // A3) on ATK, HP and move speed for all 15 rounds. [ASSUMED] each list applies on every battlefield of that
+    // co-op mode. Solo stays on 下半's stack counts: the preview has no solo list. Solo 规程等级15–20 share
+    // level_event_1 with co-op 险境/标准, while 绝境 and 终极 both use level_event_2 and still differ, so the event
+    // id does not give a solo list. 标准 is 14 rounds in the preview (no hidden round).
     enemyRoundEffects: Object.freeze({
-      mode_multi_abyss: Object.freeze(['8', '6', '1', '7', '2_2', '7', '7', '9', '16', '2_2', '8', '10', '15', '7', '2_2']
-        .map((id) => 'aceffect_enemy_' + id)),
+      mode_multi_abyss: roundEffects(['8', '6', '1', '7', '2_2', '7', '7', '9', '16', '2_2', '8', '10', '15', '7', '2_2']),
+      mode_multi_hard: roundEffects(['7', '7', null, '7', '2_2', '7', '7', null, '2_2', '2_2', '7', '2_3', '21', '21', '2']),
+      mode_multi_normal: roundEffects(['4', '7', null, '7', '2', '2', '12', '14', '13', '2', '13', '13', '20', null, '2']),
+      mode_multi_funny: roundEffects(['4', '2', null, null, null, '2', null, null, null, null, null, '3', null, null]),
     }),
     hiddenCore: Object.freeze({ single: 350, multi: 1200 }),
     // Bonds greyed per match, from official recordings (2026-11-12). Add-ons: co-op 终极 greys 5 of 16 in all 15 briefings

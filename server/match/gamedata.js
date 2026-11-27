@@ -448,7 +448,8 @@ export class GameData {
 
   /**
    * Per-round enemy effects from config.enemyScale. `supplyHpMul` is the share of HP from effects that
-   * exclude hit-count 器物. Measured 规程 co-op 终极 rows also carry the additive ASPD and common exclusion list.
+   * exclude hit-count 器物. Measured 规程 co-op rows also carry the additive ASPD (0 on 标准 / 险境 / 绝境) and
+   * the common exclusion list.
    */
   baseEnemyScale(r) {
     const e = this.mode.enemyScale && this.mode.enemyScale[String(r)];

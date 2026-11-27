@@ -3353,13 +3353,22 @@ function enemyScaleFor(table, type, difficulty, round, isHidden, steps = { atk: 
   };
 }
 
-/** Fold one observed ENEMY effect per round using the client's buff blackboards. */
+/**
+ * Fold one observed ENEMY effect per round using the client's buff blackboards. A null entry is a round the
+ * preview adds nothing: the cumulative scale carries forward. The first real effect carries the exclusion list
+ * shared by ATK, ASPD, movement and base HP. An HP-only `enemy_attribute_mul` (no `atk`) is the 补给线 share
+ * (`supplyHp`): 频次 器物 and the leader tokens those effects exclude take it back out.
+ */
 function measuredEnemyScale(act, schedule) {
   const scale = { atk: 1, hp: 1, speed: 1, kAtk: 0, kHp: 0 };
   let aspdAdd = 0, supplyHp = 1;
-  // The first effect carries the exclusion list shared by ATK, ASPD, movement and base HP.
-  const excludeEffect = schedule[0];
+  const excludeEffect = schedule.find((id) => typeof id === 'string' && id) ?? null;
+  const snap = () => ({
+    ...scale, atk: cleanNum(scale.atk), hp: cleanNum(scale.hp), speed: cleanNum(scale.speed), aspdAdd, excludeEffect,
+    ...(supplyHp !== 1 ? { supplyHp: cleanNum(supplyHp) } : {}),
+  });
   return schedule.map((id) => {
+    if (id == null) return snap();
     const buffs = act.effectBuffInfoDataDict[id];
     if (!Array.isArray(buffs) || !buffs.length) throw new Error(`Missing enemy round effect: ${id}`);
     for (const buff of buffs) {
@@ -3367,18 +3376,16 @@ function measuredEnemyScale(act, schedule) {
       if (buff.key === 'enemy_attribute_mul') {
         if (bb.atk != null) { scale.atk *= bb.atk; scale.kAtk++; }
         if (bb.max_hp != null) { scale.hp *= bb.max_hp; scale.kHp++; }
-        // The HP-only buffs additionally exclude hit-count 器物, shells and echoes.
         if (bb.atk == null && bb.max_hp != null) supplyHp *= bb.max_hp;
       } else if (buff.key === 'enemy_attribute_add' && bb.attack_speed != null) {
         aspdAdd += bb.attack_speed;
       } else if (buff.key === 'env_gbuff_new' && bb.key === 'enemy_move_speed_mul') {
         scale.speed *= 1 + bb.move_speed;
+      } else {
+        throw new Error(`Unmodelled enemy round buff ${id} ${buff.key}`);
       }
     }
-    return {
-      ...scale, atk: cleanNum(scale.atk), hp: cleanNum(scale.hp), speed: cleanNum(scale.speed), aspdAdd, excludeEffect,
-      ...(supplyHp !== 1 ? { supplyHp: cleanNum(supplyHp) } : {}),
-    };
+    return snap();
   });
 }
 

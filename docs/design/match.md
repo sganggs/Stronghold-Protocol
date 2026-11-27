@@ -194,8 +194,15 @@ only lose their cell, as described above.
 
 Per match: pick stage (weighted among the mode's `config.modes[m].stages`, weight 50 each: 标准 FUNNY = 战场#01 `act1autochess_m01` only, 险境 NORMAL = 8 stages, 绝境 / 终极 = 7 without 战场#01 — `waves.js setupMatchWaves`, `test/match/stagepick.test.js`), 3 of 6 typed enemy factions, disabled bond set (3 core + 4 add-on for NORMAL+, per research), boss (weighted), hidden boss. Per round: wave template (by mode & round) → replace placeholders per research 05 §3.2 algorithm → apply stat multipliers (research 00-INDEX §5 `atk ×base×1.1^k`, `hp ×base×1.2^k`, ABYSS speed ×1.15 from R3) → `SpawnSpec[]` + routes resolved on the stage. *(Superseded by the official generator — §14 "Corrections from research 08/09" and the waves.js header.)* A player's normal battle (and the bot rehearsal) runs `withBounties(gd, round, wave, bounties, playerId)`: the bounty units inserted among their host action's own units, which are re-timed around them (client order); `previewOf` keeps one entry per action (`wave.spawns` + `bountySpawns`).
 
-规程序列Ⅰ同盟终极 uses the observed round-effect sequence (history §37.353). The cumulative HP, ATK and movement
-multipliers and the additive ASPD bonus travel with eligible spawns. The leader's shared HP pool is set separately.
+规程序列Ⅰ同盟终极 uses the observed round-effect sequence (history §37.353). [ASSUMED] 同盟标准 (14 rounds), 险境 and
+绝境 use the same fold of the 路标档案馆 spawn preview's added-effect lists
+(https://www.lubiao.wiki/tools/garrison-spawn-preview, data script https://www.lubiao.wiki/_nuxt/DQTTtovG.js, key
+`seq1`). Those three add no attack speed and no move-speed effect; a round with no new effect keeps the previous
+cumulative scale. The preview's 第二期下半 co-op 终极 list matches research 01 A3. Solo 规程 stays on the 下半 stack
+table: the preview has no solo list, and a shared `level_event_*` does not give one (绝境 and 终极 both use
+`level_event_2` and still differ; solo 规程等级15–20 share `level_event_1` with co-op 险境/标准). The cumulative HP,
+ATK and movement multipliers and the additive ASPD bonus travel with eligible spawns. The leader's shared HP pool is
+set separately.
 
 规程 uses `config.version.rules.bondDraw = 'regulation'` (owner's official play, 2026-11-09;
 the regulation `mode_training_2` stage-info tutorial). Available cores have positive weight and are not in the mode's

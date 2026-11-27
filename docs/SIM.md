@@ -227,8 +227,9 @@ replace the original body for that battle and are selected from the rightmost le
 
 ### 1.2 Enemies, routes, ownership
 
-`SpawnSpec = { time, enemyKey, routeIndex, count=1, interval=0, mods:{hpMul,atkMul,defMul,resMul,speedMul}, sourcePlayerId?,
+`SpawnSpec = { time, enemyKey, routeIndex, count=1, interval=0, mods:{hpMul,atkMul,defMul,resMul,speedMul,aspdAdd?,supplyHpMul?}, sourcePlayerId?,
 bounty?:{coins, ownerPlayerId}, tag?:'boss'|'part'|'escort'|'bounty', ownerPlayerId?, pos?:[r,c], route?:RouteSpec, countInTotal? }`.
+规程 co-op writes those mods from the folded per-round `aceffect_enemy_*` list. 同盟终极 is the 2026-11-25 recording (§37.353). [ASSUMED] 同盟标准 / 险境 / 绝境 use the 路标档案馆 spawn preview (https://www.lubiao.wiki/tools/garrison-spawn-preview, data script https://www.lubiao.wiki/_nuxt/DQTTtovG.js): those three add no attack speed and no move-speed effect. Solo 规程 stays on the 下半 stack table — the preview has no solo list, and a shared `level_event_*` does not give one (绝境 and 终极 both use `level_event_2` and differ). `supplyHpMul` is the HP-only 补给线 share, taken back out of 频次 器物 and excluded leader tokens.
 A spec entry the battle queues (`_queueSpawn`) is `inTotal` when it counts (`countInTotal`, `tag`, data `notCountInTotal`):
 that is the HUD capsule's own set (§1.3); everything content spawns at runtime (a split, a summon — a boss's included —,
 a part) is not, even when it counts for LP (`counted`).
