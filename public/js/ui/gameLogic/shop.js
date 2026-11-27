@@ -228,21 +228,35 @@ export function readyCommandPrompt(priv, { ready = true, autoplay = false } = {}
   return { text: t('本回合的指令还可以使用：拖动右侧的指令到高亮目标。') };
 }
 
+/** Official Regulation confirmation (owner screenshots, 2026-11-27): due overflow is disposed of on battle entry.
+ * Permanent equipment slots are excluded; summons return next prep while their deployed owner remains.
+ * @param {any} priv
+ * @param {{ config?: any, ready?: boolean }} [opts]
+ * @returns {{ text: string } | null}
+ */
+export function readyOverflowPrompt(priv, { config = null, ready = true } = {}) {
+  if (!ready || !isObj(priv) || priv.alive === false || priv.ready || config?.version?.family !== 'regulation') return null;
+  const count = config.version.rules?.equipHand === true ? priv.stashCount : (priv.temp || []).filter(Boolean).length;
+  if (!(count > 0)) return null;
+  return { text: t('当前仍处于临时整备区的干员和装备，将在进入战斗后自动销毁（召唤物仍会在下个休整期出现）。') };
+}
+
 /**
- * One 准备 dialog for both reasons (funds left, a usable command): their sentences in one box, the 「本局不再提醒」 box
- * when the command is one of them. null when neither applies.
+ * One Ready dialog combines overflow, funds and a usable command. Only the command reminder can be muted.
  * @param {ReturnType<typeof readyFundsPrompt>} funds
  * @param {ReturnType<typeof readyCommandPrompt>} command
- * @returns {{ title: string, micro: string, okText: string, cancelText: string, lines: string[], mutable: boolean } | null}
+ * @param {ReturnType<typeof readyOverflowPrompt>} [overflow]
+ * @returns {{ title: string, micro: string, okText: string, cancelText: string, lines: string[], mutable: boolean, danger?: boolean } | null}
  */
-export function readyPrompt(funds, command) {
-  if (!funds && !command) return null;
+export function readyPrompt(funds, command, overflow = null) {
+  if (!funds && !command && !overflow) return null;
   // the command's sentence first: the funds sentence ends with the question
-  const lines = [...(command ? [command.text] : []), funds ? funds.text : t('确定准备就绪吗？')];
+  const lines = [...(overflow ? [overflow.text] : []), ...(command ? [command.text] : []), funds ? funds.text : t('确定准备就绪吗？')];
   return {
-    title: funds && command ? t('准备就绪前') : funds ? funds.title : t('指令未使用'),
-    micro: funds && command ? 'BEFORE READY' : funds ? funds.micro : 'COMMAND READY',
+    title: overflow || (funds && command) ? t('准备就绪前') : funds ? funds.title : t('指令未使用'),
+    micro: overflow || (funds && command) ? 'BEFORE READY' : funds ? funds.micro : 'COMMAND READY',
     okText: t('准备就绪'), cancelText: t('继续整备'), lines, mutable: !!command,
+    ...(overflow ? { danger: true } : {}),
   };
 }
 

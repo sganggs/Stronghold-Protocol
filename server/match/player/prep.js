@@ -78,7 +78,7 @@ export class PlayerPrep {
     if (this.m.phase !== PHASE.PREP) return fail(ERR.WRONG_PHASE);
     if (on && this.personalChoice) return fail(ERR.BAD_TARGET, '请先完成教鞭选择'); // i18n-ignore: developer error detail
     if (on && this.commandDrafts?.length) return fail(ERR.BAD_TARGET, 'command choice pending');
-    if (on && !this.tempEmpty) return fail(ERR.TEMP_NOT_EMPTY);
+    if (on && this.tempBlocksReady) return fail(ERR.TEMP_NOT_EMPTY);
     if (this.ready === !!on) return OK;
     this.ready = !!on;
     // un-ready: the player can act again, so what overflowed — or was offered — while it was ready is due at this

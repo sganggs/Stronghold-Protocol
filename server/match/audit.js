@@ -22,7 +22,7 @@
 //                 level-up moves them right), everything else rerolled with tier ≤ shop level from the unbanned pool,
 //                 freeze toggle released
 //   prep handlers buy / sell / refresh / levelUp pay exactly price / +sell price / refresh price (free first) / level
-//                 price, the level rises by one and its price resets to the next base; Ready only with an empty temp
+//                 price, the level rises by one and its price resets to the next base; Covenant Ready only with an empty temp
 //   merges        a merge consuming a deployed copy puts the elite on that copy's tile (of several, the first in deploy
 //                 order legal for it — board.js mergeTile; a 突变细胞 carrier destroyed before the gain is no copy) with
 //                 its facing, else into the hand / temp; the deploy count never grows (PRTS 卫戍协议/帮助, user playtest
@@ -143,7 +143,7 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
         for (const p of ps.tempPieces()) if (p && (dueOf(ps).get(p.uid) ?? 0) > endedOf(ps)) dueOf(ps).set(p.uid, endedOf(ps));
         for (const o of ps.offers) if ((offerDueOf(ps).get(o) ?? 0) > endedOf(ps)) offerDueOf(ps).set(o, endedOf(ps));
       }
-      if (res && res.ok && on) check('ready', () => { if (!ps.tempEmpty) fail(`${ps.playerId}: ready with a non-empty temp`); });
+      if (res && res.ok && on) check('ready', () => { if (gd.config.version?.family !== 'regulation' && !ps.tempEmpty) fail(`${ps.playerId}: ready with a non-empty temp`); });
       return res;
     });
     wrap(ps, '_rollChessSlot', function (orig) {

@@ -32,6 +32,8 @@ export class PlayerBasics {
   get deployCount() { let n = 0; for (const p of this.board.values()) if (p.kind === 'chess') n++; return n; }
   get equipHand() { return this.gd.config.version?.rules?.equipHand === true; }
   get tempEmpty() { return this.temp.every((x, i) => (this.equipHand && i < TEMP_SIZE) || x == null); }
+  // Official Regulation screenshots (2026-11-27): Ready accepts overflow after client confirmation.
+  get tempBlocksReady() { return !this.tempEmpty && this.gd.config.version?.family !== 'regulation'; }
 
   /**
    * Index of the prep whose deadline resolves a temp piece (compare with `prepsEnded`): recorded when the piece entered

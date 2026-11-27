@@ -138,7 +138,7 @@ import {
   terrainInfo, deviceInfo, deviceTipAt, noteDeviceUnits, deviceUnitsForEntry,
   countdownState, shopBlockReason, stageOverrides, effectiveStage, watchTarget, dropFailureReason,
   previewEnemyKey, prepCamera, prepCameraFor, deployFoldsShop, deployZoomStep, deployZoomRemember, prepDeployCamera, deployFieldOf, fieldTile, panelSide, panelSlots, bondPopupPlace, unitLoadout, deployedRecord,
-  mergeTarget, mergeProgress, modeOffBonds, readyFundsPrompt, readyCommandPrompt, readyPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, roundStartReplay, heldDraftPub,
+  mergeTarget, mergeProgress, modeOffBonds, readyFundsPrompt, readyCommandPrompt, readyOverflowPrompt, readyPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, roundStartReplay, heldDraftPub,
 } from '../ui/gameLogic.js';
 import { toast } from '../ui/toasts.js';
 import { LoadoutButton } from './loadout.js';
@@ -1272,7 +1272,7 @@ function MatchScreen() {
   }, []);
   const removeSpectator = useCallback((playerId) => actions.removeSpectator(playerId), []);
   // 准备 with funds left asks first: the prep's end wipes them (community report #4; not 坎诺特, not at 0 funds, not
-  // under AI 托管 — gameLogic.readyFundsPrompt). The button and Space both come here.
+  // under AI 托管 — gameLogic.readyFundsPrompt). The button and ready shortcut both come here.
   // A usable drag command not used this round asks too, in the same box (gameLogic.readyCommandPrompt, §37.201); its
   // 「本局不再提醒」 box mutes that reason for the rest of this match (this screen's life: a new match mounts it anew).
   const askingReady = useRef(false);
@@ -1283,7 +1283,8 @@ function MatchScreen() {
     const autoplay = !!me?.autoplay;
     const funds = r ? readyFundsPrompt(L.priv, { keptBands: data.get('config')?.economy?.leftoverFundsKeptByBands, autoplay }) : null;
     const command = r && !commandAskMuted.current ? readyCommandPrompt(L.priv, { autoplay }) : null;
-    const ask = readyPrompt(funds, command);
+    const overflow = readyOverflowPrompt(L.priv, { config: data.get('config'), ready: r });
+    const ask = readyPrompt(funds, command, overflow);
     if (ask) {
       if (askingReady.current) return;
       askingReady.current = true;
