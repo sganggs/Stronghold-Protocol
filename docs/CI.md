@@ -41,6 +41,10 @@ node tools/test-timings.mjs report.xml
 node tools/ci-shards.mjs --write --timings report.xml
 ```
 
+2026-11-28 补权重：未计权文件涨到 383 个（按 `defaultMs` 估算占 10%），守卫失败。本机 node 22 的 JUnit 没有 `file`，改用
+node 25 在 CI 同款检出（无素材包）跑一次全量 `JUNIT=… npm test`，只给这 383 个未计权文件写入耗时，并按两边都有的 508 个文件
+（本机 ≥ 50 ms）的中位比值 1.281 换算到 CI 尺度；已有的 CI 权重一个都没改。之后若拿到带 `file` 的 CI 报告，按上面的命令整表重算。
+
 解析器只接受 `<testcase file="…" time="…">`，没有 `file` 的报告拒绝计权，不从用例名猜路径。部分 Node 版本的 JUnit 不提供 `file`；应先取得带文件信息的报告，路径按 test/ 或 plugins/ 归一到仓库。多个报告取每个文件的下中位数；未出现的文件保留原权重。每次改表后重新检查最慢任务墙钟，再决定超时；20 分钟保留 runner 机型差异和负载余量。
 
 ## 改工作流
