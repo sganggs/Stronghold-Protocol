@@ -33,8 +33,13 @@ function christ(_bb, chess, def) {
         if (!anchor) return;
         const x = anchor.x, y = anchor.y;
         const interval = num(sbb.interval, 1);
-        const total = Math.max(1, Math.round(num(sbb.projectile_delay_time, rec?.duration) / Math.max(interval, 1 / 30)));
+        const step = Math.max(interval, 1 / 30);
+        const total = Math.max(1, Math.round(num(sbb.projectile_delay_time, rec?.duration) / step));
         const radius = num(sbb.projectile_range, 1.5);
+        // cosmetic fx (round 86): the client's one ProjectileToTileAbility throws projectile_chr_christ_s2 at this
+        // tile (index skchr_christ_2: Paracurve main christ_skill_02_trail_01, onReached christ_skill_02_range).
+        // The kit lands the pulses with no event, so nothing flew it. No state change.
+        battle.fx('zone', { x, y, radius, dur: total * step, id: unit.id, skill: 'christ:spirit' });
         const arts = num(sbb.atk_scale);
         const ep = num(sbb.atk_scale_ep);
         let n = 0;

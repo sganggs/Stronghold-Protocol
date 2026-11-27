@@ -500,6 +500,10 @@ export class SkillFx {
     if (claimed || !this.windows.length || !this.active()) return false;
     let drew = false;
     for (const win of this.windows) {
+      if (win.strike) {
+        if (!heal && this._strikeHit(win, v)) drew = true;
+        continue;
+      }
       if (win.inst && win.U.attacked) continue;   // the activation made its attack: its rows are that attack's
       const a = win.a || this._instAttack(win.U, heal);
       if (!a || /Heal/.test(String(a.ability || '')) !== !!heal) continue;
@@ -1058,7 +1062,9 @@ export class SkillFx {
       if (bind && bind.owner === field && (!bind.during || this._lasts(U)) && (!bind.tag || extra.skill === bind.tag)) {
         if (bind.launch) return this._launch(U, bind, x, y, extra);
         if (bind.lanes) return this._lanes(U, bind, x, y, extra);
+        if (bind.flight) return this._flight(U, bind, x, y);
         if (bind.ends) this._ends(U, bind.ends, x, y);
+        if (bind.strike) return this._strike(U, bind);
         return bind.attack ? this._boundAttack(U, bind) : this._bound(U, bind, x, y, extra);
       }
     }
@@ -1259,6 +1265,19 @@ export class SkillFx {
     }
     const tv = this.w.view(extra.id);
     const at = bind.at === 'point' || !tv ? this._ground(x, y, tv) : tv;
+    // a buff whose life is the skill's (信仰搅拌机 S2's fatal guard): follow the owner until the skill's loops stop
+    if (bind.hold === 'skill') {
+      const who = tv || U.v;
+      if (!who) return false;
+      let drew = false;
+      for (const k of keys) {
+        const h = this.w.playOn(k, who, { follow: true, loop: true, important: true });
+        if (!h) continue;
+        drew = true;
+        U.loops.push(h);
+      }
+      return drew;
+    }
     if (bind.oneshot) {
       let drew = false;
       for (const k of keys) if (this.w.playOn(k, at, { important: true })) drew = true;
@@ -1318,8 +1337,44 @@ export class SkillFx {
   }
 
   /**
+   * An FX_BINDINGS `flight` entry (乌尔比安 S3's anchor): the fx is the projectile's throw, not a lasting area.
+   * The trail flies from the caster to the fx's point; the landing plays the projectile's own onHit and onReached
+   * (wiring._arrive — bindsReached skips a `flight` binding, so they are not swallowed). False when the trail is
+   * not installed (the procedural fx stays). Not used when an attack of the skill already flies the same projectile.
+   */
+  _flight(U, bind, x, y) {
+    const proj = bind.projectile ? this.w.idx?.projectiles?.[lc(bind.projectile)] : null;
+    const main = proj ? lc(proj.main) : '';
+    if (!proj || !main || !this.w.ofx.lib.has(main) || !U.v || !Number.isFinite(x) || !Number.isFinite(y)) return false;
+    this._flyThrown(U, bind, x, y);
+    return true;
+  }
+
+  /**
+   * An FX_BINDINGS `strike` entry (锏 S2): the fx opens a kit-hit window. Each later unclaimed HP damage of this
+   * frame on an enemy plays `keys` on that enemy (_strikeHit). True when those prefabs are installed — the
+   * procedural fx is skipped — even before a hit lands. [ASSUMED] the kit's damages of that frame are the hits.
+   */
+  _strike(U, bind) {
+    const keys = (bind.keys || []).map(lc).filter((k) => k && this.w.ofx.lib.has(k));
+    if (!keys.length || !U.v) return false;
+    this._mark();
+    this.windows.push({ U, strike: keys, frame: this.frame });
+    return true;
+  }
+
+  /** One unclaimed HP hit of a `strike` window: `keys` on the enemy, once per damage. */
+  _strikeHit(win, t) {
+    const own = win.U?.v;
+    if (!own || !t || t === own || t.destroyed || !!t.isEnemy === !!own.isEnemy) return false;
+    let drew = false;
+    for (const k of win.strike) if (this.w.playOn(k, t, { flipFrom: own })) drew = true;
+    return drew;
+  }
+
+  /**
    * Fly a binding's projectile from the caster to the fx's tile (FX_BINDINGS `fly`: 旅骨's 炼金单元,
-   * 承曦格雷伊's ball). The kit emits the zone and no 'atk', so wiring.attack never starts the trail.
+   * 承曦格雷伊's ball; also `flight`). The kit emits the area and no 'atk', so wiring.attack never starts the trail.
    * Time is distance / the projectile's speed, clamped to 0.04–3 s [ASSUMED: the sim lands the unit at once
    * and does not wait on this flight]. `followUp` keeps the ground point out of the expected-hit table.
    */
@@ -1430,6 +1485,8 @@ export class SkillFx {
     const binds = U ? FX_BINDINGS[U.skillId] : null;
     if (!binds) return false;
     for (const b of Object.values(binds)) {
+      // a `flight` binding leaves onReached to the landing (_flight); swallowing it would drop the burst
+      if (b.flight) continue;
       if (b.at === 'point' && b.projectile && this.w.idx?.projectiles?.[lc(b.projectile)] === proj && (!b.during || this._lasts(U))) return true;
     }
     return false;

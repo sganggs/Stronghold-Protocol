@@ -126,7 +126,9 @@ export default withDefaults({
             unit.hp = pre && pre.dmg === c.dmg ? Math.max(1, Math.min(unit.s.maxHp, pre.hp)) : 1;
             const spent = Math.min(cost, sk.ammoLeft);
             sk.ammoLeft -= spent;
-            battle.fx('shield', { x: unit.x, y: unit.y, id: unit.id, n: spent });
+            // skill tag is cosmetic (round 86): the client plays rmixer_skill_02_start_02 only on this fatal guard,
+            // not on the talent's 'shield'. The event kind stays 'shield'.
+            battle.fx('shield', { x: unit.x, y: unit.y, id: unit.id, n: spent, skill: 'rmixer:s2' });
             if (sk.ammoLeft <= 0) sk.end('ammo');
           }, { owner: unit });
         }

@@ -1333,7 +1333,8 @@ export function chargeKeys(plan) {
  *               `extra.id` names (the fx's point without one)
  *   hold        how long a looping reached effect stays: a blackboard key of our skill record (seconds), 'fx' — the
  *               fx's own `duration` / `dur` / `hold` (the kit's area or lock time) —, 'lock' — a lock mark's: on the
- *               enemy, at its last spot once it is gone, until its shell lands (SkillFx._lockOn) —, else `holdS`
+ *               enemy, at its last spot once it is gone, until its shell lands (SkillFx._lockOn) —, 'skill' — follow
+ *               the owner until the skill's own loops stop (a buff whose life is the skill's) —, else `holdS`
  *   cover       fx kinds of the same owner at that tile that the reached effect draws (skipped while it plays)
  *   during      only while the skill lasts (SkillFx._lasts: on, its activation frame, COVER_AFTER_S after its end, or a
  *               binding of its owner still held — a lasting area's strikes); another fx of that kind is the kit's own
@@ -1342,6 +1343,13 @@ export function chargeKeys(plan) {
  *               projectile's main effect; its onHit plays once when the flight lands (wiring._arrive); onReached stays
  *               with the area (bindsReached). Not set on a skill whose attacks already fly the same projectile — the
  *               trail would play twice
+ *   flight      the fx is the throw itself, not a lasting area (乌尔比安 S3's anchor): fly the projectile from the
+ *               caster to the fx's point (SkillFx._flight). The landing plays the projectile's own onHit and onReached
+ *               (_arrive); bindsReached does not swallow them. Not set when an attack of the skill already flies it
+ *   strike      the fx opens a kit-hit window for this frame (SkillFx._strike): each later unclaimed HP damage on an
+ *               enemy plays `keys` on that enemy. For a hit list of an ability the plan does not call an attack
+ *               (锏 S2, AnimatedActionToTargetAbility). The procedural fx is skipped when those prefabs are installed.
+ *               [ASSUMED] the kit's damages of that frame are the ability's hits
  *   hits        oneshot prefabs of the area's tick (ON_BUFF_TRIGGER), played at the tile once per makeZone pulse for
  *               the zone's time (SkillFx._zoneHits). Not part of `keys`: those loop for the hold. The client plays
  *               them on each enemy in the area; the sim sends no per-enemy fx, so the tile stands for the pulse
@@ -1503,6 +1511,47 @@ export const FX_BINDINGS = Object.freeze({
     zone: binding({ owner: 'id', keys: ['sleach_skill_03_flag_01', 'sleach_skill_03_range_loop_01', 'sleach_skill_03_range_loop_02'], at: 'point', hold: 'fx', holdS: 10, during: true, cover: ['zone'] }),
     aoe: binding({ owner: 'id', keys: ['sleach_skill_03_range_start_01', 'sleach_skill_03_range_start_02'], at: 'point', holdS: 7.5, during: true }),
   }),
+  // ---- round 86 f4 begin ----
+  // 锏 S2 无声的嘲笑 (chess_char_6_19-blkkgt.js onStart: one 'slash', id = her, then dealDamage on each victim, twice,
+  // or three times when blocked). index.json skchr_blkkgt_2: AnimatedActionToTargetAbility is not an attack, so its
+  // UberEffectEmitter._hitEffects blkkgt_skill_02_hit_1 (oneshot, spawn HIT_POINT, duration 7) never plays. `strike`
+  // plays it on each later unclaimed HP hit of this frame. The cast rows blkkgt_skill_02_start_01..06 already play
+  // when the skill turns on. S3's 'slash' stays skchr_blkkgt_3 (attack: 'Damage').
+  skchr_blkkgt_2: Object.freeze({
+    slash: binding({ owner: 'id', keys: ['blkkgt_skill_02_hit_1'], strike: true, during: true }),
+  }),
+  // 阿斯卡纶 S2 恩赐 (op-ascln.js death: 'aoe' at the knocked-out ground enemy, id = her, skill 'ascln:endowment').
+  // index.json skchr_ascln_2 Aura template ascln_s_2[enemy], ON_OWNER_KILLED CreateEffect ascln_skill_02_death_01
+  // (oneshot, spawn GROUND_CENTER, duration 6.5). The circle debuff ascln_buff_01 is CreateBuffInCircleRange on the
+  // living targets; this aoe names no target list, so that looping buff is not played here.
+  skchr_ascln_2: Object.freeze({
+    aoe: binding({ owner: 'id', keys: ['ascln_skill_02_death_01'], at: 'point', oneshot: true, during: true, tag: 'ascln:endowment' }),
+  }),
+  // 乌尔比安 S3 必须开辟的通路 (chess_char_5_05-ulpia.js onStart: 'anchor' at the landing tile, id = him). index.json
+  // skchr_ulpia_3 ability AOEAttack is ProjectileToTileWithExtraActionsAbility, not an attack, so
+  // projectile_chr_ulpia_s3 never flies (AdvancedMovement speed 15, main ulpia_skill_03_trail_01, onReached
+  // ulpia_skill_03_range_01 oneshot duration 8, spawn GROUND). `flight` flies it and the landing plays range_01.
+  // The cast row ulpia_skill_03_range_02 is another prefab and already plays at the skill start. S1's 'anchor' is
+  // skchr_ulpia_1.
+  skchr_ulpia_3: Object.freeze({
+    anchor: binding({ owner: 'id', projectile: 'projectile_chr_ulpia_s3', flight: true, during: true }),
+  }),
+  // 信仰搅拌机 S2 八臂电锯侠 (chess_char_4_01-rmixer.js fatal: 'shield', id = her, n = bullets spent, skill
+  // 'rmixer:s2'). index.json skchr_rmixer_2 template rmixer_sk2, ON_BEFORE_TRY_SET_HP_ZERO CreateEffect
+  // rmixer_skill_02_start_02 on the owner (looping, spawn HIT, duration null — the skill buff). hold 'skill' keeps
+  // it until the skill's loops stop. The talent's 'shield' carries no skill tag and is not this effect.
+  skchr_rmixer_2: Object.freeze({
+    shield: binding({ owner: 'id', keys: ['rmixer_skill_02_start_02'], hold: 'skill', during: true, tag: 'rmixer:s2' }),
+  }),
+  // Miss.Christine S2 狂饮之宴 (ver-christ.js onStart, cosmetic fx round 86: 'zone' at the anchor tile, id = her,
+  // dur = the spirit's window, skill 'christ:spirit'). index.json skchr_christ_2's only ability is
+  // ProjectileToTileAbility of projectile_chr_christ_s2 (Paracurve speed 8, main christ_skill_02_trail_01, onReached
+  // christ_skill_02_range looping spawn GROUND, onHit christ_skill_02_hit_02). Not an attack, so nothing flew it.
+  // `fly` holds the range for the zone and flies the trail; the hit plays when the flight lands.
+  skchr_christ_2: Object.freeze({
+    zone: binding({ owner: 'id', projectile: 'projectile_chr_christ_s2', at: 'point', hold: 'fx', holdS: 20, during: true, cover: ['zone'], fly: true, tag: 'christ:spirit' }),
+  }),
+  // ---- round 86 f4 end ----
 });
 
 /**
@@ -1625,9 +1674,12 @@ export function bindingKeys(idx, skillId) {
     for (const k of bindingEffects(idx, bind)) out.add(k);
     // the tick oneshots and, when the binding flies the shot itself, the trail (preloading; neither is a reached effect)
     for (const k of bind.hits || []) if (lc(k)) out.add(lc(k));
-    if ((bind.fly || bind.launch || bind.lanes) && bind.projectile) {
-      const main = lc(idx?.projectiles?.[lc(bind.projectile)]?.main);
+    if ((bind.fly || bind.launch || bind.lanes || bind.flight) && bind.projectile) {
+      const p = idx?.projectiles?.[lc(bind.projectile)];
+      const main = lc(p?.main);
       if (main) out.add(main);
+      // a throw plays its own landing (onHit / onReached); an area's `fly` leaves those to the held marks
+      if (bind.flight) for (const k of [...(p?.onReached || []), ...(p?.onHit || [])]) if (lc(k)) out.add(lc(k));
     }
   }
   return [...out];
