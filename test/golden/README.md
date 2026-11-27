@@ -82,8 +82,8 @@ counts and its existing Yu exception.
 
 Every moved match was rerun on untouched dev `3f75ad535`; the original stored digest was reproduced in all ten cases.
 
-All 256 regulation scenarios were computed: 246 unchanged and the following 10 matches updated. Roster,
-bonds, fields, stand-ins and DIY remain unchanged. Engine/scheduler errors are zero.
+All 256 regulation scenarios were computed: 246 unchanged and the following 10 matches updated. The roster,
+bonds, fields and DIY sections remain unchanged; stand-ins change only in `coop2-NORMAL-1-unowned-roster` (see the table). Engine/scheduler errors are zero.
 
 | Match (`act3autochess-v3_1/matches.json`) | Changed digest sections | Cause |
 | --- | --- | --- |
