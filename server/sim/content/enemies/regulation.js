@@ -653,7 +653,7 @@ function kitLfkght(ab) {
   const sk = ab.sk.AtkDesWeaken;
   return [
     reborn({ dur: tv(ab, 'reborn.duration', 5) }),
-    timed(sk, (b) => {
+    timed(sk, (b, e) => {
       let best = null;
       for (const u of b.allies()) {
         if (!u.alive) continue;
@@ -661,6 +661,8 @@ function kitLfkght(ab) {
       }
       if (!best) return;
       b.addBuff(best, { key: 'reg:weaken', duration: bb(sk, 'duration', 25), mods: { atkPct: bb(sk, 'atk', -0.5) }, visible: true, status: 'weaken' });
+      // cosmetic fx (round 87): enemy_lfkght_skill_01_hit on that ally. No state and no RNG.
+      b.fx('lfkghtHit', { x: best.x, y: best.y, id: e.id, target: best.id });
     }, { sil: true }),
   ];
 }

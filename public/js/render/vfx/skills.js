@@ -2244,6 +2244,29 @@ export const ENEMY_FX_BINDINGS = Object.freeze({
     }),
   }),
   // ---- round 86 f6 end ----
+  // ---- round 87 h3 begin ----
+  // 锋盔骑士团学徒 / “左手”泰特斯·白杨 AtkDesWeaken (index units.enemy_1104_lfkght.skills.atkdesweaken and
+  // enemy_1104_lfkght_3, the same uses): UberEffectEmitter._hitEffects plays enemy_lfkght_skill_01_hit
+  // (one-shot, spawn FOOT, duration 7) on the AnimatedActionToTargetAbility's target. That ability is not an
+  // attack, so the row is hit-no-attack. kitLfkght already applies reg:weaken to the highest-ATK living ally
+  // at the cast and emits lfkghtHit there.
+  // condition from kit: server/sim/content/enemies/regulation.js:658
+  enemy_1104_lfkght: Object.freeze({
+    lfkghtHit: ebind({ owner: 'id', at: 'target', keys: ['enemy_lfkght_skill_01_hit'], once: true, mark: 'atkdesweaken' }),
+  }),
+  enemy_1104_lfkght_3: Object.freeze({
+    lfkghtHit: ebind({ owner: 'id', at: 'target', keys: ['enemy_lfkght_skill_01_hit'], once: true, mark: 'atkdesweaken' }),
+  }),
+  // 假想敌：铳 隐秘形态 skill 3 (index units.enemy_9017_achunt_2.skills.3): template achunt_line_damage creates
+  // enemy_achunt_chain_hit (one-shot, spawn HIT, duration 8) on its targets at ON_BUFF_TRIGGER. kitGun's hidden
+  // interval already hurts each operator on a gun–spring segment and emits achuntHit on that operator. The base
+  // enemy_9017_achunt has the same index node and is not bound: that form never runs this tick. The faithLink
+  // beam is a different event and stays.
+  // condition from kit: server/sim/content/bosses.js:710
+  enemy_9017_achunt_2: Object.freeze({
+    achuntHit: ebind({ owner: 'id', at: 'target', keys: ['enemy_achunt_chain_hit'], once: true, mark: '3' }),
+  }),
+  // ---- round 87 h3 end ----
 });
 
 /**

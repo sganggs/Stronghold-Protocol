@@ -102,6 +102,11 @@ export const FX_KINDS = Object.freeze({
   // 浊心斯卡蒂 S1's transfer flash is the official pair (skills.js skchr_skadi2_1). Explicit `none`: the name matches
   // the /ward/ guess and would otherwise draw a shield when 官方特效 is off.
   skadiWard: { a: 'none' },
+  // 锋盔 / 泰特斯 AtkDesWeaken's hit on the cut ally (skills.js enemy_1104_lfkght). `none`: 官方特效 off adds no marker.
+  lfkghtHit: { a: 'none' },
+  // 假想敌：铳 (隐秘) skill 3's chain hit on an operator standing on the link (skills.js enemy_9017_achunt_2).
+  // `none`: 官方特效 off adds no marker. The name would otherwise match nothing and fall through to a sparkle.
+  achuntHit: { a: 'none' },
   // 百炼嘉维尔 S3's deferred HP-loss loop is the official bleed (skills.js skchr_gvial2_3). `none`: 官方特效 off adds no marker.
   gvialBleed: { a: 'none' },
   // summon arrival bursts (content/tokens.js burst(): 沙之碑 default, 迷迭香 gear stun, 耀阳 sword, 纸偶)

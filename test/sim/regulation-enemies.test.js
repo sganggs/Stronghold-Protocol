@@ -259,6 +259,9 @@ test('左手泰特斯 halves the highest-ATK operator for 25 s after 10 s and ma
   assert.ok(near(hit.s.atk, 300), 'ATK -50 % (additive atkPct)');
   assert.ok(h.eventsOf('status').some((e) => e[1] === hit.id && e[2] === 'weaken'), 'the client gets the weaken status');
   assert.ok(!h.unit('t_gun').findBuff('reg:weaken'), 'only the highest ATK');
+  const titus = h.enemy(TITUS);
+  assert.ok(h.eventsOf('fx').some((e) => e[1] === 'lfkghtHit' && e[4].id === titus.id && e[4].target === hit.id), 'the cut plays the official hit on that operator');
+  assert.ok(!h.eventsOf('fx').some((e) => e[1] === 'lfkghtHit' && e[4].target === h.unit('t_gun').id));
 });
 
 test('speedup gives allies ASPD only and enemies move speed only; grassland grants stealth; a flyer skips the tile', () => {
@@ -473,6 +476,8 @@ test('锋盔骑士团学徒 weakens the highest ATK after its own 25 s cooldown 
   assert.equal(buff.status, 'weaken');
   assert.ok(near(hit.s.atk, 300), 'ATK -50 % from this row, not from 左手');
   assert.ok(!h.unit('t_gun').findBuff('reg:weaken'));
+  assert.ok(h.eventsOf('fx').some((ev) => ev[1] === 'lfkghtHit' && ev[4].id === e.id && ev[4].target === hit.id), 'the apprentice plays the same hit');
+  assert.ok(!h.eventsOf('fx').some((ev) => ev[1] === 'lfkghtHit' && ev[4].target === h.unit('t_gun').id));
   h.b.kill(e, null);
   assert.equal(e.alive, true);
   assert.equal(e.s.flags.untargetable, true);

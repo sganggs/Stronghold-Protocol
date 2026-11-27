@@ -707,7 +707,11 @@ function kitGun(ab, e, b) {
         for (const sp of b2.enemies) {
           if (!sp.alive || !isSpring(sp)) continue;
           b2.fx('link', { x: e2.x, y: e2.y, from: e2.id, to: sp.id, kind: 'faithLink', dur: s3.bb.interval ?? 1 });
-          for (const u of b2.allies()) if (segDist(u.x, u.y, e2.x, e2.y, sp.x, sp.y) <= LINK_WIDTH) hurt(b2, e2, u, s3.bb.value ?? 0, 'phys', { ignoreSelect: true, tags: ['faithLink'] });
+          for (const u of b2.allies()) if (segDist(u.x, u.y, e2.x, e2.y, sp.x, sp.y) <= LINK_WIDTH) {
+            // cosmetic fx (round 87): enemy_achunt_chain_hit on each operator this tick already hurts. Before hurt, so a killing tick still names a living target. No state and no RNG.
+            b2.fx('achuntHit', { x: u.x, y: u.y, id: e2.id, target: u.id });
+            hurt(b2, e2, u, s3.bb.value ?? 0, 'phys', { ignoreSelect: true, tags: ['faithLink'] });
+          }
         }
       },
     });

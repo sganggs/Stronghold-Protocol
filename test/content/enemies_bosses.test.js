@@ -3037,6 +3037,8 @@ test('假想敌：铳 (隐秘核心): damage ×0.2 while springs live; 盲信之
   const t0 = w.stats.taken;
   h.run(2);
   assert.ok(w.stats.taken - t0 >= skb('enemy_9017_achunt_2', '3').bb.value, 'standing on the link');
+  assert.ok(h.eventsOf('fx').some((e) => e[1] === 'achuntHit' && e[4].id === g.id && e[4].target === w.id), 'the chain hit names the operator the tick already hurts');
+  assert.ok(h.eventsOf('fx').some((e) => e[1] === 'link' && e[4].kind === 'faithLink'), 'the link beam stays');
   const s2 = W.act1autochess_h08_02.overrides.enemy_9017_achunt_2.skills.find((s) => s.prefabKey === '2');
   h.run(s2.initCooldown - h.b.time + 0.2);
   assert.ok(sp.s.flags.invulnerable && sp.mem.ab.dash);
