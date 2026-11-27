@@ -10,6 +10,8 @@ import { fileURLToPath } from 'node:url';
 import { FxWiring } from '../../public/js/render/vfx/wiring.js';
 import { FX_BINDINGS, bindingKeys, skillPlan } from '../../public/js/render/vfx/skills.js';
 import { fxSpec } from '../../public/js/render/fx/kinds.js';
+import { stealthIconCovered } from '../../public/js/render/vfx/stealthcover.js';
+import { UF } from '../../shared/constants.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const INDEX = path.join(ROOT, 'public/assets/local/fx/index.json');
@@ -140,6 +142,7 @@ describe('round 87 lane h1', () => {
     assert.equal(z.at, 'target');
     assert.equal(z.hold, 'fx');
     assert.deepEqual([...z.keys], [ZEBRA]);
+    assert.equal(z.coverStealth, 'camou');
     const v = FX_BINDINGS.skchr_varkis_2.varkisShield;
     assert.equal(v.hold, 'open');
     assert.equal(v.claim, true);
@@ -181,6 +184,25 @@ describe('round 87 lane h1', () => {
     bound('char_4194_rmixer', 'skchr_rmixer_2', GUARD);
     bound('char_4232_hbound', 'skchr_hbound_1', H1);
     bound('char_4232_hbound', 'skchr_hbound_2', H2);
+  });
+
+  test('暴雨 S1\'s loop hides the generic 隐匿 icon only while it plays on an ally with the camou status', async () => {
+    const { w, her, frame, add } = await setup({ skillId: 'skchr_zebra_1', spine: 'char_304_zebra', duration: 0 });
+    const ally = add({ x: 5, y: 6, flags: UF.STEALTH, statuses: new Set(['camou']), info: { spine: 'char_x', defId: 'char_x', side: 'ally', kind: 'op' } });
+    ally.info.id = ally.id;
+    assert.equal(stealthIconCovered(ally), false);
+    assert.equal(w.simFx('zebraCamou', ally.x, ally.y, { id: her.id, target: ally.id, skill: 'zebra:camou', duration: 1 }), true);
+    assert.equal(stealthIconCovered(ally), true, 'the own loop stands for the camouflage');
+    ally.statuses.add('stealth');
+    assert.equal(stealthIconCovered(ally), false, 'a real 隐匿 status keeps the icon');
+    ally.statuses.delete('stealth');
+    for (let i = 0; i < 40; i++) frame();
+    assert.equal(stealthIconCovered(ally), false, 'the loop ended, the icon is back');
+    const off = await setup({ skillId: 'skchr_zebra_1', spine: 'char_304_zebra', active: false });
+    const a2 = off.add({ flags: UF.STEALTH, statuses: new Set(['camou']), info: { spine: 'char_x', defId: 'char_x', side: 'ally', kind: 'op' } });
+    a2.info.id = a2.id;
+    off.w.simFx('zebraCamou', a2.x, a2.y, { id: off.her.id, target: a2.id, skill: 'zebra:camou', duration: 4 });
+    assert.equal(stealthIconCovered(a2), false, '官方特效 off keeps the icon');
   });
 
   test('暴雨 S1 plays zebra_buff_01 on the ally for the fx duration, and not for another skill', async () => {

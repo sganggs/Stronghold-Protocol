@@ -1899,12 +1899,13 @@ export const FX_BINDINGS = Object.freeze({
   // 暴雨 S1 应急迷彩 (ver-zebra.js onHit). Index skchr_zebra_1: AnimatedActionToTargetAbility._activeBuffs →
   // template zebra_s_1, ON_BUFF_TRIGGER CreateBuff zebra_buff_01 on targets, life LIMITED (tick 0.2, no duration key).
   // Prefab zebra_buff_01 loops, _holdByOwner, spawn FOOT. The kit already selects that one ally.
-  // The skill is instant, so no `during`: the buff outlives the cast (rec.duration, else 4).
+  // The skill is instant, so no `during`: the buff outlives the cast (rec.duration, else 4). coverStealth 'camou'
+  // (the buff's status) hides the generic 隐匿 icon while that loop plays, as for 乌啾 S2.
   // condition from kit: server/sim/content/kits/ops/ver-zebra.js:16-24
   skchr_zebra_1: Object.freeze({
     zebraCamou: binding({
       owner: 'id', keys: ['zebra_buff_01'], at: 'target', target: 'target',
-      hold: 'fx', holdS: 4, tag: 'zebra:camou', claim: true,
+      hold: 'fx', holdS: 4, tag: 'zebra:camou', coverStealth: 'camou', claim: true,
     }),
   }),
   // 摆渡人 S2 同胞的意志 (ver-varkis.js pourBarrier). Index skchr_varkis_2: PassiveBuffAbility template
