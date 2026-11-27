@@ -84,7 +84,9 @@
 //       (6) a summon's arrival ('summon' archetypes; a token's arrival burst) on a unit whose official birth effect
 //           FxWiring.deploy drew in that frame (the burst only with the unit's own birth effect): it would repeat it.
 //     FX_BINDINGS entries marked `during` bind only while the skill lasts; an entry with owner 'skill' (the fx names no
-//     owner) is the unit's whose skill of that id lasts. With 官方特效 off or none of an entry's prefabs installed the
+//     owner) is the unit's whose skill of that id lasts. `slots` plays one facing; `until: 'skill'` holds that loop
+//     until the skill ends; `recall` flies a projectile from the fx point back to (tx, ty); `pass` lets a miss fall
+//     through to the later rules. With 官方特效 off or none of an entry's prefabs installed the
 //     procedural fx stays (as the 驭械术士's floating units: render/vfx/funnelfx.js).
 // [ASSUMED] (no client data says): the target-loop duration; a passive is on while deployed; held start rows of a skill
 // stop after SKILL_CAST_S; at most one trigger effect per frame; a release's projectiles leave together with the shot;
@@ -1073,9 +1075,13 @@ export class SkillFx {
         if (bind.launch) return this._launch(U, bind, x, y, extra);
         if (bind.lanes) return this._lanes(U, bind, x, y, extra);
         if (bind.flight) return this._flight(U, bind, x, y);
+        if (bind.recall) return this._recall(U, bind, x, y, extra);
         if (bind.ends) this._ends(U, bind.ends, x, y);
         if (bind.strike) return this._strike(U, bind);
-        return bind.attack ? this._boundAttack(U, bind) : this._bound(U, bind, x, y, extra);
+        if (bind.attack) return this._boundAttack(U, bind);
+        const drew = this._bound(U, bind, x, y, extra);
+        // `pass`: a spark that is not installed does not claim the fx (流明 S1's field stays FX_COVER)
+        if (drew || !bind.pass) return drew;
       }
     }
     // a binding whose fx names no owner: the unit whose skill of that id lasts
@@ -1263,8 +1269,19 @@ export class SkillFx {
    * says; a binding's own `keys` at 'target' once on the unit the fx names.
    */
   _bound(U, bind, x, y, extra) {
-    const keys = bindingEffects(this.w.idx, bind).filter((k) => this.w.ofx.lib.has(k));
-    if (!keys.length) return false;
+    let keys;
+    if (Array.isArray(bind.slots) && bind.slots.some(Boolean)) {
+      // one facing (号角: UP `_back`, else `_front`). A missing chosen prefab plays nothing, not the other facing.
+      const chosen = lc(slotKey({ slots: bind.slots, directionType: bind.directionType || 5, key: bind.slots.find(Boolean) }, U.v?.dir));
+      if (!chosen || !this.w.ofx.lib.has(chosen)) return false;
+      keys = [chosen];
+    } else {
+      const listed = bindingEffects(this.w.idx, bind);
+      keys = listed.filter((k) => this.w.ofx.lib.has(k));
+      // hits-only (流明 S1) has no area keys. A binding whose area keys are simply not installed must not
+      // fall through to its ticks (旅骨: a missing range leaves the procedural zone, and flies no trail).
+      if (!keys.length) return listed.length ? false : this._boundHits(U, bind, x, y, extra);
+    }
     // `each` (煌 S3's cut): one oneshot on every unit id the fx names. None of them drawn → the procedural fx stays.
     if (typeof bind.each === 'string' && Array.isArray(extra?.[bind.each])) {
       let drew = false;
@@ -1306,6 +1323,17 @@ export class SkillFx {
       return drew;
     }
     if (bind.hold === 'lock') return this._lockOn(U, keys, at, tv, x, y);
+    if (bind.until === 'skill') {
+      // a loop on the owner until the skill ends (号角's overload switch), not a timer
+      let drew = false;
+      for (const k of keys) {
+        const h = this.w.playOn(k, at, { follow: true, loop: true, important: true });
+        if (!h) continue;
+        drew = true;
+        U.loops.push(h);
+      }
+      return drew;
+    }
     const bb = U.srec?.bb || {};
     const fxS = Number(extra.duration ?? extra.dur ?? extra.hold);
     const holdS = bind.hold === 'fx' ? (fxS > 0 ? fxS : bind.holdS || SKILL_CAST_S)
@@ -1323,6 +1351,88 @@ export class SkillFx {
     if (bind.fly) this._flyThrown(U, bind, x, y);
     if (bind.hits) this._zoneHits(U, bind, at, holdS);
     return true;
+  }
+
+  /**
+   * A binding with no area keys of its own (流明 S1): its `hits` play at the fx for the hold. False when none of them
+   * is installed, so a `pass` binding falls through (the heal field stays FX_COVER).
+   */
+  _boundHits(U, bind, x, y, extra) {
+    if (!Array.isArray(bind.hits) || !bind.hits.length) return false;
+    const ready = bind.hits.some((k) => { const kk = lc(k); return !!kk && this.w.ofx.lib.has(kk); });
+    if (!ready) return false;
+    const bb = U.srec?.bb || {};
+    const fxS = Number(extra?.duration ?? extra?.dur ?? extra?.hold);
+    const holdS = bind.hold === 'fx' ? (fxS > 0 ? fxS : bind.holdS || SKILL_CAST_S)
+      : Number(bb[bind.hold]) > 0 ? Number(bb[bind.hold]) : bind.holdS || SKILL_CAST_S;
+    if (!(holdS > 0)) return false;
+    const tv = this.w.view(extra?.id);
+    const at = bind.at === 'point' || !tv ? this._ground(x, y, tv) : tv;
+    this._zoneHits(U, bind, at, holdS);
+    return true;
+  }
+
+  /**
+   * An FX_BINDINGS `recall` (伊内丝 S3): the projectile flies from the fx's (x, y) — the sentry — back to (tx, ty) — her.
+   * Not `_fly`, which leaves her muzzle and homes outward. The trail is the projectile's main effect; a HarpoonRenderer
+   * with `_useEndPointAsStartPos` stretches its rope from her to the head. onReached plays on her when it arrives
+   * (`_useTraceTargetWhenReach`); onHit does not (the sim already dealt the path, and the fx names no enemy). False
+   * when neither the trail nor the rope is installed, or (tx, ty) is missing (the procedural beam stays). Time is
+   * distance / the projectile's speed, clamped to 0.04–3 s [ASSUMED: the sim resolves the path in the same tick].
+   */
+  _recall(U, bind, x, y, extra) {
+    const src = U.v;
+    const proj = bind.projectile ? this.w.idx?.projectiles?.[lc(bind.projectile)] : null;
+    const tx = Number(extra?.tx), ty = Number(extra?.ty);
+    if (!src || !proj || !Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(tx) || !Number.isFinite(ty)) return false;
+    const parts = projectileParts(proj);
+    const main = parts.main && this.w.ofx.lib.has(parts.main) ? parts.main : null;
+    const rope = parts.rope && this.w.ofx.lib.has(parts.rope) ? parts.rope : null;
+    if (!main && !rope) return false;
+    const speed = Number(proj.movement?.speed);
+    const dist = Math.hypot(tx - x, ty - y);
+    const dur = speed > 0 && dist > 0 ? Math.min(3, Math.max(0.04, dist / speed)) : 0.04;
+    const from = boardToUnity(x, y, 0);
+    const to = boardToUnity(tx, ty, 0);
+    const ropeFromEnd = (Array.isArray(proj.behaviours) ? proj.behaviours : []).some((b) => b?.class === 'HarpoonRenderer' && Number(b.fields?._useEndPointAsStartPos) === 1);
+    const ropeStart = (ropeFromEnd ? to : from).slice();
+    const yaw = Math.atan2(to[1] - from[1], to[0] - from[0]);
+    const flight = { done: false, main: null, rope: null };
+    const placeAt = (k, out) => {
+      out[0] = from[0] + (to[0] - from[0]) * k;
+      out[1] = from[1] + (to[1] - from[1]) * k;
+      out[2] = from[2] + (to[2] - from[2]) * k;
+      return out;
+    };
+    const paint = (k) => {
+      for (const fx of [flight.main, flight.rope]) {
+        if (!fx || fx.alive === false) continue;
+        placeAt(k, fx.anchor);
+        fx.yaw = yaw; fx.pitch = 0; fx.mirror = false;
+      }
+      if (flight.rope && flight.rope.alive !== false && typeof flight.rope.linkLines === 'function') flight.rope.linkLines(ropeStart, flight.rope.anchor);
+    };
+    const finish = () => {
+      if (flight.done) return;
+      flight.done = true;
+      paint(1);
+      for (const fx of [flight.main, flight.rope]) if (fx && fx.alive !== false) fx.stop({});
+      for (const k of proj.onReached || []) {
+        const key = lc(k);
+        if (key && this.w.ofx.lib.has(key)) this.w.playOn(key, src, { important: true });
+      }
+    };
+    const track = (fx) => {
+      if (flight.done) return;
+      const k = dur > 0 ? Math.min(1, fx.time / dur) : 1;
+      paint(k);
+      if (fx.time >= dur) finish();
+    };
+    const born = (key) => this.w.ofx.spawn(key, { pos: placeAt(0, [0, 0, 0]), yaw, groundZ: 0, rootRot: ID_ROT }, { important: true, track });
+    if (main) flight.main = born(main);
+    if (rope) flight.rope = born(rope);
+    if (flight.rope && typeof flight.rope.linkLines === 'function') flight.rope.linkLines(ropeStart, flight.rope.anchor);
+    return !!(flight.main || flight.rope);
   }
 
   /**

@@ -273,7 +273,7 @@ export const UNMAPPED = Object.freeze({
   'hit-no-attack': "hits of a non-attack ability: no 'atk' event names its targets",
   'channel-hit': "a channel's damage ticks: the sim sends them without a source",
   path: 'a line / path effect: its points come from the game',
-  bound: 'created on the target of the ability: a kit fx binding places it there (FX_BINDINGS `at: \'target\'`)',
+  bound: 'a kit fx binding places it (FX_BINDINGS `at: \'target\'`, or `claim`: the binding lists the key)',
   tiles: 'tile effects on tiles the client is not told',
   other: 'the extractor could not place it in time',
 });
@@ -680,10 +680,13 @@ export function skillPlan(idx, unitKey, skillId, opts = {}) {
   // unit's copy of the same prefabKey is left alone). The row stays in `unmapped` with reason 'bound'.
   const played = enemyPlayedKeys(unitKey, id);
   if (played.size) for (const u of plan.unmapped) if (played.has(lc(u.key)) && u.reason !== 'no-prefab') u.reason = 'bound';
-  // a binding that claims its keys plays that unmapped row (a channel hit, a tick, a token effect). Other skills'
-  // bindings are left as they were: a tick a `hits` list already plays stays 'tick' until that binding claims it.
+  // a binding that claims its keys / hits / slots plays that unmapped row (a channel hit, a tick, a condition, a token
+  // effect). Other skills' bindings are left as they were: a tick a `hits` list already plays stays 'tick' until that
+  // binding claims it.
   const claimed = claimedKeys(id);
-  if (claimed.size) for (const u of plan.unmapped) if (claimed.has(u.key)) u.reason = 'bound';
+  if (claimed.size) for (const u of plan.unmapped) {
+    if (u.reason !== 'no-prefab' && u.reason !== 'bound' && claimed.has(lc(u.key))) u.reason = 'bound';
+  }
   if (isObj(opts.rec)) tagCasts(plan, skill);
   return plan;
 }
@@ -1381,8 +1384,18 @@ export function chargeKeys(plan) {
  *               leaves the fx procedural (skillfx.js pickBind)
  *   each        `keys` play once on every unit id in `extra[each]` (煌 S3's cut names the enemies; the fx stays at her
  *               feet). The sim sends no per-target event of its own
- *   claim       these `keys` are an unmapped row of the skill's plan that this binding plays: skillPlan marks that row
- *               reason 'bound' (the coverage sweep). A binding that sets both `keys` and `projectile` still plays
+ *   slots       four facing prefabs (0 UP, 1 RIGHT, 2 DOWN, 3 LEFT; directionType 5, the deploy facing — slotKey).
+ *               One is played; a missing chosen prefab plays nothing (not another facing). 号角's overload: UP `_back`,
+ *               else `_front` (dirFamilies)
+ *   until       'skill': that prefab loops on the owner and stops with the skill (U.loops), not on a timer
+ *   recall      the projectile flies from the fx's (x, y) back to (tx, ty) (伊内丝 S3's label): its trail and a
+ *               HarpoonRenderer rope (SkillFx._recall). Not `_fly` (that leaves her muzzle). onReached plays on her
+ *               when it arrives; onHit does not (the sim already dealt the path)
+ *   pass        a binding that drew nothing does not claim the fx (the later rules still run — 流明 S1's heal field
+ *               stays FX_COVER when its tick spark is not installed)
+ *   claim       this binding's keys / hits / slots (its cases' too) are rows the plan still lists (tick, conditional,
+ *               hit-no-attack, channel hit, token): skillPlan retags those unmapped rows to `bound` (the coverage sweep).
+ *               Bindings without `claim` are not retagged. A binding that sets both `keys` and `projectile` still plays
  *               `keys`; the projectile id is preloaded so a skill with no attack is not reported as an idle shot
  * The R11 entries (0.3.0 official-effects audit, history §32.14.44) bind a kit area or strike to the official prefab
  * the client plays there: the areas are the skill projectiles' reached effects (the projectile stays where it lands —
@@ -1397,6 +1410,7 @@ const binding = (o) => Object.freeze({
     ...c,
     ...(c.keys ? { keys: Object.freeze(c.keys) } : {}),
   }))) } : {}),
+  ...(o.slots ? { slots: Object.freeze(o.slots) } : {}),
 });
 export const FX_BINDINGS = Object.freeze({
   // Existing kit event supplies the elimination position (no invented projectile collision or ally trigger).
@@ -1629,6 +1643,67 @@ export const FX_BINDINGS = Object.freeze({
     fxHit: binding({ owner: 'id', keys: ['token_10030_mlyss_wtrman_refresh_01'], at: 'point', oneshot: true, tag: 'mlyss:refresh', claim: true }),
   }),
   // ---- round 86 f1 end ----
+  // ---- round 86 f3 begin ----
+  // 余 S2 厚礼上宾: yu_s_2[try_tp] ON_BUFF_TRIGGER CreateEffect on the teleported enemy
+  // (index.json skills.skchr_yu_2). Kit teleport (chess_char_6_03-yu.js): id = the enemy, src = 余.
+  // One shot; the official 0.13 s delay is not modelled.
+  skchr_yu_2: Object.freeze({
+    teleport: binding({ owner: 'src', keys: ['yu_skill2_teleport_02'], at: 'target', target: 'id', during: true, claim: true }),
+  }),
+  // 号角 S2/S3 overload_switch_effect: UP → _back, else _front (dirFamilies, directionType 5).
+  // Loop on her, follow, until the skill ends (U.loops). Kit overload (chess_char_5_08-horn.js), id = her, once.
+  skchr_horn_2: Object.freeze({
+    overload: binding({
+      owner: 'id', during: true, until: 'skill', directionType: 5, claim: true,
+      slots: ['horn_skill_02_buff_03_back', 'horn_skill_02_buff_03_front', 'horn_skill_02_buff_03_front', 'horn_skill_02_buff_03_front'],
+    }),
+  }),
+  skchr_horn_3: Object.freeze({
+    overload: binding({
+      owner: 'id', during: true, until: 'skill', directionType: 5, claim: true,
+      slots: ['horn_skill_03_buff_02_03_back', 'horn_skill_03_buff_02_03_front', 'horn_skill_03_buff_02_03_front', 'horn_skill_03_buff_02_03_front'],
+    }),
+  }),
+  // 流明 S1: lumen_s_1[heal] ON_BUFF_TRIGGER CreateEffect at the field. Kit healField (chess_char_6_14-lumen.js).
+  // Hits only — lumen_skill_01_range stays the plan / FX_COVER field. `pass`: a missing spark does not claim the fx.
+  skchr_lumen_1: Object.freeze({
+    healField: binding({ owner: 'id', hits: ['lumen_skill_01_hit'], at: 'point', hold: 'projectile_life_time', holdS: 4, during: true, pass: true, claim: true }),
+  }),
+  // 斥罪 S2: judge_s_2[aoe] tick, both on her (HIT and SPECIAL_0 — the view, not a ground point).
+  // Kit aoe skill 'judge:atonement' (op-judge.js), once a second.
+  skchr_judge_2: Object.freeze({
+    aoe: binding({
+      owner: 'id', oneshot: true, during: true, tag: 'judge:atonement', claim: true,
+      keys: ['judge_skill_02_weapon_hit_01', 'judge_skill_02_hit_01'],
+    }),
+  }),
+  // 伊内丝 S3: projectile_chr_ines_guard_back flies from the sentry (x, y) back to her (tx, ty).
+  // Kit beam (chess_char_4_04-ines.js). _recall, not _fly. No per-enemy onHit.
+  skchr_ines_3: Object.freeze({
+    beam: binding({ owner: 'id', projectile: 'projectile_chr_ines_guard_back', recall: true, during: true, claim: true }),
+  }),
+  // 望 S3: projectile_chr_wang_stone3 has no main and immediatelyReach. Hit / trigger oneshots at the explode point.
+  // Tag wang_3, owner src (望). No `during` (a 棋子 fires while the skill is equipped). Not flown. The looping tile
+  // marks (wang_passive_01_buff / _buff_02) stay unmapped: the projectile clears them on its one hit, and the summon
+  // is not paired with this explode.
+  skchr_wang_3: Object.freeze({
+    explode: binding({
+      owner: 'src', at: 'point', oneshot: true, tag: 'wang_3', claim: true,
+      keys: ['token_wang_skill_03_hit', 'token_wang_skill_03_hit_02'],
+    }),
+  }),
+  // 望 S2 连星: the live explode is hers (src), tag wang_2. The 棋子 view's skillId is null today (three sktok skills,
+  // no tokens.json record), so this is the binding that plays. The tile stands for the victims [ASSUMED]: the fx names none.
+  skchr_wang_2: Object.freeze({
+    explode: binding({ owner: 'src', keys: ['token_wang_skill_02_hit_02'], at: 'point', oneshot: true, tag: 'wang_2', claim: true }),
+  }),
+  // 棋子 连星 hit, for the sweep and a future token record. owner 'id' so a 跟子 (id = 望) does not match this skill.
+  // At runtime src matches skchr_wang_2 first, so this does not double. The line shape (token_wang_skill_02_hit, is_col /
+  // is_row) is not played: the fx does not say which.
+  sktok_wang_2: Object.freeze({
+    explode: binding({ owner: 'id', keys: ['token_wang_skill_02_hit_02'], at: 'point', oneshot: true, tag: 'wang_2', claim: true }),
+  }),
+  // ---- round 86 f3 end ----
 });
 
 /**
@@ -1765,6 +1840,7 @@ function claimedKeys(skillId) {
       if (!bind.claim) continue;
       for (const k of bind.keys || []) if (lc(k)) out.add(lc(k));
       for (const k of bind.hits || []) if (lc(k)) out.add(lc(k));
+      for (const k of bind.slots || []) if (lc(k)) out.add(lc(k));
     }
   }
   return out;
@@ -1778,6 +1854,7 @@ export function bindingKeys(idx, skillId) {
       for (const k of bindingEffects(idx, bind)) out.add(k);
       // the tick oneshots and, when the binding flies the shot itself, the trail (preloading; neither is a reached effect)
       for (const k of bind.hits || []) if (lc(k)) out.add(lc(k));
+      for (const k of bind.slots || []) if (lc(k)) out.add(lc(k));
       // `keys` win in bindingEffects, so a binding that also names its projectile still preloads that id (a skill with
       // no attack is not an idle shot: 菲亚梅塔 S2, 琴柳 S3's s3_2, 流形). A binding without `keys` is unchanged.
       if (Array.isArray(bind.keys) && lc(bind.projectile)) out.add(lc(bind.projectile));
@@ -1787,6 +1864,17 @@ export function bindingKeys(idx, skillId) {
         if (main) out.add(main);
         // a throw plays its own landing (onHit / onReached); an area's `fly` leaves those to the held marks
         if (bind.flight) for (const k of [...(p?.onReached || []), ...(p?.onHit || [])]) if (lc(k)) out.add(lc(k));
+      }
+      // a recall flies the trail and the harpoon rope; onReached is already in bindingEffects
+      if (bind.recall && bind.projectile) {
+        const proj = idx?.projectiles?.[lc(bind.projectile)];
+        const main = lc(proj?.main);
+        if (main) out.add(main);
+        for (const b of Array.isArray(proj?.behaviours) ? proj.behaviours : []) {
+          if (b?.class !== 'HarpoonRenderer') continue;
+          const rope = lc(b.fields?._mainEffect);
+          if (rope) out.add(rope);
+        }
       }
     }
   }
