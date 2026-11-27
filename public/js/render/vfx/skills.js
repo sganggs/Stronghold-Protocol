@@ -1853,6 +1853,14 @@ export const FX_BINDINGS = Object.freeze({
     }),
   }),
   // ---- round 86 f5 end ----
+  // ---- round 86 g11 begin ----
+  // 星熊 S3 力之锯 (chess_char_4_17-hsguma.js onTick): every 1 s she deals phys to each ground enemy on the tile in
+  // front and emits 'fxHit' on that enemy. ChannelingMeleeAttack's hsguma_skill_03_hit (one-shot, from
+  // ChannelingEffectEmitter._hitEffect) is that tick. The start loop and the buff stay the skill's own rows.
+  skchr_hsguma_3: Object.freeze({
+    fxHit: binding({ owner: 'id', keys: ['hsguma_skill_03_hit'], at: 'target', tag: 'hsguma:s3', during: true, claim: true }),
+  }),
+  // ---- round 86 g11 end ----
 });
 
 /**

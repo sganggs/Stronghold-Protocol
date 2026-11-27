@@ -804,11 +804,82 @@ test('星熊 S1 战意 (TAKE_DAMAGE: DEF/ATK up, no thorns) and S3 力之锯 (AT
     h.step();
     u = h.unit(id);
     const es = [h.spawn('enemy_dummy', { pos: [10, 5] }), h.spawn('enemy_dummy', { pos: [10, 5] }), h.spawn('enemy_dummy', { pos: [10, 5] })];
+    const far = h.spawn('enemy_dummy', { pos: [10, 7] });
     assert.ok(u.skill.activate('test', { free: true }));
     approx(u.s.atk, u.base.atk * (1 + b3.atk), 1e-6, 'S3 ATK');
-    assert.ok(h.runUntil(() => h.hooksOf('attack').some((c) => c.attacker === u), 5));
-    assert.equal(h.hooksOf('attack').find((c) => c.attacker === u).targets.length, es.length, 'all enemies in front');
+    const talentDef = u.findBuff('hsguma:def') ? D(id, 2).talents[1].bb.def : 0;
+    approx(u.s.def, u.base.def * (1 + b3.def + talentDef), 1e-6, 'S3 DEF');
+    h.run(0.5);
+    assert.equal(dmgBy(h, u, tagged('hsguma:s3')).length, 0, `${id}: no cut in the first half-second`);
+    h.run(0.5);
+    const cuts = dmgBy(h, u, tagged('hsguma:s3'));
+    assert.equal(cuts.length, es.length, `${id}: one cut on each enemy in front`);
+    assert.ok(cuts.every((c) => es.includes(c.target) && c.dmg.type === 'phys' && Math.abs(c.dmg.amount - u.s.atk) < 1e-4), `${id}: 100% current ATK phys`);
+    assert.equal(cuts.some((c) => c.target === far), false, `${id}: not two tiles ahead`);
+    assert.equal(h.hooksOf('attack').filter((c) => c.attacker === u).length, 0, `${id}: the channel replaces her attacks`);
   }
+});
+
+test('星熊 S3 力之锯: cuts once a second on the front tile, ignores flyers and her own tile, then she attacks again', () => {
+  const id = 'chess_char_4_17_a';
+  const h = battle([U(id, 10, 4, 2)], {
+    enemies: {
+      enemy_fly: dummy({ key: 'enemy_fly', motion: 'FLY' }),
+      enemy_arm: dummy({ key: 'enemy_arm', def: 800 }),
+    },
+  });
+  h.step();
+  const u = h.unit(id);
+  const front = h.spawn('enemy_arm', { pos: [10, 5] });
+  const own = h.spawn('enemy_dummy', { pos: [10, 4] });
+  const behind = h.spawn('enemy_dummy', { pos: [10, 3] });
+  const fly = h.spawn('enemy_fly', { pos: [10, 5] });
+  h.b.addBuff(u, { key: 'test:aspd', mods: { aspd: 400 } });
+  assert.ok(u.skill.activate('test', { free: true }));
+  const t0 = h.b.time;
+  const saw = () => dmgBy(h, u, tagged('hsguma:s3'));
+  h.run(0.5);
+  assert.equal(saw().length, 0, 'no cut before 1 s');
+  h.run(0.5);
+  assert.equal(saw().length, 1);
+  assert.equal(saw()[0].target, front);
+  assert.ok(Math.abs(saw()[0].dmg.amount - u.s.atk) < 1e-4, 'pre-mitigation amount is her ATK');
+  assert.ok(saw()[0].amount < saw()[0].dmg.amount - 1, 'DEF reduces the HP lost');
+  assert.ok(Math.abs(saw()[0].t - (t0 + 1)) < 0.05, `first cut at ${saw()[0].t - t0}`);
+  h.run(0.5);
+  assert.equal(saw().length, 1, 'not again at 1.5 s');
+  h.run(0.5);
+  assert.equal(saw().length, 2);
+  assert.ok(Math.abs(saw()[1].t - saw()[0].t - 1) < 0.05, 'ASPD does not change the 1 s interval');
+  assert.equal(saw().some((c) => c.target === own || c.target === behind || c.target === fly), false);
+  const fx = h.eventsOf('fx').filter((e) => e[1] === 'fxHit' && e[4]?.skill === 'hsguma:s3');
+  assert.equal(fx.length, saw().length);
+  assert.deepEqual(fx.map((e) => e[4].target), saw().map((c) => c.target.id));
+  assert.ok(h.eventsOf('fx').some((e) => e[1] === 'overclock' && e[4]?.id === u.id));
+  const left = u.skill.timeLeft;
+  h.run(left + 0.05);
+  const n = saw().length;
+  assert.equal(n, u.skill.duration, 'one cut per second of the 25 s channel, including the last');
+  assert.equal(u.skill.active, false);
+  h.run(2);
+  assert.equal(saw().length, n, 'cuts stop when the skill ends');
+  assert.ok(h.runUntil(() => h.hooksOf('attack').some((c) => c.attacker === u && c.t > t0 + u.skill.duration), 3), 'attacks resume');
+
+  // facing LEFT: the front tile is the other way. A stun does not end the channel [ASSUMED: the text is not 维持技能状态].
+  const h2 = battle([U(id, 10, 4, 2)]);
+  h2.step();
+  const u2 = h2.unit(id);
+  u2.dir = 'LEFT';
+  const leftTile = h2.spawn('enemy_dummy', { pos: [10, 3] });
+  const rightTile = h2.spawn('enemy_dummy', { pos: [10, 5] });
+  assert.ok(u2.skill.activate('test', { free: true }));
+  h2.b.applyStatus(u2, 'stun', { duration: 5 });
+  h2.run(1);
+  const cuts2 = dmgBy(h2, u2, tagged('hsguma:s3'));
+  assert.deepEqual(cuts2.map((c) => c.target), [leftTile], 'front tile follows facing, and stun does not cancel the tick');
+  assert.equal(cuts2.some((c) => c.target === rightTile), false);
+  checkInvariants(h.b);
+  checkInvariants(h2.b);
 });
 
 test('星熊 module PRO-X 护身符: DEF +20 % while blocking', () => {

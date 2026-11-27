@@ -290,7 +290,8 @@ describe('the extracted index (when fx is on this machine)', { skip: !HAS_INDEX 
 
   test('claimed rows are bound, and the rows this lane left stay their old reason', () => {
     assert.deepEqual(reasons(plan('char_017_huang', 'skchr_huang_3'), HUANG), ['bound']);
-    assert.ok(reasons(plan('char_136_hsguma', 'skchr_hsguma_3'), 'hsguma_skill_03_hit').includes('channel-hit'));
+    // §37.360: 星熊 S3 now cuts once a second and its fxHit binding claims the channel hit
+    assert.deepEqual(reasons(plan('char_136_hsguma', 'skchr_hsguma_3'), 'hsguma_skill_03_hit'), ['bound']);
     assert.ok(reasons(plan('char_206_gnosis', 'skchr_gnosis_2'), 'gnosis_skill_02_buff_01').includes('conditional'));
     assert.ok(reasons(plan('char_206_gnosis', 'skchr_gnosis_2'), 'gnosis_skill_02_buff_02').includes('conditional'));
     assert.deepEqual(reasons(plan('char_213_mostma', 'skchr_mostma_2'), MOSTMA), ['bound']);

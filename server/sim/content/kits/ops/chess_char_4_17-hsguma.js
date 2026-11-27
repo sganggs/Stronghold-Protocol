@@ -3,11 +3,26 @@
 
 import { AURA, num, tbb, whileDeployed, pulse, toggleBuff, isSel, alt, withDefaults } from '../shared/tier4.js';
 import { byEnemyDamage } from '../shared/tier1.js';
+import { absoluteRangeKeys } from '../../../targeting.js';
+
+// ChannelingMeleeAttack triggerDelta (fx index skills.skchr_hsguma_3 abilities[0]). The skill blackboard has no
+// atk_scale and the index stores no _preDelay: each tick is 100 % of her current ATK, the first one a second after
+// the cast [ASSUMED], the same cadence as 煌 S3 and 莫斯提马 S2.
+const S3_INTERVAL = 1;
+// 前方一格, authored facing RIGHT. Her 1-1 grid also contains her own tile; the skill text does not, and rangeId is
+// null. rangeExtend is not applied [ASSUMED]. Ground only: damageType 1 matches her physical melee, a protector
+// cannot hit flyers, and the index stores no selector.
+const SAW_FRONT = [[0, 1]];
+
+function sawTargets(battle, unit) {
+  const keys = absoluteRangeKeys(SAW_FRONT, unit.tileR, unit.tileC, unit.dir, 0);
+  return battle.enemiesInKeys(keys, unit, { canHitFly: false });
+}
 
 export default withDefaults({
   // ===== 星熊 (protector) S2 荆棘 (passive) — DEF +13 %, answers every enemy damage instance with 65 % ATK phys on its source; talents
-  //       S1 战意 (TAKE_DAMAGE: DEF/ATK up); S3 力之锯 (ATK/DEF up, cuts every enemy on her front tile — all enemies of her
-  //       range); module PRO-X (护身符): DEF +20 % while blocking
+  //       S1 战意 (TAKE_DAMAGE: DEF/ATK up); S3 力之锯 (ATK/DEF up; every 1 s, 100 % ATK phys to ground enemies on the
+  //       one tile in front — the channel replaces her attacks); module PRO-X (护身符): DEF +20 % while blocking
   chess_char_4_17_a: (bb, chess, def) => {
     const t0 = tbb(def, 0), t1 = tbb(def, 1);
     const tb = def.traitBb || {};
@@ -18,8 +33,27 @@ export default withDefaults({
         skchr_hsguma_3: () => ({
           kind: 'duration',
           mods: { atkPct: num(bb.atk), defPct: num(bb.def) },
-          targeting: { allInRange: true },
-          onStart({ battle, unit }) { battle.fx('overclock', { x: unit.x, y: unit.y, id: unit.id }); },
+          // The channel is the attack (ChannelingMeleeAttack). attackOverride applies noAttack only while it is active.
+          attack: { noAttack: true },
+          onStart({ battle, unit }) {
+            unit.mem.hsgumaSaw = { acc: 0 };
+            battle.fx('overclock', { x: unit.x, y: unit.y, id: unit.id });
+          },
+          onTick({ battle, unit, dt }) {
+            const s = unit.mem.hsgumaSaw;
+            if (!s) return;
+            s.acc += dt;
+            while (s.acc + 1e-9 >= S3_INTERVAL) { // loop-cap: one-second step
+              s.acc -= S3_INTERVAL;
+              for (const e of sawTargets(battle, unit)) {
+                if (!e.alive) continue;
+                battle.dealDamage(unit, e, { amount: unit.s.atk, type: 'phys', isSkill: true, tags: ['skill', 'hsguma:s3'] });
+                // cosmetic fx (round 86)
+                battle.fx('fxHit', { x: e.x, y: e.y, id: unit.id, target: e.id, skill: 'hsguma:s3' });
+              }
+            }
+          },
+          onEnd({ unit }) { unit.mem.hsgumaSaw = null; },
         }),
       }),
       skill: { kind: 'passive', mods: { defPct: num(bb.def) } },
