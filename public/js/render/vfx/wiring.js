@@ -48,6 +48,8 @@ import { GROUND_SPAWNS } from './effect.js';
 import { SkillFx, fitsAttack, pickGroup, formMode } from './skillfx.js';
 import { TalentFx } from './talentfx.js';
 import { FunnelFx } from './funnelfx.js';
+import { OrbitFx } from './orbitfx.js';
+import { BounceFx } from './bouncefx.js';
 import { YuWall, YU_WALL_SOURCE } from './yuwall.js';
 import { formModes } from './talents.js';
 import { shotOf } from './skills.js';
@@ -290,6 +292,8 @@ export class FxWiring {
     this.talents = new TalentFx(this);
     this.funnels = new FunnelFx(this);
     this.cannons = new CannonFx(this);
+    this.orbits = new OrbitFx(this);     // 魔王's RotateAround 微尘 (render/vfx/orbitfx.js)
+    this.bounces = new BounceFx(this);   // 真言 S3's BouncedAdvancedMovement (render/vfx/bouncefx.js)
   }
 
   get index() { return this.idx; }
@@ -1559,6 +1563,8 @@ export class FxWiring {
     this.talents.release(v);
     this.funnels.release(v);
     this.cannons.release(v);
+    this.orbits.release(v);
+    this.bounces.release(v);
   }
 
   /** b.ev ['skill', id, on] (SkillFx.skill): true when the official layer shows the skill (no procedural burst / aura). */
@@ -1585,6 +1591,7 @@ export class FxWiring {
     this.skills.sync(actors);
     this.talents.sync(actors);
     this.funnels.sync(actors);
+    this.orbits.sync(actors);
   }
 
   /**
@@ -1594,6 +1601,7 @@ export class FxWiring {
    */
   simFx(kind, x, y, extra) {
     if (!this.idx) return false;
+    if (this.bounces.simFx(kind, x, y, extra)) return true;
     if (this.cannons.simFx(kind, x, y, extra)) return true;
     const t = this.talents.fx(kind, extra, x, y);
     // the floating units stand for the kit's 'drone' / 'drones' / 'droneLock' / 'overload' (render/vfx/funnelfx.js)
@@ -1662,6 +1670,8 @@ export class FxWiring {
     this.talents.clear();
     this.funnels.clear();
     this.cannons.clear();
+    this.orbits.clear();
+    this.bounces.clear();
     this.forms.clear();
     this.lastTargets.clear();
     this.picks.clear();

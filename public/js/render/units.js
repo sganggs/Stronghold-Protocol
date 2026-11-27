@@ -1516,6 +1516,12 @@ export class UnitView {
    */
   _syncMotes(dt) {
     const st = this.motes;
+    // The official orbit (render/vfx/orbitfx.js) sets this while it is actually drawing. MoteRing stays
+    // when 官方特效 is off or the trail is missing: the flag is false and this path is unchanged.
+    if (this.officialMotes) {
+      if (this.moteRing) { this.moteRing.destroy(); this.moteRing = null; }
+      return;
+    }
     if (!st || !(st.n > 0)) {
       if (this.moteRing) { this.moteRing.destroy(); this.moteRing = null; }
       return;

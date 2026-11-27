@@ -297,11 +297,21 @@ describe('round 87 lane h2 against the extracted index', { skip: !fs.existsSync(
       assert.equal(keys.some((k) => bound.has(k.toLowerCase())), false, projId);
     };
     idle('skchr_sleach_3', 'projectile_chr_sleach_t1_2');
-    idle('skchr_mantra_3', 'projectile_chr_mantra_s3_2');
-    idle('skchr_cetsyr_1', 'projectile_chr_cetsyr_talent_s1');
-    idle('skchr_cetsyr_2', 'projectile_chr_cetsyr_talent');
-    idle('skchr_cetsyr_2', 'projectile_chr_cetsyr_talent_s2');
-    idle('skchr_cetsyr_3', 'projectile_chr_cetsyr_talent');
-    idle('skchr_cetsyr_3', 'projectile_chr_cetsyr_talent_s3');
+    // round 88 g2 plays these (orbitfx.js / bouncefx.js). Their mains and hits are binding keys now.
+    const played = (skillId, projId) => {
+      const plan = skillPlan(idx, null, skillId, { rec: { skillId, duration: 15 } });
+      assert.equal(plan.attacks.length, 0, skillId);
+      assert.ok(plan.projectiles.includes(projId), `${skillId} ${projId}`);
+      const bound = new Set(bindingKeys(idx, skillId));
+      const proj = idx.projectiles[projId] || {};
+      const keys = [projId, proj.main, ...(proj.onHit || []), ...(proj.onReached || [])].filter((k) => typeof k === 'string');
+      assert.equal(keys.some((k) => bound.has(k.toLowerCase())), true, projId);
+    };
+    played('skchr_mantra_3', 'projectile_chr_mantra_s3_2');
+    played('skchr_cetsyr_1', 'projectile_chr_cetsyr_talent_s1');
+    played('skchr_cetsyr_2', 'projectile_chr_cetsyr_talent');
+    played('skchr_cetsyr_2', 'projectile_chr_cetsyr_talent_s2');
+    played('skchr_cetsyr_3', 'projectile_chr_cetsyr_talent');
+    played('skchr_cetsyr_3', 'projectile_chr_cetsyr_talent_s3');
   });
 });

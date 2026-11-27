@@ -145,6 +145,10 @@ export default {
           from: { x: from.x, y: from.y }, target: next, speed: JUMP_SPEED, visual: 'bolt', source: unit,
           onHit: ({ target }) => { if (target && target.alive) elem(target); if (target) jump(target, jumps - 1); },
         });
+        // cosmetic fx (round 88): addProjectile emits no client event. The first landing is mantraArc.
+        battle.fx('mantraHop', {
+          x: from.x, y: from.y, id: unit.id, target: next.id, tx: next.x, ty: next.y, speed: JUMP_SPEED,
+        });
       };
       jump(holder, Math.max(0, Math.floor(num(b3.chain_times, 1))));
     }

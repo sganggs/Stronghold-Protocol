@@ -1948,6 +1948,39 @@ export const FX_BINDINGS = Object.freeze({
     }),
   }),
   // ---- round 88 g1 end ----
+  // ---- round 88 g2 begin ----
+  // 魔王 微尘. index.json: the talent AroundTargetRangedAttack flies projectile_chr_cetsyr_talent
+  // (RotateAroundMovement, radius 1, aroundSpeed 150, main cetsyr_trail_01). The skill abilities are empty.
+  // S1 lists projectile_chr_cetsyr_talent_s1, the same trail, radius and speed — not a second orbit.
+  // S2 lists the talent projectile and projectile_chr_cetsyr_talent_s2 (aroundSpeed 0.01, main
+  // cetsyr_skill_02_trail_01). S3 lists the talent projectile and projectile_chr_cetsyr_talent_s3
+  // (aroundSpeed 150, main cetsyr_skill_03_trail_01, plus AuraHit). OrbitFx draws one body per snapshot
+  // mote and swaps the projectile while that skill is on. These kinds are not kit events; they only
+  // name the projectiles so the idle-projectile sweep and the preload see them.
+  // source: public/assets/local/fx/index.json skchr_cetsyr_1/2/3 projectiles; kit chess_char_4_25-cetsyr.js moteRing
+  skchr_cetsyr_1: Object.freeze({
+    cetsyrOrbit: binding({ owner: 'id', projectiles: Object.freeze(['projectile_chr_cetsyr_talent_s1']) }),
+  }),
+  skchr_cetsyr_2: Object.freeze({
+    cetsyrOrbit: binding({
+      owner: 'id',
+      projectiles: Object.freeze(['projectile_chr_cetsyr_talent', 'projectile_chr_cetsyr_talent_s2']),
+    }),
+  }),
+  skchr_cetsyr_3: Object.freeze({
+    cetsyrOrbit: binding({
+      owner: 'id',
+      projectiles: Object.freeze(['projectile_chr_cetsyr_talent', 'projectile_chr_cetsyr_talent_s3']),
+    }),
+  }),
+  // 真言 S3 无言为真. index.json skchr_mantra_3 lists projectile_chr_mantra_s3_2 and its two uses are
+  // owner loops (mantra_skill_03_buff_02, mantra_skill_03_range_01), not this projectile. BounceFx plays
+  // it on the kit's mantraArc (first landing) and mantraHop (later hops). The kind here is not emitted.
+  // source: public/assets/local/fx/index.json projectile_chr_mantra_s3_2; kit op-mantra.js bounce
+  skchr_mantra_3: Object.freeze({
+    mantraBounce: binding({ owner: 'id', projectiles: Object.freeze(['projectile_chr_mantra_s3_2']) }),
+  }),
+  // ---- round 88 g2 end ----
 });
 
 /**
