@@ -193,6 +193,46 @@ export function pickAttacks(a, kind, seed = 0, depth = 0, nth = 0, mem = null) {
 }
 
 /**
+ * Whether a mode's attack or combat draws anything `_attackSet` would select: a projectile, or a
+ * cast / hit / castTarget / inputTarget row with an effect or a facing slot. Walks a group's
+ * children the same way `pickAttacks` does (a parallel group, 镭射塔 S3). Does not apply `_rowOk`
+ * (that needs a live view). Attach rows are not counted: the skill plan reads those itself.
+ * @param {any} mode an index mode
+ */
+export function modeAttackDraws(mode) {
+  if (!mode || typeof mode !== 'object') return false;
+  const kinds = [
+    { heal: false, ranged: false, blocked: false },
+    { heal: false, ranged: true, blocked: false },
+    { heal: true, ranged: false, blocked: false },
+    { heal: false, ranged: true, blocked: true },
+    { heal: false, ranged: false, blocked: true },
+  ];
+  const seen = new Set();
+  const rowDraws = (row) => {
+    if (!row || typeof row !== 'object') return false;
+    if ((row.effects || []).some((k) => typeof k === 'string' && k)) return true;
+    if ((row.slots || []).some((k) => typeof k === 'string' && k)) return true;
+    return false;
+  };
+  for (const key of ['attack', 'combat']) {
+    const root = mode[key];
+    if (!root) continue;
+    for (const kind of kinds) {
+      for (const a of pickAttacks(root, kind)) {
+        if (!a || seen.has(a)) continue;
+        seen.add(a);
+        if (typeof a.projectileKey === 'string' && a.projectileKey) return true;
+        for (const field of ['cast', 'hit', 'castTarget', 'inputTarget']) {
+          if ((a[field] || []).some(rowDraws)) return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+/**
  * The mode `name` (with an attack) of `modes`, or its facing variant (MODE_VARIANT) for `facing` — DOWN: [Down] / [D] /
  * (D), UP: [Up] / (U), LEFT / RIGHT: (LR) — when the unit has one; `variantsOnly`: a variant or nothing (a plain
  * mode is the plan's to name). [ASSUMED] the variants are per facing, by their names (the skill data that switches

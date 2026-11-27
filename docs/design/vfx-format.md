@@ -1046,8 +1046,11 @@ value, an extra event group) whose field says nothing about time, placed by thei
 
 `mode` is the owner's mode the skill switches to — its attacks then use that mode's cast / hit effects (and its
 projectile): `modeBy: 'data'` when the skill's data say it (the blackboard `mode` of a `switch_mode*` buff, a
-`ToggleSkill`'s `_switchToMode`), `'name'` when the owner has a mode named after the skill (`S<n>` for `skchr_…_<n>`,
-case-insensitive; where both exist they agree in 204 of 210 skills). So a runtime plays, on the sim's events: skill
+`ToggleSkill`'s `_switchToMode`), `'name'` when the owner has a mode named exactly `s<n>` (any case) for
+`skchr_…_<n>` or `sktok_…_<n>` (a suffixed name such as `S3_1` or `S2_Sub` is not it; where both a stored index and
+the name exist they agree in 204 of 210 skills). A use whose `from` starts with `trigger ` is an ability a template
+of that skill prefab triggers: it is not a start / loop / range of the whole skill, and only a binding plays it.
+So a runtime plays, on the sim's events: skill
 start → `roles.start` (+ `range`), while active → `roles.loop` on `on` (default the owner) and the attacks of
 `modes[mode]`, each hit → `roles.hit` (+ the mode's hit / projectile effects), skill end → `roles.end` (and stops the
 loops). The web runtime reads `uses` (not the flat `roles`) through `render/vfx/skills.js` and plays them as §33.16

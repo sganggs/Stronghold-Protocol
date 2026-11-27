@@ -27,7 +27,9 @@ carrying its file's content hash):
                        its talents and common / general abilities (their effects' roles, when they act, the buff
                        template actions that cast them, our data's talent ids); per skill its effects with their
                        roles (start / loop / range / hit / end …, from the skill prefab and the buff templates, with
-                       the buffs' lives), its abilities' projectiles and the mode it switches to; the projectiles; the
+                       the buffs' lives), its abilities' projectiles and the mode it switches to (an exact `s<n>`
+                       mode of `skchr_` / `sktok_` when the prefab stores none); uses an ability adds when one of
+                       its triggers names a template of that skill (`from` starts with `trigger `); the projectiles; the
                        generic keys (hits, deaths, deploy, status loops)
   textures.json        texture key → size, wrap, filter, alpha, the WebP or PNG files
   prefabs/<file>.json  one descriptor per effect prefab: nodes (Unity-native transforms), ParticleSystems (every
@@ -37,6 +39,7 @@ carrying its file's content hash):
   mesh/<key>.json      meshes of mesh particles, MeshRenderers, SkinnedMeshRenderers and mesh shapes
 Everything is (c) Hypergryph; for private, non-commercial fan use only. Nothing of it is ever committed.
 """
+import contextlib
 import hashlib
 import json
 import math
@@ -1858,6 +1861,22 @@ def buffs_in(v):
     return out
 
 
+def collect_template_keys(v, out, depth=0):
+    """Every non-empty `templateKey` string under `v`. BuffData is not required: a SkillProgressHooker's restore buff
+    (凯尔希·思衡托 S3, `kalts2_s_3[restore]`) names a template without an override effect, and buffs_in skips that dict."""
+    if depth > 12:
+        return
+    if isinstance(v, dict):
+        k = v.get('templateKey')
+        if isinstance(k, str) and k:
+            out.add(k)
+        for x in v.values():
+            collect_template_keys(x, out, depth + 1)
+    elif isinstance(v, list):
+        for x in v:
+            collect_template_keys(x, out, depth + 1)
+
+
 def buff_life(b):
     """The life of a BuffData (§33.17): {type (LIFE_TYPES: IMMEDIATELY — applied and gone at once, LIMITED — for a time,
     INFINITY — until removed: its ability ends, the target leaves an aura, …; CUSTOM), time? (`lifeTime` s, when set),
@@ -2603,7 +2622,7 @@ def node_entry(env, root, ek, pk, effect_refs, templates, node_name=None, stop=N
     the GameObject's name); `stop(go)` skips a child subtree that another entry exports. The projectiles include the
     ones its buffs' templates fire (template_projectiles: 塔露拉 S3's projectile_chr_oxi_s_3_heatwave, 2026-11-26)."""
     strings, uses, mode, stack, root_mbs, abilities, switches, named = set(), [], None, [root], [], [], [], []
-    fired = set()
+    tpls, fired = set(), set()
     while stack:
         go = stack.pop()
         gd = env.tt(go)
@@ -2624,6 +2643,7 @@ def node_entry(env, root, ek, pk, effect_refs, templates, node_name=None, stop=N
             fields = {k: v for k, v in d.items() if k not in SKIP_FIELDS}
             strings_of(fields, strings)
             named += bb_ability_names(fields)            # the abilities its buffs' generic templates cast (v3)
+            collect_template_keys(fields, tpls)        # kept off the stored entry; apply_trigger_uses reads it
             for b in buffs_in(fields):                  # the mode switches its buffs' templates make (crawl_units, v3)
                 for ev, idx, restore in (templates.get(b.get('templateKey')) or {}).get('switches') or []:
                     if idx == 'bb':
@@ -2647,7 +2667,8 @@ def node_entry(env, root, ek, pk, effect_refs, templates, node_name=None, stop=N
     return {'rootClass': root_class, 'rootAbility': root_ability,
             'effects': sorted(found | placed), 'projectiles': sorted({pk(x) for x in strings | fired if pk(x)}), 'mode': mode,
             **({'modeBy': 'data'} if mode is not None else {}), 'uses': uses, 'roles': roles_of(uses),
-            'unclassified': sorted(found - placed), 'abilities': abilities, '_switches': switches, '_named': named}
+            'unclassified': sorted(found - placed), 'abilities': abilities, '_switches': switches, '_named': named,
+            '_templates': sorted(tpls)}
 
 
 def skill_entry(env, root, ek, pk, effect_refs, templates):
@@ -2655,7 +2676,127 @@ def skill_entry(env, root, ek, pk, effect_refs, templates):
     e = node_entry(env, root, ek, pk, effect_refs, templates)
     e.pop('_switches', None)
     e.pop('_named', None)
+    e.pop('_templates', None)               # private: only crawl_units' skill() keeps it, off the stored entry
     return e
+
+
+def skill_owned_by(uid, sid):
+    """Whether this unit's character code owns `sid` (`skchr_<code>` / `sktok_<code>`), so crawl_units may replace
+    that shared `index.skills` entry. A code may end in a digit (char_1052_kalts2, char_1021_kroos2). A purely
+    numeric segment (the char number) is not a code. Shared `skcom_*` ids match neither, and stay on the unit copy."""
+    codes = [p for p in str(uid or '').lower().split('_')[2:]
+             if len(p) > 2 and p.isalnum() and any(c.isalpha() for c in p)]
+    text = str(sid or '').lower()
+    return any(re.search(r'(?:^|_)' + re.escape(c) + r'(?:_|$)', text) for c in codes)
+
+
+def named_skill_mode(sid, mode_names):
+    """Index of the mode named `s<n>` (any case) for a `skchr_` / `sktok_` id ending in `_<n>`, or None.
+
+    The skill prefab often never writes that index (卡涅利安's modes are only named S1; 傀影的替身's `sktok_phatom_2`
+    is not an `skchr_` id). A suffixed name — S3_1, S1_FlyLoop, S2(U), S2_Sub — is not this mode: the client picks
+    among those at runtime, and one skill graph cannot stand for every branch. [ASSUMED] where the client does not
+    store the index and the name is exactly `s<n>`."""
+    m = re.match(r'sk(?:chr|tok)_.+_(\d+)$', str(sid or ''))
+    if not m:
+        return None
+    want = 's' + m.group(1)
+    names = [str(x or '').lower() for x in (mode_names or [])]
+    return names.index(want) if want in names else None
+
+
+def trigger_uses_extra(skill, modes, abilities=None, template_keys=None):
+    """Uses and projectile keys an ability adds when one of its triggers names a template this skill's prefab uses
+    (凯尔希·思衡托 S3, `kalts2_s_3[restore]` → RespawnBorn). Does not mutate `skill`.
+
+    A mode's attack and a mode-scoped ability that no template triggers are not copied: the client already plays
+    those from the mode (`_attackSet`, `_modeOk`), and copying them onto the skill would play them twice. A key the
+    skill already names stays where it is. An ability whose mode list does not include this skill's mode is that
+    other mode's. A projectile is included only when its ability contributed at least one new use. Returns
+    `(uses, projectiles)`, both empty when the mode index is missing or nothing new is added.
+
+    `from` is `trigger <template> <original from>` so a binding can tell these from the skill prefab's own uses."""
+    if not isinstance(skill, dict):
+        return [], []
+    modes = list(modes or [])
+    idx = skill.get('mode')
+    if isinstance(idx, bool) or not isinstance(idx, int) or idx < 0 or idx >= len(modes):
+        return [], []
+    mode = modes[idx] if isinstance(modes[idx], dict) else {}
+    name = mode.get('name') if isinstance(mode.get('name'), str) and mode.get('name') else str(idx)
+    known = set()
+    for k in skill.get('effects') or []:
+        if isinstance(k, str):
+            known.add(k)
+    for u in skill.get('uses') or []:
+        if isinstance(u, dict):
+            for k in u.get('keys') or []:
+                if isinstance(k, str):
+                    known.add(k)
+    have_proj = set(p for p in (skill.get('projectiles') or []) if isinstance(p, str))
+    tkeys = set(k for k in (template_keys or []) if isinstance(k, str) and k)
+    uses, projs = [], []
+    for ab in abilities or []:
+        if not isinstance(ab, dict):
+            continue
+        amodes = [m for m in (ab.get('modes') or []) if isinstance(m, str)]
+        if isinstance(ab.get('mode'), str) and ab['mode'] not in amodes:
+            amodes.append(ab['mode'])
+        trig = None
+        for t in ab.get('triggers') or []:
+            if isinstance(t, dict) and isinstance(t.get('template'), str) and t['template'] in tkeys:
+                trig = t['template']
+                break
+        if trig is None:
+            continue
+        if amodes and name not in amodes:
+            continue
+        added = False
+        src = 'trigger %s' % trig
+        for u in ab.get('uses') or []:
+            if not isinstance(u, dict):
+                continue
+            keys = [k for k in (u.get('keys') or []) if isinstance(k, str) and k and k not in known]
+            if not keys:
+                continue
+            nu = dict(u)
+            nu['keys'] = keys
+            nu['from'] = '%s %s' % (src, u.get('from') or ab.get('class') or ab.get('name') or 'ability')
+            if not nu.get('node') and ab.get('node'):
+                nu['node'] = ab['node']
+            slots = nu.get('slots')
+            if isinstance(slots, list) and any(isinstance(s, str) and s not in keys for s in slots):
+                nu.pop('slots', None)
+                nu.pop('directionType', None)
+            uses.append(nu)
+            known.update(keys)
+            added = True
+        if added:
+            for p in ab.get('projectiles') or []:
+                if isinstance(p, str) and p and p not in have_proj and p not in projs:
+                    projs.append(p)
+    return uses, projs
+
+
+def apply_trigger_uses(skill, modes, abilities=None, template_keys=None):
+    """`skill` with trigger_uses_extra appended (uses, then effects / projectiles / roles). The same object when
+    there is nothing to add, so a skill the prefab already described is left as it was. `unclassified` is kept:
+    a copied key was not already in `effects`."""
+    extra, projs = trigger_uses_extra(skill, modes, abilities, template_keys)
+    if not extra and not projs:
+        return skill
+    out = dict(skill)
+    out['uses'] = list(skill.get('uses') or []) + extra
+    effects = set(k for k in (skill.get('effects') or []) if isinstance(k, str))
+    for u in extra:
+        for k in u.get('keys') or []:
+            if isinstance(k, str):
+                effects.add(k)
+    out['effects'] = sorted(effects)
+    prev = set(p for p in (skill.get('projectiles') or []) if isinstance(p, str))
+    out['projectiles'] = sorted(prev | set(projs))
+    out['roles'] = roles_of(out['uses'])
+    return out
 
 
 def crawl_units(ab_root, cabs, unit_ids, gd, eff, enemy_idx, token_idx, log):
@@ -2724,6 +2865,8 @@ def crawl_units(ab_root, cabs, unit_ids, gd, eff, enemy_idx, token_idx, log):
         return None
 
     skill_named = {}                    # skill id → the abilities its buffs name in their blackboards (v3)
+    skill_templates = {}                # skill id → buff template keys its prefab names (apply_trigger_uses; not stored)
+    skill_prefab = {}                   # skill id → the prefab entry, before a unit's trigger uses are appended
 
     def skill(sid):
         sid = skill_key(sid)
@@ -2732,6 +2875,8 @@ def crawl_units(ab_root, cabs, unit_ids, gd, eff, enemy_idx, token_idx, log):
         entry = node_entry(shared, skill_roots[sid], ekn, pk, effect_refs, templates)
         entry.pop('_switches', None)
         skill_named[sid] = entry.pop('_named', [])
+        skill_templates[sid] = entry.pop('_templates', [])
+        skill_prefab[sid] = entry
         for p in entry['projectiles']:
             projectile(p)
         skills[sid] = entry
@@ -2865,6 +3010,7 @@ def crawl_units(ab_root, cabs, unit_ids, gd, eff, enemy_idx, token_idx, log):
             e = node_entry(env, r['go'], ekn, pk, effect_refs, templates, node_name=lambda go, nm: paths.get(gk(go), nm),
                            stop=lambda go, s=r['stop']: gk(go) in s)
             sw = e.pop('_switches')
+            e.pop('_templates', None)
             for p in e['projectiles']:
                 projectile(p)
             talent = r['kind'] == 'talent'
@@ -3007,12 +3153,12 @@ def crawl_units(ab_root, cabs, unit_ids, gd, eff, enemy_idx, token_idx, log):
             if code:
                 sids |= {k for k in skill_roots if k.startswith(f'skchr_{code}_')}
             sids = {skill(sid) for sid in sorted(sids)} - {None}
-            for sid in sids:                     # no mode in the skill's data: the unit's mode named after the skill
-                m = re.match(r'skchr_.+_(\d+)$', sid)
-                names = [str(x.get('name') or '').lower() for x in u['modes']]
-                if sid in skills and skills[sid]['mode'] is None and m and f's{m.group(1)}' in names:
-                    skills[sid]['mode'] = names.index(f's{m.group(1)}')
-                    skills[sid]['modeBy'] = 'name'
+            for sid in sids:                     # no mode in the skill's data: the unit's mode named s<n>
+                if sid in skills and skills[sid]['mode'] is None:
+                    found = named_skill_mode(sid, [x.get('name') for x in u['modes']])
+                    if found is not None:
+                        skills[sid]['mode'] = found
+                        skills[sid]['modeBy'] = 'name'
             u['skills'] = {sid: skills[sid] for sid in sorted(sids) if sid in skills}
             # character_table.skills[].overridePrefabKey is an operator-local art override (e.g. 万顷 S1).
             # Keep it local: a shared skcom_* id must never change another operator's skill presentation.
@@ -3031,6 +3177,27 @@ def crawl_units(ab_root, cabs, unit_ids, gd, eff, enemy_idx, token_idx, log):
                 u['talents'] = tal
             if abl:
                 u['abilities'] = abl
+            # An ability a buff template of this skill triggers (思衡托 S3, kalts2_s_3[restore] → RespawnBorn) is
+            # not among the skill prefab's own uses. Copy those uses. A mode's attack and a mode-scoped ability stay
+            # on the mode: the client already plays them. A skill with nothing new stays the same object. A later
+            # unit that adds nothing does not write the prefab back over an earlier owner's trigger uses.
+            # Shared skcom_* stays the prefab in index.skills (skill_owned_by); the unit copy still carries its own.
+            for sid, entry in list(u['skills'].items()):
+                base = skill_prefab.get(sid, entry)
+                tkeys = list(skill_templates.get(sid) or [])
+                for use in base.get('uses') or []:
+                    if isinstance(use, dict) and use.get('template'):
+                        tkeys.append(use['template'])
+                merged = apply_trigger_uses(base, u['modes'], u.get('abilities'), tkeys)
+                if merged is base and entry is base:
+                    continue
+                u['skills'][sid] = merged
+                if (sid in skills and skill_owned_by(uid, sid) and merged is not base
+                        and (skills[sid] is base or skills[sid] is entry)):
+                    skills[sid] = merged
+                for p in merged.get('projectiles') or []:
+                    if p not in projectiles:
+                        projectile(p)
             if (gd.get('talentKeys') or {}).get(uid):
                 u['talentKeys'] = gd['talentKeys'][uid]
             if u.get('spineEffects'):
@@ -3363,7 +3530,11 @@ def export_fx(ab_root, out_root, manifest, log, selection='sample', keys=None, j
     t0 = time.time()
     entries, textures, meshes, done = {}, {}, {}, set()
     todo, rounds = set(wanted), 0
-    with ProcessPoolExecutor(max_workers=jobs, initializer=_init_worker, initargs=(tuple(eff),)) as pool:
+    # jobs == 1 exports in this process (the map below). Skip the pool: building it always
+    # opens a semaphore, and that semaphore is unused when there is only one worker.
+    pool_cm = (ProcessPoolExecutor(max_workers=jobs, initializer=_init_worker, initargs=(tuple(eff),))
+               if jobs > 1 else contextlib.nullcontext())
+    with pool_cm as pool:
         while todo and rounds < 6:
             rounds += 1
             by_bundle = {}

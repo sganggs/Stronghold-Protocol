@@ -13,14 +13,21 @@
 //     The effect library loads from that list (render/vfx/library.js has()).
 //   not-extracted — the unit or the skill is not in the used-set index, or the skill graph names a key
 //     with no extracted prefab (no-prefab). This is NOT proof the official client has no effect.
+//   played-by-mode — the skill graph itself names nothing the plan places, but the mode it switches to
+//     does: that mode's attack / combat (wiring.modeAttackDraws, the same pickAttacks walk as
+//     _attackSet) or a passive / deploy / toggle ability scoped to that mode (talentfx.modeScoped,
+//     talents.bindable). Not `Default` (the unit's ordinary attack). Counted here instead of
+//     `extracted-skill-has-no-effect-keys`. A use whose `from` starts with `trigger ` is not a
+//     whole-skill channel; an unclaimed one stays official-unmapped with reason `trigger`.
 //
 // A trailing section lists sim `fx` calls whose archetype is still a cast flash (skillfx.js FLASH) and
 // which carry a skill tag. Most of those are intentional: the official skill effect stands for the flash.
 // `heatwave` is listed there only if it is still a cast flash.
 //
-// Usage: node tools/vfx-missing-fx.mjs [--version <id>|all] [--summary]
+// Usage: node tools/vfx-missing-fx.mjs [--version <id>|all] [--summary] [--index <path>]
 //   --version   default `all`. An official id or its slug, as tools/vfx-skill-coverage.mjs.
 //   --summary   counts only, no rows.
+//   --index     fx index.json to read. Default $SP_FX_INDEX, else public/assets/local/fx/index.json.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -28,20 +35,24 @@ import { fileURLToPath } from 'node:url';
 import { FLASH } from '../public/js/render/vfx/skillfx.js';
 import { fxSpec } from '../public/js/render/fx/kinds.js';
 import { resolveSkill, skillPlan, unitKeyOf, UNMAPPED, bindingKeys, enemyBindingKeys } from '../public/js/render/vfx/skills.js';
+import { modeAttackDraws } from '../public/js/render/vfx/wiring.js';
+import { talentBindings, bindable } from '../public/js/render/vfx/talents.js';
+import { modeScoped } from '../public/js/render/vfx/talentfx.js';
 import { loadRosterData, resolveVersion, roster } from './vfx-skill-coverage.mjs';
 import { VERSIONS } from '../shared/versions.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const INDEX = path.join(ROOT, 'public/assets/local/fx/index.json');
 const LIST = path.join(ROOT, 'data/local-fx.json');
-const USAGE = 'usage: node tools/vfx-missing-fx.mjs [--version <id>|all] [--summary]';
+const USAGE = 'usage: node tools/vfx-missing-fx.mjs [--version <id>|all] [--summary] [--index <path>]';
+const MODE_WHEN = new Set(['passive', 'deploy', 'toggle']);
 /** 规程 first, then the covenant periods (shared/versions.js). */
 const VERSION_ORDER = ['act3autochess@V3_1', 'act2autochess', 'act2autochess@V2_1', 'act1autochess', 'act1autochess@V1_1'];
 
 const lc = (k) => (typeof k === 'string' && k ? k.toLowerCase() : '');
 
 function parseArgs(argv) {
-  const o = { version: 'all', summary: false };
+  const o = { version: 'all', summary: false, index: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--summary') o.summary = true;
@@ -50,9 +61,29 @@ function parseArgs(argv) {
       if (!v || v.startsWith('--')) return null;
       o.version = v;
       i++;
+    } else if (a === '--index') {
+      const v = argv[i + 1];
+      if (!v || v.startsWith('--')) return null;
+      o.index = v;
+      i++;
     } else return null;
   }
   return o;
+}
+
+/** The mode's attack, or a passive / deploy / toggle ability scoped to that mode, is what the client plays. */
+function playedByMode(idx, unitKey, plan) {
+  if (!Number.isInteger(plan?.mode)) return false;
+  const mode = idx.units?.[unitKey]?.modes?.[plan.mode];
+  const name = typeof mode?.name === 'string' ? mode.name : '';
+  if (!name || name.toLowerCase() === 'default') return false;
+  if (modeAttackDraws(mode)) return true;
+  for (const b of talentBindings(idx, unitKey)) {
+    if (!MODE_WHEN.has(b.when) || !modeScoped(b, name)) continue;
+    if (bindable(b).ok) return true;
+    if ((b.plan?.attacks || []).some((a) => a.projectile)) return true;
+  }
+  return false;
 }
 
 function versionsOf(id) {
@@ -209,7 +240,8 @@ export function auditSkill(idx, r, version, names, assets) {
     if (idle.length) rows.push(row('official-unmapped', 'index-lists-projectiles-and-the-skill-has-no-attack-to-fly-them', idle.join(',')));
   }
   if (!rows.length && skillId && !(plan.projectiles || []).length && !(plan.start.length || plan.loop.length || plan.range.length || plan.end.length || plan.attacks.length || plan.ready.length || (plan.pulse || []).length || (plan.targets || []).length)) {
-    rows.push(row('not-extracted', 'extracted-skill-has-no-effect-keys', skillId));
+    if (playedByMode(idx, unitKey, plan)) rows.push(row('played-by-mode', 'mode-attack-or-ability', skillId));
+    else rows.push(row('not-extracted', 'extracted-skill-has-no-effect-keys', skillId));
   }
   return rows;
 }
@@ -290,7 +322,7 @@ function counts(rows) {
 }
 
 function printRows(rows) {
-  const order = { 'official-unmapped': 0, 'missing-asset': 1, 'not-extracted': 2 };
+  const order = { 'official-unmapped': 0, 'missing-asset': 1, 'not-extracted': 2, 'played-by-mode': 3 };
   const list = rows.slice().sort((a, b) => (order[a.bucket] - order[b.bucket]) || a.group.localeCompare(b.group) || a.id.localeCompare(b.id) || a.skill.localeCompare(b.skill) || a.key.localeCompare(b.key));
   let bucket = '';
   for (const r of list) {
@@ -308,7 +340,9 @@ function main() {
   if (!args) { console.error(USAGE); process.exit(2); }
   const versions = versionsOf(args.version);
   if (!versions) { console.error(`unknown version ${args.version}\n${USAGE}`); process.exit(2); }
-  const idx = JSON.parse(fs.readFileSync(INDEX, 'utf8'));
+  const indexPath = args.index ? path.resolve(args.index)
+    : (process.env.SP_FX_INDEX ? path.resolve(process.env.SP_FX_INDEX) : INDEX);
+  const idx = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
   const list = JSON.parse(fs.readFileSync(LIST, 'utf8'));
   const groups = list?.groups?.['fx/prefabs'] || {};
   const manifest = new Map();
@@ -340,7 +374,7 @@ function main() {
   console.log(`# versions ${versions.map((v) => v.id).join(', ')}`);
   console.log(`# heatwave archetype=${heat.a} castFlash=${FLASH.has(heat.a)} (lanes are drawn; the stance aura does not swallow them)`);
   console.log('# counts (unique across the versions listed)');
-  for (const bucket of ['official-unmapped', 'missing-asset', 'not-extracted']) {
+  for (const bucket of ['official-unmapped', 'missing-asset', 'not-extracted', 'played-by-mode']) {
     const reasons = by[bucket] || {};
     const n = Object.values(reasons).reduce((s, x) => s + x, 0);
     console.log(`# ${bucket}\t${n}`);

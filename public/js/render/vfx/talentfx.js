@@ -32,6 +32,21 @@ import { talentBindings, toggleOn, triggerKinds, pointKinds, bindable, bindingKe
 import { slotKey, lifeOf } from './skills.js';
 import { UF } from '../../../../shared/constants.js';
 
+/**
+ * Whether a binding is limited to the mode named `modeName` (the scoped branch of TalentFx._modeOk).
+ * A binding with no mode plays in every mode, so this is false: the sweep must not call that "played by
+ * the mode". An empty `modes` list matches nothing. The triggered branch of `_modeOk` (always true) is
+ * not this: a trigger is not the mode being on.
+ * @param {any} b a talentBindings entry
+ * @param {string|null} modeName
+ */
+export function modeScoped(b, modeName) {
+  if (!b || modeName == null) return false;
+  if (Array.isArray(b.modes)) return b.modes.includes(modeName);
+  if (typeof b.mode === 'string') return b.mode === modeName;
+  return false;
+}
+
 /** Battle seconds a held (non-oneshot) row of a talent's single cast lasts (SkillFx's SKILL_CAST_S). */
 export const TALENT_CAST_S = 0.6;
 /** Battle seconds a looping row of a triggered node lasts [ASSUMED: the trigger names no end]. */
@@ -344,8 +359,7 @@ export class TalentFx {
     if (!b.mode && !b.modes) return true;
     // a triggered node in a mode casts as the trigger comes (the trigger often switches to that mode: 风丸's 替身)
     if (triggered) return true;
-    const name = this._modeName(U);
-    return b.modes ? b.modes.includes(name) : b.mode === name;
+    return modeScoped(b, this._modeName(U));
   }
 
   /** Whether a binding is in force now (its loops play): passive and deploy while standing, toggles while they hold. */

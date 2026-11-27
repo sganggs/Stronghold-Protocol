@@ -275,6 +275,7 @@ export const UNMAPPED = Object.freeze({
   path: 'a line / path effect: its points come from the game',
   bound: 'a kit fx binding places it (FX_BINDINGS `at: \'target\'`, or `claim`: the binding lists the key)',
   tiles: 'tile effects on tiles the client is not told',
+  trigger: 'an ability a skill-prefab template triggers: only a binding plays it',
   other: 'the extractor could not place it in time',
 });
 
@@ -505,7 +506,7 @@ function kindOf(srec, rootClass = null) {
 /** An empty plan (the shape skillPlan returns; render/vfx/talents.js fills one per talent node with planUses). */
 export const emptyPlan = (unitKey, skillId) => ({
   unitKey, skillId, mode: null, modeName: null, kind: null, rootClass: null, projectiles: [],
-  start: [], loop: [], end: [], ready: [], range: [], attacks: [], each: { cast: [], hit: [[]] }, trigger: [], targets: [],
+  start: [], loop: [], end: [], ready: [], range: [], attacks: [], each: { cast: [], hit: [[]] }, trigger: [], triggers: [], targets: [],
   pulse: [], unmapped: [], cond: [],
 });
 
@@ -869,6 +870,14 @@ const oneShotHold = (e) => (e.loop ? 'cast' : null);
 function place(plan, e, u, { attackOf, eachHit }) {
   const role = e.role;
   if (role === 'other') return 'other';
+  // Copied from an ability a skill-prefab template triggers (`from` starts with `trigger `).
+  // Not a loop / range / start of the whole skill: only a binding plays it. `plan.trigger`
+  // (singular) is the damage signal and must not receive these.
+  if (typeof u.from === 'string' && u.from.startsWith('trigger ')) {
+    plan.triggers = plan.triggers || [];
+    plan.triggers.push(e);
+    return 'trigger';
+  }
   if (PATH_FIELD.test(u.from)) return 'path';
   if (TILE_FIELD.test(u.from)) return 'tiles';
   if (role === 'ready') { e.hold = 'ready'; plan.ready.push(e); return null; }
@@ -1106,7 +1115,7 @@ export function slotKey(entry, dir) {
 export function planKeys(plan) {
   const out = new Set();
   const add = (e) => { if (!e) return; out.add(e.key); for (const s of e.slots || []) if (s) out.add(s); };
-  for (const g of ['start', 'loop', 'end', 'ready', 'range', 'trigger', 'targets']) for (const e of plan?.[g] || []) add(e);
+  for (const g of ['start', 'loop', 'end', 'ready', 'range', 'trigger', 'triggers', 'targets']) for (const e of plan?.[g] || []) add(e);
   for (const a of plan?.attacks || []) {
     for (const e of [...a.cast, ...a.range, ...(a.aim || [])]) add(e);
     for (const g of a.hit) for (const e of g) add(e);
@@ -1921,6 +1930,24 @@ export const FX_BINDINGS = Object.freeze({
     varkisShieldEnd: binding({ owner: 'id', stopOpen: 'varkisShield', tag: 'varkis:shield' }),
   }),
   // ---- round 87 h1 end ----
+  // ---- round 88 g1 begin ----
+  // 凯尔希·思衡托 S3 破梏重生 (op-kalts2.js land). Official RespawnBorn is TriggerAbility of
+  // kalts2_s_3[restore] at ON_BUFF_START: the arrival after she moves onto the anchor. The kit
+  // already emits fx 'teleport' there (id = her). Both prefabs are oneshots (teleport_end stats
+  // looping false). claim so a re-extracted trigger use is not also an unmapped row, and oneshot
+  // so it is not a second skill-long loop. during: S3 stays on after she lands. No tag: 余 S2
+  // binds teleport on skchr_yu_2 only.
+  // condition from kit: server/sim/content/kits/ops/op-kalts2.js land()
+  skchr_kalts2_3: Object.freeze({
+    teleport: binding({
+      owner: 'id',
+      keys: ['kalts2_skill_03_teleport_end_01', 'kalts2_skill_03_range_01'],
+      oneshot: true,
+      during: true,
+      claim: true,
+    }),
+  }),
+  // ---- round 88 g1 end ----
 });
 
 /**
