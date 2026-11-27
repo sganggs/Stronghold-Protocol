@@ -109,6 +109,12 @@ export const FX_KINDS = Object.freeze({
   achuntHit: { a: 'none' },
   // 百炼嘉维尔 S3's deferred HP-loss loop is the official bleed (skills.js skchr_gvial2_3). `none`: 官方特效 off adds no marker.
   gvialBleed: { a: 'none' },
+  // 菲莱 S2's element-hit rage is the official pair (skills.js skchr_philae_2, round 87). `none`: 官方特效 off adds no marker.
+  // The name matches the /rage/ guess and would otherwise draw a buff.
+  philaeRage: { a: 'none' },
+  philaeRageLoop: { a: 'none' },
+  // 阿米娅（医疗） S1's extra-heal pulse is amiya3_skill_01_range. `none`: the name matches /heal/ and would otherwise draw a heal.
+  amiyaHeal: { a: 'none' },
   // summon arrival bursts (content/tokens.js burst(): 沙之碑 default, 迷迭香 gear stun, 耀阳 sword, 纸偶)
   summonBurst: { a: 'blast', c: 0xe8c878, smoke: 0x4a3f33 }, summonStun: { a: 'blast', c: 0xcfe0ff, smoke: 0x2a2e36 },
   radiantSword: { a: 'pillar', c: 0xffe8a0 }, paperDoll: { a: 'blast', c: 0xc9a2ff, smoke: 0x2c2436 },

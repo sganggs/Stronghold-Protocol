@@ -168,7 +168,7 @@ describe('round 86 lane f1 bindings', () => {
     const tin = bindingKeys(idx, 'skchr_tinman_1');
     assert.equal(tin.includes('projectile_chr_tinman_s1'), false, 'a binding without keys does not gain its projectile id');
     assert.ok(tin.includes('tinman_skill_01_hit_01') && tin.includes('tinman_skill_01_range_01'));
-    assert.equal(FX_BINDINGS.skchr_tinman_2.zone.claim, undefined);
+    assert.equal(FX_BINDINGS.skchr_tinman_2.zone.claim, true);
   });
 
   test('煌\'s cut plays the hit on each named enemy; the finish burst and a missing prefab stay procedural', async () => {
@@ -310,8 +310,7 @@ describe('the extracted index (when fx is on this machine)', { skip: !HAS_INDEX 
     const tinUnit = Object.keys(idx.units).find((k) => idx.units[k]?.skills?.skchr_tinman_2);
     assert.ok(tinUnit);
     const tinReasons = reasons(plan(tinUnit, 'skchr_tinman_2'), 'tinman_skill_02_hit_01');
-    assert.ok(tinReasons.includes('tick'));
-    assert.equal(tinReasons.includes('bound'), false);
+    assert.ok(tinReasons.length > 0 && tinReasons.every((r) => r === 'bound'));
   });
 
   test('projectile rows the bindings play are no longer idle, and 琴柳\'s effect-less t1_2 stays', () => {

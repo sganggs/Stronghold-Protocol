@@ -380,6 +380,7 @@ describe('round 86 lane f2 against the extracted index', { skip: !existsSync(IND
     assert.equal(reason('skchr_chen3_2', BUFF_A), 'bound');
     assert.equal(reason('skchr_chen3_2', BUFF_B), 'bound');
     assert.equal(reason('skchr_headb2_3', TILE), 'bound');
+    assert.equal(reason('skchr_amiya3_1', 'amiya3_skill_01_range'), 'bound');
     const chen = skillPlan(idx, 'char_1050_chen3', 'skchr_chen3_3', { rec: { duration: 10, durationType: 'SECONDS' } });
     assert.deepEqual(chen.projectiles, ['projectile_chr_chen3_s3']);
     assert.equal(chen.attacks.length, 0);
@@ -397,7 +398,6 @@ describe('round 86 lane f2 against the extracted index', { skip: !existsSync(IND
     assert.equal(reason('skchr_aglna2_3', 'aglna2_skill_03_range_line_01'), 'path');
     assert.equal(reason('skchr_leizi2_1', 'leizi2_skill_01_buff_01'), 'conditional');
     assert.equal(reason('skchr_sbell2_1', 'sbell2_idle'), 'after-end');
-    assert.equal(reason('skchr_amiya3_1', 'amiya3_skill_01_range'), 'conditional');
     assert.equal(reason('sktok_skadi2_1', SKADI_A), 'conditional');
     const ag = skillPlan(idx, null, 'skchr_aglna2_2');
     assert.deepEqual(ag.projectiles, ['projectile_chr_aglna2_s2_fly']);

@@ -25,6 +25,9 @@ function amiya3(_bb, chess, def) {
           for (const a of alliesInGridOf(battle, unit, rec.rangeGrid)) {
             battle.heal({ source: unit, target: a, amount, self: a === unit });
           }
+          // cosmetic fx (round 87): one pulse per attack, not per ally. index amiya3_skill_01_range is
+          // ON_CALCULATE_DAMAGE on the owner; this onHit is the kit's 每次攻击 heal. No state change.
+          battle.fx('amiyaHeal', { x: unit.x, y: unit.y, id: unit.id, skill: 'amiya3:empathy' });
         },
       },
     };

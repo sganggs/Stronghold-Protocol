@@ -10,10 +10,9 @@
 // does not. A `flight` binding does not hold the reached effect early, and bindsReached does not swallow it.
 // 信仰搅拌机 S2: the fatal 'shield' tagged rmixer:s2 follows her with rmixer_skill_02_start_02 until the skill
 // ends. The talent's untagged 'shield' does not.
-// Miss.Christine S2: the cosmetic 'zone' (skill christ:spirit) holds christ_skill_02_range and flies
-// projectile_chr_christ_s2; christ_skill_02_hit_02 plays when the flight lands.
-// 锡人 S2's tick was already skchr_tinman_2.zone.hits. The sweep still lists it: a hits key is not retagged
-// out of plan.unmapped.
+// Miss.Christine S2: the cosmetic 'zone' (skill christ:spirit) flies projectile_chr_christ_s2 at the throw.
+// christ_skill_02_range waits for the landing (`arrive`, round 87); christ_skill_02_hit_02 still plays then.
+// 锡人 S2's tick, 锏 S2's hit and 阿斯卡纶's death burst are claimed (reason 'bound'). The dread loop is not.
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
@@ -247,17 +246,18 @@ describe('round 86 lane f4 bindings', () => {
     assert.ok(h.stopped, 'the skill buff ended, so the looping guard stops');
   });
 
-  test('Miss.Christine S2 holds the range, flies the trail, and plays the hit once when it lands', async () => {
+  test('Miss.Christine S2 flies the trail at the throw and starts the range once when the flask lands', async () => {
     const { w, view, fly, keys } = await setup();
     const her = view('char_4198_christ', 4, 9, { info: { skillIndex: 1 } });
     w.skill(her, true);
     assert.equal(w.simFx('zone', 6, 9, { id: her.id, radius: 1.5, dur: 20 }), false, 'an untagged zone is not the spirit');
     assert.equal(w.simFx('zone', 6, 9, { id: her.id, radius: 1.5, dur: 20, skill: 'christ:spirit' }), true);
-    assert.ok(keys().includes(C_RANGE) && keys().includes(C_TRAIL));
+    assert.ok(keys().includes(C_TRAIL));
+    assert.ok(!keys().includes(C_RANGE), 'the range waits for the landing');
     assert.ok(!keys().includes(C_HIT), 'the hit waits for the landing');
     fly((h) => h.key === C_HIT);
     assert.equal(keys().filter((k) => k === C_HIT).length, 1);
-    assert.equal(keys().filter((k) => k === C_RANGE).length, 1, 'bindsReached keeps the range from playing twice');
+    assert.equal(keys().filter((k) => k === C_RANGE).length, 1, 'the range starts once, when the flask lands');
   });
 
   test('Miss.Christine S2 plays nothing with 官方特效 off', async () => {
@@ -287,15 +287,18 @@ describe('round 86 lane f4 against the extracted index', { skip: !fs.existsSync(
     assert.ok(cb.has(C_TRAIL) && cb.has(C_RANGE));
   });
 
-  test('conditional and tick rows stay unmapped: the sweep still lists them after a binding', () => {
+  test('claimed rows are bound; 阿斯卡纶\'s dread loop stays conditional', () => {
     const tin = skillPlan(idx, 'char_4151_tinman', 'skchr_tinman_2', { rec: { skillId: 'skchr_tinman_2', duration: -1 } });
-    assert.ok(tin.unmapped.some((u) => u.key === 'tinman_skill_02_hit_01' && u.reason === 'tick'));
+    const tinHit = tin.unmapped.filter((u) => u.key === 'tinman_skill_02_hit_01');
+    assert.ok(tinHit.length > 0 && tinHit.every((u) => u.reason === 'bound'));
     assert.ok(bindingKeys(idx, 'skchr_tinman_2').includes('tinman_skill_02_hit_01'));
     const blk = skillPlan(idx, 'char_4116_blkkgt', 'skchr_blkkgt_2', { rec: { skillId: 'skchr_blkkgt_2', duration: 0 } });
     assert.equal(blk.attacks.length, 0);
-    assert.ok(blk.unmapped.some((u) => u.key === HIT && u.reason === 'hit-no-attack'));
+    const blkHit = blk.unmapped.filter((u) => u.key === HIT);
+    assert.ok(blkHit.length > 0 && blkHit.every((u) => u.reason === 'bound'));
     const asc = skillPlan(idx, 'char_4132_ascln', 'skchr_ascln_2', { rec: { skillId: 'skchr_ascln_2', duration: 20 } });
-    assert.ok(asc.unmapped.some((u) => u.key === DEATH));
-    assert.ok(asc.unmapped.some((u) => u.key === DREAD));
+    const death = asc.unmapped.filter((u) => u.key === DEATH);
+    assert.ok(death.length > 0 && death.every((u) => u.reason === 'bound'));
+    assert.ok(asc.unmapped.some((u) => u.key === DREAD && u.reason === 'conditional'));
   });
 });

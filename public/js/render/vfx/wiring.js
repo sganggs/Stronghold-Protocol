@@ -1298,8 +1298,9 @@ export class FxWiring {
         if ((proj.onHit || []).some((k) => /heal/.test(k))) this.healed.set(id, now);
       }
       // a skill binding places these where the kit's area fx says, for the area's time (SkillFx.bindsReached: 锡人's
-      // flask, 波登可's spores …) — not a second copy at the flight's end (0.3.1)
-      if (src && this.skills.bindsReached(src, proj)) return;
+      // flask, 波登可's spores …) — not a second copy at the flight's end (0.3.1). `arrive` keys were withheld at the
+      // throw and start here (Miss.Christine's range); onHit above already played.
+      if (src && this.skills.bindsReached(src, proj)) { this.skills.landArrived(src, proj); return; }
       for (const k of proj.onReached || []) {
         const kk = lc(k);
         if (kk && this.ofx.lib.has(kk)) this.ofx.spawn(kk, { pos: at.slice(), groundZ: at[2] }, {});

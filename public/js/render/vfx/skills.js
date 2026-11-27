@@ -1353,6 +1353,12 @@ export function chargeKeys(plan) {
  *               projectile's main effect; its onHit plays once when the flight lands (wiring._arrive); onReached stays
  *               with the area (bindsReached). Not set on a skill whose attacks already fly the same projectile — the
  *               trail would play twice
+ *   arrive      these prefabs, among the keys the binding would play now, wait for that flight's landing
+ *               (Miss.Christine S2: christ_skill_02_range is onReached, and placing it in _bound showed the ring at
+ *               the throw). The trail still flies at the throw; onHit still plays at landing; bindsReached still
+ *               swallows a second onReached. The withheld keys start at arrival and stop at throw-time plus the
+ *               hold (the spirit window), not a fresh hold from the landing. A flight that outlasts the hold plays
+ *               them not at all. A fly binding with no `arrive` list is unchanged
  *   flight      the fx is the throw itself, not a lasting area (乌尔比安 S3's anchor): fly the projectile from the
  *               caster to the fx's point (SkillFx._flight). The landing plays the projectile's own onHit and onReached
  *               (_arrive); bindsReached does not swallow them. Not set when an attack of the skill already flies it
@@ -1426,6 +1432,7 @@ const binding = (o) => Object.freeze({
   ...(o.cover ? { cover: Object.freeze(o.cover) } : {}),
   ...(o.keys ? { keys: Object.freeze(o.keys) } : {}),
   ...(o.hits ? { hits: Object.freeze(o.hits) } : {}),
+  ...(o.arrive ? { arrive: Object.freeze(o.arrive) } : {}),
   ...(Array.isArray(o.cases) ? { cases: Object.freeze(o.cases.map((c) => Object.freeze({
     ...c,
     ...(c.keys ? { keys: Object.freeze(c.keys) } : {}),
@@ -1449,7 +1456,7 @@ export const FX_BINDINGS = Object.freeze({
   // The tick hit tinman_skill_0N_hit_01 (ON_BUFF_TRIGGER of tinman_s_1[dot] / tinman_s_2[buff], index.json) plays once a
   // second at the tile for the area's time, as 旅骨's (`hits`, history §37.207)
   skchr_tinman_1: Object.freeze({ zone: binding({ owner: 'id', projectile: 'projectile_chr_tinman_s1', at: 'point', hold: 'fx', holdS: 8, during: true, cover: ['zone'], hits: ['tinman_skill_01_hit_01'] }) }),
-  skchr_tinman_2: Object.freeze({ zone: binding({ owner: 'id', projectile: 'projectile_chr_tinman_s2', at: 'point', hold: 'fx', holdS: 8, during: true, cover: ['zone'], hits: ['tinman_skill_02_hit_01'] }) }),
+  skchr_tinman_2: Object.freeze({ zone: binding({ owner: 'id', projectile: 'projectile_chr_tinman_s2', at: 'point', hold: 'fx', holdS: 8, during: true, cover: ['zone'], hits: ['tinman_skill_02_hit_01'], claim: true }) }),
   // 引星棘刺 S1 / S3 (chess_char_5_15-thorn2.js: a 'zone' on each chosen ally's tile, id = her, duration): the unit she
   // throws (projectile_chr_thorn2_s1 / _s3) lands there — thorn2_token_start, the unit (thorn2_skill_0N_token, looping),
   // S1's ring (thorn2_skill_01_range). S2's unit drifts and grows (its zone re-sent every second under one key, 12 s):
@@ -1572,14 +1579,14 @@ export const FX_BINDINGS = Object.freeze({
   // plays it on each later unclaimed HP hit of this frame. The cast rows blkkgt_skill_02_start_01..06 already play
   // when the skill turns on. S3's 'slash' stays skchr_blkkgt_3 (attack: 'Damage').
   skchr_blkkgt_2: Object.freeze({
-    slash: binding({ owner: 'id', keys: ['blkkgt_skill_02_hit_1'], strike: true, during: true }),
+    slash: binding({ owner: 'id', keys: ['blkkgt_skill_02_hit_1'], strike: true, during: true, claim: true }),
   }),
   // 阿斯卡纶 S2 恩赐 (op-ascln.js death: 'aoe' at the knocked-out ground enemy, id = her, skill 'ascln:endowment').
   // index.json skchr_ascln_2 Aura template ascln_s_2[enemy], ON_OWNER_KILLED CreateEffect ascln_skill_02_death_01
   // (oneshot, spawn GROUND_CENTER, duration 6.5). The circle debuff ascln_buff_01 is CreateBuffInCircleRange on the
   // living targets; this aoe names no target list, so that looping buff is not played here.
   skchr_ascln_2: Object.freeze({
-    aoe: binding({ owner: 'id', keys: ['ascln_skill_02_death_01'], at: 'point', oneshot: true, during: true, tag: 'ascln:endowment' }),
+    aoe: binding({ owner: 'id', keys: ['ascln_skill_02_death_01'], at: 'point', oneshot: true, during: true, tag: 'ascln:endowment', claim: true }),
   }),
   // 乌尔比安 S3 必须开辟的通路 (chess_char_5_05-ulpia.js onStart: 'anchor' at the landing tile, id = him). index.json
   // skchr_ulpia_3 ability AOEAttack is ProjectileToTileWithExtraActionsAbility, not an attack, so
@@ -1601,9 +1608,11 @@ export const FX_BINDINGS = Object.freeze({
   // dur = the spirit's window, skill 'christ:spirit'). index.json skchr_christ_2's only ability is
   // ProjectileToTileAbility of projectile_chr_christ_s2 (Paracurve speed 8, main christ_skill_02_trail_01, onReached
   // christ_skill_02_range looping spawn GROUND, onHit christ_skill_02_hit_02). Not an attack, so nothing flew it.
-  // `fly` holds the range for the zone and flies the trail; the hit plays when the flight lands.
+  // `fly` flies the trail at the throw. `arrive` holds christ_skill_02_range until that flight lands
+  // (round 87: _bound used to place the ring at the throw, about 0.25 s early). The hit is onHit and still
+  // plays at landing. The hold ends at throw-time plus the spirit window, not a fresh window from the landing.
   skchr_christ_2: Object.freeze({
-    zone: binding({ owner: 'id', projectile: 'projectile_chr_christ_s2', at: 'point', hold: 'fx', holdS: 20, during: true, cover: ['zone'], fly: true, tag: 'christ:spirit' }),
+    zone: binding({ owner: 'id', projectile: 'projectile_chr_christ_s2', at: 'point', hold: 'fx', holdS: 20, during: true, cover: ['zone'], fly: true, tag: 'christ:spirit', arrive: ['christ_skill_02_range'] }),
   }),
   // ---- round 86 f4 end ----
   // ---- round 86 f1 begin ----
@@ -1861,6 +1870,27 @@ export const FX_BINDINGS = Object.freeze({
     fxHit: binding({ owner: 'id', keys: ['hsguma_skill_03_hit'], at: 'target', tag: 'hsguma:s3', during: true, claim: true }),
   }),
   // ---- round 86 g11 end ----
+  // ---- round 87 h2 begin ----
+  // 菲莱 S2 冥河诅咒: an element hit on her while S2 is on applies skill:philae_rage once
+  // (chess_char_3_06-philae.js). index.json skchr_philae_2: both keys are ON_APPLYING_MODIFIER of template
+  // philae_s_2 on the owner. start_02 is the oneshot (spawn FOOT_POINT, duration 7). buff_02 is the loop
+  // (spawn MP_SPECIAL_0, follow SPECIAL) until the skill ends — the kit removes the buff in onEnd. buff_01
+  // and start_01 are the always-on loop and the counter and already play. Two kinds: one binding cannot mix
+  // a oneshot with a hold-skill loop.
+  // condition from kit: server/sim/content/kits/ops/chess_char_3_06-philae.js:115
+  skchr_philae_2: Object.freeze({
+    philaeRage: binding({ owner: 'id', keys: ['philae_skill_02_start_02'], oneshot: true, during: true, tag: 'philae:rage', claim: true }),
+    philaeRageLoop: binding({ owner: 'id', keys: ['philae_skill_02_buff_02'], hold: 'skill', during: true, tag: 'philae:rage', claim: true }),
+  }),
+  // 阿米娅（医疗） S1 哀恸共情 (ver-amiya3.js S1 attack onHit): each attack heals allies on the skill grid.
+  // index.json amiya3_skill_01_range is ON_CALCULATE_DAMAGE CreateEffect on the owner (template amiya3_s_1),
+  // oneshot, spawn GROUND_CENTER, duration 7. The kit's 每次攻击 heal is that onHit, so the pulse is one event
+  // per attack, not one per ally and not every damage number. act3 only. The always-on loop
+  // amiya3_skill_01_buff already plays at the skill start.
+  skchr_amiya3_1: Object.freeze({
+    amiyaHeal: binding({ owner: 'id', keys: ['amiya3_skill_01_range'], at: 'point', oneshot: true, during: true, tag: 'amiya3:empathy', claim: true }),
+  }),
+  // ---- round 87 h2 end ----
 });
 
 /**

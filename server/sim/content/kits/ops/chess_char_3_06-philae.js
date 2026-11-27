@@ -114,6 +114,10 @@ export default {
         battle.on('elementHit', ctx => {
           if (ctx.target === unit && unit.alive && isS2 && unit.skill?.active && !unit.findBuff('skill:philae_rage')) {
             battle.addBuff(unit, { key: 'skill:philae_rage', mods: { atkPct: num(bb.atk) }, visible: true });
+            // cosmetic fx (round 87): index skchr_philae_2 ON_APPLYING_MODIFIER of philae_s_2 on her.
+            // start_02 is the oneshot; buff_02 loops until the skill ends (onEnd removes this buff). No state change.
+            fx(battle, 'philaeRage', unit, { skill: 'philae:rage' });
+            fx(battle, 'philaeRageLoop', unit, { skill: 'philae:rage' });
           }
         }, { owner: unit });
       },

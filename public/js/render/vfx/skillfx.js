@@ -21,6 +21,7 @@
 //   s.simFx(kind, x, y, extra)   a kit 'fx' tuple the official layer stands for (true: the procedural one is skipped)
 //   s.auraHit(v, claimed)        b.ev 'dmg' (HP) no attack owns: a hit of an enemy aura's tick of this frame (true: drawn)
 //   s.bindsReached(src, proj)    a skill binding of the shooter's places the projectile's reached effects (FxWiring._arrive)
+//   s.landArrived(src, proj, at) a fly binding's `arrive` keys start now (the flight landed); bindsReached still swallows onReached
 //   s.keys(views)                every key to preload; s.clear()
 //
 // What plays when (skills.js header for the roles and signals):
@@ -1413,16 +1414,22 @@ export class SkillFx {
     const fxS = Number(extra.duration ?? extra.dur ?? extra.hold);
     const holdS = bind.hold === 'fx' ? (fxS > 0 ? fxS : bind.holdS || SKILL_CAST_S)
       : Number(bb[bind.hold]) > 0 ? Number(bb[bind.hold]) : bind.holdS || SKILL_CAST_S;
+    // `arrive` (Miss.Christine S2's range): those keys wait for the flight. The others still loop from the throw.
+    const wait = new Set((bind.arrive || []).map(lc).filter(Boolean));
+    const nowKeys = wait.size ? keys.filter((k) => !wait.has(k)) : keys;
+    const laterKeys = wait.size ? keys.filter((k) => wait.has(k)) : [];
     let drew = false;
-    for (const k of keys) {
+    for (const k of nowKeys) {
       const h = this.w.playOn(k, at, { loop: true, important: true });
       if (!h) continue;
       drew = true;
       later(this.w.ofx, holdS, () => h.stop());
       this.marks.push({ owner: U.id, r: Math.round(y), c: Math.round(x), until: this.w.ofx.time + holdS, h, cover: bind.cover || [], untilSkill: !!bind.untilSkill });
     }
-    if (!drew) return false;
-    // after the marks: a flight that ends in this call still leaves onReached to the area (bindsReached)
+    const armed = laterKeys.length ? this._armArrive(U, bind, laterKeys, at, x, y, holdS) : false;
+    if (!drew && !armed) return false;
+    // after the marks: a flight that ends in this call still leaves onReached to the area (bindsReached).
+    // An `arrive` list starts those keys from landArrived instead, and still claims the fx so the procedural zone stays off.
     if (bind.fly) this._flyThrown(U, bind, x, y);
     if (bind.hits) this._zoneHits(U, bind, at, holdS);
     return true;
@@ -1756,10 +1763,51 @@ export class SkillFx {
   _endLock(L) { for (const h of L.hs) h.stop(); }
 
   /**
+   * Remember `keys` until projectile `proj` lands (FX_BINDINGS `arrive`). The hold ends at throw-time plus `holdS`,
+   * the kit's window, not a new window measured from the landing. False when the projectile is not in the index:
+   * the binding then does not claim the fx.
+   */
+  _armArrive(U, bind, keys, at, x, y, holdS) {
+    const proj = bind.projectile ? this.w.idx?.projectiles?.[lc(bind.projectile)] : null;
+    if (!proj || !U?.v || !keys.length || !(holdS > 0)) return false;
+    const now = this.w.ofx.time;
+    (U.arrivals ||= []).push({
+      proj, keys, at, until: now + holdS,
+      r: Math.round(y), c: Math.round(x), cover: bind.cover || [], untilSkill: !!bind.untilSkill,
+    });
+    return true;
+  }
+
+  /**
+   * The flight of an `arrive` binding landed (wiring._arrive, after onHit, inside the bindsReached return).
+   * Start the withheld loops at the zone point and stop them when the throw-time hold ends. A flight that
+   * outlasts that hold plays nothing. The raw onReached spawn stays swallowed by the caller.
+   */
+  landArrived(src, proj) {
+    const U = proj ? this.units.get(idOf(src)) : null;
+    if (!U?.arrivals?.length) return;
+    const i = U.arrivals.findIndex((p) => p.proj === proj);
+    if (i < 0) return;
+    const pending = U.arrivals.splice(i, 1)[0];
+    const left = pending.until - this.w.ofx.time;
+    if (!(left > 0)) return;
+    for (const k of pending.keys) {
+      const h = this.w.playOn(k, pending.at, { loop: true, important: true });
+      if (!h) continue;
+      later(this.w.ofx, left, () => h.stop());
+      this.marks.push({
+        owner: U.id, r: pending.r, c: pending.c, until: pending.until, h,
+        cover: pending.cover, untilSkill: pending.untilSkill,
+      });
+    }
+  }
+
+  /**
    * Whether a skill binding of the shooter's places projectile `proj`'s reached effects (FX_BINDINGS `projectile` at
    * 'point', in force — `during`: while the skill lasts —): its kit's area fx plays them at the zone's point for the zone's
    * time, so the flight's arrival does not play them again (0.3.1: 锡人's flask drew twice — on the ground and, for 8 s,
-   * at the target's HitPoint where the drawn flight ended).
+   * at the target's HitPoint where the drawn flight ended). An `arrive` binding still returns true: the withheld keys
+   * start from landArrived, and the raw onReached spawn must not also play.
    */
   bindsReached(src, proj) {
     const U = proj ? this.units.get(idOf(src)) : null;
