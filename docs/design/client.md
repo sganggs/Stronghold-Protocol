@@ -1362,6 +1362,9 @@ Covenant rendering and controls retain the mixed hand and visible temporary row.
 
 盟约栏、同盟盟约速查及其卡片的 ‹ › 共用 `stripBondList` 的显示资格：`noStack` 盟约的内部层数不显示，不能单独使零人且未激活的盟约留在栏内；仍有成员或已激活时显示。可叠层盟约仍可因已有层数保留。
 
+规程的 `noStack` 盟约显示激活状态且没有层数；零人且未激活时，服务端不会因过时的内部计数保留其条目。盟约各期仍保留内部层数，界面按上文的共同筛选隐藏无成员图标。
+参见 [noStack 层数规则修正](../research/no-hidden-bond-layers-20261125.md)。
+
 `components.css` 不再包含旧版 `BondDisc` 的 SVG 圆环、渐变底板及悬停缩放规则；各页面继续按自身布局设置圆形尺寸和名称字号。
 
 盟约卡片内，在场普通干员显示绿色边框，在场精锐干员保留金色边框及在场光晕；所有不在场干员统一使用原版 `bondChar/avatar_border` 灰色边框，不影响通用头像组件的其他使用处。

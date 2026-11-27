@@ -33,6 +33,7 @@ export class BattleEconomy {
    */
   addLayers(playerId, bondId, n, reason = '', opts = {}) {
     if (!this.flags.layerGainsEnabled || !(n > 0) || !Number.isFinite(n) || playerId == null) return 0;
+    if ((this.data.regulationLayers && this.data.rawBond?.(bondId)?.noStack)) return 0;
     const pp = this._pp(playerId);
     if (!pp) return 0;
     const ps = this.getPlayer(playerId);
@@ -62,11 +63,13 @@ export class BattleEconomy {
 
   /** Effective layers for gameplay; temporary layers never consume permanent cap room. */
   effectiveBondLayers(playerId, bondId) {
+    if ((this.data.regulationLayers && this.data.rawBond?.(bondId)?.noStack)) return 0;
     return Math.max(0, Number(this.getPlayer(playerId)?.bonds?.[bondId]?.layers) || 0) + this.tempLayers(playerId, bondId);
   }
 
   /** Actual positive gain, capped at 10000 temporary layers per bond; no permanent layerGain hook. */
   addTempLayers(playerId, bondId, n) {
+    if ((this.data.regulationLayers && this.data.rawBond?.(bondId)?.noStack)) return 0;
     if (this.finished || this.kind === 'unite' || !this.getPlayer(playerId) || typeof bondId !== 'string' || !bondId || !Number.isFinite(n) || n <= 0) return 0;
     return this._changeTempLayers(playerId, bondId, Math.min(1e4 - this.tempLayers(playerId, bondId), Math.floor(n)));
   }

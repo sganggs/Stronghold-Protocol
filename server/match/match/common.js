@@ -36,7 +36,7 @@ export const BAND_TURN_SECONDS = 50;
 export function applyTempLayers(gd, ps, result) {
   const balance = {};
   for (const [id, amount] of Object.entries(result?.tempLayerGains ?? {})) {
-    if (!gd.bond(id) || !Number.isFinite(amount) || amount < 1) continue;
+    if (!gd.bond(id) || (gd.regulationLayers && gd.bond(id).noStack) || !Number.isFinite(amount) || amount < 1) continue;
     balance[id] = Math.min(10000, Math.floor(amount));
   }
   if (Object.keys(balance).length) ps.tempLayers = balance;
@@ -50,7 +50,7 @@ export function applyTempLayers(gd, ps, result) {
  */
 export function commitBattleLayerGains(gd, ps, layerGains, dispatch) {
   for (const [bondId, n] of Object.entries(layerGains || {})) {
-    if (!gd.bond(bondId) || !(n > 0)) continue;
+    if (!gd.bond(bondId) || (gd.regulationLayers && gd.bond(bondId).noStack) || !(n > 0)) continue;
     const before = ps.layers[bondId] || 0;
     const add = layerGainRoom(before, Math.floor(n));
     if (!(add > 0)) continue;

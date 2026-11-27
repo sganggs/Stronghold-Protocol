@@ -484,6 +484,16 @@ The enemy-status garrison event reads `check_ab_flag`: 16 means freeze, 33 means
 `garrison_99_a/b` grants active Swift 4/8 layers on a new fear entry inside her attack range, capped at 20/40
 per battle. Refreshing an existing fear, freezing an enemy, or fearing an enemy outside her range grants nothing.
 
+### Bonds without layers
+
+`DataSource.rawBond(id)` resolves the active content set’s bond metadata. In 规程 (`config.version.family ===
+'regulation'`), `noStack` input layers are
+zeroed and inherited temporary balances are omitted. Permanent and temporary grants return 0 before hooks or
+receipts; effective layers stay 0. This applies to normal, boss, hidden and unite battles.
+
+Covenant versions retain hidden permanent and temporary balances, highest-layer targeting, totals and helper
+ranking as recorded by PRTS. The existing covenant 余 strategy still skips `noStack` targets.
+
 ### Temporary bond layers
 
 Battle owns a temporary-layer ledger keyed by player and bond, separate from the permanent count in

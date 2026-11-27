@@ -48,7 +48,7 @@ function bandProfile(id, band, data, gd) {
   for (const b of buffs) {
     const p = { ...b.bb, ...b.bbStr }, key = p.key || b.key;
     if (b.key === 'round_start_bond_check_gain_layer') add('single-bond', 'bond-engine', p,
-      `At R${p.round} start, exactly ${p.factioncount} active bond(s): +${p.count1} layers; otherwise +${p.count2} to each active stacking bond. noStack is excluded (maintainer decision 2026-10-08).`,
+      `At R${p.round} start, exactly ${p.factioncount} active bond(s): +${p.count1} layers; otherwise +${p.count2} to each active stacking bond. Regulation excludes noStack for all layer sources; covenant Yu excludes it by maintainer decision 2026-10-08.`,
       'Focus one stacking bond through the preceding round; widen only after the check. Count ALL incidental active bonds.');
     if (key === 'act1autochess_band2_buff') add('wide', 'wide-bond', p,
       Object.keys(p).filter(k => /^value_\d+$/.test(k)).map(k => Number(k.slice(6))).sort((a, b) => a - b)

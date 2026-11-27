@@ -39,6 +39,7 @@ export class BattlePlayers {
       units: [],
       input: p,
     };
+    for (const [id, bond] of Object.entries(ps.bonds)) if (bond && (this.data.regulationLayers && this.data.rawBond?.(id)?.noStack)) bond.layers = 0;
     if (this.opts.morphPairing === 'plus') ps.morphPairing = 'plus';
     this.players.push(ps);
     this._perPlayer[ps.playerId] = {
@@ -50,7 +51,7 @@ export class BattlePlayers {
     };
     // Restore the helper's own-battle temporary layers before installing any content. Unite cannot gain more.
     if (this.kind === 'unite' && p.tempLayers && typeof p.tempLayers === 'object') {
-      const entries = Object.entries(p.tempLayers).filter(([id, n]) => id && Number.isFinite(n) && n > 0)
+      const entries = Object.entries(p.tempLayers).filter(([id, n]) => id && !(this.data.regulationLayers && this.data.rawBond?.(id)?.noStack) && Number.isFinite(n) && n > 0)
         .map(([id, n]) => [id, Math.min(1e4, Math.floor(n))]).filter(([, n]) => n > 0);
       if (entries.length) (this._temporaryLayers ||= new Map()).set(ps.playerId, new Map(entries));
     }

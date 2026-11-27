@@ -890,6 +890,7 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
         if (!finiteIn(n, 0, bound)) return bad('layer bound');
         if (n > 0 && spec.flags && spec.flags.layerGainsEnabled === false) return bad('layers disabled');
         if (gd && typeof gd.bond === 'function' && !gd.bond(bondId)) return bad('bond');
+        if (n > 0 && gd?.regulationLayers && gd.bond(bondId)?.noStack) return bad('no-stack layers');
         if (n > 0 && own.bonds && !own.bonds.has(bondId)) return bad('layer bond');
         if (n > 0) layerGains[bondId] = n;
       }
@@ -906,6 +907,7 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
           if (!finiteIn(n, 0, tempBound)) return bad('temp layers');
           if (n > 0 && spec.kind === 'unite') return bad('layers disabled');
           if (gd && typeof gd.bond === 'function' && !gd.bond(bondId)) return bad('temp bond');
+          if (n > 0 && gd?.regulationLayers && gd.bond(bondId)?.noStack) return bad('no-stack layers');
           if (n > 0) tempLayerGains[bondId] = n;
         }
       }

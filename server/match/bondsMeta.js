@@ -21,7 +21,8 @@
 //                    (offBondCounts → bondList: count only, never active, after the others) so the strip can say
 //                    本局禁用 (community reports 「投资人…不生效」 / 「…不会触发斯卡蒂与异德的突袭」, 0.1.3).
 // `tier` = number of thresholds reached (downward: 1 when active); `active = tier ≥ 1`.
-// Layers (`ps.layers[bondId]`) persist the whole match; they are reported for every bond but only matter while active.
+// Layers (`ps.layers[bondId]`) persist between rounds. Effects require activation.
+// 规程 excludes noStack layer balances; covenant retains hidden counts (research 02 §2.2).
 
 import { layerGainRoom } from '../../shared/constants.js';
 import { grantedBondsByMorph, ruleOption } from '../../shared/plugins/rules.js';
@@ -111,7 +112,8 @@ function rawCount(gd, id, mem, ps) {
   return Math.max(0, count + (Number.isInteger(bonus[id]) ? bonus[id] : 0));
 }
 
-const layersIn = (ps, id) => {
+const layersIn = (ps, id, gd) => {
+  if (gd.regulationLayers && gd.bond(id)?.noStack) return 0;
   const v = ps.layers && ps.layers[id];
   return Number.isFinite(v) && v > 0 ? v : 0;
 };
@@ -128,7 +130,7 @@ export function computeBonds(gd, ps) {
 
   /** @type {Record<string, { count: number, active: boolean, tier: number, layers: number, harmony?: number }>} */
   const out = {};
-  const layersOf = (id) => layersIn(ps, id);
+  const layersOf = (id) => layersIn(ps, id, gd);
   const bonus = ps.bondCountBonus || {};
   const bonusOf = (id) => (Number.isInteger(bonus[id]) ? bonus[id] : 0);
 
@@ -177,7 +179,7 @@ export function offBondCounts(gd, ps) {
     if (!gd.modeInactiveBonds.has(id)) continue;
     const count = rawCount(gd, id, mem, ps);
     if (!(count > 0)) continue;
-    (out ??= {})[id] = { count, layers: layersIn(ps, id) };
+    (out ??= {})[id] = { count, layers: layersIn(ps, id, gd) };
   }
   return out;
 }
@@ -240,7 +242,7 @@ export function bondList(gd, bonds, { full = false, off = null, tempLayers = {},
     return typeof target === 'string' && target && gd.raw.effects?.[target] ? target : null;
   };
   const extras = (e) => {
-    if (tempLayers[e.bondId] > 0) e.tempLayers = tempLayers[e.bondId];
+    if (!(gd.regulationLayers && gd.bond(e.bondId)?.noStack) && tempLayers[e.bondId] > 0) e.tempLayers = tempLayers[e.bondId];
     if (!e.off) {
       const target = mappedTarget(e.bondId);
       if (target) e.effectId = target;
@@ -252,8 +254,10 @@ export function bondList(gd, bonds, { full = false, off = null, tempLayers = {},
     return e;
   };
   for (const [bondId, b] of Object.entries(bonds || {})) {
-    if (!(b.count > 0 || b.layers > 0 || b.active || tempLayers[bondId] > 0)) continue;
-    const e = { bondId, count: b.count, active: b.active, tier: b.tier, layers: b.layers };
+    const noStack = gd.regulationLayers && gd.bond(bondId)?.noStack;
+    const layers = noStack ? 0 : b.layers;
+    if (!(b.count > 0 || b.active || (!noStack && (layers > 0 || tempLayers[bondId] > 0)))) continue;
+    const e = { bondId, count: b.count, active: b.active, tier: b.tier, layers };
     if (b.harmony > 0) e.harmony = b.harmony;
     list.push(extras(e));
     listed.add(bondId);
@@ -284,13 +288,14 @@ export function bondList(gd, bonds, { full = false, off = null, tempLayers = {},
  * makes them persistent. `bonds` itself when there is nothing to add; the persistent state is never touched.
  * @param {ReturnType<typeof computeBonds>} bonds
  * @param {Record<string, number>|null|undefined} gains
+ * @param {import('./gamedata.js').GameData|null} [gd]
  */
-export function bondsWithGains(bonds, gains) {
+export function bondsWithGains(bonds, gains, gd = null) {
   if (!gains || typeof gains !== 'object') return bonds;
   let out = null;
   for (const [id, n] of Object.entries(gains)) {
     const b = bonds && bonds[id];
-    if (!b) continue;
+    if (!b || (gd?.regulationLayers && gd.bond(id)?.noStack)) continue;
     const add = layerGainRoom(b.layers, Math.floor(Number(n) || 0));
     if (!(add > 0)) continue;
     if (!out) out = { ...bonds };
