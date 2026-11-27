@@ -22,8 +22,17 @@ function pourBarrier(battle, unit, add, capRatio) {
   const cur = unit.findBuff(BARRIER);
   const next = Math.min(cap, (cur ? cur.shield : 0) + add);
   if (cur) { cur.shield = next; return; }
-  const buff = battle.addBuff(unit, { key: BARRIER, shield: next });
-  if (buff && unit.mem.varkisDecay) buff.onTick = (ctx) => decayBarrier(ctx, num(unit.mem.varkisRate));
+  const buff = battle.addBuff(unit, {
+    key: BARRIER, shield: next,
+    onRemove: () => {
+      // cosmetic fx (round 87): the shield loop stops when this buff is removed. No number changes.
+      battle.fx('varkisShieldEnd', { x: unit.x, y: unit.y, id: unit.id, skill: 'varkis:shield' });
+    },
+  });
+  if (!buff) return;
+  // cosmetic fx (round 87): a new barrier only. A refresh of the one already held takes the path above.
+  battle.fx('varkisShield', { x: unit.x, y: unit.y, id: unit.id, skill: 'varkis:shield' });
+  if (unit.mem.varkisDecay) buff.onTick = (ctx) => decayBarrier(ctx, num(unit.mem.varkisRate));
 }
 
 function decayBarrier({ battle, unit, buff, dt }, rate) {

@@ -297,7 +297,9 @@ describe('the extracted index (when fx is on this machine)', { skip: !HAS_INDEX 
     assert.deepEqual(reasons(plan('char_213_mostma', 'skchr_mostma_2'), MOSTMA), ['bound']);
     assert.ok(reasons(plan('char_249_mlyss', 'skchr_mlyss_3'), 'token_10030_mlyss_wtrman_c2_skill_03_buff_01').includes('conditional'));
     assert.deepEqual(reasons(plan('char_294_ayer', 'skchr_ayer_2'), AYER), ['bound']);
-    assert.ok(reasons(plan('char_304_zebra', 'skchr_zebra_1'), 'zebra_buff_01').includes('conditional'));
+    // round 87 h1 claims zebra_buff_01: the S1 hit already selects that ally
+    const zebra = reasons(plan('char_304_zebra', 'skchr_zebra_1'), 'zebra_buff_01');
+    assert.ok(zebra.length > 0 && zebra.every((r) => r === 'bound'));
     assert.deepEqual(reasons(plan('char_322_lmlee', 'skchr_lmlee_2'), LMLEE), ['bound']);
     assert.ok(reasons(plan('char_340_shwaz', 'skchr_shwaz_1'), 'buff_defdown').includes('conditional'));
     assert.ok(reasons(plan('char_427_vigil', 'skchr_vigil_2'), 'vigil_token_skill_02_ready').includes('token'));

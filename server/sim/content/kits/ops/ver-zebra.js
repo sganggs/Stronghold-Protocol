@@ -22,6 +22,8 @@ function zebra(_bb, chess, def) {
           if (!t) return;
           const dur = rec?.duration > 0 ? rec.duration : 4;
           battle.addBuff(t, { key, duration: dur, flags: { camou: true }, mods: { hpRegen: num(sbb.hp_recovery_per_sec) }, source: unit });
+          // cosmetic fx (round 87): zebra_buff_01 on that ally for the buff's duration. No number changes.
+          battle.fx('zebraCamou', { x: t.x, y: t.y, id: unit.id, target: t.id, skill: 'zebra:camou', duration: dur });
         },
       },
     };

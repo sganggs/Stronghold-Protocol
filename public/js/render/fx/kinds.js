@@ -49,6 +49,11 @@ export const FX_KINDS = Object.freeze({
   // (a new 'buff' or 'spark' kind would draw a marker the client did not draw before).
   turdusCamou: { a: 'none' },
   turdusHot: { a: 'none' },
+  // 暴雨 S1's camou loop and 摆渡人 S2's barrier loop (skills.js round 87 h1). `none`: 官方特效 off
+  // draws no marker. varkisShield matches the /shield/ guess and would otherwise draw a barrier.
+  zebraCamou: { a: 'none' },
+  varkisShield: { a: 'none' },
+  varkisShieldEnd: { a: 'none' },
   ulpiaReturn: { a: 'blink', c: 0x9ff0dc }, manifoldSplit: { a: 'blink', c: 0xd8b0ff },
   // displacement
   pull: { a: 'move', c: 0x9fd4ff }, push: { a: 'move', c: 0xffd9a0 }, displace: { a: 'move', c: 0xd0c0a0 }, lure: { a: 'move', c: 0xffb3ec },

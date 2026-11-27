@@ -1344,7 +1344,8 @@ export function chargeKeys(plan) {
  *   hold        how long a looping reached effect stays: a blackboard key of our skill record (seconds), 'fx' — the
  *               fx's own `duration` / `dur` / `hold` (the kit's area or lock time) —, 'lock' — a lock mark's: on the
  *               enemy, at its last spot once it is gone, until its shell lands (SkillFx._lockOn) —, 'skill' — follow
- *               the owner until the skill's own loops stop (a buff whose life is the skill's) —, else `holdS`
+ *               the owner until the skill's own loops stop (a buff whose life is the skill's) —, 'open' — follow the
+ *               owner until a later fx whose binding `stopOpen` names this kind (SkillFx._openHold; 摆渡人 S2) —, else `holdS`
  *   cover       fx kinds of the same owner at that tile that the reached effect draws (skipped while it plays)
  *   during      only while the skill lasts (SkillFx._lasts: on, its activation frame, COVER_AFTER_S after its end, or a
  *               binding of its owner still held — a lasting area's strikes); another fx of that kind is the kit's own
@@ -1406,6 +1407,8 @@ export function chargeKeys(plan) {
  *               hit-no-attack, channel hit, token): skillPlan retags those unmapped rows to `bound` (the coverage sweep).
  *               Bindings without `claim` are not retagged. A binding that sets both `keys` and `projectile` still plays
  *               `keys`; the projectile id is preloaded so a skill with no attack is not reported as an idle shot
+ *   stopOpen    this fx stops the `hold: 'open'` loop stored under that kind. It plays no prefab. With 官方特效 off
+ *               the loop was never started, so the stop does nothing
  *   track       the kit re-sends this moving point (赤刃明霄陈 S3's chen3Wave): one copy of `keys` (the projectile's
  *               flying effect) follows the latest point, yaw from `extra.dr` / `extra.dc`, until the skill ends.
  *               Not a new projectile per sample — the prefab loops. `projectile` is named so bindingKeys preloads
@@ -1471,9 +1474,10 @@ export const FX_BINDINGS = Object.freeze({
   // projectile_chr_hbound_s1 / _s2 (ParacurveMovement, speed 10): the trail hbound_trail_01, and on the tile the looping
   // range hbound_skill1_range_01 / hbound_skill2_range_01 (spawn GROUND) for the projectile's life. The tick hit
   // hbound_skill1_hit_01 / hbound_skill2_hit_01 is ON_BUFF_TRIGGER of hbound_s_1[dot] / hbound_s_2[buff], not an onHit
-  // (index.json). `fly` draws the trail; `hits` the tick, once per makeZone pulse, at the tile [ASSUMED] (history §37.202)
-  skchr_hbound_1: Object.freeze({ zone: binding({ owner: 'id', projectile: 'projectile_chr_hbound_s1', at: 'point', hold: 'fx', holdS: 8, during: true, cover: ['zone'], fly: true, hits: ['hbound_skill1_hit_01'] }) }),
-  skchr_hbound_2: Object.freeze({ zone: binding({ owner: 'id', projectile: 'projectile_chr_hbound_s2', at: 'point', hold: 'fx', holdS: 31, during: true, cover: ['zone'], fly: true, hits: ['hbound_skill2_hit_01'] }) }),
+  // (index.json). `fly` draws the trail; `hits` the tick, once per makeZone pulse, at the tile [ASSUMED] (history §37.202).
+  // `claim` (round 87): those tick rows are this zone, so the sweep marks them bound.
+  skchr_hbound_1: Object.freeze({ zone: binding({ owner: 'id', projectile: 'projectile_chr_hbound_s1', at: 'point', hold: 'fx', holdS: 8, during: true, cover: ['zone'], fly: true, hits: ['hbound_skill1_hit_01'], claim: true }) }),
+  skchr_hbound_2: Object.freeze({ zone: binding({ owner: 'id', projectile: 'projectile_chr_hbound_s2', at: 'point', hold: 'fx', holdS: 31, during: true, cover: ['zone'], fly: true, hits: ['hbound_skill2_hit_01'], claim: true }) }),
   // 承曦格雷伊 S2 (ver-greyy2.js: the ball's 'zone' on the aimed tile, re-sent every interval with the full
   // projectile_delay_time, id = her, skill = skchr_greyy2_2). projectile_chr_greyy2_s2 (AdvancedMovement, speed 8):
   // trail greyy2_skill_02_trail, onReached the looping greyy2_skill_02_range, onHit greyy2_skill_02_hit_02 once as it
@@ -1602,7 +1606,7 @@ export const FX_BINDINGS = Object.freeze({
   // rmixer_skill_02_start_02 on the owner (looping, spawn HIT, duration null — the skill buff). hold 'skill' keeps
   // it until the skill's loops stop. The talent's 'shield' carries no skill tag and is not this effect.
   skchr_rmixer_2: Object.freeze({
-    shield: binding({ owner: 'id', keys: ['rmixer_skill_02_start_02'], hold: 'skill', during: true, tag: 'rmixer:s2' }),
+    shield: binding({ owner: 'id', keys: ['rmixer_skill_02_start_02'], hold: 'skill', during: true, tag: 'rmixer:s2', claim: true }),
   }),
   // Miss.Christine S2 狂饮之宴 (ver-christ.js onStart, cosmetic fx round 86: 'zone' at the anchor tile, id = her,
   // dur = the spirit's window, skill 'christ:spirit'). index.json skchr_christ_2's only ability is
@@ -1794,7 +1798,7 @@ export const FX_BINDINGS = Object.freeze({
   // already names the blocked enemy. SkillFx.attackFx appends this key onto each blow's hit group while
   // the skill is on. The onStart 'resolve' aoe is the 战栗, not this hit.
   skchr_branch_2: Object.freeze({
-    onAttack: binding({ owner: 'id', keys: ['branch_skill_02_hit_01'], onAttack: true }),
+    onAttack: binding({ owner: 'id', keys: ['branch_skill_02_hit_01'], onAttack: true, claim: true }),
   }),
   // 乌啾 S2 (ver-turdus.js continueChain). Status 'camou' is shared (伪装服 / 忍冬) and heal events
   // name only the patient, so the kit emits cosmetic fx (round 86) of kinds the procedural table draws
@@ -1804,15 +1808,15 @@ export const FX_BINDINGS = Object.freeze({
   // CreateEffect tick 1 — turdus_skill_02_hit_01 oneshot, spawn HIT. The skill is instant, so no
   // `during`. coverStealth 'camou' hides the generic 隐匿 icon only while that loop actually plays.
   skchr_turdus_2: Object.freeze({
-    turdusCamou: binding({ owner: 'id', keys: ['turdus_skill_02_buff_01'], at: 'target', target: 'target', hold: 'fx', holdS: 10, tag: 'turdus:camou', coverStealth: 'camou' }),
-    turdusHot: binding({ owner: 'id', keys: ['turdus_skill_02_hit_01'], at: 'target', target: 'target', oneshot: true, tag: 'turdus:hot' }),
+    turdusCamou: binding({ owner: 'id', keys: ['turdus_skill_02_buff_01'], at: 'target', target: 'target', hold: 'fx', holdS: 10, tag: 'turdus:camou', coverStealth: 'camou', claim: true }),
+    turdusHot: binding({ owner: 'id', keys: ['turdus_skill_02_hit_01'], at: 'target', target: 'target', oneshot: true, tag: 'turdus:hot', claim: true }),
   }),
   // 娜斯提 S1: PassiveBuffAbility ExtraAbility0 already loops nasti_skill_01_common_buff_01 for the skill
   // (INFINITY, spawn FOOT). BuffDuringSkill nasti_s1[effect_manager] ON_BUFF_FINISH CreateBuff of the same
   // key, life INFINITY. SkillFx.skill keeps that loop handle after the skill ends (`linger`) and stops it
   // on recast or release. A second copy is not started.
   skchr_nasti_1: Object.freeze({
-    linger: binding({ owner: 'id', keys: ['nasti_skill_01_common_buff_01'], linger: true }),
+    linger: binding({ owner: 'id', keys: ['nasti_skill_01_common_buff_01'], linger: true, claim: true }),
   }),
   // 可露希尔 S2/S3: closur_s_2[switch] / closur_s_3[switch] ON_BUFF_START CreateBuffToToken, LIMITED
   // duration, spawn GROUND. The summon fx (op-closur.js) names the 指挥中心 (id = the token, src = her,
@@ -1820,17 +1824,17 @@ export const FX_BINDINGS = Object.freeze({
   // `summon`, so simFx does not swallow the procedural arrival. SkillFx starts the loop on that token
   // while the skill lasts.
   skchr_closur_2: Object.freeze({
-    tokenRange: binding({ owner: 'src', keys: ['token_closur_ourbase_range_02_loop'], token: 'token_10066_closur_ourbase' }),
+    tokenRange: binding({ owner: 'src', keys: ['token_closur_ourbase_range_02_loop'], token: 'token_10066_closur_ourbase', claim: true }),
   }),
   skchr_closur_3: Object.freeze({
-    tokenRange: binding({ owner: 'src', keys: ['token_closur_ourbase_range_03_loop'], token: 'token_10066_closur_ourbase' }),
+    tokenRange: binding({ owner: 'src', keys: ['token_closur_ourbase_range_03_loop'], token: 'token_10066_closur_ourbase', claim: true }),
   }),
   // 机械师 S2: CreateBuff of mcnist_skill_02_buff_01 on her is already the skill loop. CreateBuffToToken
   // of the same key (mcnist_s_2_mode, INFINITY, spawn FOOT) is the 结构性原理. grantBarrier's shield fx
   // names the holder (id only). Kind is `tokenBuff`, not `shield`, so the procedural barrier stays.
   // SkillFx starts the loop on token_10069_mcnist_mcgraf while S2 is on.
   skchr_mcnist_2: Object.freeze({
-    tokenBuff: binding({ owner: 'id', keys: ['mcnist_skill_02_buff_01'], token: 'token_10069_mcnist_mcgraf' }),
+    tokenBuff: binding({ owner: 'id', keys: ['mcnist_skill_02_buff_01'], token: 'token_10069_mcnist_mcgraf', claim: true }),
   }),
   // 机械师 S3: the six projectile_chr_mcnist_s3_token* are listed on the skill but no use fires them.
   // Kit chargeGraf (op-mcnist.js) is the flight (speed 20; index delayToStart 0.25, the kit waits 0.2).
@@ -1891,6 +1895,31 @@ export const FX_BINDINGS = Object.freeze({
     amiyaHeal: binding({ owner: 'id', keys: ['amiya3_skill_01_range'], at: 'point', oneshot: true, during: true, tag: 'amiya3:empathy', claim: true }),
   }),
   // ---- round 87 h2 end ----
+  // ---- round 87 h1 begin ----
+  // 暴雨 S1 应急迷彩 (ver-zebra.js onHit). Index skchr_zebra_1: AnimatedActionToTargetAbility._activeBuffs →
+  // template zebra_s_1, ON_BUFF_TRIGGER CreateBuff zebra_buff_01 on targets, life LIMITED (tick 0.2, no duration key).
+  // Prefab zebra_buff_01 loops, _holdByOwner, spawn FOOT. The kit already selects that one ally.
+  // The skill is instant, so no `during`: the buff outlives the cast (rec.duration, else 4).
+  // condition from kit: server/sim/content/kits/ops/ver-zebra.js:16-24
+  skchr_zebra_1: Object.freeze({
+    zebraCamou: binding({
+      owner: 'id', keys: ['zebra_buff_01'], at: 'target', target: 'target',
+      hold: 'fx', holdS: 4, tag: 'zebra:camou', claim: true,
+    }),
+  }),
+  // 摆渡人 S2 同胞的意志 (ver-varkis.js pourBarrier). Index skchr_varkis_2: PassiveBuffAbility template
+  // varkis_s2[effect], node "S2 passive", ON_BUFF_TRIGGER CreateBuff varkis_skill_02_shield_1 on the owner,
+  // life INFINITY tick 99999. Prefab loops, _holdByOwner, spawn FOOT, _maxLifetime -1.
+  // The barrier has no fixed duration: it is created on overflow and removed when the post-skill decay empties it.
+  // hold 'open' follows him until the varkisShieldEnd fx. A refresh of the same buff emits no second start.
+  // condition from kit: server/sim/content/kits/ops/ver-varkis.js:19-32
+  skchr_varkis_2: Object.freeze({
+    varkisShield: binding({
+      owner: 'id', keys: ['varkis_skill_02_shield_1'], hold: 'open', tag: 'varkis:shield', claim: true,
+    }),
+    varkisShieldEnd: binding({ owner: 'id', stopOpen: 'varkisShield', tag: 'varkis:shield' }),
+  }),
+  // ---- round 87 h1 end ----
 });
 
 /**

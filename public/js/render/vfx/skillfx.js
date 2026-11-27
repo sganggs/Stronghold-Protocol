@@ -786,6 +786,7 @@ export class SkillFx {
     if (U.ewin) { for (const h of U.ewin.loops) h.stop(); U.ewin = null; }
     this._stopCond(U);
     this._stopLoops(U);
+    this._stopOpen(U);
     this._stopTokenLoops(U);
     this._stopReady(U);
     for (const hs of U.slotLoops) for (const h of hs || []) h.stop();
@@ -971,6 +972,7 @@ export class SkillFx {
       for (const U of this.units.values()) {
         if (!U) continue;
         for (const h of [...U.loops, ...U.ready, ...U.slotLoops.flat().filter(Boolean), ...(U.ewin ? U.ewin.loops : []), ...(U.f5loops || [])]) h.stop();
+        this._stopOpen(U);
         this._stopCond(U);
         U.loops = []; U.ready = []; U.slotLoops = []; U.f5loops = []; U.loopsOn = false; U.readyOn = false; U.passiveOn = false; U.energy = 0; U.quiet = true;
         U.ewin = null;
@@ -1008,7 +1010,7 @@ export class SkillFx {
       if (!U) continue;
       U.seen = sweep;
       const up = v.alive !== false && !v.destroyed && !v.down;
-      if (!up) { if (U.loopsOn || U.readyOn || U.passiveOn || U.energy || U.ewin) this._releaseU(U); continue; }
+      if (!up) { if (U.loopsOn || U.readyOn || U.passiveOn || U.energy || U.ewin || U.openOn) this._releaseU(U); continue; }
       if (U.enemy.length) {
         // an enemy's skill window: the snapshot's anim SKILL (the sim's 0.5 s after an ability fires); with no 'cast'
         // slot event, an enemy whose data record has a single skill opens that skill's window on it [ASSUMED]
@@ -1049,7 +1051,7 @@ export class SkillFx {
       U.quiet = false;
     }
     for (const U of this.units.values()) {
-      if (U && U.seen !== sweep && (U.loopsOn || U.readyOn || U.passiveOn || U.energy || U.ewin)) this._releaseU(U);
+      if (U && U.seen !== sweep && (U.loopsOn || U.readyOn || U.passiveOn || U.energy || U.ewin || U.openOn)) this._releaseU(U);
     }
     for (const [slot, t] of this.tloops) {
       const tv = t.tgt;
@@ -1121,6 +1123,12 @@ export class SkillFx {
       const U = extra[field] != null ? this.units.get(extra[field]) : null;
       const bind = pickBind(U ? FX_BINDINGS[U.skillId]?.[kind] : null, extra);
       if (bind && bind.owner === field && (!bind.during || this._lasts(U)) && (!bind.tag || extra.skill === bind.tag)) {
+        // hold 'open' (摆渡人 S2): the loop stays until the fx named by stopOpen. The stop plays nothing.
+        if (bind.stopOpen) { this._stopOpen(U, bind.stopOpen); return true; }
+        if (bind.hold === 'open') {
+          const drew = this._openHold(U, kind, bind, extra);
+          if (drew || !bind.pass) return drew;
+        }
         if (bind.launch) return this._launch(U, bind, x, y, extra);
         if (bind.lanes) return this._lanes(U, bind, x, y, extra);
         if (bind.flight) return this._flight(U, bind, x, y);
@@ -1315,6 +1323,38 @@ export class SkillFx {
     if (win.draws) return true;
     const a = win.plan?.attacks?.[0];
     return !!a && [...a.cast, ...a.range].some((e) => this.w.ofx.lib.has(e.key));
+  }
+
+  /**
+   * `hold: 'open'` (摆渡人 S2): one looping copy on the owner until `_stopOpen` for this fx kind. A second start
+   * replaces the first. Nothing is drawn when none of the keys is installed.
+   */
+  _openHold(U, kind, bind, extra) {
+    const keys = bindingEffects(this.w.idx, bind).filter((k) => this.w.ofx.lib.has(k));
+    if (!keys.length) return false;
+    const who = this.w.view(extra.id) || U.v;
+    if (!who) return false;
+    const started = [];
+    for (const k of keys) {
+      const h = this.w.playOn(k, who, { follow: true, loop: true, important: true });
+      if (h) started.push(h);
+    }
+    if (!started.length) return false;
+    this._stopOpen(U, kind);
+    if (!U.open) U.open = new Map();
+    U.open.set(kind, started);
+    U.openOn = true;
+    return true;
+  }
+
+  /** Stop one `hold: 'open'` loop, or every one when `kind` is omitted (death, release, a tier switch). */
+  _stopOpen(U, kind) {
+    if (!U?.open) return;
+    const list = kind == null ? [...U.open.values()].flat() : (U.open.get(kind) || []);
+    for (const h of list) if (h) h.stop();
+    if (kind == null) U.open.clear();
+    else U.open.delete(kind);
+    U.openOn = U.open.size > 0;
   }
 
   /**
