@@ -84,7 +84,9 @@ test('profile tables accept a module id or an object, and 规程 names its modul
   assert.match(tableSpecError({ ...nil, bountyDrafts: '../x' }), /safe name/);
   assert.match(tableSpecError({ ...nil, extra: null }), /tables\.extra/);
   const { profile } = await loadProfile('act3autochess@V3_1');
-  assert.equal(profile.tables.stock, null);
+  // §37.357: the six per-item equipment caps of the community pool test BV1QV1czHE9o, no operator exceptions
+  assert.deepEqual(profile.tables.stock, { chess: {}, items: { 简易通讯机: 5, 蜂鸣器: 6, 动能单手弩: 6, 汲取者之喙: 6, 驱逐者警棍: 6, 寻呼模块: 7 } });
+  assert.equal(tableSpecError(profile.tables), null);
   assert.equal(profile.tables.bountyDrafts, 'act3autochess-v3_1');
   assert.equal(profile.tables.shopDraft, 'act3autochess-v3_1');
   assert.equal(profile.tables.tacticDraft, 'act3autochess-v3_1');
