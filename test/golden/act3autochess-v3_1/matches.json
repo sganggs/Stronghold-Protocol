@@ -609,7 +609,7 @@
       "boost": null,
       "setup": {"stageId":"act3autochess_m06","bossId":"boss_17","hiddenBossId":"boss_16","factions":["DOT","REFLECTION","CRITIC"]},
       "end": {"victory":false,"roundsPassed":13,"hiddenReached":false,"hiddenCleared":false,"reason":"defeat","teamLp":0,"bossPoolLeft":1644164,"virtualMs":137200},
-      "rng": {"setup":29,"shop":990,"waves":0,"draft":82,"bots":38271,"meta":19},
+      "rng": {"setup":29,"shop":990,"waves":0,"draft":82,"bots":38254,"meta":19},
       "errors": {"engine":0,"logged":0,"sim":0,"dispatcher":0},
       "rounds": [
         {

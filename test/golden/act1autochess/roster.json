@@ -368,8 +368,8 @@
         "enemy_2003_rockman": [1,0,1,533,1426]
       },
       "hooks": [1,92,4200,378,376,522,550,817,26,74,19,22,0,13055,59,8,77,47,1,27,0,0,53],
-      "events": {"atk":404,"bounty":2,"cast":4,"deploy":15,"die":27,"dmg":550,"engage":6,"fx":107,"heal":13,"leak":47,"rate":4,"skill":46,"spawn":89,"status":111},
-      "fx": {"aoe":4,"coin":6,"dodge":53,"explode":12,"pulse":25,"push":2,"revive":1,"strike":2,"volley":2},
+      "events": {"atk":404,"bounty":2,"cast":4,"deploy":15,"die":27,"dmg":550,"engage":6,"fx":109,"heal":13,"leak":47,"rate":4,"skill":46,"spawn":89,"status":111},
+      "fx": {"aoe":4,"coin":6,"dodge":53,"explode":12,"philaeRage":1,"philaeRageLoop":1,"pulse":25,"push":2,"revive":1,"strike":2,"volley":2},
       "snaps": "141f7dcf 1c92a62d 9d05b3c4 6c66dfae 67741198 70a20fe7 c6cb4d2f e10a6b47 429f554e ee8356ad cc787c5a a30163aa d4d26e2c a011bf47"
     },
     "roster-007": {

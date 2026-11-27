@@ -1039,8 +1039,9 @@
         "enemy_9020_actrpc": [1,0,0,19985,1193189]
       },
       "hooks": [1,68,6000,1274,1274,4217,8101,2343,36,40,85,79,286,30682,948,1,13,0,1,43,0,12,0],
-      "events": {"atk":1372,"cast":12,"deploy":49,"die":40,"dmg":7767,"engage":26,"fx":1616,"heal":121,"rate":192,"skill":167,"spawn":53,"status":723},
+      "events": {"atk":1372,"cast":12,"deploy":49,"die":40,"dmg":7767,"engage":26,"fx":2299,"heal":121,"rate":192,"skill":167,"spawn":53,"status":723},
       "fx": {
+        "achuntHit": 683,
         "airstrike": 78,
         "beam": 13,
         "blessing": 2,
@@ -1125,8 +1126,8 @@
         "enemy_9020_actrpc": [1,0,0,17119,530445]
       },
       "hooks": [1,33,6000,782,782,3501,7096,815,9,12,34,29,142,22921,367,5,13,0,1,4,0,2,0],
-      "events": {"atk":1338,"cast":15,"deploy":20,"die":12,"dmg":6847,"engage":11,"fx":1254,"heal":561,"rate":89,"skill":63,"spawn":28,"status":255},
-      "fx": {"anchor":5,"beam":19,"burst":2,"candle":6,"charge":7,"dash":12,"displace":19,"drone":333,"droneLock":14,"drones":3,"extraAttack":22,"finale":4,"garrisonGrant":1,"healAoe":1,"link":597,"palsy":3,"phase":12,"radiantSword":4,"shieldBreak":11,"slash":44,"splash":105,"summon":4,"talent":3,"teleport":5,"wake":18},
+      "events": {"atk":1338,"cast":15,"deploy":20,"die":12,"dmg":6847,"engage":11,"fx":1968,"heal":561,"rate":89,"skill":63,"spawn":28,"status":255},
+      "fx": {"achuntHit":714,"anchor":5,"beam":19,"burst":2,"candle":6,"charge":7,"dash":12,"displace":19,"drone":333,"droneLock":14,"drones":3,"extraAttack":22,"finale":4,"garrisonGrant":1,"healAoe":1,"link":597,"palsy":3,"phase":12,"radiantSword":4,"shieldBreak":11,"slash":44,"splash":105,"summon":4,"talent":3,"teleport":5,"wake":18},
       "snaps": "90f4098c 81803438 56461e33 0524f8f7 a4605b70 5cab4a25 dfcd6022 ce0d8b31 f14203d9 08b191e9 fc251ace 8f65d384 431493d3 c199d75a 8dab3c93 f2293bb9 5564c1ac 16f8e935 772bf175 06658dff"
     },
     "hidden-boss_10-pair": {

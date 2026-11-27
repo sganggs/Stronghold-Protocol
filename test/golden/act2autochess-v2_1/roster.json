@@ -426,8 +426,8 @@
         "enemy_9008_acbunn": [1,0,1,1238,0]
       },
       "hooks": [1,185,4200,511,511,1505,1572,9,121,178,15,17,0,13022,9,34,153,42,1,122,4,2,0],
-      "events": {"atk":587,"bounty":2,"cast":8,"deploy":30,"die":136,"dmg":1321,"engage":12,"fx":136,"heal":9,"layer":4,"leak":42,"rate":11,"skill":35,"spawn":179,"status":48},
-      "fx": {"aoe":11,"blink":2,"buff":1,"burst":2,"coin":19,"displace":6,"explode":15,"garrison":4,"pull":5,"push":1,"revive":1,"strike":12,"summon":50,"volley":3,"zone":4},
+      "events": {"atk":587,"bounty":2,"cast":8,"deploy":30,"die":136,"dmg":1321,"engage":12,"fx":138,"heal":9,"layer":4,"leak":42,"rate":11,"skill":35,"spawn":179,"status":48},
+      "fx": {"aoe":11,"blink":2,"buff":1,"burst":2,"coin":19,"displace":6,"explode":15,"garrison":4,"philaeRage":1,"philaeRageLoop":1,"pull":5,"push":1,"revive":1,"strike":12,"summon":50,"volley":3,"zone":4},
       "snaps": "285a71c9 468737d0 66e3b994 d3b2bdf2 7b88e124 d35dff58 01b78890 183ddc9a d4dc2a4d 8172fa88 57f81547 7adb1100 d2f44fbf e35a9aa5"
     },
     "roster-008": {
@@ -484,8 +484,8 @@
         "enemy_9009_acfort": [1,1,0,6804,41472]
       },
       "hooks": [1,108,5100,941,941,2097,2239,1343,93,98,42,46,0,22690,40,66,86,0,1,98,4,31,0],
-      "events": {"atk":1009,"bounty":6,"cast":7,"deploy":22,"die":98,"dmg":2239,"engage":12,"fx":97,"heal":618,"layer":4,"rate":611,"skill":87,"spawn":99,"status":169},
-      "fx": {"aoe":15,"beam":2,"buff":1,"burst":31,"camouflage":1,"coin":8,"dp":2,"explode":1,"garrison":4,"phase":2,"revive":4,"strike":16,"summon":4,"telegraph":2,"volley":2,"zone":2},
+      "events": {"atk":1009,"bounty":6,"cast":7,"deploy":22,"die":98,"dmg":2239,"engage":12,"fx":99,"heal":618,"layer":4,"rate":611,"skill":87,"spawn":99,"status":169},
+      "fx": {"aoe":15,"beam":2,"buff":1,"burst":31,"camouflage":1,"coin":8,"dp":2,"explode":1,"garrison":4,"phase":2,"philaeRage":1,"philaeRageLoop":1,"revive":4,"strike":16,"summon":4,"telegraph":2,"volley":2,"zone":2},
       "snaps": "4446748d 19e4e83b 7ff25363 e12f9799 bc400d31 a26ed8ac 68b97dd7 7942603d 542aa2e8 f6c4a783 ad84790d 5a9191e8 510fad13 69840a2a 51cda05e d7debec4 db910b7f"
     },
     "roster-009": {

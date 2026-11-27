@@ -65,8 +65,8 @@
         "enemy_9030_acpara": [1,0,0,0,0]
       },
       "hooks": [1,62,2700,452,452,777,835,850,38,38,11,10,0,14525,41,39,46,0,1,39,0,0,0],
-      "events": {"atk":508,"bounty":4,"cast":5,"deploy":13,"die":38,"dmg":826,"engage":9,"fx":29,"heal":392,"rate":12,"skill":21,"spawn":62,"status":34},
-      "fx": {"aoe":1,"drone":1,"ember":1,"explode":24,"summon":2},
+      "events": {"atk":508,"bounty":4,"cast":5,"deploy":13,"die":38,"dmg":826,"engage":9,"fx":31,"heal":392,"rate":12,"skill":21,"spawn":62,"status":34},
+      "fx": {"aoe":1,"drone":1,"ember":1,"explode":24,"summon":2,"varkisShield":1,"varkisShieldEnd":1},
       "snaps": "7a954275 8b2e396d 3e5c4562 f432d0ca 56583416 a40b8deb 4b16ffa5 2e5b5a9d 886cdeed"
     },
     "roster-002": {
@@ -1132,8 +1132,8 @@
         "enemy_9009_acfort": [1,0,0,25879,40646]
       },
       "hooks": [1,97,5700,957,964,3079,3371,9241,65,87,70,85,0,23168,572,52,56,7,1,79,3,12,14],
-      "events": {"atk":1632,"bounty":6,"cast":14,"deploy":39,"die":80,"dmg":3188,"engage":10,"fx":350,"heal":698,"layer":3,"leak":7,"rate":260,"skill":174,"spawn":89,"status":884},
-      "fx": {"aoe":95,"bandage":5,"buff":1,"burst":12,"crit":24,"displace":42,"dodge":14,"explode":1,"expose":55,"garrison":3,"iceSpike":33,"phase":2,"revive":1,"shield":6,"spGift":1,"summon":19,"telegraph":16,"thorns":16,"undying":1,"weightless":3},
+      "events": {"atk":1632,"bounty":6,"cast":14,"deploy":39,"die":80,"dmg":3188,"engage":10,"fx":364,"heal":698,"layer":3,"leak":7,"rate":260,"skill":174,"spawn":89,"status":884},
+      "fx": {"aoe":95,"bandage":5,"buff":1,"burst":12,"crit":24,"displace":42,"dodge":14,"explode":1,"expose":55,"garrison":3,"iceSpike":33,"lfkghtHit":14,"phase":2,"revive":1,"shield":6,"spGift":1,"summon":19,"telegraph":16,"thorns":16,"undying":1,"weightless":3},
       "snaps": "115793cf 21039bb1 9679ff55 0b60f8b6 864e21c8 111a82ac 7a141d35 3f6e488b 6ba5f3eb 6c16dc15 de87cd12 73cfbb11 1b75edeb 2b19a757 3fec714a 6bb46f0c 4eae75a7 29df2a85 4ff55afe"
     },
     "roster-017": {
@@ -1813,8 +1813,8 @@
         "enemy_9036_acweb": [1,1,0,0,34560]
       },
       "hooks": [1,49,3300,260,260,323,348,438,20,37,16,16,0,11971,37,30,31,17,1,29,0,0,0],
-      "events": {"atk":291,"bounty":3,"cast":6,"deploy":16,"die":20,"dmg":348,"engage":10,"fx":12,"heal":71,"leak":17,"rate":35,"skill":32,"spawn":45,"status":88},
-      "fx": {"camouflage":1,"charge":1,"explode":1,"liberate":3,"phase":5,"summon":1},
+      "events": {"atk":291,"bounty":3,"cast":6,"deploy":16,"die":20,"dmg":348,"engage":10,"fx":16,"heal":71,"leak":17,"rate":35,"skill":32,"spawn":45,"status":88},
+      "fx": {"camouflage":1,"charge":1,"explode":1,"lfkghtHit":4,"liberate":3,"phase":5,"summon":1},
       "snaps": "ac4bcb70 1857904d 363d3dfa 98c14356 ab7a2e70 ae678a22 673d8180 70e08470 973ecd51 50ea5b25 6ad0aa8d"
     },
     "roster-027": {
@@ -2893,8 +2893,8 @@
         "enemy_9030_acpara": [1,1,0,1199,84498]
       },
       "hooks": [1,116,6900,1202,1196,3338,3317,12908,70,100,247,247,0,30489,2689,92,90,30,1,83,0,0,3],
-      "events": {"atk":1348,"bounty":1,"cast":6,"deploy":23,"die":70,"dmg":3275,"engage":10,"fx":768,"heal":693,"leak":30,"rate":392,"skill":494,"spawn":105,"status":981},
-      "fx": {"anchor":21,"aoe":43,"displace":96,"dodge":3,"explode":202,"frostNova":35,"healAoe":24,"link":2,"palsy":6,"reborn":1,"revive":2,"shield":22,"shieldBreak":22,"snow":41,"stone":1,"summon":36,"telegraph":211},
+      "events": {"atk":1348,"bounty":1,"cast":6,"deploy":23,"die":70,"dmg":3275,"engage":10,"fx":828,"heal":693,"leak":30,"rate":392,"skill":494,"spawn":105,"status":981},
+      "fx": {"amiyaHeal":60,"anchor":21,"aoe":43,"displace":96,"dodge":3,"explode":202,"frostNova":35,"healAoe":24,"link":2,"palsy":6,"reborn":1,"revive":2,"shield":22,"shieldBreak":22,"snow":41,"stone":1,"summon":36,"telegraph":211},
       "snaps": "97b4ab57 480931ba 98763c1e 82a6b995 d9527fc8 830b8abe f1fbaa25 d2a57a17 dcaa0477 26c86ef6 8eb87a16 129e8019 fc04a82b 8731e899 b1c401f7 f7ed7c1c b7a2c6d4 df1399ba 9f6bac6d 2b44bfdf 5b866c6b f5d81022 6288421e"
     },
     "roster-044": {
@@ -2955,8 +2955,8 @@
         "enemy_2008_flking": [1,0,1,9823,0]
       },
       "hooks": [1,96,6104,725,725,2670,2978,4987,32,92,79,81,0,10275,1451,30,59,53,1,35,4,4,11],
-      "events": {"atk":871,"bounty":1,"cast":2,"deploy":34,"die":39,"dmg":2865,"engage":11,"fx":243,"heal":251,"layer":4,"leak":53,"rate":277,"skill":162,"spawn":80,"status":402},
-      "fx": {"aoe":17,"buff":34,"burst":4,"crit":7,"disappear":2,"dodge":11,"downed":3,"dp":7,"explode":5,"garrisonGrant":1,"heal":1,"liberate":1,"meltdown":3,"phase":1,"revive":2,"riposte":7,"shield":40,"skadiWard":61,"sp":25,"summon":2,"zone":9},
+      "events": {"atk":871,"bounty":1,"cast":2,"deploy":34,"die":39,"dmg":2865,"engage":11,"fx":301,"heal":251,"layer":4,"leak":53,"rate":277,"skill":162,"spawn":80,"status":402},
+      "fx": {"amiyaHeal":58,"aoe":17,"buff":34,"burst":4,"crit":7,"disappear":2,"dodge":11,"downed":3,"dp":7,"explode":5,"garrisonGrant":1,"heal":1,"liberate":1,"meltdown":3,"phase":1,"revive":2,"riposte":7,"shield":40,"skadiWard":61,"sp":25,"summon":2,"zone":9},
       "snaps": "1c8f3755 c8defec2 8a9d88bf 84a84c11 877fe5d8 bc0b4b68 68a37f60 05dd77cb b8e86416 435e8df7 ef9cdb5d 491dcd3d e06b330e 47c5374a 0df4ade9 3cbd1e64 8381f5fa ff65910b d45fb3ec 56f0471d a56a105e"
     },
     "roster-045": {
@@ -3775,8 +3775,8 @@
         "enemy_9034_acblk": [1,0,1,12118,5041]
       },
       "hooks": [1,159,6124,896,896,2551,3348,9975,92,150,54,51,2,25820,313,56,124,49,1,107,18,26,5],
-      "events": {"atk":1074,"bounty":3,"cast":7,"deploy":33,"die":101,"dmg":3342,"engage":11,"fx":292,"heal":231,"layer":18,"leak":49,"rate":272,"skill":105,"spawn":143,"status":658},
-      "fx": {"aoe":33,"beam":4,"blast":6,"buff":30,"burst":26,"disappear":4,"dodge":5,"downed":2,"garrison":2,"lock":2,"logosLexicon":88,"lure":1,"mantraGate":3,"meltdown":8,"palsy":17,"revive":13,"riposte":5,"sp":20,"stone":12,"summon":2,"sunBurst":1,"talent":4,"telegraph":1,"zone":3},
+      "events": {"atk":1074,"bounty":3,"cast":7,"deploy":33,"die":101,"dmg":3342,"engage":11,"fx":294,"heal":231,"layer":18,"leak":49,"rate":272,"skill":105,"spawn":143,"status":658},
+      "fx": {"aoe":33,"beam":4,"blast":6,"buff":30,"burst":26,"disappear":4,"dodge":5,"downed":2,"garrison":2,"lfkghtHit":2,"lock":2,"logosLexicon":88,"lure":1,"mantraGate":3,"meltdown":8,"palsy":17,"revive":13,"riposte":5,"sp":20,"stone":12,"summon":2,"sunBurst":1,"talent":4,"telegraph":1,"zone":3},
       "snaps": "b16bee1f b723c6ad 012da493 432c5b29 ba7447de d7de3321 af321a03 ea2c7ae0 9a63f487 fe4bb6e8 48c976e2 eb64c7f3 78471493 4a84c385 d72ecc28 729b0e38 a93c992b 939cc1d0 a21ac4d0 80c573ea bcec8f69"
     },
     "roster-058": {

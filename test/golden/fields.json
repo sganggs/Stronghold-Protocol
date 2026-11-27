@@ -1127,8 +1127,9 @@
         "enemy_9020_actrpc": [1,0,0,28406,2092311]
       },
       "hooks": [1,65,6000,1666,1666,9285,19187,2810,26,40,94,89,311,45610,3667,2,13,0,1,26,0,17,0],
-      "events": {"atk":2294,"cast":14,"deploy":46,"die":40,"dmg":18344,"engage":20,"fx":2193,"heal":854,"rate":290,"skill":183,"spawn":51,"status":888},
+      "events": {"atk":2294,"cast":14,"deploy":46,"die":40,"dmg":18344,"engage":20,"fx":3608,"heal":854,"rate":290,"skill":183,"spawn":51,"status":888},
       "fx": {
+        "achuntHit": 1415,
         "airstrike": 107,
         "beam": 26,
         "blink": 7,
@@ -1216,8 +1217,8 @@
         "enemy_9020_actrpc": [1,0,0,17945,604259]
       },
       "hooks": [1,43,6000,909,909,3291,7858,5724,15,20,100,97,105,24577,2871,2,15,0,1,138,0,7,0],
-      "events": {"atk":1455,"cast":17,"deploy":28,"die":20,"dmg":7043,"engage":10,"fx":842,"heal":446,"rate":132,"skill":197,"spawn":28,"status":279},
-      "fx": {"anchor":4,"aoe":3,"beam":21,"burst":7,"candle":8,"charge":7,"dash":12,"ember":2,"explode":1,"healAoe":31,"link":597,"overload":4,"phase":13,"reborn":1,"revive":2,"shieldBreak":11,"splash":105,"substitute":3,"swap":3,"teleport":7},
+      "events": {"atk":1455,"cast":17,"deploy":28,"die":20,"dmg":7043,"engage":10,"fx":1636,"heal":446,"rate":132,"skill":197,"spawn":28,"status":279},
+      "fx": {"achuntHit":794,"anchor":4,"aoe":3,"beam":21,"burst":7,"candle":8,"charge":7,"dash":12,"ember":2,"explode":1,"healAoe":31,"link":597,"overload":4,"phase":13,"reborn":1,"revive":2,"shieldBreak":11,"splash":105,"substitute":3,"swap":3,"teleport":7},
       "snaps": "71141e76 ae36788d f3898275 72db52e9 08a86e9b d95f4b69 240aee86 6f326928 2c6cd06b 6aa3adf7 d5fea5f8 0a59f5f6 0360ab01 e74fa377 9c6a5dda 8fbbe500 f182e5ff c58e5efd 2fa2bf9a 6b548f15"
     },
     "hidden-boss_10-pair": {

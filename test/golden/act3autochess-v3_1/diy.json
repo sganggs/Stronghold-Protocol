@@ -902,8 +902,8 @@
       ],
       "enemies": {"enemy_1103_wdkght_2":[12,0,12,25488,17289],"enemy_1104_lfkght":[15,0,15,25839,14243],"enemy_1104_lfkght_3":[12,0,12,29051,13400]},
       "hooks": [1,60,6079,521,521,658,660,19,19,58,17,17,0,13440,20,22,39,39,1,27,0,0,0],
-      "events": {"atk":598,"cast":63,"deploy":21,"die":19,"dmg":428,"engage":11,"fx":45,"heal":19,"leak":39,"skill":34,"spawn":51,"status":88},
-      "fx": {"aoe":25,"buff":1,"heal":19},
+      "events": {"atk":598,"cast":63,"deploy":21,"die":19,"dmg":428,"engage":11,"fx":103,"heal":19,"leak":39,"skill":34,"spawn":51,"status":88},
+      "fx": {"aoe":25,"buff":1,"heal":19,"lfkghtHit":58},
       "snaps": "bca4539f 2642bd41 72e43d57 54f1840e 4f4d5f4b 444b6d30 23b21118 6ecdf35f a2daf59b 93d9c34d 4e72ffbe d1b6d396 63081fd4 7c084d1f ee91019d 30070112 8a845445 90889fed 18f4b7d4 9e0cec35 70a0a2df"
     },
     "diy-023": {
@@ -1602,8 +1602,8 @@
       ],
       "enemies": {"enemy_1103_wdkght_2":[12,0,12,2084,17693],"enemy_1104_lfkght":[15,0,15,4833,15637],"enemy_1104_lfkght_3":[12,0,12,9107,11922]},
       "hooks": [1,58,6141,153,152,266,3847,0,18,57,2,2,0,112,0,5,39,39,1,18,0,0,0],
-      "events": {"atk":150,"cast":44,"deploy":19,"die":18,"dmg":266,"engage":12,"fx":13,"leak":39,"rate":14,"skill":4,"spawn":51,"status":55},
-      "fx": {"aoe":7,"zone":6},
+      "events": {"atk":150,"cast":44,"deploy":19,"die":18,"dmg":266,"engage":12,"fx":37,"leak":39,"rate":14,"skill":4,"spawn":51,"status":55},
+      "fx": {"aoe":7,"lfkghtHit":24,"zone":6},
       "snaps": "7afe801c 4957c95d c6e78b35 fbbc9062 110d9f81 b93b9464 59c7309e 145eb3a1 8127dbb3 9c5b870d 45c01a6b 4ffb1d8e 02ad2406 70b664a1 0c735466 c90e9eae 77e66c4c 6905d387 6e34c7bf 14d5f9ba 98cdbd09"
     },
     "diy-040": {

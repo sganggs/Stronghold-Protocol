@@ -649,8 +649,8 @@
         "enemy_9034_acblk": [12,4,7,59222,77689]
       },
       "hooks": [1,161,6900,628,628,997,1201,39,95,156,12,12,0,17520,322,16,134,61,1,130,0,0,14],
-      "events": {"atk":670,"bounty":4,"cast":3,"deploy":25,"die":95,"dmg":1201,"engage":11,"fx":48,"heal":35,"leak":61,"rate":206,"skill":24,"spawn":148,"status":148},
-      "fx": {"aoe":9,"dodge":14,"dp":7,"palsy":3,"revive":2,"slash":11,"telegraph":2},
+      "events": {"atk":670,"bounty":4,"cast":3,"deploy":25,"die":95,"dmg":1201,"engage":11,"fx":51,"heal":35,"leak":61,"rate":206,"skill":24,"spawn":148,"status":148},
+      "fx": {"aoe":9,"dodge":14,"dp":7,"lfkghtHit":3,"palsy":3,"revive":2,"slash":11,"telegraph":2},
       "snaps": "89e9194f 4934858c 7fec15bc 15a8ea98 b11c0c2f 84a7074b 454de6c3 cabdf043 30ad2955 5bd8faf8 481d15f8 703a92c2 161b0533 aacf7717 6ec30bdf ea377c02 1fe0bd91 fe3f20ca 37548e15 85288456 cbf36229 9f0b57a9 3240e937"
     },
     "standin-10": {
