@@ -16,7 +16,7 @@ import { fxSpec } from '../../public/js/render/fx/kinds.js';
 import { unityToBoard } from '../../public/js/render/vfx/math.js';
 import { UF } from '../../shared/constants.js';
 import {
-  CETYSR_ORBIT, cetsyrOrbitKey, orbitMotion, orbitOffset,
+  CETSYR_ORBIT, cetsyrOrbitKey, orbitMotion, orbitOffset,
 } from '../../public/js/render/vfx/orbitfx.js';
 import { bounceMotion, bounceSegments, bounceAt } from '../../public/js/render/vfx/bouncefx.js';
 
@@ -128,22 +128,28 @@ const boardOf = (h) => {
 describe('orbit math', () => {
   const motion = orbitMotion(around(TALENT, HIT, 150));
 
-  test('radius, speed and a counter-clockwise turn', () => {
-    assert.equal(motion.radius, 1);
-    assert.equal(motion.degPerSec, 150);
+  test('radius and speed are the reviewed MoteRing orbit, not the record', () => {
+    // the record says 150°/s and radius 1; the sim and render/motes.js orbit at dynamic_spd 30°/s, 1.15 tiles
+    assert.equal(motion.radius, 1.15);
+    assert.equal(motion.degPerSec, 30);
+    assert.equal(motion.record.degPerSec, 150);
+    assert.equal(motion.record.radius, 1);
     assert.equal(motion.clockwise, false);
+    const r = motion.radius;
     const a = orbitOffset(0, 0, 1, motion);
-    assert.ok(Math.abs(a.x - 1) < 1e-9 && Math.abs(a.y) < 1e-9);
-    const q = orbitOffset(0.6, 0, 1, motion);
-    assert.ok(Math.abs(q.x) < 1e-9 && Math.abs(q.y - 1) < 1e-9, '90° in 0.6 s');
-    const full = orbitOffset(2.4, 0, 1, motion);
-    assert.ok(Math.abs(full.x - 1) < 1e-9 && Math.abs(full.y) < 1e-9, 'one turn in 2.4 s');
+    assert.ok(Math.abs(a.x - r) < 1e-9 && Math.abs(a.y) < 1e-9);
+    const q = orbitOffset(3, 0, 1, motion);
+    assert.ok(Math.abs(q.x) < 1e-9 && Math.abs(q.y - r) < 1e-9, '90° in 3 s');
+    const full = orbitOffset(12, 0, 1, motion);
+    assert.ok(Math.abs(full.x - r) < 1e-9 && Math.abs(full.y) < 1e-9, 'one turn in 12 s (MOTE_PERIOD)');
+    const wide = orbitMotion(around(TALENT, HIT, 150), true);
+    assert.equal(wide.radius, 2, "S2's outside_radius");
   });
 
   test('three motes sit 120° apart', () => {
     const pts = [0, 1, 2].map((i) => orbitOffset(0, i, 3, motion));
-    assert.ok(Math.abs(pts[1].x - (-0.5)) < 1e-9);
-    assert.ok(Math.abs(pts[1].y - Math.sin(2 * Math.PI / 3)) < 1e-9);
+    assert.ok(Math.abs(pts[1].x - (-0.5 * motion.radius)) < 1e-9);
+    assert.ok(Math.abs(pts[1].y - Math.sin(2 * Math.PI / 3) * motion.radius) < 1e-9);
     const side = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
     const side2 = Math.hypot(pts[1].x - pts[2].x, pts[1].y - pts[2].y);
     assert.ok(Math.abs(side - side2) < 1e-9);
@@ -151,8 +157,8 @@ describe('orbit math', () => {
 
   test('clockwise reverses the turn', () => {
     const cw = { ...motion, clockwise: true };
-    const q = orbitOffset(0.6, 0, 1, cw);
-    assert.ok(Math.abs(q.x) < 1e-9 && Math.abs(q.y - (-1)) < 1e-9);
+    const q = orbitOffset(3, 0, 1, cw);
+    assert.ok(Math.abs(q.x) < 1e-9 && Math.abs(q.y - (-motion.radius)) < 1e-9);
   });
 
   test('a non-orbit movement is not played', () => {
@@ -160,15 +166,17 @@ describe('orbit math', () => {
   });
 
   test('swap rules: S1 keeps the talent orbiter, S2 and S3 replace it', () => {
-    assert.equal(cetsyrOrbitKey('skchr_cetsyr_1', true), CETYSR_ORBIT.talent);
-    assert.notEqual(cetsyrOrbitKey('skchr_cetsyr_1', true), CETYSR_ORBIT.s1);
-    assert.equal(cetsyrOrbitKey('skchr_cetsyr_2', false), CETYSR_ORBIT.talent);
-    assert.equal(cetsyrOrbitKey('skchr_cetsyr_2', true), CETYSR_ORBIT.s2);
-    assert.equal(cetsyrOrbitKey('skchr_cetsyr_3', true), CETYSR_ORBIT.s3);
-    assert.equal(cetsyrOrbitKey(null, true), CETYSR_ORBIT.talent);
-    const slow = orbitMotion(around(S2_TRAIL, S2_HIT, 0.01));
-    const held = orbitOffset(10, 0, 1, slow);
-    assert.ok(Math.hypot(held.x - 1, held.y) < 0.01, 'S2 does not share the 150°/s orbit');
+    assert.equal(cetsyrOrbitKey('skchr_cetsyr_1', true), CETSYR_ORBIT.talent);
+    assert.notEqual(cetsyrOrbitKey('skchr_cetsyr_1', true), CETSYR_ORBIT.s1);
+    assert.equal(cetsyrOrbitKey('skchr_cetsyr_2', false), CETSYR_ORBIT.talent);
+    assert.equal(cetsyrOrbitKey('skchr_cetsyr_2', true), CETSYR_ORBIT.s2);
+    assert.equal(cetsyrOrbitKey('skchr_cetsyr_3', true), CETSYR_ORBIT.s3);
+    assert.equal(cetsyrOrbitKey(null, true), CETSYR_ORBIT.talent);
+    // S2's record says 0.01°/s; the trail still turns with the snapshot's orbit (30°/s, wide radius 2), as MoteRing
+    const s2 = orbitMotion(around(S2_TRAIL, S2_HIT, 0.01), true);
+    assert.equal(s2.degPerSec, 30);
+    assert.equal(s2.radius, 2);
+    assert.equal(s2.main, S2_TRAIL);
   });
 });
 
@@ -183,10 +191,10 @@ describe('魔王 orbit player', () => {
     const expect0 = orbitOffset(0, 0, 3, orbitMotion(around(TALENT, HIT, 150)));
     const got = boardOf(handles[0]);
     assert.ok(Math.abs(got.x - (5 + expect0.x)) < 1e-6 && Math.abs(got.y - (10 + expect0.y)) < 1e-6);
-    her.gameT = 0.6;
+    her.gameT = 3;
     w.sync([her]);
     track();
-    const expectQ = orbitOffset(0.6, 0, 3, orbitMotion(around(TALENT, HIT, 150)));
+    const expectQ = orbitOffset(3, 0, 3, orbitMotion(around(TALENT, HIT, 150)));
     const turned = boardOf(handles[0]);
     assert.ok(Math.abs(turned.x - (5 + expectQ.x)) < 1e-6 && Math.abs(turned.y - (10 + expectQ.y)) < 1e-6);
     const s2 = view('char_4134_cetsyr', 5, 10, {
@@ -211,7 +219,7 @@ describe('魔王 orbit player', () => {
     });
     w.sync([her]);
     assert.deepEqual(keys(), [TALENT, TALENT, TALENT]);
-    assert.equal(FX_BINDINGS.skchr_cetsyr_1.cetsyrOrbit.projectiles.includes(CETYSR_ORBIT.s1), true);
+    assert.equal(FX_BINDINGS.skchr_cetsyr_1.cetsyrOrbit.projectiles.includes(CETSYR_ORBIT.s1), true);
   });
 
   test('death, retreat and a missing prefab drop the orbit', async () => {

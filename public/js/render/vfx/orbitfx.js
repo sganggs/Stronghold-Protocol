@@ -2,36 +2,41 @@
 // around its owner (round 88 lane g2: 魔王's 微尘).
 //
 // The index projectile (public/assets/local/fx/index.json projectile_chr_cetsyr_talent and the per-skill copies)
-// names the radius (`projectileAroundRadius`, tiles), the angular speed (`aroundSpeed`) and `clockwise`. It names
-// no start angle (every arc-start field is 0) and no count. Count is the snapshot `motes` the kit already
-// publishes (server/sim/snapshot.js moteView ← chess_char_4_25-cetsyr.js moteRing). Phase is battle time
-// (`view.gameT`, the same clock a reconnect and a spectator sample), so a late join does not restart at 0.
+// gives the trail (`main`) and `clockwise`. It names no start angle (every arc-start field is 0) and no count.
+// Count is the snapshot `motes` the kit already publishes (server/sim/snapshot.js moteView ← chess_char_4_25-cetsyr.js
+// moteRing). Phase is battle time (`view.gameT`, the same clock a reconnect and a spectator sample), so a late join
+// does not restart at 0.
 //
-// [ASSUMED] `aroundSpeed` is degrees per second. The field is undocumented in docs/design/vfx-format.md; 150 and
-// 0.01 are the record's numbers (a revolution in 2.4 s, and a near-stop). Radians per second would be a blur.
-// [ASSUMED] `clockwise` 0 turns counter-clockwise in board x/y (angle increases). [ASSUMED] the motes the snapshot
-// counts are spaced evenly. The projectile's `_lifeTimeType` is 2, not the LIMITED enum flight.js treats as a
-// hard life, and the snapshot has no projectile age, so lifeTime 20 is not a client despawn: the orbit lasts
-// while the snapshot still counts motes. `_stopWhenSourceInvalid` stops it when the owner is gone.
+// Turn speed and radius are NOT the record's. The projectile says `aroundSpeed` 150 and radius 1 (S2's copy: 0.01),
+// but the talent blackboard the sim orbits by says `dynamic_spd` 30°/s and `range_radius` 1.15 tiles, S2
+// `outside_radius` 2 (maintainer review 2026-10-15, render/motes.js; the hidden 5★ kit collides on exactly that
+// orbit). The ability most likely writes its blackboard into the projectile at runtime [ASSUMED]. The official
+// effect replaces the stand-in for the same motion, so the trail turns exactly like MoteRing: 30°/s
+// (MOTE_PERIOD 12 s), 1.15 tiles, S2's `wide` 2 tiles. [ASSUMED] `clockwise` 0 turns counter-clockwise in board
+// x/y (angle increases), and the motes are spaced evenly. The projectile's `_lifeTimeType` is 2, not the LIMITED
+// enum flight.js treats as a hard life, and the snapshot has no projectile age, so lifeTime 20 is not a client
+// despawn: the orbit lasts while the snapshot still counts motes. `_stopWhenSourceInvalid` stops it when the
+// owner is gone.
 //
 // One orbit, not two. skchr_cetsyr_1's projectile_chr_cetsyr_talent_s1 is the same trail, radius and speed as the
 // talent projectile; the player keeps the talent orbiter and does not spawn a second body. While skchr_cetsyr_2
 // is on, the body is projectile_chr_cetsyr_talent_s2 (`aroundSpeed` 0.01, trail cetsyr_skill_02_trail_01). While
 // skchr_cetsyr_3 is on, it is projectile_chr_cetsyr_talent_s3 (trail cetsyr_skill_03_trail_01, speed 150). The
 // talent ability still names only projectile_chr_cetsyr_talent on those buff edges; a second copy is not drawn.
-// The official radius stays the record's 1 tile. S2's `wide` (outside_radius 2) is the procedural ring only.
+// The orbit radius follows the snapshot's `wide` (S2's outside_radius) as MoteRing does.
 //
 // With 官方特效 off, or the trail missing, nothing here is spawned and the view's `officialMotes` stays false, so
 // render/units.js keeps MoteRing exactly as it is.
 
 import { boardToUnity } from './math.js';
 import { projectileParts } from './flight.js';
+import { MOTE_PERIOD, MOTE_ORBIT_TILES } from '../motes.js';
 
 const ID_ROT = Object.freeze([0, 0, 0, 1]);
 const lc = (k) => (typeof k === 'string' && k ? k.toLowerCase() : null);
 
 /** Projectile ids. S1's copy is listed so the sweep can see it; the player does not fly it. */
-export const CETYSR_ORBIT = Object.freeze({
+export const CETSYR_ORBIT = Object.freeze({
   talent: 'projectile_chr_cetsyr_talent',
   s1: 'projectile_chr_cetsyr_talent_s1',
   s2: 'projectile_chr_cetsyr_talent_s2',
@@ -46,35 +51,38 @@ export const CETYSR_ORBIT = Object.freeze({
  * @param {boolean} skillOn
  */
 export function cetsyrOrbitKey(skillId, skillOn) {
-  if (skillOn && skillId === 'skchr_cetsyr_2') return CETYSR_ORBIT.s2;
-  if (skillOn && skillId === 'skchr_cetsyr_3') return CETYSR_ORBIT.s3;
-  return CETYSR_ORBIT.talent;
+  if (skillOn && skillId === 'skchr_cetsyr_2') return CETSYR_ORBIT.s2;
+  if (skillOn && skillId === 'skchr_cetsyr_3') return CETSYR_ORBIT.s3;
+  return CETSYR_ORBIT.talent;
 }
 
+/** The reviewed turn speed of 魔王's motes (render/motes.js MOTE_PERIOD: `dynamic_spd` 30°/s). */
+export const ORBIT_DEG_PER_SEC = 360 / MOTE_PERIOD;
+
 /**
- * RotateAroundMovement, or null for any other class. `degPerSec` is the record's `aroundSpeed`
- * ([ASSUMED] degrees per second). `main` is the flying effect.
+ * RotateAroundMovement, or null for any other class. `main` is the flying effect and `clockwise` the record's
+ * turn direction. Radius and speed are MoteRing's (see the header): 1.15 tiles, or 2 with `wide`, at 30°/s. The
+ * record's own numbers stay in `record` for reference only.
  * @param {any} proj index projectile
+ * @param {boolean|number} [wide] S2's wider orbit (the snapshot's `motes.wide`)
  */
-export function orbitMotion(proj) {
+export function orbitMotion(proj, wide = false) {
   const mv = proj?.movement;
   if (!mv || mv.class !== 'RotateAroundMovement') return null;
-  const radius = Number(mv.projectileAroundRadius);
-  const deg = Number(mv.aroundSpeed);
-  if (!(radius > 0) || !Number.isFinite(deg)) return null;
   const main = projectileParts(proj).main || lc(proj.main);
   if (!main) return null;
   return Object.freeze({
-    radius,
-    degPerSec: deg,
+    radius: wide ? MOTE_ORBIT_TILES.wide : MOTE_ORBIT_TILES.normal,
+    degPerSec: ORBIT_DEG_PER_SEC,
     clockwise: Number(mv.clockwise) === 1,
     main,
+    record: Object.freeze({ radius: Number(mv.projectileAroundRadius), degPerSec: Number(mv.aroundSpeed) }),
   });
 }
 
 /**
  * Board offset of mote `i` of `n` at battle time `t` (seconds). Angle 0 is +x. Even spacing, then
- * `aroundSpeed` ([ASSUMED] deg/s), counter-clockwise unless `clockwise`.
+ * ORBIT_DEG_PER_SEC, counter-clockwise unless `clockwise`.
  * @returns {{ x: number, y: number, yaw: number }}
  */
 export function orbitOffset(t, i, n, motion) {
@@ -129,11 +137,11 @@ export class OrbitFx {
       if (v) v.officialMotes = false;
       return false;
     }
-    if (this.w.unitKeyOf(v) !== CETYSR_ORBIT.unit) return false;
+    if (this.w.unitKeyOf(v) !== CETSYR_ORBIT.unit) return false;
     const st = this.w.skills.state(v);
     const key = cetsyrOrbitKey(st.U?.skillId || null, !!st.on);
     const proj = this.w.idx?.projectiles?.[key];
-    const motion = orbitMotion(proj);
+    const motion = orbitMotion(proj, !!v.motes?.wide);
     if (!this.w.ofx.active || !motion || !this.w.ofx.lib.has(motion.main)) {
       if (v) v.officialMotes = false;
       return false;
