@@ -269,8 +269,10 @@ describe('round 86 lane f4 bindings', () => {
   });
 });
 
-describe('round 86 lane f4 against the extracted index', () => {
-  const idx = JSON.parse(fs.readFileSync('public/assets/local/fx/index.json', 'utf8'));
+const F4_INDEX = 'public/assets/local/fx/index.json';
+// the official effects are local art (never in the repo, absent on CI): these checks need an extraction on this machine
+describe('round 86 lane f4 against the extracted index', { skip: !fs.existsSync(F4_INDEX) && 'no public/assets/local/fx/index.json' }, () => {
+  const idx = fs.existsSync(F4_INDEX) ? JSON.parse(fs.readFileSync(F4_INDEX, 'utf8')) : null;
 
   test('乌尔比安 S3 and Miss.Christine S2 have no attack to fly the projectile, and the binding keys cover it', () => {
     const ulpia = skillPlan(idx, 'char_4145_ulpia', 'skchr_ulpia_3', { rec: { skillId: 'skchr_ulpia_3', duration: 25 } });

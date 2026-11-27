@@ -4,7 +4,7 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { FxWiring } from '../../public/js/render/vfx/wiring.js';
 import { FX_BINDINGS, bindingKeys } from '../../public/js/render/vfx/skills.js';
 import { fxSpec } from '../../public/js/render/fx/kinds.js';
@@ -120,7 +120,7 @@ async function setup({ skillId, spine, drop = [], active = true, duration = 10 }
   let n = 1;
   const add = (extra) => {
     const v = {
-      id: n, x: 3, y: 4, z: 0, visFacing: 1, facing: 1, dir: 'RIGHT', isEnemy: false, alive: true,
+      x: 3, y: 4, z: 0, visFacing: 1, facing: 1, dir: 'RIGHT', isEnemy: false, alive: true,
       flags: 0, sp: 0, spMax: 30, statuses: new Set(), el: null, ...extra, id: extra.id ?? n,
     };
     n = Math.max(n, v.id) + 1;
@@ -414,8 +414,10 @@ describe('round 86 lane f5', () => {
     assert.equal(bare.handles.length, 0);
   });
 
-  test('the real index preloads every 机械师 S3 trail and its landing hit', () => {
-    const idx = JSON.parse(readFileSync(new URL('../../public/assets/local/fx/index.json', import.meta.url), 'utf8'));
+  const F5_INDEX = new URL('../../public/assets/local/fx/index.json', import.meta.url);
+  // local art: absent on CI
+  test('the real index preloads every 机械师 S3 trail and its landing hit', { skip: !existsSync(F5_INDEX) && 'no public/assets/local/fx/index.json' }, () => {
+    const idx = JSON.parse(readFileSync(F5_INDEX, 'utf8'));
     const keys = new Set(bindingKeys(idx, 'skchr_mcnist_3'));
     for (const k of Object.values(TRAILS)) assert.ok(keys.has(k), k);
     assert.ok(keys.has(HIT));
@@ -426,4 +428,10 @@ describe('round 86 lane f5', () => {
       assert.deepEqual(p.onReached, [HIT]);
     }
   });
+});
+
+test('机械师 S3: the charge landing aoe is covered by the official arrival hit (round 86 on-screen check)', async () => {
+  const { coverOf } = await import('../../public/js/render/vfx/skills.js');
+  assert.equal(coverOf('skchr_mcnist_3', 'aoe'), true);
+  assert.equal(coverOf('skchr_mcnist_2', 'aoe'), false);
 });

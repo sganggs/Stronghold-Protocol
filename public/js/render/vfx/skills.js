@@ -1929,6 +1929,10 @@ export const FX_COVER = Object.freeze({
   skchr_rmixer_3: Object.freeze(['counter']),
   // 歌蕾蒂娅 S3: the tornado's pulls — the tornado itself is bound (FX_BINDINGS)
   skchr_glady_3: Object.freeze(['tornadoPulse']),
+  // 机械师 S3: the charge's landing 'aoe' (op-mcnist.js, id = her, skill mcnist:charge) — the flown charge trail plays its
+  // own arrival hit token_mcnist_mcgraf_skill_03_hit_01 there (FX_BINDINGS skchr_mcnist_3.charge, SkillFx._mcnistCharge);
+  // the procedural ring drew on top of it (round 86 on-screen check)
+  skchr_mcnist_3: Object.freeze(['aoe']),
   // 伺夜 S1 (a wolf more: the 'summon' on her wolf, src = her), 迷迭香 S3 (the 'summon' at her): the skills' start rows
   // (vigil_skill_01_start_01–03; rosmon_skill_03_start) — a summon born in that frame is covered by its own birth
   skchr_vigil_1: Object.freeze(['summon']),

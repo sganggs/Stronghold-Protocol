@@ -1508,6 +1508,10 @@ export class SkillFx {
     const ropeFromEnd = (Array.isArray(proj.behaviours) ? proj.behaviours : []).some((b) => b?.class === 'HarpoonRenderer' && Number(b.fields?._useEndPointAsStartPos) === 1);
     const ropeStart = (ropeFromEnd ? to : from).slice();
     const yaw = Math.atan2(to[1] - from[1], to[0] - from[0]);
+    // flight.main / flight.rope are the handles spawn() returns (render/vfx/system.js FxHandle: no anchor, no linkLines;
+    // its `effect` is null while the prefab loads). Each effect is placed by its own track, which receives the effect
+    // itself — as _flyLane and wiring._fly do (on-screen check, round 86: writing through the handles threw inside the
+    // track, which Effect.update swallows, so the label and the rope stayed at the sentry and never reached her)
     const flight = { done: false, main: null, rope: null };
     const placeAt = (k, out) => {
       out[0] = from[0] + (to[0] - from[0]) * k;
@@ -1515,34 +1519,33 @@ export class SkillFx {
       out[2] = from[2] + (to[2] - from[2]) * k;
       return out;
     };
-    const paint = (k) => {
-      for (const fx of [flight.main, flight.rope]) {
-        if (!fx || fx.alive === false) continue;
-        placeAt(k, fx.anchor);
-        fx.yaw = yaw; fx.pitch = 0; fx.mirror = false;
-      }
-      if (flight.rope && flight.rope.alive !== false && typeof flight.rope.linkLines === 'function') flight.rope.linkLines(ropeStart, flight.rope.anchor);
+    const place = (fx, k, isRope) => {
+      placeAt(k, fx.anchor);
+      fx.yaw = yaw; fx.pitch = 0; fx.mirror = false;
+      if (isRope && typeof fx.linkLines === 'function') fx.linkLines(ropeStart, fx.anchor);
     };
     const finish = () => {
       if (flight.done) return;
       flight.done = true;
-      paint(1);
-      for (const fx of [flight.main, flight.rope]) if (fx && fx.alive !== false) fx.stop({});
+      for (const h of [flight.main, flight.rope]) if (h && h.alive !== false) h.stop({});
       for (const k of proj.onReached || []) {
         const key = lc(k);
         if (key && this.w.ofx.lib.has(key)) this.w.playOn(key, src, { important: true });
       }
     };
-    const track = (fx) => {
+    const trackOf = (isRope) => (fx) => {
       if (flight.done) return;
       const k = dur > 0 ? Math.min(1, fx.time / dur) : 1;
-      paint(k);
+      place(fx, k, isRope);
       if (fx.time >= dur) finish();
     };
-    const born = (key) => this.w.ofx.spawn(key, { pos: placeAt(0, [0, 0, 0]), yaw, groundZ: 0, rootRot: ID_ROT }, { important: true, track });
-    if (main) flight.main = born(main);
-    if (rope) flight.rope = born(rope);
-    if (flight.rope && typeof flight.rope.linkLines === 'function') flight.rope.linkLines(ropeStart, flight.rope.anchor);
+    const born = (key, isRope) => this.w.ofx.spawn(key, { pos: placeAt(0, [0, 0, 0]), yaw, groundZ: 0, rootRot: ID_ROT }, { important: true, track: trackOf(isRope) });
+    if (main) flight.main = born(main, false);
+    if (rope) flight.rope = born(rope, true);
+    // the rope's end points before its first tick, when its prefab was already loaded (a world-space line draws
+    // nothing until they are set); a handle without an effect yet is linked by its first track call
+    const ropeFx = flight.rope ? flight.rope.effect ?? flight.rope : null;
+    if (ropeFx && typeof ropeFx.linkLines === 'function') place(ropeFx, 0, true);
     return !!(flight.main || flight.rope);
   }
 
