@@ -204,6 +204,11 @@ export class MatchPrep {
     this._cancelRehearsal();
     this.setDeadline(0);
     const alive = this.alivePlayers();
+    // The temp pieces due at this prep go before the <休整期结束时> effects however the prep ends (§37.356): the
+    // deadline already resolved every seat that was not ready, and a 规程 seat that readied with overflow after the
+    // cleanup confirmation must not carry them into a prep-end merge, a carried item's prep-end grant or a hand-count
+    // gate. What arrives during the effects is due at the next prep (_tempDueNow) and stays.
+    for (const ps of alive) ps.resolveTemp();
     for (const ps of alive) this.dispatch(ps, 'onPrepEnd', { round: this.round });
     for (const ps of alive) ps.endPrep();
     const r = this.round;

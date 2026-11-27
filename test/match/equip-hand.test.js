@@ -143,6 +143,33 @@ test('regulation overflow summons are cleared on battle entry and return next pr
   assert.ok(ps.tempPieces().some(p => p.kind === 'token' && p.ownerUid === owner.uid));
 });
 
+test('regulation: overflow a seat readied with is gone before the <休整期结束时> effects, as at the deadline (§37.356)', t => {
+  const { ps, m, chars, fill } = setup(t);
+  fill('chess');
+  // two copies of one operator overflow into the hidden stash during this prep, before Ready: due at this prep
+  const id = chars.find(c => !ps.allChess().some(p => p.id === c) && ps.gd.mergeCount(c) === 3);
+  assert.ok(id);
+  const poolBefore = m.pool.left(id);
+  const a = ps.acquireChess(id, { silent: true }), b = ps.acquireChess(id, { silent: true });
+  assert.ok(ps.tempPieces().includes(a) && ps.tempPieces().includes(b));
+  assert.equal(m.pool.left(id), poolBefore - 2);
+  assert.ok(ps.setReady(true).ok, '规程 readies with overflow');
+  // a <休整期结束时> grant of the same operator must not merge the two confirmed-for-destruction copies into an elite
+  let granted = null, stashAtEffects = null;
+  const dispatch = m.dispatch.bind(m);
+  m.dispatch = (p, hook, ...rest) => {
+    if (p === ps && hook === 'onPrepEnd' && !granted) { stashAtEffects = ps.tempPieces().length; granted = ps.acquireChess(id, { silent: true }); }
+    return dispatch(p, hook, ...rest);
+  };
+  for (const other of m.alivePlayers()) if (other !== ps && !other.ready) { other.resolveTemp(); assert.ok(other.setReady(true).ok); }
+  m.endPrep();
+  assert.equal(stashAtEffects, 0, 'the due stash was resolved before the effects');
+  assert.equal(ps.find(a.uid), null); assert.equal(ps.find(b.uid), null);
+  assert.ok(granted && granted.id === id, 'the grant is a normal copy, no elite');
+  assert.equal(ps.allChess().filter(p => ps.gd.baseIdOf(p.id) === id).length, 1);
+  assert.equal(m.pool.left(id), poolBefore - 1, 'both doomed copies went back to the pool');
+});
+
 for (const version of ['act1autochess', 'act1autochess@V1_1', 'act2autochess', 'act2autochess@V2_1']) {
   test(`${version} still refuses Ready with overflow`, t => {
     const { ps, item, fill } = setup(t, getVersionData(version));

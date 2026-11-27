@@ -38,9 +38,10 @@ export class PlayerRound {
   }
 
   /**
-   * Prep deadline (Match.endPrep, after the <休整期结束时> onPrepEnd effects): the temp pieces due at this prep are
-   * resolved and the queued reward offers due at it lapse; what overflowed or was offered after Ready or during
-   * onPrepEnd stays for the next prep, which `prepsEnded` now names.
+   * Prep deadline (Match.endPrep, after the <休整期结束时> onPrepEnd effects): the queued reward offers due at this
+   * prep lapse; the temp pieces due at it were already resolved before those effects (Match.endPrep, §37.356), so the
+   * resolveTemp here finds nothing new — what overflowed or was offered after Ready or during onPrepEnd stays for the
+   * next prep, which `prepsEnded` now names.
    */
   endPrep() {
     this.resolveTemp();
