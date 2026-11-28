@@ -95,7 +95,7 @@ import { ShopBar } from '../ui/shopBar.js';
 import { regLook } from '../ui/regHud.js';
 import { ShopCanvas, shopMountKey, shopStill, shopHotkeyBuyIndex } from '../ui/shop/ShopCanvas.js';
 import { shopWebglGate, shopCapability } from '../ui/shop/gate.js';
-import { preloadShopRuntime } from '../ui/shop/host.js';
+import { failShopCanvasFonts, preloadShopRuntime, prepareShopRuntimePreload } from '../ui/shop/host.js';
 import { uninstallThemeFontFaces } from '../ui/prefab/shopDocs.js';
 import { useLang } from '../ui/lang.js';
 import { selectedBondTimers } from '../ui/bondTimers.js';
@@ -442,9 +442,15 @@ function MatchScreen() {
   useEffect(() => {
     // A seat without a shop must not install the theme's faces: preloadShopRuntime installs them before any host
     // exists, and a host that never mounts has no dispose to remove them. Leaving the seat or the match ends here.
-    if (!shopWebglCapable || !seatHasShop) {
-      setWebglShop((prev) => (prev.status === 'idle' ? prev : { status: 'idle', runtime: null }));
-      uninstallThemeFontFaces();
+    // No WebGL2 is the same dead end, reached before the runtime (and its font faces) load: the mount would
+    // throw "WebGL2 is not available" and the sheet would have nothing to remove it.
+    const plan = prepareShopRuntimePreload({ capable: shopWebglCapable, seatHasShop });
+    if (plan.action !== 'load') {
+      if (plan.action === 'skip') {
+        setWebglShop((prev) => (prev.status === 'idle' ? prev : { status: 'idle', runtime: null }));
+      } else {
+        setWebglShop({ status: 'failed', runtime: null });
+      }
       return undefined;
     }
     let dead = false;
@@ -463,6 +469,8 @@ function MatchScreen() {
       })
       .catch((err) => {
         if (dead) return;
+        // The preload installs faces before it rejects. This seat is not mounting a host that would remove them.
+        failShopCanvasFonts();
         setWebglShop({ status: 'failed', runtime: null });
         console.warn('[shop-webgl] preload failed; keeping the DOM shop bar', err);
       });
@@ -2139,7 +2147,7 @@ function MatchScreen() {
           onDetailClose=${() => setDetail((d) => (d?.kind === 'chess' || d?.kind === 'item' ? null : d))}
           onRefuse=${(reason) => { toast(reason, 'warn'); audio.sfx('error', { volume: 0.5 }); }}
           onArm=${setArmedCard}
-          onFail=${() => setWebglShop({ status: 'failed', runtime: null })} />`
+          onFail=${() => { failShopCanvasFonts(); setWebglShop({ status: 'failed', runtime: null }); }} />`
         : html`<${ShopBar} priv=${priv} editable=${editable} collapsed=${barCollapsed} refreshBusy=${refreshBusy} onCollapse=${setCollapsed}
           barRef=${barRef} offBonds=${offBonds}
           onBuy=${buy} onLevel=${() => actions.levelUp()} onRefresh=${() => actions.refresh()} onFreeze=${() => actions.freeze()}

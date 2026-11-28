@@ -17,6 +17,7 @@ import {
 import { ShopSpineView } from '../../public/js/ui/shop/spineView.js';
 import { ShopScene } from '../../public/js/ui/shop/scene.js';
 import { ambientPaintNeeded, shopSceneOptions } from '../../public/js/ui/shop/host.js';
+import { bindThemeCharacterMount, dispatchThemeCharacterVoice } from '../../public/js/ui/themeCharacter.js';
 
 test('shopStill: 主题动画 off OR reducedMotion(); a missing setting keeps today\'s motion', () => {
   assert.equal(shopStill({ themeMotion: false }), true);
@@ -97,4 +98,147 @@ test('a paused spine reports no animation, which empties the host ambient repain
   assert.equal(view.animating(), false, 'still: the idle tick must not keep the ambient loop alive');
   view.pause(false);
   assert.equal(view.animating(), true, 'motion on: the idle tick resumes');
+});
+
+// A pixi-spine stand-in: setAnimation / addAnimation record the calls the voice binding makes.
+function voiceActor(names = ['Idle', 'Default', 'Happy']) {
+  const calls = [];
+  const tracks = [];
+  return {
+    calls,
+    tracks,
+    spineData: { animations: names.map((name) => ({ name })) },
+    state: {
+      setAnimation(track, name, loop) {
+        const entry = {
+          track, name, loop, listener: null,
+          complete() { this.listener?.complete?.(); },
+        };
+        tracks.push(entry);
+        calls.push({ op: 'set', track, name, loop });
+        return entry;
+      },
+      addAnimation(track, name, loop, delay) {
+        calls.push({ op: 'add', track, name, loop, delay });
+        return null;
+      },
+    },
+  };
+}
+
+const VOICE_CHARACTER = {
+  spine: { skel: 'char.skel', atlas: 'char.atlas', textures: ['char.png'] },
+  anims: { idle: 'Idle', voice: { cn_001: 'Happy', cn_missing: 'Nope' } },
+};
+
+function voiceView(extra = {}) {
+  const view = new ShopSpineView({
+    scene: { canvas: null }, host: {}, character: VOICE_CHARACTER, ...extra,
+  });
+  const actor = voiceActor();
+  view.actor = actor;
+  return { view, actor };
+}
+
+test('the canvas character plays the latest voice clip once, then idle, and a disposed view does not unbind a newer one', () => {
+  const views = [];
+  try {
+    const older = voiceView();
+    const newer = voiceView();
+    views.push(older.view, newer.view);
+
+    assert.equal(dispatchThemeCharacterVoice('CN_001'), true);
+    assert.deepEqual(older.actor.calls, [], 'the earlier mount does not answer');
+    assert.deepEqual(newer.actor.calls, [
+      { op: 'set', track: 0, name: 'Happy', loop: false },
+      { op: 'add', track: 0, name: 'Idle', loop: true, delay: 0 },
+    ], 'the clip plays once and queues the idle loop');
+
+    newer.actor.calls.length = 0;
+    newer.actor.tracks[0].complete();
+    assert.deepEqual(newer.actor.calls, [
+      { op: 'set', track: 0, name: 'Idle', loop: true },
+    ], 'the clip finishing returns to the idle loop');
+
+    const parked = newer.actor.tracks[0];
+    newer.view.pause(true);
+    newer.actor.calls.length = 0;
+    assert.equal(dispatchThemeCharacterVoice('CN_001'), true);
+    parked.complete();
+    assert.deepEqual(newer.actor.calls, [], 'a parked spine (pauseSpine / still) does not restart');
+
+    newer.view.pause(false);
+    older.view.destroy();
+    newer.actor.calls.length = 0;
+    assert.equal(dispatchThemeCharacterVoice('CN_001'), true);
+    assert.equal(newer.actor.calls.length, 2, 'disposing the older mount leaves the latest one answering');
+    assert.deepEqual(older.actor.calls, []);
+
+    newer.view.destroy();
+    assert.equal(dispatchThemeCharacterVoice('CN_001'), false, 'the latest mount unbinds itself');
+    assert.equal(older.actor.calls.length, 0, 'the older mount does not resume');
+  } finally {
+    for (const view of views) view.destroy();
+  }
+});
+
+test('a null stem returns to idle, an unmapped stem changes nothing, and a paused view ignores both', () => {
+  const { view, actor } = voiceView();
+  try {
+    view.pause(true);
+    assert.equal(dispatchThemeCharacterVoice(null), true);
+    assert.equal(dispatchThemeCharacterVoice('no-such-stem'), true);
+    assert.deepEqual(actor.calls, [], 'still mode ignores idle and unmapped stems alike');
+
+    view.pause(false);
+    assert.equal(dispatchThemeCharacterVoice(null), true);
+    assert.deepEqual(actor.calls, [{ op: 'set', track: 0, name: 'Idle', loop: true }]);
+
+    actor.calls.length = 0;
+    assert.equal(dispatchThemeCharacterVoice('no-such-stem'), true);
+    assert.equal(dispatchThemeCharacterVoice('cn_missing'), true);
+    assert.deepEqual(actor.calls, [], 'a stem with no clip, or a clip the skeleton lacks, leaves the pose');
+  } finally {
+    view.destroy();
+  }
+});
+
+test('a funds-card mount that binds later keeps the voice, and disposing the canvas does not take it', () => {
+  const { view, actor } = voiceView();
+  const heard = [];
+  let funds = null;
+  try {
+    funds = bindThemeCharacterMount((stem) => { heard.push(stem); });
+    assert.equal(dispatchThemeCharacterVoice('CN_001'), true);
+    assert.deepEqual(actor.calls, [], 'the canvas lost the binding to the later funds card');
+    assert.deepEqual(heard, ['CN_001']);
+
+    view.destroy();
+    assert.equal(dispatchThemeCharacterVoice('CN_002'), true);
+    assert.deepEqual(heard, ['CN_001', 'CN_002'], 'disposing the older canvas does not unbind the funds card');
+    assert.equal(funds.release(), true);
+    assert.equal(dispatchThemeCharacterVoice('CN_003'), false);
+  } finally {
+    view.destroy();
+    if (funds) funds.release();
+  }
+});
+
+test('spine mode off does not take the voice binding', () => {
+  const heard = [];
+  const funds = bindThemeCharacterMount((stem) => { heard.push(stem); });
+  const off = new ShopSpineView({
+    scene: { canvas: null }, host: {}, character: VOICE_CHARACTER, mode: 'off',
+  });
+  try {
+    assert.equal(off.voiceBinding, null);
+    assert.equal(dispatchThemeCharacterVoice('CN_001'), true);
+    assert.deepEqual(heard, ['CN_001']);
+    off.destroy();
+    assert.equal(dispatchThemeCharacterVoice('CN_001'), true);
+    assert.deepEqual(heard, ['CN_001', 'CN_001'], 'destroying an off view leaves the current mount bound');
+  } finally {
+    off.destroy();
+    funds.release();
+  }
 });

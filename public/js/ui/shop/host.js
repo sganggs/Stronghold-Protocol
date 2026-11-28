@@ -158,6 +158,106 @@ export function runControlClick({ reason = null, panel = false, press = () => tr
 /** Preloaded shop runtime per theme id: the pack's shop/card/prefab documents, loaded once. */
 const runtimeCache = new Map();
 
+/** Cached shop WebGL2 probe. `undefined` means this page has not asked yet. */
+let shopWebgl2Answer;
+/** Test replacement for the canvas probe. Null uses the real context check. */
+let shopWebgl2ProbeFn = null;
+
+/**
+ * Open the same WebGL2 context the shop stage asks for (render/shop/cardStage.js) and release it.
+ * A missing document, or a browser that refuses the context, is unavailable.
+ */
+function probeShopWebgl2Once() {
+  if (typeof document === 'undefined' || typeof document.createElement !== 'function') return false;
+  let canvas;
+  try { canvas = document.createElement('canvas'); } catch { return false; }
+  if (!canvas || typeof canvas.getContext !== 'function') return false;
+  let gl;
+  try {
+    gl = canvas.getContext('webgl2', {
+      premultipliedAlpha: true, alpha: true, stencil: true, powerPreference: 'high-performance',
+    });
+  } catch {
+    return false;
+  }
+  if (!gl) return false;
+  try {
+    const lose = typeof gl.getExtension === 'function' ? gl.getExtension('WEBGL_lose_context') : null;
+    if (lose && typeof lose.loseContext === 'function') lose.loseContext();
+  } catch { /* the context did open; losing it is only so the probe does not keep a live context */ }
+  return true;
+}
+
+/**
+ * Whether this browser can mount the canvas shop. The first call probes; later calls reuse that answer.
+ * @returns {boolean}
+ */
+export function shopWebgl2Supported() {
+  if (shopWebgl2Answer !== undefined) return shopWebgl2Answer;
+  let ok;
+  try {
+    ok = shopWebgl2ProbeFn ? !!shopWebgl2ProbeFn() : probeShopWebgl2Once();
+  } catch {
+    ok = false;
+  }
+  shopWebgl2Answer = ok;
+  return ok;
+}
+
+/**
+ * Replace the WebGL2 probe and forget the cached answer. `null` restores the real canvas check.
+ * @param {(() => boolean)|null} probe
+ */
+export function setShopWebgl2Probe(probe) {
+  shopWebgl2ProbeFn = typeof probe === 'function' ? probe : null;
+  shopWebgl2Answer = undefined;
+}
+
+/**
+ * What the match screen should do before preloadShopRuntime.
+ * `skip`: no canvas-capable theme, or this seat has no shop (leave idle, do not probe).
+ * `fail`: WebGL2 is missing — failed status, no runtime and no font install.
+ * `load`: the existing preload.
+ * @param {{ capable?: boolean, seatHasShop?: boolean, webgl2?: boolean }} [input]
+ * @returns {'skip'|'fail'|'load'}
+ */
+export function shopRuntimePreloadAction({ capable = false, seatHasShop = false, webgl2 = true } = {}) {
+  if (!capable || !seatHasShop) return 'skip';
+  if (!webgl2) return 'fail';
+  return 'load';
+}
+
+/**
+ * Drop the theme @font-face sheet. The host's dispose does this only after a host exists; a mount that
+ * throws "WebGL2 is not available" never gets that far, and neither does a preload that is skipped.
+ * @param {Document|null} [doc]
+ * @returns {boolean} whether a sheet was removed
+ */
+export function failShopCanvasFonts(doc) {
+  try {
+    if (typeof shopDocs.uninstallThemeFontFaces === 'function') return !!shopDocs.uninstallThemeFontFaces(doc);
+  } catch { /* a missing document must not block the DOM shop bar */ }
+  return false;
+}
+
+/**
+ * The match screen's preload gate. Probes WebGL2 only when a preload would otherwise run, so a spectator
+ * seat does not open a context. `status: null` means the caller should call preloadShopRuntime.
+ * @param {{ capable?: boolean, seatHasShop?: boolean }} [input]
+ * @returns {{ action: 'skip'|'fail'|'load', status: 'idle'|'failed'|null }}
+ */
+export function prepareShopRuntimePreload({ capable = false, seatHasShop = false } = {}) {
+  if (!capable || !seatHasShop) {
+    failShopCanvasFonts();
+    return { action: 'skip', status: 'idle' };
+  }
+  if (!shopWebgl2Supported()) {
+    failShopCanvasFonts();
+    return { action: 'fail', status: 'failed' };
+  }
+  return { action: 'load', status: null };
+}
+
 /**
  * Resolve the current theme's shop documents from the existing official theme pack (groups → officialAssetUrl),
  * install/wait for its manifest font faces and keep the theme pack's character. No /data fetch and no theme path

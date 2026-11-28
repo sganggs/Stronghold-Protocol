@@ -1,6 +1,7 @@
 
 
 import { ensurePixi } from '../../render/app/pixi.js';
+import { bindThemeCharacterMount, playThemeCharacterStem } from '../themeCharacter.js';
 
 export const SPINE_PATHS = Object.freeze({
   holder: 'panel_shop_main/fold_mask_spine/closure_spine_holder',
@@ -89,6 +90,7 @@ export class ShopSpineView {
     this.spineVersion = null;
     this.skeletonBounds = null;
     this.paused = false;
+    this.voiceBinding = null;
     this.frozenTime = null;
     this.lastNow = 0;
     this.frameCount = 0;
@@ -122,6 +124,26 @@ export class ShopSpineView {
     this.debug.seek = (t) => this.seek(t);
     this.debug.pause = (p) => this.pause(p);
     this.debug.setHidden = (h) => this.setHidden(h);
+    // shopBar.js FundsChar (lines 503–514) calls mountThemeCharacter with voice left on. Its `still`
+    // (shopBar.js:557) only pins card faces, so the DOM portrait still changes clip when a voice line
+    // plays and 主题动画 is off. This canvas is parked by pauseSpine while still (theme motion off or
+    // reduced motion); a voice line must not call setAnimation on that parked actor.
+    if (this.mode !== 'off' && this.character && this.character.spine) this.attachVoice();
+  }
+
+  /**
+   * Same binding as the funds card (themeCharacter.js bindThemeCharacterMount): the latest mount answers,
+   * and destroy unbinds only when this view is still that mount.
+   */
+  attachVoice() {
+    if (this.voiceBinding || this.dead) return;
+    this.voiceBinding = bindThemeCharacterMount((stem) => {
+      playThemeCharacterStem(this.actor, this.character, stem, {
+        isDead: () => this.dead,
+        isPaused: () => this.paused,
+        isCurrent: () => !!(this.voiceBinding && this.voiceBinding.current()),
+      });
+    });
   }
 
   async start() {
@@ -658,6 +680,10 @@ export class ShopSpineView {
 
   destroy() {
     this.dead = true;
+    if (this.voiceBinding) {
+      this.voiceBinding.release();
+      this.voiceBinding = null;
+    }
     if (this.app) {
       try { this.app.destroy(true, { children: true, texture: false, baseTexture: false }); } catch {  }
     }

@@ -236,12 +236,26 @@ def _sprite_key(sprite_object, name):
     return name, path_id if path_id is not None else id(sprite_object)
 
 
+def _store_raster(image, rel, ctx):
+    """Write `image` at `rel` unless that file already has the same bytes. Returns the relative path stored.
+
+    A file left by an earlier run is overwritten when the new picture differs. The caller claims the name in
+    this run's used-set, so a second picture that wants the same name still gets `_2`.
+    """
+    path = Path(ctx['dest']) / rel
+    if themes.raster_matches(image, path):
+        return rel
+    written = themes._save_raster(image, path)
+    # `_save_raster` returns the file name it wrote (the prefix's stem included); every prefix lives under sprites/
+    return f'sprites/{written}'
+
+
 def _export_sprite(sprite_object, name, ctx):
     """Write a sprite that lives in another bundle into this theme's sprites/, under a name of its own.
 
-    The name is derived from the sprite's, so a second run reuses the file it wrote before instead of adding a numbered
-    copy; the cache is keyed by the sprite's own path id, so a second *different* sprite of the same name gets the next
-    number instead of silently showing the first one's picture.
+    The cache is keyed by the sprite's own path id. Two different sprites that want the same name in one run
+    get `_2`, `_3`, … (`ext_used` is what this run claimed). A file left by an earlier run is kept when its
+    bytes already match and overwritten when they do not.
     """
     key = _sprite_key(sprite_object, name)
     if key in ctx['ext_sprites']:
@@ -260,10 +274,7 @@ def _export_sprite(sprite_object, name, ctx):
     while rel in ctx['ext_used']:
         rel = f'{prefix}{stem}_{number}.webp'
         number += 1
-    if not (Path(ctx['dest']) / rel).exists():
-        written = themes._save_raster(image, Path(ctx['dest']) / rel)
-        # `_save_raster` returns the file name it wrote (the prefix's stem included); every prefix lives under sprites/
-        rel = f'sprites/{written}'
+    rel = _store_raster(image, rel, ctx)
     ctx['ext_used'].add(rel)
     ctx['files'].add(rel)
     ctx['ext_sprites'][key] = rel
@@ -352,8 +363,9 @@ def _texture(pointer, ctx):
 def _texture_file(texture_object, name, ctx):
     """An exported picture of a texture: a sprite of the same name, else sprites/tex_<name>.webp.
 
-    Keyed by the texture's own path id: a different texture of the same name gets the next number instead of the
-    first one's file (the same rule as `_export_sprite`).
+    Keyed by the texture's own path id. A different texture of the same name in this run gets `_2`
+    (`tex_used` is what this run claimed), the same rule as `_export_sprite`. A file left by an earlier
+    run is overwritten when its bytes differ.
     """
     info = ctx['book'].resolve(name) if ctx['book'] is not None else None
     if info and info.get('file'):
@@ -370,19 +382,20 @@ def _texture_file(texture_object, name, ctx):
         rel = f'{TEXTURE_PREFIX}{stem}_{number}.webp'
         number += 1
     used.add(rel)
-    if (Path(ctx['dest']) / rel).exists():
-        ctx['tex_files'][key] = rel
-        ctx['files'].add(rel)
-        return rel
+    path = Path(ctx['dest']) / rel
     try:
         image = texture_object.read().image
     except Exception:  # noqa: BLE001
         image = None
-    if image is None:
+    if image is not None and not themes.raster_matches(image, path):
+        written = themes._save_raster(image, path)
+        stored = f'sprites/{written}'
+        if stored != rel:
+            used.add(stored)
+            rel = stored
+    elif image is None and not path.exists():
         ctx['tex_files'][key] = None
         return None
-    written = themes._save_raster(image, Path(ctx['dest']) / rel)
-    rel = f'sprites/{written}'
     ctx['files'].add(rel)
     ctx['tex_files'][key] = rel
     return rel

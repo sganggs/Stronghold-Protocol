@@ -8,10 +8,97 @@ import { bindThemeCharacterVoice } from '../uiTheme.js';
 import { characterAnimName, characterIdleName } from '../../../shared/uiTheme.js';
 
 let mountGen = 0;
+/** The function last handed to bindThemeCharacterVoice. The funds card and ShopSpineView share mountGen. */
+let voiceMountHandler = null;
 
-function clipNames(actor) {
+/** Clip names on a pixi-spine actor. */
+export function spineClipNames(actor) {
   const list = actor?.spineData?.animations || actor?.skeleton?.data?.animations || [];
   return new Set(list.map((anim) => anim?.name).filter(Boolean));
+}
+
+/**
+ * Idle loop: the pack's idle name, else Default, else the skeleton's first clip.
+ * @returns {boolean} whether a clip was set
+ */
+export function playThemeCharacterIdle(actor, character, { isDead } = {}) {
+  if (!actor || (typeof isDead === 'function' && isDead())) return false;
+  const names = spineClipNames(actor);
+  const idleName = characterIdleName(character);
+  const name = names.has(idleName) ? idleName : (names.has('Default') ? 'Default' : [...names][0]);
+  if (!name) return false;
+  try {
+    actor.state.setAnimation(0, name, true);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The funds-card voice rule: `stem` null returns to idle; a mapped clip plays once, then idle.
+ * `isPaused` is the canvas shop's parked pose (ShopSpineView). The DOM funds card does not pass it.
+ * @returns {boolean} whether the actor was told to change clip
+ */
+export function playThemeCharacterStem(actor, character, stem, hooks = {}) {
+  const isDead = typeof hooks.isDead === 'function' ? hooks.isDead : () => false;
+  const isPaused = typeof hooks.isPaused === 'function' ? hooks.isPaused : () => false;
+  const isCurrent = typeof hooks.isCurrent === 'function' ? hooks.isCurrent : () => true;
+  if (!isCurrent() || !actor || isDead() || isPaused()) return false;
+  if (!stem) return playThemeCharacterIdle(actor, character, { isDead });
+  const idleName = characterIdleName(character);
+  const name = characterAnimName(character, stem);
+  const names = spineClipNames(actor);
+  if (!name || !names.has(name)) return false;
+  try {
+    const track = actor.state.setAnimation(0, name, false);
+    if (names.has(idleName)) actor.state.addAnimation(0, idleName, true, 0);
+    if (track) {
+      track.listener = {
+        complete: () => {
+          if (!isDead() && !isPaused() && isCurrent()) playThemeCharacterIdle(actor, character, { isDead });
+        },
+      };
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Register `onStem` as the theme-voice listener. The latest call answers. `release` unbinds only while
+ * this call is still the latest, so disposing an older mount cannot clear a newer one.
+ */
+export function bindThemeCharacterMount(onStem) {
+  const generation = ++mountGen;
+  const wrapped = (stem) => {
+    if (generation !== mountGen) return;
+    onStem(stem);
+  };
+  voiceMountHandler = wrapped;
+  bindThemeCharacterVoice(wrapped);
+  return {
+    generation,
+    current: () => generation === mountGen,
+    release() {
+      if (generation !== mountGen) return false;
+      bindThemeCharacterVoice(null);
+      if (voiceMountHandler === wrapped) voiceMountHandler = null;
+      return true;
+    },
+  };
+}
+
+/**
+ * Deliver a stem to whichever mount bound last. Production playback goes through uiTheme.noteVoiceStem,
+ * which calls the same function this registered.
+ * @returns {boolean} whether a mount is listening
+ */
+export function dispatchThemeCharacterVoice(stem) {
+  if (typeof voiceMountHandler !== 'function') return false;
+  voiceMountHandler(stem);
+  return true;
 }
 
 function fitSpine(actor, app) {
@@ -41,42 +128,32 @@ function fitSpine(actor, app) {
 export function mountThemeCharacter(host, character, opts = {}) {
   if (!host || !character) return () => {};
   const voice = opts.voice !== false;
-  const gen = voice ? ++mountGen : -1;
   let dead = false;
   let app = null;
   let actor = null;
   const idleName = characterIdleName(character);
 
   const playIdle = () => {
-    if (!actor || dead) return;
-    const names = clipNames(actor);
-    const name = names.has(idleName) ? idleName : (names.has('Default') ? 'Default' : [...names][0]);
-    if (!name) return;
-    try { actor.state.setAnimation(0, name, true); } catch { /* this skeleton has no such clip */ }
+    playThemeCharacterIdle(actor, character, { isDead: () => dead });
   };
 
-  const onStem = (stem) => {
-    if (gen !== mountGen || !actor || dead) return;
-    if (!stem) { playIdle(); return; }
-    const name = characterAnimName(character, stem);
-    const names = clipNames(actor);
-    if (!name || !names.has(name)) return;
-    try {
-      const track = actor.state.setAnimation(0, name, false);
-      if (names.has(idleName)) actor.state.addAnimation(0, idleName, true, 0);
-      if (track) {
-        track.listener = {
-          complete: () => { if (!dead && gen === mountGen) playIdle(); },
-        };
-      }
-    } catch { /* keep the idle loop */ }
-  };
-
-  if (voice) bindThemeCharacterVoice(onStem);
+  // Latest voice-bound mount answers (shared with ShopSpineView). A voice-less copy does not take the binding.
+  let binding = null;
+  if (voice) {
+    binding = bindThemeCharacterMount((stem) => {
+      playThemeCharacterStem(actor, character, stem, {
+        isDead: () => dead,
+        isCurrent: () => !!(binding && binding.current()),
+      });
+    });
+  }
 
   const dispose = () => {
     dead = true;
-    if (voice && gen === mountGen) bindThemeCharacterVoice(null);
+    if (binding) {
+      binding.release();
+      binding = null;
+    }
     if (app) {
       const view = app.view;
       try { app.destroy(true, { children: true, texture: false, baseTexture: false }); }

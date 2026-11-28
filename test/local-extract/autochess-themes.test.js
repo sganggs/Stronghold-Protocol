@@ -530,4 +530,143 @@ print(json.dumps({'kept': [c['name'] for c in tree['children']], 'front': [c['na
     assert.deepEqual(table.seasonEntry, { sub: 'ui/season/act3autochess/entry', bundle: 'activity/[uc]act3autochess.ab', prefab: 'panel_act3autochess_on_entry', clips: out.clips, format: 1 });
     assert.ok(table.expectedGroups.includes('ui/season/act3autochess/entry'), 'a full extract writes it (setup asks for --local again without it)');
   });
+
+  test('a later shopdocs run refreshes changed ext_ and tex_ bytes; one run still numbers a repeated name _2', () => {
+    const out = py(`import os, shutil, tempfile
+from pathlib import Path
+import card_prefab as cp
+
+class Image:
+    def __init__(self, payload):
+        self.mode = 'RGBA'
+        self.size = (2, 2)
+        self.payload = payload
+    def save(self, buf, fmt, **kwargs):
+        buf.write(self.payload)
+
+class Rect:
+    width = 2
+    height = 2
+
+class Obj:
+    def __init__(self, path_id, payload):
+        self.path_id = path_id
+        self.image = Image(payload)
+        self.m_Rect = Rect()
+        self.m_Name = 'coin'
+    def read(self):
+        return self
+
+def fresh(dest):
+    return {
+        'dest': dest,
+        'ext_sprites': {},
+        'ext_used': set(),
+        'files': set(),
+        'tex_files': {},
+        'book': None,
+    }
+
+def slurp(dest, rel):
+    return (Path(dest) / rel).read_bytes().decode('ascii')
+
+def present(dest, rel):
+    return (Path(dest) / rel).is_file()
+
+root = tempfile.mkdtemp(prefix='shopdocs-refresh-')
+try:
+    dest = root
+    c = fresh(dest)
+    sprite1 = cp._export_sprite(Obj(11, b'img-A'), 'coin', c)
+    tex1 = cp._texture_file(Obj(21, b'tex-A'), 'coin', c)
+    sprite1_bytes = slurp(dest, sprite1)
+    tex1_bytes = slurp(dest, tex1)
+    c = fresh(dest)
+    sprite2 = cp._export_sprite(Obj(11, b'img-B'), 'coin', c)
+    tex2 = cp._texture_file(Obj(21, b'tex-B'), 'coin', c)
+    same = os.path.join(root, 'same')
+    os.makedirs(same)
+    c = fresh(same)
+    same_sprite = cp._export_sprite(Obj(1, b'one'), 'coin', c)
+    same_sprite_2 = cp._export_sprite(Obj(2, b'two'), 'coin', c)
+    again = fresh(same)
+    cached = cp._export_sprite(Obj(1, b'one'), 'coin', again)
+    cached_again = cp._export_sprite(Obj(1, b'CHANGED'), 'coin', again)
+    tc = fresh(same)
+    same_tex = cp._texture_file(Obj(7, b't1'), 'coin', tc)
+    same_tex_2 = cp._texture_file(Obj(8, b't2'), 'coin', tc)
+    still = os.path.join(root, 'still')
+    os.makedirs(still)
+    sc = fresh(still)
+    still_sprite = cp._export_sprite(Obj(3, b'same'), 'gem', sc)
+    still_tex = cp._texture_file(Obj(4, b'tsame'), 'gem', sc)
+    sprite_path = Path(still) / still_sprite
+    tex_path = Path(still) / still_tex
+    os.utime(str(sprite_path), (1, 1))
+    os.utime(str(tex_path), (1, 1))
+    sprite_before = sprite_path.stat().st_mtime_ns
+    tex_before = tex_path.stat().st_mtime_ns
+    sc = fresh(still)
+    still_sprite_2 = cp._export_sprite(Obj(3, b'same'), 'gem', sc)
+    still_tex_2 = cp._texture_file(Obj(4, b'tsame'), 'gem', sc)
+    out = {
+        'sprite1': sprite1,
+        'tex1': tex1,
+        'sprite1Bytes': sprite1_bytes,
+        'tex1Bytes': tex1_bytes,
+        'sprite2': sprite2,
+        'tex2': tex2,
+        'sprite2Bytes': slurp(dest, sprite2),
+        'tex2Bytes': slurp(dest, tex2),
+        'spriteDup': present(dest, 'sprites/ext_coin_2.webp'),
+        'texDup': present(dest, 'sprites/tex_coin_2.webp'),
+        'sameSprite': same_sprite,
+        'sameSprite2': same_sprite_2,
+        'sameSpriteBytes': slurp(same, same_sprite),
+        'sameSprite2Bytes': slurp(same, same_sprite_2),
+        'cached': cached,
+        'cachedAgain': cached_again,
+        'cachedBytes': slurp(same, cached_again),
+        'sameTex': same_tex,
+        'sameTex2': same_tex_2,
+        'sameTexBytes': slurp(same, same_tex),
+        'sameTex2Bytes': slurp(same, same_tex_2),
+        'stillSprite': still_sprite,
+        'stillSprite2': still_sprite_2,
+        'stillTex': still_tex,
+        'stillTex2': still_tex_2,
+        'stillSpriteMtime': sprite_path.stat().st_mtime_ns == sprite_before,
+        'stillTexMtime': tex_path.stat().st_mtime_ns == tex_before,
+    }
+finally:
+    shutil.rmtree(root)
+print(json.dumps(out))`);
+    assert.equal(out.sprite1, 'sprites/ext_coin.webp');
+    assert.equal(out.tex1, 'sprites/tex_coin.webp');
+    assert.equal(out.sprite1Bytes, 'img-A');
+    assert.equal(out.tex1Bytes, 'tex-A');
+    assert.equal(out.sprite2, 'sprites/ext_coin.webp', 'a later run keeps the name');
+    assert.equal(out.tex2, 'sprites/tex_coin.webp');
+    assert.equal(out.sprite2Bytes, 'img-B', 'changed sprite bytes replace the earlier file');
+    assert.equal(out.tex2Bytes, 'tex-B', 'changed texture bytes replace the earlier file');
+    assert.equal(out.spriteDup, false);
+    assert.equal(out.texDup, false);
+    assert.equal(out.sameSprite, 'sprites/ext_coin.webp');
+    assert.equal(out.sameSprite2, 'sprites/ext_coin_2.webp');
+    assert.equal(out.sameSpriteBytes, 'one', 'the first picture of a run stays put');
+    assert.equal(out.sameSprite2Bytes, 'two');
+    assert.equal(out.cached, 'sprites/ext_coin.webp');
+    assert.equal(out.cachedAgain, 'sprites/ext_coin.webp', 'the same path id returns the cached file');
+    assert.equal(out.cachedBytes, 'one');
+    assert.equal(out.sameTex, 'sprites/tex_coin.webp');
+    assert.equal(out.sameTex2, 'sprites/tex_coin_2.webp');
+    assert.equal(out.sameTexBytes, 't1');
+    assert.equal(out.sameTex2Bytes, 't2');
+    assert.equal(out.stillSprite, 'sprites/ext_gem.webp');
+    assert.equal(out.stillSprite2, out.stillSprite);
+    assert.equal(out.stillTex, 'sprites/tex_gem.webp');
+    assert.equal(out.stillTex2, out.stillTex);
+    assert.equal(out.stillSpriteMtime, true, 'identical sprite bytes are not rewritten');
+    assert.equal(out.stillTexMtime, true, 'identical texture bytes are not rewritten');
+  });
 });

@@ -15,9 +15,13 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { cardAriaLabel, cardBlocked, createShopHost, orderCardHotspots, preloadShopRuntime } from '../../public/js/ui/shop/host.js';
+import {
+  cardAriaLabel, cardBlocked, createShopHost, failShopCanvasFonts, orderCardHotspots, preloadShopRuntime,
+  prepareShopRuntimePreload, setShopWebgl2Probe, shopRuntimePreloadAction, shopWebgl2Supported,
+} from '../../public/js/ui/shop/host.js';
 import { cardMarkSwitches } from '../../public/js/ui/shop/ShopCanvas.js';
 import { filterCardMarks } from '../../public/js/ui/shop/marks.js';
+import { installThemeFontFaces } from '../../public/js/ui/prefab/shopDocs.js';
 import { t, setLang, setMessages } from '../../shared/i18n.js';
 import { stubFetch } from '../helpers/fetchStub.js';
 
@@ -247,4 +251,122 @@ test('the 卡面标记 settings map to the filter switches and drop the matching
   assert.ok(noSkill.standIn && noSkill.pips);
   const allOff = filterCardMarks(marks, cardMarkSwitches({ shopMarkSkill: false, shopMarkStandIn: false, shopMarkProgress: false }));
   assert.equal(allOff, null, 'nothing left to draw');
+});
+
+/** A document whose style sheet can be installed and removed. Not installFakeDom: that one never finds nodes by id. */
+function fontDocument() {
+  const nodes = [];
+  const head = { append(child) { nodes.push(child); } };
+  return {
+    head,
+    documentElement: head,
+    hidden: false,
+    fonts: { load: async () => [] },
+    createElement(tag) {
+      return {
+        tagName: String(tag).toUpperCase(),
+        id: '',
+        textContent: '',
+        remove() { const i = nodes.indexOf(this); if (i >= 0) nodes.splice(i, 1); },
+      };
+    },
+    getElementById(id) { return nodes.find((node) => node.id === id) || null; },
+    addEventListener() {},
+    removeEventListener() {},
+  };
+}
+
+const SYNTHETIC_FACE = Object.freeze([
+  { family: 'SyntheticShop', url: '/fonts/synthetic-shop.ttf', weight: 500 },
+]);
+
+function withFontDocument(doc) {
+  const previous = globalThis.document;
+  globalThis.document = doc;
+  return () => { globalThis.document = previous; };
+}
+
+test('no WebGL2 fails the shop preload before the runtime, and drops theme font faces', (t) => {
+  t.after(() => setShopWebgl2Probe(null));
+  const doc = fontDocument();
+  const restore = withFontDocument(doc);
+  t.after(restore);
+  let probes = 0;
+  setShopWebgl2Probe(() => { probes += 1; return false; });
+  assert.equal(installThemeFontFaces(SYNTHETIC_FACE, doc), true);
+
+  const plan = prepareShopRuntimePreload({ capable: true, seatHasShop: true });
+  assert.deepEqual(plan, { action: 'fail', status: 'failed' });
+  assert.equal(shopRuntimePreloadAction({ capable: true, seatHasShop: true, webgl2: false }), 'fail');
+  assert.equal(doc.getElementById('shop-theme-fonts'), null, 'the sheet installed ahead of the mount is removed');
+  assert.equal(probes, 1);
+  assert.equal(shopWebgl2Supported(), false);
+  assert.equal(prepareShopRuntimePreload({ capable: true, seatHasShop: true }).action, 'fail');
+  assert.equal(probes, 1, 'the probe answer is cached');
+
+  let preloaded = 0;
+  if (plan.action === 'load') preloaded += 1;
+  assert.equal(preloaded, 0, 'a failed probe does not run preloadShopRuntime');
+});
+
+test('a working WebGL2 probe preloads and leaves an installed font sheet alone', (t) => {
+  t.after(() => setShopWebgl2Probe(null));
+  const doc = fontDocument();
+  const restore = withFontDocument(doc);
+  t.after(restore);
+  let probes = 0;
+  setShopWebgl2Probe(() => { probes += 1; return true; });
+  assert.equal(installThemeFontFaces(SYNTHETIC_FACE, doc), true);
+
+  const plan = prepareShopRuntimePreload({ capable: true, seatHasShop: true });
+  assert.deepEqual(plan, { action: 'load', status: null });
+  assert.equal(shopRuntimePreloadAction({ capable: true, seatHasShop: true, webgl2: true }), 'load');
+  assert.ok(doc.getElementById('shop-theme-fonts'), 'a working browser keeps the sheet the preload installed');
+  assert.equal(probes, 1);
+
+  let preloaded = 0;
+  if (plan.action === 'load') preloaded += 1;
+  assert.equal(preloaded, 1);
+});
+
+test('a seat that cannot mount the canvas does not probe WebGL2, and still drops theme font faces', (t) => {
+  t.after(() => setShopWebgl2Probe(null));
+  const doc = fontDocument();
+  const restore = withFontDocument(doc);
+  t.after(restore);
+  let probes = 0;
+  setShopWebgl2Probe(() => { probes += 1; return true; });
+  assert.equal(installThemeFontFaces(SYNTHETIC_FACE, doc), true);
+
+  const skipped = prepareShopRuntimePreload({ capable: false, seatHasShop: true });
+  assert.deepEqual(skipped, { action: 'skip', status: 'idle' });
+  assert.equal(probes, 0, 'a theme that is not canvas-capable does not open a context');
+  assert.equal(doc.getElementById('shop-theme-fonts'), null);
+
+  assert.equal(installThemeFontFaces(SYNTHETIC_FACE, doc), true);
+  const spectator = prepareShopRuntimePreload({ capable: true, seatHasShop: false });
+  assert.deepEqual(spectator, { action: 'skip', status: 'idle' });
+  assert.equal(probes, 0, 'a spectator seat does not open a context');
+  assert.equal(doc.getElementById('shop-theme-fonts'), null);
+  assert.equal(shopRuntimePreloadAction({ capable: true, seatHasShop: false, webgl2: false }), 'skip');
+});
+
+test('onFail uninstalls the theme font faces, and the match screen follows the probe', () => {
+  const doc = fontDocument();
+  assert.equal(installThemeFontFaces(SYNTHETIC_FACE, doc), true);
+  assert.equal(failShopCanvasFonts(doc), true);
+  assert.equal(doc.getElementById('shop-theme-fonts'), null);
+  assert.equal(failShopCanvasFonts(doc), false, 'a second uninstall finds nothing');
+
+  const src = readFileSync(new URL('../../public/js/screens/game.js', import.meta.url), 'utf8');
+  assert.ok(src.includes('const plan = prepareShopRuntimePreload({ capable: shopWebglCapable, seatHasShop });'));
+  const gateAt = src.indexOf("if (plan.action !== 'load')");
+  assert.ok(gateAt > 0);
+  const preloadAt = src.indexOf('preloadShopRuntime()', gateAt);
+  assert.ok(preloadAt > gateAt, 'preloadShopRuntime runs only after the plan says load');
+  assert.ok(
+    src.includes("onFail=${() => { failShopCanvasFonts(); setWebglShop({ status: 'failed', runtime: null }); }}"),
+    'a mounted canvas that reports failure uninstalls the theme font faces',
+  );
+  assert.ok(src.includes('failShopCanvasFonts();'), 'a preload rejection uninstalls too');
 });

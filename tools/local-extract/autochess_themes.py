@@ -1339,17 +1339,45 @@ def _load_env(path):
     return env, {obj.path_id: obj for obj in env.objects}
 
 
+def raster_bytes(image, suffix='.webp'):
+    """The bytes `_save_raster` writes for `suffix` (`.webp`, or `.png` when WebP fails)."""
+    import io
+    if getattr(image, 'mode', None) != 'RGBA' and hasattr(image, 'convert'):
+        image = image.convert('RGBA')
+    buf = io.BytesIO()
+    if suffix == '.png':
+        image.save(buf, 'PNG')
+    else:
+        image.save(buf, 'WEBP', lossless=True, quality=100, method=4, exact=True)
+    return buf.getvalue()
+
+
+def raster_matches(image, path):
+    """True when `path` already holds the bytes this image would be saved as."""
+    file_path = Path(path)
+    try:
+        current = file_path.read_bytes()
+    except OSError:
+        return False
+    if not current:
+        return False
+    try:
+        fresh = raster_bytes(image, file_path.suffix.lower() or '.webp')
+    except Exception:
+        return False
+    return fresh == current
+
+
 def _save_raster(image, dest_webp):
     """Lossless WebP. PNG only when WebP fails. Returns the file name written."""
-    if image.mode != 'RGBA':
-        image = image.convert('RGBA')
+    dest_webp = Path(dest_webp)
     dest_webp.parent.mkdir(parents=True, exist_ok=True)
     try:
-        image.save(dest_webp, 'WEBP', lossless=True, quality=100, method=4, exact=True)
+        dest_webp.write_bytes(raster_bytes(image, '.webp'))
         return dest_webp.name
     except Exception:
         png = dest_webp.with_suffix('.png')
-        image.save(png, 'PNG')
+        png.write_bytes(raster_bytes(image, '.png'))
         return png.name
 
 
