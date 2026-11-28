@@ -25,11 +25,17 @@
 // talent ability still names only projectile_chr_cetsyr_talent on those buff edges; a second copy is not drawn.
 // The orbit radius follows the snapshot's `wide` (S2's outside_radius) as MoteRing does.
 //
+// The orbit plane is not the tile surface. The talent ability launches from mount MUZZLE. char_4134_cetsyr's
+// exported skin has no Muzzle point (HitPoint and HeadPoint only), so the plane sits on the HitPoint, about a
+// quarter tile above her feet, and a raised tile lifts it with her. [ASSUMED] nobody has compared this height
+// with the official client. Radius and 30°/s are unchanged.
+//
 // With 官方特效 off, or the trail missing, nothing here is spawned and the view's `officialMotes` stays false, so
 // render/units.js keeps MoteRing exactly as it is.
 
 import { boardToUnity } from './math.js';
 import { projectileParts } from './flight.js';
+import { skinPoint, unitPoint } from './mounts.js';
 import { MOTE_PERIOD, MOTE_ORBIT_TILES } from '../motes.js';
 
 const ID_ROT = Object.freeze([0, 0, 0, 1]);
@@ -58,6 +64,19 @@ export function cetsyrOrbitKey(skillId, skillOn) {
 
 /** The reviewed turn speed of 魔王's motes (render/motes.js MOTE_PERIOD: `dynamic_spd` 30°/s). */
 export const ORBIT_DEG_PER_SEC = 360 / MOTE_PERIOD;
+
+/**
+ * Board height of 魔王's orbit plane. MUZZLE when the skin exports one, otherwise HitPoint (she does not).
+ * `pose.z` is the tile surface; the point's height is added, so a raised tile does not leave the motes in the road.
+ * [ASSUMED] not compared with the official client.
+ * @param {any} skin
+ * @param {{ x: number, y: number, z?: number, left?: boolean, back?: boolean, scale?: number, tilt?: number, view?: any }} pose
+ */
+export function orbitPlaneZ(skin, pose) {
+  const kind = skinPoint(skin, 'muzzle', !!pose?.back) ? 'muzzle' : 'hit';
+  const p = unitPoint(skin, kind, pose || { x: 0, y: 0, z: 0 });
+  return -p[2];
+}
 
 /**
  * RotateAroundMovement, or null for any other class. `main` is the flying effect and `clockwise` the record's
@@ -152,11 +171,12 @@ export class OrbitFx {
       ring = { key, bodies: [] };
       this.rings.set(id, ring);
     }
+    const plane = orbitPlaneZ(this.w.skinOf(this.w.unitOf(v)), this.w.pose(v));
     while (ring.bodies.length > n) ring.bodies.pop().h?.stop();
     while (ring.bodies.length < n) {
-      const body = { h: null, x: v.x, y: v.y, z: v.z || 0, yaw: 0 };
+      const body = { h: null, x: v.x, y: v.y, z: plane, yaw: 0 };
       body.h = this.w.ofx.spawn(motion.main, {
-        pos: boardToUnity(v.x, v.y, v.z || 0), yaw: 0, groundZ: 0, rootRot: ID_ROT,
+        pos: boardToUnity(v.x, v.y, plane), yaw: 0, groundZ: 0, rootRot: ID_ROT,
       }, {
         important: true, loop: true,
         track: (fx) => {
@@ -180,7 +200,7 @@ export class OrbitFx {
       const body = ring.bodies[i];
       body.x = v.x + off.x;
       body.y = v.y + off.y;
-      body.z = v.z || 0;
+      body.z = plane;
       body.yaw = off.yaw;
     }
     v.officialMotes = true;

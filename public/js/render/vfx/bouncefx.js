@@ -14,6 +14,11 @@
 // with the hop's endpoints and that speed. The visual follows that segment (the sim's flight), not the
 // record's 4, so the spark lands with the damage. moveType is not an arc, so the segment is straight.
 //
+// The hit and the trail sit at the target's hit point, the same place mantra_skill_03_hit_01 and the attack hit
+// play (mantra_bounce_hit_01's spawn is HIT_POINT). A hop's trail runs from the previous target's hit point to
+// the next one's. A landing whose unit is already gone uses the tile surface (ctx.heightAt, else 0) plus that
+// same hit-point offset, so a raised road does not leave the spark under the tile.
+//
 // With 官方特效 off, or the prefab missing, simFx returns false. `mantraArc` stays the procedural bolt.
 // `mantraHop` is `{ a: 'none' }` in render/fx/kinds.js, so a missing prefab draws nothing (the hop had no
 // procedural shot before). S2's chain bolts are a different event and are not touched. The skill's attack
@@ -21,6 +26,7 @@
 
 import { boardToUnity } from './math.js';
 import { projectileParts } from './flight.js';
+import { unitPoint } from './mounts.js';
 
 const ID_ROT = Object.freeze([0, 0, 0, 1]);
 const PROJ_ID = 'projectile_chr_mantra_s3_2';
@@ -119,13 +125,47 @@ export class BounceFx {
 
   _spark(x, y, z, key) {
     if (!key || !Number.isFinite(x) || !Number.isFinite(y)) return false;
-    const h = this.w.ofx.spawn(key, { pos: boardToUnity(x, y, z || 0), yaw: 0, groundZ: 0, rootRot: ID_ROT }, { important: true });
+    const h = this.w.ofx.spawn(key, { pos: boardToUnity(x, y, Number.isFinite(z) ? z : 0), yaw: 0, groundZ: 0, rootRot: ID_ROT }, { important: true });
     return !!h;
+  }
+
+  /** Tile surface at a board point (the field's heightAt), else 0. */
+  _groundZ(x, y) {
+    const hAt = this.w.ofx.ctx?.heightAt;
+    if (typeof hAt !== 'function' || !Number.isFinite(x) || !Number.isFinite(y)) return 0;
+    const h = Number(hAt(Math.round(y), Math.round(x)));
+    return Number.isFinite(h) ? Math.max(0, h) : 0;
+  }
+
+  /** A view standing on this point (the hop's previous target is coordinates, not an id). */
+  _viewAt(x, y) {
+    const list = this.w.skills?.viewList;
+    if (!Array.isArray(list)) return null;
+    let best = null, bd = 0.35;
+    for (const v of list) {
+      if (!v || v.alive === false || v.destroyed) continue;
+      const d = Math.hypot((v.x || 0) - x, (v.y || 0) - y);
+      if (d <= bd) { bd = d; best = v; }
+    }
+    return best;
+  }
+
+  /**
+   * Board height of a HIT_POINT: the unit's own point when `v` is there (the same spawnPoint playOn uses), else
+   * the tile surface plus that offset. Above the tile either way.
+   */
+  _hitZ(v, x, y) {
+    if (v && v.alive !== false && !v.destroyed) {
+      return -unitPoint(this.w.skinOf(this.w.unitOf(v)), 'hit', this.w.pose(v))[2];
+    }
+    const z = this._groundZ(x, y);
+    return -unitPoint(null, 'hit', { x, y, z, left: false, back: false })[2];
   }
 
   /**
    * The onHit on the unit it landed on, at the prefab's own spawn point (mantra_bounce_hit_01: HIT_POINT, where the
-   * other hits on that enemy show), through FxWiring.playOn; the tile at ground height when that unit is gone.
+   * other hits on that enemy show), through FxWiring.playOn. When that unit is gone, the same hit-point height
+   * above the tile, not the floor.
    */
   _hitOn(targetId, x, y, key) {
     if (!key) return false;
@@ -134,7 +174,7 @@ export class BounceFx {
       const h = this.w.playOn(key, tv, { important: true });
       if (h) return true;
     }
-    return this._spark(x, y, 0, key);
+    return this._spark(x, y, this._hitZ(tv && tv.alive !== false && !tv.destroyed ? tv : null, x, y), key);
   }
 
   _land(x, y, motion, extra) {
@@ -156,13 +196,17 @@ export class BounceFx {
     const hit = this._hitKey(motion);
     if (!(seg.dur > 0)) return hit ? this._hitOn(extra.target, seg.x1, seg.y1, hit) : false;
     if (!motion.main || !this.w.ofx.lib.has(motion.main)) return false;
+    const fromV = this._viewAt(seg.x0, seg.y0);
+    const toV = extra.target != null ? this.w.view(extra.target) : this._viewAt(seg.x1, seg.y1);
+    const z0 = this._hitZ(fromV, seg.x0, seg.y0);
+    const z1 = this._hitZ(toV, seg.x1, seg.y1);
     const shot = {
-      h: null, x: seg.x0, y: seg.y0, z: 0, yaw: Math.atan2(seg.y1 - seg.y0, seg.x1 - seg.x0),
-      born: this.w.ofx.time || 0, dur: seg.dur, x0: seg.x0, y0: seg.y0, x1: seg.x1, y1: seg.y1,
+      h: null, x: seg.x0, y: seg.y0, z: z0, yaw: Math.atan2(seg.y1 - seg.y0, seg.x1 - seg.x0),
+      born: this.w.ofx.time || 0, dur: seg.dur, x0: seg.x0, y0: seg.y0, z0, x1: seg.x1, y1: seg.y1, z1,
       hit: false, onHit: hit, target: extra.target ?? null,
     };
     shot.h = this.w.ofx.spawn(motion.main, {
-      pos: boardToUnity(shot.x, shot.y, 0), yaw: shot.yaw, groundZ: 0, rootRot: ID_ROT,
+      pos: boardToUnity(shot.x, shot.y, z0), yaw: shot.yaw, groundZ: 0, rootRot: ID_ROT,
     }, {
       important: true, loop: true,
       track: (fx) => {
@@ -185,6 +229,7 @@ export class BounceFx {
     const p = bounceAt(shot, k);
     shot.x = p.x;
     shot.y = p.y;
+    shot.z = shot.z0 + (shot.z1 - shot.z0) * k;
     if (k < 1) return;
     shot.hit = true;
     shot.h?.stop();

@@ -2038,6 +2038,18 @@ export const FX_BINDINGS = Object.freeze({
     }),
   }),
   // ---- round 88 g3 end ----
+  // ---- round 90 g2 begin ----
+  // 赛柯 (token_10052_radian_tower2) never emits an 'atk' (op-radian.js fireVolley): 'strike' is the Default
+  // shot and 'volley' is the S2 shot. RadianFx plays the mode's cast, then its projectile's trail along the
+  // tower's facing, then the hit. These bindings only name the projectiles so the preload and the idle sweep
+  // see them. No `during`: a normal strike is not a skill. No keys: a missing prefab must not claim the fx
+  // (the procedural strike stays, and the skill-flash rule must not swallow it).
+  // source: public/assets/local/fx/index.json token_10052_radian_tower2 modes Default / S2
+  sktok_radian_2: Object.freeze({
+    strike: binding({ owner: 'id', projectiles: Object.freeze(['projectile_chr_radian_tower2']) }),
+    volley: binding({ owner: 'id', projectiles: Object.freeze(['projectile_chr_radian_tower2_s2']) }),
+  }),
+  // ---- round 90 g2 end ----
 });
 
 /**

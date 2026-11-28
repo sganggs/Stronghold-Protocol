@@ -241,6 +241,27 @@ function pathTiles(raw) {
   return tiles;
 }
 
+/**
+ * The drawn prefix of 谬因's path that stays inside the battle rect (inclusive tile bounds, the same rect the
+ * board draws: OfficialFx ctx.fieldRect). The sim path runs to the grid edge; the line stops at the last tile
+ * still inside. No rect: the path is not clipped (a co-op layout is not the solo 0–10 columns).
+ * @param {Array<[number, number]>|null} tiles [row, col]
+ * @param {{ r0?: number, r1?: number, c0?: number, c1?: number }|null} rect
+ */
+function clipPathTiles(tiles, rect) {
+  if (!Array.isArray(tiles) || !rect) return tiles;
+  const r0 = Number(rect.r0), r1 = Number(rect.r1), c0 = Number(rect.c0), c1 = Number(rect.c1);
+  if (![r0, r1, c0, c1].every(Number.isFinite)) return tiles;
+  const loR = Math.min(r0, r1), hiR = Math.max(r0, r1), loC = Math.min(c0, c1), hiC = Math.max(c0, c1);
+  const out = [];
+  for (const tile of tiles) {
+    const r = tile[0], c = tile[1];
+    if (r < loR || r > hiR || c < loC || c > hiC) break;
+    out.push(tile);
+  }
+  return out;
+}
+
 /** Whether an attack ability's class is the kind of attack the sim made (a heal, a shot, a blow). */
 export function fitsAttack(ability, { heal = false, ranged = false } = {}) {
   if (typeof ability !== 'string') return false;
@@ -1660,15 +1681,18 @@ export class SkillFx {
 
   /**
    * 谬因 S2 (FX_BINDINGS `path`). One official line through extra.path. The start follows her. The end sits on the
-   * last tile. extra.relays are indexes of the 中继器 tiles, and only those get the waypoint prefab (an allied bend
-   * is a corner of the line, not a waypoint). The same tiles keep the copy; a different path replaces it. False when
-   * the line prefab is missing or the path has fewer than two tiles, so the procedural beam stays.
+   * last tile that is still inside the battle rect (ctx.fieldRect, the board's visible columns). The sim path is
+   * longer — the grid is 21 columns — and is left as stored; only the drawn line and the end-point effect stop at
+   * the rect. extra.relays are indexes of the 中继器 tiles, and only those still on the drawn prefix get the waypoint
+   * prefab (an allied bend is a corner of the line, not a waypoint). The same tiles keep the copy; a different path
+   * replaces it. False when the line prefab is missing or fewer than two tiles remain, so the procedural beam stays.
    */
   _pathLine(U, bind, extra) {
     const spec = bind?.path;
     const lineKey = lc(spec?.line);
     if (!spec || !lineKey || !this.w.ofx.lib.has(lineKey) || !U?.v) return false;
-    const tiles = pathTiles(extra?.path);
+    const rect = this.w.ofx.ctx?.fieldRect?.() ?? null;
+    const tiles = clipPathTiles(pathTiles(extra?.path), rect);
     if (!tiles || tiles.length < 2) {
       if (U.pathHold) this._stopPath(U);
       return false;
@@ -1683,7 +1707,9 @@ export class SkillFx {
         relays.push(i);
       }
     }
-    const sig = `${tiles.map(([r, c]) => `${r},${c}`).join(';')}#${relays.join(',')}`;
+    const box = rect && [rect.r0, rect.r1, rect.c0, rect.c1].every((n) => Number.isFinite(Number(n)))
+      ? `${Number(rect.r0)},${Number(rect.r1)},${Number(rect.c0)},${Number(rect.c1)}` : '';
+    const sig = `${tiles.map(([r, c]) => `${r},${c}`).join(';')}#${relays.join(',')}#${box}`;
     const live = U.pathHold && !U.pathHold.done && U.pathHold.line && U.pathHold.line.alive !== false;
     if (live && U.pathHold.sig === sig) return true;
     this._stopPath(U, true);

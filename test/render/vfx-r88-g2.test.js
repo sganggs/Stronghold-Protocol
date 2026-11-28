@@ -14,9 +14,10 @@ import { FxWiring } from '../../public/js/render/vfx/wiring.js';
 import { FX_BINDINGS, bindingKeys } from '../../public/js/render/vfx/skills.js';
 import { fxSpec } from '../../public/js/render/fx/kinds.js';
 import { unityToBoard } from '../../public/js/render/vfx/math.js';
+import { unitPoint } from '../../public/js/render/vfx/mounts.js';
 import { UF } from '../../shared/constants.js';
 import {
-  CETSYR_ORBIT, cetsyrOrbitKey, orbitMotion, orbitOffset,
+  CETSYR_ORBIT, cetsyrOrbitKey, orbitMotion, orbitOffset, orbitPlaneZ,
 } from '../../public/js/render/vfx/orbitfx.js';
 import { bounceMotion, bounceSegments, bounceAt } from '../../public/js/render/vfx/bouncefx.js';
 
@@ -27,15 +28,36 @@ const S2_HIT = 'cetsyr_skill_02_hit_01';
 const HIT = 'cetsyr_hit_01';
 const BOUNCE_TRAIL = 'mantra_bounce_trail_01';
 const BOUNCE_HIT = 'mantra_bounce_hit_01';
-const ALL = [TALENT, S2_TRAIL, S3_TRAIL, S2_HIT, HIT, BOUNCE_TRAIL, BOUNCE_HIT];
+const T_START1 = 'token_raidian_tower2_start_01';
+const T_START2 = 'token_raidian_tower2_start_02';
+const T_START3 = 'token_raidian_tower2_start_03';
+const T_TRAIL = 'token_raidian_tower2_trail_01';
+const T_TRAIL2 = 'token_raidian_tower2_trail_02';
+const T_HIT = 'token_raidian_tower2_hit_01';
+const TOWER = 'token_10052_radian_tower2';
+const ALL = [TALENT, S2_TRAIL, S3_TRAIL, S2_HIT, HIT, BOUNCE_TRAIL, BOUNCE_HIT, T_START1, T_START2, T_START3, T_TRAIL, T_TRAIL2, T_HIT];
 
 const around = (main, onHit, speed) => ({
   main, onHit: [onHit], lifeTime: 20,
   movement: { class: 'RotateAroundMovement', aroundSpeed: speed, projectileAroundRadius: 1, clockwise: 0 },
 });
 
+function towerAttack(proj, mount, casts) {
+  return { class: 'RangedAttack', projectileKey: proj, mount, cast: casts.map((k) => ({ effects: [k] })) };
+}
+
+function farShot(main, hit, life, fromBB) {
+  return {
+    main, onHit: [hit], lifeTime: life,
+    movement: { class: 'FarthestPointMovement', speed: 5, useSourceDirection: 1, forceReachedWhenTimeup: 1 },
+    behaviours: [{ class: 'SimpleProjectile', fields: { _lifeTimeType: 1, _lifeTime: life, _getLifeTimeFromBB: fromBB ? 1 : 0 } }],
+  };
+}
+
 function makeIndex(installed = ALL) {
-  const prefabs = Object.fromEntries(installed.map((k) => [k, { file: `prefabs/${k}.json`, looping: k.endsWith('trail_01'), spawn: 0 }]));
+  const prefabs = Object.fromEntries(installed.map((k) => [k, {
+    file: `prefabs/${k}.json`, looping: k.endsWith('trail_01'), spawn: k === BOUNCE_HIT ? 2 : 0,
+  }]));
   const skill = (projectiles) => ({
     rootClass: 'CastSkill', rootAbility: 'ActiveBuffAbility', effects: [], projectiles, mode: null,
     abilities: [], unclassified: [], roles: {}, uses: [],
@@ -49,8 +71,16 @@ function makeIndex(installed = ALL) {
     units: {
       char_4134_cetsyr: unit({ skchr_cetsyr_1: c1, skchr_cetsyr_2: c2, skchr_cetsyr_3: c3 }),
       char_4204_mantra: unit({ skchr_mantra_3: m3, skchr_mantra_2: skill([]) }),
+      [TOWER]: {
+        kind: 'token', skin: null, talents: {}, startEffect: null, deadEffect: null,
+        skills: { sktok_radian_2: skill([]) },
+        modes: [
+          { name: 'Default', attack: towerAttack('projectile_chr_radian_tower2', 'MUZZLE', [T_START1]), combat: null },
+          { name: 'S2', attack: towerAttack('projectile_chr_radian_tower2_s2', 'SPECIAL_7', [T_START1, T_START2, T_START3]), combat: null },
+        ],
+      },
     },
-    skills: { skchr_cetsyr_1: c1, skchr_cetsyr_2: c2, skchr_cetsyr_3: c3, skchr_mantra_3: m3, skchr_mantra_2: skill([]) },
+    skills: { skchr_cetsyr_1: c1, skchr_cetsyr_2: c2, skchr_cetsyr_3: c3, skchr_mantra_3: m3, skchr_mantra_2: skill([]), sktok_radian_2: skill([]) },
     projectiles: {
       projectile_chr_cetsyr_talent: around(TALENT, HIT, 150),
       projectile_chr_cetsyr_talent_s1: around(TALENT, HIT, 150),
@@ -60,6 +90,8 @@ function makeIndex(installed = ALL) {
         main: BOUNCE_TRAIL, onHit: [BOUNCE_HIT], lifeTime: 0,
         movement: { class: 'BouncedAdvancedMovement', moveType: 1, speed: 30, speedAfterFirstReach: 4, comeBack: 0 },
       },
+      projectile_chr_radian_tower2: farShot(T_TRAIL, T_HIT, 0.6, false),
+      projectile_chr_radian_tower2_s2: farShot(T_TRAIL2, T_HIT, 10, true),
     },
     skins: {}, generic: { hit: {}, die: {}, birth: {}, status: {}, keys: [] }, prefabs,
   };
@@ -95,6 +127,11 @@ async function setup({ installed = ALL, active = true } = {}) {
   const w = new FxWiring(ofx, {
     speed: () => 10,
     record: (info) => {
+      if (info.defId === TOWER) {
+        const life = Number(info.bbLife);
+        const bb = life > 0 ? { 'attack@projectile_life_time': life } : {};
+        return { charId: info.defId, skill: { skillId: 'sktok_radian_2', index: 0, duration: 0, bb } };
+      }
       const ids = SKILL_OF[info.defId] || [];
       const index = Number.isInteger(info.skillIndex) ? info.skillIndex : 0;
       return { charId: info.defId, skill: { skillId: ids[index], index, duration: 30 } };
@@ -249,6 +286,32 @@ describe('魔王 orbit player', () => {
     assert.equal(her.officialMotes, false);
     assert.equal(keys().length, 0);
   });
+
+  test('the orbit plane sits on the HitPoint, and a raised tile lifts it', async () => {
+    const { w, view, handles, track, index } = await setup();
+    index.units.char_4134_cetsyr.skin = 'char_4134_cetsyr';
+    index.skins.char_4134_cetsyr = {
+      points: { HitPoint: { front: { pos: [0, 0.232324, -0.25] } } },
+    };
+    const her = view('char_4134_cetsyr', 5, 10, { z: 0, gameT: 0, motes: { n: 1, wide: 0 } });
+    w.sync([her]);
+    track();
+    const at = (h) => unityToBoard(h.anchor[0], h.anchor[1], h.anchor[2]);
+    const flat = at(handles[0]);
+    assert.ok(Math.abs(flat[2] - 0.25) < 1e-6, flat[2]);
+    assert.ok(Math.abs(flat[0] - (5 + 1.15)) < 1e-6, 'the radius is still 1.15');
+    her.z = 0.42;
+    w.sync([her]);
+    track();
+    const raised = at(handles[0]);
+    assert.ok(Math.abs(raised[2] - 0.67) < 1e-6, raised[2]);
+    index.skins.char_4134_cetsyr.points.Muzzle = { front: { pos: [0.4, 0.5, -0.55] } };
+    w.sync([her]);
+    track();
+    const muzzle = at(handles[0]);
+    assert.ok(Math.abs(muzzle[2] - (0.42 + 0.55)) < 1e-6, muzzle[2]);
+    assert.ok(Math.abs(muzzle[0] - (5 + 1.15)) < 1e-6, 'a muzzle offset does not slide the orbit');
+  });
 });
 
 describe('bounce path', () => {
@@ -326,6 +389,113 @@ describe('真言 bounce player', () => {
     assert.equal(bare.w.simFx('mantraArc', 6, 9, { id: her.id, target: 3 }), false);
     assert.equal(bare.keys().length, 0);
   });
+
+  test('the bounce hit is attached to the target at its hit point, and the trail runs between hit points', async () => {
+    const { w, ofx, view, handles, track, index } = await setup();
+    index.units.enemy_hop = { kind: 'enemy', skin: 'enemy_hop', talents: {}, skills: {}, modes: [{ name: 'Default', attack: null }] };
+    index.skins.enemy_hop = { points: { HitPoint: { front: { pos: [0, 0.26, -0.3] } } } };
+    const skin = index.skins.enemy_hop;
+    const her = view('char_4204_mantra', 4, 9, { flags: UF.SKILL, info: { skillIndex: 2 } });
+    const prev = view('enemy_hop', 6, 9, { z: 0.2, isEnemy: true });
+    const next = view('enemy_hop', 6 + 3.2, 9, { z: 0.5, isEnemy: true });
+    w.sync([her, prev, next]);
+    const hitOf = (v) => unitPoint(skin, 'hit', { x: v.x, y: v.y, z: v.z, left: false, back: false });
+    assert.equal(w.simFx('mantraArc', prev.x, prev.y, { id: her.id, target: prev.id }), true);
+    const land = handles.find((h) => h.key === BOUNCE_HIT);
+    assert.equal(land.opts.owner, prev);
+    const landAt = hitOf(prev);
+    assert.ok(Math.abs(land.anchor[2] - landAt[2]) < 1e-6);
+    assert.ok(-land.anchor[2] > prev.z, 'the spark is above the tile');
+    ofx.time = 0;
+    assert.equal(w.simFx('mantraHop', prev.x, prev.y, { id: her.id, target: next.id, tx: next.x, ty: next.y, speed: 3.2 }), true);
+    const trail = handles.find((h) => h.key === BOUNCE_TRAIL && h.alive);
+    track();
+    const z0 = -hitOf(prev)[2];
+    const z1 = -hitOf(next)[2];
+    const at = (h) => unityToBoard(h.anchor[0], h.anchor[1], h.anchor[2]);
+    let p = at(trail);
+    assert.ok(Math.abs(p[2] - z0) < 1e-6, 'the trail starts at the previous hit point');
+    ofx.time = 0.5;
+    track();
+    p = at(trail);
+    assert.ok(Math.abs(p[2] - (z0 + z1) / 2) < 1e-6 && Math.abs(p[0] - (6 + 1.6)) < 1e-6);
+    ofx.time = 1;
+    track();
+    const hopHit = handles.filter((h) => h.key === BOUNCE_HIT).at(-1);
+    assert.equal(hopHit.opts.owner, next);
+    assert.ok(Math.abs(hopHit.anchor[2] - hitOf(next)[2]) < 1e-6);
+    assert.ok(-hopHit.anchor[2] > next.z);
+  });
+
+  test('a landing with no unit sits above a raised tile', async () => {
+    const { w, ofx, view, handles } = await setup();
+    ofx.ctx = { heightAt: () => 0.42 };
+    const her = view('char_4204_mantra', 4, 9, { flags: UF.SKILL, info: { skillIndex: 2 } });
+    assert.equal(w.simFx('mantraArc', 6, 9, { id: her.id, target: 404 }), true);
+    const hit = handles.find((h) => h.key === BOUNCE_HIT);
+    assert.equal(hit.opts.owner, undefined);
+    const expect = unitPoint(null, 'hit', { x: 6, y: 9, z: 0.42, left: false, back: false });
+    assert.ok(Math.abs(hit.anchor[2] - expect[2]) < 1e-6);
+    assert.ok(-hit.anchor[2] > 0.42);
+  });
+});
+
+describe('赛柯 shots', () => {
+  const count = (handles, key) => handles.filter((h) => h.key === key).length;
+
+  test('a strike plays the Default records once, and 官方特效 off plays nothing', async () => {
+    const { w, ofx, view, handles, track } = await setup();
+    const tower = view(TOWER, 4, 9, { dir: 'RIGHT', z: 0.42, info: { bbLife: 0.8 } });
+    assert.equal(w.simFx('strike', 4, 9, { id: tower.id, n: 1 }), true);
+    assert.equal(count(handles, T_START1), 1);
+    assert.equal(count(handles, T_TRAIL), 1);
+    assert.equal(count(handles, T_HIT), 0);
+    assert.equal(handles.some((h) => h.key === T_TRAIL2), false);
+    const trail = handles.find((h) => h.key === T_TRAIL);
+    let p = unityToBoard(trail.anchor[0], trail.anchor[1], trail.anchor[2]);
+    assert.ok(p[2] > 0.42, 'the trail leaves the muzzle above the tile');
+    ofx.time = 0.3;
+    track();
+    p = unityToBoard(trail.anchor[0], trail.anchor[1], trail.anchor[2]);
+    assert.ok(Math.abs(p[0] - 5.5) < 1e-6 && Math.abs(p[1] - 9) < 1e-6, 'speed 5 for half of 0.6 s, not the 0.8 blackboard');
+    ofx.time = 0.6;
+    track();
+    assert.equal(count(handles, T_HIT), 1);
+    const hit = handles.find((h) => h.key === T_HIT);
+    p = unityToBoard(hit.place.pos[0], hit.place.pos[1], hit.place.pos[2]);
+    assert.ok(Math.abs(p[0] - 7) < 1e-6 && Math.abs(p[1] - 9) < 1e-6);
+    assert.equal(w.simFx('strike', 4, 9, { id: tower.id, n: 1 }), true);
+    assert.equal(count(handles, T_START1), 2);
+    assert.equal(count(handles, T_TRAIL), 2);
+    const off = await setup({ active: false });
+    const quiet = off.view(TOWER, 4, 9, { dir: 'RIGHT' });
+    assert.equal(off.w.simFx('strike', 4, 9, { id: quiet.id, n: 1 }), false);
+    assert.equal(off.w.simFx('volley', 4, 9, { id: quiet.id, n: 3 }), false);
+    assert.equal(off.keys().length, 0);
+    const bare = await setup({ installed: ALL.filter((k) => k !== T_TRAIL) });
+    const missing = bare.view(TOWER, 4, 9, { dir: 'UP' });
+    assert.equal(bare.w.simFx('strike', 4, 9, { id: missing.id }), false);
+    assert.equal(bare.handles.some((h) => String(h.key).startsWith('token_raidian_tower2')), false);
+    const other = bare.view('char_4134_cetsyr', 3, 9);
+    assert.equal(bare.w.simFx('strike', 3, 9, { id: other.id }), false);
+  });
+
+  test('a volley plays each S2 record once and flies the blackboard life', async () => {
+    const { w, ofx, view, handles, track } = await setup();
+    const tower = view(TOWER, 4, 9, { dir: 'UP', info: { bbLife: 0.8 } });
+    assert.equal(w.simFx('volley', 4, 9, { id: tower.id, n: 3 }), true);
+    assert.equal(count(handles, T_START1), 1);
+    assert.equal(count(handles, T_START2), 1);
+    assert.equal(count(handles, T_START3), 1);
+    assert.equal(count(handles, T_TRAIL2), 1);
+    assert.equal(handles.some((h) => h.key === T_TRAIL), false);
+    ofx.time = 0.8;
+    track();
+    assert.equal(count(handles, T_HIT), 1);
+    const hit = handles.find((h) => h.key === T_HIT);
+    const p = unityToBoard(hit.place.pos[0], hit.place.pos[1], hit.place.pos[2]);
+    assert.ok(Math.abs(p[0] - 4) < 1e-6 && Math.abs(p[1] - 13) < 1e-6, '0.8 s at speed 5, facing up');
+  });
 });
 
 describe('bindings name the projectiles the sweep looks for', () => {
@@ -342,6 +512,7 @@ describe('bindings name the projectiles the sweep looks for', () => {
     mains('skchr_cetsyr_2', ['projectile_chr_cetsyr_talent', 'projectile_chr_cetsyr_talent_s2']);
     mains('skchr_cetsyr_3', ['projectile_chr_cetsyr_talent', 'projectile_chr_cetsyr_talent_s3']);
     mains('skchr_mantra_3', ['projectile_chr_mantra_s3_2']);
+    mains('sktok_radian_2', ['projectile_chr_radian_tower2', 'projectile_chr_radian_tower2_s2']);
     assert.equal(FX_BINDINGS.skchr_cetsyr_2.cetsyrOrbit.keys, undefined);
     assert.equal(JSON.stringify(FX_BINDINGS).includes('cetsyr_skill_02_tie'), false);
   });
@@ -379,6 +550,21 @@ describe('round 88 lane g2 against the extracted index', { skip: !fs.existsSync(
     const tie = idx.skills.skchr_cetsyr_2.uses.find((u) => (u.keys || []).includes('cetsyr_skill_02_tie'));
     assert.equal(tie.on, 'owner');
     assert.equal(tie.buff != null || tie.template != null, true);
+    const skin = idx.skins.char_4134_cetsyr;
+    assert.equal(skin.points.Muzzle, undefined);
+    const face = skin.points.HitPoint.front || skin.points.HitPoint.all || skin.points.HitPoint.back;
+    const hp = face.pos;
+    const z = orbitPlaneZ(skin, { x: 5, y: 10, z: 0, left: false, back: false });
+    assert.ok(Math.abs(z - (-hp[2])) < 1e-6);
+    assert.ok(z > 0.2 && z < 0.3, z);
+    const tower = idx.units.token_10052_radian_tower2;
+    assert.equal(tower.modes.find((m) => m.name === 'Default').attack.projectileKey, 'projectile_chr_radian_tower2');
+    assert.equal(tower.modes.find((m) => m.name === 'S2').attack.projectileKey, 'projectile_chr_radian_tower2_s2');
+    const s2p = idx.projectiles.projectile_chr_radian_tower2_s2;
+    assert.equal(s2p.behaviours.find((b) => b.class === 'SimpleProjectile').fields._getLifeTimeFromBB, 1);
+    assert.equal(s2p.movement.class, 'FarthestPointMovement');
+    assert.equal(s2p.movement.speed, 5);
+    assert.equal(idx.prefabs.mantra_bounce_hit_01.spawn, 2);
   });
 });
 

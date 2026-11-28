@@ -50,6 +50,7 @@ import { TalentFx } from './talentfx.js';
 import { FunnelFx } from './funnelfx.js';
 import { OrbitFx } from './orbitfx.js';
 import { BounceFx } from './bouncefx.js';
+import { RadianFx } from './radianfx.js';
 import { YuWall, YU_WALL_SOURCE } from './yuwall.js';
 import { formModes } from './talents.js';
 import { shotOf } from './skills.js';
@@ -294,6 +295,7 @@ export class FxWiring {
     this.cannons = new CannonFx(this);
     this.orbits = new OrbitFx(this);     // 魔王's RotateAround 微尘 (render/vfx/orbitfx.js)
     this.bounces = new BounceFx(this);   // 真言 S3's BouncedAdvancedMovement (render/vfx/bouncefx.js)
+    this.radian = new RadianFx(this);    // 赛柯's strike / volley (render/vfx/radianfx.js)
   }
 
   get index() { return this.idx; }
@@ -1602,6 +1604,7 @@ export class FxWiring {
   simFx(kind, x, y, extra) {
     if (!this.idx) return false;
     if (this.bounces.simFx(kind, x, y, extra)) return true;
+    if (this.radian.simFx(kind, x, y, extra)) return true;
     if (this.cannons.simFx(kind, x, y, extra)) return true;
     const t = this.talents.fx(kind, extra, x, y);
     // the floating units stand for the kit's 'drone' / 'drones' / 'droneLock' / 'overload' (render/vfx/funnelfx.js)
@@ -1672,6 +1675,7 @@ export class FxWiring {
     this.cannons.clear();
     this.orbits.clear();
     this.bounces.clear();
+    this.radian.clear();
     this.forms.clear();
     this.lastTargets.clear();
     this.picks.clear();

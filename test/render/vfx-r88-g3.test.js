@@ -178,6 +178,33 @@ describe('round 88 lane g3', () => {
     assert.equal(again[0].linePath.length, 2);
   });
 
+  test('谬因 S2 clips the drawn path at the battle rect and keeps a co-op rect', async () => {
+    const { w, ofx, view, handles, live } = await setup();
+    ofx.ctx.fieldRect = () => ({ r0: 9, r1: 12, c0: 0, c1: 10 });
+    const her = view('char_4229_aphris', 2, 9);
+    w.skill(her, true);
+    const path = [9, 2, 9, 8, 9, 10, 9, 11, 9, 20];
+    assert.equal(w.simFx('beam', 2, 9, { id: her.id, skill: 'aphris:beam', path, relays: [1, 4] }), true);
+    const line = handles.find((h) => h.key === LINE);
+    // `n + 0` turns a ground height of -0 into 0; deepEqual treats them as different.
+    const flat0 = (n) => Math.round((n + 0) * 1000) / 1000;
+    assert.deepEqual(line.linePath.map((p) => p.map(flat0)), [[-8, 0, 0], [-2, 0, 0], [0, 0, 0]]);
+    assert.equal(live(END).length, 1);
+    assert.ok(near(live(END)[0].place.pos, [0, 0, 0]), 'the end point is the last tile inside the rect');
+    assert.equal(live(WAY).length, 1, 'a relay past the rect is not drawn');
+    assert.ok(near(live(WAY)[0].place.pos, [-2, 0, 0]));
+    w.skill(her, false);
+    ofx.ctx.fieldRect = () => ({ r0: 9, r1: 12, c0: 11, c1: 16 });
+    const mate = view('char_4229_aphris', 12, 9);
+    w.skill(mate, true);
+    assert.equal(w.simFx('beam', 12, 9, { id: mate.id, skill: 'aphris:beam', path: [9, 12, 9, 16, 9, 20], relays: [2] }), true);
+    const coop = live(LINE);
+    assert.equal(coop.length, 1);
+    assert.deepEqual(coop[0].linePath.map((p) => p.map(flat0)), [[2, 0, 0], [6, 0, 0]]);
+    assert.ok(near(live(END)[0].place.pos, [6, 0, 0]), 'the co-op rect ends the line at column 16, not column 10');
+    assert.equal(live(WAY).length, 0, 'the relay on column 20 is outside this rect');
+  });
+
   test('谬因 S2 plays one channel hit per named enemy, and drops the line with the skill', async () => {
     const { w, view, live, frame } = await setup();
     const her = view('char_4229_aphris', 2, 9);
