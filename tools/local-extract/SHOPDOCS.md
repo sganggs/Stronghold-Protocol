@@ -86,7 +86,8 @@ shopdocs: themes/ac_n_iron lacks shop.json (the canvas shop needs prefabs.json +
 local extraction, run the same command into `--out public/assets/local --manifest data/local-assets.json`, then
 rebuild a theme pack with `node tools/package.mjs --theme-packs` ([docs/THEMES.md](../../docs/THEMES.md)). A theme
 group extracted without the shop-documents job — and a 可露希尔 pack built from it — has no `card.json` / `shop.json`,
-so the canvas shop does not mount.
+so the canvas shop does not mount. `--theme-packs` therefore refuses such a group: the plan lists the missing documents
+and no zip is written (§37.367).
 
 ## Recorded extraction (not a product target)
 

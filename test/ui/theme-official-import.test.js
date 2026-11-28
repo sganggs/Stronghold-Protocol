@@ -267,14 +267,34 @@ test('the packages hold back 可露希尔: its group and ui/outer sprites leave 
     const [p] = themePackPlans(dir, { scan: false });
     assert.equal(p.name, 'Stronghold-Protocol-v0.4.0-theme-ac_s_closur');
     assert.deepEqual(p.files, ['sprites/a.webp', 'theme.json'], 'layout.json is the extractor\'s own: left out');
-    assert.deepEqual(p.problems, []);
+    // §37.367: a group extracted with --only theme alone would be a pack whose importers never get the canvas shop
+    assert.equal(p.problems.length, 1, p.problems.join('\n'));
+    assert.match(p.problems[0], /no prefabs\.json \/ card\.json \/ shop\.json, which the canvas shop needs/);
+    assert.match(p.problems[0], /--only shopdocs\/ac_s_closur/);
     const readme = themePackReadme(p);
     assert.match(readme, /「导入主题包」/);
     assert.match(readme, /"Import theme pack"/);
     assert.match(readme, /非商业/);
     assert.match(readme, /0\.4\.x/);
+    assert.doesNotMatch(readme, /商店文档|shop documents/, 'no canvas line for a pack without the documents');
     const none = themePackPlans(dir, { scan: false, groups: ['themes/ac_x_none'] })[0];
     assert.match(none.problems.join('\n'), /not extracted here/);
+
+    // after --only shopdocs: the three documents are listed, the plan is clean and the README says what they do
+    const docs = ['prefabs.json', 'card.json', 'shop.json'];
+    for (const f of docs) {
+      put(`public/assets/local/themes/ac_s_closur/${f}`, '{}');
+      local.groups[GROUP][f] = at(`public/assets/local/themes/ac_s_closur/${f}`);
+    }
+    put('data/local-assets.json', JSON.stringify(local));
+    const [full] = themePackPlans(dir, { scan: false });
+    assert.deepEqual(full.problems, []);
+    assert.deepEqual(full.files, ['card.json', 'prefabs.json', 'shop.json', 'sprites/a.webp', 'theme.json']);
+    const fullReadme = themePackReadme(full);
+    assert.match(fullReadme, /包里带有商店文档：选用后，规程和盟约的商店按官方样式绘制/);
+    assert.match(fullReadme, /官方字体不在包里/);
+    assert.match(fullReadme, /It carries the shop documents/);
+    assert.match(fullReadme, /The official fonts are not in the pack/);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

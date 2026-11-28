@@ -1205,12 +1205,19 @@ export const THEME_PACK_README = 'README.txt';
 const THEME_PACK_SKIP = new Set(['layout.json']);
 const PACK_IMAGE_EXT = new Set(['png', 'jpg', 'jpeg', 'webp']);
 const PACK_AUDIO_EXT = new Set(['ogg', 'mp3']);
+/**
+ * The documents the canvas shop mounts on (§37.240, ui/shop/gate.js). `--only theme` registers prefabs.json only and
+ * `--only shopdocs` adds the other two, so a group extracted without the second job would go out as a pack whose
+ * importers only ever get the DOM shop (§37.367).
+ */
+export const THEME_PACK_CANVAS_DOCS = Object.freeze(['prefabs.json', 'card.json', 'shop.json']);
 
 /**
  * The importable pack of each held theme group (HELD_THEME_GROUPS): the group's files as data/local-assets.json lists
  * them — every type the importer keeps (OFFICIAL_PACK_EXT), layout.json left out — under one folder, with README.txt.
- * Checks: the group extracted here, theme.json among its files, every listed file on disk, the importer's limits
- * (OFFICIAL_PACK_LIMITS, THEME_LIMITS.image / .audio), no case clash, the personal-info scan (`scan: false` skips it).
+ * Checks: the group extracted here, theme.json and the canvas shop's documents (THEME_PACK_CANVAS_DOCS) among its files,
+ * every listed file on disk, the importer's limits (OFFICIAL_PACK_LIMITS, THEME_LIMITS.image / .audio), no case clash,
+ * the personal-info scan (`scan: false` skips it).
  * @param {string} root
  * @param {{ groups?: readonly string[], env?: object, scan?: boolean }} [opts]
  */
@@ -1241,6 +1248,11 @@ export function themePackPlans(root, opts = {}) {
         bytes += size;
       }
       if (!files.includes('theme.json')) problems.push(`${group}: no theme.json`);
+      const noDocs = THEME_PACK_CANVAS_DOCS.filter((f) => !files.includes(f));
+      if (noDocs.length) {
+        problems.push(`${group}: no ${noDocs.join(' / ')}, which the canvas shop needs: run tools/local-extract/extract.py `
+          + `--only shopdocs/${group.split('/').pop()} into this extraction first (docs/THEMES.md)`);
+      }
       if (files.length + 1 > OFFICIAL_PACK_LIMITS.files) problems.push(`${files.length} files: over the importer's ${OFFICIAL_PACK_LIMITS.files}`);
       if (bytes > OFFICIAL_PACK_LIMITS.pack) problems.push(`${MB(bytes)}: over the importer's ${MB(OFFICIAL_PACK_LIMITS.pack)}`);
       const byCase = new Map();
@@ -1271,6 +1283,7 @@ export function themePackReadme(p) {
   const title = officialThemeById(p.id)?.name || p.id;
   const notice = `${GITHUB_REPO}/blob/${releaseTag(p.version)}/NOTICE.md`;
   const line = `${String(p.version).split('.').slice(0, 2).join('.')}.x`;
+  const canvas = THEME_PACK_CANVAS_DOCS.every((f) => p.files.includes(f));
   const zh = [
     `卫戍协议：盟约 ${v} 界面主题包「${title}」`,
     `Stronghold Protocol: Alliance ${v} interface theme pack "${p.id}"`,
@@ -1278,6 +1291,8 @@ export function themePackReadme(p) {
     '【这是什么】',
     `官方界面主题「${title}」的贴图、界面预制体、Spine 角色和主题语音，共 ${p.files.length} 个文件（${MB(p.bytes)}）。`,
     '游戏的完整包、更新包和素材包都不带这个主题，需要的玩家自己导入。',
+    ...(canvas ? ['包里带有商店文档：选用后，规程和盟约的商店按官方样式绘制（浏览器要支持 WebGL2，否则用普通商店）。',
+      '官方字体不在包里：服务器没有提取官方字体时，商店上的文字用系统字体。'] : []),
     '',
     '【怎么导入】',
     '1. 打开游戏，在标题画面、大厅或对局里点「设置」，找到「界面主题」。',
@@ -1298,6 +1313,9 @@ export function themePackReadme(p) {
     '[What this is]',
     `The official interface theme "${p.id}": its pictures, interface prefabs, Spine character and theme voice lines,`,
     `${p.files.length} files (${MB(p.bytes)}). The full, update and asset packages do not include it; players who want it import it.`,
+    ...(canvas ? ['It carries the shop documents: with it selected, the Regulation and Covenant shops are drawn in the official',
+      'style (the browser needs WebGL2; otherwise the plain shop). The official fonts are not in the pack: unless the server',
+      'extracted them, the shop text uses the system fonts.'] : []),
     '',
     '[How to import]',
     '1. In the game press Settings (on the title screen, in the lobby or in a match) and open "Interface theme".',
