@@ -73,10 +73,10 @@ uses [Terra Archive](https://terra-archive.net/)’s Chinese→English TL dictio
 <https://files.terra-archive.net/assets/tl/en/README.md> (read 2026-11-21): attribute it as an unofficial (partly
 machine-translated) translation — **English text: Terra Archive (terra-archive.net), unofficial (partly
 machine-translated) translation**. Dictionary entries without `"x":1` are official Global EN text; the rest is Terra’s
-own. Operator-kit texts are not imported yet: the importer runs with `--no-kits` by default, and Terra’s separate
-`autochess-kits.json` (listed in the same README and manifest since 2026-11-22, same terms) is not wired in. The downloaded dictionary is only cached
-under `.cache/terra-tl-en/` (never committed); the committed overlay is the built `i18n/en.json`. Official Hypergryph /
-Yostar names and text remain theirs; Terra grants rights only to the translation.
+own. Operator kits come from `autochess-kits.json` in the same README and manifest (since 2026-11-22, same terms);
+skill descriptions whose Chinese keys are still templates are rendered with each row’s blackboard before lookup. The
+downloaded dictionary is only cached under `.cache/terra-tl-en/` (never committed); the committed overlay is the built
+`i18n/en.json`. Official Hypergryph / Yostar names and text remain theirs; Terra grants rights only to the translation.
 
 ---
 
