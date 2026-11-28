@@ -253,7 +253,8 @@ def manifest(chars, installed, version, part=1, tokens=None, installed_tokens=()
     """plugin.json of a part: a personal cosmetic plugin whose overlay is ASSETS_FILE, `assets.override` for operators
     and summons the installation's data/assets.json has and `assets.add` for the others (docs/PLUGINS.md §9). `tokens`
     are the part's summon records (<tokenId> → {<owner skin id>: record}), `installed_tokens` the summons of
-    data/assets.json."""
+    data/assets.json. The description names the summon outfits when the part holds any; a part of operator outfits
+    alone never claims them."""
     have = set(installed or ())
     have_tokens = set(installed_tokens or ())
     tokens = tokens or {}
@@ -267,9 +268,11 @@ def manifest(chars, installed, version, part=1, tokens=None, installed_tokens=()
         'name': {'zh': '本机提取的时装' + (f'（第 {part} 部分）' if part > 1 else ''),
                  'en': 'Outfits from the local client' + (f' (part {part})' if part > 1 else '')},
         'description': {
-            'zh': '由 tools/local-extract/extract.py --only skins 从本机官方客户端提取的时装：立绘、半身像、头像和战斗模型。',
+            'zh': '由 tools/local-extract/extract.py --only skins 从本机官方客户端提取的时装：立绘、半身像、头像和战斗模型'
+                  + ('，以及随主人时装换装的召唤物（token）时装。' if tokens else '。'),
             'en': 'Outfits extracted from this machine\'s official client by tools/local-extract/extract.py --only skins: '
-                  'illustrations, portraits, avatars and battle models.'},
+                  'illustrations, portraits, avatars and battle models'
+                  + (', and the summons (token) outfits that follow their owner\'s outfit.' if tokens else '.')},
         'version': '1.0.0',
         'app': app_range(version),
         'api': 1,

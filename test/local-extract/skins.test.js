@@ -273,6 +273,8 @@ print(json.dumps({
   'parts': [s.part_folder(1), s.part_folder(2), s.part_number('local-skins'), s.part_number('local-skins-12'),
             s.part_number('local-skins-1'), s.part_number('local-skins-01'), s.part_number('skins')],
   'name2': s.manifest({}, [], '0.4.1', 2)['name'],
+  'desc': [s.manifest({'char_102_texas': {}}, ['char_102_texas'], '0.4.1')['description'],
+           s.manifest({}, [], '0.4.1', 2, {'token_2001_twin': {}}, [])['description']],
   'merge': s.merge({'c': {'old': {'x': 1}, 'gone': {'x': 2}, 'same': {'x': 3}}}, {'c': {'same': {'x': 4}, 'new': {'x': 5}}},
                    lambda r: r['x'] != 2),
   'dir': [s.record_dir({'avatar': 'c/o/avatar.png', 'spine': {'front': {'skel': 'c/o/front.skel'}}}), s.record_dir({})],
@@ -284,6 +286,12 @@ print(json.dumps({
     assert.deepEqual(got.app, ['>=0.4.0 <0.5.0', '>=1.12.0 <1.13.0', '*']);
     assert.deepEqual(got.parts, ['local-skins', 'local-skins-2', 1, 12, null, null, null]);
     assert.deepEqual(got.name2, { zh: '本机提取的时装（第 2 部分）', en: 'Outfits from the local client (part 2)' });
+    assert.match(got.desc[0].zh, /立绘、半身像、头像和战斗模型。$/, 'a part of operator outfits alone ends there');
+    assert.doesNotMatch(got.desc[0].zh, /召唤物/);
+    assert.match(got.desc[0].en, /battle models\.$/);
+    assert.doesNotMatch(got.desc[0].en, /summon/i);
+    assert.match(got.desc[1].zh, /立绘、半身像、头像和战斗模型，以及随主人时装换装的召唤物（token）时装。$/, 'the part that holds summons says so');
+    assert.match(got.desc[1].en, /battle models, and the summons \(token\) outfits that follow their owner's outfit\.$/);
     assert.deepEqual(got.merge, { c: { same: { x: 4 }, new: { x: 5 }, old: { x: 1 } } });
     assert.deepEqual(got.dir, ['c/o', null]);
   });
@@ -666,6 +674,39 @@ print(json.dumps({'limited': limited, 'parts': parts, 'perms': perms, 'keptPart1
       'a summon outfit keeps the folder an earlier run gave it; the one without an earlier record keeps plan\'s');
     assert.deepEqual(got.keptPart1, ['token_3001_a'],
       'a partial run keeps the summon record it did not extract, and the part files it did not touch');
+  });
+
+  test('a part that holds only summon outfits: the manifest names them, pack and check --strict accept it', { skip: !PIL && 'no Pillow' }, (t) => {
+    const f = clientFiles(t);
+    const out = path.join(f.root, 'out');
+    const got = py(`${FAKE}${PIL_FAKE}${TOKENS}
+import contextlib, io
+root = Path(${JSON.stringify(f.root)})
+(root/'ab'/'ui'/'autochess').mkdir(parents=True)
+install(root/'ab', BUNDLES)
+logs = []
+n = s.export(root/'ab', ${JSON.stringify(out)}, logs.append, [], ['char_102_texas'], '0.4.1', 0, None,
+             tokens=s.token_plan(TABLE, ['char_102_texas']), installed_tokens=['token_2001_twin'])
+d = Path(${JSON.stringify(out)}) / 'skins' / 'local-skins'
+print(json.dumps({'n': n, 'logs': logs, 'plugin': json.loads((d/'plugin.json').read_text(encoding='utf-8')),
+  'overlay': json.loads((d/'skins.json').read_text(encoding='utf-8')),
+  'parts': sorted(p.name for p in d.parent.iterdir())}))`,
+      [path.join(f.root, 'front.skel'), path.join(f.root, 'back.skel')]);
+    assert.ok(got.n > 0, got.logs.join('\n'));
+    assert.deepEqual(got.parts, ['local-skins'], 'no operator outfit took part of the room: one part, no second');
+    assert.equal(got.overlay.chars, undefined, 'a part of summons alone writes no `chars` side');
+    assert.deepEqual(Object.keys(got.overlay.tokens), ['token_2001_twin', 'token_2002_mirror']);
+    assert.deepEqual(got.plugin.permissions, ['assets.override', 'assets.add'],
+      'token_2001_twin is in data/assets.json; token_2002_mirror is an assets.add');
+    assert.match(got.plugin.description.zh, /召唤物（token）时装/, 'the manifest says this part holds the summons too');
+    assert.match(got.plugin.description.en, /summons \(token\) outfits/);
+    const pluginDir = path.join(out, 'skins/local-skins');
+    const packed = spawnSync(process.execPath, [path.join(ROOT, 'tools/plugin.mjs'), 'pack', pluginDir], { encoding: 'utf8', cwd: ROOT });
+    assert.equal(packed.status, 0, packed.stdout + packed.stderr);
+    const lock = JSON.parse(fs.readFileSync(path.join(pluginDir, 'plugin.lock.json'), 'utf8'));
+    assert.ok(Object.keys(lock.files).some((k) => k.startsWith('token_2001_twin/')), 'the summons\' models are locked');
+    const checked = spawnSync(process.execPath, [path.join(ROOT, 'tools/plugin.mjs'), 'check', pluginDir, '--strict'], { encoding: 'utf8', cwd: ROOT });
+    assert.equal(checked.status, 0, checked.stdout + checked.stderr);
   });
 
   test('outfits fill parts within the cosmetic ceilings; a re-run keeps an outfit in its part', { skip: !PIL && 'no Pillow' }, (t) => {
