@@ -436,6 +436,8 @@ cosmetic plugin. Its `plugin.json` (manifest 2, `scope: ["personal"]`) asks for 
 and summons are the installation's and `assets.add` for any other; its overlay is the file `skins.json`
 (`chars[<charId>].skins[<skinId>]` and `tokens[<tokenId>].skins[<owner skin id>]`), not inline: the manifest reader takes
 an inline `assets` text that ends like `.ext` for a file path, and official outfit names do (日晒 SS.SP, the series i.t).
+Its description names the summon outfits when the part holds any, and a part that holds summons alone is packed and
+checked like any other (docs/SKINS.md "Summons follow their owner's outfit").
 An outfit's folder is the
 part of its id after `@` with `@` `#` `+` turned into `_` (plugin file names, docs/PLUGINS.md §5); a second outfit of
 one name gets `_2`. A later run keeps the folder an earlier run gave each outfit (a new outfit takes a free name), so

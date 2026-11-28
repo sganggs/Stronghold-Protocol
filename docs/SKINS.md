@@ -94,7 +94,10 @@ The summon appearances are a run of the outfit job, not a roster of their own: `
 operator's outfits and the summon appearances keyed by them, and `--limit N` counts operator outfits alone, so a
 limited run writes the summon appearances of the owner outfits it kept. They share the operator outfits'
 `local-skins-N` parts — 512 MB, 5000 files and 2000 folders per part, one budget for both kinds — instead of parts of
-their own. One summon keeps at most 64 appearances (the plugin's limit, docs/PLUGINS.md §9): the extractor writes the
+their own. A part's `plugin.json` description names the summon outfits when the part holds any (a part of operator
+outfits alone does not claim them), and a part that holds summons alone is packed and passes
+`node tools/plugin.mjs check --strict` like any other. One summon keeps at most 64 appearances (the plugin's limit,
+docs/PLUGINS.md §9): the extractor writes the
 first 64 in official order and warns about the rest. Two appearances belong to units with no model by design: `token_10039_ulpia_block_epoque#48` is the 「[从不混淆的方向](https://prts.wiki/w/%E4%BB%8E%E4%B8%8D%E6%B7%B7%E6%B7%86%E7%9A%84%E6%96%B9%E5%90%91)」 that 乌尔比安's 「必须开辟的通路」 leaves on the original tile, and `token_10055_phatm2_mndclv_sightseer#4` is 酒神's 「[迷狂牢笼](https://prts.wiki/w/%E8%BF%B7%E7%8B%82%E7%89%A2%E7%AC%BC)」 from 「空剧场」. Their prefab has no SkeletonData, so the
 run skips them with their names in the log; that is expected, not a lost appearance. Of the 59
 summons the source module's client knew, 11 are not among the 60 `token_*` entries of `data/assets.json`, so the plugin
