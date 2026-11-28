@@ -379,7 +379,7 @@ function LevelCard({ shop, reason, armed = false, onTap }) {
   const max = lv >= (shop?.maxLevel ?? 6);
   const price = shop?.upgradePrice ?? 0;
   // A theme's shop_level_N sprite carries 「LEVEL」 and the numeral; with it the frame below is only for screen readers
-  return html`<button type="button" class=${cx('lvcard', lvMark, max && 'is-max', reason && 'is-disabled', armed && 'is-armed')} onClick=${() => !reason && onTap()}
+  return html`<button type="button" class=${cx('lvcard', lvMark, max && 'is-max', reason && 'is-disabled', armed && 'is-armed')} onClick=${() => onTap()}
       title=${levelTitle(reason, armed, price)} aria-disabled=${reason ? 'true' : 'false'}
       aria-pressed=${String(!!armed)}>
     ${!max ? html`<${HexBadge} value=${price} tone=${reason && reason !== t('调度中心已达最高等级') ? 'dark' : 'gold'} size="md" class="lvcard__price" />` : null}
@@ -405,7 +405,7 @@ function RegLevelCard({ shop, reason, armed = false, onTap, themeId }) {
   const model = regUpgradeModel(data.get('local')?.groups, themeId, { level: lv, state: max ? 'max' : reason ? 'disable' : 'normal', armed });
   const label = max ? t('已满级') : armed ? t('确认升级') : t('升级');
   return html`<button type="button" class=${cx('lvcard', 'lvcard--reg', 'lvcard--up', max && 'is-max', reason && 'is-disabled', armed && 'is-armed')} data-up=${model.theme} data-lv=${lv}
-      style=${{ '--up-cost': model.cost }} onClick=${() => !reason && onTap()}
+      style=${{ '--up-cost': model.cost }} onClick=${() => onTap()}
       title=${levelTitle(reason, armed, price)} aria-disabled=${reason ? 'true' : 'false'} aria-pressed=${String(!!armed)}>
     <span class="rup">
       ${model.parts.map((p, i) => (p.kind === 'tip' ? html`<span key=${`t${i}`} class="lvcard__label rup__tip" style=${p.style}>${label}</span>`
@@ -616,6 +616,13 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
     buy(idx);
   };
   const tapLevel = () => {
+    // A blocked 升级 (资金不足 / 调度中心已达最高等级) says why, as a refused card tap does: the official panel keeps a
+    // hotspot of its own in that state (group_upgrade/group_disable/hotspot), and the canvas shop answers the same way.
+    if (lvReason) {
+      if (armed === levelKey) setArmed(null);
+      onRefuse?.(lvReason);
+      return;
+    }
     if (armed !== levelKey) { setArmed(levelKey); return; }
     setArmed(null);
     onLevel();

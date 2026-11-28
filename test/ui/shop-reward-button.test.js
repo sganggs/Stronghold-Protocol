@@ -316,7 +316,7 @@ test('the host registers the reward hotspots', () => {
 test('the level-up hotspot stays on the grey panel and the max-level panel', () => {
   const spec = CONTROL_HOTSPOTS.find((entry) => entry.key === 'levelUp');
   assert.equal(spec.event, 'levelUp');
-  assert.equal(spec.panel, true, 'a blocked tap still reaches tapLevel, which stays silent like the DOM level card');
+  assert.equal(spec.panel, true, 'a blocked tap still runs tapLevel, which reports the reason (onRefuse) like the DOM level card');
   assert.deepEqual(spec.paths, ['hotspot_normal', 'group_disable/hotspot', 'group_max/bg', 'upgrade']);
   assert.equal(levelUpAriaLabel(null), t('升级'), 'affordable keeps the action name');
   assert.equal(levelUpAriaLabel(''), t('升级'));

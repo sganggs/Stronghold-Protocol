@@ -673,8 +673,9 @@ export function ShopCanvas(props) {
     const reason = shopBlockReason('levelUp', { config: p.config, priv: p.priv, editable: p.editable });
     if (reason) {
       if (levelArmedRef.current) { armLevel(false); p.onArm?.(null); }
-      // Silent like the DOM level card (shopBar.js LevelCard / RegLevelCard: onClick runs only without a reason):
-      // the reason is the hotspot's title and accessible name, the D hotkey only plays the error sound.
+      // The reason as a toast, like the DOM bar's level card (shopBar.js tapLevel) and a refused card tap; it is
+      // also the hotspot's title and accessible name.
+      p.onRefuse?.(reason);
       return;
     }
     if (!levelArmedRef.current) { armLevel(true); pushView(); return; }
