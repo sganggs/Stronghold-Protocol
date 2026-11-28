@@ -21,6 +21,8 @@ import { ShopSpineView } from './spineView.js';
 import { AutoChessBattleShopMainView } from './mainView.js';
 import { cardMarkElements } from './marks.js';
 import { UIButton } from './widgets.js';
+// The project's one WebGL2 probe (board3d's, also used by ui/stagePreview.js; render/app.js already loads the module).
+import { webgl2Available } from '../../render/board3d/load.js';
 
 /** Control hotspots the prefab's UIButtons cover; their guards are read from each UIButton's _clickGuard. */
 const CONTROL_HOTSPOT_SPECS = [
@@ -164,31 +166,6 @@ let shopWebgl2Answer;
 let shopWebgl2ProbeFn = null;
 
 /**
- * Open the same WebGL2 context the shop stage asks for (render/shop/cardStage.js) and release it.
- * A missing document, or a browser that refuses the context, is unavailable.
- */
-function probeShopWebgl2Once() {
-  if (typeof document === 'undefined' || typeof document.createElement !== 'function') return false;
-  let canvas;
-  try { canvas = document.createElement('canvas'); } catch { return false; }
-  if (!canvas || typeof canvas.getContext !== 'function') return false;
-  let gl;
-  try {
-    gl = canvas.getContext('webgl2', {
-      premultipliedAlpha: true, alpha: true, stencil: true, powerPreference: 'high-performance',
-    });
-  } catch {
-    return false;
-  }
-  if (!gl) return false;
-  try {
-    const lose = typeof gl.getExtension === 'function' ? gl.getExtension('WEBGL_lose_context') : null;
-    if (lose && typeof lose.loseContext === 'function') lose.loseContext();
-  } catch { /* the context did open; losing it is only so the probe does not keep a live context */ }
-  return true;
-}
-
-/**
  * Whether this browser can mount the canvas shop. The first call probes; later calls reuse that answer.
  * @returns {boolean}
  */
@@ -196,7 +173,8 @@ export function shopWebgl2Supported() {
   if (shopWebgl2Answer !== undefined) return shopWebgl2Answer;
   let ok;
   try {
-    ok = shopWebgl2ProbeFn ? !!shopWebgl2ProbeFn() : probeShopWebgl2Once();
+    // allowSlow: a software / blocklisted GPU still opens the context the stage uses, so it can mount.
+    ok = shopWebgl2ProbeFn ? !!shopWebgl2ProbeFn() : webgl2Available(true);
   } catch {
     ok = false;
   }

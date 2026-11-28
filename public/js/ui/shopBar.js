@@ -129,10 +129,12 @@ export { mergeHint };
  */
 export const slotFrozen = (slot, toggle = false) => !!slot?.frozen || !!toggle;
 
-/** The armed (first-tapped) card's confirm strip: 确认购买 / 确认选择, or 无法购买 + why. */
-function ArmedTag({ reason, free }) {
+/** The armed (first-tapped) card's confirm strip: 确认购买, or 无法购买 + why. A free reward pick reads the same
+ * 确认购买: the official client's first tap says so for every shop card (docs/research/09-ux-official.md "Buy"),
+ * so neither the DOM bar nor the canvas branches on `free` for the text. */
+function ArmedTag({ reason }) {
   if (reason) return html`<span class="scard__confirm is-no" role="status"><b>${t('无法购买')}</b><small>${reason}</small></span>`;
-  return html`<span class="scard__confirm" role="status"><b>${free ? t('确认选择') : t('确认购买')}</b><small>${t('再次点击')}</small></span>`;
+  return html`<span class="scard__confirm" role="status"><b>${t('确认购买')}</b><small>${t('再次点击')}</small></span>`;
 }
 
 /**
@@ -201,7 +203,7 @@ export function ChessCard({ slot, idx, priv, frozen = false, reason = null, free
       ${repeatFx}
       ${willMerge ? html`<span class="scard__mergetag" title=${hint}>${t('可晋升')}</span>` : null}
       ${frozen ? html`<span class="scard__ice" aria-hidden="true"><${Icon} name="snow" /></span>` : null}
-      ${armed ? html`<${ArmedTag} reason=${reason} free=${free} />` : null}
+      ${armed ? html`<${ArmedTag} reason=${reason} />` : null}
     </button>`;
     return reason && reason !== t('已售出') && !armed ? html`<${Tooltip} text=${reason} block=${true} class="scard-wrap">${button}<//>` : button;
   }
@@ -240,7 +242,7 @@ export function ChessCard({ slot, idx, priv, frozen = false, reason = null, free
     ${repeatFx}
     ${willMerge ? html`<span class="scard__mergetag" title=${hint}>${t('可晋升')}</span>` : null}
     ${frozen ? html`<span class="scard__ice" aria-hidden="true"><${Icon} name="snow" /></span>` : null}
-    ${armed ? html`<${ArmedTag} reason=${reason} free=${free} />` : null}
+    ${armed ? html`<${ArmedTag} reason=${reason} />` : null}
   </button>`;
   return reason && reason !== t('已售出') && !armed ? html`<${Tooltip} text=${reason} block=${true} class="scard-wrap">${card}<//>` : card;
 }
@@ -291,7 +293,7 @@ export function ItemCard({ slot, idx, frozen = false, reason = null, free = fals
         <span class="scard__name" style=${{ ...face.item.name, color: face.item.nameColor, fontSize: `${face.item.nameFontSize}rem` }}><span class="scard__nametxt">${it?.name || slot.id}</span></span>
       </span>` : html`<span class="scard__namebar"><span class="scard__name">${it?.name || slot.id}</span></span>`}
       ${frozen ? html`<span class="scard__ice" aria-hidden="true"><${Icon} name="snow" /></span>` : null}
-      ${armed ? html`<${ArmedTag} reason=${reason} free=${free} />` : null}
+      ${armed ? html`<${ArmedTag} reason=${reason} />` : null}
     </button>`;
     return reason && reason !== t('已售出') && !armed ? html`<${Tooltip} text=${reason} block=${true} class="scard-wrap">${button}<//>` : button;
   }
@@ -312,7 +314,7 @@ export function ItemCard({ slot, idx, frozen = false, reason = null, free = fals
       <span class="scard__idesc"><${RichText} text=${itemText(it)} /></span>
     </span>
     ${frozen ? html`<span class="scard__ice" aria-hidden="true"><${Icon} name="snow" /></span>` : null}
-    ${armed ? html`<${ArmedTag} reason=${reason} free=${free} />` : null}
+    ${armed ? html`<${ArmedTag} reason=${reason} />` : null}
   </button>`;
   return reason && reason !== t('已售出') && !armed ? html`<${Tooltip} text=${reason} block=${true} class="scard-wrap">${card}<//>` : card;
 }

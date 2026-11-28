@@ -7,7 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { AutoChessBattleShopCardView, confirmStripLabel } from '../../public/js/ui/shop/cardView.js';
+import { AutoChessBattleShopCardView } from '../../public/js/ui/shop/cardView.js';
 import { t } from '../../shared/i18n.js';
 
 const IMAGE_A = '/assets/item/trap_1041_acarm041.png';
@@ -17,14 +17,9 @@ const PREFAB_POS = [0, 17];
 
 const viewFor = (model) => new AutoChessBattleShopCardView({ scene: { cardDoc: {} }, root: null, model, index: 0 });
 
-test('the armed strip says 确认选择 on a reward card and 确认购买 otherwise', () => {
-  // shopBar.js ArmedTag (133–135) is 确认选择 only for `free` cards, and only RewardCards (485) passes free: true.
-  // The canvas reward row has price 0 and basePrice 0 (srcPrice 0); a normal card discounted to 0 keeps srcPrice.
-  assert.equal(confirmStripLabel({ price: 0, srcPrice: 0 }), t('确认选择'));
-  assert.equal(confirmStripLabel({ price: '0', srcPrice: '0' }), t('确认选择'));
-  assert.equal(confirmStripLabel({ price: 0, srcPrice: 3 }), t('确认购买'), 'a normal card discounted to 0 is not a reward');
-  assert.equal(confirmStripLabel({ price: 3, srcPrice: 3 }), t('确认购买'));
-  assert.equal(confirmStripLabel(null), t('确认购买'), 'no model: the prefab\'s own wording');
+test('the armed strip says 确认购买 on every card, a free reward pick included', () => {
+  // The official client's first tap says 确认购买 for any shop card (docs/research/09-ux-official.md "Buy"); the DOM
+  // bar's ArmedTag says the same. Only the blocked face differs (无法购买).
   const tree = {
     name: 'root',
     children: [
@@ -37,7 +32,7 @@ test('the armed strip says 确认选择 on a reward card and 确认购买 otherw
     applyStripText: AutoChessBattleShopCardView.prototype.applyStripText,
   };
   view.applyStripText(tree);
-  assert.equal(tree.children[0].children[0].text.text, t('确认选择'));
+  assert.equal(tree.children[0].children[0].text.text, t('确认购买'), 'a free reward pick');
   assert.equal(tree.children[1].children[0].text.text, t('无法购买'), 'a blocked strip stays 无法购买');
   view.shopModel = () => ({ price: 4, srcPrice: 4 });
   view.applyStripText(tree);
