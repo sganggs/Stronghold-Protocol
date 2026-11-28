@@ -1,4 +1,4 @@
-// Act3 Terra import: TL manifest dict (exact zh→en) + JS season block for chess kits.
+// Act3 Terra import: TL manifest dict (autochess.json + autochess-kits.json) with kit skill templates rendered.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
@@ -14,7 +14,7 @@ const EN = join(ROOT, 'data/versions/act3autochess-v3_1/i18n/en.json');
 const haveImport = existsSync(PATHS) && existsSync(DICT);
 const skipImport = haveImport ? false : 'run node tools/i18n/import-terra-act3-en.mjs (writes .cache/terra-tl-en/)';
 
-test('terra act3 meta credits the README terms; Talulah is not Mudrock/Sharp', { skip: skipImport }, () => {
+test('terra act3 meta credits the README terms; kits come from autochess-kits.json', { skip: skipImport }, () => {
   const pathsDoc = JSON.parse(readFileSync(PATHS, 'utf8'));
   const dict = JSON.parse(readFileSync(DICT, 'utf8'));
   assert.match(pathsDoc._meta.source, /files\.terra-archive\.net\/assets\/tl\/en\/README\.md$/);
@@ -22,21 +22,24 @@ test('terra act3 meta credits the README terms; Talulah is not Mudrock/Sharp', {
   assert.equal(pathsDoc._meta.sourceRead, '2026-11-21');
   assert.equal(pathsDoc._meta.officialGlobalWithoutX, true);
   assert.match(pathsDoc._meta.credit, /Terra Archive.*partly machine-translated/);
-  // default import is --no-kits until Terra confirms the JS bundle terms
-  assert.match(pathsDoc._meta.kitsNote, /--no-kits|\[ASSUMED\]/);
+  assert.equal(pathsDoc._meta.kitsFile, 'autochess-kits.json');
+  assert.ok(pathsDoc._meta.kitsHash);
+  assert.equal(pathsDoc._meta.kitsBundle, null);
+  assert.match(pathsDoc._meta.kitsNote, /autochess-kits\.json/);
+  assert.ok(pathsDoc._meta.kitTemplateHits > 500, `expected many kit template hits, got ${pathsDoc._meta.kitTemplateHits}`);
   assert.equal(dict._meta.hash, pathsDoc._meta.hash);
+  assert.equal(dict._meta.kitsHash, pathsDoc._meta.kitsHash);
 
   const { leaves } = pathsDoc;
-  // Talulah may come from the TL dict path walk and/or reuse at build time; without --kits the JS season block is skipped
-  if (pathsDoc._meta.jsFallback) {
-    const names = leaves.filter((l) => l.file === 'chess' && l.id === 'chess_char_6_16_a' && l.path.join('.') === 'name');
-    assert.ok(names.length >= 1);
-    assert.equal(names[names.length - 1].en, 'Talulah');
-    assert.ok(!names.some((l) => l.en === 'Sharp' || l.en === 'Mudrock'));
-  } else {
-    assert.equal(pathsDoc._meta.kitsBundle, null);
-    assert.equal(pathsDoc._meta.chessHits, 0);
-  }
+  const names = leaves.filter((l) => l.file === 'chess' && l.id === 'chess_char_6_16_a' && l.path.join('.') === 'name');
+  assert.ok(names.length >= 1);
+  assert.equal(names[names.length - 1].en, 'Talulah');
+  assert.ok(!names.some((l) => l.en === 'Sharp' || l.en === 'Mudrock'));
+
+  // Kit skill desc rendered from a template (Specter's long skill is not the short ATK buff reuse)
+  const specterSkills = leaves.filter((l) => l.file === 'chess' && l.id === 'chess_char_1_03_a' && l.path.join('.').includes('descRaw'));
+  assert.ok(specterSkills.some((l) => /ATK|HP|damage|stun|Physical/i.test(l.en) && !/[\u4e00-\u9fff]/.test(l.en)),
+    `expected an English Specter skill desc, got ${JSON.stringify(specterSkills.map((l) => l.en.slice(0, 80)))}`);
 
   const garDesc = leaves.filter((l) => l.file === 'garrisons' && l.path.join('.') === 'desc');
   assert.ok(garDesc.length > 200, `expected many garrison desc leaves, got ${garDesc.length}`);
@@ -44,7 +47,7 @@ test('terra act3 meta credits the README terms; Talulah is not Mudrock/Sharp', {
   assert.ok(ursus?.en.includes('[Ursus]'), ursus?.en);
 });
 
-test('built act3 en.json localizes Talulah, garrison_23_a, and Amiya strategy', () => {
+test('built act3 en.json localizes Talulah, garrison_23_a, Amiya strategy, and kit skill descs', () => {
   assert.ok(existsSync(EN), 'run node tools/build-version-i18n.mjs');
   const en = JSON.parse(readFileSync(EN, 'utf8'));
   assert.equal(en.files.chess.chess_char_6_16_a.name, 'Talulah');
@@ -53,6 +56,16 @@ test('built act3 en.json localizes Talulah, garrison_23_a, and Amiya strategy', 
   assert.equal(en.files.bands.band_amiya.effectName, 'Wills As One');
   assert.ok(en.files.bands.band_amiya.desc.includes('Passive'));
   assert.equal(en.files.factions.types.REBORN.name, 'Tactical Training/Revival');
+
+  // Operator kit texts from autochess-kits.json (skill name + rendered desc)
+  const talulahSkill = en.files.chess.chess_char_6_16_a.skill;
+  assert.ok(talulahSkill?.name);
+  assert.ok(!/[\u4e00-\u9fff]/.test(talulahSkill.name), talulahSkill.name);
+  assert.ok(talulahSkill.descRaw && !/[\u4e00-\u9fff]/.test(talulahSkill.descRaw), talulahSkill.descRaw?.slice(0, 120));
+
+  const specter = en.files.chess.chess_char_1_03_a;
+  assert.equal(specter.name, 'Specter');
+  assert.ok(specter.skill?.descRaw && !/[\u4e00-\u9fff]/.test(specter.skill.descRaw), specter.skill?.descRaw?.slice(0, 120));
 });
 
 test('act3 Current Effect (effectDescRaw) comes from Terra TL dictionary', () => {
@@ -106,6 +119,6 @@ test('default-season English (data/i18n/en.json) is unchanged by the act3 versio
   assert.match(act3.meta.source.readme, /README\.md$/);
   assert.equal(act3.meta.source.readmeRead, '2026-11-21');
   assert.equal(act3.meta.source.officialGlobalWithoutX, true);
-  assert.ok('kitsBundle' in act3.meta.source);
-  assert.ok('kitsNote' in act3.meta.source);
+  assert.equal(act3.meta.source.kitsBundle, null);
+  assert.match(act3.meta.source.kitsNote, /autochess-kits\.json/);
 });

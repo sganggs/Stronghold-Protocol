@@ -254,6 +254,8 @@ export async function main(argv = process.argv.slice(2)) {
         readmeRead: dictMeta?.sourceRead || null,
         officialGlobalWithoutX: dictMeta?.officialGlobalWithoutX === true,
         terraHash: dictMeta?.hash || null,
+        kitsFile: dictMeta?.kitsFile || null,
+        kitsHash: dictMeta?.kitsHash || null,
         kitsBundle: dictMeta?.kitsBundle ?? null,
         kitsNote: dictMeta?.kitsNote ?? null,
       },
