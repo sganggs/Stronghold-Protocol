@@ -39,25 +39,9 @@ STENCIL_NODE = 'stencil_cleaner'
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-class DirBook:
-    """Sprite/atlas file resolver over an already extracted theme pack (no writes)."""
-
-    def __init__(self, sprites_dir):
-        self.files = {}
-        if sprites_dir.is_dir():
-            for path in sprites_dir.glob('*.webp'):
-                self.files.setdefault(path.stem, path.name)
-            for path in sprites_dir.glob('*.png'):
-                self.files.setdefault(path.stem, path.name)
-
-    def resolve(self, name, size=None):
-        if not name:
-            return None
-        stem = themes.safe_stem(name)
-        for key in (name, stem, f'tex_{stem}'):
-            if key in self.files:
-                return {'file': f'sprites/{self.files[key]}'}
-        return None
+# Snapshot of sprites/ taken before the shop walk. The class lives in card_prefab so a re-run test can
+# import it without UnityPy; bind_resolved_sprites fills Images that snapshot could not see yet.
+DirBook = cp.DirBook
 
 
 def _load(bundle, index):
@@ -224,6 +208,12 @@ def export_shop(theme_bundle, battle_bundle, out, theme='ac_s_closur', version=N
     shop = _panel(shop_path, shop_ptr, ctx_battle, 'autochess_shop', clips_by_name)
     money = _panel(money_path, money_ptr, ctx_battle, 'autochess_main_money_item', clips_by_name)
     item_card = _item_card(env_theme, ctx_theme, clips_by_name)
+    # The walk above exports material textures after some Images have already been resolved against the
+    # snapshot in `book`. Bind those Images to the pictures now on disk so a fresh directory matches a re-run.
+    late_files = set()
+    cp.bind_resolved_sprites(
+        [panel.get('root'), shop.get('root'), money.get('root'), (item_card or {}).get('root')],
+        out, late_files)
 
     spine_files = sorted(str(p.relative_to(out)).replace('\\', '/') for p in (out / 'spine').glob('*')) if (out / 'spine').is_dir() else []
     for item in (panel, shop, money):
@@ -251,7 +241,7 @@ def export_shop(theme_bundle, battle_bundle, out, theme='ac_s_closur', version=N
         'spine': spine,
         'spineAssets': spine_files,
         'sub': {'item_card': item_card} if item_card else {},
-        'assets': sorted(set(ctx_theme['files']) | set(ctx_battle['files'])),
+        'assets': sorted(set(ctx_theme['files']) | set(ctx_battle['files']) | late_files),
         'unresolved': (ctx_theme['unresolved'] or []) + (ctx_battle['unresolved'] or []),
         'notes': {
             'spine': f'{SPINE_NODE} is a UISpineHolder (recorded in prefabs[*].spine); M0 does not render it',

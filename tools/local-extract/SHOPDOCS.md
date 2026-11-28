@@ -128,11 +128,13 @@ byte value for `card.json` or `shop.json`.
 - **Client version:** the bundles are hot-updated. The hardcoded prefab path IDs in `path_ids.py` (`ROOTS`) and
   `theme_particles_impl.py` (`PREFABS`) come from the archived client version, so a different client version can
   produce a different tree or a warning.
-- **Output root state:** a root that already held `sprites/tex_fx_mask_1.webp` when the producer resolved the money
-  icon lists that `image.file` where a fresh root does not, so two roots can differ on the same client. The recorded
-  `shop.json` above comes from such a root: the money icon's record names `sprites/tex_fx_mask_1.webp`
-  (`prefabs/autochess_main_money_item`). Re-running `--only shopdocs` refreshes an `ext_*` or `tex_*` picture left
-  by an earlier run when the new bytes differ, and leaves the file in place when they match.
+- **Output root state:** the money mask Image (`sprite` `fx_mask_1` under `prefabs/autochess_main_money_item`) is
+  visited before the material exports `sprites/tex_fx_mask_1.webp`. After the walk, `bind_resolved_sprites` fills an
+  Image that still has no `file` from the pictures now in `sprites/` (its own name, else `tex_<name>`), inserting
+  `file` where the node builder would have written it. A first run into an empty directory already writes that mask
+  and names it, and a later run keeps the same `shop.json` bytes. The recorded `shop.json` above names
+  `sprites/tex_fx_mask_1.webp` on that Image. Re-running `--only shopdocs` refreshes an `ext_*` or `tex_*` picture
+  left by an earlier run when the new bytes differ, and leaves the file in place when they match.
 - **Differences from the archived copy (portability + content):** the archived copy's absolute client/lab paths are
   not carried over (`theme_particles_impl.py` requires the caller to set its paths, as
   `theme_particles.enrich_theme` does; `shop_prefab.py` derives the repository root two directories above its own

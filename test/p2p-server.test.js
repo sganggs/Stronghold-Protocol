@@ -229,16 +229,23 @@ test('fresh readiness needs a lease; signing/ack timers are absent for raw-only 
 });
 
 test('steady delayed ACK progress keeps the route while stagnant ACK heartbeats still time out', async (t) => {
+  // The watchdog is a real 100 ms timer. Sleeping against the wall clock lets a late tick fire it, clear
+  // `peer.timer` and leave null before the assertion. This clock fires the callback only when the test advances it.
+  t.mock.timers.enable({ apis: ['setTimeout'] });
   const { lobby, room, clients: [a, b], start, ready, plan, clear } = setup(t, 2, { ackMs: 100 });
   start();
   lobby.broadcastRoom(room, { t: 'm.public', turn: 1 });
   const timer = plan().peers[1].timer;
-  await pause(40);
+  assert.notEqual(timer, null);
+  t.mock.timers.tick(40);
   lobby.broadcastRoom(room, { t: 'm.public', turn: 2 });
   assert.equal(plan().peers[1].timer, timer, 'new state cannot postpone the deadline');
   // The receiver always lags the newest frame but keeps confirming: the watchdog re-sends and leaves the route up.
   ready(a, 1); ready(b, 1);
-  await pause(80);
+  t.mock.timers.tick(59);
+  assert.equal(plan().peers[1].timer, timer, 'the original 100 ms deadline has not arrived');
+  t.mock.timers.tick(1);
+  assert.equal(plan().peers[1].timer, null);
   assert.equal(plan().peers[1].blocked, false, 'an advancing ACK is a healthy receiver, not a blackhole');
   assert.equal(plan().peers[1].ready, true);
   assert.equal(b.ws.frames.length, 1);
@@ -248,13 +255,16 @@ test('steady delayed ACK progress keeps the route while stagnant ACK heartbeats 
   // Now its watermark stops moving while new state keeps coming: the route is torn down and the frame says so.
   lobby.broadcastRoom(room, { t: 'm.public', turn: 3 });
   const fixed = plan().peers[1].timer;
+  assert.notEqual(fixed, null);
   for (let turn = 4; turn <= 5; turn++) {
-    await pause(40);
+    t.mock.timers.tick(40);
     lobby.broadcastRoom(room, { t: 'm.public', turn });
     ready(a, turn - 1); ready(b, 1);  // the receiver's watermark never moves
     assert.equal(plan().peers[1].timer, fixed, 'unchanged ACK heartbeats and new state do not hide a blackholed relay');
   }
-  await pause(60);
+  t.mock.timers.tick(19);
+  assert.equal(plan().peers[1].timer, fixed, 'stagnant heartbeats do not move the original deadline');
+  t.mock.timers.tick(1);
   assert.equal(b.ws.frames.length, 1);
   assert.equal(b.ws.frames.at(-1).fallback, true, 'a stagnant watermark is treated as a blackholed route');
   assert.equal(JSON.parse(b.ws.frames.at(-1).payload).turn, 5, 'timeout still resends the latest available state');

@@ -669,4 +669,104 @@ print(json.dumps(out))`);
     assert.equal(out.stillSpriteMtime, true, 'identical sprite bytes are not rewritten');
     assert.equal(out.stillTexMtime, true, 'identical texture bytes are not rewritten');
   });
+
+  test('a first shopdocs pass into an empty directory names the same mask file as the next pass', () => {
+    const out = py(`import os, shutil, tempfile
+from pathlib import Path
+import card_prefab as cp
+
+class Image:
+    def __init__(self, payload):
+        self.mode = 'RGBA'
+        self.size = (4, 2)
+        self.payload = payload
+    def save(self, buf, fmt, **kwargs):
+        buf.write(self.payload)
+
+class Obj:
+    def __init__(self, path_id, payload):
+        self.path_id = path_id
+        self.image = Image(payload)
+    def read(self):
+        return self
+
+def fresh(dest, book):
+    return {
+        'dest': dest, 'book': book, 'ext_sprites': {}, 'ext_used': set(),
+        'files': set(), 'tex_files': {},
+    }
+
+def build_image(book, sliced):
+    # The same key order _image uses: sprite, size, optional slice, file, then sampling and the material.
+    image = {'type': 'sliced' if sliced else 'simple', 'color': '#11223344'}
+    image.update({'sprite': 'maskpic', 'w': 4, 'h': 2})
+    if sliced:
+        image['slice'] = [1, 2, 3, 4]
+    info = book.resolve(image['sprite'], (image['w'], image['h']))
+    if info and info.get('file'):
+        image['file'] = info['file']
+    image['wrapU'] = 1
+    image['mat'] = 'm'
+    return image
+
+def once(dest):
+    book = cp.DirBook(Path(dest) / 'sprites')
+    ctx = fresh(dest, book)
+    plain = build_image(book, False)
+    sliced = build_image(book, True)
+    # The material texture is exported after the Image, which is the order the money mask is walked in.
+    tex = cp._texture_file(Obj(21, b'mask-bytes'), 'maskpic', ctx)
+    untouched = {'type': 'simple', 'sprite': 'otherpic', 'w': 1, 'h': 1}
+    root = {'name': 'panel', 'image': plain, 'children': [
+        {'name': 'sliced', 'image': sliced, 'children': []},
+        {'name': 'plain', 'image': untouched, 'children': []},
+    ]}
+    late = set()
+    cp.bind_resolved_sprites([root], dest, late)
+    return {
+        'doc': json.dumps(root, separators=(',', ':')),
+        'tex': tex,
+        'bytes': (Path(dest) / tex).read_bytes().decode('ascii'),
+        'late': sorted(late),
+        'plainFile': plain.get('file'),
+        'otherFile': untouched.get('file'),
+    }
+
+root = tempfile.mkdtemp(prefix='shopdocs-mask-')
+try:
+    runs = [once(root) for _ in range(3)]
+    owned = os.path.join(root, 'owned')
+    os.makedirs(os.path.join(owned, 'sprites'))
+    Path(owned, 'sprites', 'maskpic.webp').write_bytes(b'own-picture')
+    Path(owned, 'sprites', 'tex_maskpic.webp').write_bytes(b'tex-picture')
+    kept = build_image(cp.DirBook(Path(owned) / 'sprites'), False)
+    out = {
+        'docs': [run['doc'] for run in runs],
+        'tex': [run['tex'] for run in runs],
+        'bytes': [run['bytes'] for run in runs],
+        'late': [run['late'] for run in runs],
+        'plainFile': [run['plainFile'] for run in runs],
+        'otherFile': [run['otherFile'] for run in runs],
+        'kept': kept.get('file'),
+    }
+finally:
+    shutil.rmtree(root)
+print(json.dumps(out))`);
+    assert.equal(out.docs[0], out.docs[1], 'a fresh directory matches the second pass');
+    assert.equal(out.docs[1], out.docs[2], 'a third pass matches the second');
+    assert.deepEqual(out.tex, [
+      'sprites/tex_maskpic.webp', 'sprites/tex_maskpic.webp', 'sprites/tex_maskpic.webp',
+    ]);
+    assert.deepEqual(out.bytes, ['mask-bytes', 'mask-bytes', 'mask-bytes']);
+    assert.deepEqual(out.plainFile, [
+      'sprites/tex_maskpic.webp', 'sprites/tex_maskpic.webp', 'sprites/tex_maskpic.webp',
+    ]);
+    assert.deepEqual(out.otherFile, [null, null, null]);
+    assert.deepEqual(out.late[1], []);
+    assert.deepEqual(out.late[2], []);
+    assert.deepEqual(out.late[0], ['sprites/tex_maskpic.webp']);
+    assert.ok(out.docs[0].includes('"h":2,"file":"sprites/tex_maskpic.webp","wrapU":1'), 'file sits where the node builder writes it');
+    assert.ok(out.docs[0].includes('"slice":[1,2,3,4],"file":"sprites/tex_maskpic.webp","wrapU":1'), 'a sliced image keeps file after slice');
+    assert.equal(out.kept, 'sprites/maskpic.webp', 'an image that already names its own file keeps it');
+  });
 });

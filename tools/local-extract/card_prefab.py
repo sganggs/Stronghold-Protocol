@@ -401,6 +401,80 @@ def _texture_file(texture_object, name, ctx):
     return rel
 
 
+class DirBook:
+    """Sprite files already in a theme pack's sprites/ directory. Reads only; it writes nothing.
+
+    A name matches its own file, then `sprites/tex_<name>.webp`. The shop walk takes this snapshot
+    before it exports material textures, so a mask Image visited first does not see the picture the
+    same walk is about to write. `bind_resolved_sprites` scans again after that write.
+    """
+
+    def __init__(self, sprites_dir):
+        self.files = {}
+        sprites_dir = Path(sprites_dir)
+        if sprites_dir.is_dir():
+            for path in sprites_dir.glob('*.webp'):
+                self.files.setdefault(path.stem, path.name)
+            for path in sprites_dir.glob('*.png'):
+                self.files.setdefault(path.stem, path.name)
+
+    def resolve(self, name, size=None):
+        if not name:
+            return None
+        stem = themes.safe_stem(name)
+        for key in (name, stem, f'tex_{stem}'):
+            if key in self.files:
+                return {'file': f'sprites/{self.files[key]}'}
+        return None
+
+
+def _place_image_file(image, rel):
+    """Put `file` where `_image` writes it: after `slice` when the sprite is sliced, otherwise after `h`.
+
+    Setting the key at the end of a finished record would put it after `mat`, and a fresh run's document
+    would differ in bytes from a re-run whose book already named the picture while the node was built.
+    """
+    if not isinstance(image, dict) or image.get('file') or not rel:
+        return
+    anchor = 'slice' if 'slice' in image else 'h' if 'h' in image else 'sprite' if 'sprite' in image else None
+    if anchor is None:
+        image['file'] = rel
+        return
+    rebuilt = {}
+    for key, value in image.items():
+        rebuilt[key] = value
+        if key == anchor:
+            rebuilt['file'] = rel
+    image.clear()
+    image.update(rebuilt)
+
+
+def bind_resolved_sprites(roots, dest, files=None):
+    """Fill `image.file` for sprites whose picture landed in `dest/sprites` during this walk.
+
+    The shop book is a snapshot from before the walk. The money mask Image is visited before the
+    material texture that writes `sprites/tex_<name>.webp`, so a fresh directory leaves `image.file`
+    empty while the file is on disk; the next run's snapshot resolves that name. Binding afterwards
+    makes the first run write the same document.
+    """
+    book = DirBook(Path(dest) / 'sprites')
+    for root in roots:
+        if isinstance(root, dict):
+            _bind_sprite_files(root, book, files)
+
+
+def _bind_sprite_files(node, book, files):
+    image = node.get('image') if isinstance(node, dict) else None
+    if isinstance(image, dict) and image.get('sprite') and not image.get('file'):
+        info = book.resolve(image['sprite'], (image.get('w'), image.get('h')))
+        if info and info.get('file'):
+            _place_image_file(image, info['file'])
+            if files is not None:
+                files.add(info['file'])
+    for child in node.get('children') or []:
+        _bind_sprite_files(child, book, files)
+
+
 def _script_class(pointer, ctx):
     """The MonoScript behind a component's `m_Script`: {class, namespace, assembly}, cached by script path id.
 
