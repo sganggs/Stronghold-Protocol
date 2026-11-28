@@ -318,8 +318,10 @@ export class SkillFx {
         const rec = this._recordOf(info);
         const r = unitKey ? planFor(this.w.idx, { info, rec, unitKey }) : null;
         if (r && (r.plan || r.charge || r.enemy.length)) U = this._record(id, r, rec);
-        // the battle time this client first saw the unit (a field joined mid-battle: > 0; _restoreBarrier)
-        if (U) U.bornT = Number.isFinite(v.gameT) ? v.gameT : 0;
+        // U.bornT (the battle time this client first saw the unit: a field joined mid-battle → > 0; _restoreBarrier) is
+        // stamped by the first sync that sees its view, not here: the first call is usually FxWiring.begin / more's
+        // preload with a bare { id, info } that has no clock (render/app.js enterBattle, a spawn event), which read as 0
+        // and made every late joiner look like a live viewer (round 88 on-screen check: no dome after a mid-battle join)
       }
       this.units.set(id, U);
     }
@@ -1044,6 +1046,8 @@ export class SkillFx {
       const U = this.of(v);
       if (!U) continue;
       U.seen = sweep;
+      // the first frame that syncs this view: the views took the frame's sample, so gameT is the battle clock (of())
+      if (U.bornT == null) U.bornT = Number.isFinite(v.gameT) ? v.gameT : 0;
       const up = v.alive !== false && !v.destroyed && !v.down;
       if (!up) { if (U.loopsOn || U.readyOn || U.passiveOn || U.energy || U.ewin || U.openOn || U.pathHold || U.pathSnap) this._releaseU(U); continue; }
       if (U.enemy.length) {

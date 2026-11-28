@@ -1955,15 +1955,18 @@ export const FX_BINDINGS = Object.freeze({
   // kalts2_s_3[restore] at ON_BUFF_START: the arrival after she moves onto the anchor. The kit
   // already emits fx 'teleport' there (id = her). Both prefabs are oneshots (teleport_end stats
   // looping false). claim so a re-extracted trigger use is not also an unmapped row, and oneshot
-  // so it is not a second skill-long loop. during: S3 stays on after she lands. No tag: 余 S2
-  // binds teleport on skchr_yu_2 only.
+  // so it is not a second skill-long loop. No tag: 余 S2 binds teleport on skchr_yu_2 only.
+  // No `during` (round 88 on-screen check): the flight hides her, the snapshot drops her, and the
+  // skill layer forgets her skill state (SkillFx sync → _releaseU sets U.on null); the landing's
+  // 'teleport' comes before her view takes the next sample (flags 0), so a `during` gate always
+  // failed and nothing played. The kit sends 'teleport' for her only from land(), which runs only
+  // inside S3 (onEnd clears k2flight), so the gate added nothing.
   // condition from kit: server/sim/content/kits/ops/op-kalts2.js land()
   skchr_kalts2_3: Object.freeze({
     teleport: binding({
       owner: 'id',
       keys: ['kalts2_skill_03_teleport_end_01', 'kalts2_skill_03_range_01'],
       oneshot: true,
-      during: true,
       claim: true,
     }),
   }),

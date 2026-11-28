@@ -9,6 +9,7 @@ import assert from 'node:assert/strict';
 import { FxWiring } from '../../public/js/render/vfx/wiring.js';
 import { FX_BINDINGS, skillPlan, UNMAPPED } from '../../public/js/render/vfx/skills.js';
 import { fxSpec } from '../../public/js/render/fx/kinds.js';
+import { UF } from '../../shared/constants.js';
 
 const END = 'kalts2_skill_03_teleport_end_01';
 const RANGE = 'kalts2_skill_03_range_01';
@@ -162,7 +163,8 @@ describe('round 88 lane g1', () => {
     const b = FX_BINDINGS.skchr_kalts2_3.teleport;
     assert.equal(b.owner, 'id');
     assert.equal(b.oneshot, true);
-    assert.equal(b.during, true);
+    // no skill gate: the flight drops her skill state before the landing (round 88 on-screen check)
+    assert.equal(b.during, undefined);
     assert.equal(b.claim, true);
     assert.equal(b.tag, undefined);
     assert.deepEqual([...b.keys], [END, RANGE]);
@@ -183,21 +185,29 @@ describe('round 88 lane g1', () => {
     assert.deepEqual(reason(UNCLAIMED), ['trigger']);
   });
 
-  test('思衡托 landing plays both keys once, and not while the skill is off or 官方特效 is off', async () => {
+  test('思衡托 landing plays both keys once, after the flight dropped her skill state, and not with 官方特效 off', async () => {
     const idx = kaltsIndex();
     const on = await boot(idx, kaltsRec(), true);
     const her = on.add({ info: { id: 1, spine: 'char_1052_kalts2', defId: 'char_1052_kalts2', side: 'ally', kind: 'op', skillIndex: 2 } });
     her.info.id = her.id;
     await on.w.begin([...on.views.values()]);
     on.frame();
-    assert.equal(on.w.simFx('teleport', her.x, her.y, { id: her.id, fromX: 1, fromY: 1 }), false);
-    assert.equal(keysOf(on.handles).includes(END), false);
     on.w.skill(her, true);
+    her.flags = UF.SKILL;
     on.frame();
     const before = keysOf(on.handles).filter((k) => k === END || k === RANGE);
     assert.deepEqual(before, []);
-    assert.equal(on.w.simFx('teleport', her.x, her.y, { id: her.id, fromX: 1, fromY: 1 }), true);
+    // the render-demo sequence (round 88 on-screen check): the flight hides her, the snapshot drops her and the views
+    // lose her, so the skill layer releases her record (its skill state goes); the landing's 'teleport' then comes
+    // before her view takes the next sample (flags 0, still where she took off)
+    on.views.delete(her.id);
+    on.frame();
+    on.views.set(her.id, her);
+    her.flags = 0;
+    assert.equal(on.w.skills.units.get(her.id).on, null, 'the flight dropped her skill state');
+    assert.equal(on.w.simFx('teleport', 9, 4, { id: her.id, fromX: her.x, fromY: her.y }), true);
     assert.deepEqual(keysOf(on.handles).filter((k) => k === END || k === RANGE).sort(), [END, RANGE].sort());
+    her.flags = UF.SKILL;
     on.frame();
     on.frame();
     on.frame();

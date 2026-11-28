@@ -93,7 +93,7 @@ export class BounceFx {
     const proj = this.w.idx?.projectiles?.[PROJ_ID];
     const motion = bounceMotion(proj);
     if (!motion || !this._owner(extra)) return false;
-    if (kind === 'mantraArc') return this._land(x, y, motion);
+    if (kind === 'mantraArc') return this._land(x, y, motion, extra);
     return this._hop(x, y, extra, motion);
   }
 
@@ -123,10 +123,24 @@ export class BounceFx {
     return !!h;
   }
 
-  _land(x, y, motion) {
+  /**
+   * The onHit on the unit it landed on, at the prefab's own spawn point (mantra_bounce_hit_01: HIT_POINT, where the
+   * other hits on that enemy show), through FxWiring.playOn; the tile at ground height when that unit is gone.
+   */
+  _hitOn(targetId, x, y, key) {
+    if (!key) return false;
+    const tv = targetId != null ? this.w.view(targetId) : null;
+    if (tv && tv.alive !== false && !tv.destroyed) {
+      const h = this.w.playOn(key, tv, { important: true });
+      if (h) return true;
+    }
+    return this._spark(x, y, 0, key);
+  }
+
+  _land(x, y, motion, extra) {
     const key = this._hitKey(motion);
     if (!key || !Number.isFinite(x) || !Number.isFinite(y)) return false;
-    return this._spark(x, y, 0, key);
+    return this._hitOn(extra?.target, x, y, key);
   }
 
   _hop(x, y, extra, motion) {
@@ -140,12 +154,12 @@ export class BounceFx {
     const seg = segs && segs[0];
     if (!seg) return false;
     const hit = this._hitKey(motion);
-    if (!(seg.dur > 0)) return hit ? this._spark(seg.x1, seg.y1, 0, hit) : false;
+    if (!(seg.dur > 0)) return hit ? this._hitOn(extra.target, seg.x1, seg.y1, hit) : false;
     if (!motion.main || !this.w.ofx.lib.has(motion.main)) return false;
     const shot = {
       h: null, x: seg.x0, y: seg.y0, z: 0, yaw: Math.atan2(seg.y1 - seg.y0, seg.x1 - seg.x0),
       born: this.w.ofx.time || 0, dur: seg.dur, x0: seg.x0, y0: seg.y0, x1: seg.x1, y1: seg.y1,
-      hit: false, onHit: hit,
+      hit: false, onHit: hit, target: extra.target ?? null,
     };
     shot.h = this.w.ofx.spawn(motion.main, {
       pos: boardToUnity(shot.x, shot.y, 0), yaw: shot.yaw, groundZ: 0, rootRot: ID_ROT,
@@ -174,6 +188,10 @@ export class BounceFx {
     if (k < 1) return;
     shot.hit = true;
     shot.h?.stop();
-    if (shot.onHit) this._spark(shot.x1, shot.y1, shot.z, shot.onHit);
+    if (shot.onHit) this._hitOn(shot.target, shot.x1, shot.y1, shot.onHit);
+    // the hop is over: drop it, or every hop of the battle stays listed with its handle until clear() (round 88
+    // on-screen check: 12 s into a 真言 S3 cast, 9 landed hops were still listed; the golden diy-030 battle flies 510)
+    const i = this.shots.indexOf(shot);
+    if (i >= 0) this.shots.splice(i, 1);
   }
 }
