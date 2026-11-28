@@ -4,6 +4,16 @@ import { twoStateToggleOf, threeStateToggleOf, ShopCostView } from './widgets.js
 import { setText, scriptsOf, resolveScriptRefs, cloneNode, findPath } from './prefab.js';
 import { t } from '../../../../shared/i18n.js';
 
+/**
+ * Folded reward pill x, in design units. The node keeps btn_refresh's anchor (the right edge, vertical
+ * centre) and a centred pivot, and it is 168 wide, so its right edge is `panelWidth + x + 84`.
+ * The funds holder is anchored to the same right edge, 124 wide, centred 93 units in: its left edge is
+ * `panelWidth - 155`. x = -197 put the pill's right edge 42 units inside that holder. -247 leaves the
+ * 8-unit gap the old placement meant to keep. Both edges share the panel's right side, so the gap does
+ * not depend on the panel width and scales the same way at 1600×900 and 1280×720.
+ */
+export const FOLD_REWARD_ANCHORED_X = -247;
+
 function repath(node, basePath, name = node.name) {
   node.name = name;
   node.path = basePath ? `${basePath}/${name}` : name;
@@ -121,8 +131,8 @@ export class AutoChessStylizedShopCtrlPanel {
     if (!foldRoot) return null;
     const node = cloneNode(this.rewardButton);
     repath(node, foldRoot.path, 'btn_reward');
-    // btn_open is 210 wide and centred; sit the 168-wide pill 8 units to its left, on the same baseline.
-    node.rect = { ...(node.rect || {}), sizeDelta: [168, 76], anchoredPosition: [-197, 0] };
+    // Clear of the funds holder (see FOLD_REWARD_ANCHORED_X). Same baseline as the refresh pill.
+    node.rect = { ...(node.rect || {}), sizeDelta: [168, 76], anchoredPosition: [FOLD_REWARD_ANCHORED_X, 0] };
     node.active = false;
     foldRoot.children = [...(foldRoot.children || []), node];
     return node;
@@ -177,9 +187,10 @@ export class AutoChessStylizedShopCtrlPanel {
       if (this.foldRewardButton) {
         // The folded copy follows the view on its own: it exists precisely for the folded shop, where the
         // unfolded pill is hidden, so tying it to `reward` left it inactive exactly when it was needed.
+        // Its text is foldLabel (选择{title}), not the unfolded 稍后, even while the reward row is showing.
         this.foldRewardButton.active = !!data.foldReward;
-        const foldLabel = (reward && reward.label) || t('选择奖励');
-        setText(findPath(this.foldRewardButton, 'group_normal/text'), foldLabel);
+        const foldText = (reward && (reward.foldLabel || reward.label)) || t('选择奖励');
+        setText(findPath(this.foldRewardButton, 'group_normal/text'), foldText);
         setText(findPath(this.foldRewardButton, 'root_cost/group_free/text_num'),
           `x${Math.max(1, Number(reward && reward.count) || 1)}`);
       }

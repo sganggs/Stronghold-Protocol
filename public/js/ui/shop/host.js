@@ -35,7 +35,11 @@ const CONTROL_HOTSPOT_SPECS = [
   // The folded shop keeps a copy of the reward pill on the `state_able` tab (设置 → 操作, default off); the
   // unfolded one is hidden while folded, so the two never show together.
   { key: 'rewardFold', paths: ['state_able/btn_reward/hotspot'], event: 'reward' },
-  { key: 'levelUp', paths: ['hotspot_normal', 'upgrade'], event: 'levelUp', panel: true },
+  // Affordable: group_normal/hotspot_normal. Not enough funds: group_disable/hotspot, the grey panel's own
+  // hotspot (shopBar.js LevelCard / RegLevelCard stay a button while is-disabled, lines 380–381 and 405–407).
+  // Max level paints group_max, which has no hotspot; its bg is the hit target so 调度中心已达最高等级 still
+  // answers. `upgrade` is the dev-page fallback. The first path that is actually shown wins.
+  { key: 'levelUp', paths: ['hotspot_normal', 'group_disable/hotspot', 'group_max/bg', 'upgrade'], event: 'levelUp', panel: true },
 ].map((spec) => Object.freeze({ ...spec, paths: Object.freeze([...spec.paths]) }));
 
 /** The same hotspots, deep-frozen: a caller must not rewire the host at runtime. */
@@ -59,15 +63,31 @@ const AMBIENT_INTERVAL_MS = 1000 / 20;
 /**
  * The reward hotspot's accessible name. Minimized, the painted label already names the offer (选择{title}),
  * so it is used as is; while the row is shown (label 稍后) the offer's title is prepended. The DOM bar's
- * header carries the same two facts for the same offer.
+ * header carries the same two facts for the same offer. The folded pill (`folded`) always names the offer
+ * itself (foldLabel, the same 选择{title} rewardPickLabel paints after 稍后) and does not prepend the title
+ * a second time.
  * @param {any} reward `view.reward` (ShopCanvas.shopRewardView)
+ * @param {{ folded?: boolean }} [opts]
  * @returns {string}
  */
-export function rewardAriaLabel(reward) {
+export function rewardAriaLabel(reward, opts = {}) {
   if (!reward) return t('选择奖励');
+  if (opts.folded) return reward.foldLabel || reward.label || t('选择奖励');
   const label = reward.label || t('选择奖励');
   if (!reward.title || !reward.visible) return label;
   return t('{title}：{label}', { title: reward.title, label });
+}
+
+/**
+ * Accessible name of the level-up hotspot. shopBar.js levelTitle (line 370) puts the block reason in the
+ * button's title and leaves the button focusable (aria-disabled, not disabled). The canvas button's
+ * aria-label would otherwise stay 「升级」 and hide that title from a screen reader, so a reason replaces it.
+ * Affordable (no reason) stays 「升级」.
+ * @param {string|null|undefined} reason shopBlockReason('levelUp')
+ * @returns {string}
+ */
+export function levelUpAriaLabel(reason) {
+  return reason || t('升级');
 }
 
 /** Whether any ambient loop (spine idle, card FX, particles) still needs a repaint. */
@@ -299,9 +319,28 @@ export function cardAriaLabel(card, model, marks) {
       if (marks[key] && marks[key].aria) extra.push(marks[key].aria);
     }
   }
-  const named = extra.length ? `${label}，${extra.join('，')}` : label;
+  // The joiner is its own msgid so each language uses its punctuation. Chinese stays 「，」 because the
+  // source string is the msgid. The name/price template and the armed suffixes keep their own keys.
+  const sep = t('，');
+  const named = extra.length ? [label, ...extra].join(sep) : label;
   if (!card.armed) return named;
   return `${named}${cardBlocked(card, model) ? t('，无法购买') : t('，再次点击确认')}`;
+}
+
+/**
+ * Put card hotspot elements in display-slot order without recreating the ones that stayed.
+ * `createCardEl` appends, so a slot that comes back after its neighbours (稍后 drops it, 选择晋升奖励
+ * brings it back) would otherwise be last and Tab would walk 1, 2, 0. Controls are created first;
+ * this only moves card nodes after one another, so they stay behind the controls.
+ * @param {Map<number, HTMLElement>} cardEls
+ */
+export function orderCardHotspots(cardEls) {
+  const ordered = [...cardEls.entries()].sort((a, b) => a[0] - b[0]);
+  for (let i = 1; i < ordered.length; i += 1) {
+    const prev = ordered[i - 1][1];
+    const el = ordered[i][1];
+    if (prev.nextElementSibling !== el) prev.after(el);
+  }
 }
 
 /**
@@ -351,8 +390,9 @@ export function controlHotspotVisible(spec, view, hasBox) {
  *     cardMarks?, reward?, controls? }`
  *   `view.cardMarks`: one `cardMarkModel` (or null) per display slot — the DOM overlay inside each card
  *     hotspot (ui/shop/marks.js); absent draws no marks (the dev page and old callers).
- *   `view.reward`: `{ count, visible, label, title, micro, sub, more }` or null — the reward control
- *     (ShopCanvas.shopRewardView); `label` is the painted 稍后 / 选择{title} text, `title` the offer's name.
+ *   `view.reward`: `{ count, visible, label, foldLabel, title, micro, sub, more }` or null — the reward
+ *     control (ShopCanvas.shopRewardView); `label` is the unfolded 稍后 / 选择{title} text, `foldLabel` is
+ *     always 选择{title} (the folded pill), `title` the offer's name.
  *   `view.controls`: `{ refresh?: string|null, freeze?: string|null, levelUp?: string|null }` — the block
  *     reason per control hotspot (ShopCanvas's shopBlockReason wording); a non-empty reason disables the
  *     hotspot and becomes its tooltip. Absent → no control gating (the dev page and old callers).
@@ -500,7 +540,9 @@ export async function createShopHost(opts = {}) {
     const reward = controlEls.get('reward');
     if (reward) reward.el.setAttribute('aria-label', rewardAriaLabel(model && model.reward));
     const rewardFold = controlEls.get('rewardFold');
-    if (rewardFold) rewardFold.el.setAttribute('aria-label', rewardAriaLabel(model && model.reward));
+    if (rewardFold) rewardFold.el.setAttribute('aria-label', rewardAriaLabel(model && model.reward, { folded: true }));
+    const levelUp = controlEls.get('levelUp');
+    if (levelUp) levelUp.el.setAttribute('aria-label', levelUpAriaLabel(controlReason('levelUp')));
     const cards = (model && Array.isArray(model.slots)) ? model.slots : [];
     const marks = (view && Array.isArray(view.cardMarks)) ? view.cardMarks : [];
     for (const [index, el] of cardEls) {
@@ -735,6 +777,8 @@ export async function createShopHost(opts = {}) {
       place(el, visibleBox(scene.frame.boxes.get(roots[index].path) || null));
       syncCardMarks(el, filterMarks(marks[index]));
     }
+    // A recreated slot is appended, so it would sit after higher indices (Tab order 1, 2, 0).
+    orderCardHotspots(cardEls);
   }
 
   /** The mark model the overlay draws: the caller's filtered one, or null when the dev page has none. */

@@ -257,22 +257,28 @@ export function shopFoldReward({ collapsed = false, phase = null, offer = null, 
  * The label names what the button holds. While the offer row is drawn it is 稍后 (the row's cards already
  * show what the reward is); once the player put the pick off, the row is the normal shop again and the
  * button reads 选择{title} — 选择晋升奖励, 选择定向投放, 选择见者有份 … — composed from offerHeader's
- * localized title, so a promotion reward and a strategy's special refresh no longer look alike. A queued
+ * localized title, so a promotion reward and a strategy's special refresh no longer look alike. `foldLabel`
+ * is that same 选择{title} even while the row is showing: the folded pill (设置 → 操作) must name the reward
+ * when 收起 is pressed before 稍后. A queued
  * offer that becomes the current one after a pick is the new `offer`, so the label and the count follow the
  * server's push (this view is a pure function of `priv.shop.rewardOffer.queued` and the offer itself).
  * @param {any} offer `priv.shop.rewardOffer`
  * @param {{ rewardMin?: boolean, phase?: string|null }} [o]
- * @returns {{ count: number, visible: boolean, label: string, title: string, micro: string,
+ * @returns {{ count: number, visible: boolean, label: string, foldLabel: string, title: string, micro: string,
  *   sub: string, more: string|null }|null} null without a pending offer, or outside PREP
  */
 export function shopRewardView(offer, { rewardMin = false, phase = null } = {}) {
   if (!offer || !Array.isArray(offer.slots) || !offer.slots.length) return null;
   if (phase && phase !== PHASE.PREP) return null;
   const head = offerHeader(offer);
+  // The folded pill always names the offer. Folding while the row is still on screen used to copy
+  // `label` (稍后) onto state_able/btn_reward; 稍后 is only the unfolded action.
+  const foldLabel = rewardPickLabel(head);
   return {
     count: Math.max(1, (Number(offer.queued) || 0) + 1),
     visible: !rewardMin,
-    label: rewardMin ? rewardPickLabel(head) : t('稍后'),
+    label: rewardMin ? foldLabel : t('稍后'),
+    foldLabel,
     // The DOM bar's own header fields, carried for the aria label (no extra strip is drawn on the canvas).
     title: head.title,
     micro: head.micro,
@@ -667,7 +673,8 @@ export function ShopCanvas(props) {
     const reason = shopBlockReason('levelUp', { config: p.config, priv: p.priv, editable: p.editable });
     if (reason) {
       if (levelArmedRef.current) { armLevel(false); p.onArm?.(null); }
-      p.onRefuse?.(reason);
+      // Silent like the DOM level card (shopBar.js LevelCard / RegLevelCard: onClick runs only without a reason):
+      // the reason is the hotspot's title and accessible name, the D hotkey only plays the error sound.
       return;
     }
     if (!levelArmedRef.current) { armLevel(true); pushView(); return; }

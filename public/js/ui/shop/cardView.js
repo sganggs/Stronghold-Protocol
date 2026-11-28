@@ -14,6 +14,21 @@ const FRAME_FILE = {
 
 const TIER_FILE = (tier) => `sprites/chess_level_icon_${tier}.webp`;
 
+/**
+ * Armed confirm-strip copy, the DOM rule: shopBar.js ArmedTag (lines 133–135) writes 确认选择 when the card is
+ * `free` and 确认购买 otherwise, and only RewardCards (shopBar.js ~485) passes `free: true` — a normal slot whose
+ * price a discount brings to 0 still says 确认购买. The canvas reward row (ShopCanvas.js shopRewardRow) writes
+ * price 0 AND basePrice 0, so cardModelFromSlot gives its cards `srcPrice` 0, while a discounted normal card keeps
+ * its original price there.
+ * @param {{ price?: unknown, srcPrice?: unknown }|null|undefined} model the card's shopModel()
+ * @returns {string}
+ */
+export function confirmStripLabel(model) {
+  if (!model) return t('确认购买');
+  const free = (Number(model && model.price) || 0) === 0 && (Number(model && model.srcPrice) || 0) === 0;
+  return free ? t('确认选择') : t('确认购买');
+}
+
 const clone = cloneNode;
 
 /** Re-path a cloned card sub-prefab subtree (same rule as ctrl.js:12-17). */
@@ -218,7 +233,10 @@ export class AutoChessBattleShopCardView {
   }
 
   applyStripText(tree) {
-    for (const [group, value] of [['group_able', t('确认购买')], ['group_disable', t('无法购买')]]) {
+    // shopBar.js ArmedTag (lines 133–135): a reward card (free) says 确认选择, any other card 确认购买.
+    // group_disable stays 无法购买, which is ArmedTag's reason branch.
+    const able = confirmStripLabel(this.shopModel());
+    for (const [group, value] of [['group_able', able], ['group_disable', t('无法购买')]]) {
       const holder = findNode(tree, group);
       const stripText = holder && findNode(holder, 'text');
       if (stripText) stripText.text = { ...(stripText.text || {}), text: value };

@@ -12,8 +12,8 @@ import { fileURLToPath } from 'node:url';
 
 import { shopModelFromPrivate } from '../../public/js/ui/shop/adapter/model.js';
 import { CtrlViewData } from '../../public/js/ui/shop/viewData.js';
-import { AutoChessStylizedShopCtrlPanel, buildRewardButtonNode, freezeState } from '../../public/js/ui/shop/ctrl.js';
-import { applyControlState, CONTROL_HOTSPOTS, controlHotspotVisible, runControlClick, rewardAriaLabel, viewPaintKey } from '../../public/js/ui/shop/host.js';
+import { AutoChessStylizedShopCtrlPanel, buildRewardButtonNode, freezeState, FOLD_REWARD_ANCHORED_X } from '../../public/js/ui/shop/ctrl.js';
+import { applyControlState, CONTROL_HOTSPOTS, controlHotspotVisible, runControlClick, rewardAriaLabel, levelUpAriaLabel, viewPaintKey } from '../../public/js/ui/shop/host.js';
 import { shopControlReasons, shopRewardView, rewardPickLabel, shopFoldReward } from '../../public/js/ui/shop/ShopCanvas.js';
 import { DEFAULT_SETTINGS, sanitizeSettings } from '../../public/js/ui/gameLogic/settings.js';
 import { findPath } from '../../public/js/ui/shop/prefab.js';
@@ -139,6 +139,45 @@ test('the reward button clones the refresh pill, drops its icon/lock, and reuses
   assert.deepEqual(find(find(node, 'group_free'), 'bg').image.sprite, 'cost_bg_1');
   assert.equal(findPath(node, 'root_cost/group_free/bg').image.file, 'sprites/cost_bg_1.webp');
   assert.deepEqual(findPath(node, 'root_cost/group_free/bg').rect.sizeDelta, [44, 36]);
+});
+
+test('the folded reward pill clears the funds holder and names the offer', () => {
+  assert.equal(FOLD_REWARD_ANCHORED_X, -247);
+  const reward = buildRewardButtonNode(refreshTemplate(), 'panel/state_unfold/panel_ctrl_btn');
+  const stateAble = { name: 'state_able', path: 'panel/state_able', children: [] };
+  const fake = {
+    rewardButton: reward,
+    scene: { panel: { name: 'panel', path: 'panel', children: [stateAble] } },
+    buildFoldedRewardButton: AutoChessStylizedShopCtrlPanel.prototype.buildFoldedRewardButton,
+  };
+  const node = fake.foldRewardButton = fake.buildFoldedRewardButton();
+  assert.equal(node.path, 'panel/state_able/btn_reward');
+  assert.deepEqual(node.rect.sizeDelta, [168, 76]);
+  assert.deepEqual(node.rect.anchoredPosition, [FOLD_REWARD_ANCHORED_X, 0]);
+  assert.equal(stateAble.children[stateAble.children.length - 1], node);
+
+  const shown = {
+    count: 2,
+    visible: true,
+    label: t('稍后'),
+    foldLabel: t('选择{title}', { title: t('晋升奖励') }),
+    title: t('晋升奖励'),
+  };
+  const panel = {
+    root: { name: 'root', path: 'root', children: [] },
+    refs: {},
+    costView: null,
+    initCost() {},
+    _renderRefreshCost() {},
+    rewardButton: reward,
+    foldRewardButton: node,
+    Render: AutoChessStylizedShopCtrlPanel.prototype.Render,
+  };
+  panel.Render({ coinCount: 9, refreshCost: 1, freeRefreshCnt: 0, reward: shown, foldReward: true });
+  assert.equal(findPath(reward, 'group_normal/text').text.text, t('稍后'), 'the unfolded pill stays 稍后');
+  assert.equal(findPath(node, 'group_normal/text').text.text, shown.foldLabel, 'the folded pill names the reward');
+  assert.equal(findPath(node, 'root_cost/group_free/text_num').text.text, 'x2');
+  assert.equal(node.active, true);
 });
 
 test('buildRewardButton appends the reward pill to the ctrl root exactly once', () => {
@@ -272,6 +311,17 @@ test('the host registers the reward hotspots', () => {
   assert.equal(Object.isFrozen(reward), true, 'a caller cannot rewire the host hotspots');
   assert.equal(Object.isFrozen(reward.paths), true);
   assert.equal(Object.isFrozen(CONTROL_HOTSPOTS), true);
+});
+
+test('the level-up hotspot stays on the grey panel and the max-level panel', () => {
+  const spec = CONTROL_HOTSPOTS.find((entry) => entry.key === 'levelUp');
+  assert.equal(spec.event, 'levelUp');
+  assert.equal(spec.panel, true, 'a blocked tap still reaches tapLevel, which stays silent like the DOM level card');
+  assert.deepEqual(spec.paths, ['hotspot_normal', 'group_disable/hotspot', 'group_max/bg', 'upgrade']);
+  assert.equal(levelUpAriaLabel(null), t('升级'), 'affordable keeps the action name');
+  assert.equal(levelUpAriaLabel(''), t('升级'));
+  assert.equal(levelUpAriaLabel('资金不足'), '资金不足');
+  assert.equal(levelUpAriaLabel('调度中心已达最高等级'), '调度中心已达最高等级');
 });
 
 /** The main view's scene dependencies: the five panels plus the fade/scene plumbing its constructor touches. */
@@ -417,6 +467,7 @@ const rewardOffer = (over = {}) => ({ source: 'merge', slots: [{ kind: 'chess', 
 test('shopRewardView: the row shown reads 稍后, minimized reads 选择{title} and the title comes from offerHeader', () => {
   const shown = shopRewardView(rewardOffer(), { phase: PHASE.PREP });
   assert.equal(shown.label, t('稍后'));
+  assert.equal(shown.foldLabel, t('选择{title}', { title: t('晋升奖励') }), 'folding while the row is up still names the reward');
   assert.equal(shown.visible, true);
   assert.equal(shown.title, t('晋升奖励'));
   assert.equal(shown.micro, 'PROMOTION');
@@ -425,6 +476,7 @@ test('shopRewardView: the row shown reads 稍后, minimized reads 选择{title} 
 
   const minimized = shopRewardView(rewardOffer(), { rewardMin: true, phase: PHASE.PREP });
   assert.equal(minimized.label, t('选择{title}', { title: t('晋升奖励') }));
+  assert.equal(minimized.foldLabel, minimized.label, 'after 稍后 the folded pill and the button agree');
   assert.equal(minimized.visible, false);
 
   const cathy = shopRewardView(rewardOffer({ source: 'special', label: '定向投放', slots: [{ kind: 'item', id: 'y' }] }), { rewardMin: true });
@@ -467,4 +519,9 @@ test('rewardAriaLabel names the offer once, not twice', () => {
     t('{title}：{label}', { title, label: t('稍后') }), '稍后 carries the title');
   assert.equal(rewardAriaLabel({ label: t('稍后'), visible: true }), t('稍后'), 'no title: the action alone');
   assert.equal(rewardAriaLabel(null), t('选择奖励'));
+  const shown = shopRewardView(rewardOffer(), { phase: PHASE.PREP });
+  assert.equal(rewardAriaLabel(shown, { folded: true }), shown.foldLabel, 'the folded pill names the reward, not 稍后');
+  assert.equal(rewardAriaLabel(shown), t('{title}：{label}', { title: shown.title, label: t('稍后') }),
+    'the unfolded hotspot still says 晋升奖励：稍后 while the row is up');
+  assert.equal(rewardAriaLabel(null, { folded: true }), t('选择奖励'));
 });

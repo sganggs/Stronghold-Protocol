@@ -11,11 +11,14 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-import { cardAriaLabel, cardBlocked, createShopHost, preloadShopRuntime } from '../../public/js/ui/shop/host.js';
+import { cardAriaLabel, cardBlocked, createShopHost, orderCardHotspots, preloadShopRuntime } from '../../public/js/ui/shop/host.js';
 import { cardMarkSwitches } from '../../public/js/ui/shop/ShopCanvas.js';
 import { filterCardMarks } from '../../public/js/ui/shop/marks.js';
-import { t } from '../../shared/i18n.js';
+import { t, setLang, setMessages } from '../../shared/i18n.js';
 import { stubFetch } from '../helpers/fetchStub.js';
 
 /** One DOM node: the host only needs append/remove/listeners/style/classList on these. */
@@ -174,6 +177,63 @@ test('cardAriaLabel: the price, every mark aria and the two-tap state', () => {
   assert.equal(cardAriaLabel({ ...card, armed: true }, { coinCount: 10 }), `${price}${t('，再次点击确认')}`);
   assert.equal(cardAriaLabel({ ...card, armed: true }, { coinCount: 1 }), `${price}${t('，无法购买')}`,
     'the armed state names the block instead of asking for a confirm');
+
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+  const en = JSON.parse(readFileSync(path.join(root, 'public/i18n/en.json'), 'utf8'));
+  setMessages('en', en);
+  setLang('en');
+  try {
+    const cardEn = { id: 'x', name: 'Bubble', price: 0, armed: false };
+    const label = t('{name}，价格 {price}', { name: 'Bubble', price: 0 });
+    const joined = cardAriaLabel(cardEn, { coinCount: 10 }, { skill: { aria: 'Skill: S' } });
+    assert.equal(en['，'], ', ');
+    assert.equal(joined, `${label}${en['，']}Skill: S`);
+    assert.equal(joined.includes('，'), false, 'the mark join is not a full-width comma');
+    const armed = cardAriaLabel({ ...cardEn, armed: true }, { coinCount: 10 }, { skill: { aria: 'Skill: S' } });
+    assert.equal(armed, `${joined}${t('，再次点击确认')}`);
+    assert.equal(armed.includes('，'), false);
+  } finally {
+    setLang('zh');
+  }
+});
+
+test('orderCardHotspots keeps display order when a slot is recreated', () => {
+  const parent = { children: [] };
+  let moves = 0;
+  const make = (index) => {
+    const el = {
+      index,
+      parentNode: parent,
+      get nextElementSibling() {
+        const at = parent.children.indexOf(el);
+        return at >= 0 ? parent.children[at + 1] || null : null;
+      },
+      after(node) {
+        moves += 1;
+        const from = parent.children.indexOf(node);
+        if (from >= 0) parent.children.splice(from, 1);
+        const at = parent.children.indexOf(el);
+        parent.children.splice(at + 1, 0, node);
+        node.parentNode = parent;
+      },
+    };
+    return el;
+  };
+  const ctrl = make('ctrl');
+  const card1 = make(1);
+  const card2 = make(2);
+  const card0 = make(0);
+  parent.children.push(ctrl, card1, card2, card0);
+  const cardEls = new Map([[1, card1], [2, card2], [0, card0]]);
+  orderCardHotspots(cardEls);
+  assert.deepEqual(parent.children.map((el) => el.index), ['ctrl', 0, 1, 2]);
+  assert.equal(parent.children[1], card0, 'slot 0 is the same node, not a new one');
+  assert.equal(parent.children[2], card1);
+  assert.equal(parent.children[3], card2);
+  const moved = moves;
+  orderCardHotspots(cardEls);
+  assert.equal(moves, moved, 'an already-ordered row is left alone');
+  assert.equal(cardEls.get(0), card0);
 });
 
 test('the 卡面标记 settings map to the filter switches and drop the matching marks', () => {
