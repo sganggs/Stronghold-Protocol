@@ -291,7 +291,7 @@ print(json.dumps({
     assert.match(got.desc[0].en, /battle models\.$/);
     assert.doesNotMatch(got.desc[0].en, /summon/i);
     assert.match(got.desc[1].zh, /立绘、半身像、头像和战斗模型，以及随主人时装换装的召唤物（token）时装。$/, 'the part that holds summons says so');
-    assert.match(got.desc[1].en, /battle models, and the summons \(token\) outfits that follow their owner's outfit\.$/);
+    assert.match(got.desc[1].en, /battle models, and the summon \(token\) outfits that follow their owner's outfit\.$/);
     assert.deepEqual(got.merge, { c: { same: { x: 4 }, new: { x: 5 }, old: { x: 1 } } });
     assert.deepEqual(got.dir, ['c/o', null]);
   });
@@ -699,7 +699,7 @@ print(json.dumps({'n': n, 'logs': logs, 'plugin': json.loads((d/'plugin.json').r
     assert.deepEqual(got.plugin.permissions, ['assets.override', 'assets.add'],
       'token_2001_twin is in data/assets.json; token_2002_mirror is an assets.add');
     assert.match(got.plugin.description.zh, /召唤物（token）时装/, 'the manifest says this part holds the summons too');
-    assert.match(got.plugin.description.en, /summons \(token\) outfits/);
+    assert.match(got.plugin.description.en, /summon \(token\) outfits/);
     const pluginDir = path.join(out, 'skins/local-skins');
     const packed = spawnSync(process.execPath, [path.join(ROOT, 'tools/plugin.mjs'), 'pack', pluginDir], { encoding: 'utf8', cwd: ROOT });
     assert.equal(packed.status, 0, packed.stdout + packed.stderr);

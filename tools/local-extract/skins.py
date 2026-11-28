@@ -272,7 +272,7 @@ def manifest(chars, installed, version, part=1, tokens=None, installed_tokens=()
                   + ('，以及随主人时装换装的召唤物（token）时装。' if tokens else '。'),
             'en': 'Outfits extracted from this machine\'s official client by tools/local-extract/extract.py --only skins: '
                   'illustrations, portraits, avatars and battle models'
-                  + (', and the summons (token) outfits that follow their owner\'s outfit.' if tokens else '.')},
+                  + (', and the summon (token) outfits that follow their owner\'s outfit.' if tokens else '.')},
         'version': '1.0.0',
         'app': app_range(version),
         'api': 1,
