@@ -8,6 +8,8 @@
 //     override the room / match / socket caps. A global cap of 0 (SP_MAX_ROOMS, SP_MAX_CONNECTIONS) rejects everything,
 //     a per-network cap of 0 (the _PER_ADDR ones) is unlimited; a value that is not a non-negative integer is ignored
 //     with a warning when the server starts, and an explicit startServer() option still wins over the environment;
+//   * SP_MAX_SPECTATORS overrides how many spectator seats a co-op room has (1–8, default MAX_SPECTATORS = 2). Unlike
+//     the global caps, 0 does not turn spectating off: 0, a negative, junk, or a value above 8 warns once and keeps 2;
 //   * SP_ASSET_INDEX=0 (or the `assetIndex: false` option) → no content-hash index: plain asset URLs, size-mtime ETags
 //     (assetIndex.js); the index of the default public/ persists in .cache/asset-hashes.json;
 //   * SP_VERSIONS ('all' or a comma list of shared/versions.js ids), SP_VERSION_DEFAULT and SP_MAX_VERSION_HOSTS (or the
@@ -20,7 +22,7 @@
 
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ROOM_CODE_LEN } from '../../shared/constants.js';
+import { ROOM_CODE_LEN, SPECTATOR_SEATS_CAP, acceptedSpectatorSeats } from '../../shared/constants.js';
 
 import { DEFAULT_VERSION, LOBBY_DEFAULT_VERSION, VERSIONS, versionById } from '../../shared/versions.js';
 
@@ -32,7 +34,7 @@ export const noopLog = { info() {}, warn() {}, error() {}, debug() {} };
 /** startServer() options handed on to net.js Network / lobby.js Lobby (an absent one keeps that module's default). */
 const NET_OPTION_KEYS = ['reconnectWindowMs', 'heartbeatMs', 'helloTimeoutMs', 'ratePerSec', 'rateBurst', 'maxConnections', 'maxOnline', 'abuseDropsPerSec',
   'maxConnectionsPerAddr', 'heavyPerSec', 'heavyBurst', 'trustProxy'];
-const LOBBY_OPTION_KEYS = ['lobbyGraceMs', 'maxRooms', 'maxRoomsPerAddr', 'maxMatchesPerAddr', 'resyncMinGapMs', 'soloReconnectWindowMs', 'versionVoteMs', 'versionRetryMs'];
+const LOBBY_OPTION_KEYS = ['lobbyGraceMs', 'maxRooms', 'maxRoomsPerAddr', 'maxMatchesPerAddr', 'resyncMinGapMs', 'soloReconnectWindowMs', 'versionVoteMs', 'versionRetryMs', 'maxSpectators'];
 
 /**
  * Bind address used when neither the `host` option nor `HOST` says otherwise: one dual-stack socket, so the server
@@ -145,6 +147,9 @@ export function lobbyOptionsFrom(opts, log = null) {
     if (opts[k] != null) lobbyOptions[k] = opts[k];
   }
   applyEnvLimits(lobbyOptions, LOBBY_LIMIT_ENV, log);
+  // parseEnvLimit accepts any non-negative integer up to 1_000_000, including 0. Spectator seats are 1–8, and 0 must
+  // not turn spectating off, so an out-of-range value warns once more and is dropped (the lobby then keeps 2).
+  clampMaxSpectators(lobbyOptions, log);
   // Per instance only: startServer({ roomCode }) or the --room-code argument parsed by server/index.js. No environment
   // variable is read here, so a stop / restart without the argument is random again.
   const roomCode = parseRoomCode(opts.roomCode);
@@ -155,7 +160,15 @@ export function lobbyOptionsFrom(opts, log = null) {
 /** Socket caps that SP_MAX_CONNECTIONS / SP_MAX_CONNECTIONS_PER_ADDR may override (net.js). */
 const NET_LIMIT_ENV = [['maxConnections', 'SP_MAX_CONNECTIONS'], ['maxConnectionsPerAddr', 'SP_MAX_CONNECTIONS_PER_ADDR'], ['maxOnline', 'SP_MAX_ONLINE']];
 /** Room / match caps that SP_MAX_ROOMS / SP_MAX_ROOMS_PER_ADDR / SP_MAX_MATCHES_PER_ADDR may override (lobby.js). */
-const LOBBY_LIMIT_ENV = [['maxRooms', 'SP_MAX_ROOMS'], ['maxRoomsPerAddr', 'SP_MAX_ROOMS_PER_ADDR'], ['maxMatchesPerAddr', 'SP_MAX_MATCHES_PER_ADDR']];
+const LOBBY_LIMIT_ENV = [['maxRooms', 'SP_MAX_ROOMS'], ['maxRoomsPerAddr', 'SP_MAX_ROOMS_PER_ADDR'], ['maxMatchesPerAddr', 'SP_MAX_MATCHES_PER_ADDR'], ['maxSpectators', 'SP_MAX_SPECTATORS']];
+
+/** Drops a spectator cap outside 1…SPECTATOR_SEATS_CAP. Junk that parseEnvLimit already refused never reaches here. */
+function clampMaxSpectators(lobbyOptions, log) {
+  if (!Object.hasOwn(lobbyOptions, 'maxSpectators')) return;
+  if (acceptedSpectatorSeats(lobbyOptions.maxSpectators) != null) return;
+  log?.warn?.(`[http] SP_MAX_SPECTATORS=${lobbyOptions.maxSpectators} ignored: a whole number from 1 to ${SPECTATOR_SEATS_CAP} is required, keeping the default`);
+  delete lobbyOptions.maxSpectators;
+}
 
 /**
  * One limit out of the environment: an empty or absent value keeps `fallback`; an unusable one warns and keeps it too,

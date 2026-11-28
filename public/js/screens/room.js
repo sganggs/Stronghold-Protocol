@@ -18,8 +18,10 @@
 // host's start counts as the host's ready. So 开始模拟 is enabled exactly then and sends room.start
 // alone (no separate room.ready round trip that could leave the host "ready" after a failed start).
 // Solo rooms show a single seat.
-// Spectator seats (community report #26, a remake feature): a co-op room with spectators shows the 观战席 strip under
-// the seats — names, offline marks, the host's ✕ (room.removeSpectator) — and a spectator's own view swaps the ready
+// Spectator seats (community report #26, a remake feature): a co-op room shows the 观战席 strip under the seats —
+// x/N from room.state.maxSpectators (default MAX_SPECTATORS). Up to three names stay inline, with the host's ✕
+// (room.removeSpectator). More than three keeps one row: the count, and the same roster the match uses
+// (ui/hud.js SpectatorPill); the host still removes someone from that list. A spectator's own view swaps the ready
 // button for 观战中 and offers 入座 (room.join of the room) while a player seat is free.
 // Plugins (DESIGN §32 P1a): the tag under the title — 「原版」 or 「插件 ×N」 — opens the 插件 panel (ui/pluginPanel.js:
 // the host switches the room's plugins, everybody else reads them). With gameplay plugins (§32.6: a content set of its
@@ -53,7 +55,7 @@
 // Texts go through t() (docs/I18N.md).
 
 import { useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
-import { DIFFICULTY_NAMES, DIFFICULTY_COLORS, MAX_SEATS, MAX_SPECTATORS } from '../../../shared/constants.js';
+import { DIFFICULTY_NAMES, DIFFICULTY_COLORS, MAX_SEATS, spectatorSeatLimit } from '../../../shared/constants.js';
 import {
   html, Button, Icon, MicroLabel, PingPill, AvatarFrame, DifficultyIcon, Tooltip, Spinner, confirmDialog, doctorNo, Modal,
   TextField,
@@ -80,6 +82,7 @@ import { CARD_ROSTER } from '../../../shared/cardRoster.js';
 import { skinsStore, SKINS_KEY, ownerSkin } from '../ui/skins.js';
 import { settingsStore } from '../ui/settingsStore.js';
 import { AI_LAST_PREF, difficultyInfo, modeInfo, ProtocolSelect } from './lobby.js';
+import { SpectatorPill } from '../ui/hud.js';
 import { useRise } from '../ui/transitions.js';
 import { t, tc } from '../../../shared/i18n.js';
 
@@ -138,10 +141,18 @@ export function roomFacts(room, myId) {
   };
 }
 
+/** The waiting-room strip lists names inline through this many. More opens the in-match roster instead. */
+export const SPECTATOR_STRIP_INLINE = 3;
+
+/** @param {number} count seated spectators @returns {boolean} */
+export function spectatorStripCompact(count) {
+  return count > SPECTATOR_STRIP_INLINE;
+}
+
 /**
  * Why 「转为观战」 is disabled, or '' when a seated player may switch.
  * The same predicates as server/lobby.js becomeSpectator: another seated human must be connected
- * (`s.connected`); a full spectator strip and a running match refuse on their own.
+ * (`s.connected`); a full spectator strip (room.maxSpectators, else MAX_SPECTATORS) and a running match refuse on their own.
  * @param {any} room
  * @param {{ humans?: { playerId: any, connected?: boolean }[], spectators?: unknown[] }} facts
  * @param {any} myId
@@ -149,7 +160,7 @@ export function roomFacts(room, myId) {
  */
 export function spectateSwitchReason(room, facts, myId) {
   if (room?.inMatch) return t('模拟已开始');
-  if ((facts?.spectators?.length || 0) >= MAX_SPECTATORS) return t('观战席已满');
+  if ((facts?.spectators?.length || 0) >= spectatorSeatLimit(room?.maxSpectators)) return t('观战席已满');
   if (!facts?.humans?.some((s) => s.playerId !== myId && s.connected)) return t('至少保留一名参赛博士');
   return '';
 }
@@ -387,14 +398,19 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot,
   </article>`;
 }
 
-/** 观战席: the room's spectators (host: ✕ frees a seat), and 入座 for a spectator while a player seat is free. */
+/** 观战席: the room's spectators (host: ✕ frees a seat), and 入座 for a spectator while a player seat is free.
+ *  More than SPECTATOR_STRIP_INLINE names use SpectatorPill so the strip stays one row (room.css). */
 function SpectatorBar({ room, facts, myId, busy, onRemove, onSit, onSpectate }) {
   if (room.mode === 'solo') return null;
   const reason = spectateSwitchReason(room, facts, myId);
+  const compact = spectatorStripCompact(facts.spectators.length);
+  const cap = spectatorSeatLimit(room?.maxSpectators);
   // an empty bar (no spectator yet: only the count and 转为观战) gives its line up on a short screen (room.css)
-  return html`<section class=${`specbar${facts.spectators.length ? '' : ' specbar--empty'}`} aria-label=${t('观战席')}>
-    <span class="specbar__label"><${Icon} name="eye" />${t('观战席')}<b class="num">${facts.spectators.length}</b><span class="num t-dim">/${MAX_SPECTATORS}</span></span>
-    ${facts.spectators.map((s) => html`<span key=${s.playerId} class=${`specbar__who${s.playerId === myId ? ' is-me' : ''}${s.connected === false ? ' is-offline' : ''}`}>
+  return html`<section class=${`specbar${facts.spectators.length ? '' : ' specbar--empty'}${compact ? ' specbar--compact' : ''}`} aria-label=${t('观战席')}>
+    <span class="specbar__label"><${Icon} name="eye" />${t('观战席')}<b class="num">${facts.spectators.length}</b><span class="num t-dim">/${cap}</span></span>
+    ${compact
+      ? html`<${SpectatorPill} spectators=${facts.spectators} myId=${myId} isHost=${!!facts.isHost} onRemove=${facts.isHost ? onRemove : null} />`
+      : facts.spectators.map((s) => html`<span key=${s.playerId} class=${`specbar__who${s.playerId === myId ? ' is-me' : ''}${s.connected === false ? ' is-offline' : ''}`}>
       ${s.connected === false ? html`<${Icon} name="wifiOff" />` : null}${s.name || t('博士')}${s.playerId === myId ? html`<span class="seat__you">${t('你')}</span>` : null}
       ${facts.isHost ? html`<${Button} variant="ghost" size="sm" square=${true} icon="close" loading=${busy === `rs${s.playerId}`}
         onClick=${() => onRemove(s.playerId)} aria-label=${t('移出观战者 {name}', { name: s.name || '' })} title=${t('移出该观战者')} />` : null}

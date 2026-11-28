@@ -791,6 +791,8 @@ describe('websocket lobby', () => {
     const s1 = await pool.player('Watcher1');
     await expectOk(s1, { t: 'room.spectate', code: st.code.toLowerCase() });
     const v1 = await s1.waitFor('room.state', (s) => s.spectators.some((x) => x.playerId === s1.id));
+    assert.equal(v1.maxSpectators, undefined, 'the default seat count is left out of room.state (the client uses MAX_SPECTATORS)');
+    assert.equal(s1.welcome.maxSpectators, undefined, 'and out of the welcome');
     assert.deepEqual(v1.spectators, [{ playerId: s1.id, name: 'Watcher1', connected: true }]);
     assert.ok(!v1.seats.some((x) => x && x.playerId === s1.id), 'never in a player seat');
     await host.waitFor('room.state', (s) => s.spectators.length === 1);
@@ -860,6 +862,32 @@ describe('websocket lobby', () => {
     await expectOk(lone, { t: 'room.leave' });
     assert.equal((await s4.waitFor('room.closed')).reason, 'empty');
     await expectError(s4, { t: 'room.spectate', code: loneSt.code }, ERR.ROOM_NOT_FOUND);
+  });
+
+  test('a configured spectator cap of 4 admits four and refuses the fifth with ROOM_FULL', async () => {
+    const wide = await startServer({ port: 0, host: '127.0.0.1', quiet: true, maxSpectators: 4, MatchClass: Match });
+    const widePool = clientPool(() => `ws://127.0.0.1:${wide.port}/ws`);
+    try {
+      const host = await widePool.player('Host');
+      assert.equal(host.welcome.maxSpectators, 4);
+      const st = await createRoom(host);
+      assert.equal(st.maxSpectators, 4);
+      for (let i = 0; i < 4; i++) {
+        const watcher = await widePool.player(`Watcher${i}`);
+        await expectOk(watcher, { t: 'room.spectate', code: st.code });
+        // The seat broadcast waits on AI-handover reconcile, so the watcher's own room.state is the signal it landed.
+        await watcher.waitFor('room.state', (s) => s.spectators.some((x) => x.playerId === watcher.id), 8000);
+      }
+      const full = await host.waitFor('room.state', (s) => s.spectators.length === 4 && s.maxSpectators === 4, 8000);
+      assert.equal(full.spectators.length, 4);
+      const fifth = await widePool.player('Fifth');
+      const refused = await expectError(fifth, { t: 'room.spectate', code: st.code }, ERR.ROOM_FULL);
+      assert.equal(refused.detail, 'no free spectator seat');
+      assert.equal(full.spectators.length, 4);
+    } finally {
+      await widePool.closeAll();
+      await wide.close();
+    }
   });
 
   test('spectators during a match: broadcasts but no private view, join mid-match, only watching, reconnect gets the seat back', async () => {
@@ -1208,7 +1236,7 @@ describe('websocket lobby', () => {
         assert.equal(sess.roomCode, room.code);
       }
       // spectator seats: capped, none in solo rooms, never also a player (here or elsewhere), never the host
-      assert.ok(room.spectators.length <= MAX_SPECTATORS, `room ${room.code} spectator cap`);
+      assert.ok(room.spectators.length <= (srv.lobby.opts.maxSpectators ?? MAX_SPECTATORS), `room ${room.code} spectator cap`);
       if (room.mode === 'solo') assert.equal(room.spectators.length, 0, 'no spectator seat in a solo room');
       for (const sp of room.spectators) {
         assert.ok(!seen.has(sp.playerId), 'a spectator is seated (or spectating) twice');

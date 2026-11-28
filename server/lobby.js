@@ -185,7 +185,8 @@
 //     checked against the room's own data (and its 自选 list). When the worker stops (a crash, the watchdog), the match
 //     ends with summary.reason 'plugin-crash' | 'plugin-hang' | 'plugin-start' and the room is back in its lobby.
 //   * Spectator seats (community report #26, owner's decision 2026-10-04 — a remake feature, the official room has none):
-//     room.spectate { code } takes one of a co-op room's MAX_SPECTATORS (2) spectator seats, in its lobby or while its
+//     room.spectate { code } takes one of a co-op room's spectator seats (default MAX_SPECTATORS = 2; SP_MAX_SPECTATORS
+//     sets 1–8, option maxSpectators — 0 does not turn spectating off), in its lobby or while its
 //     match runs (▸ solo rooms: ROOM_FULL). A spectator is not a player: never in `seats`, never counted for the 1–4 players
 //     or the start gate, never host, never keeps a room alive (a room whose last human leaves closes with room.closed
 //     {empty} for its spectators). It receives room.state (`spectators: [{ playerId, name, connected }]`) and every match
@@ -243,7 +244,7 @@
 
 import { aiTakeover, resetAiTakeover, reconcileAiTakeover, afterReconcile } from './aiTakeover.js';
 import { randomBytes, randomInt } from 'node:crypto';
-import { DIFFICULTIES, ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, modeIdFor } from '../shared/constants.js';
+import { DIFFICULTIES, ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, acceptedSpectatorSeats, modeIdFor } from '../shared/constants.js';
 import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, checkDiyPicks, charPotentialChanges, checkSkinSelection, operatorCharIds } from '../shared/protocol.js';
 import { encode, isErrCode, sendRaw, sendSession } from './net.js';
 import { getData as defaultGetData, lookup } from './data.js';
@@ -429,8 +430,10 @@ export class Room {
     this.hostId = null;
     /** @type {(Seat | null)[]} */
     this.seats = new Array(MAX_SEATS).fill(null);
-    /** @type {{ playerId: string, name: string, connected: boolean, content?: 'ready' | 'failed' | null, contentGen?: number }[]} spectator seats, ≤ MAX_SPECTATORS (header) */
+    /** @type {{ playerId: string, name: string, connected: boolean, content?: 'ready' | 'failed' | null, contentGen?: number }[]} spectator seats, ≤ maxSpectators (header) */
     this.spectators = [];
+    /** How many spectator seats this room offers. Lobby.create stamps the server's cap; a bare Room keeps the default. */
+    this.maxSpectators = MAX_SPECTATORS;
     /** @type {any} running Match instance */
     this.match = null;
     /** @type {{ live: boolean, ended: boolean, disposed: boolean, match: any } | null} */
@@ -516,6 +519,8 @@ export class Room {
           ...(!s.isBot && s.skins && Object.keys(s.skins).length ? { skins: s.skins } : {}) }
         : null)),
       spectators: this.spectators.map((s) => ({ playerId: s.playerId, name: s.name, connected: s.connected, ...(this.needsContent ? { content: /** @type {any} */ (s).content || 'loading' } : {}) })),
+      // omitted at the default, so a default room's room.state stays identical (the client falls back to MAX_SPECTATORS)
+      ...(this.maxSpectators !== MAX_SPECTATORS ? { maxSpectators: this.maxSpectators } : {}),
       ...(this.content ? { content: this.content.trusted ? {...this.content, trusted:{...this.content.trusted, consent:Object.fromEntries(this.seats.filter(x => x && !x.isBot).map(x => [x.seat,x.consentCs === this.content.cs]))}} : this.content } : {}),
       // another official version than 第二期下半, and its open vote (header "Official versions"): omitted otherwise, so a
       // default room's room.state stays identical
@@ -591,6 +596,10 @@ export class Lobby {
       delete options.testHost;
     }
     this.opts = { ...LOBBY_DEFAULTS, ...options };
+    // An unusable spectator cap (0, junk, above 8) is dropped, so rooms keep MAX_SPECTATORS (config.js already warned).
+    if (Object.hasOwn(this.opts, 'maxSpectators') && acceptedSpectatorSeats(this.opts.maxSpectators) == null) {
+      delete this.opts.maxSpectators;
+    }
     // A fixed alliance key (--room-code / roomCode): every room this process creates uses it. server/index.js parses
     // the argument once at startup; a test passes it directly. Nothing is read from the environment or persisted.
     if (this.opts.roomCode) {
@@ -1006,6 +1015,7 @@ export class Lobby {
     const initial = resolved.content;
     if (cur) this.removeMember(cur, session.playerId);
     const room = new Room(code, mode, difficulty, this.now(), version);
+    room.maxSpectators = this.opts.maxSpectators ?? MAX_SPECTATORS;
     // a laddered version (规程's solo): the asked official mode, else the first of the difficulty (标准 → 规程等级1); the
     // room's difficulty follows the mode (极速模拟's FAST counts as 标准)
     if (this.laddered(version, mode)) {
@@ -1068,7 +1078,7 @@ export class Lobby {
   }
 
   /**
-   * room.spectate: one of a co-op room's MAX_SPECTATORS spectator seats, in its lobby or during its match (header). In a
+   * room.spectate: one of a co-op room's spectator seats (room.maxSpectators: SP_MAX_SPECTATORS, default MAX_SPECTATORS), in its lobby or during its match (header). In a
    * running match the match registers the spectator and resends what it may see (Match.addSpectator).
    */
   spectate(session, { code, testAck }) {
@@ -1084,7 +1094,7 @@ export class Lobby {
     }
     if (cur && cur.match) return fail(ERR.ROOM_STARTED, 'leave your running match first');
     if (room.mode === 'solo') return fail(ERR.ROOM_FULL, 'solo room');
-    if (room.spectators.length >= MAX_SPECTATORS) return fail(ERR.ROOM_FULL, 'no free spectator seat');
+    if (room.spectators.length >= (room.maxSpectators ?? MAX_SPECTATORS)) return fail(ERR.ROOM_FULL, 'no free spectator seat');
     if (cur) this.removeMember(cur, session.playerId);
     room.spectators.push({ playerId: session.playerId, name: session.name, connected: session.connected });
     session.roomCode = room.code;
@@ -1099,7 +1109,7 @@ export class Lobby {
   becomeSpectator(room, session) {
     if (room.match) return fail(ERR.ROOM_STARTED);
     if (room.mode === 'solo') return fail(ERR.ROOM_FULL, 'solo room');
-    if (room.spectators.length >= MAX_SPECTATORS) return fail(ERR.ROOM_FULL, 'no free spectator seat');
+    if (room.spectators.length >= (room.maxSpectators ?? MAX_SPECTATORS)) return fail(ERR.ROOM_FULL, 'no free spectator seat');
     const seat = room.seatOf(session.playerId);
     if (!seat || seat.left || seat.isBot) return fail(ERR.NOT_IN_ROOM);
     // A disconnected seat is not a successor: the room would have nobody online who can start or vote.
@@ -2128,6 +2138,10 @@ export class Lobby {
     if (versions) info.versions = versions;
     // Omitted when the switch is off, so a welcome from a normal server stays identical.
     if (this.testEnabled === true) info.testMode = true;
+    // Omitted at the default (2), so a welcome from a normal server stays identical; the client falls back to
+    // MAX_SPECTATORS. A welcomeInfo() call with no lobby options (a catalogue probe) has none.
+    const seats = this.opts?.maxSpectators;
+    if (seats != null && seats !== MAX_SPECTATORS) info.maxSpectators = seats;
     return info;
   }
 

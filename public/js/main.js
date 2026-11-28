@@ -75,6 +75,7 @@ import { recordError, installTrafficMeter } from './diag.js';
 import { installContent, installContentSet, installLobbyPlugins } from './content.js';
 import { cosmetics } from './cosmetics.js';
 import { sanitizeVersions, roomVersion, isDefaultVersion, matchFrameVersion, musicSeason, seasonOf, startupVersion, REGULATION_SEASON } from './versions.js';
+import { acceptedSpectatorSeats } from '../../shared/constants.js';
 
 const RESTORE_GRACE_MS = 1500;
 const JOIN_DELAY_MS = 350;
@@ -185,6 +186,8 @@ function onWelcome(msg) {
     testMode: msg.testMode === true,
     // the official versions the server enables (protocol §2; absent: the switch is off — versions.js)
     versions: sanitizeVersions(msg.versions),
+    // Absent or unusable: null, and the lobby hint falls back to MAX_SPECTATORS (an old server).
+    maxSpectators: acceptedSpectatorSeats(msg.maxSpectators),
   });
   welcomeAt = Date.now();
 

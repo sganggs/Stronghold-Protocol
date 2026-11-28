@@ -573,9 +573,10 @@ export const C2S = {
   // 自选编队 (0.2.0 DIY): the player's DIY slot picks; stored per session / seat like room.ownership (a match takes the
   // picks its seat had when it started; during a match they are stored for the next one: ROOM_STARTED)
   'room.diy': { picks: isDiyPicks },
-  // spectator seats (remake feature, community report #26; MAX_SPECTATORS): take one of a co-op room's spectator seats —
-  // in its lobby or while its match runs — never a player seat; the host frees one by playerId (the spectator gets
-  // room.closed { reason: 'kicked' }). room.leave / g.leave leave a spectator seat like a player seat.
+  // spectator seats (remake feature, community report #26): take one of a co-op room's spectator seats — in its lobby
+  // or while its match runs — never a player seat. The count is the server's maxSpectators: SP_MAX_SPECTATORS sets 1 to
+  // SPECTATOR_SEATS_CAP (8); welcome and room.state carry it only when it is not the default MAX_SPECTATORS (2). The host frees one by playerId
+  // (the spectator gets room.closed { reason: 'kicked' }). room.leave / g.leave leave a spectator seat like a player seat.
   'room.spectate': { $optional: ['testAck'], testAck: (v) => v === true, code: (v) => isStr(v, ROOM_CODE_LEN + 2) && /^[A-Za-z0-9]+$/.test(v) },
   'room.removeSpectator': { playerId: isId },
   // the room's plugins (DESIGN §32, P1a; host, before the match — like a difficulty change it un-readies the others):

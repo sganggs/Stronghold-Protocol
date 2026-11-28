@@ -62,7 +62,7 @@ describe('the waiting room\'s text fit (real server, headless Chrome)', { skip: 
 
   const viewport = ([w, h], touch) => ({ width: w, height: h, hasTouch: touch, isMobile: touch, deviceScaleFactor: 1 });
   /** `setup(page)` runs before the first load; `allow`: a URL whose failed loads are expected (a blocked file). */
-  async function open(lang, who, size, touch, { setup = null, allow = null } = {}) {
+  async function open(lang, who, size, touch, { setup = null, allow = null, origin = base } = {}) {
     const ctx = await browser.createBrowserContext();
     const page = await ctx.newPage();
     await page.setViewport(viewport(size, touch));
@@ -81,7 +81,7 @@ describe('the waiting room\'s text fit (real server, headless Chrome)', { skip: 
       if (l) localStorage.setItem('sp.pref.lang', JSON.stringify(l));
     }, lang === 'zh' ? null : lang, who);
     await seedReleaseRead(page);
-    await page.goto(`${base}/`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${origin}/`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => globalThis.__SP__?.store.get().connection.status === 'online' && !!document.querySelector('.lobby-screen'), { timeout: 30000 });
     return { ctx, page, problems };
   }
@@ -318,6 +318,67 @@ describe('the waiting room\'s text fit (real server, headless Chrome)', { skip: 
     } finally { await c.ctx.close(); }
     return bad;
   }
+
+  test('eight spectators stay one row: the count opens the roster, on phones in landscape (667×375, 640×360), 大 and 特大', { timeout: 120000 }, async () => {
+    const { startServer } = await import('../../server/index.js');
+    const { TestClient } = await import('../helpers/wsClient.js');
+    const wide = await startServer({ port: 0, host: '127.0.0.1', quiet: true, maxSpectators: 8 });
+    const origin = `http://127.0.0.1:${wide.port}`;
+    const specs = [];
+    let host;
+    try {
+      host = await open('en', 'Kal\'tsit', [667, 375], true, { origin });
+      assert.equal(await request(host, 'room.create', { mode: 'coop', difficulty: 'NORMAL' }), 'ok');
+      await host.page.waitForSelector('.room-screen .rs-go', { visible: true, timeout: 15000 });
+      const code = await host.page.evaluate(() => globalThis.__SP__.store.get().room.code);
+      assert.equal(await host.page.evaluate(() => globalThis.__SP__.store.get().maxSpectators), 8);
+      for (let i = 0; i < 8; i++) {
+        const c = await TestClient.connect(`ws://127.0.0.1:${wide.port}/ws`);
+        specs.push(c);
+        await c.hello(`Watcher${i}`);
+        const reply = await c.request({ t: 'room.spectate', code });
+        assert.equal(reply.t, 'ok', JSON.stringify(reply));
+      }
+      await host.page.waitForFunction(() => {
+        const room = globalThis.__SP__.store.get().room;
+        return room?.spectators?.length === 8 && room.maxSpectators === 8;
+      }, { timeout: 10000 });
+      const bad = [];
+      for (const ts of ['lg', 'xl']) {
+        await textSize(host, ts);
+        for (const size of [[667, 375], [640, 360]]) {
+          await host.page.setViewport(viewport(size, true));
+          await sleep(150);
+          await settled(host.page);
+          const shape = await host.page.evaluate(() => ({
+            who: document.querySelectorAll('.specbar .specbar__who').length,
+            pill: !!document.querySelector('.specbar [data-testid="spectators"]'),
+            label: document.querySelector('.specbar__label')?.textContent || '',
+            compact: document.querySelector('.specbar')?.classList.contains('specbar--compact') === true,
+          }));
+          const at = `${ts} ${size.join('×')}`;
+          if (shape.who !== 0) bad.push(`${at}: ${shape.who} inline names`);
+          if (!shape.pill) bad.push(`${at}: the roster control is missing`);
+          if (!shape.compact) bad.push(`${at}: the bar is not compact`);
+          if (!/8\/8/.test(shape.label.replace(/\s/g, ''))) bad.push(`${at}: label ${JSON.stringify(shape.label)}`);
+          for (const p of await check(host.page)) bad.push(`${at}: ${p}`);
+        }
+      }
+      await host.page.setViewport(viewport([667, 375], true));
+      await textSize(host, 'xl');
+      await host.page.click('[data-testid="spectators"]');
+      await host.page.waitForSelector('[data-testid="spectator-roster"]', { visible: true, timeout: 5000 });
+      const names = await host.page.$$eval('[data-testid="spectator-roster"] .spec__name', (els) => els.map((e) => e.textContent));
+      assert.equal(names.length, 8);
+      assert.equal((await host.page.$$('[data-testid="spectator-remove"]')).length, 8);
+      for (const p of await check(host.page, '.modal')) bad.push(`roster: ${p}`);
+      assert.deepEqual(bad, []);
+    } finally {
+      await host?.ctx?.close();
+      await Promise.all(specs.map((c) => c.close()));
+      await wide.close();
+    }
+  });
 
   for (const lang of LANGS) {
     test(`the picker's roster lines (#877), ${lang}: loading, failed with 重试 and a lost pick inside the box on phones and desktops`, { timeout: 300000 }, async () => {

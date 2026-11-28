@@ -19,6 +19,7 @@
 //                 lobby's version switch is off; lobbyVersion – this browser's choice (`sp.pref.lobby.version`, an id);
 //                 replayVersion – the version of the stored match
 //                 统计数据 replays while it is open (screens/stats.js; null otherwise) — versions.js
+//   maxSpectators – welcome.maxSpectators, or null before welcome / when an old server omits it
 //
 // The store is framework-agnostic (get/set/subscribe); `useStore(selector)` binds it to Preact.
 // Updates are immutable at the top level: `set` shallow-merges a patch object, `patch(key, obj)`
@@ -103,6 +104,8 @@ export const initialState = Object.freeze({
   versions: null,
   lobbyVersion: (() => { const v = loadPref('lobby.version', null); return typeof v === 'string' && v.length <= 40 ? v : null; })(),
   replayVersion: null,
+  // welcome.maxSpectators (1–8), or null when the server omits it (an old server: the screens use MAX_SPECTATORS).
+  maxSpectators: null,
 });
 
 /** The app-wide store singleton. */

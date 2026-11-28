@@ -27,6 +27,31 @@ export const MAX_SEATS = 4;
  */
 export const MAX_SPECTATORS = 2;
 /**
+ * The most spectator seats one server may offer (SP_MAX_SPECTATORS / lobby option `maxSpectators`).
+ * MAX_SPECTATORS stays the default. 0 is not "spectating off".
+ */
+export const SPECTATOR_SEATS_CAP = 8;
+
+/**
+ * A seat count the server may advertise (an integer in 1…SPECTATOR_SEATS_CAP), or null.
+ * @param {unknown} n
+ * @returns {number | null}
+ */
+export function acceptedSpectatorSeats(n) {
+  const v = typeof n === 'number' ? n : NaN;
+  return Number.isSafeInteger(v) && v >= 1 && v <= SPECTATOR_SEATS_CAP ? v : null;
+}
+
+/**
+ * The spectator seats to show or enforce: a configured count, otherwise MAX_SPECTATORS.
+ * An old server that omits the field, and an unusable value (0, junk, above the cap), both land here.
+ * @param {unknown} n
+ * @returns {number}
+ */
+export function spectatorSeatLimit(n) {
+  return acceptedSpectatorSeats(n) ?? MAX_SPECTATORS;
+}
+/**
  * The most candidate layouts one bot prep rehearses (server/match/bot.js arrangeSteps): up to 8 of its own plus the
  * other lineups' (Final Assault damage lineups and spaced plans, co-op alternatives); a delegated rehearsal's answer
  * names one of them (protocol 'b.rehearsalResult').

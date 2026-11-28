@@ -90,3 +90,45 @@ test('a global 0 rejects everything, a per-network 0 is unlimited', () => {
     }
   }
 });
+
+test('SP_MAX_SPECTATORS: 1–8 are kept; 0, junk, negative and out of range warn once and stay at 2', () => {
+  const key = 'SP_MAX_SPECTATORS';
+  const before = process.env[key];
+  try {
+    delete process.env[key];
+    const missing = [];
+    assert.equal(Object.hasOwn(lobbyOptionsFrom({}, { warn: (m) => missing.push(m) }), 'maxSpectators'), false);
+    assert.deepEqual(missing, []);
+
+    for (const raw of ['1', '8']) {
+      process.env[key] = raw;
+      const warns = [];
+      const opts = lobbyOptionsFrom({}, { warn: (m) => warns.push(m) });
+      assert.equal(opts.maxSpectators, Number(raw), raw);
+      assert.deepEqual(warns, [], raw);
+    }
+
+    for (const raw of ['0', '9', 'many', '-1', '1.5']) {
+      process.env[key] = raw;
+      const warns = [];
+      const opts = lobbyOptionsFrom({}, { warn: (m) => warns.push(m) });
+      assert.equal(Object.hasOwn(opts, 'maxSpectators'), false, raw);
+      assert.equal(warns.length, 1, `${raw}: ${JSON.stringify(warns)}`);
+      assert.match(warns[0], new RegExp(`SP_MAX_SPECTATORS=${raw} ignored`));
+    }
+
+    process.env[key] = '8';
+    const over = [];
+    assert.equal(lobbyOptionsFrom({ maxSpectators: 4 }, { warn: (m) => over.push(m) }).maxSpectators, 4);
+    assert.deepEqual(over, [], 'an explicit option wins without a warning');
+
+    const dropped = [];
+    const explicitZero = lobbyOptionsFrom({ maxSpectators: 0 }, { warn: (m) => dropped.push(m) });
+    assert.equal(Object.hasOwn(explicitZero, 'maxSpectators'), false, '0 is dropped, so the env value 8 does not sneak in');
+    assert.equal(dropped.length, 1);
+    assert.match(dropped[0], /SP_MAX_SPECTATORS=0 ignored/);
+  } finally {
+    if (before === undefined) delete process.env[key];
+    else process.env[key] = before;
+  }
+});

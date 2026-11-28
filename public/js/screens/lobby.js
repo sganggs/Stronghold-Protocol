@@ -11,7 +11,7 @@
 //     in the room (screens/room.js: the difficulty pill opens this module's ProtocolSelect with 确认; the maintainer's
 //     decision of 2026-10-21 — the event's own 选择模拟协议 before a co-op room belongs to 搜寻队友 (finding
 //     teammates), which the remake dropped) — or join one with a 同盟密钥 (recent codes remembered) as a player
-//     (加入同盟) or in one of its MAX_SPECTATORS spectator seats (观战: room.spectate, also while its match runs;
+//     (加入同盟) or in one of its spectator seats (welcome.maxSpectators, else MAX_SPECTATORS; 观战: room.spectate, also while its match runs;
 //     community report #26, a remake feature — the official room has none). The key field is the project's TextField (IME-safe Enter, the normalised
 //     key written back, no length cap before normalizeCode: a long pasted invite link must reach it whole).
 // The 成就统计 card is the lobby's statistics entry (the maintainer's decision of 2026-10-21: the top bar's 统计数据 chip
@@ -38,7 +38,7 @@
 import { TestMark } from '../ui/testConsole.js';
 import { ResumeMatchButton } from '../ui/resumeMatch.js';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
-import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, ROOM_CODE_LEN, MAX_SEATS, MAX_SPECTATORS, modeIdFor, ERR } from '../../../shared/constants.js';
+import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, ROOM_CODE_LEN, MAX_SEATS, spectatorSeatLimit, modeIdFor, ERR } from '../../../shared/constants.js';
 import { html, confirmDialog, Button, Icon, MicroLabel, Modal, PingPill, Spinner, DifficultyIcon, TextField } from '../ui/components.js';
 import { Sprite, Img } from '../ui/gameComponents.js';
 import { uiUrl, medalIconUrl } from '../ui/assetUrls.js';
@@ -716,6 +716,7 @@ export function ProtocolSelect({ roomMode, difficulty, onDifficulty, onClose, on
  */
 export function AllianceSelect({ onClose, onCreate, difficulty = 'FUNNY', code, onCode, codeOk, online, busy, onJoin, onSpectate, recent, marks, focusKey,
   testMode = false, asTest = false, onTest = () => {}, short = false }) {
+  const spectatorCap = spectatorSeatLimit(useStore((s) => s.maxSpectators));
   const diffName = DIFFICULTY_NAMES[difficulty] ? t(DIFFICULTY_NAMES[difficulty]) : '';
   return html`<${Modal} open=${true} onClose=${onClose} class="ally" veilClass="proto-veil">
     <div class="ally__body">
@@ -751,7 +752,7 @@ export function AllianceSelect({ onClose, onCreate, difficulty = 'FUNNY', code, 
                 placeholder=${short ? t('同盟密钥') : t('输入同盟密钥 / 粘贴邀请链接')} placeholderShort=${t('同盟密钥')} ariaLabel=${t('同盟密钥')}
                 modalFocus=${!!focusKey} />
               <button type="button" class="ally-key__spec join-spectate" disabled=${!codeOk || !online || busy === 'spectate'} onClick=${() => onSpectate()}
-                title=${t('以观战者身份进入：不占博士席位，只能观看（每个同盟最多 {MAX_SPECTATORS} 名，模拟进行中也可进入）', { MAX_SPECTATORS })}>
+                title=${t('以观战者身份进入：不占博士席位，只能观看（每个同盟最多 {MAX_SPECTATORS} 名，模拟进行中也可进入）', { MAX_SPECTATORS: spectatorCap })}>
                 ${busy === 'spectate' ? html`<${Spinner} size="sm" />` : html`<${Icon} name="eye" />`}${t('观战')}</button>
             </div>
             <span class="ally-recent join-foot">

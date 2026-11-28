@@ -440,6 +440,8 @@
 }
 
 /* ---- spectator seats (观战席, community report #26) -------------------------------------------------------------- */
+/* Up to three names wrap with the count. More than three (room.js spectatorStripCompact) is one row: the count and
+   SpectatorPill (css/screens/game.css .specpill), whose list holds the names and the host's remove control. */
 .specbar {
   flex: none;
   display: flex;
@@ -451,6 +453,8 @@
   font-size: calc(.15 * var(--t));
   color: var(--text-lo);
 }
+.specbar--compact { flex-wrap: nowrap; }
+.specbar--compact .specpill { flex: none; }
 .specbar__label { display: flex; align-items: baseline; gap: .06rem; font-weight: 700; color: var(--text-md); }
 .specbar__label .icon { width: .18rem; height: .18rem; align-self: center; color: var(--mint-500); }
 .specbar__label b { color: var(--mint-400); }

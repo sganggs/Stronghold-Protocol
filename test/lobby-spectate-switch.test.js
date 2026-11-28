@@ -6,14 +6,14 @@ import { StubMatch } from '../server/match/StubMatch.js';
 import { getData } from '../server/data.js';
 import { ERR, MAX_SPECTATORS } from '../shared/constants.js';
 import { describeError } from '../public/js/ui/toasts.js';
-import { spectateSwitchReason } from '../public/js/screens/room.js';
+import { spectateSwitchReason, spectatorStripCompact } from '../public/js/screens/room.js';
 
 const quiet = { info() {}, warn() {}, error() {}, debug() {} };
 const ok = (r) => assert.deepEqual(r, { ok: true });
 
-function setup(t, mode = 'coop') {
+function setup(t, mode = 'coop', options = {}) {
   const registry = new SessionRegistry();
-  const lobby = new Lobby({ registry, getData, MatchClass: StubMatch, log: quiet });
+  const lobby = new Lobby({ registry, getData, MatchClass: StubMatch, log: quiet, options });
   t.after(() => lobby.shutdown());
   const frames = new Map();
   const player = (name) => {
@@ -165,4 +165,49 @@ test('the spectate button and the error text use the same online-human and full-
   assert.equal(describeError({ code: ERR.ROOM_FULL, detail: 'solo room' }), '房间已满');
   assert.equal(describeError({ code: ERR.NOT_READY }), '仍有玩家未就绪');
   assert.equal(describeError({ code: ERR.ROOM_FULL }), '房间已满');
+  assert.equal(spectatorStripCompact(0), false);
+  assert.equal(spectatorStripCompact(3), false);
+  assert.equal(spectatorStripCompact(4), true);
+});
+
+test('becomeSpectator respects a configured cap of 4', (t) => {
+  const { lobby, room, join, player } = setup(t, 'coop', { maxSpectators: 4 });
+  assert.equal(room.maxSpectators, 4);
+  assert.equal(room.toState().maxSpectators, 4);
+  assert.equal(lobby.welcomeInfo().maxSpectators, 4);
+  assert.equal(lobby.opts.maxSpectators, 4);
+  const guest = join('Guest');
+  for (let i = 0; i < 3; i++) ok(lobby.spectate(player(`Watcher${i}`), { code: room.code }));
+  ok(lobby.spectate(guest, { code: room.code }));
+  assert.equal(room.seatOf(guest.playerId), null);
+  assert.equal(room.spectators.length, 4);
+  const extra = join('Extra');
+  const refused = lobby.spectate(extra, { code: room.code });
+  assert.equal(refused.error, ERR.ROOM_FULL);
+  assert.equal(refused.detail, 'no free spectator seat');
+  assert.ok(room.seatOf(extra.playerId), 'a full strip does not free the player seat');
+  const outside = lobby.spectate(player('Outsider'), { code: room.code });
+  assert.equal(outside.error, ERR.ROOM_FULL);
+  assert.equal(outside.detail, 'no free spectator seat');
+  assert.equal(room.spectators.length, 4);
+
+  const seat = (id, connected) => ({ playerId: id, isBot: false, connected, ready: false });
+  const facts = (humans, spectators = []) => ({ humans, spectators });
+  const wide = { mode: 'coop', inMatch: false, hostId: 'h', maxSpectators: 4 };
+  const humans = [seat('h', true), seat('g', true)];
+  assert.equal(spectateSwitchReason(wide, facts(humans, [{ playerId: 's1' }, { playerId: 's2' }]), 'h'), '');
+  assert.equal(spectateSwitchReason(wide, facts(humans, [1, 2, 3, 4].map((n) => ({ playerId: `s${n}` }))), 'h'), '观战席已满');
+});
+
+test('a spectator cap of 0 keeps the default two seats', (t) => {
+  const { lobby, room, player } = setup(t, 'coop', { maxSpectators: 0 });
+  assert.equal(room.maxSpectators, MAX_SPECTATORS);
+  assert.equal(room.toState().maxSpectators, undefined, 'the default is left out of room.state');
+  assert.equal(lobby.welcomeInfo().maxSpectators, undefined, 'and out of the welcome');
+  assert.equal(lobby.opts.maxSpectators, undefined);
+  for (let i = 0; i < MAX_SPECTATORS; i++) ok(lobby.spectate(player(`Watcher${i}`), { code: room.code }));
+  const refused = lobby.spectate(player('Extra'), { code: room.code });
+  assert.equal(refused.error, ERR.ROOM_FULL);
+  assert.equal(refused.detail, 'no free spectator seat');
+  assert.equal(room.spectators.length, MAX_SPECTATORS);
 });
