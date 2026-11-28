@@ -715,8 +715,9 @@ export function ProtocolSelect({ roomMode, difficulty, onDifficulty, onClose, on
  * in a 1024 px window — it ended in an ellipsis there).
  */
 export function AllianceSelect({ onClose, onCreate, difficulty = 'FUNNY', code, onCode, codeOk, online, busy, onJoin, onSpectate, recent, marks, focusKey,
-  testMode = false, asTest = false, onTest = () => {}, short = false }) {
-  const spectatorCap = spectatorSeatLimit(useStore((s) => s.maxSpectators));
+  testMode = false, asTest = false, onTest = () => {}, short = false, maxSpectators = null }) {
+  // welcome.maxSpectators from the lobby (null: an old server, the default MAX_SPECTATORS)
+  const spectatorCap = spectatorSeatLimit(maxSpectators);
   const diffName = DIFFICULTY_NAMES[difficulty] ? t(DIFFICULTY_NAMES[difficulty]) : '';
   return html`<${Modal} open=${true} onClose=${onClose} class="ally" veilClass="proto-veil">
     <div class="ally__body">
@@ -806,6 +807,7 @@ export function LobbyScreen() {
   // official versions (DESIGN §35.23): the lobby's version, the difficulties it offers and the one shown — the remembered
   // one, or the server's fallback when the version lacks it (the pref is only overwritten when the player picks)
   const versions = useStore((s) => s.versions);
+  const maxSpectators = useStore((s) => s.maxSpectators);
   const version = useStore(lobbyVersion);
   const preview = useStore((s) => s, Object.is, lobbyPreview);
   const previewCs = (!preview.version || preview.version === version) && preview.content?.vanilla === false ? preview.content.cs : null;
@@ -930,7 +932,7 @@ export function LobbyScreen() {
     ${allyOpen ? html`<${AllianceSelect} onClose=${() => setAllyOpen(false)} onCreate=${() => create('coop')} difficulty=${shownCoop}
       code=${code} onCode=${(v) => setCode(normalizeCode(v))} codeOk=${codeOk} online=${online} busy=${busy}
       onJoin=${join} onSpectate=${spectate} recent=${recent} marks=${marks} focusKey=${!coarse}
-      testMode=${testMode} asTest=${asTest} onTest=${setAsTest} short=${shortScreen} />` : null}
+      testMode=${testMode} asTest=${asTest} onTest=${setAsTest} maxSpectators=${maxSpectators} short=${shortScreen} />` : null}
     ${soloOpen ? html`<${ProtocolSelect} roomMode="solo" difficulty=${shownSolo} onDifficulty=${pickDifficulty}
       onClose=${() => setSoloOpen(false)} onCreate=${() => create('solo')} busy=${busy} online=${online}
       testMode=${testMode} asTest=${asTest} onTest=${setAsTest} difficulties=${solo} loading=${versionLoading} failed=${versionFailed}

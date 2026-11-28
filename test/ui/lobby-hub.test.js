@@ -146,6 +146,13 @@ const ally = (props) => AllianceSelect({
   onJoin: () => {}, onSpectate: () => {}, recent: [], marks: [], focusKey: true, ...props,
 });
 
+test('选择同盟方式: the 观战 hint names the server\'s spectator seats (welcome.maxSpectators, GitHub #76), else 2', () => {
+  const tip = (props) => byClass(ally(props), 'join-spectate')[0].props.title;
+  assert.ok(tip({}).includes('最多 2 名'), tip({}));
+  assert.ok(tip({ maxSpectators: 6 }).includes('最多 6 名'), tip({ maxSpectators: 6 }));
+  assert.ok(tip({ maxSpectators: 0 }).includes('最多 2 名'), 'an unusable number keeps the default');
+});
+
 test('选择同盟方式: 创建同盟 creates the room at once at the remembered difficulty (changed in the room); the test-room box in test mode', () => {
   const calls = [];
   const v = ally({ onCreate: (...a) => calls.push(['create', ...a]), difficulty: 'HARD' });
